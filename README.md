@@ -4,7 +4,8 @@
 
 - Go to the trajectory optimization folder
 - you will find everything documented based on the original repository 
-- you can reuse to code, just start by  working the raceLineOptimizer.mlx file
+- you can reuse the  code easily, just start by  working the raceLineOptimizer.mlx file
+- this is the entry file for the code, from there, it calls other script files (1- minimum curvature path generation 2- shortest path generation 3- velocity profile generation)
  
 -  the reference for this part can be found here: MW208 Raceline Optimization
 - https://www.youtube.com/watch?v=Q-djflXTJGE
