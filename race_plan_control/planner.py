@@ -3,50 +3,11 @@ import json
 import numpy as np
 
 import matplotlib
-import trajectory as u
+import race_trajectory as u
 import time
 
 matplotlib.use("TkAgg")
 
-class edge_plan:
-    def __init__(self, start_sd, end_sd, num_of_points = 10, start_vel = None, end_vel = None):
-       self.start_s = start_sd[0] 
-       self.start_d = start_sd[1]
-       self.end_s = end_sd[0]
-       self.end_d = end_sd[1]
-       self.ts, self.td, self.tx, self.ty = None, None, None, None
-       self.num_of_points = num_of_points
-
-       self.current_idx = 0
-       self.selected_next_edge = None
-       self.next_edges = []
-
-    def generate_edge_trajectory(self,tj):
-        self.ts,self.td,self.tx,self.ty= tj.generate_trajectory(self.start_s,self.end_s, self.start_d, self.end_d, num_points=self.num_of_points)
-    def get_next_edge(self):
-        return self.selected_next_edge
-    def set_next_edge(self, edge):
-        self.selected_next_edge = edge
-    
-    def is_next_edge_selected(self):
-        return self.selected_next_edge is not None
-
-    def append_next_edges(self, edge):
-        self.next_edges.append(edge)
-
-    def get_current_sd(self):
-        return self.ts[self.current_idx], self.td[self.current_idx]
-    def get_current_xy(self):
-        return self.tx[self.current_idx], self.ty[self.current_idx]
-    
-    def next_idx(self):
-        if self.current_idx < len(self.ts) - 1:
-            self.current_idx += 1
-        else:
-            raise Exception("End of edge")
-        return self.current_idx
-    def is_edge_done(self):
-        return self.current_idx >= len(self.ts) - 1
 
 class planner:
     def __init__(self, path_to_track, frenet_zoom=15, xy_zoom=30, planning_horizon = 15, minimum_s_distance=5, minimum_boundary_distance=2):
@@ -100,7 +61,7 @@ class planner:
         idx = (self.tj.next_wp + back_to_ref_horizon)%len(self.reference_s)
         next_s = self.reference_s[idx]
         next_d = 0
-        ep = edge_plan((s,d), (next_s,next_d),num_of_points = back_to_ref_horizon+2) # +2 to include the start and end points
+        ep = edge_maneuver((s,d), (next_s,next_d),num_of_points = back_to_ref_horizon+2) # +2 to include the start and end points
         ep.generate_edge_trajectory(self.tj)
         self.lattice_graph[(next_s,next_d)] = ep
 
@@ -110,7 +71,7 @@ class planner:
                 s_e = np.random.uniform(self.minimum_planning_distance,self.planning_horizon)
                 s_ = self.past_s[-1] + s_e
                 d_ = np.random.uniform(self.ref_left_boundary_d[-1]-self.minimum_boundary_distance, self.ref_right_boundary_d[-1]+self.minimum_boundary_distance)
-                ep = edge_plan((s,d), (s_,d_))
+                ep = edge_maneuver((s,d), (s_,d_))
                 ep.generate_edge_trajectory(self.tj)
                 self.lattice_graph[(s_,d_)] = ep
         ### Group 2
@@ -124,7 +85,7 @@ class planner:
                     s_ = e.end_s + s_e
                     s = e.end_s
                     d = e.end_d
-                    ep = edge_plan((s,d), (s_,d_))
+                    ep = edge_maneuver((s,d), (s_,d_))
                     ep.generate_edge_trajectory(self.tj)
                     e.append_next_edges(ep)
                     e.selected_next_edge =  np.random.choice(e.next_edges) # if len(e.next_edges) > 0 else None
@@ -285,6 +246,48 @@ class planner:
     def plt_show(self):
         plt.show()
     
+class edge_maneuver:
+    def __init__(self, start_sd, end_sd, num_of_points = 10, start_vel = None, end_vel = None):
+       self.start_s = start_sd[0] 
+       self.start_d = start_sd[1]
+       self.end_s = end_sd[0]
+       self.end_d = end_sd[1]
+       self.ts, self.td, self.tx, self.ty = None, None, None, None
+       self.num_of_points = num_of_points
+
+       self.current_idx = 0
+       self.selected_next_edge = None
+       self.next_edges = []
+
+    # tj is the race trajectory
+    def generate_edge_trajectory(self,tj):
+        self.ts,self.td,self.tx,self.ty= tj.generate_local_edge_trajectory(self.start_s,self.end_s, self.start_d, self.end_d, num_points=self.num_of_points)
+        # If tj is null then we should generate wit respect to global coordinate
+        
+    def get_next_edge(self):
+        return self.selected_next_edge
+    def set_next_edge(self, edge):
+        self.selected_next_edge = edge
+    
+    def is_next_edge_selected(self):
+        return self.selected_next_edge is not None
+
+    def append_next_edges(self, edge):
+        self.next_edges.append(edge)
+
+    def get_current_sd(self):
+        return self.ts[self.current_idx], self.td[self.current_idx]
+    def get_current_xy(self):
+        return self.tx[self.current_idx], self.ty[self.current_idx]
+    
+    def next_idx(self):
+        if self.current_idx < len(self.ts) - 1:
+            self.current_idx += 1
+        else:
+            raise Exception("End of edge")
+        return self.current_idx
+    def is_edge_done(self):
+        return self.current_idx >= len(self.ts) - 1
 
 if __name__ == '__main__':
     import visualizer 

@@ -79,7 +79,7 @@ class trajectory:
         total_dist = self.comulative_distances[self.prev_wp] + dist
         pass
 
-    def generate_trajectory(self, s_start, s_end, d_start, d_end,  num_points=10):
+    def generate_local_edge_trajectory(self, s_start, s_end, d_start, d_end,  num_points=10):
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
 
