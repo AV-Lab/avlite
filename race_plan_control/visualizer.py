@@ -1,10 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
-from matplotlib.gridspec import GridSpec
-from planner import planner
+from plan.planner import Planner
 import yaml
+import util
+import control.pid as pid
 
 class PlotApp(tk.Tk):
     def __init__(self, pl):
@@ -76,10 +76,13 @@ class PlotApp(tk.Tk):
         # self.ax2 = self.fig.add_subplot(gs[1])  
 
 
-        self.fig = pl.fig
-        self.ax1 = pl.ax1
-        self.ax2 = pl.ax2
-        self.pl.plot()
+        self.xy_zoom = 30
+        self.frenet_zoom = 15
+        self.fig = util.fig
+        self.ax1 = util.ax1
+        self.ax2 = util.ax2
+        # self.pl.plot()
+        util.plot(self.pl)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -102,23 +105,23 @@ class PlotApp(tk.Tk):
 
 
     def zoom_in(self):
-        self.pl.xy_zoom -= 10 if self.pl.xy_zoom > 10 else 0
-        self.pl.plot()
+        self.xy_zoom -= 10 if self.pl.xy_zoom > 10 else 0
+        util.plot(self.pl, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
 
     def zoom_out(self):
-        self.pl.xy_zoom += 10
-        self.pl.plot()
+        self.xy_zoom += 10
+        util.plot(self.pl, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
 
     def zoom_in_frenet(self):
-        self.pl.frenet_zoom -= 10 if self.pl.frenet_zoom > 10 else 0 
-        self.pl.plot()
+        self.frenet_zoom -= 10 if self.frenet_zoom > 10 else 0 
+        util.plot(self.pl, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
 
     def zoom_out_frenet(self):
-        self.pl.frenet_zoom += 10
-        self.pl.plot()
+        self.frenet_zoom += 10
+        util.plot(self.pl, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
     
 
@@ -130,7 +133,7 @@ class PlotApp(tk.Tk):
 
     def replan(self):
         self.pl.replan()
-        self.pl.plot()
+        util.plot(self.pl, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
     
     def start_animation(self):
@@ -143,7 +146,7 @@ class PlotApp(tk.Tk):
     def step_to_next_wp(self):
         # Placeholder for the method to step to the next waypoint
         self.pl.step()
-        self.pl.plot()
+        util.plot(self.pl, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
     def step_to_prev_wp(self):
         # Placeholder for the method to step to the previous waypoint
@@ -156,13 +159,14 @@ def load():
         config_data = yaml.safe_load(f)
         path_to_track = config_data["path_to_track"]
 
-    pl = planner(path_to_track)
+    pl = Planner(path_to_track)
     return pl
 
 def main():
     pl = load()
+    pid.test()
+    
     app = PlotApp(pl)
     app.mainloop()  
-
 if __name__ == "__main__":
     main()
