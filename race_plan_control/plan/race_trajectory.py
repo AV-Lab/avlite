@@ -27,8 +27,7 @@ class trajectory:
         # [point[1] for point in reference_path]
         self.reference_y = self.reference_path[:, 1]
         self.cumulative_distances = self._precompute_cumulative_distances()
-        self.reference_s, self.reference_d = self.convert_to_frenet(
-            self.reference_path)
+        self.reference_s, self.reference_d = self.convert_to_frenet(self.reference_path)
         self.reference_sd_path = np.array(list(zip(self.reference_s, self.reference_d)))
         self.next_wp = 1
         self.prev_wp = 0
@@ -218,6 +217,3 @@ class trajectory:
 
         return x_values, y_values
 
-if __name__ == '__main__':
-    import dummy_planners
-    dummy_planners.main()

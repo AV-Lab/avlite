@@ -1,25 +1,10 @@
+from plan.planner import Planner
 import rclpy
 from rclpy.node import Node
 from a2rl_bs_msgs.msg import Localization, EgoState
-import matplotlib.pyplot as plt
-# from mpl_toolkits.axes_grid1 import inset_locator
-import json
-import numpy as np
-from scipy.interpolate import interp1d
-from numpy.polynomial.polynomial import Polynomial
-import math
-
 import yaml
 
-
-import matplotlib
-import math
-import race_trajectory as u
-
-matplotlib.use("TkAgg")
-
-
-class local_planner(Node):
+class local_planner(Node, Planner):
     def __init__(self, path_to_track, frenet_zoom=15, xy_zoom=15):
         super().__init__(path_to_track, frenet_zoom, xy_zoom)
         
