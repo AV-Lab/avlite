@@ -3,8 +3,9 @@ import time
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+from simulate import Car
 
-def plot(pl: Planner, cn = None, frenet_zoom = 15, xy_zoom = 30):
+def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
     if len(pl.xdata) == 0:
         print("No data to plot")
         return
@@ -13,8 +14,7 @@ def plot(pl: Planner, cn = None, frenet_zoom = 15, xy_zoom = 30):
     ax2.clear()
     
 
-    # Plot track boundaries in black
-
+    # Plot track boundaries 
     ax1.plot(pl.left_x,pl.left_y, color='orange', label='Left Boundary')  # Change color and label as needed
     ax1.plot(pl.right_x, pl.right_y, color='tan', label='Right Boundary')  # Change color and label as needed
     
@@ -25,17 +25,17 @@ def plot(pl: Planner, cn = None, frenet_zoom = 15, xy_zoom = 30):
     
     # For Zoom in
     if xy_zoom is not None:
-        range = xy_zoom
-        ax1.set_xlim(pl.xdata[-1] - 2*range, pl.xdata[-1] + 2*range)
-        ax1.set_ylim(pl.ydata[-1] - range, pl.ydata[-1] + range)
+        ax1.set_xlim(pl.xdata[-1] - 4*xy_zoom, pl.xdata[-1] + 4*xy_zoom)
+        ax1.set_ylim(pl.ydata[-1] - xy_zoom, pl.ydata[-1] + xy_zoom)
     
     if pl.past_s and not np.isnan(pl.past_s[-1]) and not np.isinf(pl.past_s[-1]):
-        ax2.set_xlim(pl.past_s[-1] - 2*frenet_zoom/4 , pl.past_s[-1] + 4*frenet_zoom)
-    ax2.set_ylim(-frenet_zoom,  frenet_zoom)
+        ax2.set_xlim(pl.past_s[-1] - 4*frenet_zoom/4 , pl.past_s[-1] + 8*frenet_zoom)
+        ax2.set_ylim(-frenet_zoom,  frenet_zoom)
     
     ax1.plot(pl.xdata, pl.ydata, 'r-', label='Past Locations')  # Plot all points in red
     ax1.plot(pl.xdata[-100:], pl.ydata[-100:], 'g-', label='Last 100 Locations')  # Plot the last 100 points in green
     ax1.plot(pl.xdata[-1], pl.ydata[-1], 'ro', markersize=10, label='Current Location')  
+
 
     if pl.selected_edge is not None:
         x,y = pl.selected_edge.get_current_xy() 
@@ -90,6 +90,19 @@ def plot(pl: Planner, cn = None, frenet_zoom = 15, xy_zoom = 30):
             ax2.plot(v.next_edge.ts[-1], v.next_edge.td[-1], 'yo')
         # print next edges
 
+    if car is not None:
+        # Plot the car
+        car_L_f = car.L_f
+        car_L_r = car.length - car_L_f
+
+        car_x_front = car.x + car_L_f * np.cos(car.theta)
+        car_y_front = car.y + car_L_f * np.sin(car.theta)
+        car_x_rear = car.x - car_L_r * np.cos(car.theta)
+        car_y_rear = car.y - car_L_r * np.sin(car.theta)
+        ax1.plot([car_x_front, car_x_rear], [car_y_front, car_y_rear], 'k-', label='Car')
+        ax1.plot(car.x, car.y, 'ko', markersize=7, label='Car Location')
+
+
     # ax2.legend(loc='upper left')
     ax2.legend(loc='upper left', bbox_to_anchor=(0, -.1), ncol=4, borderaxespad=0.)
 
@@ -103,8 +116,6 @@ def plot(pl: Planner, cn = None, frenet_zoom = 15, xy_zoom = 30):
 
 
 fig, (ax1, ax2) = plt.subplots(2, 1)
-
-
 if __name__ == "__main__":
     import visualizer 
     sys.path.append("..")

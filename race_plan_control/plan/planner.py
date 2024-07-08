@@ -8,12 +8,10 @@ matplotlib.use("TkAgg")
 
 
 class Planner:
-    def __init__(self, path_to_track, frenet_zoom=15, xy_zoom=30, planning_horizon = 15, minimum_s_distance=5, minimum_boundary_distance=2):
+    def __init__(self, path_to_track, planning_horizon = 15, minimum_s_distance=5, minimum_boundary_distance=2):
         self.planning_horizon = planning_horizon
         self.minimum_planning_distance = minimum_s_distance
         self.minimum_boundary_distance = minimum_boundary_distance
-        self.frenet_zoom = frenet_zoom
-        self.xy_zoom = xy_zoom
 
         with open(path_to_track, 'r') as f:
             track_data = json.load(f)
