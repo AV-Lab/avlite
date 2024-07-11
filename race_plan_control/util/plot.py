@@ -1,9 +1,10 @@
-from plan.planner import Planner
-import time
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-from simulate import Car
+import sys
+
+from plan.planner import Planner
+from .simulate import Car
 
 def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
     ax1.clear()

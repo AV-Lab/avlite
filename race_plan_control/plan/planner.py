@@ -140,11 +140,10 @@ class Planner:
             x_current = self.reference_x[self.race_trajectory.next_wp]
             y_current = self.reference_y[self.race_trajectory.next_wp]
         else:
-            print("No edge selected, back to closest next reference point")
+            logging.warning("No edge selected, back to closest next reference point")
             x_current = self.reference_x[self.race_trajectory.next_wp]
             y_current = self.reference_y[self.race_trajectory.next_wp]
 
-        logging.info("step called")
         self.xdata.append(x_current)
         self.ydata.append(y_current)
         # TODO some error check might be needed
