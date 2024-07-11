@@ -31,7 +31,21 @@ class trajectory:
         self.reference_sd_path = np.array(list(zip(self.reference_s, self.reference_d)))
         self.next_wp = 1
         self.prev_wp = 0
-
+    
+    def reset(self, wp):
+        if wp >= 0 and wp < len(self.reference_path):
+            self.next_wp = wp + 1
+            self.prev_wp = wp 
+        else:
+            raise ValueError("Invalid waypoint index")
+    
+    def _precompute_cumulative_distances(self):
+        reference_path = np.array(self.reference_path)
+        cumulative_distances = [0]
+        for i in range(1, len(reference_path)):
+            cumulative_distances.append(
+                cumulative_distances[i-1] + np.linalg.norm(reference_path[i] - reference_path[i-1]))
+        return cumulative_distances
 
     def update_waypoint(self, x_current, y_current):
         # not efficient 
@@ -91,13 +105,6 @@ class trajectory:
 
         return s_values, d_values, tx, ty
 
-    def _precompute_cumulative_distances(self):
-        reference_path = np.array(self.reference_path)
-        cumulative_distances = [0]
-        for i in range(1, len(reference_path)):
-            cumulative_distances.append(
-                cumulative_distances[i-1] + np.linalg.norm(reference_path[i] - reference_path[i-1]))
-        return cumulative_distances
 
     def convert_to_frenet(self, points):
 
