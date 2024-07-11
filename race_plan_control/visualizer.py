@@ -2,18 +2,20 @@ import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from plan.planner import Planner
+from control.pid import Controller
 import yaml
-import util
+from util import plot 
 import time
 import logging
 from tkinter.scrolledtext import ScrolledText
-
 # import control.pid as pid
 
 class PlotApp(tk.Tk):
     def __init__(self, pl):
         super().__init__()
         self.pl = pl
+        self.controller = Controller()
+
         self.title("Path Planning Visualization")
         self.geometry("1200x600")
 
@@ -49,6 +51,8 @@ class PlotApp(tk.Tk):
         ttk.Label(global_frame, text="Global Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
         ttk.Button(global_frame, text="Zoom Out", command=self.zoom_out).pack(side=tk.LEFT)
+        self.vehicle_state_label = ttk.Label(global_frame, text="")
+        self.vehicle_state_label.pack(side=tk.RIGHT)
         frenet_frame = ttk.Frame(self.visualize_frame)
         frenet_frame.pack(fill=tk.X, padx=5, pady=5)
         ttk.Label(frenet_frame, text="Frenet Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
@@ -77,8 +81,8 @@ class PlotApp(tk.Tk):
         ttk.Button(self.plan_frame, text="Animate", command=self.start_animation).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Stop", command=self.stop_animation).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT, padx=30)
-        ttk.Button(self.plan_frame, text="Step", command=self.step_to_next_wp).pack(side=tk.LEFT)
-        ttk.Button(self.plan_frame, text="Prev", command=self.step_to_prev_wp).pack(side=tk.LEFT)
+        ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.RIGHT)
+        # ttk.Button(self.plan_frame, text="Prev", command=self.step_to_prev_wp).pack(side=tk.LEFT)
 
         # Control Frame
         self.control_frame = ttk.LabelFrame(self.plan_control_frame, text="Control (simulate)")
@@ -90,7 +94,7 @@ class PlotApp(tk.Tk):
         self.dt_entry.insert(2, "0.1")
         self.dt_entry.pack(side=tk.LEFT)
 
-        ttk.Button(self.control_frame, text="Control Step", command=self.step_to_next_wp).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="Control Step", command=self.step_control).pack(side=tk.LEFT)
         
         ttk.Button(self.control_frame, text="Steer Left", command=self.step_steer_left).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="Steer Right", command=self.step_steer_right).pack(side=tk.LEFT)
@@ -103,7 +107,7 @@ class PlotApp(tk.Tk):
         self.log_frame.pack(fill=tk.X, padx=10, pady=5)
         # self.log_frame.pack(fill=tk.X, side=tk.TOP, expand=True, padx=10, pady=5)
         log_area = ScrolledText(self.log_frame, state='disabled', height=5)
-        log_area.pack(side=tk.LEFT)
+        log_area.pack(side=tk.LEFT, fill=tk.BOTH,expand=True)
 
         # Configure logging
         logger = logging.getLogger()
@@ -113,28 +117,27 @@ class PlotApp(tk.Tk):
         logger.addHandler(text_handler)
         logger.setLevel(logging.INFO)
         
-        logging.info("visualizer.py: Log initialized.")            
+        logging.info("Log initialized.")            
 
 
-        self.vehicle_state_label = ttk.Label(self.log_frame, text="")
-        self.vehicle_state_label.pack(side=tk.RIGHT)
 
         self.xy_zoom = 30
         self.frenet_zoom = 15
-        self.fig = util.fig
-        self.ax1 = util.ax1
-        self.ax2 = util.ax2
+        self.fig = plot.fig
+        self.ax1 = plot.ax1
+        self.ax2 = plot.ax2
         
-        self.car = util.Car(speed=30)
-        util.plot(self.pl, car=self.car)
+        self.sim = plot.Car(speed=30)
+        plot.plot(self.pl, car=self.sim)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
 
-    def replot(self):
-        util.plot(self.pl,self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
+    def _replot(self):
+        plot.plot(self.pl,self.sim, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
+        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.sim.x:.2f}, Y: {self.sim.y:.2f}, Speed: {self.sim.speed:.2f}, Theta: {self.sim.theta:.2f}")
 
     def on_mouse_move(self, event):
         if event.inaxes: 
@@ -155,33 +158,33 @@ class PlotApp(tk.Tk):
 
     def zoom_in(self):
         self.xy_zoom -= 5 if self.xy_zoom > 5 else 0
-        self.replot()
+        self._replot()
 
     def zoom_out(self):
         self.xy_zoom += 5
-        self.replot()
+        self._replot()
 
     def zoom_in_frenet(self):
         self.frenet_zoom -= 5 if self.frenet_zoom > 5 else 0 
-        self.replot()
+        self._replot()
 
     def zoom_out_frenet(self):
         self.frenet_zoom += 5 
-        self.replot()
+        self._replot()
 
 
     def set_wp(self):
         print("value is ", self.timestep_entry.get())
         timestep_value = int(self.timestep_entry.get())
         self.pl.reset(wp=timestep_value)
-        self.replot()
+        self._replot()
 
     def replan(self):
         t1 = time.time()
         self.pl.replan()
         t2 = time.time()
         self.plan_time_labl.config(text=f"Plan Time: {(t2-t1)*1000:.2f} ms")
-        self.replot()
+        self._replot()
 
     def start_animation(self):
         # Placeholder for the method to start animation
@@ -190,45 +193,46 @@ class PlotApp(tk.Tk):
         # Placeholder for the method to start animation
         pass
 
-    def step_to_next_wp(self):
+    def step_plan(self):
         # Placeholder for the method to step to the next waypoint
+        t1 = time.time()
         self.pl.step()
-        self.car.set_state(self.pl.xdata[-1], self.pl.ydata[-1])
-        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
+        logging.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
+        self.sim.set_state(self.pl.xdata[-1], self.pl.ydata[-1])
+        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.sim.x:.2f}, Y: {self.sim.y:.2f}, Speed: {self.sim.speed:.2f}, Theta: {self.sim.theta:.2f}")
         self.timestep_entry.delete(0, tk.END)
         self.timestep_entry.insert(0, str(self.pl.race_trajectory.next_wp-1)) 
-        self.replot()
+        self._replot()
 
-    def step_to_prev_wp(self):
-        # Placeholder for the method to step to the previous waypoint
-        pass
 
     def step_control(self):
-        pass
+        d = self.pl.past_d[-1]
+        logging.info(d)
+        steer = self.controller.control(d)
+        logging.info(f"Steering Angle: {steer}")
+        self.sim.step(steering_angle=steer)
+        self._replot()
+        
 
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
-        self.car.step(dt = dt, steering_angle = 0.1)
-        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
-        self.replot()
+        self.sim.step(dt = dt, steering_angle = 0.1)
+        self._replot()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
-        self.car.step(dt = dt, steering_angle = -0.1)
-        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
-        self.replot()
+        self.sim.step(dt = dt, steering_angle = -0.1)
+        self._replot()
         
     def step_acc(self):
         dt = float(self.dt_entry.get())
-        self.car.step(dt = dt, acceleration = 0.1)
-        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
-        self.replot()
+        self.sim.step(dt = dt, acceleration = 0.1)
+        self._replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
-        self.car.step(dt = dt, acceleration = -0.1)
-        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
-        self.replot()
+        self.sim.step(dt = dt, acceleration = -0.1)
+        self._replot()
     
 
 

@@ -4,7 +4,7 @@ import pytest
 import sys
 
 sys.path.append("../race_plan_control/")
-from race_plan_control.simulate import Car
+from race_plan_control.util.simulate import Car
 
 
 @pytest.fixture
