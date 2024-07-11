@@ -6,10 +6,6 @@ import matplotlib.pyplot as plt
 from simulate import Car
 
 def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
-    if len(pl.xdata) == 0:
-        print("No data to plot")
-        return
-    
     ax1.clear()
     ax2.clear()
     
@@ -23,46 +19,41 @@ def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
     ax1.plot(pl.reference_x, pl.reference_y, 'b', label="Reference Trajectory")  # reference path in blue
     # self.ax1.scatter(self.reference_x, self.reference_y, color="blue", label="Reference Trajectory")  # reference path in blue
     
-    # For Zoom in
-    if xy_zoom is not None:
-        ax1.set_xlim(pl.xdata[-1] - 4*xy_zoom, pl.xdata[-1] + 4*xy_zoom)
-        ax1.set_ylim(pl.ydata[-1] - xy_zoom, pl.ydata[-1] + xy_zoom)
     
-    if pl.past_s and not np.isnan(pl.past_s[-1]) and not np.isinf(pl.past_s[-1]):
-        ax2.set_xlim(pl.past_s[-1] - 4*frenet_zoom/4 , pl.past_s[-1] + 8*frenet_zoom)
-        ax2.set_ylim(-frenet_zoom,  frenet_zoom)
-    
-    ax1.plot(pl.xdata, pl.ydata, 'r-', label='Past Locations')  # Plot all points in red
-    ax1.plot(pl.xdata[-100:], pl.ydata[-100:], 'g-', label='Last 100 Locations')  # Plot the last 100 points in green
-    ax1.plot(pl.xdata[-1], pl.ydata[-1], 'ro', markersize=10, label='Current Location')  
-
-
-    if pl.selected_edge is not None:
-        x,y = pl.selected_edge.get_current_xy() 
-        s,d = pl.selected_edge.get_current_sd()
-        ax1.plot(x,y, 'bo', markersize=7, label='Planned Location')  
-        ax2.plot(s,d, 'bo', markersize=9, label='Planned Location')  
+    if len(pl.xdata) != 0:
+        ax1.plot(pl.xdata, pl.ydata, 'r-', label='Past Locations')  # Plot all points in red
+        ax1.plot(pl.xdata[-100:], pl.ydata[-100:], 'g-', label='Last 100 Locations')  # Plot the last 100 points in green
+        ax1.plot(pl.xdata[-1], pl.ydata[-1], 'ro', markersize=10, label='Current Location')  
+        # For Zoom in
+        if xy_zoom is not None:
+            ax1.set_xlim(pl.xdata[-1] - 4*xy_zoom, pl.xdata[-1] + 4*xy_zoom)
+            ax1.set_ylim(pl.ydata[-1] - xy_zoom, pl.ydata[-1] + xy_zoom)
         
-    
-    if pl.race_trajectory.next_wp is not None: 
-        ax1.plot(pl.reference_x[pl.race_trajectory.next_wp], pl.reference_y[pl.race_trajectory.next_wp], 'gx', markersize=10, label='Next WP')  
-        ax2.plot(pl.reference_s[pl.race_trajectory.next_wp], pl.reference_d[pl.race_trajectory.next_wp], 'gx', markersize=10, label='Next WP')  
+        if pl.past_s and not np.isnan(pl.past_s[-1]) and not np.isinf(pl.past_s[-1]):
+            ax2.set_xlim(pl.past_s[-1] - 4*frenet_zoom/4 , pl.past_s[-1] + 8*frenet_zoom)
+            ax2.set_ylim(-frenet_zoom,  frenet_zoom)
 
 
-    # Use ax2 for the Frenet coordinates
-    
-    # self.ax2.axhline(0, color='blue', linewidth=0.5, label='Reference Path') 
-    ax2.scatter(pl.reference_s, pl.reference_d, s=5, alpha=.5, color="blue", label="Reference Trajectory")  # reference path in blue
-    
+        
+        if pl.race_trajectory.next_wp is not None: 
+            ax1.plot(pl.reference_x[pl.race_trajectory.next_wp], pl.reference_y[pl.race_trajectory.next_wp], 'gx', markersize=10, label='Next WP')  
+            ax2.plot(pl.reference_s[pl.race_trajectory.next_wp], pl.reference_d[pl.race_trajectory.next_wp], 'gx', markersize=10, label='Next WP')  
 
-    current_time = time.time()
-    if pl.prev_time is not None:
-        pl.x_vel = (pl.past_s[-1] - pl.past_s[-2]) / (current_time - pl.prev_time)
-        pl.y_vel = (pl.past_d[-1] - pl.past_d[-2]) / (current_time - pl.prev_time)
-        ax2.text(pl.past_s[-1]-1.1, pl.past_d[-1]+1, f'X Velocity: {pl.x_vel:.2f}\nY Velocity: {pl.y_vel:.2f}', verticalalignment='bottom', fontsize=9)
-        ax2.text(pl.past_s[-1]-1.1, pl.past_d[-1]-1, f'Current d: {pl.past_d[-1]:.2f}\nMSE: {pl.mse:.2f}',
-                    verticalalignment='top', fontsize=12)
-    pl.prev_time = current_time
+
+        # Use ax2 for the Frenet coordinates
+        
+        # self.ax2.axhline(0, color='blue', linewidth=0.5, label='Reference Path') 
+        ax2.scatter(pl.reference_s, pl.reference_d, s=5, alpha=.5, color="blue", label="Reference Trajectory")  # reference path in blue
+        
+
+        # current_time = time.time()
+        # if pl.prev_time is not None:
+        #     pl.x_vel = (pl.past_s[-1] - pl.past_s[-2]) / (current_time - pl.prev_time)
+        #     pl.y_vel = (pl.past_d[-1] - pl.past_d[-2]) / (current_time - pl.prev_time)
+        #     ax2.text(pl.past_s[-1]-1.1, pl.past_d[-1]+1, f'X Velocity: {pl.x_vel:.2f}\nY Velocity: {pl.y_vel:.2f}', verticalalignment='bottom', fontsize=9)
+        #     ax2.text(pl.past_s[-1]-1.1, pl.past_d[-1]-1, f'Current d: {pl.past_d[-1]:.2f}\nMSE: {pl.mse:.2f}',
+        #                 verticalalignment='top', fontsize=12)
+    # pl.prev_time = current_time
     
     if not len(pl.past_s)==0:
         ax2.plot(pl.past_s, pl.past_d, 'r-', label='Past Locations')  # Plot all points in red
@@ -90,6 +81,12 @@ def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
             ax2.plot(v.next_edge.ts[-1], v.next_edge.td[-1], 'yo')
         # print next edges
 
+    if pl.selected_edge is not None:
+        x,y = pl.selected_edge.get_current_xy() 
+        s,d = pl.selected_edge.get_current_sd()
+        ax1.plot(x,y, 'bo', markersize=7, label='Planned Location')  
+        ax2.plot(s,d, 'bo', markersize=9, label='Planned Location')  
+            
     if car is not None:
         # Plot the car
         car_L_f = car.L_f

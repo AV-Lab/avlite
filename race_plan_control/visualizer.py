@@ -4,7 +4,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from plan.planner import Planner
 import yaml
 import util
-import control.pid as pid
+import time
+import logging
+from tkinter.scrolledtext import ScrolledText
+
+# import control.pid as pid
 
 class PlotApp(tk.Tk):
     def __init__(self, pl):
@@ -34,14 +38,13 @@ class PlotApp(tk.Tk):
         ttk.Checkbutton(checkboxes_frame, text="Show Past Locations", variable=self.show_past_locations, command=self.update_plot).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(checkboxes_frame, text="Show Last 100 Locations", variable=self.show_last_100_locations, command=self.update_plot).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(checkboxes_frame, text="Show Boundaries", variable=self.show_boundaries, command=self.update_plot).pack(anchor=tk.W, side=tk.LEFT)
+
         self.coordinates_label = ttk.Label(checkboxes_frame, text="")
         self.coordinates_label.pack(side=tk.RIGHT)
 
         ## UI Elements for Visualize - Buttons
         global_frame = ttk.Frame(self.visualize_frame)
         global_frame.pack(fill=tk.X, padx=5, pady=5)
-        self.vehicle_state_label = ttk.Label(global_frame, text="")
-        self.vehicle_state_label.pack(side=tk.RIGHT)
 
         ttk.Label(global_frame, text="Global Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
@@ -51,20 +54,25 @@ class PlotApp(tk.Tk):
         ttk.Label(frenet_frame, text="Frenet Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
         ttk.Button(frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
-        coordinate_frame = ttk.Frame(self.visualize_frame)
-        coordinate_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+
+        # Plan and control frame
+        self.plan_control_frame = ttk.Frame(self)
+        self.plan_control_frame.pack(fill=tk.X,padx=10, pady=5)
 
         # Plan frame
-        self.plan_frame = ttk.LabelFrame(self, text="Plan")
-        self.plan_frame.pack(fill=tk.X, side=tk.LEFT, padx=10, pady=5)
+        self.plan_frame = ttk.LabelFrame(self.plan_control_frame, text="Plan")
+        self.plan_frame.pack(fill=tk.X,side=tk.LEFT, padx=10, pady=5)
 
-        ## UI Elements for Control
+        ## UI Elements for Plan Control
         wp_frame = ttk.Frame(self.plan_frame)
-        wp_frame.pack(fill=tk.X, padx=5, pady=5)
+        wp_frame.pack(fill=tk.X)
         ttk.Button(wp_frame, text="Set Waypoint", command=self.set_wp).pack(side=tk.LEFT)
         self.timestep_entry = ttk.Entry(wp_frame)
         self.timestep_entry.insert(0, "0")
         self.timestep_entry.pack(side=tk.LEFT)
+        self.plan_time_labl = ttk.Label(wp_frame, text="")
+        self.plan_time_labl.pack(side=tk.LEFT, padx=10)
 
         ttk.Button(self.plan_frame, text="Animate", command=self.start_animation).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Stop", command=self.stop_animation).pack(side=tk.LEFT)
@@ -73,13 +81,13 @@ class PlotApp(tk.Tk):
         ttk.Button(self.plan_frame, text="Prev", command=self.step_to_prev_wp).pack(side=tk.LEFT)
 
         # Control Frame
-        self.control_frame = ttk.LabelFrame(self, text="Control (simulate)")
-        self.control_frame.pack(fill=tk.X, side=tk.LEFT, padx=10, pady=5)
+        self.control_frame = ttk.LabelFrame(self.plan_control_frame, text="Control (simulate)")
+        self.control_frame.pack(fill=tk.X, side=tk.RIGHT, padx=10, pady=5)
         dt_frame = ttk.Frame(self.control_frame)
         dt_frame.pack(fill=tk.X, padx=5, pady=5)
         ttk.Label(dt_frame, text="Δt ").pack(side=tk.LEFT)
         self.dt_entry = ttk.Entry(dt_frame)
-        self.dt_entry.insert(0, "0.1")
+        self.dt_entry.insert(2, "0.1")
         self.dt_entry.pack(side=tk.LEFT)
 
         ttk.Button(self.control_frame, text="Control Step", command=self.step_to_next_wp).pack(side=tk.LEFT)
@@ -88,6 +96,28 @@ class PlotApp(tk.Tk):
         ttk.Button(self.control_frame, text="Steer Right", command=self.step_steer_right).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="Accelerate", command=self.step_acc).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="Deccelerate", command=self.step_dec).pack(side=tk.LEFT)
+        
+        
+        # Log Frame
+        self.log_frame = ttk.LabelFrame(self, text="Log")
+        self.log_frame.pack(fill=tk.X, padx=10, pady=5)
+        # self.log_frame.pack(fill=tk.X, side=tk.TOP, expand=True, padx=10, pady=5)
+        log_area = ScrolledText(self.log_frame, state='disabled', height=5)
+        log_area.pack(side=tk.LEFT)
+
+        # Configure logging
+        logger = logging.getLogger()
+        text_handler = TextHandler(log_area)
+        formatter = logging.Formatter('%(module)s (%(filename)s) [%(levelname)s]: %(message)s')
+        text_handler.setFormatter(formatter)
+        logger.addHandler(text_handler)
+        logger.setLevel(logging.INFO)
+        
+        logging.info("visualizer.py: Log initialized.")            
+
+
+        self.vehicle_state_label = ttk.Label(self.log_frame, text="")
+        self.vehicle_state_label.pack(side=tk.RIGHT)
 
         self.xy_zoom = 30
         self.frenet_zoom = 15
@@ -101,6 +131,10 @@ class PlotApp(tk.Tk):
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+
+    def replot(self):
+        util.plot(self.pl,self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
+        self.canvas.draw()
 
     def on_mouse_move(self, event):
         if event.inaxes: 
@@ -121,37 +155,34 @@ class PlotApp(tk.Tk):
 
     def zoom_in(self):
         self.xy_zoom -= 5 if self.xy_zoom > 5 else 0
-        util.plot(self.pl,self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
+        self.replot()
 
     def zoom_out(self):
         self.xy_zoom += 5
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
+        self.replot()
 
     def zoom_in_frenet(self):
         self.frenet_zoom -= 5 if self.frenet_zoom > 5 else 0 
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
+        self.replot()
 
     def zoom_out_frenet(self):
         self.frenet_zoom += 5 
-        util.plot(self.pl,self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
-    
+        self.replot()
 
 
     def set_wp(self):
         print("value is ", self.timestep_entry.get())
         timestep_value = int(self.timestep_entry.get())
-        self.pl.step_idx = timestep_value
-        # TODO 
+        self.pl.reset(wp=timestep_value)
+        self.replot()
 
     def replan(self):
+        t1 = time.time()
         self.pl.replan()
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
-    
+        t2 = time.time()
+        self.plan_time_labl.config(text=f"Plan Time: {(t2-t1)*1000:.2f} ms")
+        self.replot()
+
     def start_animation(self):
         # Placeholder for the method to start animation
         pass
@@ -164,10 +195,10 @@ class PlotApp(tk.Tk):
         self.pl.step()
         self.car.set_state(self.pl.xdata[-1], self.pl.ydata[-1])
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
         self.timestep_entry.delete(0, tk.END)
         self.timestep_entry.insert(0, str(self.pl.race_trajectory.next_wp-1)) 
+        self.replot()
+
     def step_to_prev_wp(self):
         # Placeholder for the method to step to the previous waypoint
         pass
@@ -178,31 +209,40 @@ class PlotApp(tk.Tk):
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
         self.car.step(dt = dt, steering_angle = 0.1)
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
+        self.replot()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
         self.car.step(dt = dt, steering_angle = -0.1)
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
+        self.replot()
         
     def step_acc(self):
         dt = float(self.dt_entry.get())
         self.car.step(dt = dt, acceleration = 0.1)
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
+        self.replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
         self.car.step(dt = dt, acceleration = -0.1)
-        util.plot(self.pl, self.car, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
-        self.canvas.draw()
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.car.x:.2f}, Y: {self.car.y:.2f}, Speed: {self.car.speed:.2f}, Theta: {self.car.theta:.2f}")
+        self.replot()
     
+
+
+class TextHandler(logging.Handler):
+    def __init__(self, text_widget):
+        super().__init__()
+        self.text_widget = text_widget
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.text_widget.configure(state='normal')
+        self.text_widget.insert(tk.END, msg + '\n')
+        self.text_widget.configure(state='disabled')
+        self.text_widget.yview(tk.END)
 
 
 def load():
@@ -216,7 +256,7 @@ def load():
 
 def main():
     pl = load()
-    pid.test()
+    # pid.test()
     
     app = PlotApp(pl)
     app.mainloop()  
