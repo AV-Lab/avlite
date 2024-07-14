@@ -1,48 +1,44 @@
-import json
 import numpy as np
-
-import plan.race_trajectory as u
-import sys
+import plan.trajectory as u
 import logging
+from execute.executer import VehicleState
 
 
 
 class Planner:
-    def __init__(self, path_to_track, planning_horizon = 15, minimum_s_distance=5, minimum_boundary_distance=2):
-        with open(path_to_track, 'r') as f:
-            track_data = json.load(f)
-        logging.info(f"Track data loaded from {path_to_track}")
+    def __init__(self, referance_path, ref_left_boundary_d, ref_right_boundary_d, state:VehicleState = None ,  planning_horizon = 15, minimum_s_distance=5, minimum_boundary_distance=2):
+        self.reference_path = np.array(referance_path)
+        self.reference_x = [point[0] for point in self.reference_path]
+        self.reference_y = [point[1] for point in self.reference_path]
 
         self.planning_horizon = planning_horizon
         self.minimum_planning_distance = minimum_s_distance
         self.minimum_boundary_distance = minimum_boundary_distance
 
-
-        self.reference_path = np.array([point[:2] for point in track_data["ReferenceLine"]])
-        self.reference_x = [point[0] for point in track_data["ReferenceLine"]]
-        self.reference_y = [point[1] for point in track_data["ReferenceLine"]]
         self.race_trajectory = u.trajectory(self.reference_path)
         self.reference_s, self.reference_d = self.race_trajectory.convert_to_frenet(self.reference_path)
 
-        self.ref_left_boundary_d = track_data["LeftBound"]
-        self.ref_right_boundary_d = track_data["RightBound"]
+        self.ref_left_boundary_d = ref_left_boundary_d
+        self.ref_right_boundary_d = ref_right_boundary_d
         self.left_x, self.left_y = self.race_trajectory.getXY_path(self.reference_s, self.ref_left_boundary_d)
         self.right_x, self.right_y = self.race_trajectory.getXY_path(self.reference_s, self.ref_right_boundary_d)
 
-        self.x_vel = 0
-        self.y_vel = 0
 
-        self.xdata, self.ydata = [self.reference_x[0]], [self.reference_y[0]]
-        self.past_d, self.past_s  = [self.reference_s[0]], [self.reference_d[0]]
-        self.mse = 0
+        if state is None:
+            self.xdata, self.ydata = [self.reference_x[0]], [self.reference_y[0]]
+            self.past_d, self.past_s  = [self.reference_s[0]], [self.reference_d[0]]
         self.lattice_graph = {} # intended to hold local plan lattice graph. A dictionary with source (s,d) as key
         self.selected_edge = None
+        
+        
+        # TODO: not functional
+        self.x_vel = 0
+        self.y_vel = 0
+        self.mse = 0
 
-    def reset(self,wp=None):
-        if wp is None:
-            wp = 0
+    def reset(self,wp=0):
         self.xdata, self.ydata = [self.reference_x[wp]], [self.reference_y[wp]]
-        self.past_d, self.past_s  = [self.reference_s[wp]], [self.reference_d[wp]]
+        self.past_s, self.past_d  = [self.reference_s[wp]], [self.reference_d[wp]]
         self.race_trajectory.reset(wp)
         self.mse = 0
         self.lattice_graph = {} # intended to hold local plan lattice graph. A dictionary with source (s,d) as key
@@ -106,25 +102,7 @@ class Planner:
 
 
 
-    def step_at_fixed_loc(self, x_current, y_current):
-        self.xdata.append(x_current)
-        self.ydata.append(y_current)
-        if self.selected_edge is not None and not self.selected_edge.is_edge_done(): 
-            self.selected_edge.next_idx()
-        # TODO: Else need replan
-
-        self.race_trajectory.update_waypoint(x_current, y_current)
-        
-        #### Frenet Coordinates
-        s_, d_= self.race_trajectory.convert_to_frenet([(x_current,y_current)])
-        self.past_d.append(d_[0])
-        self.past_s.append(s_[0])
-        
-        if len(self.past_d)>0:
-            d_mean = sum(self.past_d) / len(self.past_d) 
-            self.mse = sum((di - d_mean)**2 for di in self.past_d) / len(self.past_d) 
-    # TODO FSM to be carefully thought out
-
+    
     def step(self):
         if  self.selected_edge is not None and not self.selected_edge.is_edge_done(): 
             self.selected_edge.next_idx()
@@ -158,7 +136,15 @@ class Planner:
             d_mean = sum(self.past_d) / len(self.past_d) 
             self.mse = sum((di - d_mean)**2 for di in self.past_d) / len(self.past_d) 
 
+    def update_state(self, state):
+        self.xdata.append(state.x)
+        self.ydata.append(state.y)
         
+        #### Frenet Coordinates
+        s_, d_= self.race_trajectory.convert_to_frenet([(state.x, state.y)])
+        self.past_d.append(d_[0])
+        self.past_s.append(s_[0])
+
     
     class edge_maneuver:
         def __init__(self, start_sd, end_sd, num_of_points = 10, start_vel = None, end_vel = None):
@@ -206,7 +192,3 @@ class Planner:
             return self.current_idx >= len(self.ts) - 1
 
     
-import visualizer 
-if __name__ == "__main__":
-    sys.path.append("..")
-    visualizer.main()
