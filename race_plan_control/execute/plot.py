@@ -1,12 +1,11 @@
 import numpy as np
-import sys
 import matplotlib.pyplot as plt
 import sys
 
 from plan.planner import Planner
-from .simulate import Car
+from .executer import Executer
 
-def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
+def plot(pl: Planner, exec: Executer = None, frenet_zoom = 15, xy_zoom = 30):
     ax1.clear()
     ax2.clear()
     
@@ -24,7 +23,7 @@ def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
     if len(pl.xdata) != 0:
         ax1.plot(pl.xdata, pl.ydata, 'r-', label='Past Locations')  # Plot all points in red
         ax1.plot(pl.xdata[-100:], pl.ydata[-100:], 'g-', label='Last 100 Locations')  # Plot the last 100 points in green
-        ax1.plot(pl.xdata[-1], pl.ydata[-1], 'ro', markersize=10, label='Current Location')  
+        ax1.plot(pl.xdata[-1], pl.ydata[-1], 'ro', markersize=10, label='Planner Location')  
         # For Zoom in
         if xy_zoom is not None:
             ax1.set_xlim(pl.xdata[-1] - 4*xy_zoom, pl.xdata[-1] + 4*xy_zoom)
@@ -88,17 +87,17 @@ def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
         ax1.plot(x,y, 'bo', markersize=7, label='Planned Location')  
         ax2.plot(s,d, 'bo', markersize=9, label='Planned Location')  
             
-    if car is not None:
+    if exec is not None:
         # Plot the car
-        car_L_f = car.L_f
-        car_L_r = car.length - car_L_f
+        car_L_f = exec.state.L_f
+        car_L_r = exec.state.length - car_L_f
 
-        car_x_front = car.x + car_L_f * np.cos(car.theta)
-        car_y_front = car.y + car_L_f * np.sin(car.theta)
-        car_x_rear = car.x - car_L_r * np.cos(car.theta)
-        car_y_rear = car.y - car_L_r * np.sin(car.theta)
+        car_x_front = exec.state.x + car_L_f * np.cos(exec.state.theta)
+        car_y_front = exec.state.y + car_L_f * np.sin(exec.state.theta)
+        car_x_rear = exec.state.x - car_L_r * np.cos(exec.state.theta)
+        car_y_rear = exec.state.y - car_L_r * np.sin(exec.state.theta)
         ax1.plot([car_x_front, car_x_rear], [car_y_front, car_y_rear], 'k-', label='Car')
-        ax1.plot(car.x, car.y, 'ko', markersize=7, label='Car Location')
+        ax1.plot(exec.state.x, exec.state.y, 'ko', markersize=7, label='Car Location')
 
 
     # ax2.legend(loc='upper left')
@@ -115,6 +114,5 @@ def plot(pl: Planner, car: Car = None, frenet_zoom = 15, xy_zoom = 30):
 
 fig, (ax1, ax2) = plt.subplots(2, 1)
 if __name__ == "__main__":
-    import visualizer 
-    sys.path.append("..")
+    import race_plan_control.util.visualizer as visualizer 
     visualizer.main()

@@ -4,12 +4,12 @@ import pytest
 import sys
 
 sys.path.append("../race_plan_control/")
-from race_plan_control.util.simulate import Car
+from race_plan_control.util.executer import DummySim
 
 
 @pytest.fixture
 def car():
-    return Car(x=0, y=0, theta=0, speed=0)
+    return DummySim(x=0, y=0, theta=0, speed=0)
 
 def test_car_step(car):
     dt = 0.05
