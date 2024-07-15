@@ -5,7 +5,7 @@ import sys
 from plan.planner import Planner
 from .executer import Executer
 
-def plot(pl: Planner, exec: Executer = None, frenet_zoom = 15, xy_zoom = 30):
+def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30):
     ax1.clear()
     ax2.clear()
     
@@ -26,12 +26,12 @@ def plot(pl: Planner, exec: Executer = None, frenet_zoom = 15, xy_zoom = 30):
         ax1.plot(pl.xdata[-1], pl.ydata[-1], 'ro', markersize=10, label='Planner Location')  
         # For Zoom in
         if xy_zoom is not None:
-            ax1.set_xlim(pl.xdata[-1] - 4*xy_zoom, pl.xdata[-1] + 4*xy_zoom)
-            ax1.set_ylim(pl.ydata[-1] - xy_zoom, pl.ydata[-1] + xy_zoom)
+            ax1.set_xlim(pl.xdata[-1] - xy_zoom, pl.xdata[-1] + xy_zoom)
+            ax1.set_ylim(pl.ydata[-1] - xy_zoom/aspect_ratio/2, pl.ydata[-1] + xy_zoom/aspect_ratio/2)
         
         if pl.past_s and not np.isnan(pl.past_s[-1]) and not np.isinf(pl.past_s[-1]):
-            ax2.set_xlim(pl.past_s[-1] - 4*frenet_zoom/4 , pl.past_s[-1] + 8*frenet_zoom)
-            ax2.set_ylim(-frenet_zoom,  frenet_zoom)
+            ax2.set_xlim(pl.past_s[-1] - frenet_zoom/2 ,   pl.past_s[-1] + 1.5*frenet_zoom)
+            ax2.set_ylim(-frenet_zoom/aspect_ratio/2,  frenet_zoom/aspect_ratio/2)
 
 
         
@@ -109,6 +109,9 @@ def plot(pl: Planner, exec: Executer = None, frenet_zoom = 15, xy_zoom = 30):
     ax1.legend(loc='upper left')
     ax1.set_aspect('equal')
     ax2.set_aspect('equal')
+
+    # plt.tight_layout()
+    fig.subplots_adjust(left=0, right=1, top=.88, bottom=0.05)
 
 
 

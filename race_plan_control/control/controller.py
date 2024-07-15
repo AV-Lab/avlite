@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import logging
 
 
-
 class Controller:
     class Controller(ABC):
 
@@ -13,7 +12,7 @@ class Controller:
 
 class PIDController(Controller):
 
-    def __init__(self, alpha=0.05, beta=0.0001, gamma=0.3): 
+    def __init__(self, alpha=0.05, beta=0.001, gamma=0.7): 
         self.alpha, self.beta, self.gamma = alpha, beta, gamma
         self.past_cte = []
 
@@ -34,7 +33,7 @@ class PIDController(Controller):
         steer = P + I + D
 
         # Logging with formatted string for clarity
-        logging.info(f"Steering Angle: {steer:.2f} [P={P:.3f}, I={I:.3f}, D={D:.3f}] based on CTE: {cte:.3f}")
+        logging.info(f"Steering Angle: {steer:+.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}")
 
         return steer
 
