@@ -22,7 +22,7 @@ class PlotApp(tk.Tk):
         self.sim = sim;
         
         self.title("Path Planning Visualization")
-        self.geometry("1200x600")
+        self.geometry("1200x900")
 
 
         # Variables for checkboxes
@@ -48,7 +48,7 @@ class PlotApp(tk.Tk):
 
         ## UI Elements for Visualize - Checkboxes
         checkboxes_frame = ttk.Frame(self.visualize_frame)
-        checkboxes_frame.pack(fill=tk.X, padx=5, pady=5)
+        checkboxes_frame.pack(fill=tk.X, padx=5)
         ttk.Checkbutton(checkboxes_frame, text="Show Past Locations", variable=self.show_past_locations, command=self.update_plot).pack(anchor=tk.W, side=tk.LEFT)
 
         self.coordinates_label = ttk.Label(checkboxes_frame, text="")
@@ -56,7 +56,7 @@ class PlotApp(tk.Tk):
 
         ## UI Elements for Visualize - Buttons
         global_frame = ttk.Frame(self.visualize_frame)
-        global_frame.pack(fill=tk.X, padx=5, pady=5)
+        global_frame.pack(fill=tk.X, padx=5)
 
         ttk.Label(global_frame, text="Global Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
@@ -64,7 +64,7 @@ class PlotApp(tk.Tk):
         self.vehicle_state_label = ttk.Label(global_frame, text="")
         self.vehicle_state_label.pack(side=tk.RIGHT)
         frenet_frame = ttk.Frame(self.visualize_frame)
-        frenet_frame.pack(fill=tk.X, padx=5, pady=5)
+        frenet_frame.pack(fill=tk.X, padx=5)
         ttk.Label(frenet_frame, text="Frenet Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
         ttk.Button(frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
@@ -79,15 +79,15 @@ class PlotApp(tk.Tk):
         ## Plan frame
         self.plan_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Plan (Manual)")
         self.plan_frame.pack(fill=tk.X,side=tk.LEFT, padx=10, pady=5)
-
-        ### UI Elements for Plan Control
+        
         wp_frame = ttk.Frame(self.plan_frame)
         wp_frame.pack(fill=tk.X)
 
         ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
-        self.timestep_entry = ttk.Entry(wp_frame)
+        self.timestep_entry = ttk.Entry(wp_frame, width=6)
         self.timestep_entry.insert(0, "0")
-        self.timestep_entry.pack(side=tk.LEFT)
+        self.timestep_entry.pack(side=tk.LEFT, padx=5)
+        ttk.Label(wp_frame, text=f"{len(self.pl.reference_path)-1}").pack(side=tk.LEFT, padx=5)
 
         ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.LEFT,fill=tk.X, expand=True)
@@ -99,12 +99,10 @@ class PlotApp(tk.Tk):
         dt_frame = ttk.Frame(self.control_frame)
         dt_frame.pack(fill=tk.X)
         ttk.Label(dt_frame, text="Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_entry = ttk.Entry(dt_frame)
+        self.dt_entry = ttk.Entry(dt_frame, width=5)
         self.dt_entry.insert(2, "0.1")
-        self.dt_entry.pack(side=tk.LEFT)
-
-
-        ttk.Button(self.control_frame, text="Control Step", command=self.step_control).pack(side=tk.LEFT)
+        self.dt_entry.pack(side=tk.LEFT, padx=5)
+        ttk.Button(dt_frame, text="Control Step", command=self.step_control).pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         ttk.Button(self.control_frame, text="Steer Left", command=self.step_steer_left).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="Steer Right", command=self.step_steer_right).pack(side=tk.LEFT)
@@ -113,8 +111,8 @@ class PlotApp(tk.Tk):
 
 
         #-----------
-        ## Simulate Frame
-        self.simulate_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Execute (Sim)")
+        ## Execute Frame
+        self.simulate_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Execute (Auto)")
         self.simulate_frame.pack(fill=tk.BOTH,expand=True, side=tk.LEFT, padx=10, pady=5)
 
         sim_first_frame = ttk.Frame(self.simulate_frame)
@@ -155,17 +153,17 @@ class PlotApp(tk.Tk):
         #-----------------------------------------------------------------------------------------------
 
         self.xy_zoom = 30
-        self.frenet_zoom = 15
+        self.frenet_zoom = 30
         self.fig = plot.fig
         self.ax1 = plot.ax1
         self.ax2 = plot.ax2
         
 
-        plot.plot(self.pl, exec=self.sim)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+        self.after(1000, self._replot)
 
 
         # Disable all the buttons if only_visualize is set to True        
@@ -188,9 +186,17 @@ class PlotApp(tk.Tk):
         logging.info("Log initialized.")            
 
     def _replot(self):
-        plot.plot(self.pl,self.sim, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
+        canvas_widget = self.canvas.get_tk_widget()
+        width = canvas_widget.winfo_width()
+        height = canvas_widget.winfo_height()
+        aspect_ratio = width/height
+        # logging.info(f"Canvas Size: {width}x{height} px [aspect ratio: {aspect_ratio:.2f}]")
+
+        plot.plot(self.pl,self.sim, aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.sim.state.x:.2f}, Y: {self.sim.state.y:.2f}, Speed: {self.sim.state.speed:.2f}, Theta: {self.sim.state.theta:.2f}")
+
+
 
 
     def on_mouse_move(self, event):
@@ -231,7 +237,6 @@ class PlotApp(tk.Tk):
     #--------------------------------------------------------------------------------------------
 
     def set_waypoint(self):
-        print("value is ", self.timestep_entry.get())
         timestep_value = int(self.timestep_entry.get())
         self.pl.reset(wp=timestep_value)
         self._replot()
