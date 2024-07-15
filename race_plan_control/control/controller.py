@@ -3,18 +3,21 @@ from abc import ABC, abstractmethod
 import logging
 
 
-class Controller:
-    class Controller(ABC):
+class Controller(ABC):
 
-        @abstractmethod
-        def control(self, cte):
-            pass
+    @abstractmethod
+    def control(self, cte:float):
+        pass
+    def reset():
+        pass
 
 class PIDController(Controller):
-
     def __init__(self, alpha=0.05, beta=0.001, gamma=0.7): 
         self.alpha, self.beta, self.gamma = alpha, beta, gamma
         self.past_cte = []
+
+        self.cte_sum = 0
+        self.cte_prev = 0
 
 
     def control(self, cte):
@@ -26,8 +29,11 @@ class PIDController(Controller):
             I = 0
             D = 0
         else:
-            I = -self.beta * sum(self.past_cte[-100:])
-            D = -self.gamma * (cte - self.past_cte[-2])
+            self.cte_sum += self.cte_prev
+            I = -self.beta * self.cte_sum #sum(self.past_cte[-100:])
+            D = -self.gamma * (cte - self.cte_prev) # self.past_cte[-2])
+        
+        self.cte_prev = cte
 
         # Compute the steering angle
         steer = P + I + D
@@ -36,5 +42,9 @@ class PIDController(Controller):
         logging.info(f"Steering Angle: {steer:+.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}")
 
         return steer
+
+    def reset(self):
+        self.past_cte = []
+
 
         

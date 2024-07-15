@@ -1,15 +1,14 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-
+from abc import ABC,abstractmethod
 if TYPE_CHECKING:
     from plan.planner import Planner
-
 from control.controller import Controller
 import logging 
-
 import numpy as np
+import time 
 
-class Executer:
+class Executer(ABC):
     def __init__(self, state: VehicleState, pl: Planner, cn: Controller):
         self.state = state
         self.pl = pl
@@ -18,20 +17,24 @@ class Executer:
 
     def run(self, dt=0.01):
         # update planner location
-
         self.pl.update_state(self.state)
+        
         cte = self.pl.past_d[-1]
-
+        t1 = time.time()
         steering_angle = self.cn.control(cte)
+        t2 = time.time()
+        t3 = time.time()
         self.update(dt=dt, steering_angle=steering_angle)
+        t4 = time.time()
+        logging.info(f"Control Time: {t2-t1},  Plan Update Time: {(t4-t3)}")
     
     def reset(self):
+        self.state.reset()
         self.pl.reset()
-        self.state.x = self.pl.reference_x[0]
-        self.state.y = self.pl.reference_y[0]
-
+        self.cn.reset()
 
         
+    @abstractmethod
     def update(self, dt=0.01, acceleration=0, steering_angle=0):
         pass
 
@@ -42,7 +45,11 @@ class VehicleState:
         self.y = y
         self.theta = theta
         self.speed = speed
-        
+
+        self.init_x = x
+        self.init_y = y
+        self.init_theta = theta
+        self.init_speed = speed
         
         # TODO this should be read from a config file
         # car parameters
@@ -52,9 +59,12 @@ class VehicleState:
         self.L_f = l_f # Distance from center of mass to front axle
         self.width = width
         self.length = length
-    
-    def print_state(self):
-        print(f"x: {self.x}, y: {self.y}, theta: {self.theta}, speed: {self.speed}")
+
+    def reset(self):
+        self.x = self.init_x
+        self.y = self.init_y
+        self.theta = self.init_theta
+        self.speed = self.init_speed
     
     def __repr__(self):
         return f"VehicleState(x={self.x}, y={self.y}, speed={self.speed}, theta={self.theta})"

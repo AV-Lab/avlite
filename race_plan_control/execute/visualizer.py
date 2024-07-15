@@ -32,6 +32,10 @@ class PlotApp(tk.Tk):
         self.animation_running = False
 
         self.sim_option = tk.StringVar(value="Simple")  # Default selection
+        
+        self.show_plan_logs = tk.BooleanVar(value=True)
+        self.show_control_logs = tk.BooleanVar(value=True)
+        self.show_execute_logs = tk.BooleanVar(value=True)
 
 
         #--------------------------------------------------------------------------------------------
@@ -141,11 +145,17 @@ class PlotApp(tk.Tk):
         #-----------------------------------------------------------------------------------------------
         
         # Log Frame
-        self.log_frame = ttk.LabelFrame(self, text="Log")
-        self.log_frame.pack(fill=tk.X, padx=10, pady=5)
-        # self.log_frame.pack(fill=tk.X, side=tk.TOP, expand=True, padx=10, pady=5)
-        log_area = ScrolledText(self.log_frame, state='disabled', height=8)
-        log_area.pack(side=tk.LEFT, fill=tk.BOTH,expand=True)
+        log_frame = ttk.LabelFrame(self, text="Log")
+        log_frame.pack(fill=tk.X, padx=10, pady=5)
+
+        log_cb_frame = ttk.Frame(log_frame)
+        log_cb_frame.pack(fill=tk.X)
+        ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log).pack(side=tk.LEFT)
+        ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log).pack(side=tk.LEFT)
+        ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log).pack(side=tk.LEFT)
+                                                                                                                        
+        log_area = ScrolledText(log_frame, state='disabled', height=8)
+        log_area.pack(fill=tk.BOTH,expand=True)
 
 
         #-----------------------------------------------------------------------------------------------
@@ -317,7 +327,9 @@ class PlotApp(tk.Tk):
     def reset_sim(self):
         self.sim.reset()
         self._replot()
-    
+
+    def update_log(self):
+        pass 
 
 class TextHandler(logging.Handler):
     def __init__(self, text_widget):
