@@ -139,6 +139,8 @@ class Planner:
     def update_state(self, state):
         self.xdata.append(state.x)
         self.ydata.append(state.y)
+        # TODO some error check might be needed
+        self.race_trajectory.update_waypoint(state.x, state.y)
         
         #### Frenet Coordinates
         s_, d_= self.race_trajectory.convert_to_frenet([(state.x, state.y)])

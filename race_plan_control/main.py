@@ -7,11 +7,13 @@ from execute.executer_sim import SimpleSim
 import numpy as np
 import logging
 import json
+import os
 
 def main():
 
     # loading config file
-    config_file = "/home/mkhonji/workspaces/race_plan_control/config.yaml"
+    file = "config.yaml"
+    config_file = os.path.realpath(file)
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
         path_to_track = config_data["path_to_track"]
