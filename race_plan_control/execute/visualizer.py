@@ -14,6 +14,10 @@ import time
 import logging
 from tkinter.scrolledtext import ScrolledText
 
+log = logging.getLogger(__name__)
+log_blacklist = set() # used to filter 'excute', 'plan', 'control' subpackage logs
+
+print("__name__", __name__)
 class PlotApp(tk.Tk):
     def __init__(self, pl:Planner, controller:Controller, sim:Executer,  only_visualize=False):
         super().__init__()
@@ -187,20 +191,18 @@ class PlotApp(tk.Tk):
         
         # Configure logging
         logger = logging.getLogger()
-        text_handler = TextHandler(log_area)
-        formatter = logging.Formatter('%(module)s (%(filename)s L: %(lineno)d) [%(levelname)s]: %(message)s')
+        text_handler = PlotApp.LogTextHandler(log_area)
+        formatter = logging.Formatter('%(name)-20.20s (L: %(lineno)3d)[%(levelname)s]: %(message)s')
         text_handler.setFormatter(formatter)
         logger.addHandler(text_handler)
         logger.setLevel(logging.INFO)
-        
-        logging.info("Log initialized.")            
+        log.info("Log initialized.")            
 
     def _replot(self):
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()
         aspect_ratio = width/height
-        # logging.info(f"Canvas Size: {width}x{height} px [aspect ratio: {aspect_ratio:.2f}]")
 
         plot.plot(self.pl,self.sim, aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
@@ -255,7 +257,7 @@ class PlotApp(tk.Tk):
         t1 = time.time()
         self.pl.replan()
         t2 = time.time()
-        logging.info(f"Plan Time: {(t2-t1)*1000:.2f} ms")
+        log.info(f"Plan Time: {(t2-t1)*1000:.2f} ms")
         self._replot()
 
 
@@ -263,7 +265,7 @@ class PlotApp(tk.Tk):
         # Placeholder for the method to step to the next waypoint
         t1 = time.time()
         self.pl.step()
-        logging.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
+        log.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.timestep_entry.delete(0, tk.END)
         self.timestep_entry.insert(0, str(self.pl.race_trajectory.next_wp-1)) 
         self._replot()
@@ -274,9 +276,7 @@ class PlotApp(tk.Tk):
 
     def step_control(self):
         d = self.pl.past_d[-1]
-        logging.info(d)
         steer = self.cn.control(d)
-        logging.info(f"Steering Angle: {steer}")
         
         dt = float(self.dt_entry.get())
         self.sim.update(steering_angle=steer, dt=dt)
@@ -329,21 +329,35 @@ class PlotApp(tk.Tk):
         self._replot()
 
     def update_log(self):
-        pass 
+        if self.show_plan_logs.get():
+            log_blacklist.discard('plan')
+        else:
+            log_blacklist.add('plan')
+        if self.show_control_logs.get():
+            log_blacklist.discard('control')
+        else:   
+            log_blacklist.add('control')
+        if self.show_execute_logs.get():
+            log_blacklist.discard('execute')
+        else:
+            log_blacklist.add('execute')
 
-class TextHandler(logging.Handler):
-    def __init__(self, text_widget):
-        super().__init__()
-        self.text_widget = text_widget
 
-    def emit(self, record):
-        msg = self.format(record)
-        self.text_widget.configure(state='normal')
-        self.text_widget.insert(tk.END, msg + '\n')
-        self.text_widget.configure(state='disabled')
-        self.text_widget.yview(tk.END)
+    class LogTextHandler(logging.Handler):
+        def __init__(self, text_widget):
+            super().__init__()
+            self.text_widget = text_widget
 
-
+        def emit(self, record):
+            print(log_blacklist)
+            for bl in log_blacklist:
+                if bl+"." in record.name:
+                    return
+            msg = self.format(record)
+            self.text_widget.configure(state='normal')
+            self.text_widget.insert(tk.END, msg + '\n')
+            self.text_widget.configure(state='disabled')
+            self.text_widget.yview(tk.END)
 
 import main
 if __name__ == "__main__":

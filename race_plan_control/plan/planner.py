@@ -2,7 +2,7 @@ import numpy as np
 import plan.trajectory as u
 import logging
 from execute.executer import VehicleState
-
+log = logging.getLogger(__name__)
 
 
 class Planner:
@@ -118,7 +118,7 @@ class Planner:
             x_current = self.reference_x[self.race_trajectory.next_wp]
             y_current = self.reference_y[self.race_trajectory.next_wp]
         else:
-            logging.warning("No edge selected, back to closest next reference point")
+            log.warning("No edge selected, back to closest next reference point")
             x_current = self.reference_x[self.race_trajectory.next_wp]
             y_current = self.reference_y[self.race_trajectory.next_wp]
 
