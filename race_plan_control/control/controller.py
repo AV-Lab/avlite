@@ -1,7 +1,7 @@
 import logging 
 from abc import ABC, abstractmethod
 import logging
-
+log = logging.getLogger(__name__)
 
 class Controller(ABC):
 
@@ -39,7 +39,7 @@ class PIDController(Controller):
         steer = P + I + D
 
         # Logging with formatted string for clarity
-        logging.info(f"Steering Angle: {steer:+.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}")
+        log.info(f"Steering Angle: {steer:+.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}")
 
         return steer
 

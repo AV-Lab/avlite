@@ -8,6 +8,7 @@ import logging
 import numpy as np
 import time 
 
+log = logging.getLogger(__name__)
 class Executer(ABC):
     def __init__(self, state: VehicleState, pl: Planner, cn: Controller):
         self.state = state
@@ -26,7 +27,7 @@ class Executer(ABC):
         t3 = time.time()
         self.update(dt=dt, steering_angle=steering_angle)
         t4 = time.time()
-        logging.info(f"Control Time: {t2-t1},  Plan Update Time: {(t4-t3)}")
+        log.info(f"Control Time: {t2-t1},  Plan Update Time: {(t4-t3)}")
     
     def reset(self):
         self.state.reset()
