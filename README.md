@@ -3,7 +3,7 @@
 
 ## Local Planner
 - Based on RRT sampling
-![](resource/imgs/visualizer.png)
+![](docs/imgs/visualizer.png)
 
 
 
