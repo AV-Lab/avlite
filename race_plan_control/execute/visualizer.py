@@ -1,14 +1,15 @@
+from race_plan_control.plan.planner import Planner
+from race_plan_control.control.controller import Controller
+import race_plan_control.execute.plot as plot
+from race_plan_control.execute.executer import Executer
+
 import sys
 sys.path.append("/home/mkhonji/workspaces/race_plan_control/race_plan_control")
 
-from execute import plot
-from execute.executer import Executer
 
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from plan.planner import Planner
-from control.controller import Controller
 
 import time
 import logging
@@ -329,6 +330,7 @@ class PlotApp(tk.Tk):
         self._replot()
 
     def update_log(self):
+        # print(self.show_control_logs.get()) 
         if self.show_plan_logs.get():
             log_blacklist.discard('plan')
         else:
@@ -349,7 +351,6 @@ class PlotApp(tk.Tk):
             self.text_widget = text_widget
 
         def emit(self, record):
-            print(log_blacklist)
             for bl in log_blacklist:
                 if bl+"." in record.name:
                     return
@@ -359,6 +360,5 @@ class PlotApp(tk.Tk):
             self.text_widget.configure(state='disabled')
             self.text_widget.yview(tk.END)
 
-import main
-if __name__ == "__main__":
-    main.main()
+# if __name__ == "__main__":
+    # main.main()

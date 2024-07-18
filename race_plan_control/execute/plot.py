@@ -1,9 +1,9 @@
+from race_plan_control.plan.planner import Planner
+from race_plan_control.execute.executer import Executer
+
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
 
-from plan.planner import Planner
-from .executer import Executer
 
 def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30):
     ax1.clear()
@@ -111,7 +111,7 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
     ax2.set_aspect('equal')
 
     # plt.tight_layout()
-    fig.subplots_adjust(left=0, right=1, top=.88, bottom=0.05)
+    fig.subplots_adjust(left=0, right=1, top=.95, bottom=0.1)
 
 
 

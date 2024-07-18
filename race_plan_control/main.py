@@ -1,22 +1,26 @@
-from execute.visualizer import PlotApp
-from plan.planner import Planner
-from control.controller import PIDController
+from race_plan_control.execute.visualizer import PlotApp
+from race_plan_control.plan.planner import Planner
+from race_plan_control.control.controller import PIDController
+from race_plan_control.execute import executer
+from race_plan_control.execute.executer_sim import SimpleSim
 import yaml
-from execute import executer
-from execute.executer_sim import SimpleSim
 import numpy as np
 import logging
 import json
 import os
+from pathlib import Path
 
-def main():
+def run():
+
+    current_file_name = os.path.realpath(__file__)
+    project_dir = Path(current_file_name).parent.parent
 
     # loading config file
-    file = "config.yaml"
-    config_file = os.path.realpath(file)
+    config_file = project_dir / "config.yaml"
+
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
-        path_to_track = config_data["path_to_track"]
+        path_to_track = project_dir / config_data["path_to_track"]
     
     # loading race trajectory data
     with open(path_to_track, 'r') as f:
@@ -38,4 +42,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()  
+    run()
