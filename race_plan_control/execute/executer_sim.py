@@ -1,6 +1,6 @@
 
-from plan.planner import Planner
-from control.controller import Controller
+from race_plan_control.plan.planner import Planner
+from race_plan_control.control.controller import Controller
 from execute.executer import Executer, VehicleState
 from math import cos, sin
 
