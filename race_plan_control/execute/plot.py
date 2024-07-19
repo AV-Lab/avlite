@@ -5,24 +5,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+
 def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30):
     ax1.clear()
     ax2.clear()
     
 
     # Plot track boundaries 
-    ax1.plot(pl.left_x,pl.left_y, color='orange', label='Left Boundary')  # Change color and label as needed
-    ax1.plot(pl.right_x, pl.right_y, color='tan', label='Right Boundary')  # Change color and label as needed
+    ax1.plot(pl.left_x,pl.left_y, color='orange', label='Left Boundary', linewidth=2)  # Change color and label as needed
+    ax1.plot(pl.right_x, pl.right_y, color='tan', label='Right Boundary', linewidth=2)  # Change color and label as needed
     
 
     # Plot the reference path in blue
-    ax1.plot(pl.reference_x, pl.reference_y, 'b', label="Reference Trajectory")  # reference path in blue
+    ax1.plot(pl.global_trajectory.reference_x, pl.global_trajectory.reference_y, 'b', label="Reference Trajectory", linewidth=2)  # reference path in blue
     # self.ax1.scatter(self.reference_x, self.reference_y, color="blue", label="Reference Trajectory")  # reference path in blue
     
     
     if len(pl.xdata) != 0:
-        ax1.plot(pl.xdata, pl.ydata, 'r-', label='Past Locations')  # Plot all points in red
-        ax1.plot(pl.xdata[-100:], pl.ydata[-100:], 'g-', label='Last 100 Locations')  # Plot the last 100 points in green
+        # ax1.plot(pl.xdata, pl.ydata, 'r-', label='Past Locations', linewidth=2)  # Plot all points in red
+        ax1.plot(pl.xdata[-100:], pl.ydata[-100:], 'g-', label='Last 100 Locations', linewidth=2)  # Plot the last 100 points in green
         ax1.plot(pl.xdata[-1], pl.ydata[-1], 'ro', markersize=10, label='Planner Location')  
         # For Zoom in
         if xy_zoom is not None:
@@ -35,15 +36,15 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
 
 
         
-        if pl.race_trajectory.next_wp is not None: 
-            ax1.plot(pl.reference_x[pl.race_trajectory.next_wp], pl.reference_y[pl.race_trajectory.next_wp], 'gx', markersize=10, label='Next WP')  
-            ax2.plot(pl.reference_s[pl.race_trajectory.next_wp], pl.reference_d[pl.race_trajectory.next_wp], 'gx', markersize=10, label='Next WP')  
+        if pl.global_trajectory.next_wp is not None: 
+            ax1.plot(pl.global_trajectory.reference_x[pl.global_trajectory.next_wp], pl.global_trajectory.reference_y[pl.global_trajectory.next_wp], 'gx', markersize=10, label='Next WP', linewidth=2)  
+            ax2.plot(pl.global_trajectory.reference_s[pl.global_trajectory.next_wp], pl.global_trajectory.reference_d[pl.global_trajectory.next_wp], 'gx', markersize=10, label='Next WP', linewidth=2)  
 
 
         # Use ax2 for the Frenet coordinates
         
         # self.ax2.axhline(0, color='blue', linewidth=0.5, label='Reference Path') 
-        ax2.scatter(pl.reference_s, pl.reference_d, s=5, alpha=.5, color="blue", label="Reference Trajectory")  # reference path in blue
+        ax2.scatter(pl.global_trajectory.reference_s, pl.global_trajectory.reference_d, s=5, alpha=.5, color="blue", label="Reference Trajectory")  # reference path in blue
         
 
         # current_time = time.time()
@@ -56,15 +57,15 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
     # pl.prev_time = current_time
     
     if not len(pl.past_s)==0:
-        ax2.plot(pl.past_s, pl.past_d, 'r-', label='Past Locations')  # Plot all points in red
+        # ax2.plot(pl.past_s, pl.past_d, 'r-', label='Past Locations')  # Plot all points in red
         ax2.plot(pl.past_s[-100:], pl.past_d[-100:], 'g-', label='Last 100 Locations')  # Plot the last 100 points in green
         ax2.plot(pl.past_s[-1], pl.past_d[-1], 'ro',  label='Current Location')  # Plot the current point as a thick red dot
     
     
     # self.ax2.plot(self.s_left, self.d_left, color='orange', label='Left Boundary')  
     # self.ax2.plot(self.s_right, self.d_right, color='tan', label='Right Boundary')  
-    ax2.scatter(pl.reference_s, pl.ref_left_boundary_d, color='orange', s=5, label='Left Boundary (Ref)')  
-    ax2.scatter(pl.reference_s, pl.ref_right_boundary_d, color='tan', s=5, label='Right Boundary (Ref)')  
+    ax2.scatter(pl.global_trajectory.reference_s, pl.ref_left_boundary_d, color='orange', s=5, label='Left Boundary (Ref)')  
+    ax2.scatter(pl.global_trajectory.reference_s, pl.ref_right_boundary_d, color='tan', s=5, label='Right Boundary (Ref)')  
     
     
 
