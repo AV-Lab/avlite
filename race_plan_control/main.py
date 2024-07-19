@@ -33,7 +33,7 @@ def run():
     
     state = executer.VehicleState(x=reference_path[0][0],y=reference_path[0][1], speed=30, theta=-np.pi/4)
 
-    pl = Planner(referance_path=reference_path, ref_left_boundary_d=ref_left_boundary_d, ref_right_boundary_d=ref_right_boundary_d)
+    pl = Planner(reference_path=reference_path, ref_left_boundary_d=ref_left_boundary_d, ref_right_boundary_d=ref_right_boundary_d)
     cn = PIDController()
     sim = SimpleSim(state, pl, cn)
 

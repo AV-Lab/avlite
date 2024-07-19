@@ -5,7 +5,7 @@ from numpy.polynomial.polynomial import Polynomial
 import numpy as np
 
 
-class trajectory:
+class Trajectory:
     """
     A class representing a trajectory.
 
@@ -105,6 +105,13 @@ class trajectory:
 
         return s_values, d_values, tx, ty
 
+
+    def convert_point_to_frenet(self, x, y):
+        s,d = self.convert_to_frenet([(x, y)])
+        _s = s[0]
+        _d = d[0]
+
+        return _s,_d
 
     def convert_to_frenet(self, points):
 

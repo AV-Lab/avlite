@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 import logging
 log = logging.getLogger(__name__)
+import race_plan_control.execute.vehicle_state
 
 class Controller(ABC):
 
@@ -45,6 +46,8 @@ class PIDController(Controller):
 
     def reset(self):
         self.past_cte = []
+        self.cte_sum = 0
+        self.cte_prev = 0
 
 
         

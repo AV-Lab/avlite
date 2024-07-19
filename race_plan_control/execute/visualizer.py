@@ -54,7 +54,6 @@ class PlotApp(tk.Tk):
         self.visualize_frame = ttk.LabelFrame(self, text="Visualize")
         self.visualize_frame.pack(fill=tk.X, side=tk.TOP, padx=10, pady=5)
 
-
         ## UI Elements for Visualize - Checkboxes
         checkboxes_frame = ttk.Frame(self.visualize_frame)
         checkboxes_frame.pack(fill=tk.X, padx=5)
@@ -141,6 +140,7 @@ class PlotApp(tk.Tk):
         self.start_sim_button = ttk.Button(sim_second_frame, text="Start", command=self.start_sim)
         self.start_sim_button.pack(fill=tk.X, side=tk.LEFT, expand=True)
         ttk.Button(sim_second_frame, text="Stop", command=self.stop_sim).pack(side=tk.LEFT)
+        tk.Button(sim_second_frame, text="Step", command=self.step_sim).pack(side=tk.LEFT)
         ttk.Button(sim_second_frame, text="Reset", command=self.reset_sim).pack(side=tk.LEFT)
         
         #-----------
@@ -178,7 +178,7 @@ class PlotApp(tk.Tk):
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
-        self.after(1000, self._replot)
+        self.after(500, self._replot)
 
 
         # Disable all the buttons if only_visualize is set to True        
@@ -193,7 +193,7 @@ class PlotApp(tk.Tk):
         # Configure logging
         logger = logging.getLogger()
         text_handler = PlotApp.LogTextHandler(log_area)
-        formatter = logging.Formatter('%(name)-20.20s (L: %(lineno)3d)[%(levelname)s]: %(message)s')
+        formatter = logging.Formatter('%(name)-30s (L: %(lineno)3d)[%(levelname)s]: %(message)s')
         text_handler.setFormatter(formatter)
         logger.addHandler(text_handler)
         logger.setLevel(logging.INFO)
@@ -268,7 +268,7 @@ class PlotApp(tk.Tk):
         self.pl.step()
         log.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.timestep_entry.delete(0, tk.END)
-        self.timestep_entry.insert(0, str(self.pl.race_trajectory.next_wp-1)) 
+        self.timestep_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
         self._replot()
 
     #--------------------------------------------------------------------------------------------
@@ -280,28 +280,28 @@ class PlotApp(tk.Tk):
         steer = self.cn.control(d)
         
         dt = float(self.dt_entry.get())
-        self.sim.update(steering_angle=steer, dt=dt)
+        self.sim.update_state(steering_angle=steer, dt=dt)
         self._replot()
         
 
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
-        self.sim.update(dt = dt, steering_angle = 0.1)
+        self.sim.update_state(dt = dt, steering_angle = 0.1)
         self._replot()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
-        self.sim.update(dt = dt, steering_angle = -0.1)
+        self.sim.update_state(dt = dt, steering_angle = -0.1)
         self._replot()
         
     def step_acc(self):
         dt = float(self.dt_entry.get())
-        self.sim.update(dt = dt, acceleration = 1)
+        self.sim.update_state(dt = dt, acceleration = 1)
         self._replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
-        self.sim.update(dt = dt, acceleration = -1)
+        self.sim.update_state(dt = dt, acceleration = -1)
         self._replot()
     
     
@@ -325,6 +325,11 @@ class PlotApp(tk.Tk):
         self.animation_running = False  
         self.start_sim_button.config(state=tk.NORMAL)
     
+    def step_sim(self):
+        sec = float(self.dt_sim_entry.get())
+        self.sim.run(dt=sec)
+        self._replot()
+
     def reset_sim(self):
         self.sim.reset()
         self._replot()
