@@ -2,7 +2,6 @@ import logging
 from abc import ABC, abstractmethod
 import logging
 log = logging.getLogger(__name__)
-import race_plan_control.execute.vehicle_state
 
 class Controller(ABC):
 
