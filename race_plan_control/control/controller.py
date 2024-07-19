@@ -51,3 +51,6 @@ class PIDController(Controller):
 
 
         
+import race_plan_control.main as main
+if __name__== "__main__":
+    main.run()

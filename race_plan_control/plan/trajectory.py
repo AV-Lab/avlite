@@ -1,8 +1,9 @@
 import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
-
 import numpy as np
+import logging
+log = logging.getLogger(__name__)
 
 
 class Trajectory:
@@ -20,7 +21,7 @@ class Trajectory:
         next_wp (int): The index of the next waypoint on the reference path.
         prev_wp (int): The index of the previous waypoint on the reference path.
     """
-    def __init__(self, reference_path):
+    def __init__(self, reference_path, name="Global Tj"):
         self.reference_path = np.array(reference_path)
         # [point[0] for point in reference_path]
         self.reference_x = self.reference_path[:, 0]
@@ -30,12 +31,14 @@ class Trajectory:
         self.reference_s, self.reference_d = self.convert_to_frenet(self.reference_path)
         self.reference_sd_path = np.array(list(zip(self.reference_s, self.reference_d)))
         self.next_wp = 1
-        self.prev_wp = 0
+        self.current_wp = 0
+
+        self.name = name # needed to distinguish between global and local trajectory
     
     def reset(self, wp):
         if wp >= 0 and wp < len(self.reference_path):
             self.next_wp = wp + 1
-            self.prev_wp = wp 
+            self.current_wp = wp 
         else:
             raise ValueError("Invalid waypoint index")
     
@@ -54,17 +57,22 @@ class Trajectory:
         closest_wp = np.argmin(dists)
         s_, d_ = self.convert_to_frenet([(x_current, y_current)])
 
-        if self.reference_s[closest_wp] <= s_[0] and closest_wp < len(self.reference_path) - 1:
-            self.prev_wp = closest_wp
-            self.next_wp = closest_wp + 1 % len(self.reference_path)
+        if self.reference_s[closest_wp] <= s_[0]:
+            if closest_wp < len(self.reference_path) - 1:
+                self.current_wp = closest_wp
+                self.next_wp = closest_wp + 1 % len(self.reference_path)
+            elif closest_wp == len(self.reference_path) - 1:
+                self.current_wp = closest_wp
+                self.next_wp = closest_wp
         elif self.reference_s[closest_wp] > s_[0] and closest_wp > 0:
             self.next_wp = closest_wp
-            self.prev_wp = closest_wp - 1
+            self.current_wp = closest_wp - 1
 
-        if self.next_wp == 0:
-            self.prev_wp = len(self.reference_path) - 1
-        else:
-            self.prev_wp = self.next_wp - 1
+        # if self.next_wp == 0:
+        #     self.current_wp = len(self.reference_path) - 1
+        # else:
+        #     self.current_wp = self.next_wp - 1
+        log.info(f"{self.name} Current WP: {self.current_wp}, Next WP: {self.next_wp}")
 
     # TODO recursively update the waypoints
     def quick_waypoint_update(self, x_current, y_current, search_window = 20):
@@ -74,22 +82,22 @@ class Trajectory:
         s_ = self.cumulative_distances[-search_window + closest_wp]  
 
         if self.reference_s[closest_wp] <= s_ and closest_wp < len(self.reference_path) - 1:
-            self.prev_wp = closest_wp
+            self.current_wp = closest_wp
             self.next_wp = closest_wp + 1 % len(self.reference_path)
         elif self.reference_s[closest_wp] > s_ and closest_wp > 0:
             self.next_wp = closest_wp
-            self.prev_wp = closest_wp - 1
+            self.current_wp = closest_wp - 1
 
         if self.next_wp == 0:
-            self.prev_wp = len(self.reference_path) - 1
+            self.current_wp = len(self.reference_path) - 1
         else:
-            self.prev_wp = self.next_wp - 1
+            self.current_wp = self.next_wp - 1
 
     # TODO recusively update the waypoints
     def get_current_frenet(self):
-        diff = self.reference_path[self.prev_wp] - np.array((self.x_current, self.y_current))
+        diff = self.reference_path[self.current_wp] - np.array((self.x_current, self.y_current))
         dist = np.sqrt(diff[0]**2 + diff[1]**2)
-        total_dist = self.comulative_distances[self.prev_wp] + dist
+        total_dist = self.comulative_distances[self.current_wp] + dist
         pass
 
     def generate_local_edge_trajectory(self, s_start, s_end, d_start, d_end,  num_points=10):
@@ -231,3 +239,11 @@ class Trajectory:
 
         return x_values, y_values
 
+    def get_xy(self, wp:int=None):
+        if wp is None:
+            return self.reference_x[self.current_wp], self.reference_y[self.current_wp]
+        return self.reference_x[wp], self.reference_y[wp]
+    def get_sd(self, wp:int=None):
+        if wp is None:
+            return self.reference_s[self.current_wp], self.reference_d[self.current_wp]
+        return self.reference_s[wp], self.reference_d[wp]

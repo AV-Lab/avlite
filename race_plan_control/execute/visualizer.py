@@ -18,7 +18,6 @@ from tkinter.scrolledtext import ScrolledText
 log = logging.getLogger(__name__)
 log_blacklist = set() # used to filter 'excute', 'plan', 'control' subpackage logs
 
-print("__name__", __name__)
 class PlotApp(tk.Tk):
     def __init__(self, pl:Planner, controller:Controller, sim:Executer,  only_visualize=False):
         super().__init__()
@@ -27,16 +26,19 @@ class PlotApp(tk.Tk):
         self.sim = sim;
         
         self.title("Path Planning Visualization")
-        self.geometry("1200x900")
+        self.geometry("1200x1100")
 
 
-        # Variables for checkboxes
+        #--------------------------------------------------------------------------------------------
+        # Variables for checkboxes ------------------------------------------------------------------
+        #--------------------------------------------------------------------------------------------
         self.show_past_locations = tk.BooleanVar(value=True)
         self.show_last_100_locations = tk.BooleanVar(value=True)
         self.show_boundaries = tk.BooleanVar(value=True)
         self.animation_running = False
 
-        self.sim_option = tk.StringVar(value="Simple")  # Default selection
+        self.exec_option = tk.StringVar(value="Simple") 
+        self.debug_option = tk.StringVar(value="INFO")  
         
         self.show_plan_logs = tk.BooleanVar(value=True)
         self.show_control_logs = tk.BooleanVar(value=True)
@@ -51,6 +53,7 @@ class PlotApp(tk.Tk):
         self.plot_frame.pack(fill=tk.BOTH, expand=True)
 
         # Visualize frame setup
+        #------------------------------------------------------
         self.visualize_frame = ttk.LabelFrame(self, text="Visualize")
         self.visualize_frame.pack(fill=tk.X, side=tk.TOP, padx=10, pady=5)
 
@@ -77,14 +80,15 @@ class PlotApp(tk.Tk):
         ttk.Button(frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
         ttk.Button(frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
         
-        #------------------------------------------------------
-        #-Plan Control Exec Frame -----------------------------
-        #------------------------------------------------------
+        #-----------------------------------------------------------
+        #-Plan Control Exec Frame ----------------------------------
+        #-----------------------------------------------------------
 
         self.plan_sim_control_frame = ttk.Frame(self)
         self.plan_sim_control_frame.pack(fill=tk.X)
 
         ## Plan frame
+        #-----------------------------------------------------------
         self.plan_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Plan (Manual)")
         self.plan_frame.pack(fill=tk.X,side=tk.LEFT, padx=10, pady=5)
         
@@ -92,9 +96,9 @@ class PlotApp(tk.Tk):
         wp_frame.pack(fill=tk.X)
 
         ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
-        self.timestep_entry = ttk.Entry(wp_frame, width=6)
-        self.timestep_entry.insert(0, "0")
-        self.timestep_entry.pack(side=tk.LEFT, padx=5)
+        self.global_tj_wp_entry = ttk.Entry(wp_frame, width=6)
+        self.global_tj_wp_entry.insert(0, "0")
+        self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
         ttk.Label(wp_frame, text=f"{len(self.pl.reference_path)-1}").pack(side=tk.LEFT, padx=5)
 
         ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT)
@@ -102,6 +106,7 @@ class PlotApp(tk.Tk):
 
 
         ## Control Frame
+        #-------------------------------------------------------
         self.control_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Control (Manual)")
         self.control_frame.pack(fill=tk.X, side=tk.LEFT)
         dt_frame = ttk.Frame(self.control_frame)
@@ -111,6 +116,7 @@ class PlotApp(tk.Tk):
         self.dt_entry.insert(2, "0.1")
         self.dt_entry.pack(side=tk.LEFT, padx=5)
         ttk.Button(dt_frame, text="Control Step", command=self.step_control).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(dt_frame, text="Re-align", command=self.align_control).pack(side=tk.LEFT) # Re-alignes with plan
         
         ttk.Button(self.control_frame, text="Steer Left", command=self.step_steer_left).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="Steer Right", command=self.step_steer_right).pack(side=tk.LEFT)
@@ -118,35 +124,34 @@ class PlotApp(tk.Tk):
         ttk.Button(self.control_frame, text="Deccelerate", command=self.step_dec).pack(side=tk.LEFT)
 
 
-        #-----------
         ## Execute Frame
-        self.simulate_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Execute (Auto)")
-        self.simulate_frame.pack(fill=tk.BOTH,expand=True, side=tk.LEFT, padx=10, pady=5)
+        #-------------------------------------------------------
+        self.execution_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Execute (Auto)")
+        self.execution_frame.pack(fill=tk.BOTH,expand=True, side=tk.LEFT, padx=10, pady=5)
 
-        sim_first_frame = ttk.Frame(self.simulate_frame)
-        sim_first_frame.pack(fill=tk.X)
-        sim_second_frame = ttk.Frame(self.simulate_frame)
-        sim_second_frame.pack(fill=tk.X)
+        exec_first_frame = ttk.Frame(self.execution_frame)
+        exec_first_frame.pack(fill=tk.X)
+        exec_second_frame = ttk.Frame(self.execution_frame)
+        exec_second_frame.pack(fill=tk.X)
 
-        ttk.Label(sim_first_frame, text="Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_sim_entry = ttk.Entry(sim_first_frame, width=5)
+        ttk.Label(exec_first_frame, text="Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        self.dt_sim_entry = ttk.Entry(exec_first_frame, width=5)
         self.dt_sim_entry.insert(0, "0.02")
         self.dt_sim_entry.pack(side=tk.LEFT)
         
-        ttk.Radiobutton(sim_first_frame, text="Simple", variable=self.sim_option, value="Simple", command=self.update_plot).pack(side=tk.RIGHT)
-        ttk.Radiobutton(sim_first_frame, text="ROS", variable=self.sim_option, value="ROS", command=self.update_plot).pack(side=tk.RIGHT)
-        ttk.Radiobutton(sim_first_frame, text="Carla", variable=self.sim_option, value="Carla", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Radiobutton(exec_first_frame, text="Simple", variable=self.exec_option, value="Simple", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Radiobutton(exec_first_frame, text="ROS", variable=self.exec_option, value="ROS", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Radiobutton(exec_first_frame, text="Carla", variable=self.exec_option, value="Carla", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Label(exec_first_frame, text="Interface:").pack(side=tk.RIGHT)
         
-        self.start_sim_button = ttk.Button(sim_second_frame, text="Start", command=self.start_sim)
+        self.start_sim_button = ttk.Button(exec_second_frame, text="Start", command=self.start_exec)
         self.start_sim_button.pack(fill=tk.X, side=tk.LEFT, expand=True)
-        ttk.Button(sim_second_frame, text="Stop", command=self.stop_sim).pack(side=tk.LEFT)
-        tk.Button(sim_second_frame, text="Step", command=self.step_sim).pack(side=tk.LEFT)
-        ttk.Button(sim_second_frame, text="Reset", command=self.reset_sim).pack(side=tk.LEFT)
-        
-        #-----------
+        ttk.Button(exec_second_frame, text="Stop", command=self.stop_sim).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Step", command=self.step_sim).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Reset", command=self.reset_sim).pack(side=tk.LEFT)
         
         #-----------------------------------------------------------------------------------------------
-        #-End of Plan Contorl Sim Frame ----------------------------------------------------------------
+        #-End of Plan Contorl Exec Frame ---------------------------------------------------------------
         #-----------------------------------------------------------------------------------------------
         
         # Log Frame
@@ -155,9 +160,14 @@ class PlotApp(tk.Tk):
 
         log_cb_frame = ttk.Frame(log_frame)
         log_cb_frame.pack(fill=tk.X)
-        ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log).pack(side=tk.LEFT)
-        ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log).pack(side=tk.LEFT)
-        ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log).pack(side=tk.LEFT)
+        tk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log).pack(side=tk.LEFT)
+        tk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log).pack(side=tk.LEFT)
+        tk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log).pack(side=tk.LEFT)
+        
+        ttk.Radiobutton(log_cb_frame, text="None", variable=self.debug_option, value="None", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Radiobutton(log_cb_frame, text="INFO", variable=self.debug_option, value="INFO", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Radiobutton(log_cb_frame, text="DEBUG", variable=self.debug_option, value="DEBUG", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Label(log_cb_frame, text="Log Level:").pack(side=tk.RIGHT)
                                                                                                                         
         log_area = ScrolledText(log_frame, state='disabled', height=8)
         log_area.pack(fill=tk.BOTH,expand=True)
@@ -189,14 +199,15 @@ class PlotApp(tk.Tk):
                     child.configure(state='disabled')
                 except tk.TclError as e:
                     pass
-        
-        # Configure logging
+        #------------------------------------------- 
+        #-Configure logging-------------------------
+        #------------------------------------------- 
         logger = logging.getLogger()
         text_handler = PlotApp.LogTextHandler(log_area)
         formatter = logging.Formatter('%(name)-30s (L: %(lineno)3d)[%(levelname)s]: %(message)s')
         text_handler.setFormatter(formatter)
         logger.addHandler(text_handler)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.INFO) 
         log.info("Log initialized.")            
 
     def _replot(self):
@@ -250,7 +261,7 @@ class PlotApp(tk.Tk):
     #--------------------------------------------------------------------------------------------
 
     def set_waypoint(self):
-        timestep_value = int(self.timestep_entry.get())
+        timestep_value = int(self.global_tj_wp_entry.get())
         self.pl.reset(wp=timestep_value)
         self._replot()
 
@@ -267,8 +278,8 @@ class PlotApp(tk.Tk):
         t1 = time.time()
         self.pl.step()
         log.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
-        self.timestep_entry.delete(0, tk.END)
-        self.timestep_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
+        self.global_tj_wp_entry.delete(0, tk.END)
+        self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
         self._replot()
 
     #--------------------------------------------------------------------------------------------
@@ -282,7 +293,11 @@ class PlotApp(tk.Tk):
         dt = float(self.dt_entry.get())
         self.sim.update_state(steering_angle=steer, dt=dt)
         self._replot()
-        
+    def align_control(self):
+        self.sim.state.x = self.pl.global_trajectory.reference_x[self.pl.global_trajectory.next_wp - 1]
+        self.sim.state.y = self.pl.global_trajectory.reference_y[self.pl.global_trajectory.next_wp - 1]
+
+        self._replot()  
 
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
@@ -309,17 +324,19 @@ class PlotApp(tk.Tk):
     #-SIM----------------------------------------------------------------------------------------
     #--------------------------------------------------------------------------------------------
 
-    def start_sim(self):
+    def start_exec(self):
         self.animation_running = True
         self.start_sim_button.config(state=tk.DISABLED)
-        self._sim_loop()
+        self._exec_loop()
 
-    def _sim_loop(self):
+    def _exec_loop(self):
         if self.animation_running:
             sec = float(self.dt_sim_entry.get())
             self.sim.run(dt=sec)
             self._replot()
-            self.after(int(sec*1000), self._sim_loop)
+            self.global_tj_wp_entry.delete(0, tk.END)
+            self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
+            self.after(int(sec*1000), self._exec_loop)
 
     def stop_sim(self):
         self.animation_running = False  
@@ -365,5 +382,6 @@ class PlotApp(tk.Tk):
             self.text_widget.configure(state='disabled')
             self.text_widget.yview(tk.END)
 
-# if __name__ == "__main__":
-    # main.main()
+if __name__ == "__main__":
+    import race_plan_control.main as main
+    main.run()

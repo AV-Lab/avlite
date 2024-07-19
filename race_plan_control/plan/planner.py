@@ -37,16 +37,11 @@ class Planner:
         self.selected_edge:Planner.EdgeManeuver = None
         
         
-        # TODO: not functional
-        self.x_vel = 0
-        self.y_vel = 0
-        self.mse = 0
 
     def reset(self,wp=0):
         self.xdata, self.ydata = [self.global_trajectory.reference_x[wp]], [self.global_trajectory.reference_y[wp]]
         self.past_s, self.past_d  = [self.global_trajectory.reference_s[wp]], [self.global_trajectory.reference_d[wp]]
         self.global_trajectory.reset(wp)
-        self.mse = 0
         self.lattice_graph = {} # intended to hold local plan lattice graph. A dictionary with source (s,d) as key
         self.selected_edge = None
 
@@ -112,17 +107,19 @@ class Planner:
 
     
     def step(self):
-        if  self.selected_edge is not None and not self.selected_edge.is_edge_done(): 
+        if  self.selected_edge is not None and not self.selected_edge.is_edge_traversed(): 
             self.selected_edge.next_idx()
             x_current, y_current = self.selected_edge.get_current_xy()
 
-        elif self.selected_edge is not None and self.selected_edge.is_edge_done() and self.selected_edge.is_next_edge_selected():
-            print("Edge Done, choosing next selected edge")
-            self.selected_edge = self.selected_edge.get_next_edge()
+        # nest edge selected, but finished
+        elif self.selected_edge is not None and self.selected_edge.is_edge_traversed() and self.selected_edge.is_next_edge_selected():
+            log.info("Edge Done, choosing next selected edge")
+            self.selected_edge = self.selected_edge.selected_next_edge
+            self.selected_edge.next_idx()
             x_current, y_current = self.selected_edge.get_current_xy()
 
-        elif self.selected_edge is not None and self.selected_edge.is_edge_done() and not self.selected_edge.is_next_edge_selected():
-            print("No next edge selected")
+        elif self.selected_edge is not None and self.selected_edge.is_edge_traversed() and not self.selected_edge.is_next_edge_selected():
+            log.info("No next edge selected")
             x_current = self.global_trajectory.reference_x[self.global_trajectory.next_wp]
             y_current = self.global_trajectory.reference_y[self.global_trajectory.next_wp]
         else:
@@ -134,6 +131,8 @@ class Planner:
         self.ydata.append(y_current)
         # TODO some error check might be needed
         self.global_trajectory.update_waypoint(x_current, y_current)
+        if self.selected_edge is not None:
+            self.selected_edge.local_trajectory.update_waypoint(x_current, y_current)
         
         #### Frenet Coordinates
         s_, d_= self.global_trajectory.convert_to_frenet([(x_current,y_current)])
@@ -154,6 +153,12 @@ class Planner:
         if self.selected_edge is not None:
             log.info(f"Selected Edge: ({self.selected_edge.start_s},{self.selected_edge.start_d}) -> ({self.selected_edge.end_s},{self.selected_edge.end_d})")
             self.selected_edge.local_trajectory.update_waypoint(state.x, state.y)
+
+            if self.selected_edge.is_edge_traversed() and self.selected_edge.is_next_edge_selected():
+                log.info("Edge Done, choosing next selected edge")
+                self.selected_edge = self.selected_edge.selected_next_edge
+                self.selected_edge.next_idx()
+
 
         
         #### Frenet Coordinates
@@ -180,14 +185,9 @@ class Planner:
         def generate_edge_trajectory(self,global_tj):
             # TODO to be optimized
             self.ts,self.td,self.tx,self.ty= global_tj.generate_local_edge_trajectory(self.start_s,self.end_s, self.start_d, self.end_d, num_points=self.num_of_points)
-            self.local_trajectory = u.Trajectory(list(zip(self.tx,self.ty)))
+            self.local_trajectory = u.Trajectory(list(zip(self.tx,self.ty)), name="Local Trajectory")
             # If tj is null then we should generate wit respect to global coordinate
             
-        def get_next_edge(self):
-            return self.selected_next_edge
-        def set_next_edge(self, edge):
-            self.selected_next_edge = edge
-        
         def is_next_edge_selected(self):
             return self.selected_next_edge is not None
 
@@ -200,14 +200,17 @@ class Planner:
             return self.tx[self.current_idx], self.ty[self.current_idx]
         
         def next_idx(self):
-            if self.current_idx < len(self.ts) - 1:
+            if self.current_idx <= len(self.ts) - 1:
                 self.current_idx += 1
             else:
                 raise Exception("End of edge")
 
             return self.current_idx
 
-        def is_edge_done(self):
+        def is_edge_traversed(self):
             return self.current_idx >= len(self.ts) - 1
 
     
+if __name__ == "__main__":
+    import race_plan_control.main as main
+    main.run()
