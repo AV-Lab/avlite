@@ -1,3 +1,4 @@
+import race_plan_control.main as main
 from race_plan_control.plan.planner import Planner
 from race_plan_control.execute.executer import Executer
 
@@ -65,10 +66,10 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
 
     #  print lattice graph
     for k,v in pl.lattice_graph.items():
-        ax2.plot(v.ts, v.td,"b--")
-        ax1.plot(v.tx, v.ty,"b--")
-        ax1.plot(v.tx[-1], v.ty[-1], 'bo')
-        ax2.plot(v.ts[-1],v.td[-1], 'bo')
+        ax2.plot(v.ts, v.td,"b--",alpha=0.6)
+        ax1.plot(v.tx, v.ty,"b--", alpha=0.6)
+        ax1.plot(v.tx[-1], v.ty[-1], 'bo', alpha=0.6)
+        ax2.plot(v.ts[-1],v.td[-1], 'bo', alpha=0.6)
         for v.next_edge in v.next_edges:
             ax2.plot(v.next_edge.ts, v.next_edge.td, 'b--', alpha=0.5)
             ax1.plot(v.next_edge.tx, v.next_edge.ty, 'b--', alpha=0.5)
@@ -77,13 +78,6 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
 
     # printing local graph
     if pl.selected_edge is not None:
-        v = pl.selected_edge
-        ax1.plot(v.tx, v.ty, 'r-', label="Selected Edge", alpha = 0.6, linewidth=6)
-        ax2.plot(v.ts, v.td, 'r-', label="Selected Edge", alpha = 0.6, linewidth=6)
-
-        if v.selected_next_edge is not None:
-            ax1.plot(v.selected_next_edge.tx, v.selected_next_edge.ty, 'r-', label='Next Edge', alpha = 0.3, linewidth=6)
-            ax2.plot(v.selected_next_edge.ts, v.selected_next_edge.td, 'r-', label='Next Edge', alpha = 0.3, linewidth=6)
 
 
         x,y = pl.selected_edge.local_trajectory.get_xy()
@@ -102,18 +96,15 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
         
         ax1.plot(x_n,y_n, 'bx', markersize=15, label='L WP: Next', fillstyle='none')  
         ax2.plot(s_n,d_n, 'bx', markersize=15, label='L WP: Next', fillstyle='none')  
-
-        # x_s,y_s = pl.selected_edge.tx[0], pl.selected_edge.ty[0]
-        # s_s,d_s = pl.selected_edge.ts[0], pl.selected_edge.td[0]
-
-        # x_e, y_e = pl.selected_edge.tx[-1], pl.selected_edge.ty[-1]
-        # s_e, d_e = pl.selected_edge.ts[-1], pl.selected_edge.td[-1]
         
-        # ax1.plot(x_s,y_s, 'b', markersize=15, label='L WP: Start', marker='>', fillstyle='none')  
-        # ax2.plot(s_s,d_s, 'b', markersize=15, label='L WP: Start', marker='>', fillstyle='none')  
-        
-        # ax1.plot(x_e,y_e, 'b', markersize=15, label='L WP: End', marker='>', fillstyle='none')  
-        # ax2.plot(s_e,d_e, 'b', markersize=15, label='L WP: End', marker='<', fillstyle='none')  
+        v = pl.selected_edge
+        ax1.plot(v.tx, v.ty, 'r-', label="Selected Edge", alpha = 0.6, linewidth=6)
+        ax2.plot(v.ts, v.td, 'r-', label="Selected Edge", alpha = 0.6, linewidth=6)
+
+        if v.selected_next_edge is not None:
+            ax1.plot(v.selected_next_edge.tx, v.selected_next_edge.ty, 'r-', label='Next Edge', alpha = 0.3, linewidth=6)
+            ax2.plot(v.selected_next_edge.ts, v.selected_next_edge.td, 'r-', label='Next Edge', alpha = 0.3, linewidth=6)
+
             
     if exec is not None:
         # Plot the car

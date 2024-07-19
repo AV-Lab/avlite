@@ -27,9 +27,9 @@ class Trajectory:
         self.reference_x = self.reference_path[:, 0]
         # [point[1] for point in reference_path]
         self.reference_y = self.reference_path[:, 1]
-        self.cumulative_distances = self._precompute_cumulative_distances()
-        self.reference_s, self.reference_d = self.convert_to_frenet(self.reference_path)
-        self.reference_sd_path = np.array(list(zip(self.reference_s, self.reference_d)))
+        self._cumulative_distances = self._precompute_cumulative_distances()
+        self.reference_s, self.reference_d = self._convert_to_frenet(self.reference_path)
+        self._reference_sd_path = np.array(list(zip(self.reference_s, self.reference_d)))
         self.next_wp = 1
         self.current_wp = 0
 
@@ -42,20 +42,21 @@ class Trajectory:
         else:
             raise ValueError("Invalid waypoint index")
     
-    def _precompute_cumulative_distances(self):
-        reference_path = np.array(self.reference_path)
-        cumulative_distances = [0]
-        for i in range(1, len(reference_path)):
-            cumulative_distances.append(
-                cumulative_distances[i-1] + np.linalg.norm(reference_path[i] - reference_path[i-1]))
-        return cumulative_distances
-
-    def update_waypoint(self, x_current, y_current):
+    def get_xy(self, wp:int=None):
+        if wp is None:
+            return self.reference_x[self.current_wp], self.reference_y[self.current_wp]
+        return self.reference_x[wp], self.reference_y[wp]
+    def get_sd(self, wp:int=None):
+        if wp is None:
+            return self.reference_s[self.current_wp], self.reference_d[self.current_wp]
+        return self.reference_s[wp], self.reference_d[wp]
+    
+    def update_waypoint_xy(self, x_current, y_current):
         # not efficient 
         diffs = self.reference_path - np.array((x_current, y_current))
         dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
         closest_wp = np.argmin(dists)
-        s_, d_ = self.convert_to_frenet([(x_current, y_current)])
+        s_, d_ = self._convert_to_frenet([(x_current, y_current)])
 
         if self.reference_s[closest_wp] <= s_[0]:
             if closest_wp < len(self.reference_path) - 1:
@@ -67,38 +68,13 @@ class Trajectory:
         elif self.reference_s[closest_wp] > s_[0] and closest_wp > 0:
             self.next_wp = closest_wp
             self.current_wp = closest_wp - 1
+    
+    def update_waypoint_wp(self, current_wp): 
+        self.current_wp = current_wp % len(self.reference_path) 
+        self.next_wp = current_wp + 1 % len(self.reference_path)
 
-        # if self.next_wp == 0:
-        #     self.current_wp = len(self.reference_path) - 1
-        # else:
-        #     self.current_wp = self.next_wp - 1
-        log.info(f"{self.name} Current WP: {self.current_wp}, Next WP: {self.next_wp}")
-
-    # TODO recursively update the waypoints
-    def quick_waypoint_update(self, x_current, y_current, search_window = 20):
-        diffs = self.reference_path[-search_window:-1,:] - np.array((x_current, y_current))
-        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
-        closest_wp = np.argmin(dists)
-        s_ = self.cumulative_distances[-search_window + closest_wp]  
-
-        if self.reference_s[closest_wp] <= s_ and closest_wp < len(self.reference_path) - 1:
-            self.current_wp = closest_wp
-            self.next_wp = closest_wp + 1 % len(self.reference_path)
-        elif self.reference_s[closest_wp] > s_ and closest_wp > 0:
-            self.next_wp = closest_wp
-            self.current_wp = closest_wp - 1
-
-        if self.next_wp == 0:
-            self.current_wp = len(self.reference_path) - 1
-        else:
-            self.current_wp = self.next_wp - 1
-
-    # TODO recusively update the waypoints
-    def get_current_frenet(self):
-        diff = self.reference_path[self.current_wp] - np.array((self.x_current, self.y_current))
-        dist = np.sqrt(diff[0]**2 + diff[1]**2)
-        total_dist = self.comulative_distances[self.current_wp] + dist
-        pass
+    def is_traversed(self):
+        return self.current_wp == len(self.reference_path) - 1
 
     def generate_local_edge_trajectory(self, s_start, s_end, d_start, d_end,  num_points=10):
         # Generate a list of s values from s_start to s_end
@@ -109,26 +85,34 @@ class Trajectory:
 
         # Calculate the d values for the trajectory
         d_values = poly(s_values)
-        tx, ty = zip(*[self.getXY(s, d) for s, d in zip(s_values, d_values)])
+        tx, ty = zip(*[self._getXY(s, d) for s, d in zip(s_values, d_values)])
 
         return s_values, d_values, tx, ty
 
+    def _precompute_cumulative_distances(self):
+        reference_path = np.array(self.reference_path)
+        cumulative_distances = [0]
+        for i in range(1, len(reference_path)):
+            cumulative_distances.append(
+                cumulative_distances[i-1] + np.linalg.norm(reference_path[i] - reference_path[i-1]))
+        return cumulative_distances
 
-    def convert_point_to_frenet(self, x, y):
-        s,d = self.convert_to_frenet([(x, y)])
+
+    def _convert_point_to_frenet(self, x, y):
+        s,d = self._convert_to_frenet([(x, y)])
         _s = s[0]
         _d = d[0]
 
         return _s,_d
 
-    def convert_to_frenet(self, points):
+    def _convert_to_frenet(self, points):
 
         reference_path = self.reference_path
         frenet_coords = []
-        cumulative_distances = self.cumulative_distances
+        cumulative_distances = self._cumulative_distances
         for point in points:
 
-            closest_wp = self._get_closest_waypoint(point[0], point[1]) 
+            closest_wp = self.__get_closest_waypoint(point[0], point[1]) 
 
             if closest_wp == 0:
                 next_wp = 1
@@ -162,22 +146,22 @@ class Trajectory:
         return zip(*frenet_coords)
 
     # TODO: this inefficient! need to look into a window only not the whole track
-    def _get_closest_waypoint(self, x, y):
+    def __get_closest_waypoint(self, x, y):
         diffs = self.reference_path - np.array((x, y))
         dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
         closest_wp = np.argmin(dists)
         return closest_wp
     
-    def _get_closest_sd_waypoint(self, s, d):
-        diffs = self.reference_sd_path - np.array((s, d))
+    def __get_closest_sd_waypoint(self, s, d):
+        diffs = self._reference_sd_path - np.array((s, d))
         dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
         closest_wp = np.argmin(dists)
         return closest_wp
 
     
     # s,d need to be current
-    def getXY(self, s, d):
-        closest_wp = self._get_closest_sd_waypoint(s, d)    
+    def _getXY(self, s, d):
+        closest_wp = self.__get_closest_sd_waypoint(s, d)    
 
         if closest_wp == 0:
             next_wp = 1
@@ -206,7 +190,7 @@ class Trajectory:
         # TODO: need to fix the issue when prev is the last point in the track and we come back to the biginning
         return x_final, y_final
 
-    def getXY_path(self, s_values, d_values):
+    def _getXY_path(self, s_values, d_values):
         # return [self.getXY(s, d) for s, d in zip(s_values, d_values)]
         x_values = []
         y_values = []
@@ -239,11 +223,8 @@ class Trajectory:
 
         return x_values, y_values
 
-    def get_xy(self, wp:int=None):
-        if wp is None:
-            return self.reference_x[self.current_wp], self.reference_y[self.current_wp]
-        return self.reference_x[wp], self.reference_y[wp]
-    def get_sd(self, wp:int=None):
-        if wp is None:
-            return self.reference_s[self.current_wp], self.reference_d[self.current_wp]
-        return self.reference_s[wp], self.reference_d[wp]
+
+
+if __name__ == "__main__":
+    import race_plan_control.main as main
+    main.run()

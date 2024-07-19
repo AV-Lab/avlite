@@ -6,6 +6,8 @@ from abc import ABC,abstractmethod
 import logging 
 import numpy as np
 import time 
+from math import cos, sin
+
 log = logging.getLogger(__name__)
 
 class Executer(ABC):
@@ -13,31 +15,42 @@ class Executer(ABC):
         self.state = state
         self.pl = pl
         self.cn = cn
-        self.prev_time = None
+        self._prev_exec_time = None
+        self.time_since_last_replan = 0
+        self.elasped_time = 0
     
 
-    def run(self, dt=0.01):
+    def run(self, control_dt=0.01, replan_dt=None):
+        if replan_dt is not None:
+            self.time_since_last_replan += control_dt
+            if self.time_since_last_replan > replan_dt:
+                self.time_since_last_replan = 0
+                self.pl.replan()
         # update planner location
-
-        self.pl.update_state(self.state)
+        self.pl.step(self.state)
 
         global_cte = self.pl.past_d[-1] # this one is with respect to global trajectory
         local_tj = self.pl.get_local_plan()
-        _,cte = local_tj.convert_point_to_frenet(self.state.x, self.state.y)
+        _,cte = local_tj._convert_point_to_frenet(self.state.x, self.state.y)
 
 
         t1 = time.time()
         steering_angle = self.cn.control(cte)
+        steering_angle = np.clip(steering_angle, -self.state.max_steering, self.state.max_steering)
         t2 = time.time()
         t3 = time.time()
-        self.update_state(dt=dt, steering_angle=steering_angle)
+        self.update_state(dt=control_dt, steering_angle=steering_angle)
         t4 = time.time()
         
-        if self.prev_time is not None:
-            log.info(f"Exec Step Time:{(time.time() - self.prev_time):.3f}  | Control Time: {(t2-t1):.4g},  Plan Update Time: {(t4-t3):.4g}")
+        
+        if self._prev_exec_time is not None:
+            log.info(f"Exec Step Time:{(time.time() - self._prev_exec_time):.3f}  | Control Time: {(t2-t1):.4g},  Plan Update Time: {(t4-t3):.4g}")
         else:
-            log.info(f"Control Time: {t2-t1},  Plan Update Time: {(t4-t3)}")
-        self.prev_time = time.time()
+            log.info(f"Control Time: {(t2-t1):.4g},  Plan Update Time: {(t4-t3):.4g}")
+        
+        
+        self._prev_exec_time = time.time()
+        self.elasped_time += self._prev_exec_time
     
     def reset(self):
         self.state.reset()
@@ -49,3 +62,7 @@ class Executer(ABC):
     def update_state(self, dt=0.01, acceleration=0, steering_angle=0): # perhaps move_base is a better name
         pass
 
+
+if __name__ == "__main__":
+    import race_plan_control.main as main
+    main.run()

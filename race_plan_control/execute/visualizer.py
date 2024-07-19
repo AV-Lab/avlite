@@ -3,9 +3,6 @@ from race_plan_control.control.controller import Controller
 import race_plan_control.execute.plot as plot
 from race_plan_control.execute.executer import Executer
 
-import sys
-sys.path.append("/home/mkhonji/workspaces/race_plan_control/race_plan_control")
-
 
 import tkinter as tk
 from tkinter import ttk
@@ -23,7 +20,7 @@ class PlotApp(tk.Tk):
         super().__init__()
         self.pl = pl
         self.cn = controller
-        self.sim = sim;
+        self.exec = sim;
         
         self.title("Path Planning Visualization")
         self.geometry("1200x1100")
@@ -69,14 +66,14 @@ class PlotApp(tk.Tk):
         global_frame = ttk.Frame(self.visualize_frame)
         global_frame.pack(fill=tk.X, padx=5)
 
-        ttk.Label(global_frame, text="Global Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Label(global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
         ttk.Button(global_frame, text="Zoom Out", command=self.zoom_out).pack(side=tk.LEFT)
         self.vehicle_state_label = ttk.Label(global_frame, text="")
         self.vehicle_state_label.pack(side=tk.RIGHT)
         frenet_frame = ttk.Frame(self.visualize_frame)
         frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(frenet_frame, text="Frenet Coordinate:").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Label(frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
         ttk.Button(frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
         
@@ -134,10 +131,15 @@ class PlotApp(tk.Tk):
         exec_second_frame = ttk.Frame(self.execution_frame)
         exec_second_frame.pack(fill=tk.X)
 
-        ttk.Label(exec_first_frame, text="Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_sim_entry = ttk.Entry(exec_first_frame, width=5)
-        self.dt_sim_entry.insert(0, "0.02")
-        self.dt_sim_entry.pack(side=tk.LEFT)
+        ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, width=5)
+        self.dt_exec_cn_entry.insert(0, "0.02")
+        self.dt_exec_cn_entry.pack(side=tk.LEFT)
+        
+        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, width=5)
+        self.dt_exec_pl_entry.insert(0, ".7")
+        self.dt_exec_pl_entry.pack(side=tk.LEFT)
         
         ttk.Radiobutton(exec_first_frame, text="Simple", variable=self.exec_option, value="Simple", command=self.update_plot).pack(side=tk.RIGHT)
         ttk.Radiobutton(exec_first_frame, text="ROS", variable=self.exec_option, value="ROS", command=self.update_plot).pack(side=tk.RIGHT)
@@ -204,7 +206,7 @@ class PlotApp(tk.Tk):
         #------------------------------------------- 
         logger = logging.getLogger()
         text_handler = PlotApp.LogTextHandler(log_area)
-        formatter = logging.Formatter('%(name)-30s (L: %(lineno)3d)[%(levelname)s]: %(message)s')
+        formatter = logging.Formatter('[%(levelname).4s] %(name)-40s (L: %(lineno)3d): %(message)s')
         text_handler.setFormatter(formatter)
         logger.addHandler(text_handler)
         logger.setLevel(logging.INFO) 
@@ -216,9 +218,9 @@ class PlotApp(tk.Tk):
         height = canvas_widget.winfo_height()
         aspect_ratio = width/height
 
-        plot.plot(self.pl,self.sim, aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
+        plot.plot(self.pl,self.exec, aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
         self.canvas.draw()
-        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.sim.state.x:.2f}, Y: {self.sim.state.y:.2f}, Speed: {self.sim.state.speed:.2f}, Theta: {self.sim.state.theta:.2f}")
+        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.exec.state.x:.2f}, Y: {self.exec.state.y:.2f}, Speed: {self.exec.state.speed:.2f}, Theta: {self.exec.state.theta:.2f}")
 
 
 
@@ -276,7 +278,7 @@ class PlotApp(tk.Tk):
     def step_plan(self):
         # Placeholder for the method to step to the next waypoint
         t1 = time.time()
-        self.pl.step()
+        self.pl.step_wp()
         log.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.global_tj_wp_entry.delete(0, tk.END)
         self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
@@ -291,32 +293,32 @@ class PlotApp(tk.Tk):
         steer = self.cn.control(d)
         
         dt = float(self.dt_entry.get())
-        self.sim.update_state(steering_angle=steer, dt=dt)
+        self.exec.update_state(steering_angle=steer, dt=dt)
         self._replot()
     def align_control(self):
-        self.sim.state.x = self.pl.global_trajectory.reference_x[self.pl.global_trajectory.next_wp - 1]
-        self.sim.state.y = self.pl.global_trajectory.reference_y[self.pl.global_trajectory.next_wp - 1]
+        self.exec.state.x = self.pl.global_trajectory.reference_x[self.pl.global_trajectory.next_wp - 1]
+        self.exec.state.y = self.pl.global_trajectory.reference_y[self.pl.global_trajectory.next_wp - 1]
 
         self._replot()  
 
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
-        self.sim.update_state(dt = dt, steering_angle = 0.1)
+        self.exec.update_state(dt = dt, steering_angle = 0.1)
         self._replot()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
-        self.sim.update_state(dt = dt, steering_angle = -0.1)
+        self.exec.update_state(dt = dt, steering_angle = -0.1)
         self._replot()
         
     def step_acc(self):
         dt = float(self.dt_entry.get())
-        self.sim.update_state(dt = dt, acceleration = 1)
+        self.exec.update_state(dt = dt, acceleration = 1)
         self._replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
-        self.sim.update_state(dt = dt, acceleration = -1)
+        self.exec.update_state(dt = dt, acceleration = -1)
         self._replot()
     
     
@@ -331,24 +333,26 @@ class PlotApp(tk.Tk):
 
     def _exec_loop(self):
         if self.animation_running:
-            sec = float(self.dt_sim_entry.get())
-            self.sim.run(dt=sec)
+            cn_dt = float(self.dt_exec_cn_entry.get())
+            pl_dt = float(self.dt_exec_pl_entry.get())
+
+            self.exec.run(control_dt=cn_dt, replan_dt=pl_dt)
             self._replot()
             self.global_tj_wp_entry.delete(0, tk.END)
             self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
-            self.after(int(sec*1000), self._exec_loop)
+            self.after(int(cn_dt*1000), self._exec_loop)
 
     def stop_sim(self):
         self.animation_running = False  
         self.start_sim_button.config(state=tk.NORMAL)
     
     def step_sim(self):
-        sec = float(self.dt_sim_entry.get())
-        self.sim.run(dt=sec)
+        sec = float(self.dt_exec_cn_entry.get())
+        self.exec.run(dt=sec)
         self._replot()
 
     def reset_sim(self):
-        self.sim.reset()
+        self.exec.reset()
         self._replot()
 
     def update_log(self):
