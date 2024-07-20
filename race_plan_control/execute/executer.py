@@ -59,7 +59,7 @@ class Executer(ABC):
 
         
     @abstractmethod
-    def update_state(self, dt=0.01, acceleration=0, steering_angle=0): # perhaps move_base is a better name
+    def update_state(self, dt=0.01, acceleration=0.0, steering_angle=0.0): # perhaps move_base is a better name
         pass
 
 

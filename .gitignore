@@ -4,3 +4,6 @@ log/
 .vscode/
 logs/
 __pycache__/
+venv
+.ipynb_checkpoints/
+.env
