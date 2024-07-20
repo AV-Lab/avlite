@@ -7,7 +7,6 @@ from race_plan_control.execute.executer import Executer
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
 import time
 import logging
 from tkinter.scrolledtext import ScrolledText
@@ -16,11 +15,11 @@ log = logging.getLogger(__name__)
 log_blacklist = set() # used to filter 'excute', 'plan', 'control' subpackage logs
 
 class PlotApp(tk.Tk):
-    def __init__(self, pl:Planner, controller:Controller, sim:Executer,  only_visualize=False):
+    def __init__(self, pl:Planner, controller:Controller, exec:Executer,  only_visualize=False):
         super().__init__()
         self.pl = pl
         self.cn = controller
-        self.exec = sim;
+        self.exec = exec;
         
         self.title("Path Planning Visualization")
         self.geometry("1200x1100")
@@ -162,9 +161,13 @@ class PlotApp(tk.Tk):
 
         log_cb_frame = ttk.Frame(log_frame)
         log_cb_frame.pack(fill=tk.X)
-        tk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log).pack(side=tk.LEFT)
-        tk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log).pack(side=tk.LEFT)
-        tk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log).pack(side=tk.LEFT)
+        pl_logs = ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log)
+        pl_logs.pack(side=tk.LEFT)
+        pl_logs.var = self.show_plan_logs
+        self.show_plan_logs.set(False)
+
+        ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log).pack(side=tk.LEFT)
+        ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log).pack(side=tk.LEFT)
         
         ttk.Radiobutton(log_cb_frame, text="None", variable=self.debug_option, value="None", command=self.update_plot).pack(side=tk.RIGHT)
         ttk.Radiobutton(log_cb_frame, text="INFO", variable=self.debug_option, value="INFO", command=self.update_plot).pack(side=tk.RIGHT)
@@ -356,7 +359,7 @@ class PlotApp(tk.Tk):
         self._replot()
 
     def update_log(self):
-        # print(self.show_control_logs.get()) 
+        print(self.show_plan_logs.get()) 
         if self.show_plan_logs.get():
             log_blacklist.discard('plan')
         else:
