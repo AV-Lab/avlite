@@ -350,8 +350,9 @@ class PlotApp(tk.Tk):
         self.start_sim_button.config(state=tk.NORMAL)
     
     def step_sim(self):
-        sec = float(self.dt_exec_cn_entry.get())
-        self.exec.run(dt=sec)
+        cn_dt = float(self.dt_exec_cn_entry.get())
+        pl_dt = float(self.dt_exec_pl_entry.get())
+        self.exec.run(control_dt=cn_dt, replan_dt=pl_dt)
         self._replot()
 
     def reset_sim(self):
@@ -359,15 +360,16 @@ class PlotApp(tk.Tk):
         self._replot()
 
     def update_log(self):
-        print(self.show_plan_logs.get()) 
         if self.show_plan_logs.get():
             log_blacklist.discard('plan')
         else:
             log_blacklist.add('plan')
+
         if self.show_control_logs.get():
             log_blacklist.discard('control')
         else:   
             log_blacklist.add('control')
+
         if self.show_execute_logs.get():
             log_blacklist.discard('execute')
         else:
