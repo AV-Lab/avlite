@@ -44,9 +44,9 @@ class Executer(ABC):
         
         
         if self._prev_exec_time is not None:
-            log.info(f"Exec Step Time:{(time.time() - self._prev_exec_time):.3f}  | Control Time: {(t2-t1):.4g},  Plan Update Time: {(t4-t3):.4g}")
+            log.info(f"Exec Step Time:{(time.time() - self._prev_exec_time):.3f}  | Control Time: {(t2-t1):.4f},  Plan Update Time: {(t4-t3):.4f}")
         else:
-            log.info(f"Control Time: {(t2-t1):.4g},  Plan Update Time: {(t4-t3):.4g}")
+            log.info(f"Control Time: {(t2-t1):.4f},  Plan Update Time: {(t4-t3):.4f}")
         
         
         self._prev_exec_time = time.time()
