@@ -22,7 +22,11 @@ class RNDPlanner(Planner):
         d = self.past_d[-1]
         
         # delete old edges that already passed its starting point
-        self.lattice_graph = {k: v for k, v in self.lattice_graph.items() if s < v.start_s }
+        self.lattice_graph = {} 
+
+        # TODO
+        # 1. Sample points from Frenet space
+        # 2. Generate edges from the sampled points in the Eucledian space
 
         ### Group 1
         # add edge on the reference trajectory
@@ -61,6 +65,7 @@ class RNDPlanner(Planner):
         ### Plan
         # Select a random edge from the lattice graph
         self.selected_edge = np.random.choice(list(self.lattice_graph.values()))
+        self.selected_edge.is_selected = True
         self.selected_edge.selected_next_edge =  np.random.choice(self.selected_edge.next_edges) if len(self.selected_edge.next_edges) > 0 else None
 
 if __name__ == "__main__":

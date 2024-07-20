@@ -53,6 +53,7 @@ class Planner:
 
     
     def step_wp(self):
+        log.info(f"Step: {self.global_trajectory.current_wp}")
         if  self.selected_edge is not None and not self.selected_edge.local_trajectory.is_traversed(): 
             self.selected_edge.move_next_wp()
             x_current, y_current = self.selected_edge.get_current_xy()
@@ -68,6 +69,7 @@ class Planner:
             log.info("No next edge selected")
             x_current = self.global_trajectory.reference_x[self.global_trajectory.next_wp]
             y_current = self.global_trajectory.reference_y[self.global_trajectory.next_wp]
+            self.selected_edge = None
         else:
             log.warning("No edge selected, back to closest next reference point")
             x_current = self.global_trajectory.reference_x[self.global_trajectory.next_wp]
@@ -125,16 +127,19 @@ class Planner:
             self.end_d = end_sd[1]
             self.ts, self.td, self.tx, self.ty = None, None, None, None
             self.local_trajectory:u.Trajectory = None # same as a bove but
-            self.num_of_points = num_of_points
 
             self.current_idx = 0
             self.selected_next_edge = None
             self.next_edges = []
 
+            self.is_selected = False
+            
+            self._num_of_points = num_of_points
+
         # tj is the race trajectory
         def generate_edge_trajectory(self,global_tj):
             # TODO to be optimized
-            self.ts,self.td,self.tx,self.ty= global_tj.generate_local_edge_trajectory(self.start_s,self.end_s, self.start_d, self.end_d, num_points=self.num_of_points)
+            self.ts,self.td,self.tx,self.ty= global_tj.generate_local_edge_trajectory(self.start_s,self.end_s, self.start_d, self.end_d, num_points=self._num_of_points)
             self.local_trajectory = u.Trajectory(list(zip(self.tx,self.ty)), name="Local Trajectory")
             # If tj is null then we should generate wit respect to global coordinate
             

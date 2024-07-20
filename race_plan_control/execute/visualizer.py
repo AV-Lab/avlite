@@ -10,6 +10,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
 import logging
 from tkinter.scrolledtext import ScrolledText
+import sys
 
 log = logging.getLogger(__name__)
 log_blacklist = set() # used to filter 'excute', 'plan', 'control' subpackage logs
@@ -29,12 +30,12 @@ class PlotApp(tk.Tk):
         # Variables for checkboxes ------------------------------------------------------------------
         #--------------------------------------------------------------------------------------------
         self.show_past_locations = tk.BooleanVar(value=True)
-        self.show_last_100_locations = tk.BooleanVar(value=True)
-        self.show_boundaries = tk.BooleanVar(value=True)
+
         self.animation_running = False
 
         self.exec_option = tk.StringVar(value="Simple") 
         self.debug_option = tk.StringVar(value="INFO")  
+
         
         self.show_plan_logs = tk.BooleanVar(value=True)
         self.show_control_logs = tk.BooleanVar(value=True)
@@ -161,21 +162,33 @@ class PlotApp(tk.Tk):
 
         log_cb_frame = ttk.Frame(log_frame)
         log_cb_frame.pack(fill=tk.X)
-        pl_logs = ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log)
-        pl_logs.pack(side=tk.LEFT)
-        pl_logs.var = self.show_plan_logs
-        self.show_plan_logs.set(False)
 
-        ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log).pack(side=tk.LEFT)
-        ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log).pack(side=tk.LEFT)
+        self.ck_plan = ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log)
+        self.ck_plan.pack(side=tk.LEFT)
+        self.ck_plan.state(['!alternate'])
+        self.ck_plan.state(['selected'])
+        self.ck_control = ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log)
+        self.ck_control.pack(side=tk.LEFT)
+        self.ck_control.state(['!alternate'])
+        self.ck_control.state(['selected'])
+        self.ck_exec = ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log)
+        self.ck_exec.pack(side=tk.LEFT)
+        self.ck_exec.state(['!alternate'])
+        self.ck_exec.state(['selected'])
         
-        ttk.Radiobutton(log_cb_frame, text="None", variable=self.debug_option, value="None", command=self.update_plot).pack(side=tk.RIGHT)
-        ttk.Radiobutton(log_cb_frame, text="INFO", variable=self.debug_option, value="INFO", command=self.update_plot).pack(side=tk.RIGHT)
-        ttk.Radiobutton(log_cb_frame, text="DEBUG", variable=self.debug_option, value="DEBUG", command=self.update_plot).pack(side=tk.RIGHT)
+        self.rb_db_stdout = ttk.Radiobutton(log_cb_frame, text="STDOUT", variable=self.debug_option, value="STDOUT", command=self.update_log)
+        self.rb_db_stdout.pack(side=tk.RIGHT)  
+        self.rb_db_warn = ttk.Radiobutton(log_cb_frame, text="WARN", variable=self.debug_option, value="WARN", command=self.update_log)
+        self.rb_db_warn.pack(side=tk.RIGHT)  
+        self.rb_db_info = ttk.Radiobutton(log_cb_frame, text="INFO", variable=self.debug_option, value="INFO", command=self.update_log)
+        self.rb_db_info.pack(side=tk.RIGHT)
+        self.rb_db_debug = ttk.Radiobutton(log_cb_frame, text="DEBUG", variable=self.debug_option, value="DEBUG", command=self.update_log)
+        self.rb_db_debug.pack(side=tk.RIGHT)
+
         ttk.Label(log_cb_frame, text="Log Level:").pack(side=tk.RIGHT)
                                                                                                                         
-        log_area = ScrolledText(log_frame, state='disabled', height=8)
-        log_area.pack(fill=tk.BOTH,expand=True)
+        self.log_area = ScrolledText(log_frame, state='disabled', height=8)
+        self.log_area.pack(fill=tk.BOTH,expand=True)
 
 
         #-----------------------------------------------------------------------------------------------
@@ -208,7 +221,7 @@ class PlotApp(tk.Tk):
         #-Configure logging-------------------------
         #------------------------------------------- 
         logger = logging.getLogger()
-        text_handler = PlotApp.LogTextHandler(log_area)
+        text_handler = PlotApp.LogTextHandler(self.log_area)
         formatter = logging.Formatter('[%(levelname).4s] %(name)-40s (L: %(lineno)3d): %(message)s')
         text_handler.setFormatter(formatter)
         logger.addHandler(text_handler)
@@ -360,22 +373,26 @@ class PlotApp(tk.Tk):
         self._replot()
 
     def update_log(self):
-        if self.show_plan_logs.get():
-            log_blacklist.discard('plan')
+        log_blacklist.discard('plan') if 'selected' in self.ck_plan.state() else log_blacklist.add('plan')
+        log_blacklist.discard('control') if 'selected' in self.ck_control.state() else log_blacklist.add('control')
+        log_blacklist.discard('execute') if 'selected' in self.ck_exec.state() else log_blacklist.add('execute')
+
+        if self.rb_db_debug.instate(['selected']):
+            logging.getLogger().setLevel(logging.DEBUG)
+            log.debug("Log setting updated to DEBUG.")
+        elif self.rb_db_info.instate(['selected']):
+            logging.getLogger().setLevel(logging.INFO)
+            log.info("Log setting updated to INFO.")
+        elif self.rb_db_warn.instate(['selected']):
+            logging.getLogger().setLevel(logging.WARNING)
+            log.warn("Log setting updated to WARNING.")
+        
+        if self.rb_db_stdout.instate(['selected']):
+            logging.getLogger().setLevel(logging.CRITICAL)
+            sys.stdout = PlotApp.TextRedirector(self.log_area)
         else:
-            log_blacklist.add('plan')
-
-        if self.show_control_logs.get():
-            log_blacklist.discard('control')
-        else:   
-            log_blacklist.add('control')
-
-        if self.show_execute_logs.get():
-            log_blacklist.discard('execute')
-        else:
-            log_blacklist.add('execute')
-
-
+            sys.stdout = sys.__stdout__
+        print("Log setting updated: routing CRITICAL and stdout.")
     class LogTextHandler(logging.Handler):
         def __init__(self, text_widget):
             super().__init__()
@@ -383,7 +400,7 @@ class PlotApp(tk.Tk):
 
         def emit(self, record):
             for bl in log_blacklist:
-                if bl+"." in record.name:
+                if "."+bl+"." in record.name:
                     return
             msg = self.format(record)
             self.text_widget.configure(state='normal')
@@ -391,6 +408,20 @@ class PlotApp(tk.Tk):
             self.text_widget.configure(state='disabled')
             self.text_widget.yview(tk.END)
 
+    class TextRedirector(object):
+        def __init__(self, widget):
+            self.widget = widget
+
+        def write(self, str):
+            self.widget.configure(state='normal')
+            self.widget.insert(tk.END, str)
+            self.widget.configure(state='disabled')
+            self.widget.see(tk.END)
+
+        def flush(self):
+            pass
+
 if __name__ == "__main__":
     import race_plan_control.main as main
     main.run()
+    
