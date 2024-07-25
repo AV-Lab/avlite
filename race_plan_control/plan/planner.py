@@ -47,7 +47,7 @@ class Planner:
 
     def get_local_plan(self):
         if self.selected_edge is not None:
-            log.info(f"Selected Edge: ({self.selected_edge.start_s:.2f},{self.selected_edge.start_d:.2f}) -> ({self.selected_edge.end_s:.2f},{self.selected_edge.end_d:.2f})")
+            # log.info(f"Selected Edge: ({self.selected_edge.start_s:.2f},{self.selected_edge.start_d:.2f}) -> ({self.selected_edge.end_s:.2f},{self.selected_edge.end_d:.2f})")
             return self.selected_edge.local_trajectory
         return self.global_trajectory
 

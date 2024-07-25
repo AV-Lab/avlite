@@ -17,7 +17,9 @@ class Executer(ABC):
         self.cn = cn
         self._prev_exec_time = None
         self.time_since_last_replan = 0
-        self.elasped_time = 0
+        self.elapsed_real_time = 0
+        self.elapsed_sim_time = 0
+
     
 
     def run(self, control_dt=0.01, replan_dt=None):
@@ -50,7 +52,7 @@ class Executer(ABC):
         
         
         self._prev_exec_time = time.time()
-        self.elasped_time += self._prev_exec_time
+        self.elapsed_real_time += self._prev_exec_time
     
     def reset(self):
         self.state.reset()
