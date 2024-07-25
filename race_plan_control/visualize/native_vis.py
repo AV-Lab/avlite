@@ -1,6 +1,6 @@
 from race_plan_control.plan.planner import Planner
 from race_plan_control.control.controller import Controller
-import race_plan_control.execute.plot as plot
+import race_plan_control.visualize.plot as plot
 from race_plan_control.execute.executer import Executer
 
 
@@ -15,7 +15,7 @@ import sys
 log = logging.getLogger(__name__)
 log_blacklist = set() # used to filter 'excute', 'plan', 'control' subpackage logs
 
-class PlotApp(tk.Tk):
+class VisualizerApp(tk.Tk):
     def __init__(self, pl:Planner, controller:Controller, exec:Executer,  only_visualize=False):
         super().__init__()
         self.pl = pl
@@ -29,7 +29,12 @@ class PlotApp(tk.Tk):
         #--------------------------------------------------------------------------------------------
         # Variables for checkboxes ------------------------------------------------------------------
         #--------------------------------------------------------------------------------------------
+        self.show_legend = tk.BooleanVar(value=True)
         self.show_past_locations = tk.BooleanVar(value=True)
+        self.show_global_plan = tk.BooleanVar(value=True)
+        self.show_local_plan = tk.BooleanVar(value=True)
+        self.show_local_lattice = tk.BooleanVar(value=True)
+        self.show_state = tk.BooleanVar(value=True)
 
         self.animation_running = False
 
@@ -40,6 +45,7 @@ class PlotApp(tk.Tk):
         self.show_plan_logs = tk.BooleanVar(value=True)
         self.show_control_logs = tk.BooleanVar(value=True)
         self.show_execute_logs = tk.BooleanVar(value=True)
+        self.show_vis_logs = tk.BooleanVar(value=True)
 
 
         #--------------------------------------------------------------------------------------------
@@ -56,8 +62,13 @@ class PlotApp(tk.Tk):
 
         ## UI Elements for Visualize - Checkboxes
         checkboxes_frame = ttk.Frame(self.visualize_frame)
-        checkboxes_frame.pack(fill=tk.X, padx=5)
-        ttk.Checkbutton(checkboxes_frame, text="Show Past Locations", variable=self.show_past_locations, command=self.update_plot).pack(anchor=tk.W, side=tk.LEFT)
+        checkboxes_frame.pack(fill=tk.X)
+        ttk.Checkbutton(checkboxes_frame, text="Show Legend", variable=self.show_legend, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Show Locations", variable=self.show_past_locations, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Show Global Plan",  variable=self.show_global_plan, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Show Local Plan", variable=self.show_local_plan, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Show Local Lattice", variable=self.show_local_lattice, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Show State", variable=self.show_state, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
 
         self.coordinates_label = ttk.Label(checkboxes_frame, text="")
         self.coordinates_label.pack(side=tk.RIGHT)
@@ -141,9 +152,9 @@ class PlotApp(tk.Tk):
         self.dt_exec_pl_entry.insert(0, ".7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
         
-        ttk.Radiobutton(exec_first_frame, text="Simple", variable=self.exec_option, value="Simple", command=self.update_plot).pack(side=tk.RIGHT)
-        ttk.Radiobutton(exec_first_frame, text="ROS", variable=self.exec_option, value="ROS", command=self.update_plot).pack(side=tk.RIGHT)
-        ttk.Radiobutton(exec_first_frame, text="Carla", variable=self.exec_option, value="Carla", command=self.update_plot).pack(side=tk.RIGHT)
+        ttk.Radiobutton(exec_first_frame, text="Simple", variable=self.exec_option, value="Simple").pack(side=tk.RIGHT)
+        ttk.Radiobutton(exec_first_frame, text="ROS", variable=self.exec_option, value="ROS").pack(side=tk.RIGHT)
+        ttk.Radiobutton(exec_first_frame, text="Carla", variable=self.exec_option, value="Carla").pack(side=tk.RIGHT)
         ttk.Label(exec_first_frame, text="Interface:").pack(side=tk.RIGHT)
         
         self.start_sim_button = ttk.Button(exec_second_frame, text="Start", command=self.start_exec)
@@ -163,26 +174,31 @@ class PlotApp(tk.Tk):
         log_cb_frame = ttk.Frame(log_frame)
         log_cb_frame.pack(fill=tk.X)
 
-        self.ck_plan = ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log)
+        self.ck_plan = ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log_filter)
         self.ck_plan.pack(side=tk.LEFT)
         self.ck_plan.state(['!alternate'])
         self.ck_plan.state(['selected'])
-        self.ck_control = ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log)
+        self.ck_control = ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log_filter)
         self.ck_control.pack(side=tk.LEFT)
         self.ck_control.state(['!alternate'])
         self.ck_control.state(['selected'])
-        self.ck_exec = ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log)
+        self.ck_exec = ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log_filter)
         self.ck_exec.pack(side=tk.LEFT)
         self.ck_exec.state(['!alternate'])
         self.ck_exec.state(['selected'])
         
-        self.rb_db_stdout = ttk.Radiobutton(log_cb_frame, text="STDOUT", variable=self.debug_option, value="STDOUT", command=self.update_log)
+        self.ck_vis = ttk.Checkbutton(log_cb_frame, text="Visualize Logs", variable=self.show_vis_logs, command=self.update_log_filter)
+        self.ck_vis.pack(side=tk.LEFT)
+        self.ck_vis.state(['!alternate'])
+        self.ck_vis.state(['selected'])
+        
+        self.rb_db_stdout = ttk.Radiobutton(log_cb_frame, text="STDOUT", variable=self.debug_option, value="STDOUT", command=self.update_log_level)
         self.rb_db_stdout.pack(side=tk.RIGHT)  
-        self.rb_db_warn = ttk.Radiobutton(log_cb_frame, text="WARN", variable=self.debug_option, value="WARN", command=self.update_log)
+        self.rb_db_warn = ttk.Radiobutton(log_cb_frame, text="WARN", variable=self.debug_option, value="WARN", command=self.update_log_level)
         self.rb_db_warn.pack(side=tk.RIGHT)  
-        self.rb_db_info = ttk.Radiobutton(log_cb_frame, text="INFO", variable=self.debug_option, value="INFO", command=self.update_log)
+        self.rb_db_info = ttk.Radiobutton(log_cb_frame, text="INFO", variable=self.debug_option, value="INFO", command=self.update_log_level)
         self.rb_db_info.pack(side=tk.RIGHT)
-        self.rb_db_debug = ttk.Radiobutton(log_cb_frame, text="DEBUG", variable=self.debug_option, value="DEBUG", command=self.update_log)
+        self.rb_db_debug = ttk.Radiobutton(log_cb_frame, text="DEBUG", variable=self.debug_option, value="DEBUG", command=self.update_log_level)
         self.rb_db_debug.pack(side=tk.RIGHT)
 
         ttk.Label(log_cb_frame, text="Log Level:").pack(side=tk.RIGHT)
@@ -200,15 +216,33 @@ class PlotApp(tk.Tk):
         self.fig = plot.fig
         self.ax1 = plot.ax1
         self.ax2 = plot.ax2
-        
+
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
-        self.after(500, self._replot)
+        self.after(300, self._replot)
 
 
+        #------------------------------------------- 
+        #-Configure logging-------------------------
+        #------------------------------------------- 
+        logger = logging.getLogger()
+        text_handler = VisualizerApp.LogTextHandler(self.log_area)
+        formatter = logging.Formatter('[%(levelname).4s] %(name)-40s (L: %(lineno)3d): %(message)s')
+        text_handler.setFormatter(formatter)
+        # remove other handlers to avoid duplicate logs
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        logger.addHandler(text_handler)
+        logger.setLevel(logging.INFO) 
+        log.info("Log initialized.")            
+        
+        
+        #------------------------------------------- 
+        #-Only Visualize Mode ----------------------
+        #------------------------------------------- 
         # Disable all the buttons if only_visualize is set to True        
         if only_visualize:
             for child in self.plan_sim_control_frame.winfo_children():
@@ -217,16 +251,6 @@ class PlotApp(tk.Tk):
                     child.configure(state='disabled')
                 except tk.TclError as e:
                     pass
-        #------------------------------------------- 
-        #-Configure logging-------------------------
-        #------------------------------------------- 
-        logger = logging.getLogger()
-        text_handler = PlotApp.LogTextHandler(self.log_area)
-        formatter = logging.Formatter('[%(levelname).4s] %(name)-40s (L: %(lineno)3d): %(message)s')
-        text_handler.setFormatter(formatter)
-        logger.addHandler(text_handler)
-        logger.setLevel(logging.INFO) 
-        log.info("Log initialized.")            
 
     def _replot(self):
         canvas_widget = self.canvas.get_tk_widget()
@@ -234,8 +258,13 @@ class PlotApp(tk.Tk):
         height = canvas_widget.winfo_height()
         aspect_ratio = width/height
 
-        plot.plot(self.pl,self.exec, aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom)
+        t1 = time.time()
+        # self.canvas.restore_region(self.plt_background)
+        plot.plot(self.pl,self.exec, aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom, show_legend=self.show_legend.get(),
+                  plot_last_pts=self.show_past_locations.get(), plot_global_plan=self.show_global_plan.get(), 
+                  plot_local_plan=self.show_local_plan.get(), plot_local_lattice = self.show_local_lattice.get(), plot_state=self.show_state.get())
         self.canvas.draw()
+        log.info(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.exec.state.x:.2f}, Y: {self.exec.state.y:.2f}, Speed: {self.exec.state.speed:.2f}, Theta: {self.exec.state.theta:.2f}")
 
 
@@ -252,10 +281,6 @@ class PlotApp(tk.Tk):
             # Optionally, clear the coordinates display when the mouse is not over the axes
             self.coordinates_label.config(text="")
 
-
-    def update_plot(self):
-        # Placeholder for the method to update the plot based on the checkboxes
-        pass
 
 
     def zoom_in(self):
@@ -287,7 +312,7 @@ class PlotApp(tk.Tk):
         t1 = time.time()
         self.pl.replan()
         t2 = time.time()
-        log.info(f"Plan Time: {(t2-t1)*1000:.2f} ms")
+        log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
         self._replot()
 
 
@@ -372,11 +397,14 @@ class PlotApp(tk.Tk):
         self.exec.reset()
         self._replot()
 
-    def update_log(self):
+    def update_log_filter(self):
+        # based on blacklist, LogTextHandler will filter out the logs
         log_blacklist.discard('plan') if 'selected' in self.ck_plan.state() else log_blacklist.add('plan')
         log_blacklist.discard('control') if 'selected' in self.ck_control.state() else log_blacklist.add('control')
         log_blacklist.discard('execute') if 'selected' in self.ck_exec.state() else log_blacklist.add('execute')
+        log_blacklist.discard('visualize') if 'selected' in self.ck_vis.state() else log_blacklist.add('visualize')
 
+    def update_log_level(self):
         if self.rb_db_debug.instate(['selected']):
             logging.getLogger().setLevel(logging.DEBUG)
             log.debug("Log setting updated to DEBUG.")
@@ -389,10 +417,11 @@ class PlotApp(tk.Tk):
         
         if self.rb_db_stdout.instate(['selected']):
             logging.getLogger().setLevel(logging.CRITICAL)
-            sys.stdout = PlotApp.TextRedirector(self.log_area)
+            sys.stdout = VisualizerApp.TextRedirector(self.log_area)
         else:
             sys.stdout = sys.__stdout__
         print("Log setting updated: routing CRITICAL and stdout.")
+
     class LogTextHandler(logging.Handler):
         def __init__(self, text_widget):
             super().__init__()
@@ -422,6 +451,8 @@ class PlotApp(tk.Tk):
             pass
 
 if __name__ == "__main__":
+    # import cProfile
+    # import re
     import race_plan_control.main as main
+    # cProfile.run("main.run()")
     main.run()
-    

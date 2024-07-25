@@ -1,7 +1,7 @@
 from race_plan_control.plan.sampling_planner import RNDPlanner
 from race_plan_control.control.controller import PIDController
 from race_plan_control.execute.executer_sim import SimpleSim
-from race_plan_control.execute.visualizer import PlotApp
+from race_plan_control.visualize.native_vis import VisualizerApp
 from race_plan_control.execute.executer import VehicleState
 
 import yaml
@@ -29,16 +29,15 @@ def run():
         reference_path = [point[:2] for point in track_data["ReferenceLine"]] # ignoring z
         ref_left_boundary_d = track_data["LeftBound"]
         ref_right_boundary_d = track_data["RightBound"]
-
     logging.info(f"Track data loaded from {path_to_track}")
     
+    
     state = VehicleState(x=reference_path[0][0],y=reference_path[0][1], speed=30, theta=-np.pi/4)
-
     pl = RNDPlanner(reference_path=reference_path, ref_left_boundary_d=ref_left_boundary_d, ref_right_boundary_d=ref_right_boundary_d)
     cn = PIDController()
-    sim = SimpleSim(state, pl, cn)
+    exec = SimpleSim(state, pl, cn)
 
-    app = PlotApp(pl,cn,sim)
+    app = VisualizerApp(pl,cn,exec)
     app.mainloop()  
 
 
