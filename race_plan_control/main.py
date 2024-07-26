@@ -1,8 +1,8 @@
+from race_plan_control.perceive.vehicle_state import VehicleState
 from race_plan_control.plan.sampling_planner import RNDPlanner
 from race_plan_control.control.controller import PIDController
 from race_plan_control.execute.executer_sim import SimpleSim
-from race_plan_control.visualize.native_vis import VisualizerApp
-from race_plan_control.execute.executer import VehicleState
+from race_plan_control.visualize.tk_visualizer import VisualizerApp
 
 import yaml
 import numpy as np

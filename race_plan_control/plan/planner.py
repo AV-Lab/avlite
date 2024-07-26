@@ -1,5 +1,5 @@
 import race_plan_control.plan.trajectory as u
-from race_plan_control.execute.vehicle_state import VehicleState
+from race_plan_control.perceive.vehicle_state import VehicleState
 import numpy as np
 import logging
 log = logging.getLogger(__name__)
@@ -13,7 +13,6 @@ class Planner:
     def __init__(self, reference_path, ref_left_boundary_d, ref_right_boundary_d):
         self.reference_path = np.array(reference_path)
         self.global_trajectory = u.Trajectory(self.reference_path)
-        
 
         self.ref_left_boundary_d = ref_left_boundary_d
         self.ref_right_boundary_d = ref_right_boundary_d
@@ -90,6 +89,8 @@ class Planner:
         if self.global_trajectory.is_traversed():
             self.lap += 1
             log.info(f"Lap {self.lap} Done")
+        
+        return x_current, y_current
 
     def step(self, state:VehicleState):
         self.xdata.append(state.x)

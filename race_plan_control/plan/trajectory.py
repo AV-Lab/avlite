@@ -23,17 +23,17 @@ class Trajectory:
     """
     def __init__(self, reference_path, name="Global Tj"):
         self.reference_path = np.array(reference_path)
-        # [point[0] for point in reference_path]
         self.reference_x = self.reference_path[:, 0]
-        # [point[1] for point in reference_path]
         self.reference_y = self.reference_path[:, 1]
         self._cumulative_distances = self._precompute_cumulative_distances()
-        self.reference_s, self.reference_d = self._convert_to_frenet(self.reference_path)
+        self.reference_s, self.reference_d = self._convert_to_frenet(self.reference_path) # this should be with respect to parent trajectory
         self._reference_sd_path = np.array(list(zip(self.reference_s, self.reference_d)))
         self.next_wp = 1
         self.current_wp = 0
 
         self.name = name # needed to distinguish between global and local trajectory
+        self.poly = None # for local trajectory
+        self.parent_trajectory = None
     
     def reset(self, wp):
         if wp >= 0 and wp < len(self.reference_path):
@@ -76,15 +76,33 @@ class Trajectory:
     def is_traversed(self):
         return self.current_wp == len(self.reference_path) - 1
 
-    def generate_local_edge_trajectory(self, s_start, s_end, d_start, d_end,  num_points=10):
+    def generate_local_edge_trajectory(self, s_start, s_end, d_start, d_end, s_start_derv = None, d_start_derv = None,
+                                         num_points=10):
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
 
-        # Fit a 5th degree polynomial to the start and end points
-        poly = Polynomial.fit([s_start, s_end], [d_start, d_end], 5)
+            # Fit a 5th degree polynomial to the start and end points
+        if s_start_derv is not None and d_start_derv is not None:
+            # Set up the system of equations
+            A = np.array([
+                [s_start**5, s_start**4, s_start**3, s_start**2, s_start, 1],
+                [s_end**5, s_end**4, s_end**3, s_end**2, s_end, 1],
+                [5*s_start**4, 4*s_start**3, 3*s_start**2, 2*s_start, 1, 0],
+                [5*s_end**4, 4*s_end**3, 3*s_end**2, 2*s_end, 1, 0]
+            ])
+
+            b = np.array([d_start, d_end, s_start_derv, d_start_derv])
+
+            # Solve for the polynomial coefficients
+            coefficients = np.linalg.solve(A, b)
+
+            # Create the polynomial
+            self.poly = Polynomial(coefficients[::-1])  # Reverse coefficients for Polynomial
+        else:
+            self.poly = Polynomial.fit([s_start, s_end], [d_start, d_end], 5)
 
         # Calculate the d values for the trajectory
-        d_values = poly(s_values)
+        d_values = self.poly(s_values)
         tx, ty = zip(*[self._getXY(s, d) for s, d in zip(s_values, d_values)])
 
         return s_values, d_values, tx, ty

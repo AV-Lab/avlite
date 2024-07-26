@@ -1,5 +1,4 @@
 import race_plan_control.main as main
-from race_plan_control.plan.planner import Planner
 from race_plan_control.execute.executer import Executer
 
 import numpy as np
@@ -86,7 +85,7 @@ fig.subplots_adjust(left=0, right=1, top=.99, bottom=0.1)
 
 
 
-def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30, show_legend = True, plot_last_pts = True,
+def plot(exec: Executer, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30, show_legend = True, plot_last_pts = True,
            plot_global_plan = True,   plot_local_plan = True, plot_local_lattice = True, plot_state = True,num_plot_last_pts = 100):
     
     legend_ax.set_visible(show_legend)
@@ -94,19 +93,19 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
     
     # For Zoom in
     if xy_zoom is not None:
-        ax1.set_xlim(pl.xdata[-1] - xy_zoom, pl.xdata[-1] + xy_zoom)
-        ax1.set_ylim(pl.ydata[-1] - xy_zoom/aspect_ratio/2, pl.ydata[-1] + xy_zoom/aspect_ratio/2)
+        ax1.set_xlim(exec.pl.xdata[-1] - xy_zoom, exec.pl.xdata[-1] + xy_zoom)
+        ax1.set_ylim(exec.pl.ydata[-1] - xy_zoom/aspect_ratio/2, exec.pl.ydata[-1] + xy_zoom/aspect_ratio/2)
     if frenet_zoom is not None:
-        ax2.set_xlim(pl.past_s[-1] - frenet_zoom/2 ,   pl.past_s[-1] + 1.5*frenet_zoom)
+        ax2.set_xlim(exec.pl.past_s[-1] - frenet_zoom/2 ,   exec.pl.past_s[-1] + 1.5*frenet_zoom)
         ax2.set_ylim(-frenet_zoom/aspect_ratio/2,  frenet_zoom/aspect_ratio/2)
 
 
     if plot_last_pts and num_plot_last_pts > 0:
-        last_locs_ax1.set_data(pl.xdata[-num_plot_last_pts:], pl.ydata[-num_plot_last_pts:])
-        planner_loc_ax1.set_data([pl.xdata[-1]], [pl.ydata[-1]])  
+        last_locs_ax1.set_data(exec.pl.xdata[-num_plot_last_pts:], exec.pl.ydata[-num_plot_last_pts:])
+        planner_loc_ax1.set_data([exec.pl.xdata[-1]], [exec.pl.ydata[-1]])  
         
-        last_locs_ax2.set_data(pl.past_s[-num_plot_last_pts:], pl.past_d[-num_plot_last_pts:]) 
-        planner_loc_ax2.set_data([pl.past_s[-1]], [pl.past_d[-1]])  
+        last_locs_ax2.set_data(exec.pl.past_s[-num_plot_last_pts:], exec.pl.past_d[-num_plot_last_pts:]) 
+        planner_loc_ax2.set_data([exec.pl.past_s[-1]], [exec.pl.past_d[-1]])  
     else:
         last_locs_ax1.set_data([], [])
         planner_loc_ax1.set_data([], [])
@@ -114,11 +113,11 @@ def plot(pl: Planner, exec: Executer = None, aspect_ratio=4, frenet_zoom = 15, x
         planner_loc_ax2.set_data([], [])
             
     # update global Plan
-    _update_global_plan(pl, plot_global_plan) 
+    _update_global_plan(exec.pl, plot_global_plan) 
 
     # update local plan
-    _update_lattice_graph(pl, plot_local_lattice)
-    _update_local_plan(pl, plot_local_plan)
+    _update_lattice_graph(exec.pl, plot_local_lattice)
+    _update_local_plan(exec.pl, plot_local_plan)
 
     # update state 
     _update_state(exec.state, plot_state)
