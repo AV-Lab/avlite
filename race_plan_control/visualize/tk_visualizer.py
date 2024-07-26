@@ -221,8 +221,11 @@ class VisualizerApp(tk.Tk):
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
         self.after(300, self._replot)
+        
+        self.canvas.mpl_connect('scroll_event', self.on_mouse_scroll)
+        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+        self._prev_scroll_time = None # used to throttle the replot
 
 
         #------------------------------------------- 
@@ -240,6 +243,7 @@ class VisualizerApp(tk.Tk):
         log.info("Log initialized.")            
         
         
+
         #------------------------------------------- 
         #-Only Visualize Mode ----------------------
         #------------------------------------------- 
@@ -260,7 +264,7 @@ class VisualizerApp(tk.Tk):
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
-        plot.plot(self.pl,self.exec, aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom, show_legend=self.show_legend.get(),
+        plot.plot(exec=self.exec, aspect_ratio=aspect_ratio, xy_zoom=self.xy_zoom, frenet_zoom=self.frenet_zoom, show_legend=self.show_legend.get(),
                   plot_last_pts=self.show_past_locations.get(), plot_global_plan=self.show_global_plan.get(), 
                   plot_local_plan=self.show_local_plan.get(), plot_local_lattice = self.show_local_lattice.get(), plot_state=self.show_state.get())
         self.canvas.draw()
@@ -281,7 +285,24 @@ class VisualizerApp(tk.Tk):
             # Optionally, clear the coordinates display when the mouse is not over the axes
             self.coordinates_label.config(text="")
 
-
+    def on_mouse_scroll(self, event, increment=10):
+        if event.inaxes == self.ax1:
+            log.debug(f"Scroll Event in real coordinate: {event.button}")
+            if event.button == 'up':
+                self.xy_zoom -= increment if self.xy_zoom > increment else 0
+            elif event.button == 'down':
+                self.xy_zoom += increment
+        elif event.inaxes == self.ax2:
+            log.debug(f"Scroll Event in frenet: {event.button}")
+            if event.button == 'up':
+                self.frenet_zoom -= increment if self.frenet_zoom > increment else 0 
+            elif event.button == 'down':
+                self.frenet_zoom += increment
+        
+        if self._prev_scroll_time is None or time.time() - self._prev_scroll_time > 0.2:
+            self._replot()
+        
+        self._prev_scroll_time = time.time()
 
     def zoom_in(self):
         self.xy_zoom -= 5 if self.xy_zoom > 5 else 0

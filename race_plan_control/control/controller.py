@@ -1,13 +1,19 @@
 import logging 
+from race_plan_control.plan.trajectory import Trajectory
 from abc import ABC, abstractmethod
 import logging
 log = logging.getLogger(__name__)
 
 class Controller(ABC):
+    def __init__(self):
+        self.last_steer = None
+        self.last_acc = None
 
     @abstractmethod
-    def control(self, cte:float):
+    def control(self, cte:float, tj:Trajectory=None):
         pass
+
+    @abstractmethod
     def reset():
         pass
 
@@ -40,7 +46,7 @@ class PIDController(Controller):
 
         # Logging with formatted string for clarity
         log.info(f"Steering Angle: {steer:+.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}")
-
+        self.last_steer = steer
         return steer
 
     def reset(self):
