@@ -44,24 +44,28 @@ class Executer(ABC):
         self.update_state(dt=control_dt, steering_angle=steering_angle)
         t4 = time.time()
         
-        
-        if self._prev_exec_time is not None:
-            log.info(f"Exec Step Time:{(time.time() - self._prev_exec_time):.3f}  | Control Time: {(t2-t1):.4f},  Plan Update Time: {(t4-t3):.4f}")
-        else:
-            log.info(f"Control Time: {(t2-t1):.4f},  Plan Update Time: {(t4-t3):.4f}")
-        
-        
+        self.elapsed_sim_time += control_dt
+        delta_t_exec = time.time() - self._prev_exec_time if self._prev_exec_time is not None else 0
         self._prev_exec_time = time.time()
-        self.elapsed_real_time += self._prev_exec_time
+        self.elapsed_real_time += delta_t_exec 
+        
+        log.info(f"Exec Step Time:{delta_t_exec:.3f}  | Control Time: {(t2-t1):.4f},  Plan Update Time: {(t4-t3):.4f}")
+        
+        log.info(f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}")
+        
     
     def reset(self):
         self.state.reset()
         self.pl.reset()
         self.cn.reset()
+        self._prev_exec_time = None
+        self.time_since_last_replan = 0
+        self.elapsed_real_time = 0
+        self.elapsed_sim_time = 0
 
         
     @abstractmethod
-    def update_state(self, dt=0.01, acceleration=0.0, steering_angle=0.0): # perhaps move_base is a better name
+    def update_state(self, dt=0.01, acceleration=0.0, steering_angle=0.0)-> VehicleState: # perhaps move_base is a better name
         pass
 
 
