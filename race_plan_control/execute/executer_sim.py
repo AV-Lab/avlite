@@ -9,8 +9,9 @@ class SimpleSim(Executer):
         super().__init__(state, pl, cn)
 
     def update_state(self, dt=0.01, acceleration=0, steering_angle=0):
+        super().update_state(dt, acceleration, steering_angle)
         self.state.x += self.state.speed * cos(self.state.theta) * dt
         self.state.y += self.state.speed * sin(self.state.theta) * dt
         self.state.speed += acceleration * dt
         self.state.theta += self.state.speed/self.state.L_f * steering_angle * dt
-        super().update_state()
+        return self.state
