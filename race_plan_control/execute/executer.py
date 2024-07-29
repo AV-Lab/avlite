@@ -33,7 +33,7 @@ class Executer(ABC):
 
         global_cte = self.pl.past_d[-1] # this one is with respect to global trajectory
         local_tj = self.pl.get_local_plan()
-        _,cte = local_tj._convert_point_to_frenet(self.state.x, self.state.y)
+        _,cte = local_tj.convert_xy_to_sd(self.state.x, self.state.y)
 
 
         t1 = time.time()

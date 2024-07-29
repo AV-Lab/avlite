@@ -113,18 +113,18 @@ def plot(exec: Executer, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30, show_le
         planner_loc_ax2.set_data([], [])
             
     # update global Plan
-    _update_global_plan(exec.pl, plot_global_plan) 
+    update_global_plan_plots(exec.pl, plot_global_plan) 
 
     # update local plan
-    _update_lattice_graph(exec.pl, plot_local_lattice)
-    _update_local_plan(exec.pl, plot_local_plan)
+    update_lattice_graph_plots(exec.pl, plot_local_lattice)
+    update_local_plan_plots(exec.pl, plot_local_plan)
 
     # update state 
-    _update_state(exec.state, plot_state)
+    update_state_plots(exec.state, plot_state)
 
-    _redraw_plots()
+    redraw_plots()
 
-def _redraw_plots():
+def redraw_plots():
     # Redraw only the updated parts
     # Draw the background patches
     ax1.draw_artist(ax1.patch)
@@ -145,18 +145,18 @@ def _redraw_plots():
 
 initialized = False
 toggle_plot = False
-def _update_global_plan(pl, show_plot):
+def update_global_plan_plots(pl, show_plot = True):
         global initialized
         global toggle_plot
         if not initialized:
             # Plot track boundaries 
             left_boundry_x1.set_data(pl.left_x, pl.left_y)
             right_boundry_x1.set_data(pl.right_x, pl.right_y)
-            left_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.reference_s, pl.ref_left_boundary_d])
-            right_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.reference_s, pl.ref_right_boundary_d]) 
+            left_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_left_boundary_d])
+            right_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_right_boundary_d]) 
             # Plot the reference path 
-            reference_trajectory_ax1.set_data(pl.global_trajectory.reference_x, pl.global_trajectory.reference_y)
-            reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.reference_s, pl.global_trajectory.reference_d])
+            reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
+            reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d])
             initialized = True
         if not show_plot:
             g_wp_current_ax1.set_data([], [])
@@ -168,18 +168,18 @@ def _update_global_plan(pl, show_plot):
             toggle_plot = True
             return 
         elif initialized and toggle_plot:
-            reference_trajectory_ax1.set_data(pl.global_trajectory.reference_x, pl.global_trajectory.reference_y)
-            reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.reference_s, pl.global_trajectory.reference_d])
+            reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
+            reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d])
             toggle_plot = False
     
         if pl.global_trajectory.next_wp is not None: 
-            g_wp_current_ax1.set_data([pl.global_trajectory.reference_x[pl.global_trajectory.current_wp]], [pl.global_trajectory.reference_y[pl.global_trajectory.current_wp]])
-            g_wp_current_ax2.set_data([pl.global_trajectory.reference_s[pl.global_trajectory.current_wp]], [pl.global_trajectory.reference_d[pl.global_trajectory.current_wp]])
-            g_wp_next_ax1.set_data([pl.global_trajectory.reference_x[pl.global_trajectory.next_wp]], [pl.global_trajectory.reference_y[pl.global_trajectory.next_wp]])
-            g_wp_next_ax2.set_data([pl.global_trajectory.reference_s[pl.global_trajectory.next_wp]], [pl.global_trajectory.reference_d[pl.global_trajectory.next_wp]])
+            g_wp_current_ax1.set_data([pl.global_trajectory.path_x[pl.global_trajectory.current_wp]], [pl.global_trajectory.path_y[pl.global_trajectory.current_wp]])
+            g_wp_current_ax2.set_data([pl.global_trajectory.path_s[pl.global_trajectory.current_wp]], [pl.global_trajectory.path_d[pl.global_trajectory.current_wp]])
+            g_wp_next_ax1.set_data([pl.global_trajectory.path_x[pl.global_trajectory.next_wp]], [pl.global_trajectory.path_y[pl.global_trajectory.next_wp]])
+            g_wp_next_ax2.set_data([pl.global_trajectory.path_s[pl.global_trajectory.next_wp]], [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]])
 
-
-def _update_lattice_graph(pl, show_plot):
+# TODO: currently shows only two levels only
+def update_lattice_graph_plots(pl, show_plot = True):
     if not show_plot or len(pl.lattice_graph) == 0:
         # clear all lattice graph plots
         for line in lattice_graph_plots_ax1 + lattice_graph_endpoints_ax1 + lattice_graph_plots_ax2 + lattice_graph_endpoints_ax2:
@@ -189,20 +189,23 @@ def _update_lattice_graph(pl, show_plot):
     edge_index = 0
     for k, v in pl.lattice_graph.items():
         if edge_index < max_lattice_edges:
-            lattice_graph_plots_ax1[edge_index].set_data(v.tx, v.ty)
-            lattice_graph_plots_ax2[edge_index].set_data(v.ts, v.td)
-            lattice_graph_endpoints_ax1[edge_index].set_data([v.tx[-1]], [v.ty[-1]])
-            lattice_graph_endpoints_ax2[edge_index].set_data([v.ts[-1]], [v.td[-1]])
+            lattice_graph_plots_ax1[edge_index].set_data(v.local_trajectory.path_x, v.local_trajectory.path_y)
+            lattice_graph_plots_ax2[edge_index].set_data(v.local_trajectory.path_s_with_respect_to_parent,
+                                                          v.local_trajectory.path_d_with_respect_to_parent)
+            lattice_graph_endpoints_ax1[edge_index].set_data([v.local_trajectory.path_x[-1]], [v.local_trajectory.path_y[-1]])
+            lattice_graph_endpoints_ax2[edge_index].set_data([v.local_trajectory.path_s_with_respect_to_parent[-1]],
+                                                             [v.local_trajectory.path_d_with_respect_to_parent[-1]])
             edge_index += 1
         for next_edge in v.next_edges:
             if edge_index < max_lattice_edges:
-                lattice_graph_plots_ax1[edge_index].set_data(next_edge.tx, next_edge.ty)
-                lattice_graph_plots_ax2[edge_index].set_data(next_edge.ts, next_edge.td)
-                lattice_graph_endpoints_ax1[edge_index].set_data([next_edge.tx[-1]], [next_edge.ty[-1]])
-                lattice_graph_endpoints_ax2[edge_index].set_data([next_edge.ts[-1]], [next_edge.td[-1]])
+                lattice_graph_plots_ax1[edge_index].set_data(next_edge.local_trajectory.path_x, next_edge.local_trajectory.path_y)
+                lattice_graph_plots_ax2[edge_index].set_data(next_edge.local_trajectory.path_s_with_respect_to_parent,
+                                                              next_edge.local_trajectory.path_d_with_respect_to_parent)
+                lattice_graph_endpoints_ax1[edge_index].set_data([next_edge.local_trajectory.path_x[-1]], [next_edge.local_trajectory.path_y[-1]])
+                lattice_graph_endpoints_ax2[edge_index].set_data([next_edge.local_trajectory.path_s_with_respect_to_parent[-1]], [next_edge.local_trajectory.path_d_with_respect_to_parent[-1]])
                 edge_index += 1
 
-def _update_local_plan(pl, show_plot):
+def update_local_plan_plots(pl, show_plot = True):
     if not show_plot or pl.selected_edge is None:
         selected_edge_plot_ax1.set_data([],[])
         selected_edge_plot_ax2.set_data([],[])
@@ -214,13 +217,13 @@ def _update_local_plan(pl, show_plot):
         next_wp_plot_ax2.set_data([], [])
 
     elif pl.selected_edge is not None:
-        x, y = pl.selected_edge.local_trajectory.get_xy()
-        s = pl.selected_edge.ts[pl.selected_edge.local_trajectory.current_wp]
-        d = pl.selected_edge.td[pl.selected_edge.local_trajectory.current_wp]
+        x, y = pl.selected_edge.local_trajectory.get_current_xy()
+        s = pl.selected_edge.local_trajectory.path_s_with_respect_to_parent[pl.selected_edge.local_trajectory.current_wp]
+        d = pl.selected_edge.local_trajectory.path_d_with_respect_to_parent[pl.selected_edge.local_trajectory.current_wp]
     
-        x_n, y_n = pl.selected_edge.local_trajectory.get_xy(pl.selected_edge.local_trajectory.next_wp)
-        s_n = pl.selected_edge.ts[pl.selected_edge.local_trajectory.next_wp]
-        d_n = pl.selected_edge.td[pl.selected_edge.local_trajectory.next_wp]
+        x_n, y_n = pl.selected_edge.local_trajectory.get_xy_by_waypoint(pl.selected_edge.local_trajectory.next_wp)
+        s_n = pl.selected_edge.local_trajectory.path_s_with_respect_to_parent[pl.selected_edge.local_trajectory.next_wp]
+        d_n = pl.selected_edge.local_trajectory.path_d_with_respect_to_parent[pl.selected_edge.local_trajectory.next_wp]
     
         current_wp_plot_ax1.set_data([x], [y])
         current_wp_plot_ax2.set_data([s], [d])
@@ -229,17 +232,18 @@ def _update_local_plan(pl, show_plot):
         next_wp_plot_ax2.set_data([s_n], [d_n])
         
         v = pl.selected_edge
-        selected_edge_plot_ax1.set_data(v.tx, v.ty)
-        selected_edge_plot_ax2.set_data(v.ts, v.td)
+        selected_edge_plot_ax1.set_data(v.local_trajectory.path_x, v.local_trajectory.path_y)
+        selected_edge_plot_ax2.set_data(v.local_trajectory.path_s_with_respect_to_parent, v.local_trajectory.path_d_with_respect_to_parent)
     
         if v.selected_next_edge is not None:
-            selected_next_edge_plot_ax1.set_data(v.selected_next_edge.tx, v.selected_next_edge.ty)
-            selected_next_edge_plot_ax2.set_data(v.selected_next_edge.ts, v.selected_next_edge.td)
+            selected_next_edge_plot_ax1.set_data(v.selected_next_edge.local_trajectory.path_x, v.selected_next_edge.local_trajectory.path_y)
+            selected_next_edge_plot_ax2.set_data(v.selected_next_edge.local_trajectory.path_s_with_respect_to_parent,
+                                                  v.selected_next_edge.local_trajectory.path_d_with_respect_to_parent)
 
 
 
 
-def _update_state(state, show_plot):
+def update_state_plots(state, show_plot = True):
     if not show_plot:
         car_heading_plot.set_data([], [])
         car_location_plot.set_data([], [])

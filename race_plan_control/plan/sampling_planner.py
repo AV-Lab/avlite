@@ -1,4 +1,4 @@
-from race_plan_control.plan.planner import Planner
+from race_plan_control.plan.planner import Planner, LatticeGraph
 import numpy as np
 import logging
 
@@ -6,7 +6,8 @@ import logging
 log = logging.getLogger(__name__)
 
 class RNDPlanner(Planner):
-    def __init__(self, reference_path, ref_left_boundary_d, ref_right_boundary_d, planning_horizon = 15, minimum_s_distance=5, minimum_boundary_distance=5):
+    def __init__(self, reference_path, ref_left_boundary_d, ref_right_boundary_d, planning_horizon = 15, minimum_s_distance=5,
+                  minimum_boundary_distance=1.5):
         super().__init__(reference_path, ref_left_boundary_d, ref_right_boundary_d)
         
         self.planning_horizon = planning_horizon
@@ -30,11 +31,10 @@ class RNDPlanner(Planner):
 
         ### Group 1
         # add edge on the reference trajectory
-        idx = (self.global_trajectory.next_wp + back_to_ref_horizon)%len(self.global_trajectory.reference_s)
-        next_s = self.global_trajectory.reference_s[idx]
+        idx = (self.global_trajectory.next_wp + back_to_ref_horizon)%len(self.global_trajectory.path_s)
+        next_s = self.global_trajectory.path_s[idx]
         next_d = 0
-        ep = Planner.EdgeManeuver((s,d), (next_s,next_d),num_of_points = back_to_ref_horizon+2) # +2 to include the start and end points
-        ep.generate_edge_trajectory(self.global_trajectory)
+        ep = LatticeGraph.Edge(s,d, next_s, next_d, self.global_trajectory, num_of_points= back_to_ref_horizon+2)
         self.lattice_graph[(next_s,next_d)] = ep
 
         # sample new edges
@@ -43,22 +43,21 @@ class RNDPlanner(Planner):
                 s_e = np.random.uniform(self.minimum_planning_distance,self.planning_horizon)
                 s_ = self.past_s[-1] + s_e
                 d_ = np.random.uniform(self.ref_left_boundary_d[-1]-self.minimum_boundary_distance, self.ref_right_boundary_d[-1]+self.minimum_boundary_distance)
-                ep = Planner.EdgeManeuver((s,d), (s_,d_))
-                ep.generate_edge_trajectory(self.global_trajectory)
+                log.info(f"Sampling: ({s_:.2f},{d_:.2f})")
+                
+                ep = LatticeGraph.Edge(s,d, s_, d_, self.global_trajectory)
                 self.lattice_graph[(s_,d_)] = ep
         ### Group 2
         if sample:
             for _ in range(sample_size):
                 s_e = np.random.uniform(self.minimum_planning_distance,self.planning_horizon)
                 d_ = np.random.uniform(self.ref_left_boundary_d[-1]-self.minimum_boundary_distance, self.ref_right_boundary_d[-1]+self.minimum_boundary_distance)
-                
                 current_edges = list(self.lattice_graph.values())
                 for e in current_edges:
                     s_ = e.end_s + s_e
                     s = e.end_s
                     d = e.end_d
-                    ep = Planner.EdgeManeuver((s,d), (s_,d_))
-                    ep.generate_edge_trajectory(self.global_trajectory)
+                    ep = LatticeGraph.Edge(s,d, s_, d_, self.global_trajectory)
                     e.append_next_edges(ep)
                     e.selected_next_edge =  np.random.choice(e.next_edges) # if len(e.next_edges) > 0 else None
         

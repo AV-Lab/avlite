@@ -17,45 +17,14 @@ class Controller(ABC):
     def reset():
         pass
 
-class PIDController(Controller):
-    def __init__(self, alpha=0.05, beta=0.001, gamma=0.7): 
-        self.alpha, self.beta, self.gamma = alpha, beta, gamma
-        self.past_cte = []
+    # TODO: future work 
+    class ControlComand:
+        def __init__(self, steer=0, acc=0):
+            self.steer = steer
+            self.acc = acc
 
-        self.cte_sum = 0
-        self.cte_prev = 0
+        def __str__(self):
+            return f"Steer: {self.steer:+.2f}, Acc: {self.acc:+.2f}"
 
-
-    def control(self, cte):
-        self.past_cte.append(cte)
-
-        # Compute P, I, D components separately
-        P = -self.alpha * cte
-        if len(self.past_cte) < 2:
-            I = 0
-            D = 0
-        else:
-            self.cte_sum += self.cte_prev
-            I = -self.beta * self.cte_sum #sum(self.past_cte[-100:])
-            D = -self.gamma * (cte - self.cte_prev) # self.past_cte[-2])
-        
-        self.cte_prev = cte
-
-        # Compute the steering angle
-        steer = P + I + D
-
-        # Logging with formatted string for clarity
-        log.info(f"Steering Angle: {steer:+.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}")
-        self.last_steer = steer
-        return steer
-
-    def reset(self):
-        self.past_cte = []
-        self.cte_sum = 0
-        self.cte_prev = 0
-
-
-        
-import race_plan_control.main as main
-if __name__== "__main__":
-    main.run()
+        def __repr__(self):
+            return self.__str__()
