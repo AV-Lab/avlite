@@ -358,8 +358,8 @@ class VisualizerApp(tk.Tk):
         self.exec.update_state(steering_angle=steer, dt=dt)
         self._replot()
     def align_control(self):
-        self.exec.state.x = self.pl.global_trajectory.reference_x[self.pl.global_trajectory.next_wp - 1]
-        self.exec.state.y = self.pl.global_trajectory.reference_y[self.pl.global_trajectory.next_wp - 1]
+        self.exec.state.x = self.pl.global_trajectory.path_x[self.pl.global_trajectory.next_wp - 1]
+        self.exec.state.y = self.pl.global_trajectory.path_y[self.pl.global_trajectory.next_wp - 1]
 
         self._replot()  
 

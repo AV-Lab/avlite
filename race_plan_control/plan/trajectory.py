@@ -7,76 +7,65 @@ log = logging.getLogger(__name__)
 
 
 class Trajectory:
-    """
-    A class representing a trajectory.
+    def __init__(self, reference_xy_path, name="Global Trajectory"):
+        self.__reference_path = np.array(reference_xy_path)
+        self.path_x = self.__reference_path[:, 0]
+        self.path_y = self.__reference_path[:, 1]
+        self.__cumulative_distances = self.__precompute_cumulative_distances()
+        self.path_s, self.path_d = self.convert_xy_path_to_sd_path(self.__reference_path) # this should be with respect to parent trajectory
+        self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
 
-    Attributes:
-        reference_path (numpy.ndarray): The reference path for the trajectory.
-        reference_x (numpy.ndarray): The x-coordinates of the reference path.
-        reference_y (numpy.ndarray): The y-coordinates of the reference path.
-        cumulative_distances (list): The cumulative distances along the reference path.
-        reference_s (numpy.ndarray): The s-coordinates of the reference path in the Frenet frame.
-        reference_d (numpy.ndarray): The d-coordinates of the reference path in the Frenet frame.
-        reference_sd_path (numpy.ndarray): The reference path in the Frenet frame.
-        next_wp (int): The index of the next waypoint on the reference path.
-        prev_wp (int): The index of the previous waypoint on the reference path.
-    """
-    def __init__(self, reference_path, name="Global Tj"):
-        self.reference_path = np.array(reference_path)
-        self.reference_x = self.reference_path[:, 0]
-        self.reference_y = self.reference_path[:, 1]
-        self._cumulative_distances = self._precompute_cumulative_distances()
-        self.reference_s, self.reference_d = self._convert_to_frenet(self.reference_path) # this should be with respect to parent trajectory
-        self._reference_sd_path = np.array(list(zip(self.reference_s, self.reference_d)))
-        self.next_wp = 1
-        self.current_wp = 0
-
-        self.name = name # needed to distinguish between global and local trajectory
         self.poly = None # for local trajectory
         self.parent_trajectory = None
+        self.path_s_with_respect_to_parent = None
+        self.path_d_with_respect_to_parent = None
+        
+        
+        self.next_wp = 1
+        self.current_wp = 0
+        
+        self.name = name # needed to distinguish between global and local trajectory
     
-    def reset(self, wp):
-        if wp >= 0 and wp < len(self.reference_path):
-            self.next_wp = wp + 1
-            self.current_wp = wp 
-        else:
-            raise ValueError("Invalid waypoint index")
+    def get_current_xy(self):
+        return self.path_x[self.current_wp], self.path_y[self.current_wp]
+    def get_current_sd(self):
+        return self.path_s[self.current_wp], self.path_d[self.current_wp]
+
+    def get_xy_by_waypoint(self, wp:int):
+        return self.path_x[wp], self.path_y[wp]
+
+    def get_sd_by_waypoint(self, wp:int):
+        return self.path_s[wp], self.path_d[wp]
     
-    def get_xy(self, wp:int=None):
-        if wp is None:
-            return self.reference_x[self.current_wp], self.reference_y[self.current_wp]
-        return self.reference_x[wp], self.reference_y[wp]
-    def get_sd(self, wp:int=None):
-        if wp is None:
-            return self.reference_s[self.current_wp], self.reference_d[self.current_wp]
-        return self.reference_s[wp], self.reference_d[wp]
-    
-    def update_waypoint_xy(self, x_current, y_current):
+    def update_waypoint_by_xy(self, x_current, y_current):
         # not efficient 
-        diffs = self.reference_path - np.array((x_current, y_current))
+        diffs = self.__reference_path - np.array((x_current, y_current))
         dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
         closest_wp = np.argmin(dists)
-        s_, d_ = self._convert_to_frenet([(x_current, y_current)])
+        s_, d_ = self.convert_xy_path_to_sd_path([(x_current, y_current)])
 
-        if self.reference_s[closest_wp] <= s_[0]:
-            if closest_wp < len(self.reference_path) - 1:
+        if self.path_s[closest_wp] <= s_[0]:
+            if closest_wp < len(self.__reference_path) - 1:
                 self.current_wp = closest_wp
-                self.next_wp = closest_wp + 1 % len(self.reference_path)
-            elif closest_wp == len(self.reference_path) - 1:
+                self.next_wp = closest_wp + 1 % len(self.__reference_path)
+            elif closest_wp == len(self.__reference_path) - 1:
                 self.current_wp = closest_wp
                 self.next_wp = closest_wp
-        elif self.reference_s[closest_wp] > s_[0] and closest_wp > 0:
+        elif self.path_s[closest_wp] > s_[0] and closest_wp > 0:
             self.next_wp = closest_wp
             self.current_wp = closest_wp - 1
     
-    def update_waypoint_wp(self, current_wp): 
-        self.current_wp = current_wp % len(self.reference_path) 
-        self.next_wp = current_wp + 1 % len(self.reference_path)
+    def update_waypoint_by_wp(self, current_wp): 
+        self.current_wp = current_wp % len(self.__reference_path) 
+        self.next_wp = current_wp + 1 % len(self.__reference_path)
+    
+    def update_to_next_waypoint(self):
+        self.update_waypoint_by_wp(self.current_wp + 1)
 
     def is_traversed(self):
-        return self.current_wp == len(self.reference_path) - 1
+        return self.current_wp == len(self.__reference_path) - 1
 
-    def generate_local_edge_trajectory(self, s_start, s_end, d_start, d_end, s_start_derv = None, d_start_derv = None,
+    def create_trajectory_in_sd_coordinate(self, s_start, d_start, s_end, d_end, s_start_derv = None, d_start_derv = None,
                                          num_points=10):
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
@@ -103,31 +92,62 @@ class Trajectory:
 
         # Calculate the d values for the trajectory
         d_values = self.poly(s_values)
-        tx, ty = zip(*[self._getXY(s, d) for s, d in zip(s_values, d_values)])
 
-        return s_values, d_values, tx, ty
+        tx, ty = zip(*[self.convert_sd_to_xy(s, d) for s, d in zip(s_values, d_values)])
 
-    def _precompute_cumulative_distances(self):
-        reference_path = np.array(self.reference_path)
-        cumulative_distances = [0]
-        for i in range(1, len(reference_path)):
-            cumulative_distances.append(
-                cumulative_distances[i-1] + np.linalg.norm(reference_path[i] - reference_path[i-1]))
-        return cumulative_distances
+        path = list(zip(tx, ty))
+        local_trajectory = Trajectory(path, name="Local Trajectory")
+        
+        local_trajectory.parent_trajectory = self
+        local_trajectory.path_s_with_respect_to_parent = s_values
+        local_trajectory.path_d_with_respect_to_parent = d_values
 
-
-    def _convert_point_to_frenet(self, x, y):
-        s,d = self._convert_to_frenet([(x, y)])
+        return local_trajectory
+    
+    def convert_xy_to_sd(self, x, y):
+        s,d = self.convert_xy_path_to_sd_path([(x, y)])
         _s = s[0]
         _d = d[0]
 
         return _s,_d
+    
+    # s,d need to be current
+    def convert_sd_to_xy(self, s, d):
+        closest_wp = self.__get_closest_sd_waypoint(s, d)    
 
-    def _convert_to_frenet(self, points):
+        if closest_wp == 0:
+            next_wp = 1
+            prev_wp = 0
+        else:
+            next_wp = closest_wp
+            prev_wp = next_wp - 1
 
-        reference_path = self.reference_path
+        # Calculate the heading of the track at the previous waypoint
+        heading = math.atan2(self.path_y[next_wp] - self.path_y[prev_wp],
+                             self.path_x[next_wp] - self.path_x[prev_wp])
+        # Calculate the x and y coordinates on the reference path
+        if 0 <= prev_wp < len(self.path_x) and 0 <= self.path_s[prev_wp] <= s:
+            x = self.path_x[prev_wp] + \
+                (s - self.path_s[prev_wp]) * math.cos(heading)
+            y = self.path_y[prev_wp] + \
+                (s - self.path_s[prev_wp]) * math.sin(heading)
+
+        # Calculate the perpendicular heading
+        perp_heading = heading - math.pi / 2
+
+        # Calculate the final x and y coordinates
+        x_final = x - d * math.cos(perp_heading)
+        y_final = y - d * math.sin(perp_heading)
+
+        # TODO: need to fix the issue when prev is the last point in the track and we come back to the biginning
+        return x_final, y_final
+
+
+    def convert_xy_path_to_sd_path(self, points):
+
+        reference_path = self.__reference_path
         frenet_coords = []
-        cumulative_distances = self._cumulative_distances
+        cumulative_distances = self.__cumulative_distances
         for point in points:
 
             closest_wp = self.__get_closest_waypoint(point[0], point[1]) 
@@ -163,52 +183,7 @@ class Trajectory:
 
         return zip(*frenet_coords)
 
-    # TODO: this inefficient! need to look into a window only not the whole track
-    def __get_closest_waypoint(self, x, y):
-        diffs = self.reference_path - np.array((x, y))
-        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
-        closest_wp = np.argmin(dists)
-        return closest_wp
-    
-    def __get_closest_sd_waypoint(self, s, d):
-        diffs = self._reference_sd_path - np.array((s, d))
-        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
-        closest_wp = np.argmin(dists)
-        return closest_wp
-
-    
-    # s,d need to be current
-    def _getXY(self, s, d):
-        closest_wp = self.__get_closest_sd_waypoint(s, d)    
-
-        if closest_wp == 0:
-            next_wp = 1
-            prev_wp = 0
-        else:
-            next_wp = closest_wp
-            prev_wp = next_wp - 1
-
-        # Calculate the heading of the track at the previous waypoint
-        heading = math.atan2(self.reference_y[next_wp] - self.reference_y[prev_wp],
-                             self.reference_x[next_wp] - self.reference_x[prev_wp])
-        # Calculate the x and y coordinates on the reference path
-        if 0 <= prev_wp < len(self.reference_x) and 0 <= self.reference_s[prev_wp] <= s:
-            x = self.reference_x[prev_wp] + \
-                (s - self.reference_s[prev_wp]) * math.cos(heading)
-            y = self.reference_y[prev_wp] + \
-                (s - self.reference_s[prev_wp]) * math.sin(heading)
-
-        # Calculate the perpendicular heading
-        perp_heading = heading - math.pi / 2
-
-        # Calculate the final x and y coordinates
-        x_final = x - d * math.cos(perp_heading)
-        y_final = y - d * math.sin(perp_heading)
-
-        # TODO: need to fix the issue when prev is the last point in the track and we come back to the biginning
-        return x_final, y_final
-
-    def _getXY_path(self, s_values, d_values):
+    def convert_sd_path_to_xy_path(self, s_values, d_values):
         # return [self.getXY(s, d) for s, d in zip(s_values, d_values)]
         x_values = []
         y_values = []
@@ -218,16 +193,16 @@ class Trajectory:
             s = s_values[next_wp]
             d = d_values[next_wp]
             # Calculate the heading of the track at the previous waypoint
-            heading = math.atan2(self.reference_y[next_wp] - self.reference_y[prev_wp],
-                                 self.reference_x[next_wp] - self.reference_x[prev_wp])
+            heading = math.atan2(self.path_y[next_wp] - self.path_y[prev_wp],
+                                 self.path_x[next_wp] - self.path_x[prev_wp])
             
 
             # Calculate the x and y coordinates on the reference path
-            if 0 <= prev_wp < len(self.reference_x) and 0 <= self.reference_s[prev_wp] <= s:
-                x = self.reference_x[prev_wp] + \
-                    (s - self.reference_s[prev_wp]) * math.cos(heading)
-                y = self.reference_y[prev_wp] + \
-                    (s - self.reference_s[prev_wp]) * math.sin(heading)
+            if 0 <= prev_wp < len(self.path_x) and 0 <= self.path_s[prev_wp] <= s:
+                x = self.path_x[prev_wp] + \
+                    (s - self.path_s[prev_wp]) * math.cos(heading)
+                y = self.path_y[prev_wp] + \
+                    (s - self.path_s[prev_wp]) * math.sin(heading)
 
             # Calculate the perpendicular heading
             perp_heading = heading - math.pi / 2
@@ -241,6 +216,30 @@ class Trajectory:
 
         return x_values, y_values
 
+    def __precompute_cumulative_distances(self):
+        reference_path = np.array(self.__reference_path)
+        cumulative_distances = [0]
+        for i in range(1, len(reference_path)):
+            cumulative_distances.append(
+                cumulative_distances[i-1] + np.linalg.norm(reference_path[i] - reference_path[i-1]))
+        return cumulative_distances
+
+
+
+    # TODO: this inefficient! need to look into a window only not the whole track
+    def __get_closest_waypoint(self, x, y):
+        diffs = self.__reference_path - np.array((x, y))
+        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
+        closest_wp = np.argmin(dists)
+        return closest_wp
+    
+    def __get_closest_sd_waypoint(self, s, d):
+        diffs = self.__reference_sd_path - np.array((s, d))
+        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
+        closest_wp = np.argmin(dists)
+        return closest_wp
+
+    
 
 
 if __name__ == "__main__":
