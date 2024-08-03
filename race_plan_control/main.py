@@ -11,13 +11,13 @@ import json
 import os
 from pathlib import Path
 
-def run():
+def run(relative_config_path="config.yaml"):
 
     current_file_name = os.path.realpath(__file__)
     project_dir = Path(current_file_name).parent.parent
 
     # loading config file
-    config_file = project_dir / "config.yaml"
+    config_file = project_dir / relative_config_path
 
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
