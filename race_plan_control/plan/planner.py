@@ -14,6 +14,7 @@ class Planner:
         self.reference_path = np.array(reference_path)
         self.global_trajectory = u.Trajectory(self.reference_path)
         self.ref_left_boundary_d = ref_left_boundary_d
+
         self.ref_right_boundary_d = ref_right_boundary_d
         
         self.left_x, self.left_y = self.global_trajectory.convert_sd_path_to_xy_path(self.global_trajectory.path_s, self.ref_left_boundary_d)
@@ -29,6 +30,7 @@ class Planner:
         self.selected_edge:LatticeGraph.Edge = None
         self.lattice_graph = {} 
         self.lattice = LatticeGraph(self.global_trajectory, num_of_points=10)
+        
 
     def reset(self,wp=0):
         self.xdata, self.ydata = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
@@ -95,6 +97,7 @@ class Planner:
         self.ydata.append(state.y)
         self.global_trajectory.update_waypoint_by_xy(state.x, state.y)
 
+
         if self.selected_edge is not None:
             self.selected_edge.local_trajectory.update_waypoint_by_xy(state.x, state.y)
 
@@ -126,6 +129,7 @@ class LatticeGraph:
         
         self.selected_edge:LatticeGraph.Edge = None
         self.lattice_graph = {} 
+
         self.__iter_idx = 0
 
     def add_edge(self, start_s, start_d, end_s, end_d):
@@ -147,7 +151,6 @@ class LatticeGraph:
             return self.lattice_graph[self.__iter_idx-1]
         else:
             raise StopIteration
-
 
     class Edge:
         def __init__(self, start_s, start_d, end_s, end_d, global_tj:u.Trajectory, num_of_points = 10):

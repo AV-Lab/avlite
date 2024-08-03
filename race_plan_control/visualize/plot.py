@@ -66,6 +66,7 @@ for _ in range(max_lattice_edges):
     lattice_graph_endpoints_ax1.append(endpoint_ax1)
     lattice_graph_endpoints_ax2.append(endpoint_ax2)
 
+
 ax2.set_title('Frenet Coordinate')
 ax1.set_aspect('equal')
 ax2.set_aspect('equal')

@@ -1,1 +1,8 @@
 site_name: Race Docs
+
+theme:
+  name: "material"
+
+plugins:
+- search
+- mkdocstrings

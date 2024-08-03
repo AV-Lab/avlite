@@ -4,10 +4,12 @@ import logging
 
 
 log = logging.getLogger(__name__)
-
+        
 class RNDPlanner(Planner):
-    def __init__(self, reference_path, ref_left_boundary_d, ref_right_boundary_d, planning_horizon = 15, minimum_s_distance=5,
-                  minimum_boundary_distance=1.5):
+    def __init__(self, reference_path, ref_left_boundary_d, 
+                 ref_right_boundary_d, planning_horizon = 15,
+                 minimum_s_distance=5,minimum_boundary_distance=1.5):
+
         super().__init__(reference_path, ref_left_boundary_d, ref_right_boundary_d)
         
         self.planning_horizon = planning_horizon
