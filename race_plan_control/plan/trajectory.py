@@ -7,7 +7,13 @@ log = logging.getLogger(__name__)
 
 
 class Trajectory:
+    """
+    A class to represent a trajectory.
+    """
     def __init__(self, reference_xy_path, name="Global Trajectory"):
+        """ 
+        Initializes a Trajectory object with a reference path in the xy-plane.
+        """
         self.__reference_path = np.array(reference_xy_path)
         self.path_x = self.__reference_path[:, 0]
         self.path_y = self.__reference_path[:, 1]
@@ -19,6 +25,7 @@ class Trajectory:
         self.parent_trajectory = None
         self.path_s_with_respect_to_parent = None
         self.path_d_with_respect_to_parent = None
+        
         
         
         self.next_wp = 1
@@ -38,6 +45,23 @@ class Trajectory:
         return self.path_s[wp], self.path_d[wp]
     
     def update_waypoint_by_xy(self, x_current, y_current):
+        """
+        Updates the current and next waypoints based on the current x and y coordinates.
+
+        This method calculates the differences between the current position (x_current, y_current) 
+        and all points in the reference path, and identifies the closest waypoint. It then updates 
+        the current and next waypoints accordingly.
+
+        Parameters:
+        x_current (float): The current x-coordinate.
+        y_current (float): The current y-coordinate.
+
+        Returns:
+        None
+
+        Note:
+        This method modifies the instance variables `self.current_wp` and `self.next_wp`.
+        """
         # not efficient 
         diffs = self.__reference_path - np.array((x_current, y_current))
         dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
@@ -65,7 +89,7 @@ class Trajectory:
     def is_traversed(self):
         return self.current_wp == len(self.__reference_path) - 1
 
-    def create_trajectory_in_sd_coordinate(self, s_start, d_start, s_end, d_end, s_start_derv = None, d_start_derv = None,
+    def create_trajectory_in_sd_coordinate(self, s_start:float, d_start:float, s_end:float, d_end:float, s_start_derv = None, d_start_derv = None,
                                          num_points=10):
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
