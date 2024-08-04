@@ -1,6 +1,10 @@
 from setuptools import find_packages, setup
+from glob import glob
 
 package_name = 'race_plan_control'
+
+# with open('requirements.txt') as f:
+#     requirements = f.read().splitlines()
 
 setup(
     name=package_name,
@@ -10,17 +14,21 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name, ['config.yaml']),
+        ('share/' + package_name + '/resource', glob('resource/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='mkhonji',
     maintainer_email='majid.khonji@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='An autonomous racing stack',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'plan = race_plan_control.main:main'
+            'race_plan_control = race_plan_control.main:run'
         ],
     },
 )
+
+
+
