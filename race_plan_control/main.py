@@ -11,18 +11,29 @@ import json
 import os
 from pathlib import Path
 
+import sys 
+import pkg_resources
+
+is_running_from_source = False
+
 def run(relative_config_path="config.yaml"):
+    pkg_config = pkg_resources.resource_filename('race_plan_control', 'config.yaml') 
+    if is_running_from_source:
+        current_file_name = os.path.realpath(__file__) if sys.argv[0] == '' else sys.argv[0]
+    else:
+        current_file_name = pkg_config if sys.argv[0] == '' else sys.argv[0]
 
-    current_file_name = os.path.realpath(__file__)
-    project_dir = Path(current_file_name).parent.parent
-
-    # loading config file
+    print(f"current_file_name: {current_file_name}")
+    if is_running_from_source:
+        project_dir = Path(current_file_name).parent.parent 
+    else:
+        project_dir = Path(current_file_name).parent.parent/"share/race_plan_control"
+    
     config_file = project_dir / relative_config_path
 
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
         path_to_track = project_dir / config_data["path_to_track"]
-    
     # loading race trajectory data
     with open(path_to_track, 'r') as f:
         track_data = json.load(f)
@@ -42,4 +53,6 @@ def run(relative_config_path="config.yaml"):
 
 
 if __name__ == "__main__":
+    is_running_from_source = True
     run()
+

@@ -5,14 +5,18 @@ To install the package, run the following commands:
 pip install -r requirements.txt
 ```
 
-To run the package, run the following commands:
+- To run the package from source:
 ```bash
 python race_plan_control/main.py
 ```
 
+- To install the package system wide:
+```bash
+pip install .
+```
+
 
 ## Local Planner
-- Based on RRT sampling
 ![](docs/imgs/tk_visualizer.png)
 
 
