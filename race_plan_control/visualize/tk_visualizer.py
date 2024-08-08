@@ -159,9 +159,9 @@ class VisualizerApp(tk.Tk):
         
         self.start_sim_button = ttk.Button(exec_second_frame, text="Start", command=self.start_exec)
         self.start_sim_button.pack(fill=tk.X, side=tk.LEFT, expand=True)
-        ttk.Button(exec_second_frame, text="Stop", command=self.stop_sim).pack(side=tk.LEFT)
-        ttk.Button(exec_second_frame, text="Step", command=self.step_sim).pack(side=tk.LEFT)
-        ttk.Button(exec_second_frame, text="Reset", command=self.reset_sim).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
         
         #-----------------------------------------------------------------------------------------------
         #-End of Plan Contorl Exec Frame ---------------------------------------------------------------
@@ -270,6 +270,9 @@ class VisualizerApp(tk.Tk):
         self.canvas.draw()
         log.info(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.exec.state.x:.2f}, Y: {self.exec.state.y:.2f}, Speed: {self.exec.state.speed:.2f}, Theta: {self.exec.state.theta:.2f}")
+        
+        self.global_tj_wp_entry.delete(0, tk.END)
+        self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
 
 
 
@@ -299,7 +302,8 @@ class VisualizerApp(tk.Tk):
             elif event.button == 'down':
                 self.frenet_zoom += increment
         
-        if self._prev_scroll_time is None or time.time() - self._prev_scroll_time > 0.2:
+        threshold = 0.01 
+        if (self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold) and not self.animation_running:
             self._replot()
         
         self._prev_scroll_time = time.time()
@@ -404,17 +408,17 @@ class VisualizerApp(tk.Tk):
             self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
             self.after(int(cn_dt*1000), self._exec_loop)
 
-    def stop_sim(self):
+    def stop_exec(self):
         self.animation_running = False  
         self.start_sim_button.config(state=tk.NORMAL)
     
-    def step_sim(self):
+    def step_exec(self):
         cn_dt = float(self.dt_exec_cn_entry.get())
         pl_dt = float(self.dt_exec_pl_entry.get())
         self.exec.run(control_dt=cn_dt, replan_dt=pl_dt)
         self._replot()
 
-    def reset_sim(self):
+    def reset_exec(self):
         self.exec.reset()
         self._replot()
 
