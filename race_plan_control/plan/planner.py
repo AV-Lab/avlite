@@ -22,12 +22,12 @@ class Planner:
 
         self.lap = 0
 
-
+        # these are localization data
         self.xdata, self.ydata = [self.global_trajectory.path_x[0]], [self.global_trajectory.path_y[0]]
         self.past_d, self.past_s  = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
 
 
-        self.selected_edge:LatticeGraph.Edge = None
+        self.selected_edge:Edge = None
         self.lattice_graph = {} 
         self.lattice = LatticeGraph(self.global_trajectory, num_of_points=10)
         
@@ -127,13 +127,13 @@ class LatticeGraph:
         self.__global_tj = global_tj
         self.__num_of_points = num_of_points
         
-        self.selected_edge:LatticeGraph.Edge = None
+        self.selected_edge:Edge = None
         self.lattice_graph = {} 
 
         self.__iter_idx = 0
 
     def add_edge(self, start_s, start_d, end_s, end_d):
-        edge = self.Edge(start_s, start_d, end_s, end_d, num_of_points=self.__num_of_points)
+        edge = Edge(start_s, start_d, end_s, end_d, num_of_points=self.__num_of_points)
         self.lattice_graph[edge] = self.__global_tj.create_trajectory_in_sd_coordinate(start_s, start_d, end_s, end_d, num_points=self.__num_of_points)
 
     def clear(self):
@@ -152,37 +152,39 @@ class LatticeGraph:
         else:
             raise StopIteration
 
-    class Edge:
-        def __init__(self, start_s, start_d, end_s, end_d, global_tj:u.Trajectory, num_of_points = 10):
-            self.start_s = start_s
-            self.start_d = start_d
-            self.end_s = end_s
-            self.end_d = end_d
-            self.num_of_points = num_of_points
-            self.local_trajectory = global_tj.create_trajectory_in_sd_coordinate(start_s, start_d, end_s, end_d, num_points=num_of_points)
+class Edge:
+    def __init__(self, start_s, start_d, end_s, end_d, global_tj:u.Trajectory, num_of_points = 10, d_1st_derv = None, d_2nd_derv = None):
+        self.start_s = start_s
+        self.start_d = start_d
+        self.end_s = end_s
+        self.end_d = end_d
+        self.num_of_points = num_of_points
+        self.local_trajectory = global_tj.create_trajectory_in_sd_coordinate(start_s,
+                                start_d, end_s, end_d, d_1st_derv=d_1st_derv, d_2nd_derv=d_2nd_derv,
+                                 num_points=num_of_points)
 
 
-            self.selected_next_edge = None
-            self.next_edges = []
-            self.is_selected = False
-    
-        def is_next_edge_selected(self):
-            return self.selected_next_edge is not None
+        self.selected_next_edge = None
+        self.next_edges = []
+        self.is_selected = False
 
-        def append_next_edges(self, edge):
-            self.next_edges.append(edge)
+    def is_next_edge_selected(self):
+        return self.selected_next_edge is not None
+
+    def append_next_edges(self, edge):
+        self.next_edges.append(edge)
 
 
 
-        def __hash__(self):
-            return hash((self.start_s, self.start_d, self.end_s, self.end_d, self.num_of_points))
+    def __hash__(self):
+        return hash((self.start_s, self.start_d, self.end_s, self.end_d, self.num_of_points))
 
-        def __eq__(self, other):
-            if isinstance(other, LatticeGraph.Edge):
-                return (self.start_s == other.start_s and self.start_d == other.start_d and
-                        self.end_s == other.end_s and self.end_d == other.end_d and
-                        self.num_of_points == other.num_of_points)
-            return False
+    def __eq__(self, other):
+        if isinstance(other, LatticeGraph.Edge):
+            return (self.start_s == other.start_s and self.start_d == other.start_d and
+                    self.end_s == other.end_s and self.end_d == other.end_d and
+                    self.num_of_points == other.num_of_points)
+        return False
         
 
     

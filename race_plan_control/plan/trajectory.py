@@ -21,7 +21,7 @@ class Trajectory:
         self.path_s, self.path_d = self.convert_xy_path_to_sd_path(self.__reference_path) # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
 
-        self.poly = None # for local trajectory
+        self.poly:Polynomial = None # for local trajectory
         self.parent_trajectory = None
         self.path_s_with_respect_to_parent = None
         self.path_d_with_respect_to_parent = None
@@ -89,39 +89,43 @@ class Trajectory:
     def is_traversed(self):
         return self.current_wp == len(self.__reference_path) - 1
 
-    def create_trajectory_in_sd_coordinate(self, s_start:float, d_start:float, s_end:float, d_end:float, s_start_derv = None, d_start_derv = None,
+    def create_trajectory_in_sd_coordinate(self, s_start:float, d_start:float, s_end:float, d_end:float,  d_1st_derv = None,d_2nd_derv = None,
                                          num_points=10):
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
-
-            # Fit a 5th degree polynomial to the start and end points
-        if s_start_derv is not None and d_start_derv is not None:
-            # Set up the system of equations
+    
+        if d_1st_derv is not None and d_2nd_derv is not None:
             A = np.array([
-                [s_start**5, s_start**4, s_start**3, s_start**2, s_start, 1],
-                [s_end**5, s_end**4, s_end**3, s_end**2, s_end, 1],
-                [5*s_start**4, 4*s_start**3, 3*s_start**2, 2*s_start, 1, 0],
-                [5*s_end**4, 4*s_end**3, 3*s_end**2, 2*s_end, 1, 0]
+                [s_start**5, s_start**4, s_start**3, s_start**2, s_start, 1],  # Polynomial at s_start
+                [s_end**5, s_end**4, s_end**3, s_end**2, s_end, 1],            # Polynomial at s_end
+                [5*s_start**4, 4*s_start**3, 3*s_start**2, 2*s_start, 1, 0],   # 1st derivative at s_start
+                [5*s_end**4, 4*s_end**3, 3*s_end**2, 2*s_end, 1, 0],           # 1st derivative at s_end
+                [20*s_start**3, 12*s_start**2, 6*s_start, 2, 0, 0],            # 2nd derivative at s_start
+                [20*s_end**3, 12*s_end**2, 6*s_end, 2, 0, 0]                   # 2nd derivative at s_end
             ])
 
-            b = np.array([d_start, d_end, s_start_derv, d_start_derv])
+            b = np.array([d_start, d_end, d_1st_derv, d_2nd_derv, d_2nd_derv, d_2nd_derv])
 
+           
             # Solve for the polynomial coefficients
             coefficients = np.linalg.solve(A, b)
 
             # Create the polynomial
-            self.poly = Polynomial(coefficients[::-1])  # Reverse coefficients for Polynomial
+            poly = Polynomial(coefficients[::-1])  # Reverse coefficients for Polynomial
+            log.info(f"Poly Coefficients (C2 Continuity): {poly.coef}")
         else:
-            self.poly = Polynomial.fit([s_start, s_end], [d_start, d_end], 5)
+            poly = Polynomial.fit([s_start, s_end], [d_start, d_end], 5)
+            log.info(f"Poly Coefficients: {poly.coef}")
 
         # Calculate the d values for the trajectory
-        d_values = self.poly(s_values)
+        d_values = poly(s_values)
 
         tx, ty = zip(*[self.convert_sd_to_xy(s, d) for s, d in zip(s_values, d_values)])
 
         path = list(zip(tx, ty))
         local_trajectory = Trajectory(path, name="Local Trajectory")
-        
+
+        local_trajectory.poly = poly 
         local_trajectory.parent_trajectory = self
         local_trajectory.path_s_with_respect_to_parent = s_values
         local_trajectory.path_d_with_respect_to_parent = d_values
