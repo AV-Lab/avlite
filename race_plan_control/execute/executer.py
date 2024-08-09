@@ -31,7 +31,7 @@ class Executer(ABC):
         # update planner location
         self.pl.step(self.state)
 
-        global_cte = self.pl.past_d[-1] # this one is with respect to global trajectory
+        global_cte = self.pl.traversed_d[-1] # this one is with respect to global trajectory
         local_tj = self.pl.get_local_plan()
         _,cte = local_tj.convert_xy_to_sd(self.state.x, self.state.y)
 

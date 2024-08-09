@@ -7,3 +7,5 @@ __pycache__/
 venv
 .ipynb_checkpoints/
 .env
+myenv
+1-files

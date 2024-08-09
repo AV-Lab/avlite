@@ -1,5 +1,7 @@
+from plan.planner import Planner
 import race_plan_control.main as main
 from race_plan_control.execute.executer import Executer
+from race_plan_control.perceive.vehicle_state import VehicleState
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -53,8 +55,11 @@ car_location_plot, = ax1.plot([], [], 'ko', markersize=7, label='Car Location')
 car_rect = plt.Rectangle((0,0), 0, 0, angle=0, edgecolor='r', facecolor='none')
 ax1.add_patch(car_rect)
 
+
+
+# TODO make this part dynamic based on the planner
 # Assuming a maximum number of lattice graph edges
-max_lattice_edges = 10
+max_lattice_edges = 50
 
 for _ in range(max_lattice_edges):
     line_ax1, = ax1.plot([], [], "b--", alpha=0.6)
@@ -94,19 +99,19 @@ def plot(exec: Executer, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30, show_le
     
     # For Zoom in
     if xy_zoom is not None:
-        ax1.set_xlim(exec.pl.xdata[-1] - xy_zoom, exec.pl.xdata[-1] + xy_zoom)
-        ax1.set_ylim(exec.pl.ydata[-1] - xy_zoom/aspect_ratio/2, exec.pl.ydata[-1] + xy_zoom/aspect_ratio/2)
+        ax1.set_xlim(exec.pl.traversed_x[-1] - xy_zoom, exec.pl.traversed_x[-1] + xy_zoom)
+        ax1.set_ylim(exec.pl.traversed_y[-1] - xy_zoom/aspect_ratio/2, exec.pl.traversed_y[-1] + xy_zoom/aspect_ratio/2)
     if frenet_zoom is not None:
-        ax2.set_xlim(exec.pl.past_s[-1] - frenet_zoom/2 ,   exec.pl.past_s[-1] + 1.5*frenet_zoom)
+        ax2.set_xlim(exec.pl.traversed_s[-1] - frenet_zoom/2 ,   exec.pl.traversed_s[-1] + 1.5*frenet_zoom)
         ax2.set_ylim(-frenet_zoom/aspect_ratio/2,  frenet_zoom/aspect_ratio/2)
 
 
     if plot_last_pts and num_plot_last_pts > 0:
-        last_locs_ax1.set_data(exec.pl.xdata[-num_plot_last_pts:], exec.pl.ydata[-num_plot_last_pts:])
-        planner_loc_ax1.set_data([exec.pl.xdata[-1]], [exec.pl.ydata[-1]])  
+        last_locs_ax1.set_data(exec.pl.traversed_x[-num_plot_last_pts:], exec.pl.traversed_y[-num_plot_last_pts:])
+        planner_loc_ax1.set_data([exec.pl.traversed_x[-1]], [exec.pl.traversed_y[-1]])  
         
-        last_locs_ax2.set_data(exec.pl.past_s[-num_plot_last_pts:], exec.pl.past_d[-num_plot_last_pts:]) 
-        planner_loc_ax2.set_data([exec.pl.past_s[-1]], [exec.pl.past_d[-1]])  
+        last_locs_ax2.set_data(exec.pl.traversed_s[-num_plot_last_pts:], exec.pl.traversed_d[-num_plot_last_pts:]) 
+        planner_loc_ax2.set_data([exec.pl.traversed_s[-1]], [exec.pl.traversed_d[-1]])  
     else:
         last_locs_ax1.set_data([], [])
         planner_loc_ax1.set_data([], [])
@@ -146,13 +151,13 @@ def redraw_plots():
 
 initialized = False
 toggle_plot = False
-def update_global_plan_plots(pl, show_plot = True):
+def update_global_plan_plots(pl:Planner, show_plot = True):
         global initialized
         global toggle_plot
         if not initialized:
             # Plot track boundaries 
-            left_boundry_x1.set_data(pl.left_x, pl.left_y)
-            right_boundry_x1.set_data(pl.right_x, pl.right_y)
+            left_boundry_x1.set_data(pl.ref_left_boundary_x, pl.ref_left_boundary_y)
+            right_boundry_x1.set_data(pl.ref_right_boundary_x, pl.ref_right_boundary_y)
             left_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_left_boundary_d])
             right_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_right_boundary_d]) 
             # Plot the reference path 
@@ -180,7 +185,7 @@ def update_global_plan_plots(pl, show_plot = True):
             g_wp_next_ax2.set_data([pl.global_trajectory.path_s[pl.global_trajectory.next_wp]], [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]])
 
 # TODO: currently shows only two levels only
-def update_lattice_graph_plots(pl, show_plot = True):
+def update_lattice_graph_plots(pl:Planner, show_plot = True):
     if not show_plot or len(pl.lattice_graph) == 0:
         # clear all lattice graph plots
         for line in lattice_graph_plots_ax1 + lattice_graph_endpoints_ax1 + lattice_graph_plots_ax2 + lattice_graph_endpoints_ax2:
@@ -206,7 +211,7 @@ def update_lattice_graph_plots(pl, show_plot = True):
                 lattice_graph_endpoints_ax2[edge_index].set_data([next_edge.local_trajectory.path_s_with_respect_to_parent[-1]], [next_edge.local_trajectory.path_d_with_respect_to_parent[-1]])
                 edge_index += 1
 
-def update_local_plan_plots(pl, show_plot = True):
+def update_local_plan_plots(pl:Planner, show_plot = True):
     if not show_plot or pl.selected_edge is None:
         selected_edge_plot_ax1.set_data([],[])
         selected_edge_plot_ax2.set_data([],[])
@@ -244,7 +249,7 @@ def update_local_plan_plots(pl, show_plot = True):
 
 
 
-def update_state_plots(state, show_plot = True):
+def update_state_plots(state:VehicleState, show_plot = True):
     if not show_plot:
         car_heading_plot.set_data([], [])
         car_location_plot.set_data([], [])

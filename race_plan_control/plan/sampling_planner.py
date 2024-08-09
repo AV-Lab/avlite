@@ -1,4 +1,5 @@
-from race_plan_control.plan.planner import Planner, LatticeGraph, Edge
+from race_plan_control.plan.planner import Planner
+from race_plan_control.plan.lattice import LatticeGraph, Edge
 import numpy as np
 import logging
 
@@ -16,13 +17,13 @@ class RNDPlanner(Planner):
         self.minimum_planning_distance = minimum_s_distance
         self.minimum_boundary_distance = minimum_boundary_distance
 
-    def replan(self, sample_size=1, back_to_ref_horizon=10, sample=True):
-        if len(self.past_s) == 0:
+    def replan(self, sample_size=5, back_to_ref_horizon=10, sample=True):
+        if len(self.traversed_s) == 0:
             log.debug("No data to replan")
             return
 
-        s = self.past_s[-1]
-        d = self.past_d[-1]
+        s = self.traversed_s[-1]
+        d = self.traversed_d[-1]
         
         # delete old edges that already passed its starting point
         self.lattice_graph = {} 
@@ -44,7 +45,7 @@ class RNDPlanner(Planner):
         if sample:
             for _ in range(sample_size):
                 s_e = np.random.uniform(self.minimum_planning_distance,self.planning_horizon)
-                s_ = self.past_s[-1] + s_e
+                s_ = self.traversed_s[-1] + s_e
                 d_ = np.random.uniform(self.ref_left_boundary_d[current_wp]-self.minimum_boundary_distance, 
                                        self.ref_right_boundary_d[current_wp]+self.minimum_boundary_distance)
                 log.info(f"Sampling: ({s_:.2f},{d_:.2f})")
