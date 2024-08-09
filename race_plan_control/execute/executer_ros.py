@@ -21,8 +21,8 @@ class local_planner(Node, Planner):
     def loc_callback(self, msg):
         x_current = msg.position.x
         y_current = msg.position.y
-        self.xdata.append(msg.position.x)
-        self.ydata.append(msg.position.y)
+        self.traversed_x.append(msg.position.x)
+        self.traversed_y.append(msg.position.y)
         
         self.tj.update_waypoint(x_current, y_current)
         

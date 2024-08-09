@@ -1,2 +1,13 @@
-# path_to_track: "/home/mkhonji/workspaces/race_plan_control/resource/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
 path_to_track: "resource/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
+
+tkinter_visualizer:
+  log_level: "DEBUG"
+  log_items: ["Percieve", "Plan", "Control", "Visualize"]
+
+  plot_items: ["legend", "locations", "global plan", "local plan", "lattice graph", "ego state", "agent state"]
+
+  execution_bridge: "simple_sim"
+  execution_control_dt: 0.02
+  execution_plan_dt: 0.7
+  execution_mode: "synchronous" # synchronous, asynchronous
+

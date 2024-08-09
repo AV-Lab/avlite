@@ -39,7 +39,7 @@ class VisualizerApp(tk.Tk):
         self.animation_running = False
 
         self.exec_option = tk.StringVar(value="Simple") 
-        self.debug_option = tk.StringVar(value="INFO")  
+        self.debug_option = tk.StringVar(value="DEBUG")  
 
         
         self.show_plan_logs = tk.BooleanVar(value=True)
@@ -107,7 +107,7 @@ class VisualizerApp(tk.Tk):
         self.global_tj_wp_entry = ttk.Entry(wp_frame, width=6)
         self.global_tj_wp_entry.insert(0, "0")
         self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Label(wp_frame, text=f"{len(self.pl.reference_path)-1}").pack(side=tk.LEFT, padx=5)
+        ttk.Label(wp_frame, text=f"{len(self.pl.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
 
         ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.LEFT,fill=tk.X, expand=True)
@@ -272,7 +272,7 @@ class VisualizerApp(tk.Tk):
         self.vehicle_state_label.config(text=f"Vehicle State: X: {self.exec.state.x:.2f}, Y: {self.exec.state.y:.2f}, Speed: {self.exec.state.speed:.2f}, Theta: {self.exec.state.theta:.2f}")
         
         self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
+        self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.current_wp)) 
 
 
 
@@ -355,7 +355,7 @@ class VisualizerApp(tk.Tk):
     #--------------------------------------------------------------------------------------------
 
     def step_control(self):
-        d = self.pl.past_d[-1]
+        d = self.pl.traversed_d[-1]
         steer = self.cn.control(d)
         
         dt = float(self.dt_entry.get())
