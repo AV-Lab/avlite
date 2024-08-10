@@ -6,7 +6,6 @@ from abc import ABC,abstractmethod
 import logging 
 import numpy as np
 import time 
-from math import cos, sin
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +49,6 @@ class Executer(ABC):
         self.elapsed_real_time += delta_t_exec 
         
         log.info(f"Exec Step Time:{delta_t_exec:.3f}  | Control Time: {(t2-t1):.4f},  Plan Update Time: {(t4-t3):.4f}")
-        
         log.info(f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}")
 
     def run_loop(self, control_dt=0.01, replan_dt=None, max_time=100):

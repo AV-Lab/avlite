@@ -1,6 +1,7 @@
 import race_plan_control.visualize.plot as plot
 from race_plan_control.execute.executer import Executer
 
+from matplotlib import colors
 
 
 import tkinter as tk
@@ -11,8 +12,12 @@ import logging
 from tkinter.scrolledtext import ScrolledText
 import sys
 
+
+
 log = logging.getLogger(__name__)
 log_blacklist = set() # used to filter 'excute', 'plan', 'control' subpackage logs
+
+# import TKinterModernThemes as TKMT  
 
 class VisualizerApp(tk.Tk):
     exe:Executer
@@ -23,16 +28,14 @@ class VisualizerApp(tk.Tk):
         self.exec = executer
         self.code_reload_function = code_reload_function
 
-
         self.title("Path Planning Visualization")
         self.geometry("1200x1100")
-
-
 
         #----------------------------------------------------------------------
         # Variables for checkboxes --------------------------------------------
         #----------------------------------------------------------------------
         self.plot_only_UI = tk.BooleanVar(value=only_visualize)
+        self.dark_mode = tk.BooleanVar(value=True)
 
         self.show_legend = tk.BooleanVar(value=True)
         self.show_past_locations = tk.BooleanVar(value=True)
@@ -57,6 +60,7 @@ class VisualizerApp(tk.Tk):
         #----------------------------------------------------------------------
         self.bind("Q", lambda e: self.quit())
         self.bind("R", lambda e: self._reload_stack())
+        self.bind("D", lambda e: self._toggle_dark_mode_shortcut())
         self.bind("S", lambda e: self._shortcut_mode())
         
         self.bind("x", lambda e: self.toggle_exec())
@@ -102,6 +106,7 @@ class VisualizerApp(tk.Tk):
         self._prev_scroll_time = None # used to throttle the replot
 
 
+
         #----------------------------------------------------------------------
         # Config frame
         #------------------------------------------------------
@@ -109,24 +114,26 @@ class VisualizerApp(tk.Tk):
         config_frame.pack(fill=tk.X, side=tk.TOP)
         ttk.Button(config_frame, text="Reload Code", command=self._reload_stack).pack(side=tk.RIGHT)
         ttk.Checkbutton(config_frame, text="Shortcut Mode", variable=self.plot_only_UI, command=self._update_UI).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(config_frame, text="Dark Mode", variable=self.dark_mode, command=self._toggle_dark_mode).pack(anchor=tk.W, side=tk.LEFT)
 
         #----------------------------------------------------------------------
         # Shortcut frame
         #------------------------------------------------------
         self.shortcut_frame = ttk.LabelFrame(self, text="Shortcuts")
-        help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=6)
-        help_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+        self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=6)
         key_binding_info = """
-App:     Q - Quit             S - Toggle shortcut          R - Reload imports     
-         + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out Frenet
+App:     Q - Quit             S - Toggle shortcut          D - Toggle Dark Mode        R - Reload imports     
+         + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out F
 Execute: c - Step Execution   t - Reset execution          x - Toggle execution
 Plan:    n - Step plan        r - Replan            
 Control: h - Control Step     g - Re-align control         w - Accelerate 
          a - Steer left       d - Steer right              s - Deccelerate
          """.strip()
-        help_text.insert(tk.END, key_binding_info)
-
-        help_text.config(state=tk.DISABLED)  # Make the text area read-only
+        self.help_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+        self.help_text.insert(tk.END, key_binding_info)
+        self.help_text.config(state=tk.DISABLED)  # Make the text area read-only
+        
+    
 
         #----------------------------------------------------------------------
         # Visualize + Exec ------------------------------------------------
@@ -158,8 +165,9 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
         
         
-        self.start_sim_button = ttk.Button(exec_second_frame, text="Start", command=self.toggle_exec)
-        self.start_sim_button.pack(fill=tk.X, side=tk.LEFT, expand=True)
+        self.start_exec_button = ttk.Button(exec_second_frame, text="Start", command=self.toggle_exec)
+        self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
+
         ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(side=tk.LEFT)
         ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
         ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
@@ -209,7 +217,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         ## Perceive Frame 
         #---------------------------------------------------------------------- 
         self.perceive_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text = "Perceive")
-        self.perceive_frame.pack(side=tk.LEFT)
+        self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
         self.vehicle_state_label = ttk.Label(self.perceive_frame, text="")
         self.vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, pady=5)
         
@@ -265,25 +273,25 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         #- Log Frame
         #----------------------------------------------------------------------
         self.log_frame = ttk.LabelFrame(self, text="Log")
-        self.log_frame.pack(fill=tk.X, pady=5)
+        self.log_frame.pack(fill=tk.X)
 
         log_cb_frame = ttk.Frame(self.log_frame)
         log_cb_frame.pack(fill=tk.X)
 
-        self.ck_plan = ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log_filter)
+        self.ck_plan = ttk.Checkbutton(log_cb_frame, text="Plan", variable=self.show_plan_logs, command=self.update_log_filter)
         self.ck_plan.pack(side=tk.LEFT)
         self.ck_plan.state(['!alternate'])
         self.ck_plan.state(['selected'])
-        self.ck_control = ttk.Checkbutton(log_cb_frame, text="Control Logs", variable=self.show_control_logs, command=self.update_log_filter)
+        self.ck_control = ttk.Checkbutton(log_cb_frame, text="Control", variable=self.show_control_logs, command=self.update_log_filter)
         self.ck_control.pack(side=tk.LEFT)
         self.ck_control.state(['!alternate'])
         self.ck_control.state(['selected'])
-        self.ck_exec = ttk.Checkbutton(log_cb_frame, text="Execute Logs", variable=self.show_execute_logs, command=self.update_log_filter)
+        self.ck_exec = ttk.Checkbutton(log_cb_frame, text="Execute", variable=self.show_execute_logs, command=self.update_log_filter)
         self.ck_exec.pack(side=tk.LEFT)
         self.ck_exec.state(['!alternate'])
         self.ck_exec.state(['selected'])
         
-        self.ck_vis = ttk.Checkbutton(log_cb_frame, text="Visualize Logs", variable=self.show_vis_logs, command=self.update_log_filter)
+        self.ck_vis = ttk.Checkbutton(log_cb_frame, text="Visualize", variable=self.show_vis_logs, command=self.update_log_filter)
         self.ck_vis.pack(side=tk.LEFT)
         self.ck_vis.state(['!alternate'])
         self.ck_vis.state(['selected'])
@@ -308,6 +316,8 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         #-End of UI Elements---------------------------------------------------
         #----------------------------------------------------------------------
         #----------------------------------------------------------------------
+        
+        self.__dark_mode()
 
 
         #------------------------------------------- 
@@ -350,6 +360,41 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             self.log_area.pack(fill=tk.BOTH,expand=True)
             self.log_frame.pack(fill=tk.X)
 
+    def _toggle_dark_mode(self):
+        self.__dark_mode() if self.dark_mode.get() else self.__light_mode()
+
+    def _toggle_dark_mode_shortcut(self):
+        if self.dark_mode.get():
+            self.dark_mode.set(False)
+        else:
+            self.dark_mode.set(True)
+        self._toggle_dark_mode()
+
+    def __dark_mode(self):
+        self.configure(bg="black")
+        self.log_area.config(bg="gray14", fg="white", highlightbackground="black")
+        self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+        plot.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
+        try:
+            from ttkthemes import ThemedStyle
+            style = ThemedStyle(self)
+            style.set_theme("equilux")
+            
+        except ImportError:
+            log.error("Please install ttkthemes to use dark mode.")
+    def __light_mode(self):
+        self.configure(bg="white")
+        self.log_area.config(bg="white", fg="black")
+        self.help_text.config(bg="white", fg="black")
+        plot.set_plot_theme(bg_color="white", fg_color="black")
+        # reset the theme
+        try:
+            from ttkthemes import ThemedStyle
+            style = ThemedStyle(self)
+            style.set_theme("yaru")
+        except ImportError:
+            log.error("Please install ttkthemes to use dark mode.")
+
 
     def _replot(self):
         canvas_widget = self.canvas.get_tk_widget()
@@ -363,7 +408,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
                   plot_last_pts=self.show_past_locations.get(), plot_global_plan=self.show_global_plan.get(), 
                   plot_local_plan=self.show_local_plan.get(), plot_local_lattice = self.show_local_lattice.get(), plot_state=self.show_state.get())
         self.canvas.draw()
-        log.info(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
+        log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
         self.vehicle_state_label.config(text=f"Ego State: X: {self.exec.ego_state.x:+.2f}, Y: {self.exec.ego_state.y:+.2f}, v: {self.exec.ego_state.speed:+.2f}, θ: {self.exec.ego_state.theta:+.2f}")
         
         self.global_tj_wp_entry.delete(0, tk.END)
@@ -373,6 +418,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
     def _reload_stack(self):
         if self.code_reload_function is not None:
             self.exec = self.code_reload_function()
+            self._replot()
         else:
             log.warn("No code reload function provided.")
 
@@ -499,7 +545,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             self.stop_exec()
             return 
         self.animation_running = True
-        self.start_sim_button.config(state=tk.DISABLED)
+        self.start_exec_button.config(state=tk.DISABLED)
         self._exec_loop()
 
     def _exec_loop(self):
@@ -515,7 +561,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
     def stop_exec(self):
         self.animation_running = False  
-        self.start_sim_button.config(state=tk.NORMAL)
+        self.start_exec_button.config(state=tk.NORMAL)
     
     def step_exec(self):
         cn_dt = float(self.dt_exec_cn_entry.get())
@@ -581,8 +627,5 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             pass
 
 if __name__ == "__main__":
-    # import cProfile
-    # import re
     import race_plan_control.main as main
-    # cProfile.run("main.run()")
     main.run()
