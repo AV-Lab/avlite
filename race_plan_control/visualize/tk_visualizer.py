@@ -1,7 +1,6 @@
-from race_plan_control.plan.planner import Planner
-from race_plan_control.control.controller import Controller
 import race_plan_control.visualize.plot as plot
 from race_plan_control.execute.executer import Executer
+
 
 
 import tkinter as tk
@@ -16,19 +15,25 @@ log = logging.getLogger(__name__)
 log_blacklist = set() # used to filter 'excute', 'plan', 'control' subpackage logs
 
 class VisualizerApp(tk.Tk):
-    def __init__(self, pl:Planner, controller:Controller, exec:Executer,  only_visualize=False):
+    exe:Executer
+
+    def __init__(self,executer:Executer, code_reload_function = None,  only_visualize=False):
         super().__init__()
-        self.pl = pl
-        self.cn = controller
-        self.exec = exec;
-        
+
+        self.exec = executer
+        self.code_reload_function = code_reload_function
+
+
         self.title("Path Planning Visualization")
         self.geometry("1200x1100")
 
 
-        #--------------------------------------------------------------------------------------------
-        # Variables for checkboxes ------------------------------------------------------------------
-        #--------------------------------------------------------------------------------------------
+
+        #----------------------------------------------------------------------
+        # Variables for checkboxes --------------------------------------------
+        #----------------------------------------------------------------------
+        self.plot_only_UI = tk.BooleanVar(value=only_visualize)
+
         self.show_legend = tk.BooleanVar(value=True)
         self.show_past_locations = tk.BooleanVar(value=True)
         self.show_global_plan = tk.BooleanVar(value=True)
@@ -47,58 +52,176 @@ class VisualizerApp(tk.Tk):
         self.show_execute_logs = tk.BooleanVar(value=True)
         self.show_vis_logs = tk.BooleanVar(value=True)
 
+        #----------------------------------------------------------------------
+        # Key Bindings --------------------------------------------------------
+        #----------------------------------------------------------------------
+        self.bind("Q", lambda e: self.quit())
+        self.bind("R", lambda e: self._reload_stack())
+        self.bind("S", lambda e: self._shortcut_mode())
+        
+        self.bind("x", lambda e: self.toggle_exec())
+        self.bind("c", lambda e: self.step_exec())
+        self.bind("t", lambda e: self.reset_exec())
 
-        #--------------------------------------------------------------------------------------------
-        #-Plot Frame --------------------------------------------------------------------------------
-        #--------------------------------------------------------------------------------------------
+        self.bind("n", lambda e: self.step_plan())
+        self.bind("r", lambda e: self.replan())
+
+        self.bind("h", lambda e: self.step_control())
+        self.bind("g", lambda e: self.align_control())
+
+        self.bind("a", lambda e: self.step_steer_left())
+        self.bind("d", lambda e: self.step_steer_right())
+        self.bind("w", lambda e: self.step_acc())
+        self.bind("s", lambda e: self.step_dec())   
+
+        self.bind("<Control-plus>", lambda e: self.zoom_in_frenet())
+        self.bind("<Control-minus>", lambda e: self.zoom_out_frenet())
+        self.bind("<plus>", lambda e: self.zoom_in())
+        self.bind("<minus>", lambda e: self.zoom_out())
+
+        #----------------------------------------------------------------------
+        #-Plot Frame ----------------------------------------------------------
+        #----------------------------------------------------------------------
 
         self.plot_frame = ttk.Frame(self)
         self.plot_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.xy_zoom = 30
+        self.frenet_zoom = 30
 
-        # Visualize frame setup
+        self.fig = plot.fig
+        self.ax1 = plot.ax1
+        self.ax2 = plot.ax2
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.after(300, self._replot)
+        
+        self.canvas.mpl_connect('scroll_event', self.on_mouse_scroll)
+        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+        self._prev_scroll_time = None # used to throttle the replot
+
+
+        #----------------------------------------------------------------------
+        # Config frame
         #------------------------------------------------------
-        self.visualize_frame = ttk.LabelFrame(self, text="Visualize")
-        self.visualize_frame.pack(fill=tk.X, side=tk.TOP, padx=10, pady=5)
+        config_frame = ttk.LabelFrame(self, text="Config")
+        config_frame.pack(fill=tk.X, side=tk.TOP)
+        ttk.Button(config_frame, text="Reload Code", command=self._reload_stack).pack(side=tk.RIGHT)
+        ttk.Checkbutton(config_frame, text="Shortcut Mode", variable=self.plot_only_UI, command=self._update_UI).pack(anchor=tk.W, side=tk.LEFT)
+
+        #----------------------------------------------------------------------
+        # Shortcut frame
+        #------------------------------------------------------
+        self.shortcut_frame = ttk.LabelFrame(self, text="Shortcuts")
+        help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=6)
+        help_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+        key_binding_info = """
+App:     Q - Quit             S - Toggle shortcut          R - Reload imports     
+         + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out Frenet
+Execute: c - Step Execution   t - Reset execution          x - Toggle execution
+Plan:    n - Step plan        r - Replan            
+Control: h - Control Step     g - Re-align control         w - Accelerate 
+         a - Steer left       d - Steer right              s - Deccelerate
+         """.strip()
+        help_text.insert(tk.END, key_binding_info)
+
+        help_text.config(state=tk.DISABLED)  # Make the text area read-only
+
+        #----------------------------------------------------------------------
+        # Visualize + Exec ------------------------------------------------
+        #----------------------------------------------------------------------
+        self.vis_exec_frame = ttk.Frame(self)
+        self.vis_exec_frame.pack(fill=tk.X)
+
+        #----------------------------------------------------------------------
+        ## Execute Frame
+        #----------------------------------------------------------------------
+        self.execution_frame = ttk.LabelFrame(self.vis_exec_frame, text="Execute (Auto)")
+        self.execution_frame.pack(side=tk.LEFT, fill=tk.X,expand = True)
+
+        exec_first_frame = ttk.Frame(self.execution_frame)
+        exec_first_frame.pack(fill=tk.X)
+        exec_second_frame = ttk.Frame(self.execution_frame)
+        exec_second_frame.pack(fill=tk.X)
+        exec_third_frame = ttk.Frame(self.execution_frame)
+        exec_third_frame.pack(fill=tk.X)
+
+        ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, width=5)
+        self.dt_exec_cn_entry.insert(0, "0.02")
+        self.dt_exec_cn_entry.pack(side=tk.LEFT)
+        
+        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, width=5)
+        self.dt_exec_pl_entry.insert(0, ".7")
+        self.dt_exec_pl_entry.pack(side=tk.LEFT)
+        
+        
+        self.start_sim_button = ttk.Button(exec_second_frame, text="Start", command=self.toggle_exec)
+        self.start_sim_button.pack(fill=tk.X, side=tk.LEFT, expand=True)
+        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
+        
+        ttk.Label(exec_third_frame, text="Bridge:").pack(side=tk.LEFT)
+        ttk.Radiobutton(exec_third_frame, text="Simple", variable=self.exec_option, value="Simple").pack(side=tk.LEFT)
+        ttk.Radiobutton(exec_third_frame, text="ROS", variable=self.exec_option, value="ROS").pack(side=tk.LEFT)
+        ttk.Radiobutton(exec_third_frame, text="Carla", variable=self.exec_option, value="Carla").pack(side=tk.LEFT)
+
+        #----------------------------------------------------------------------
+        # Visualize frame setup
+        #----------------------------------------------------------------------
+        self.visualize_frame = ttk.LabelFrame(self.vis_exec_frame, text="Visualize")
+        self.visualize_frame.pack(side = tk.LEFT)
 
         ## UI Elements for Visualize - Checkboxes
         checkboxes_frame = ttk.Frame(self.visualize_frame)
         checkboxes_frame.pack(fill=tk.X)
-        ttk.Checkbutton(checkboxes_frame, text="Show Legend", variable=self.show_legend, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(checkboxes_frame, text="Show Locations", variable=self.show_past_locations, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(checkboxes_frame, text="Show Global Plan",  variable=self.show_global_plan, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(checkboxes_frame, text="Show Local Plan", variable=self.show_local_plan, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(checkboxes_frame, text="Show Local Lattice", variable=self.show_local_lattice, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(checkboxes_frame, text="Show State", variable=self.show_state, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
-
-        self.coordinates_label = ttk.Label(checkboxes_frame, text="")
-        self.coordinates_label.pack(side=tk.RIGHT)
+        ttk.Checkbutton(checkboxes_frame, text="Legend", variable=self.show_legend, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Locations", variable=self.show_past_locations, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Global Plan",  variable=self.show_global_plan, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Local Plan", variable=self.show_local_plan, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="Local Lattice", variable=self.show_local_lattice, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(checkboxes_frame, text="State", variable=self.show_state, state='selected',command=self._replot).pack(anchor=tk.W, side=tk.LEFT)
 
         ## UI Elements for Visualize - Buttons
-        global_frame = ttk.Frame(self.visualize_frame)
-        global_frame.pack(fill=tk.X, padx=5)
+        zoom_global_frame = ttk.Frame(self.visualize_frame)
+        zoom_global_frame.pack(fill=tk.X, padx=5)
 
-        ttk.Label(global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
-        ttk.Button(global_frame, text="Zoom Out", command=self.zoom_out).pack(side=tk.LEFT)
-        self.vehicle_state_label = ttk.Label(global_frame, text="")
-        self.vehicle_state_label.pack(side=tk.RIGHT)
-        frenet_frame = ttk.Frame(self.visualize_frame)
-        frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
-        ttk.Button(frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
+        ttk.Label(zoom_global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom Out", command=self.zoom_out).pack(side=tk.LEFT)
+        zoom_frenet_frame = ttk.Frame(self.visualize_frame)
+        zoom_frenet_frame.pack(fill=tk.X, padx=5)
+        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Button(zoom_frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
+        ttk.Button(zoom_frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
         
-        #-----------------------------------------------------------
-        #-Plan Control Exec Frame ----------------------------------
-        #-----------------------------------------------------------
 
-        self.plan_sim_control_frame = ttk.Frame(self)
-        self.plan_sim_control_frame.pack(fill=tk.X)
+        #----------------------------------------------------------------------
+        # Percieve Plan Control Frame -----------------------------------------
+        #----------------------------------------------------------------------
 
+        self.perceive_plan_control_frame = ttk.Frame(self)
+        self.perceive_plan_control_frame.pack(fill=tk.X)
+        #----------------------------------------------------------------------
+        ## Perceive Frame 
+        #---------------------------------------------------------------------- 
+        self.perceive_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text = "Perceive")
+        self.perceive_frame.pack(side=tk.LEFT)
+        self.vehicle_state_label = ttk.Label(self.perceive_frame, text="")
+        self.vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, pady=5)
+        
+        self.coordinates_label = ttk.Label(self.perceive_frame, text="Spawn Agent: Click on the plot.")
+        self.coordinates_label.pack(side=tk.LEFT, pady=5)
+        #----------------------------------------------------------------------
+
+        #----------------------------------------------------------------------
         ## Plan frame
-        #-----------------------------------------------------------
-        self.plan_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Plan (Manual)")
-        self.plan_frame.pack(fill=tk.X,side=tk.LEFT, padx=10, pady=5)
+        #----------------------------------------------------------------------
+        self.plan_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Plan (Manual)")
+        self.plan_frame.pack(fill=tk.X,side=tk.LEFT, padx=5, pady=5)
         
         wp_frame = ttk.Frame(self.plan_frame)
         wp_frame.pack(fill=tk.X)
@@ -107,15 +230,16 @@ class VisualizerApp(tk.Tk):
         self.global_tj_wp_entry = ttk.Entry(wp_frame, width=6)
         self.global_tj_wp_entry.insert(0, "0")
         self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Label(wp_frame, text=f"{len(self.pl.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
+        ttk.Label(wp_frame, text=f"{len(self.exec.planner.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
 
         ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.LEFT,fill=tk.X, expand=True)
 
 
+        #----------------------------------------------------------------------
         ## Control Frame
-        #-------------------------------------------------------
-        self.control_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Control (Manual)")
+        #----------------------------------------------------------------------
+        self.control_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Control (Manual)")
         self.control_frame.pack(fill=tk.X, side=tk.LEFT)
         dt_frame = ttk.Frame(self.control_frame)
         dt_frame.pack(fill=tk.X)
@@ -132,46 +256,18 @@ class VisualizerApp(tk.Tk):
         ttk.Button(self.control_frame, text="Deccelerate", command=self.step_dec).pack(side=tk.LEFT)
 
 
-        ## Execute Frame
-        #-------------------------------------------------------
-        self.execution_frame = ttk.LabelFrame(self.plan_sim_control_frame, text="Execute (Auto)")
-        self.execution_frame.pack(fill=tk.BOTH,expand=True, side=tk.LEFT, padx=10, pady=5)
+        
+        #----------------------------------------------------------------------
+        #-End of Perceive Plan Contorl Frame --------------------------------------
+        #----------------------------------------------------------------------
+        
+        #----------------------------------------------------------------------
+        #- Log Frame
+        #----------------------------------------------------------------------
+        self.log_frame = ttk.LabelFrame(self, text="Log")
+        self.log_frame.pack(fill=tk.X, pady=5)
 
-        exec_first_frame = ttk.Frame(self.execution_frame)
-        exec_first_frame.pack(fill=tk.X)
-        exec_second_frame = ttk.Frame(self.execution_frame)
-        exec_second_frame.pack(fill=tk.X)
-
-        ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, width=5)
-        self.dt_exec_cn_entry.insert(0, "0.02")
-        self.dt_exec_cn_entry.pack(side=tk.LEFT)
-        
-        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, width=5)
-        self.dt_exec_pl_entry.insert(0, ".7")
-        self.dt_exec_pl_entry.pack(side=tk.LEFT)
-        
-        ttk.Radiobutton(exec_first_frame, text="Simple", variable=self.exec_option, value="Simple").pack(side=tk.RIGHT)
-        ttk.Radiobutton(exec_first_frame, text="ROS", variable=self.exec_option, value="ROS").pack(side=tk.RIGHT)
-        ttk.Radiobutton(exec_first_frame, text="Carla", variable=self.exec_option, value="Carla").pack(side=tk.RIGHT)
-        ttk.Label(exec_first_frame, text="Interface:").pack(side=tk.RIGHT)
-        
-        self.start_sim_button = ttk.Button(exec_second_frame, text="Start", command=self.start_exec)
-        self.start_sim_button.pack(fill=tk.X, side=tk.LEFT, expand=True)
-        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(side=tk.LEFT)
-        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
-        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
-        
-        #-----------------------------------------------------------------------------------------------
-        #-End of Plan Contorl Exec Frame ---------------------------------------------------------------
-        #-----------------------------------------------------------------------------------------------
-        
-        # Log Frame
-        log_frame = ttk.LabelFrame(self, text="Log")
-        log_frame.pack(fill=tk.X, padx=10, pady=5)
-
-        log_cb_frame = ttk.Frame(log_frame)
+        log_cb_frame = ttk.Frame(self.log_frame)
         log_cb_frame.pack(fill=tk.X)
 
         self.ck_plan = ttk.Checkbutton(log_cb_frame, text="Plan Logs", variable=self.show_plan_logs, command=self.update_log_filter)
@@ -203,29 +299,15 @@ class VisualizerApp(tk.Tk):
 
         ttk.Label(log_cb_frame, text="Log Level:").pack(side=tk.RIGHT)
                                                                                                                         
-        self.log_area = ScrolledText(log_frame, state='disabled', height=8)
+        self.log_area = ScrolledText(self.log_frame, state='disabled', height=8)
         self.log_area.pack(fill=tk.BOTH,expand=True)
 
 
-        #-----------------------------------------------------------------------------------------------
-        #-End of UI Elements----------------------------------------------------------------------------
-        #-----------------------------------------------------------------------------------------------
-
-        self.xy_zoom = 30
-        self.frenet_zoom = 30
-        self.fig = plot.fig
-        self.ax1 = plot.ax1
-        self.ax2 = plot.ax2
-
-
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
-        self.canvas.draw()
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.after(300, self._replot)
-        
-        self.canvas.mpl_connect('scroll_event', self.on_mouse_scroll)
-        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
-        self._prev_scroll_time = None # used to throttle the replot
+        #----------------------------------------------------------------------
+        #----------------------------------------------------------------------
+        #-End of UI Elements---------------------------------------------------
+        #----------------------------------------------------------------------
+        #----------------------------------------------------------------------
 
 
         #------------------------------------------- 
@@ -244,17 +326,30 @@ class VisualizerApp(tk.Tk):
         
         
 
-        #------------------------------------------- 
-        #-Only Visualize Mode ----------------------
-        #------------------------------------------- 
-        # Disable all the buttons if only_visualize is set to True        
-        if only_visualize:
-            for child in self.plan_sim_control_frame.winfo_children():
-                try:
-                    print(child)
-                    child.configure(state='disabled')
-                except tk.TclError as e:
-                    pass
+    def _shortcut_mode(self):
+        if self.plot_only_UI.get():
+            self.plot_only_UI.set(False)
+        else:
+            self.plot_only_UI.set(True)
+        self._update_UI()
+
+    def _update_UI(self):
+        if self.plot_only_UI.get():
+            self.vis_exec_frame.pack_forget()
+            self.perceive_plan_control_frame.pack_forget()
+            self.log_frame.pack_forget()
+
+            self.shortcut_frame.pack(fill=tk.X, side=tk.TOP)
+            self.log_frame.pack(fill=tk.X)
+        else:
+            self.shortcut_frame.pack_forget()
+            self.log_frame.pack_forget()
+            
+            self.vis_exec_frame.pack(fill=tk.X, side=tk.TOP)
+            self.perceive_plan_control_frame.pack(fill=tk.X)
+            self.log_area.pack(fill=tk.BOTH,expand=True)
+            self.log_frame.pack(fill=tk.X)
+
 
     def _replot(self):
         canvas_widget = self.canvas.get_tk_widget()
@@ -269,11 +364,17 @@ class VisualizerApp(tk.Tk):
                   plot_local_plan=self.show_local_plan.get(), plot_local_lattice = self.show_local_lattice.get(), plot_state=self.show_state.get())
         self.canvas.draw()
         log.info(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
-        self.vehicle_state_label.config(text=f"Vehicle State: X: {self.exec.state.x:.2f}, Y: {self.exec.state.y:.2f}, Speed: {self.exec.state.speed:.2f}, Theta: {self.exec.state.theta:.2f}")
+        self.vehicle_state_label.config(text=f"Ego State: X: {self.exec.ego_state.x:+.2f}, Y: {self.exec.ego_state.y:+.2f}, v: {self.exec.ego_state.speed:+.2f}, θ: {self.exec.ego_state.theta:+.2f}")
         
         self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.current_wp)) 
+        self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.current_wp)) 
 
+
+    def _reload_stack(self):
+        if self.code_reload_function is not None:
+            self.exec = self.code_reload_function()
+        else:
+            log.warn("No code reload function provided.")
 
 
 
@@ -281,14 +382,15 @@ class VisualizerApp(tk.Tk):
         if event.inaxes: 
             x, y = event.xdata, event.ydata  
             if event.inaxes == self.ax1:
-                self.coordinates_label.config(text=f"Global: X: {x:.2f}, Y: {y:.2f}")
+                self.coordinates_label.config(text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
             elif event.inaxes == self.ax2:
-                self.coordinates_label.config(text=f"Frenet: X: {x:.2f}, Y: {y:.2f}")
+                self.coordinates_label.config(text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
         else:
             # Optionally, clear the coordinates display when the mouse is not over the axes
-            self.coordinates_label.config(text="")
+            self.coordinates_label.config(text="Spawn Agent: Click on the plot.")
 
     def on_mouse_scroll(self, event, increment=10):
+        
         if event.inaxes == self.ax1:
             log.debug(f"Scroll Event in real coordinate: {event.button}")
             if event.button == 'up':
@@ -330,12 +432,12 @@ class VisualizerApp(tk.Tk):
 
     def set_waypoint(self):
         timestep_value = int(self.global_tj_wp_entry.get())
-        self.pl.reset(wp=timestep_value)
+        self.exec.planner.reset(wp=timestep_value)
         self._replot()
 
     def replan(self):
         t1 = time.time()
-        self.pl.replan()
+        self.exec.planner.replan()
         t2 = time.time()
         log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
         self._replot()
@@ -344,10 +446,10 @@ class VisualizerApp(tk.Tk):
     def step_plan(self):
         # Placeholder for the method to step to the next waypoint
         t1 = time.time()
-        self.pl.step_wp()
+        self.exec.planner.step_wp()
         log.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
+        self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.next_wp-1)) 
         self._replot()
 
     #--------------------------------------------------------------------------------------------
@@ -355,15 +457,15 @@ class VisualizerApp(tk.Tk):
     #--------------------------------------------------------------------------------------------
 
     def step_control(self):
-        d = self.pl.traversed_d[-1]
-        steer = self.cn.control(d)
+        d = self.exec.planner.traversed_d[-1]
+        steer = self.exec.controller.control(d)
         
         dt = float(self.dt_entry.get())
         self.exec.update_state(steering_angle=steer, dt=dt)
         self._replot()
     def align_control(self):
-        self.exec.state.x = self.pl.global_trajectory.path_x[self.pl.global_trajectory.next_wp - 1]
-        self.exec.state.y = self.pl.global_trajectory.path_y[self.pl.global_trajectory.next_wp - 1]
+        self.exec.ego_state.x = self.exec.planner.global_trajectory.path_x[self.exec.planner.global_trajectory.next_wp - 1]
+        self.exec.ego_state.y = self.exec.planner.global_trajectory.path_y[self.exec.planner.global_trajectory.next_wp - 1]
 
         self._replot()  
 
@@ -379,12 +481,12 @@ class VisualizerApp(tk.Tk):
         
     def step_acc(self):
         dt = float(self.dt_entry.get())
-        self.exec.update_state(dt = dt, acceleration = 1)
+        self.exec.update_state(dt = dt, acceleration = 8)
         self._replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
-        self.exec.update_state(dt = dt, acceleration = -1)
+        self.exec.update_state(dt = dt, acceleration = -8)
         self._replot()
     
     
@@ -392,7 +494,10 @@ class VisualizerApp(tk.Tk):
     #-SIM----------------------------------------------------------------------------------------
     #--------------------------------------------------------------------------------------------
 
-    def start_exec(self):
+    def toggle_exec(self):
+        if self.animation_running:
+            self.stop_exec()
+            return 
         self.animation_running = True
         self.start_sim_button.config(state=tk.DISABLED)
         self._exec_loop()
@@ -405,7 +510,7 @@ class VisualizerApp(tk.Tk):
             self.exec.run(control_dt=cn_dt, replan_dt=pl_dt)
             self._replot()
             self.global_tj_wp_entry.delete(0, tk.END)
-            self.global_tj_wp_entry.insert(0, str(self.pl.global_trajectory.next_wp-1)) 
+            self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.next_wp-1)) 
             self.after(int(cn_dt*1000), self._exec_loop)
 
     def stop_exec(self):
