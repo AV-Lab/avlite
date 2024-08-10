@@ -56,14 +56,24 @@ def get_executer():
     # reload imports
     import race_plan_control.plan.planner
     import race_plan_control.plan.sampling_planner
+    import race_plan_control.plan.lattice
+    import race_plan_control.plan.trajectory
+
     import race_plan_control.control.pid
+    import race_plan_control.execute.executer
     import race_plan_control.execute.executer_sim
     import race_plan_control.perceive.vehicle_state
+
     importlib.reload(race_plan_control.plan.planner)
     importlib.reload(race_plan_control.plan.sampling_planner)
+    importlib.reload(race_plan_control.plan.lattice)
+    importlib.reload(race_plan_control.plan.trajectory)
+
     importlib.reload(race_plan_control.control.pid)
+    importlib.reload(race_plan_control.execute.executer)
     importlib.reload(race_plan_control.execute.executer_sim)
     importlib.reload(race_plan_control.perceive.vehicle_state)
+
     RNDPlanner = race_plan_control.plan.sampling_planner.RNDPlanner
     PIDController = race_plan_control.control.pid.PIDController
     SimpleSim = race_plan_control.execute.executer_sim.SimpleSim

@@ -41,7 +41,9 @@ class Trajectory:
     next_wp: int
 
     
-    poly: Polynomial
+    poly_d: Polynomial
+    poly_x: Polynomial
+    poly_y: Polynomial
     parent_trajectory: 'Trajectory'
     name: str
 
@@ -60,7 +62,7 @@ class Trajectory:
         self.current_wp = 0
         self.next_wp = 1
 
-        self.poly:Polynomial = None # for local trajectory
+        self.poly_d:Polynomial = None # for local trajectory
         self.parent_trajectory = None
         self.path_s_with_respect_to_parent = None
         self.path_d_with_respect_to_parent = None
@@ -175,7 +177,7 @@ class Trajectory:
         log.debug(f"Poly Coefficients (C2 Continuity): {poly.coef}")
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
-        return self.__decorate_trajectory(poly, s_values)
+        return self.__decorate_trajectory_sd(poly, s_values)
 
     def create_default_trajectory_sd(self, s_start:float, d_start:float, s_end:float, d_end:float, num_points=10) -> 'Trajectory':
         poly = Polynomial.fit([s_start, s_end], [d_start, d_end], 3)
@@ -183,7 +185,7 @@ class Trajectory:
 
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
-        return self.__decorate_trajectory(poly, s_values)
+        return self.__decorate_trajectory_sd(poly, s_values)
 
     
     def create_cubic_trajectory_sd(self, s_start:float, d_start:float,
@@ -208,9 +210,9 @@ class Trajectory:
 
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
-        return self.__decorate_trajectory(poly, s_values)
-
-    def __decorate_trajectory(self, poly: Polynomial, s_values ) -> 'Trajectory':
+        return self.__decorate_trajectory_sd(poly, s_values)
+    
+    def __decorate_trajectory_sd(self, poly: Polynomial, s_values:list[float] ) -> 'Trajectory':
         """
         Decorate the trajectory with calculated d values and convert to (x, y) coordinates.
 
@@ -231,12 +233,94 @@ class Trajectory:
         path = list(zip(tx, ty))
         local_trajectory = Trajectory(path, name="Local Trajectory")
 
-        local_trajectory.poly = poly 
+        local_trajectory.poly_d = poly 
         local_trajectory.parent_trajectory = self
         local_trajectory.path_s_with_respect_to_parent = s_values
         local_trajectory.path_d_with_respect_to_parent = d_values
 
         return local_trajectory
+
+
+    def create_cubic_trajectory_xy(self, start_x:float, start_y:float,
+                                   end_x:float, end_y:float,
+                                   start_x_1st_derv:float, start_y_1st_derv:float,
+                                   start_x_2nd_derv:float, start_y_2nd_derv:float,
+                                   num_points=10) -> 'Trajectory':
+        A = np.array([
+            [0, 0, 0, 1],  # Polynomial at t=0
+            [1, 1, 1, 1],  # Polynomial at t=1
+            [0, 0, 1, 0],  # 1st derivative at t=0
+            [3, 2, 1, 0],  # 1st derivative at t=1
+        ])
+        
+        b_x = np.array([start_x, end_x, start_x_1st_derv, start_x_2nd_derv])
+        b_y = np.array([start_y, end_y, start_y_1st_derv, start_y_2nd_derv])
+        coefficients_x = np.linalg.solve(A, b_x)
+        coefficients_y = np.linalg.solve(A, b_y)
+        
+        poly_x = Polynomial(coefficients_x[::-1])  # Reverse coefficients for Polynomial
+        poly_y = Polynomial(coefficients_y[::-1])  # Reverse coefficients for Polynomial
+
+
+        # Create the polynomial
+        log.debug(f"start_x {start_x} start_y {start_y} end_x {end_x} end_y {end_y}")
+        # log.debug(f"Poly Coefficients (C2 Continuity): X {poly_x.coef} Y {poly_y.coef}")
+
+        t_values = np.linspace(0, 1, num_points)
+
+
+        return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
+    
+    def create_quintic_trajectory_xy(self, start_x:float, start_y:float,
+                                   end_x:float, end_y:float,
+                                   start_x_1st_derv:float, start_y_1st_derv:float,
+                                   start_x_2nd_derv:float, start_y_2nd_derv:float,
+                                   end_x_1st_derv:float, end_y_1st_derv:float,
+                                   end_y_2nd_derv:float, end_x_2nd_derv:float,
+                                   num_points=10) -> 'Trajectory':
+        A = np.array([
+            [0, 0, 0, 0, 0, 1],  # Polynomial at t=0
+            [1, 1, 1, 1, 1, 1],  # Polynomial at t=1
+            [0, 0, 0, 0, 1, 0],  # 1st derivative at t=0
+            [5, 4, 3, 2, 1, 0],  # 1st derivative at t=1
+            [0, 0, 0, 2, 0, 0],  # 2nd derivative at t=0
+            [20, 12, 6, 2, 0, 0] # 2nd derivative at t=1
+        ])
+        
+        b_x = np.array([start_x, end_x, start_x_1st_derv, end_x_1st_derv, start_x_2nd_derv, end_x_2nd_derv])
+        b_y = np.array([start_y, end_y, start_y_1st_derv, end_y_1st_derv, start_y_2nd_derv, end_y_2nd_derv])
+        
+        coefficients_x = np.linalg.solve(A, b_x)
+        coefficients_y = np.linalg.solve(A, b_y)
+        
+        poly_x = Polynomial(coefficients_x[::-1])  # Reverse coefficients for Polynomial
+        poly_y = Polynomial(coefficients_y[::-1])  # Reverse coefficients for Polynomial
+
+
+        # Create the polynomial
+        log.debug(f"start_x {start_x} start_y {start_y} end_x {end_x} end_y {end_y}")
+        # log.debug(f"Poly Coefficients (C2 Continuity): X {poly_x.coef} Y {poly_y.coef}")
+
+        t_values = np.linspace(0, 1, num_points)
+
+
+        return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
+
+    def __decoreate_trajectory_xy(self, poly_x: Polynomial, poly_y: Polynomial,
+                                  t_values:np.ndarray) -> 'Trajectory':
+        x_values = poly_x(t_values)
+        y_values = poly_y(t_values)
+        path = list(zip(x_values, y_values))
+        local_trajectory = Trajectory(path, name="Local Trajectory")
+        s_value, d_values = self.convert_xy_path_to_sd_path(path)
+        local_trajectory.path_s_with_respect_to_parent = s_value
+        local_trajectory.path_d_with_respect_to_parent = d_values
+        local_trajectory.poly_x = poly_x
+        local_trajectory.poly_y = poly_y
+
+        return local_trajectory
+
+
 
     
     def convert_xy_to_sd(self, x:float, y:float) -> tuple[float, float]:

@@ -1,4 +1,3 @@
-from numpy import who
 import race_plan_control.plan.trajectory as u
 from race_plan_control.perceive.vehicle_state import VehicleState
 from race_plan_control.plan.lattice import LatticeGraph, Edge

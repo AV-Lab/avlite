@@ -5,7 +5,7 @@ from race_plan_control.perceive.vehicle_state import VehicleState
 import numpy as np
 import matplotlib.pyplot as plt
 
-
+# plt.style.use('dark_background')    
 fig, (ax1, ax2) = plt.subplots(2, 1)
 
 
@@ -49,9 +49,9 @@ next_wp_plot_ax1, = ax1.plot([], [], 'bx', markersize=15, label='L WP: Next', fi
 next_wp_plot_ax2, = ax2.plot([], [], 'bx', markersize=15, label='L WP: Next', fillstyle='none')
 
 # State Init
-car_heading_plot, = ax1.plot([], [], 'k-', label='Car Heading')
-car_location_plot, = ax1.plot([], [], 'ko', markersize=7, label='Car Location')
-car_rect = plt.Rectangle((0,0), 0, 0, angle=0, edgecolor='r', facecolor='none')
+car_heading_plot, = ax1.plot([], [], 'k-', color='darkslategray', label='Car Heading')
+car_location_plot, = ax1.plot([], [], 'ko', color='darkslategray', markersize=7, label='Car Location')
+car_rect = plt.Rectangle((0,0), 0, 0, angle=0, edgecolor='r', facecolor='azure')
 ax1.add_patch(car_rect)
 
 
@@ -61,8 +61,8 @@ ax1.add_patch(car_rect)
 max_lattice_edges = 50
 
 for _ in range(max_lattice_edges):
-    line_ax1, = ax1.plot([], [], "b--", alpha=0.6)
-    line_ax2, = ax2.plot([], [], "b--", alpha=0.6)
+    line_ax1, = ax1.plot([], [], "b--", color='lightskyblue', alpha=0.6)
+    line_ax2, = ax2.plot([], [], "b--",color='lightskyblue', alpha=0.6)
     endpoint_ax1, = ax1.plot([], [], 'bo', alpha=0.6)
     endpoint_ax2, = ax2.plot([], [], 'bo', alpha=0.6)
     lattice_graph_plots_ax1.append(line_ax1)
@@ -82,12 +82,10 @@ ax2.set_aspect('equal')
 # legend_ax2 = {} # set(ax2.get_legend().get_lines())
 
 legend_ax = fig.add_axes([0.0, -.013, 1, 0.1])
-legend_ax.legend(*ax1.get_legend_handles_labels(), loc='center', ncol=5, borderaxespad=0.)
+legend_ax.legend(*ax1.get_legend_handles_labels(), loc='center', ncol=7, borderaxespad=0., fontsize=7, framealpha=.3)
 legend_ax.axis('off')
-# fig.canvas.blit(legend_ax.bbox)
 
 fig.subplots_adjust(left=0, right=1, top=.99, bottom=0.1)
-
 
 
 def plot(exec: Executer, aspect_ratio=4.0, frenet_zoom = 15, xy_zoom = 30, show_legend = True, plot_last_pts = True,
@@ -247,7 +245,6 @@ def update_local_plan_plots(pl:Planner, show_plot = True):
 
 
 
-
 def update_state_plots(state:VehicleState, show_plot = True):
     if not show_plot:
         car_heading_plot.set_data([], [])
@@ -289,6 +286,22 @@ def update_state_plots(state:VehicleState, show_plot = True):
     car_rect.set_xy((rotated_corners_x[0], rotated_corners_y[0]))
     car_rect.set_angle(np.degrees(state.theta))
 
+def set_plot_theme(bg_color='white', fg_color='black'): 
+    fig.patch.set_facecolor(bg_color)
+    ax1.patch.set_facecolor(bg_color)
+    ax2.patch.set_facecolor(bg_color)
+    ax2.set_title('Frenet Coordinate', color=fg_color)
+    # legend = ax1.legend(loc='center', ncol=3, borderaxespad=0., fontsize=12, framealpha=1)
+    # legend.get_frame().set_facecolor(bg_color)
+    # Set titles and labels to white
+    for ax in [ax1, ax2]:
+        for spine in ax.spines.values():
+            spine.set_edgecolor(fg_color)
+        ax.tick_params(axis='both', colors=fg_color)  # Set tick colors to white
+        ax.xaxis.label.set_color(fg_color)  # Set x-axis label color to white
+        ax.yaxis.label.set_color(fg_color)  # Set y-axis label color to white
+
+    redraw_plots()
 
 if __name__ == "__main__":
     import race_plan_control.main as main
