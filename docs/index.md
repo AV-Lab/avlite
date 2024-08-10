@@ -9,6 +9,7 @@ The stack is organize into the following subpackages:
 
 # Reference
 
+## `race_plan_control.plan.trajectory.Trajectory`
 ::: race_plan_control.plan.trajectory.Trajectory
     options:
         show_root_heading: false

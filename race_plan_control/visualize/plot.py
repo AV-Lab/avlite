@@ -1,5 +1,4 @@
 from plan.planner import Planner
-import race_plan_control.main as main
 from race_plan_control.execute.executer import Executer
 from race_plan_control.perceive.vehicle_state import VehicleState
 
@@ -91,7 +90,7 @@ fig.subplots_adjust(left=0, right=1, top=.99, bottom=0.1)
 
 
 
-def plot(exec: Executer, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30, show_legend = True, plot_last_pts = True,
+def plot(exec: Executer, aspect_ratio=4.0, frenet_zoom = 15, xy_zoom = 30, show_legend = True, plot_last_pts = True,
            plot_global_plan = True,   plot_local_plan = True, plot_local_lattice = True, plot_state = True,num_plot_last_pts = 100):
     
     legend_ax.set_visible(show_legend)
@@ -99,19 +98,19 @@ def plot(exec: Executer, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30, show_le
     
     # For Zoom in
     if xy_zoom is not None:
-        ax1.set_xlim(exec.pl.traversed_x[-1] - xy_zoom, exec.pl.traversed_x[-1] + xy_zoom)
-        ax1.set_ylim(exec.pl.traversed_y[-1] - xy_zoom/aspect_ratio/2, exec.pl.traversed_y[-1] + xy_zoom/aspect_ratio/2)
+        ax1.set_xlim(exec.planner.traversed_x[-1] - xy_zoom, exec.planner.traversed_x[-1] + xy_zoom)
+        ax1.set_ylim(exec.planner.traversed_y[-1] - xy_zoom/aspect_ratio/2, exec.planner.traversed_y[-1] + xy_zoom/aspect_ratio/2)
     if frenet_zoom is not None:
-        ax2.set_xlim(exec.pl.traversed_s[-1] - frenet_zoom/2 ,   exec.pl.traversed_s[-1] + 1.5*frenet_zoom)
+        ax2.set_xlim(exec.planner.traversed_s[-1] - frenet_zoom/2 ,   exec.planner.traversed_s[-1] + 1.5*frenet_zoom)
         ax2.set_ylim(-frenet_zoom/aspect_ratio/2,  frenet_zoom/aspect_ratio/2)
 
 
     if plot_last_pts and num_plot_last_pts > 0:
-        last_locs_ax1.set_data(exec.pl.traversed_x[-num_plot_last_pts:], exec.pl.traversed_y[-num_plot_last_pts:])
-        planner_loc_ax1.set_data([exec.pl.traversed_x[-1]], [exec.pl.traversed_y[-1]])  
+        last_locs_ax1.set_data(exec.planner.traversed_x[-num_plot_last_pts:], exec.planner.traversed_y[-num_plot_last_pts:])
+        planner_loc_ax1.set_data([exec.planner.traversed_x[-1]], [exec.planner.traversed_y[-1]])  
         
-        last_locs_ax2.set_data(exec.pl.traversed_s[-num_plot_last_pts:], exec.pl.traversed_d[-num_plot_last_pts:]) 
-        planner_loc_ax2.set_data([exec.pl.traversed_s[-1]], [exec.pl.traversed_d[-1]])  
+        last_locs_ax2.set_data(exec.planner.traversed_s[-num_plot_last_pts:], exec.planner.traversed_d[-num_plot_last_pts:]) 
+        planner_loc_ax2.set_data([exec.planner.traversed_s[-1]], [exec.planner.traversed_d[-1]])  
     else:
         last_locs_ax1.set_data([], [])
         planner_loc_ax1.set_data([], [])
@@ -119,14 +118,14 @@ def plot(exec: Executer, aspect_ratio=4, frenet_zoom = 15, xy_zoom = 30, show_le
         planner_loc_ax2.set_data([], [])
             
     # update global Plan
-    update_global_plan_plots(exec.pl, plot_global_plan) 
+    update_global_plan_plots(exec.planner, plot_global_plan) 
 
     # update local plan
-    update_lattice_graph_plots(exec.pl, plot_local_lattice)
-    update_local_plan_plots(exec.pl, plot_local_plan)
+    update_lattice_graph_plots(exec.planner, plot_local_lattice)
+    update_local_plan_plots(exec.planner, plot_local_plan)
 
     # update state 
-    update_state_plots(exec.state, plot_state)
+    update_state_plots(exec.ego_state, plot_state)
 
     redraw_plots()
 
