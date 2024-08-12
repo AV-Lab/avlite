@@ -2,15 +2,17 @@ import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
 import numpy as np
+
 # from icecream import ic
 import logging
+
 log = logging.getLogger(__name__)
 
 
 class Trajectory:
     """
     A class to represent a trajectory.
-    
+
     Attributes:
     ----------
     path_x : np.ndarray
@@ -33,7 +35,6 @@ class Trajectory:
         Public field: Name of the trajectory.
     """
 
-
     path_x: np.ndarray
     path_y: np.ndarray
     path_s: list[float]
@@ -41,34 +42,33 @@ class Trajectory:
     current_wp: int
     next_wp: int
 
-    
     poly_d: Polynomial
     poly_x: Polynomial
     poly_y: Polynomial
-    parent_trajectory: 'Trajectory'
+    parent_trajectory: "Trajectory"
     name: str
 
     def __init__(self, reference_xy_path, name="Global Trajectory"):
-        """ 
+        """
         Initializes a Trajectory object with a reference path in the xy-plane.
         """
-        self.name = name # needed to distinguish between global and local trajectory
+        self.name = name  # needed to distinguish between global and local trajectory
         self.__reference_path = np.array(reference_xy_path)
         self.path_x = self.__reference_path[:, 0]
         self.path_y = self.__reference_path[:, 1]
         self.__cumulative_distances = self.__precompute_cumulative_distances()
-        self.path_s, self.path_d = self.convert_xy_path_to_sd_path(self.__reference_path) # this should be with respect to parent trajectory
+        self.path_s, self.path_d = self.convert_xy_path_to_sd_path(
+            self.__reference_path
+        )  # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
-        
+
         self.current_wp = 0
         self.next_wp = 1
 
-        self.poly_d:Polynomial = None # for local trajectory
+        self.poly_d: Polynomial = None  # for local trajectory
         self.parent_trajectory = None
         self.path_s_with_respect_to_parent = None
         self.path_d_with_respect_to_parent = None
-        
-        
 
     def get_current_xy(self) -> tuple[float, float]:
         """
@@ -85,7 +85,7 @@ class Trajectory:
     def get_xy_by_waypoint(self, wp: int) -> tuple[float, float]:
         """
         Returns the X and Y coordinates for a given waypoint.
-        
+
         Parameters:
         wp : int
             The waypoint index.
@@ -95,19 +95,19 @@ class Trajectory:
     def get_sd_by_waypoint(self, wp: int) -> tuple[float, float]:
         """
         Returns the S and D coordinates for a given waypoint.
-        
+
         Parameters:
         wp : int
             The waypoint index.
         """
         return self.path_s[wp], self.path_d[wp]
-    
-    def update_waypoint_by_xy(self, x_current:float, y_current:float) -> None:
+
+    def update_waypoint_by_xy(self, x_current: float, y_current: float) -> None:
         """
         Updates the current and next waypoints based on the current x and y coordinates.
 
-        This method calculates the differences between the current position (x_current, y_current) 
-        and all points in the reference path, and identifies the closest waypoint. It then updates 
+        This method calculates the differences between the current position (x_current, y_current)
+        and all points in the reference path, and identifies the closest waypoint. It then updates
         the current and next waypoints accordingly.
 
         Parameters:
@@ -120,9 +120,9 @@ class Trajectory:
         Note:
         This method modifies the instance variables `self.current_wp` and `self.next_wp`.
         """
-        # not efficient 
+        # not efficient
         diffs = self.__reference_path - np.array((x_current, y_current))
-        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
+        dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
         closest_wp = int(np.argmin(dists))
         s_, d_ = self.convert_xy_path_to_sd_path([(x_current, y_current)])
 
@@ -136,11 +136,11 @@ class Trajectory:
         elif self.path_s[closest_wp] > s_[0] and closest_wp > 0:
             self.next_wp = closest_wp
             self.current_wp = closest_wp - 1
-    
-    def update_waypoint_by_wp(self, current_wp:int) -> None: 
-        self.current_wp = current_wp % len(self.__reference_path) 
+
+    def update_waypoint_by_wp(self, current_wp: int) -> None:
+        self.current_wp = current_wp % len(self.__reference_path)
         self.next_wp = current_wp + 1 % len(self.__reference_path)
-    
+
     def update_to_next_waypoint(self) -> None:
         self.update_waypoint_by_wp(self.current_wp + 1)
 
@@ -155,21 +155,72 @@ class Trajectory:
         """
         return self.current_wp == len(self.__reference_path) - 1
 
-    def create_quintic_trajectory_sd(self, s_start:float, d_start:float,
-                s_end:float, d_end:float,  d_1st_derv:float, d_2nd_derv:float,
-                num_points=10) -> 'Trajectory':  
-    
-        A = np.array([
-            [s_start**5, s_start**4, s_start**3, s_start**2, s_start, 1],  # Polynomial at s_start
-            [s_end**5, s_end**4, s_end**3, s_end**2, s_end, 1],            # Polynomial at s_end
-            [5*s_start**4, 4*s_start**3, 3*s_start**2, 2*s_start, 1, 0],   # 1st derivative at s_start
-            [5*s_end**4, 4*s_end**3, 3*s_end**2, 2*s_end, 1, 0],           # 1st derivative at s_end
-            [20*s_start**3, 12*s_start**2, 6*s_start, 2, 0, 0],            # 2nd derivative at s_start
-            [20*s_end**3, 12*s_end**2, 6*s_end, 2, 0, 0]                   # 2nd derivative at s_end
-        ])
+    def create_quintic_trajectory_sd(
+        self,
+        s_start: float,
+        d_start: float,
+        s_end: float,
+        d_end: float,
+        d_1st_derv: float,
+        d_2nd_derv: float,
+        num_points=10,
+    ) -> "Trajectory":
+
+        A = np.array(
+            [
+                [
+                    s_start**5,
+                    s_start**4,
+                    s_start**3,
+                    s_start**2,
+                    s_start,
+                    1,
+                ],  # Polynomial at s_start
+                [
+                    s_end**5,
+                    s_end**4,
+                    s_end**3,
+                    s_end**2,
+                    s_end,
+                    1,
+                ],  # Polynomial at s_end
+                [
+                    5 * s_start**4,
+                    4 * s_start**3,
+                    3 * s_start**2,
+                    2 * s_start,
+                    1,
+                    0,
+                ],  # 1st derivative at s_start
+                [
+                    5 * s_end**4,
+                    4 * s_end**3,
+                    3 * s_end**2,
+                    2 * s_end,
+                    1,
+                    0,
+                ],  # 1st derivative at s_end
+                [
+                    20 * s_start**3,
+                    12 * s_start**2,
+                    6 * s_start,
+                    2,
+                    0,
+                    0,
+                ],  # 2nd derivative at s_start
+                [
+                    20 * s_end**3,
+                    12 * s_end**2,
+                    6 * s_end,
+                    2,
+                    0,
+                    0,
+                ],  # 2nd derivative at s_end
+            ]
+        )
 
         b = np.array([d_start, d_end, d_1st_derv, d_2nd_derv, d_2nd_derv, d_2nd_derv])
-       
+
         # Solve for the polynomial coefficients
         coefficients = np.linalg.solve(A, b)
 
@@ -180,7 +231,9 @@ class Trajectory:
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
 
-    def create_default_trajectory_sd(self, s_start:float, d_start:float, s_end:float, d_end:float, num_points=10) -> 'Trajectory':
+    def create_default_trajectory_sd(
+        self, s_start: float, d_start: float, s_end: float, d_end: float, num_points=10
+    ) -> "Trajectory":
         poly = Polynomial.fit([s_start, s_end], [d_start, d_end], 3)
         # log.debug(f"Poly Coefficients: {poly.coef}")
 
@@ -188,20 +241,27 @@ class Trajectory:
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
 
-    
-    def create_cubic_trajectory_sd(self, s_start:float, d_start:float,
-                                              s_end:float, d_end:float,  d_start_1st_derv:float, d_start_2nd_derv:float,
-                                         num_points=10) -> 'Trajectory':  
-        A = np.array([
-            [s_start**3, s_start**2, s_start, 1],      # Polynomial at s_start
-            [s_end**3, s_end**2, s_end, 1],            # Polynomial at s_end
-            [3*s_start**2, 2*s_start, 1, 0],           # 1st derivative at s_start
-            [6*s_start, 2, 0, 0],                      # 2nd derivative at s_start
-        ])
+    def create_cubic_trajectory_sd(
+        self,
+        s_start: float,
+        d_start: float,
+        s_end: float,
+        d_end: float,
+        d_start_1st_derv: float,
+        d_start_2nd_derv: float,
+        num_points=10,
+    ) -> "Trajectory":
+        A = np.array(
+            [
+                [s_start**3, s_start**2, s_start, 1],  # Polynomial at s_start
+                [s_end**3, s_end**2, s_end, 1],  # Polynomial at s_end
+                [3 * s_start**2, 2 * s_start, 1, 0],  # 1st derivative at s_start
+                [6 * s_start, 2, 0, 0],  # 2nd derivative at s_start
+            ]
+        )
 
         b = np.array([d_start, d_end, d_start_1st_derv, d_start_2nd_derv])
 
-       
         # Solve for the polynomial coefficients
         coefficients = np.linalg.solve(A, b)
 
@@ -212,8 +272,10 @@ class Trajectory:
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
-    
-    def __decorate_trajectory_sd(self, poly: Polynomial, s_values:list[float] ) -> 'Trajectory':
+
+    def __decorate_trajectory_sd(
+        self, poly: Polynomial, s_values: list[float]
+    ) -> "Trajectory":
         """
         Decorate the trajectory with calculated d values and convert to (x, y) coordinates.
 
@@ -224,8 +286,7 @@ class Trajectory:
         Returns:
             Trajectory: The decorated trajectory with (x, y) coordinates.
         """
- 
-        
+
         # Calculate the d values for the trajectory
         d_values = poly(s_values)
 
@@ -234,69 +295,105 @@ class Trajectory:
         path = list(zip(tx, ty))
         local_trajectory = Trajectory(path, name="Local Trajectory")
 
-        local_trajectory.poly_d = poly 
+        local_trajectory.poly_d = poly
         local_trajectory.parent_trajectory = self
         local_trajectory.path_s_with_respect_to_parent = s_values
         local_trajectory.path_d_with_respect_to_parent = d_values
 
         return local_trajectory
 
+    def create_cubic_trajectory_xy(
+        self,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        start_x_1st_derv: float,
+        start_y_1st_derv: float,
+        start_x_2nd_derv: float,
+        start_y_2nd_derv: float,
+        num_points=10,
+    ) -> "Trajectory":
+        A = np.array(
+            [
+                [0, 0, 0, 1],  # Polynomial at t=0
+                [1, 1, 1, 1],  # Polynomial at t=1
+                [0, 0, 1, 0],  # 1st derivative at t=0
+                [3, 2, 1, 0],  # 1st derivative at t=1
+            ]
+        )
 
-    def create_cubic_trajectory_xy(self, start_x:float, start_y:float,
-                                   end_x:float, end_y:float,
-                                   start_x_1st_derv:float, start_y_1st_derv:float,
-                                   start_x_2nd_derv:float, start_y_2nd_derv:float,
-                                   num_points=10) -> 'Trajectory':
-        A = np.array([
-            [0, 0, 0, 1],  # Polynomial at t=0
-            [1, 1, 1, 1],  # Polynomial at t=1
-            [0, 0, 1, 0],  # 1st derivative at t=0
-            [3, 2, 1, 0],  # 1st derivative at t=1
-        ])
-        
         b_x = np.array([start_x, end_x, start_x_1st_derv, start_x_2nd_derv])
         b_y = np.array([start_y, end_y, start_y_1st_derv, start_y_2nd_derv])
         coefficients_x = np.linalg.solve(A, b_x)
         coefficients_y = np.linalg.solve(A, b_y)
-        
+
         poly_x = Polynomial(coefficients_x[::-1])  # Reverse coefficients for Polynomial
         poly_y = Polynomial(coefficients_y[::-1])  # Reverse coefficients for Polynomial
 
-
         # Create the polynomial
-        log.debug(f"start_x {start_x:.2f} start_y {start_y:.2f} end_x {end_x:.2f} end_y {end_y:.2f}")
+        log.debug(
+            f"start_x {start_x:.2f} start_y {start_y:.2f} end_x {end_x:.2f} end_y {end_y:.2f}"
+        )
         # log.debug(f"Poly Coefficients (C2 Continuity): X {poly_x.coef} Y {poly_y.coef}")
 
         t_values = np.linspace(0, 1, num_points)
 
-
         return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
-    
-    def create_quintic_trajectory_xy(self, start_x:float, start_y:float,
-                                   end_x:float, end_y:float,
-                                   start_x_1st_derv:float, start_y_1st_derv:float,
-                                   start_x_2nd_derv:float, start_y_2nd_derv:float,
-                                   end_x_1st_derv:float, end_y_1st_derv:float,
-                                   end_y_2nd_derv:float, end_x_2nd_derv:float,
-                                   num_points=10) -> 'Trajectory':
-        A = np.array([
-            [0, 0, 0, 0, 0, 1],  # Polynomial at t=0
-            [1, 1, 1, 1, 1, 1],  # Polynomial at t=1
-            [0, 0, 0, 0, 1, 0],  # 1st derivative at t=0
-            [5, 4, 3, 2, 1, 0],  # 1st derivative at t=1
-            [0, 0, 0, 2, 0, 0],  # 2nd derivative at t=0
-            [20, 12, 6, 2, 0, 0] # 2nd derivative at t=1
-        ])
-        
-        b_x = np.array([start_x, end_x, start_x_1st_derv, end_x_1st_derv, start_x_2nd_derv, end_x_2nd_derv])
-        b_y = np.array([start_y, end_y, start_y_1st_derv, end_y_1st_derv, start_y_2nd_derv, end_y_2nd_derv])
-        
+
+    def create_quintic_trajectory_xy(
+        self,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        start_x_1st_derv: float,
+        start_y_1st_derv: float,
+        start_x_2nd_derv: float,
+        start_y_2nd_derv: float,
+        end_x_1st_derv: float,
+        end_y_1st_derv: float,
+        end_y_2nd_derv: float,
+        end_x_2nd_derv: float,
+        num_points=10,
+    ) -> "Trajectory":
+        A = np.array(
+            [
+                [0, 0, 0, 0, 0, 1],  # Polynomial at t=0
+                [1, 1, 1, 1, 1, 1],  # Polynomial at t=1
+                [0, 0, 0, 0, 1, 0],  # 1st derivative at t=0
+                [5, 4, 3, 2, 1, 0],  # 1st derivative at t=1
+                [0, 0, 0, 2, 0, 0],  # 2nd derivative at t=0
+                [20, 12, 6, 2, 0, 0],  # 2nd derivative at t=1
+            ]
+        )
+
+        b_x = np.array(
+            [
+                start_x,
+                end_x,
+                start_x_1st_derv,
+                end_x_1st_derv,
+                start_x_2nd_derv,
+                end_x_2nd_derv,
+            ]
+        )
+        b_y = np.array(
+            [
+                start_y,
+                end_y,
+                start_y_1st_derv,
+                end_y_1st_derv,
+                start_y_2nd_derv,
+                end_y_2nd_derv,
+            ]
+        )
+
         coefficients_x = np.linalg.solve(A, b_x)
         coefficients_y = np.linalg.solve(A, b_y)
-        
+
         poly_x = Polynomial(coefficients_x[::-1])  # Reverse coefficients for Polynomial
         poly_y = Polynomial(coefficients_y[::-1])  # Reverse coefficients for Polynomial
-
 
         # Create the polynomial
         log.debug(f"start_x {start_x} start_y {start_y} end_x {end_x} end_y {end_y}")
@@ -304,12 +401,11 @@ class Trajectory:
 
         t_values = np.linspace(0, 1, num_points)
 
-
         return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
 
-
-    def __decoreate_trajectory_xy(self, poly_x: Polynomial, poly_y: Polynomial,
-                                  t_values:np.ndarray) -> 'Trajectory':
+    def __decoreate_trajectory_xy(
+        self, poly_x: Polynomial, poly_y: Polynomial, t_values: np.ndarray
+    ) -> "Trajectory":
         x_values = poly_x(t_values)
         y_values = poly_y(t_values)
         path = list(zip(x_values, y_values))
@@ -322,10 +418,16 @@ class Trajectory:
 
         return local_trajectory
 
-    def create_multiple_cubic_trajectory_xy(self, waypoints: list[tuple[float, float]],
-                               start_x_1st_derv:float, start_y_1st_derv:float,
-                               start_x_2nd_derv:float, start_y_2nd_derv:float,
-                               num_points=10) -> list['Trajectory']:
+    def create_multiple_cubic_trajectories_xy(
+        self,
+        x_values: list[float],
+        y_values: list[float],
+        start_x_1st_derv: float,
+        start_y_1st_derv: float,
+        start_x_2nd_derv: float,
+        start_y_2nd_derv: float,
+        num_points=10,
+    ) -> list["Trajectory"]:
         """
         Creates a trajectory using multiple cubic polynomials in the xy-plane.
 
@@ -341,26 +443,34 @@ class Trajectory:
             start_x, start_y = waypoints[i]
             end_x, end_y = waypoints[i + 1]
             if i == 0:
-                local_trajectory = self.create_cubic_trajectory_xy(start_x,
-                                start_y, end_x, end_y, start_x_1st_derv,
-                                start_y_1st_derv, start_x_2nd_derv, 
-                                start_y_2nd_derv, num_points)
+                local_trajectory = self.create_cubic_trajectory_xy(
+                    start_x,
+                    start_y,
+                    end_x,
+                    end_y,
+                    start_x_1st_derv,
+                    start_y_1st_derv,
+                    start_x_2nd_derv,
+                    start_y_2nd_derv,
+                    num_points,
+                )
             else:
-                local_trajectory = self.create_cubic_trajectory_xy(start_x, start_y, end_x, end_y, 0, 0, 0, 0, num_points)
+                local_trajectory = self.create_cubic_trajectory_xy(
+                    start_x, start_y, end_x, end_y, 0, 0, 0, 0, num_points
+                )
             local_trajectories.append(local_trajectory)
         return local_trajectories
 
-    
-    def convert_xy_to_sd(self, x:float, y:float) -> tuple[float, float]:
-        s,d = self.convert_xy_path_to_sd_path([(x, y)])
+    def convert_xy_to_sd(self, x: float, y: float) -> tuple[float, float]:
+        s, d = self.convert_xy_path_to_sd_path([(x, y)])
         _s = s[0]
         _d = d[0]
 
-        return _s,_d
-    
+        return _s, _d
+
     # s,d need to be current
-    def convert_sd_to_xy(self, s:float, d:float) -> tuple[float, float]:
-        closest_wp = self.__get_closest_sd_waypoint(s, d)    
+    def convert_sd_to_xy(self, s: float, d: float) -> tuple[float, float]:
+        closest_wp = self.__get_closest_sd_waypoint(s, d)
 
         if closest_wp == 0:
             next_wp = 1
@@ -370,14 +480,14 @@ class Trajectory:
             prev_wp = next_wp - 1
 
         # Calculate the heading of the track at the previous waypoint
-        heading = math.atan2(self.path_y[next_wp] - self.path_y[prev_wp],
-                             self.path_x[next_wp] - self.path_x[prev_wp])
+        heading = math.atan2(
+            self.path_y[next_wp] - self.path_y[prev_wp],
+            self.path_x[next_wp] - self.path_x[prev_wp],
+        )
         # Calculate the x and y coordinates on the reference path
         if 0 <= prev_wp < len(self.path_x) and 0 <= self.path_s[prev_wp] <= s:
-            x = self.path_x[prev_wp] + \
-                (s - self.path_s[prev_wp]) * math.cos(heading)
-            y = self.path_y[prev_wp] + \
-                (s - self.path_s[prev_wp]) * math.sin(heading)
+            x = self.path_x[prev_wp] + (s - self.path_s[prev_wp]) * math.cos(heading)
+            y = self.path_y[prev_wp] + (s - self.path_s[prev_wp]) * math.sin(heading)
 
         # Calculate the perpendicular heading
         perp_heading = heading - math.pi / 2
@@ -389,7 +499,6 @@ class Trajectory:
         # TODO: need to fix the issue when prev is the last point in the track and we come back to the biginning
         return x_final, y_final
 
-
     def convert_xy_path_to_sd_path(self, points):
 
         reference_path = self.__reference_path
@@ -397,7 +506,7 @@ class Trajectory:
         cumulative_distances = self.__cumulative_distances
         for point in points:
 
-            closest_wp = self.__get_closest_waypoint(point[0], point[1]) 
+            closest_wp = self.__get_closest_waypoint(point[0], point[1])
 
             if closest_wp == 0:
                 next_wp = 1
@@ -412,11 +521,13 @@ class Trajectory:
             x_y = point[1] - reference_path[prev_wp, 1]
 
             # Compute the projection of the point onto the reference path
-            if (n_x*n_x + n_y*n_y) == 0:
+            if (n_x * n_x + n_y * n_y) == 0:
                 proj_x = 0
                 proj_y = 0
             else:
-                proj_norm = (x_x*n_x + x_y*n_y) / (n_x*n_x + n_y*n_y) # normalized projection
+                proj_norm = (x_x * n_x + x_y * n_y) / (
+                    n_x * n_x + n_y * n_y
+                )  # normalized projection
                 proj_x = proj_norm * n_x
                 proj_y = proj_norm * n_y
 
@@ -424,7 +535,9 @@ class Trajectory:
             s = cumulative_distances[prev_wp] + np.sqrt(proj_x**2 + proj_y**2)
             # Compute the Frenet d coordinate based on the lateral distance from the reference path
             # The sign of the d coordinate is determined by the cross product of the vectors to the point and along the reference path
-            d = -np.sign(x_x*n_y - x_y*n_x) * np.sqrt((x_x - proj_x)**2 + (x_y - proj_y)**2)
+            d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt(
+                (x_x - proj_x) ** 2 + (x_y - proj_y) ** 2
+            )
 
             frenet_coords.append((s, d))
 
@@ -435,28 +548,33 @@ class Trajectory:
         x_values = []
         y_values = []
 
-        for prev_wp in range(len(s_values)-2): # just reading s and d for next_wp of given trajectory
+        for prev_wp in range(
+            len(s_values) - 2
+        ):  # just reading s and d for next_wp of given trajectory
             next_wp = prev_wp + 1
             s = s_values[next_wp]
             d = d_values[next_wp]
             # Calculate the heading of the track at the previous waypoint
-            heading = math.atan2(self.path_y[next_wp] - self.path_y[prev_wp],
-                                 self.path_x[next_wp] - self.path_x[prev_wp])
-            
+            heading = math.atan2(
+                self.path_y[next_wp] - self.path_y[prev_wp],
+                self.path_x[next_wp] - self.path_x[prev_wp],
+            )
 
             # Calculate the x and y coordinates on the reference path
             if 0 <= prev_wp < len(self.path_x) and 0 <= self.path_s[prev_wp] <= s:
-                x = self.path_x[prev_wp] + \
-                    (s - self.path_s[prev_wp]) * math.cos(heading)
-                y = self.path_y[prev_wp] + \
-                    (s - self.path_s[prev_wp]) * math.sin(heading)
+                x = self.path_x[prev_wp] + (s - self.path_s[prev_wp]) * math.cos(
+                    heading
+                )
+                y = self.path_y[prev_wp] + (s - self.path_s[prev_wp]) * math.sin(
+                    heading
+                )
 
             # Calculate the perpendicular heading
             perp_heading = heading - math.pi / 2
 
             # Calculate the final x and y coordinates
-            x_final = x  - d * math.cos(perp_heading) # negative seems make sense
-            y_final = y  - d * math.sin(perp_heading)
+            x_final = x - d * math.cos(perp_heading)  # negative seems make sense
+            y_final = y - d * math.sin(perp_heading)
 
             x_values.append(x_final)
             y_values.append(y_final)
@@ -468,27 +586,26 @@ class Trajectory:
         cumulative_distances = [0]
         for i in range(1, len(reference_path)):
             cumulative_distances.append(
-                cumulative_distances[i-1] + np.linalg.norm(reference_path[i] - reference_path[i-1]))
+                cumulative_distances[i - 1]
+                + np.linalg.norm(reference_path[i] - reference_path[i - 1])
+            )
         return cumulative_distances
-
-
 
     # TODO: this inefficient! need to look into a window only not the whole track
     def __get_closest_waypoint(self, x, y):
         diffs = self.__reference_path - np.array((x, y))
-        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
-        closest_wp = np.argmin(dists)
-        return closest_wp
-    
-    def __get_closest_sd_waypoint(self, s, d):
-        diffs = self.__reference_sd_path - np.array((s, d))
-        dists = np.sqrt(diffs[:, 0]**2 + diffs[:, 1]**2)
+        dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
         closest_wp = np.argmin(dists)
         return closest_wp
 
-    
+    def __get_closest_sd_waypoint(self, s, d):
+        diffs = self.__reference_sd_path - np.array((s, d))
+        dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
+        closest_wp = np.argmin(dists)
+        return closest_wp
 
 
 if __name__ == "__main__":
     import race_plan_control.main as main
+
     main.run()
