@@ -46,7 +46,7 @@ class VisualizerApp(tk.Tk):
 
         self.animation_running = False
 
-        self.exec_option = tk.StringVar(value="Simple") 
+        self.exec_option = tk.StringVar(value="Simple Sim") 
         self.debug_option = tk.StringVar(value="DEBUG")  
 
         
@@ -173,7 +173,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
         
         ttk.Label(exec_third_frame, text="Bridge:").pack(side=tk.LEFT)
-        ttk.Radiobutton(exec_third_frame, text="Simple", variable=self.exec_option, value="Simple").pack(side=tk.LEFT)
+        ttk.Radiobutton(exec_third_frame, text="Simple Sim", variable=self.exec_option, value="Simple Sim").pack(side=tk.LEFT)
         ttk.Radiobutton(exec_third_frame, text="ROS", variable=self.exec_option, value="ROS").pack(side=tk.LEFT)
         ttk.Radiobutton(exec_third_frame, text="Carla", variable=self.exec_option, value="Carla").pack(side=tk.LEFT)
 
@@ -436,7 +436,6 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             self.coordinates_label.config(text="Spawn Agent: Click on the plot.")
 
     def on_mouse_scroll(self, event, increment=10):
-        
         if event.inaxes == self.ax1:
             log.debug(f"Scroll Event in real coordinate: {event.button}")
             if event.button == 'up':
@@ -586,7 +585,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             log.debug("Log setting updated to DEBUG.")
         elif self.rb_db_info.instate(['selected']):
             logging.getLogger().setLevel(logging.INFO)
-            log.info("Log setting updated to INFO.")
+            log.info("rog setting updated to INFO.")
         elif self.rb_db_warn.instate(['selected']):
             logging.getLogger().setLevel(logging.WARNING)
             log.warn("Log setting updated to WARNING.")

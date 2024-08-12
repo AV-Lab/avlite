@@ -2,6 +2,7 @@ import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
 import numpy as np
+# from icecream import ic
 import logging
 log = logging.getLogger(__name__)
 
@@ -263,7 +264,7 @@ class Trajectory:
 
 
         # Create the polynomial
-        log.debug(f"start_x {start_x} start_y {start_y} end_x {end_x} end_y {end_y}")
+        log.debug(f"start_x {start_x:.2f} start_y {start_y:.2f} end_x {end_x:.2f} end_y {end_y:.2f}")
         # log.debug(f"Poly Coefficients (C2 Continuity): X {poly_x.coef} Y {poly_y.coef}")
 
         t_values = np.linspace(0, 1, num_points)
@@ -306,6 +307,7 @@ class Trajectory:
 
         return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
 
+
     def __decoreate_trajectory_xy(self, poly_x: Polynomial, poly_y: Polynomial,
                                   t_values:np.ndarray) -> 'Trajectory':
         x_values = poly_x(t_values)
@@ -320,7 +322,33 @@ class Trajectory:
 
         return local_trajectory
 
+    def create_multiple_cubic_trajectory_xy(self, waypoints: list[tuple[float, float]],
+                               start_x_1st_derv:float, start_y_1st_derv:float,
+                               start_x_2nd_derv:float, start_y_2nd_derv:float,
+                               num_points=10) -> list['Trajectory']:
+        """
+        Creates a trajectory using multiple cubic polynomials in the xy-plane.
 
+        Args:
+            waypoints (list[tuple[float, float]]): A list of waypoints in the xy-plane.
+            num_points (int): The number of points to generate between each pair of waypoints.
+
+        Returns:
+            Trajectory: The trajectory object with the cubic polynomials in the xy-plane.
+        """
+        local_trajectories = []
+        for i in range(len(waypoints) - 1):
+            start_x, start_y = waypoints[i]
+            end_x, end_y = waypoints[i + 1]
+            if i == 0:
+                local_trajectory = self.create_cubic_trajectory_xy(start_x,
+                                start_y, end_x, end_y, start_x_1st_derv,
+                                start_y_1st_derv, start_x_2nd_derv, 
+                                start_y_2nd_derv, num_points)
+            else:
+                local_trajectory = self.create_cubic_trajectory_xy(start_x, start_y, end_x, end_y, 0, 0, 0, 0, num_points)
+            local_trajectories.append(local_trajectory)
+        return local_trajectories
 
     
     def convert_xy_to_sd(self, x:float, y:float) -> tuple[float, float]:

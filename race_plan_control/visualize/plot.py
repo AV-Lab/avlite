@@ -1,7 +1,7 @@
 from plan.planner import Planner
 from race_plan_control.execute.executer import Executer
 from race_plan_control.perceive.vehicle_state import VehicleState
-
+from icecream import ic
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -51,7 +51,7 @@ next_wp_plot_ax2, = ax2.plot([], [], 'bx', markersize=15, label='L WP: Next', fi
 # State Init
 car_heading_plot, = ax1.plot([], [], 'k-', color='darkslategray', label='Car Heading')
 car_location_plot, = ax1.plot([], [], 'ko', color='darkslategray', markersize=7, label='Car Location')
-car_rect = plt.Rectangle((0,0), 0, 0, angle=0, edgecolor='r', facecolor='azure')
+car_rect = plt.Rectangle((0,0), 0, 0, angle=0, edgecolor='r', facecolor='azure', alpha=0.7)
 ax1.add_patch(car_rect)
 
 
@@ -181,7 +181,7 @@ def update_global_plan_plots(pl:Planner, show_plot = True):
             g_wp_next_ax1.set_data([pl.global_trajectory.path_x[pl.global_trajectory.next_wp]], [pl.global_trajectory.path_y[pl.global_trajectory.next_wp]])
             g_wp_next_ax2.set_data([pl.global_trajectory.path_s[pl.global_trajectory.next_wp]], [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]])
 
-# TODO: currently shows only two levels only
+# TODO: currently shows only 3 levels only
 def update_lattice_graph_plots(pl:Planner, show_plot = True):
     if not show_plot or len(pl.lattice_graph) == 0:
         # clear all lattice graph plots
@@ -207,6 +207,15 @@ def update_lattice_graph_plots(pl:Planner, show_plot = True):
                 lattice_graph_endpoints_ax1[edge_index].set_data([next_edge.local_trajectory.path_x[-1]], [next_edge.local_trajectory.path_y[-1]])
                 lattice_graph_endpoints_ax2[edge_index].set_data([next_edge.local_trajectory.path_s_with_respect_to_parent[-1]], [next_edge.local_trajectory.path_d_with_respect_to_parent[-1]])
                 edge_index += 1
+
+                for next_next_edge in next_edge.next_edges:
+                    if edge_index < max_lattice_edges:
+                        lattice_graph_plots_ax1[edge_index].set_data(next_next_edge.local_trajectory.path_x, next_next_edge.local_trajectory.path_y)
+                        lattice_graph_plots_ax2[edge_index].set_data(next_next_edge.local_trajectory.path_s_with_respect_to_parent,
+                                                                      next_next_edge.local_trajectory.path_d_with_respect_to_parent)
+                        lattice_graph_endpoints_ax1[edge_index].set_data([next_next_edge.local_trajectory.path_x[-1]], [next_next_edge.local_trajectory.path_y[-1]])
+                        lattice_graph_endpoints_ax2[edge_index].set_data([next_next_edge.local_trajectory.path_s_with_respect_to_parent[-1]],[next_next_edge.local_trajectory.path_d_with_respect_to_parent[-1]])
+                        edge_index += 1
 
 def update_local_plan_plots(pl:Planner, show_plot = True):
     if not show_plot or pl.selected_edge is None:
