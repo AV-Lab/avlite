@@ -1,8 +1,10 @@
-import logging 
+import logging
 from race_plan_control.plan.trajectory import Trajectory
 from abc import ABC, abstractmethod
 import logging
+
 log = logging.getLogger(__name__)
+
 
 class Controller(ABC):
     def __init__(self):
@@ -10,14 +12,14 @@ class Controller(ABC):
         self.last_acc = None
 
     @abstractmethod
-    def control(self, cte:float, tj:Trajectory=None):
+    def control(self, cte: float, tj: Trajectory = None):
         pass
 
     @abstractmethod
     def reset():
         pass
 
-    # TODO: future work 
+    # TODO: future work
     class ControlComand:
         def __init__(self, steer=0, acc=0):
             self.steer = steer
