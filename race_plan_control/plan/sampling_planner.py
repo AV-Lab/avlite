@@ -1,7 +1,8 @@
 from race_plan_control.plan.planner import Planner
-from race_plan_control.plan.lattice import LatticeGraph, EdgeTmp
+from race_plan_control.plan.lattice import Edge, Node, create_edge
 import numpy as np
 import logging
+from icecream import ic
 
 
 log = logging.getLogger(__name__)
@@ -13,18 +14,22 @@ class RNDPlanner(Planner):
         reference_path,
         ref_left_boundary_d,
         ref_right_boundary_d,
+        num_of_edge_points=10,
         planning_horizon=10,
         minimum_s_distance=50,
         minimum_boundary_distance=4,
+        sample_size=1,
     ):
+        self.planning_horizon: int = planning_horizon
+        self.minimum_planning_distance: int = minimum_s_distance
+        self.minimum_boundary_distance: int = minimum_boundary_distance
+        self.sample_size: int = sample_size
 
-        super().__init__(reference_path, ref_left_boundary_d, ref_right_boundary_d)
+        super().__init__(
+            reference_path, ref_left_boundary_d, ref_right_boundary_d, num_of_edge_points=num_of_edge_points
+        )
 
-        self.planning_horizon = planning_horizon
-        self.minimum_planning_distance = minimum_s_distance
-        self.minimum_boundary_distance = minimum_boundary_distance
-
-    def replan(self, sample_size=1, back_to_ref_horizon=10, sample=True):
+    def replan(self, back_to_ref_horizon=10):
         if len(self.traversed_s) == 0:
             log.debug("Location unkown. Cannot replan")
             return
@@ -33,54 +38,99 @@ class RNDPlanner(Planner):
         d = self.traversed_d[-1]
 
         # delete old edges that already passed its starting point
-        self.lattice_graph = {}
-
-        # TODO
-        # 1. Sample points from Frenet space
-        # 2. Generate edges from the sampled points in the Eucledian space
+        self.edges = []
+        self.selected_edge = None
 
         # ---------------------------------------------------------------------
         ### Group 1
         # ---------------------------------------------------------------------
         # add edge on the reference trajectory
-        target_wp = (self.global_trajectory.current_wp + back_to_ref_horizon) % len(
-            self.global_trajectory.path_s
-        )
+        target_wp = (self.global_trajectory.current_wp + back_to_ref_horizon) % len(self.global_trajectory.path_s)
         s1_ = self.global_trajectory.path_s[target_wp]
-        d1_ = 0
-        ep1 = EdgeTmp(
-            s,
-            d,
-            s1_,
-            d1_,
-            self.global_trajectory,
-            num_of_points=back_to_ref_horizon + 2,
-        )
-        self.lattice_graph[(s1_, d1_)] = ep1
+        d1_ = 1
 
-        s2_ = s1_ + 10
-        d2_ = 5
-        ep2 = EdgeTmp(
-            s1_,
-            d1_,
-            s2_,
-            d2_,
-            self.global_trajectory,
-            num_of_points=back_to_ref_horizon + 2,
-        )
-        ep1.append_next_edges(ep2)
+        s2_ = s1_ + 20
+        d2_ = 2
 
-        s3_ = s2_ + 10
-        d3_ = 0
-        ep3 = EdgeTmp(
-            s2_,
-            d2_,
-            s3_,
-            d3_,
+        s3_ = s2_ + 20
+        d3_ = -2
+
+        s4_ = s3_ + 20
+        d4_ = 2
+
+        s5_ = s4_ + 20
+        d5_ = 0
+
+        ep1 = create_edge(
+            Node(s, d, self.global_trajectory),
+            Node(s1_, d1_, self.global_trajectory),
             self.global_trajectory,
             num_of_points=back_to_ref_horizon + 2,
         )
-        ep2.append_next_edges(ep3)
+        self.selected_edge = ep1
+        self.edges.append(ep1)
+
+        coef = ep1.local_trajectory.poly_d.coef
+        ic(coef)
+        ic(ep1.local_trajectory.path_s)
+
+        d_1st_derv = 0  
+        d_2nd_derv = 0
+
+
+        ep2 = create_edge(
+            Node(s1_, d1_, self.global_trajectory,d_1st_derv=d_1st_derv, d_2nd_derv=d_2nd_derv),
+            Node(s2_, d2_, self.global_trajectory),
+            self.global_trajectory,
+            num_of_points=back_to_ref_horizon + 2,
+        )
+        ep1.next_edges.append(ep2)
+        ep1.selected_next_edge = ep2
+        coef = ep2.local_trajectory.poly_d.coef
+        ic(coef)
+        ic(ep2.local_trajectory.path_s)
+
+        return 
+
+        d_1st_derv = ep2.local_trajectory.poly_d.coef[-2]
+        d_2nd_derv = ep2.local_trajectory.poly_d.coef[-3]
+        coef = ep2.local_trajectory.poly_d.coef
+        ic(coef)
+        ep3 = Edge(
+            Node(s2_, d2_, self.global_trajectory,d_1st_derv=d_1st_derv, d_2nd_derv=d_2nd_derv),
+            Node(s3_, d3_, self.global_trajectory),
+            self.global_trajectory,
+            num_of_points=back_to_ref_horizon + 2,
+        )
+        ep2.next_edges.append(ep3)
+        ep2.selected_next_edge = ep3
+
+        d_1st_derv = ep3.local_trajectory.poly_d.coef[-2]
+        d_2nd_derv = ep3.local_trajectory.poly_d.coef[-3]
+        coef = ep3.local_trajectory.poly_d.coef
+        ic(coef)
+        ep4 = Edge(
+            Node(s3_, d3_, self.global_trajectory,d_1st_derv=d_1st_derv, d_2nd_derv=d_2nd_derv),
+            Node(s4_, d4_, self.global_trajectory),
+            self.global_trajectory,
+            num_of_points=back_to_ref_horizon + 2,
+        )
+        ep3.next_edges.append(ep4)
+        ep3.selected_next_edge = ep4
+
+        d_1st_derv = ep4.local_trajectory.poly_d.coef[-2]
+        d_2nd_derv = ep4.local_trajectory.poly_d.coef[-3]
+        coef = ep4.local_trajectory.poly_d.coef
+        ic(coef)
+        ep5 = Edge(
+            Node(s4_, d4_, self.global_trajectory,d_1st_derv=d_1st_derv, d_2nd_derv=d_2nd_derv),
+            Node(s5_, d5_, self.global_trajectory),
+            self.global_trajectory,
+            num_of_points=back_to_ref_horizon + 2,
+        )
+        ep4.next_edges.append(ep5)
+        ep4.selected_next_edge = ep5
+
 
         # current_wp = self.global_trajectory.current_wp
         # if sample:
@@ -158,15 +208,6 @@ class RNDPlanner(Planner):
         # ---------------------------------------------------------------------
         ## Plan --------------------------------------------------------------
         # ---------------------------------------------------------------------
-
-        # Select a random edge from the lattice graph
-        self.selected_edge = np.random.choice(list(self.lattice_graph.values()))
-        self.selected_edge.is_selected = True
-        self.selected_edge.selected_next_edge = (
-            np.random.choice(self.selected_edge.next_edges)
-            if len(self.selected_edge.next_edges) > 0
-            else None
-        )
 
 
 if __name__ == "__main__":
