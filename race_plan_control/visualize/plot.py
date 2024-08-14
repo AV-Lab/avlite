@@ -1,20 +1,22 @@
 from plan.planner import Planner
+from plan.lattice import Edge
 from race_plan_control.execute.executer import Executer
 from race_plan_control.perceive.vehicle_state import VehicleState
 from icecream import ic
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Optional
+
+
+MAX_LATTICE_SIZE = 50
+MAX_PLAN_LENGTH = 5
 
 # plt.style.use('dark_background')
 fig, (ax1, ax2) = plt.subplots(2, 1)
 
 
-(left_boundry_x1,) = ax1.plot(
-    [], [], color="orange", label="Left Boundary", linewidth=2
-)  # Change color and label as needed
-(right_boundry_x1,) = ax1.plot(
-    [], [], color="tan", label="Right Boundary", linewidth=2
-)  # Change color and label as needed
+(left_boundry_x1,) = ax1.plot([], [], color="orange", label="Left Boundary", linewidth=2)  # Change color and label as needed
+(right_boundry_x1,) = ax1.plot([], [], color="tan", label="Right Boundary", linewidth=2)  # Change color and label as needed
 left_boundry_ax2 = ax2.scatter([], [], color="orange", s=5, label="Left Boundary (Ref)")
 right_boundry_ax2 = ax2.scatter([], [], color="tan", s=5, label="Right Boundary (Ref)")
 
@@ -25,23 +27,15 @@ reference_trajectory_ax2 = ax2.scatter(
     [], [], s=5, alpha=0.5, color="gray", label="Reference Trajectory"
 )  # reference path in blue
 
-(last_locs_ax1,) = ax1.plot(
-    [], [], "g-", label="Last 100 Locations", linewidth=2
-)  # Plot the last 100 points in green
+(last_locs_ax1,) = ax1.plot([], [], "g-", label="Last 100 Locations", linewidth=2)  # Plot the last 100 points in green
 (planner_loc_ax1,) = ax1.plot([], [], "ro", markersize=10, label="Planner Location")
 
-(last_locs_ax2,) = ax2.plot(
-    [], [], "g-", label="Last 100 Locations", linewidth=2
-)  # Plot the last 100 points in green
+(last_locs_ax2,) = ax2.plot([], [], "g-", label="Last 100 Locations", linewidth=2)  # Plot the last 100 points in green
 (planner_loc_ax2,) = ax2.plot([], [], "ro", markersize=10, label="Planner Location")
 
 
-(g_wp_current_ax1,) = ax1.plot(
-    [], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none"
-)
-(g_wp_current_ax2,) = ax2.plot(
-    [], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none"
-)
+(g_wp_current_ax1,) = ax1.plot([], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none")
+(g_wp_current_ax2,) = ax2.plot([], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none")
 
 (g_wp_next_ax1,) = ax1.plot([], [], "gx", markersize=13, label="G WP: Next")
 (g_wp_next_ax2,) = ax2.plot([], [], "gx", markersize=13, label="G WP: Next")
@@ -54,48 +48,24 @@ lattice_graph_plots_ax2 = []
 lattice_graph_endpoints_ax1 = []
 lattice_graph_endpoints_ax2 = []
 
+# initialize local plan
+local_plan_plots_ax1 = []
+local_plan_plots_ax2 = []
 
-(selected_edge_plot_ax1,) = ax1.plot(
-    [], [], "r-", label="Selected Edge", alpha=0.6, linewidth=6
-)
-(selected_edge_plot_ax2,) = ax2.plot(
-    [], [], "r-", label="Selected Edge", alpha=0.6, linewidth=6
-)
-(selected_next_edge_plot_ax1,) = ax1.plot(
-    [], [], "r-", label="Next Edge", alpha=0.3, linewidth=6
-)
-(selected_next_edge_plot_ax2,) = ax2.plot(
-    [], [], "r-", label="Next Edge", alpha=0.3, linewidth=6
-)
-(current_wp_plot_ax1,) = ax1.plot(
-    [], [], "bo", markersize=15, label="L WP: Current", fillstyle="none"
-)
-(current_wp_plot_ax2,) = ax2.plot(
-    [], [], "bo", markersize=15, label="L WP: Current", fillstyle="none"
-)
-(next_wp_plot_ax1,) = ax1.plot(
-    [], [], "bx", markersize=15, label="L WP: Next", fillstyle="none"
-)
-(next_wp_plot_ax2,) = ax2.plot(
-    [], [], "bx", markersize=15, label="L WP: Next", fillstyle="none"
-)
+(current_wp_plot_ax1,) = ax1.plot([], [], "bo", markersize=15, label="L WP: Current", fillstyle="none")
+(current_wp_plot_ax2,) = ax2.plot([], [], "bo", markersize=15, label="L WP: Current", fillstyle="none")
+(next_wp_plot_ax1,) = ax1.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
+(next_wp_plot_ax2,) = ax2.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
 
 # State Init
 (car_heading_plot,) = ax1.plot([], [], "k-", color="darkslategray", label="Car Heading")
-(car_location_plot,) = ax1.plot(
-    [], [], "ko", color="darkslategray", markersize=7, label="Car Location"
-)
-car_rect = plt.Rectangle(
-    (0, 0), 0, 0, angle=0, edgecolor="r", facecolor="azure", alpha=0.7
-)
+(car_location_plot,) = ax1.plot([], [], "ko", color="darkslategray", markersize=7, label="Car Location")
+car_rect = plt.Rectangle((0, 0), 0, 0, angle=0, edgecolor="r", facecolor="azure", alpha=0.7)
 ax1.add_patch(car_rect)
 
 
-# TODO make this part dynamic based on the planner
 # Assuming a maximum number of lattice graph edges
-max_lattice_edges = 50
-
-for _ in range(max_lattice_edges):
+for _ in range(MAX_LATTICE_SIZE):
     (line_ax1,) = ax1.plot([], [], "b--", color="lightskyblue", alpha=0.6)
     (line_ax2,) = ax2.plot([], [], "b--", color="lightskyblue", alpha=0.6)
     (endpoint_ax1,) = ax1.plot([], [], "bo", alpha=0.6)
@@ -105,26 +75,21 @@ for _ in range(max_lattice_edges):
     lattice_graph_endpoints_ax1.append(endpoint_ax1)
     lattice_graph_endpoints_ax2.append(endpoint_ax2)
 
+# local plan
+for i in range(MAX_PLAN_LENGTH):
+    (local_plan_ax1,) = ax1.plot([], [], "r-", label=f"Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
+    (local_plan_ax2,) = ax2.plot([], [], "r-", label="Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
+    local_plan_plots_ax1.append(local_plan_ax1)
+    local_plan_plots_ax2.append(local_plan_ax2)
+
 
 ax2.set_title("Frenet Coordinate")
 ax1.set_aspect("equal")
 ax2.set_aspect("equal")
 
-# ax1.legend(loc='upper left')
-# legend_ax1 = set(ax1.get_legend().get_lines())
-# ax2.legend(loc='upper left', bbox_to_anchor=(0, -.1), ncol=5, borderaxespad=0.)
-# ax2.legend(loc='lower center', ncol=5, borderaxespad=0.)
-# legend_ax2 = {} # set(ax2.get_legend().get_lines())
 
 legend_ax = fig.add_axes([0.0, -0.013, 1, 0.1])
-legend_ax.legend(
-    *ax1.get_legend_handles_labels(),
-    loc="center",
-    ncol=7,
-    borderaxespad=0.0,
-    fontsize=7,
-    framealpha=0.3
-)
+legend_ax.legend(*ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3)
 legend_ax.axis("off")
 
 fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
@@ -168,17 +133,13 @@ def plot(
             exec.planner.traversed_x[-num_plot_last_pts:],
             exec.planner.traversed_y[-num_plot_last_pts:],
         )
-        planner_loc_ax1.set_data(
-            [exec.planner.traversed_x[-1]], [exec.planner.traversed_y[-1]]
-        )
+        planner_loc_ax1.set_data([exec.planner.traversed_x[-1]], [exec.planner.traversed_y[-1]])
 
         last_locs_ax2.set_data(
             exec.planner.traversed_s[-num_plot_last_pts:],
             exec.planner.traversed_d[-num_plot_last_pts:],
         )
-        planner_loc_ax2.set_data(
-            [exec.planner.traversed_s[-1]], [exec.planner.traversed_d[-1]]
-        )
+        planner_loc_ax2.set_data([exec.planner.traversed_s[-1]], [exec.planner.traversed_d[-1]])
     else:
         last_locs_ax1.set_data([], [])
         planner_loc_ax1.set_data([], [])
@@ -220,8 +181,6 @@ def redraw_plots():
 
 initialized = False
 toggle_plot = False
-
-
 def update_global_plan_plots(pl: Planner, show_plot=True):
     global initialized
     global toggle_plot
@@ -229,19 +188,11 @@ def update_global_plan_plots(pl: Planner, show_plot=True):
         # Plot track boundaries
         left_boundry_x1.set_data(pl.ref_left_boundary_x, pl.ref_left_boundary_y)
         right_boundry_x1.set_data(pl.ref_right_boundary_x, pl.ref_right_boundary_y)
-        left_boundry_ax2.set_offsets(
-            np.c_[pl.global_trajectory.path_s, pl.ref_left_boundary_d]
-        )
-        right_boundry_ax2.set_offsets(
-            np.c_[pl.global_trajectory.path_s, pl.ref_right_boundary_d]
-        )
+        left_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_left_boundary_d])
+        right_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_right_boundary_d])
         # Plot the reference path
-        reference_trajectory_ax1.set_data(
-            pl.global_trajectory.path_x, pl.global_trajectory.path_y
-        )
-        reference_trajectory_ax2.set_offsets(
-            np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d]
-        )
+        reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
+        reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d])
         initialized = True
     if not show_plot:
         g_wp_current_ax1.set_data([], [])
@@ -253,12 +204,8 @@ def update_global_plan_plots(pl: Planner, show_plot=True):
         toggle_plot = True
         return
     elif initialized and toggle_plot:
-        reference_trajectory_ax1.set_data(
-            pl.global_trajectory.path_x, pl.global_trajectory.path_y
-        )
-        reference_trajectory_ax2.set_offsets(
-            np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d]
-        )
+        reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
+        reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d])
         toggle_plot = False
 
     if pl.global_trajectory.next_wp is not None:
@@ -280,9 +227,8 @@ def update_global_plan_plots(pl: Planner, show_plot=True):
         )
 
 
-# TODO: currently shows only 3 levels only
 def update_lattice_graph_plots(pl: Planner, show_plot=True):
-    if not show_plot or len(pl.lattice_graph) == 0:
+    if not show_plot or len(pl.edges) == 0:
         # clear all lattice graph plots
         for line in (
             lattice_graph_plots_ax1
@@ -294,77 +240,36 @@ def update_lattice_graph_plots(pl: Planner, show_plot=True):
         return
 
     edge_index = 0
-    for k, v in pl.lattice_graph.items():
-        if edge_index < max_lattice_edges:
+    __update_lattice_edge_plots(edge_index, pl=pl)
+
+
+def __update_lattice_edge_plots(edge_index: int, v: Edge = None, pl: Planner = None, level: int = 0):
+    edges = pl.edges if pl is not None else v.next_edges
+    for next_edge in edges:
+        if edge_index < MAX_LATTICE_SIZE:
             lattice_graph_plots_ax1[edge_index].set_data(
-                v.local_trajectory.path_x, v.local_trajectory.path_y
+                next_edge.local_trajectory.path_x, next_edge.local_trajectory.path_y
             )
             lattice_graph_plots_ax2[edge_index].set_data(
-                v.local_trajectory.path_s_with_respect_to_parent,
-                v.local_trajectory.path_d_with_respect_to_parent,
+                next_edge.local_trajectory.path_s_from_parent,
+                next_edge.local_trajectory.path_d_from_parent,
             )
             lattice_graph_endpoints_ax1[edge_index].set_data(
-                [v.local_trajectory.path_x[-1]], [v.local_trajectory.path_y[-1]]
+                [next_edge.local_trajectory.path_x[-1]],
+                [next_edge.local_trajectory.path_y[-1]],
             )
             lattice_graph_endpoints_ax2[edge_index].set_data(
-                [v.local_trajectory.path_s_with_respect_to_parent[-1]],
-                [v.local_trajectory.path_d_with_respect_to_parent[-1]],
+                [next_edge.local_trajectory.path_s_from_parent[-1]],
+                [next_edge.local_trajectory.path_d_from_parent[-1]],
             )
             edge_index += 1
-        for next_edge in v.next_edges:
-            if edge_index < max_lattice_edges:
-                lattice_graph_plots_ax1[edge_index].set_data(
-                    next_edge.local_trajectory.path_x, next_edge.local_trajectory.path_y
-                )
-                lattice_graph_plots_ax2[edge_index].set_data(
-                    next_edge.local_trajectory.path_s_with_respect_to_parent,
-                    next_edge.local_trajectory.path_d_with_respect_to_parent,
-                )
-                lattice_graph_endpoints_ax1[edge_index].set_data(
-                    [next_edge.local_trajectory.path_x[-1]],
-                    [next_edge.local_trajectory.path_y[-1]],
-                )
-                lattice_graph_endpoints_ax2[edge_index].set_data(
-                    [next_edge.local_trajectory.path_s_with_respect_to_parent[-1]],
-                    [next_edge.local_trajectory.path_d_with_respect_to_parent[-1]],
-                )
-                edge_index += 1
-
-                for next_next_edge in next_edge.next_edges:
-                    if edge_index < max_lattice_edges:
-                        lattice_graph_plots_ax1[edge_index].set_data(
-                            next_next_edge.local_trajectory.path_x,
-                            next_next_edge.local_trajectory.path_y,
-                        )
-                        lattice_graph_plots_ax2[edge_index].set_data(
-                            next_next_edge.local_trajectory.path_s_with_respect_to_parent,
-                            next_next_edge.local_trajectory.path_d_with_respect_to_parent,
-                        )
-                        lattice_graph_endpoints_ax1[edge_index].set_data(
-                            [next_next_edge.local_trajectory.path_x[-1]],
-                            [next_next_edge.local_trajectory.path_y[-1]],
-                        )
-                        lattice_graph_endpoints_ax2[edge_index].set_data(
-                            [
-                                next_next_edge.local_trajectory.path_s_with_respect_to_parent[
-                                    -1
-                                ]
-                            ],
-                            [
-                                next_next_edge.local_trajectory.path_d_with_respect_to_parent[
-                                    -1
-                                ]
-                            ],
-                        )
-                        edge_index += 1
-
+            __update_lattice_edge_plots(v=next_edge, edge_index=edge_index, level=level + 1)
 
 def update_local_plan_plots(pl: Planner, show_plot=True):
     if not show_plot or pl.selected_edge is None:
-        selected_edge_plot_ax1.set_data([], [])
-        selected_edge_plot_ax2.set_data([], [])
-        selected_next_edge_plot_ax1.set_data([], [])
-        selected_next_edge_plot_ax2.set_data([], [])
+        for i in range(MAX_PLAN_LENGTH):
+            local_plan_plots_ax1[i].set_data([], [])
+            local_plan_plots_ax2[i].set_data([], [])
         current_wp_plot_ax1.set_data([], [])
         current_wp_plot_ax2.set_data([], [])
         next_wp_plot_ax1.set_data([], [])
@@ -372,23 +277,14 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
 
     elif pl.selected_edge is not None:
         x, y = pl.selected_edge.local_trajectory.get_current_xy()
-        s = pl.selected_edge.local_trajectory.path_s_with_respect_to_parent[
-            pl.selected_edge.local_trajectory.current_wp
-        ]
-        d = pl.selected_edge.local_trajectory.path_d_with_respect_to_parent[
-            pl.selected_edge.local_trajectory.current_wp
-        ]
+        s = pl.selected_edge.local_trajectory.path_s_from_parent[pl.selected_edge.local_trajectory.current_wp]
+        d = pl.selected_edge.local_trajectory.path_d_from_parent[pl.selected_edge.local_trajectory.current_wp]
 
-        x_n, y_n = pl.selected_edge.local_trajectory.get_xy_by_waypoint(
-            pl.selected_edge.local_trajectory.next_wp
-        )
-        s_n = pl.selected_edge.local_trajectory.path_s_with_respect_to_parent[
-            pl.selected_edge.local_trajectory.next_wp
-        ]
-        d_n = pl.selected_edge.local_trajectory.path_d_with_respect_to_parent[
-            pl.selected_edge.local_trajectory.next_wp
-        ]
+        x_n, y_n = pl.selected_edge.local_trajectory.get_xy_by_waypoint(pl.selected_edge.local_trajectory.next_wp)
+        s_n = pl.selected_edge.local_trajectory.path_s_from_parent[pl.selected_edge.local_trajectory.next_wp]
+        d_n = pl.selected_edge.local_trajectory.path_d_from_parent[pl.selected_edge.local_trajectory.next_wp]
 
+        # waypoints
         current_wp_plot_ax1.set_data([x], [y])
         current_wp_plot_ax2.set_data([s], [d])
 
@@ -396,23 +292,21 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
         next_wp_plot_ax2.set_data([s_n], [d_n])
 
         v = pl.selected_edge
-        selected_edge_plot_ax1.set_data(
-            v.local_trajectory.path_x, v.local_trajectory.path_y
-        )
-        selected_edge_plot_ax2.set_data(
-            v.local_trajectory.path_s_with_respect_to_parent,
-            v.local_trajectory.path_d_with_respect_to_parent,
-        )
 
-        if v.selected_next_edge is not None:
-            selected_next_edge_plot_ax1.set_data(
-                v.selected_next_edge.local_trajectory.path_x,
-                v.selected_next_edge.local_trajectory.path_y,
-            )
-            selected_next_edge_plot_ax2.set_data(
-                v.selected_next_edge.local_trajectory.path_s_with_respect_to_parent,
-                v.selected_next_edge.local_trajectory.path_d_with_respect_to_parent,
-            )
+        __update_local_plan_plots(v)
+
+
+def __update_local_plan_plots(v: Edge, index: int = 0):
+    if v is not None:
+        local_plan_plots_ax1[index].set_data(
+            v.local_trajectory.path_x,
+            v.local_trajectory.path_y,
+        )
+        local_plan_plots_ax2[index].set_data(
+            v.local_trajectory.path_s_from_parent,
+            v.local_trajectory.path_d_from_parent,
+        )
+        __update_local_plan_plots(v.selected_next_edge, index + 1)
 
 
 def update_state_plots(state: VehicleState, show_plot=True):
@@ -467,9 +361,7 @@ def update_state_plots(state: VehicleState, show_plot=True):
             [np.sin(state.theta), np.cos(state.theta)],
         ]
     )
-    rotated_corners = np.dot(
-        rotation_matrix, np.array([corners_x - car_center_x, corners_y - car_center_y])
-    )
+    rotated_corners = np.dot(rotation_matrix, np.array([corners_x - car_center_x, corners_y - car_center_y]))
     rotated_corners_x = rotated_corners[0, :] + car_center_x
     rotated_corners_y = rotated_corners[1, :] + car_center_y
 
@@ -483,8 +375,6 @@ def set_plot_theme(bg_color="white", fg_color="black"):
     ax1.patch.set_facecolor(bg_color)
     ax2.patch.set_facecolor(bg_color)
     ax2.set_title("Frenet Coordinate", color=fg_color)
-    # legend = ax1.legend(loc='center', ncol=3, borderaxespad=0., fontsize=12, framealpha=1)
-    # legend.get_frame().set_facecolor(bg_color)
     # Set titles and labels to white
     for ax in [ax1, ax2]:
         for spine in ax.spines.values():

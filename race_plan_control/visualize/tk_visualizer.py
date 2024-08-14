@@ -49,7 +49,7 @@ class VisualizerApp(tk.Tk):
         self.animation_running = False
 
         self.exec_option = tk.StringVar(value="Simple Sim")
-        self.debug_option = tk.StringVar(value="DEBUG")
+        self.debug_option = tk.StringVar(value="INFO")
 
         self.show_plan_logs = tk.BooleanVar(value=True)
         self.show_control_logs = tk.BooleanVar(value=True)

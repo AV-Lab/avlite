@@ -1,6 +1,6 @@
-import race_plan_control.plan.trajectory as u
 from race_plan_control.perceive.vehicle_state import VehicleState
-from race_plan_control.plan.lattice import LatticeGraph, EdgeTmp
+from race_plan_control.plan.lattice import Edge
+from typing import Optional
 
 import logging
 
@@ -11,20 +11,31 @@ from race_plan_control.plan.trajectory import Trajectory
 
 
 class Planner(ABC):
-    global_trajectory: Trajectory
-    ref_left_boundary_d: list[float]
-    ref_right_boundary_d: list[float]
-    ref_left_boundary_x: list[float]
-    ref_left_boundary_y: list[float]
-    ref_right_boundary_x: list[float]
-    ref_right_boundary_y: list[float]
-    lap: int
-    traversed_x: list[float]
-    traversed_y: list[float]
-    traversed_d: list[float]
-    traversed_s: list[float]
 
-    def __init__(self, reference_path, ref_left_boundary_d, ref_right_boundary_d):
+    def __init__(
+        self,
+        reference_path,
+        ref_left_boundary_d,
+        ref_right_boundary_d,
+        num_of_edge_points=10,
+    ):
+        self.global_trajectory: Trajectory
+        self.ref_left_boundary_d: list[float]
+        self.ref_right_boundary_d: list[float]
+        self.ref_left_boundary_x: list[float]
+        self.ref_left_boundary_y: list[float]
+        self.ref_right_boundary_x: list[float]
+        self.ref_right_boundary_y: list[float]
+        self.lap: int = 0
+        self.traversed_x: list[float]
+        self.traversed_y: list[float]
+        self.traversed_d: list[float]
+        self.traversed_s: list[float]
+        self.selected_edge: Optional[Edge] = None
+        self.edges: list[Edge] = [] # list of available next edges
+        self.num_of_edge_points:int = num_of_edge_points
+
+
         self.global_trajectory = Trajectory(reference_path)
         self.ref_left_boundary_d = ref_left_boundary_d
 
@@ -41,7 +52,6 @@ class Planner(ABC):
             )
         )
 
-        self.lap = 0
 
         # these are localization data
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[0]], [
@@ -51,9 +61,6 @@ class Planner(ABC):
             self.global_trajectory.path_d[0]
         ]
 
-        self.selected_edge: EdgeTmp = None
-        self.lattice_graph = {}
-        self.lattice = LatticeGraph(self.global_trajectory, num_of_edge_points=10)
 
     def reset(self, wp=0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [
@@ -63,10 +70,9 @@ class Planner(ABC):
             self.global_trajectory.path_d[wp]
         ]
         self.global_trajectory.update_waypoint_by_wp(wp)
-        self.lattice_graph = (
-            {}
-        )  # intended to hold local plan lattice graph. A dictionary with source (s,d) as key
         self.selected_edge = None
+        self.edges = []
+        
 
     @abstractmethod
     def replan(self):
@@ -91,7 +97,7 @@ class Planner(ABC):
         elif (
             self.selected_edge is not None
             and self.selected_edge.local_trajectory.is_traversed()
-            and self.selected_edge.is_next_edge_selected()
+            and self.selected_edge.selected_next_edge is not None
         ):
             log.info("Edge Done, choosing next selected edge")
             self.selected_edge = self.selected_edge.selected_next_edge
@@ -101,7 +107,7 @@ class Planner(ABC):
         elif (
             self.selected_edge is not None
             and self.selected_edge.local_trajectory.is_traversed()
-            and not self.selected_edge.is_next_edge_selected()
+            and self.selected_edge.selected_next_edge is None
         ):
             log.info("No next edge selected")
             x_current = self.global_trajectory.path_x[self.global_trajectory.next_wp]
@@ -114,6 +120,7 @@ class Planner(ABC):
 
         self.traversed_x.append(x_current)
         self.traversed_y.append(y_current)
+
         # TODO some error check might be needed
         self.global_trajectory.update_waypoint_by_xy(x_current, y_current)
         if self.selected_edge is not None:
@@ -142,7 +149,7 @@ class Planner(ABC):
 
             if (
                 self.selected_edge.local_trajectory.is_traversed()
-                and self.selected_edge.is_next_edge_selected()
+                and self.selected_edge.selected_next_edge is not None
             ):
                 log.info("Edge Done, choosing next selected edge")
                 self.selected_edge = self.selected_edge.selected_next_edge
@@ -150,7 +157,7 @@ class Planner(ABC):
 
             elif (
                 self.selected_edge.local_trajectory.is_traversed()
-                and not self.selected_edge.is_next_edge_selected()
+                and self.selected_edge.selected_next_edge is None
             ):
                 self.selected_edge = None
         else:
