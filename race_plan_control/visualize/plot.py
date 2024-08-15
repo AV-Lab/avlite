@@ -227,8 +227,10 @@ def update_global_plan_plots(pl: Planner, show_plot=True):
         )
 
 
+edge_index = 0
 def update_lattice_graph_plots(pl: Planner, show_plot=True):
-    if not show_plot or len(pl.edges) == 0:
+    global edge_index
+    if not show_plot or len(pl.next_edges) == 0:
         # clear all lattice graph plots
         for line in (
             lattice_graph_plots_ax1
@@ -243,8 +245,9 @@ def update_lattice_graph_plots(pl: Planner, show_plot=True):
     __update_lattice_edge_plots(edge_index, pl=pl)
 
 
-def __update_lattice_edge_plots(edge_index: int, v: Edge = None, pl: Planner = None, level: int = 0):
-    edges = pl.edges if pl is not None else v.next_edges
+def __update_lattice_edge_plots(v: Edge = None, pl: Planner = None, level: int = 0):
+    global edge_index
+    edges = pl.next_edges if pl is not None else v.next_edges
     for next_edge in edges:
         if edge_index < MAX_LATTICE_SIZE:
             lattice_graph_plots_ax1[edge_index].set_data(
@@ -263,10 +266,10 @@ def __update_lattice_edge_plots(edge_index: int, v: Edge = None, pl: Planner = N
                 [next_edge.local_trajectory.path_d_from_parent[-1]],
             )
             edge_index += 1
-            __update_lattice_edge_plots(v=next_edge, edge_index=edge_index, level=level + 1)
+            __update_lattice_edge_plots(v=next_edge, level=level + 1)
 
 def update_local_plan_plots(pl: Planner, show_plot=True):
-    if not show_plot or pl.selected_edge is None:
+    if not show_plot or pl.selected_next_edge is None:
         for i in range(MAX_PLAN_LENGTH):
             local_plan_plots_ax1[i].set_data([], [])
             local_plan_plots_ax2[i].set_data([], [])
@@ -275,14 +278,14 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
         next_wp_plot_ax1.set_data([], [])
         next_wp_plot_ax2.set_data([], [])
 
-    elif pl.selected_edge is not None:
-        x, y = pl.selected_edge.local_trajectory.get_current_xy()
-        s = pl.selected_edge.local_trajectory.path_s_from_parent[pl.selected_edge.local_trajectory.current_wp]
-        d = pl.selected_edge.local_trajectory.path_d_from_parent[pl.selected_edge.local_trajectory.current_wp]
+    elif pl.selected_next_edge is not None:
+        x, y = pl.selected_next_edge.local_trajectory.get_current_xy()
+        s = pl.selected_next_edge.local_trajectory.path_s_from_parent[pl.selected_next_edge.local_trajectory.current_wp]
+        d = pl.selected_next_edge.local_trajectory.path_d_from_parent[pl.selected_next_edge.local_trajectory.current_wp]
 
-        x_n, y_n = pl.selected_edge.local_trajectory.get_xy_by_waypoint(pl.selected_edge.local_trajectory.next_wp)
-        s_n = pl.selected_edge.local_trajectory.path_s_from_parent[pl.selected_edge.local_trajectory.next_wp]
-        d_n = pl.selected_edge.local_trajectory.path_d_from_parent[pl.selected_edge.local_trajectory.next_wp]
+        x_n, y_n = pl.selected_next_edge.local_trajectory.get_xy_by_waypoint(pl.selected_next_edge.local_trajectory.next_wp)
+        s_n = pl.selected_next_edge.local_trajectory.path_s_from_parent[pl.selected_next_edge.local_trajectory.next_wp]
+        d_n = pl.selected_next_edge.local_trajectory.path_d_from_parent[pl.selected_next_edge.local_trajectory.next_wp]
 
         # waypoints
         current_wp_plot_ax1.set_data([x], [y])
@@ -291,7 +294,7 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
         next_wp_plot_ax1.set_data([x_n], [y_n])
         next_wp_plot_ax2.set_data([s_n], [d_n])
 
-        v = pl.selected_edge
+        v = pl.selected_next_edge
 
         __update_local_plan_plots(v)
 

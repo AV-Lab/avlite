@@ -162,8 +162,10 @@ class Trajectory:
         d_start: float,
         s_end: float,
         d_end: float,
-        d_1st_derv: float,
-        d_2nd_derv: float,
+        start_d_1st_derv: float=0.0,
+        start_d_2nd_derv: float=0.0,
+        end_d_1st_derv: float=0.0,
+        end_d_2nd_derv: float=0.0,
         num_points=10,
     ) -> "Trajectory":
 
@@ -220,14 +222,13 @@ class Trajectory:
             ]
         )
 
-        b = np.array([d_start, d_end, d_1st_derv, d_2nd_derv, d_2nd_derv, d_2nd_derv])
+        b = np.array([d_start, d_end, start_d_1st_derv, start_d_2nd_derv, end_d_2nd_derv, end_d_2nd_derv])
 
         # Solve for the polynomial coefficients
         coefficients = np.linalg.solve(A, b)
 
         # Create the polynomial
         poly = Polynomial(coefficients[::-1])  # Reverse coefficients for Polynomial
-        log.debug(f"Poly Coefficients (C2 Continuity): {poly.coef}")
         
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
@@ -254,7 +255,6 @@ class Trajectory:
         num_points=10,
     ) -> "Trajectory":
         
-        ic(s_start, d_start, s_end, d_end, d_start_1st_derv, d_start_2nd_derv)
 
         A = np.array(
             [
@@ -456,7 +456,7 @@ class Trajectory:
 
     # s,d need to be current
     def convert_sd_to_xy(self, s: float, d: float) -> tuple[float, float]:
-        closest_wp = self.__get_closest_sd_waypoint(s, d)
+        closest_wp = self.get_closest_waypoint_frm_sd(s, d)
 
         if closest_wp == 0:
             next_wp = 1
@@ -492,7 +492,7 @@ class Trajectory:
         cumulative_distances = self.__cumulative_distances
         for point in points:
 
-            closest_wp = self.__get_closest_waypoint(point[0], point[1])
+            closest_wp = self.get_closest_waypoint_frm_xy(point[0], point[1])
 
             if closest_wp == 0:
                 next_wp = 1
@@ -567,13 +567,14 @@ class Trajectory:
         return cumulative_distances
 
     # TODO: this inefficient! need to look into a window only not the whole track
-    def __get_closest_waypoint(self, x, y):
+    def get_closest_waypoint_frm_xy(self, x, y):
         diffs = self.__reference_path - np.array((x, y))
         dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
         closest_wp = np.argmin(dists)
         return closest_wp
 
-    def __get_closest_sd_waypoint(self, s, d):
+    # TODO: this inefficient! need to look into a window only not the whole track
+    def get_closest_waypoint_frm_sd(self, s, d):
         diffs = self.__reference_sd_path - np.array((s, d))
         dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
         closest_wp = np.argmin(dists)
