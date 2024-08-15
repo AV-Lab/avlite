@@ -774,7 +774,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             log.debug("Log setting updated to DEBUG.")
         elif self.rb_db_info.instate(["selected"]):
             logging.getLogger().setLevel(logging.INFO)
-            log.info("rog setting updated to INFO.")
+            log.info("Log setting updated to INFO.")
         elif self.rb_db_warn.instate(["selected"]):
             logging.getLogger().setLevel(logging.WARNING)
             log.warn("Log setting updated to WARNING.")

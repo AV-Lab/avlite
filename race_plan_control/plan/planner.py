@@ -31,8 +31,8 @@ class Planner(ABC):
         self.traversed_y: list[float]
         self.traversed_d: list[float]
         self.traversed_s: list[float]
-        self.selected_edge: Optional[Edge] = None
-        self.edges: list[Edge] = [] # list of available next edges
+        self.selected_next_edge: Optional[Edge] = None
+        self.next_edges: list[Edge] = [] # list of available next edges
         self.num_of_edge_points:int = num_of_edge_points
 
 
@@ -70,8 +70,8 @@ class Planner(ABC):
             self.global_trajectory.path_d[wp]
         ]
         self.global_trajectory.update_waypoint_by_wp(wp)
-        self.selected_edge = None
-        self.edges = []
+        self.selected_next_edge = None
+        self.next_edges = []
         
 
     @abstractmethod
@@ -79,40 +79,40 @@ class Planner(ABC):
         pass
 
     def get_local_plan(self):
-        if self.selected_edge is not None:
+        if self.selected_next_edge is not None:
             # log.info(f"Selected Edge: ({self.selected_edge.start_s:.2f},{self.selected_edge.start_d:.2f}) -> ({self.selected_edge.end_s:.2f},{self.selected_edge.end_d:.2f})")
-            return self.selected_edge.local_trajectory
+            return self.selected_next_edge.local_trajectory
         return self.global_trajectory
 
     def step_wp(self):
         log.info(f"Step: {self.global_trajectory.current_wp}")
         if (
-            self.selected_edge is not None
-            and not self.selected_edge.local_trajectory.is_traversed()
+            self.selected_next_edge is not None
+            and not self.selected_next_edge.local_trajectory.is_traversed()
         ):
-            self.selected_edge.local_trajectory.update_to_next_waypoint()
-            x_current, y_current = self.selected_edge.local_trajectory.get_current_xy()
+            self.selected_next_edge.local_trajectory.update_to_next_waypoint()
+            x_current, y_current = self.selected_next_edge.local_trajectory.get_current_xy()
 
         # nest edge selected, but finished
         elif (
-            self.selected_edge is not None
-            and self.selected_edge.local_trajectory.is_traversed()
-            and self.selected_edge.selected_next_edge is not None
+            self.selected_next_edge is not None
+            and self.selected_next_edge.local_trajectory.is_traversed()
+            and self.selected_next_edge.selected_next_edge is not None
         ):
             log.info("Edge Done, choosing next selected edge")
-            self.selected_edge = self.selected_edge.selected_next_edge
-            self.selected_edge.local_trajectory.update_to_next_waypoint()
-            x_current, y_current = self.selected_edge.local_trajectory.get_current_xy()
+            self.selected_next_edge = self.selected_next_edge.selected_next_edge
+            self.selected_next_edge.local_trajectory.update_to_next_waypoint()
+            x_current, y_current = self.selected_next_edge.local_trajectory.get_current_xy()
 
         elif (
-            self.selected_edge is not None
-            and self.selected_edge.local_trajectory.is_traversed()
-            and self.selected_edge.selected_next_edge is None
+            self.selected_next_edge is not None
+            and self.selected_next_edge.local_trajectory.is_traversed()
+            and self.selected_next_edge.selected_next_edge is None
         ):
             log.info("No next edge selected")
             x_current = self.global_trajectory.path_x[self.global_trajectory.next_wp]
             y_current = self.global_trajectory.path_y[self.global_trajectory.next_wp]
-            self.selected_edge = None
+            self.selected_next_edge = None
         else:
             log.warning("No edge selected, back to closest next reference point")
             x_current = self.global_trajectory.path_x[self.global_trajectory.next_wp]
@@ -123,8 +123,8 @@ class Planner(ABC):
 
         # TODO some error check might be needed
         self.global_trajectory.update_waypoint_by_xy(x_current, y_current)
-        if self.selected_edge is not None:
-            self.selected_edge.local_trajectory.update_waypoint_by_xy(
+        if self.selected_next_edge is not None:
+            self.selected_next_edge.local_trajectory.update_waypoint_by_xy(
                 x_current, y_current
             )
 
@@ -144,22 +144,22 @@ class Planner(ABC):
         self.traversed_y.append(state.y)
         self.global_trajectory.update_waypoint_by_xy(state.x, state.y)
 
-        if self.selected_edge is not None:
-            self.selected_edge.local_trajectory.update_waypoint_by_xy(state.x, state.y)
+        if self.selected_next_edge is not None:
+            self.selected_next_edge.local_trajectory.update_waypoint_by_xy(state.x, state.y)
 
             if (
-                self.selected_edge.local_trajectory.is_traversed()
-                and self.selected_edge.selected_next_edge is not None
+                self.selected_next_edge.local_trajectory.is_traversed()
+                and self.selected_next_edge.selected_next_edge is not None
             ):
                 log.info("Edge Done, choosing next selected edge")
-                self.selected_edge = self.selected_edge.selected_next_edge
-                self.selected_edge.local_trajectory.update_to_next_waypoint()
+                self.selected_next_edge = self.selected_next_edge.selected_next_edge
+                self.selected_next_edge.local_trajectory.update_to_next_waypoint()
 
             elif (
-                self.selected_edge.local_trajectory.is_traversed()
-                and self.selected_edge.selected_next_edge is None
+                self.selected_next_edge.local_trajectory.is_traversed()
+                and self.selected_next_edge.selected_next_edge is None
             ):
-                self.selected_edge = None
+                self.selected_next_edge = None
         else:
             log.warning("No edge selected, back to closest next reference point")
 

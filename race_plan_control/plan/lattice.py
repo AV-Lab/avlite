@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Iterator, Optional
 import logging
 from icecream import ic
+import math
 
 log = logging.getLogger(__name__)
 
@@ -19,10 +20,36 @@ class Node:
         self.y_1st_derv: float = 0
         self.x_2nd_derv: float = 0
         self.y_2nd_derv: float = 0
-        self.d_1st_derv: Optional[float] = d_1st_derv
-        self.d_2nd_derv: Optional[float] = d_2nd_derv
+        self.d_1st_derv: float = d_1st_derv
+        self.d_2nd_derv: float = d_2nd_derv
         if global_tj is not None:
             self.x, self.y = global_tj.convert_sd_to_xy(s, d)
+
+    def __eq__(self, other):
+        tol = 1e-9
+        return (math.isclose(self.s, other.s, abs_tol=tol) and
+                    math.isclose(self.d, other.d, abs_tol=tol) and
+                    math.isclose(self.x, other.x, abs_tol=tol) and
+                    math.isclose(self.y, other.y, abs_tol=tol) and
+                    math.isclose(self.x_1st_derv, other.x_1st_derv, abs_tol=tol) and
+                    math.isclose(self.y_1st_derv, other.y_1st_derv, abs_tol=tol) and
+                    math.isclose(self.x_2nd_derv, other.x_2nd_derv, abs_tol=tol) and
+                    math.isclose(self.y_2nd_derv, other.y_2nd_derv, abs_tol=tol) and
+                    math.isclose(self.d_1st_derv, other.d_1st_derv, abs_tol=tol) and
+                    math.isclose(self.d_2nd_derv, other.d_2nd_derv, abs_tol=tol))
+        return False
+
+
+
+    def __hash__(self):
+        return hash((self.s, self.d, self.x, self.y, self.x_1st_derv, self.y_1st_derv,
+                     self.x_2nd_derv, self.y_2nd_derv, self.d_1st_derv, self.d_2nd_derv))
+
+    def __repr__(self):
+        return (f"Node(s={self.s}, d={self.d}, x={self.x}, y={self.y}, "
+                f"x_1st_derv={self.x_1st_derv}, y_1st_derv={self.y_1st_derv}, "
+                f"x_2nd_derv={self.x_2nd_derv}, y_2nd_derv={self.y_2nd_derv}, "
+                f"d_1st_derv={self.d_1st_derv}, d_2nd_derv={self.d_2nd_derv})")
 
 @dataclass
 class Edge:
@@ -37,13 +64,11 @@ class Edge:
 
 
 def create_edge(start: Node, end: Node, global_tj: Trajectory, num_of_points=30) -> Edge:
-    local_trajectory = global_tj.create_cubic_trajectory_sd(
+    local_trajectory = global_tj.create_quintic_trajectory_sd(
         s_start=start.s,
         d_start=start.d,
         s_end=end.s,
         d_end=end.d,
-        d_start_1st_derv=start.d_1st_derv,
-        d_start_2nd_derv=start.d_2nd_derv,
         num_points=num_of_points,
     )
     edge = Edge(start, end, local_trajectory, None, [], num_of_points)
