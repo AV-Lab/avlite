@@ -1,22 +1,71 @@
 from plan.planner import Planner
 from plan.lattice import Edge
 from race_plan_control.execute.executer import Executer
-from race_plan_control.perceive.vehicle_state import VehicleState
+from race_plan_control.perceive.state import VehicleState
 from icecream import ic
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Optional
+
+from race_plan_control.plan.trajectory import Trajectory
 
 
-MAX_LATTICE_SIZE = 50
+MAX_LATTICE_SIZE = 30
 MAX_PLAN_LENGTH = 5
 
 # plt.style.use('dark_background')
 fig, (ax1, ax2) = plt.subplots(2, 1)
 
 
-(left_boundry_x1,) = ax1.plot([], [], color="orange", label="Left Boundary", linewidth=2)  # Change color and label as needed
-(right_boundry_x1,) = ax1.plot([], [], color="tan", label="Right Boundary", linewidth=2)  # Change color and label as needed
+def initiate_plots(max_lattice_size=30, max_plan_length=5):
+    global MAX_LATTICE_SIZE, MAX_PLAN_LENGTH
+    MAX_LATTICE_SIZE = max_lattice_size
+    MAX_PLAN_LENGTH = max_plan_length
+    global lattice_graph_plots_ax1, lattice_graph_plots_ax2, lattice_graph_endpoints_ax1, lattice_graph_endpoints_ax2, local_plan_plots_ax1, local_plan_plots_ax2
+
+    # Initialize lattice graph plots
+    lattice_graph_plots_ax1 = []
+    lattice_graph_plots_ax2 = []
+    lattice_graph_endpoints_ax1 = []
+    lattice_graph_endpoints_ax2 = []
+
+    # initialize local plan
+    local_plan_plots_ax1 = []
+    local_plan_plots_ax2 = []
+
+    # Assuming a maximum number of lattice graph edges
+    for _ in range(MAX_LATTICE_SIZE):
+        (line_ax1,) = ax1.plot([], [], "b--", color="lightskyblue", alpha=0.6)
+        (line_ax2,) = ax2.plot([], [], "b--", color="lightskyblue", alpha=0.6)
+        (endpoint_ax1,) = ax1.plot([], [], "bo", alpha=0.6)
+        (endpoint_ax2,) = ax2.plot([], [], "bo", alpha=0.6)
+        lattice_graph_plots_ax1.append(line_ax1)
+        lattice_graph_plots_ax2.append(line_ax2)
+        lattice_graph_endpoints_ax1.append(endpoint_ax1)
+        lattice_graph_endpoints_ax2.append(endpoint_ax2)
+
+    # local plan
+    for i in range(MAX_PLAN_LENGTH):
+        (local_plan_ax1,) = ax1.plot([], [], "r-", label=f"Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
+        (local_plan_ax2,) = ax2.plot([], [], "r-", label="Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
+        local_plan_plots_ax1.append(local_plan_ax1)
+        local_plan_plots_ax2.append(local_plan_ax2)
+
+    return (
+        lattice_graph_plots_ax1,
+        lattice_graph_plots_ax2,
+        lattice_graph_endpoints_ax1,
+        lattice_graph_endpoints_ax2,
+        local_plan_plots_ax1,
+        local_plan_plots_ax2,
+    )
+
+
+(left_boundry_x1,) = ax1.plot(
+    [], [], color="orange", label="Left Boundary", linewidth=2
+)  # Change color and label as needed
+(right_boundry_x1,) = ax1.plot(
+    [], [], color="tan", label="Right Boundary", linewidth=2
+)  # Change color and label as needed
 left_boundry_ax2 = ax2.scatter([], [], color="orange", s=5, label="Left Boundary (Ref)")
 right_boundry_ax2 = ax2.scatter([], [], color="tan", s=5, label="Right Boundary (Ref)")
 
@@ -60,8 +109,12 @@ local_plan_plots_ax2 = []
 # State Init
 (car_heading_plot,) = ax1.plot([], [], "k-", color="darkslategray", label="Car Heading")
 (car_location_plot,) = ax1.plot([], [], "ko", color="darkslategray", markersize=7, label="Car Location")
-car_rect = plt.Rectangle((0, 0), 0, 0, angle=0, edgecolor="r", facecolor="azure", alpha=0.7)
-ax1.add_patch(car_rect)
+
+
+ego_vehicle_ax1 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
+ego_vehicle_ax2 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
+ax1.add_patch(ego_vehicle_ax1)
+ax2.add_patch(ego_vehicle_ax2)
 
 
 # Assuming a maximum number of lattice graph edges
@@ -154,7 +207,7 @@ def plot(
     update_local_plan_plots(exec.planner, plot_local_plan)
 
     # update state
-    update_state_plots(exec.ego_state, plot_state)
+    update_state_plots(exec.ego_state, exec.planner.global_trajectory, plot_state)
 
     redraw_plots()
 
@@ -181,6 +234,8 @@ def redraw_plots():
 
 initialized = False
 toggle_plot = False
+
+
 def update_global_plan_plots(pl: Planner, show_plot=True):
     global initialized
     global toggle_plot
@@ -228,6 +283,8 @@ def update_global_plan_plots(pl: Planner, show_plot=True):
 
 
 edge_index = 0
+
+
 def update_lattice_graph_plots(pl: Planner, show_plot=True):
     global edge_index
     if not show_plot or len(pl.next_edges) == 0:
@@ -268,6 +325,7 @@ def __update_lattice_edge_plots(v: Edge = None, pl: Planner = None, level: int =
             edge_index += 1
             __update_lattice_edge_plots(v=next_edge, level=level + 1)
 
+
 def update_local_plan_plots(pl: Planner, show_plot=True):
     if not show_plot or pl.selected_next_edge is None:
         for i in range(MAX_PLAN_LENGTH):
@@ -283,7 +341,9 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
         s = pl.selected_next_edge.local_trajectory.path_s_from_parent[pl.selected_next_edge.local_trajectory.current_wp]
         d = pl.selected_next_edge.local_trajectory.path_d_from_parent[pl.selected_next_edge.local_trajectory.current_wp]
 
-        x_n, y_n = pl.selected_next_edge.local_trajectory.get_xy_by_waypoint(pl.selected_next_edge.local_trajectory.next_wp)
+        x_n, y_n = pl.selected_next_edge.local_trajectory.get_xy_by_waypoint(
+            pl.selected_next_edge.local_trajectory.next_wp
+        )
         s_n = pl.selected_next_edge.local_trajectory.path_s_from_parent[pl.selected_next_edge.local_trajectory.next_wp]
         d_n = pl.selected_next_edge.local_trajectory.path_d_from_parent[pl.selected_next_edge.local_trajectory.next_wp]
 
@@ -312,13 +372,12 @@ def __update_local_plan_plots(v: Edge, index: int = 0):
         __update_local_plan_plots(v.selected_next_edge, index + 1)
 
 
-def update_state_plots(state: VehicleState, show_plot=True):
+def update_state_plots(state: VehicleState, global_trajectory: Trajectory, show_plot=True):
     if not show_plot:
         car_heading_plot.set_data([], [])
         car_location_plot.set_data([], [])
-        car_rect.set_xy((0, 0))
-        car_rect.set_width(0)
-        car_rect.set_height(0)
+        ego_vehicle_ax1.set_xy(np.empty((0, 2)))
+        ego_vehicle_ax2.set_xy(np.empty((0, 2)))
         return
 
     car_L_f = state.L_f
@@ -332,45 +391,15 @@ def update_state_plots(state: VehicleState, show_plot=True):
     car_heading_plot.set_data([car_x_front, car_x_rear], [car_y_front, car_y_rear])
     car_location_plot.set_data([state.x], [state.y])
 
-    car_rect.set_width(state.length)
-    car_rect.set_height(state.width)
+    ego_vehicle_ax1.set_xy(state.get_corners())
 
-    # Calculate the center of the car
-    car_center_x = state.x
-    car_center_y = state.y
+    # sd_corners = [p for p in zip(* global_trajectory.convert_xy_path_to_sd_path(state.get_corners()))]
+    sd_corners = global_trajectory.convert_xy_path_to_sd_path_np(state.get_corners())
 
-    # Calculate the four corners of the rectangle
-    corners_x = np.array(
-        [
-            car_center_x - state.length / 2,
-            car_center_x + state.length / 2,
-            car_center_x + state.length / 2,
-            car_center_x - state.length / 2,
-        ]
-    )
-    corners_y = np.array(
-        [
-            car_center_y - state.width / 2,
-            car_center_y - state.width / 2,
-            car_center_y + state.width / 2,
-            car_center_y + state.width / 2,
-        ]
-    )
-
-    # Rotate the corners around the center of the car
-    rotation_matrix = np.array(
-        [
-            [np.cos(state.theta), -np.sin(state.theta)],
-            [np.sin(state.theta), np.cos(state.theta)],
-        ]
-    )
-    rotated_corners = np.dot(rotation_matrix, np.array([corners_x - car_center_x, corners_y - car_center_y]))
-    rotated_corners_x = rotated_corners[0, :] + car_center_x
-    rotated_corners_y = rotated_corners[1, :] + car_center_y
-
-    # Update the rectangle position
-    car_rect.set_xy((rotated_corners_x[0], rotated_corners_y[0]))
-    car_rect.set_angle(np.degrees(state.theta))
+    if np.abs(sd_corners[0][0] - sd_corners[1][0]) < 10:
+        ego_vehicle_ax2.set_xy(np.array(sd_corners))
+    else:
+        ego_vehicle_ax2.set_xy(np.empty((0, 2)))
 
 
 def set_plot_theme(bg_color="white", fg_color="black"):

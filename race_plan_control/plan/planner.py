@@ -1,4 +1,4 @@
-from race_plan_control.perceive.vehicle_state import VehicleState
+from race_plan_control.perceive.state import VehicleState
 from race_plan_control.plan.lattice import Edge
 from typing import Optional
 

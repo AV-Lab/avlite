@@ -5,6 +5,7 @@ from typing import Iterator, Optional
 import logging
 from icecream import ic
 import math
+import numpy as np
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class Node:
 
     def __eq__(self, other):
         tol = 1e-9
+        
         return (math.isclose(self.s, other.s, abs_tol=tol) and
                     math.isclose(self.d, other.d, abs_tol=tol) and
                     math.isclose(self.x, other.x, abs_tol=tol) and
@@ -37,7 +39,6 @@ class Node:
                     math.isclose(self.y_2nd_derv, other.y_2nd_derv, abs_tol=tol) and
                     math.isclose(self.d_1st_derv, other.d_1st_derv, abs_tol=tol) and
                     math.isclose(self.d_2nd_derv, other.d_2nd_derv, abs_tol=tol))
-        return False
 
 
 
@@ -63,6 +64,7 @@ class Edge:
     risk: float = 0
 
 
+# TODO: delete this function and use Lattice instead of it once tested
 def create_edge(start: Node, end: Node, global_tj: Trajectory, num_of_points=30) -> Edge:
     local_trajectory = global_tj.create_quintic_trajectory_sd(
         s_start=start.s,
@@ -75,12 +77,68 @@ def create_edge(start: Node, end: Node, global_tj: Trajectory, num_of_points=30)
     
     return edge
 
-def create_path(start_node: Node, s_values: list[float], d_values: list[float]) -> list[Edge]:
-    assert len(s_values) == len(d_values)
-    for s, d in zip(s_values, d_values):
-        pass
-        # start_node = nodes[i]
-        # end_node = nodes[i + 1]
-        # create continious trajectories
-        # trajectories = self.__global_tj.create_multiple_cubic_trajectories_xy(
-        # x_values
+class Lattice:
+    def __init__(self, global_tj: Trajectory, planning_horizon=5, num_of_points=30):
+        raise NotImplementedError("This class is not implemented yet")
+        self.global_trajectory = global_tj
+        self.num_of_points = num_of_points
+        self.planning_horizon = planning_horizon
+        self.nodes: Dict[Node, Node] = {}
+        self.edges: Dict[Edge, Edge] = {}
+
+        # delete previous plan
+        self.next_edges = []
+        self.selected_next_edge = None
+        self.lattice_nodes:Dict[int,list] = defaultdict(list) # key is level, value is list of nodes
+        self.incoming_edges:Dict[Node,list[Edge]] = defaultdict(list) # key is node, value is incoming edge
+        self.outgoing_edges:Dict[Node,list[Edge]] = defaultdict(list) # key is node, value is incoming edge
+
+
+
+
+    def sample_nodes(self, s,d):
+        s1_ = s
+        self.lattice_nodes[0].append(Node(s1_, d, self.global_trajectory))
+
+        for l in range(1,self.planning_horizon+1):
+            s1_ = s1_ + self.maneuver_distance
+            if s1_ > self.global_trajectory.path_s[-2]:  # at -1 path_s is zero
+                log.warn("No Replan, reaching the end of lap")
+                return
+            self.lattice_nodes[l].append(Node(s1_, 0, self.global_trajectory)) # always a node at track line
+            for _ in np.arange(self.sample_size-1):
+                target_wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
+                d1_ = np.random.uniform(
+                    self.ref_left_boundary_d[target_wp] - self.boundary_clearance,
+                    self.ref_right_boundary_d[target_wp] + self.boundary_clearance,
+                )
+                self.lattice_nodes[l].append(Node(s1_, d1_, self.global_trajectory))
+            
+
+
+    def create_edges(self):
+        for l in range(self.planning_horizon+1):
+            for node in self.lattice_nodes[l]:
+                for next_node in self.lattice_nodes[l+1]:
+                    assert node != next_node
+                    edge = self.__create_edge(node, next_node, self.global_trajectory)
+                    self.incoming_edges[next_node].append(edge)
+                    self.outgoing_edges[node].append(edge)
+                    if l == 0:
+                        self.next_edges.append(edge)
+                for e in self.incoming_edges[node]: 
+                    for o in self.outgoing_edges[node]:
+                        e.next_edges.append(o) 
+                        
+    def __create_edge(self, start: Node, end: Node, global_tj: Trajectory) -> Edge:
+        local_trajectory = global_tj.create_quintic_trajectory_sd(
+            s_start=start.s,
+            d_start=start.d,
+            s_end=end.s,
+            d_end=end.d,
+            num_points=self.num_of_points,
+        )
+        edge = Edge(start, end, local_trajectory, None, [], self.num_of_points)
+        
+        return edge
+                    
