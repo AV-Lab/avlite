@@ -525,6 +525,48 @@ class Trajectory:
 
         return zip(*frenet_coords)
 
+    # A numpy version of the above function
+    def convert_xy_path_to_sd_path_np(self, points):
+
+        reference_path = self.__reference_path
+        frenet_coords = np.empty((0,2))
+        cumulative_distances = self.__cumulative_distances
+        for point in points:
+
+            closest_wp = self.get_closest_waypoint_frm_xy(point[0], point[1])
+            # To avoid returning the last point which is the same as the first
+
+            if closest_wp == 0:
+                next_wp = 1
+                prev_wp = 0
+            else:
+                next_wp = closest_wp
+                prev_wp = next_wp - 1
+
+            n_x = reference_path[next_wp, 0] - reference_path[prev_wp, 0]
+            n_y = reference_path[next_wp, 1] - reference_path[prev_wp, 1]
+            x_x = point[0] - reference_path[prev_wp, 0]
+            x_y = point[1] - reference_path[prev_wp, 1]
+
+            # Compute the projection of the point onto the reference path
+            if (n_x * n_x + n_y * n_y) == 0:
+                proj_x = 0
+                proj_y = 0
+            else:
+                proj_norm = (x_x * n_x + x_y * n_y) / (n_x * n_x + n_y * n_y)  # normalized projection
+                proj_x = proj_norm * n_x
+                proj_y = proj_norm * n_y
+
+            # Compute the Frenet s coordinate based on the longitudinal position along the reference path
+            s = cumulative_distances[prev_wp] + np.sqrt(proj_x**2 + proj_y**2)
+            # Compute the Frenet d coordinate based on the lateral distance from the reference path
+            # The sign of the d coordinate is determined by the cross product of the vectors to the point and along the reference path
+            d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt((x_x - proj_x) ** 2 + (x_y - proj_y) ** 2)
+
+            frenet_coords = np.vstack((frenet_coords, (s, d)))
+
+        return frenet_coords    
+
     def convert_sd_path_to_xy_path(self, s_values, d_values):
         # return [self.getXY(s, d) for s, d in zip(s_values, d_values)]
         x_values = []
