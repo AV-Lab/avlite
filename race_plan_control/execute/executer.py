@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 import logging
 import numpy as np
 import time
+import math
 
 log = logging.getLogger(__name__)
 
@@ -74,12 +75,16 @@ class Executer(ABC):
         self.__time_since_last_replan = 0
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
+    
+    def update_state(self, dt=0.01, acceleration=0, steering_angle=0) -> VehicleState:
+        self.ego_state.x += self.ego_state.speed * math.cos(self.ego_state.theta) * dt
+        self.ego_state.y += self.ego_state.speed * math.sin(self.ego_state.theta) * dt
+        self.ego_state.speed += acceleration * dt
+        self.ego_state.theta += (
+            self.ego_state.speed / self.ego_state.L_f * steering_angle * dt
+        )
+        return self.ego_state
 
-    @abstractmethod
-    def update_state(
-        self, dt=0.01, acceleration=0.0, steering_angle=0.0
-    ) -> VehicleState:  # perhaps move_base is a better name
-        pass
 
 
 if __name__ == "__main__":

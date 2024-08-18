@@ -6,7 +6,6 @@ import race_plan_control.plan.trajectory
 
 import race_plan_control.control.pid
 import race_plan_control.execute.executer
-import race_plan_control.execute.executer_sim
 import race_plan_control.perceive.state
 
 
@@ -75,7 +74,6 @@ def get_executer():
 
     import race_plan_control.control.pid
     import race_plan_control.execute.executer
-    import race_plan_control.execute.executer_sim
     import race_plan_control.perceive.state
 
     importlib.reload(race_plan_control.plan.planner)
@@ -85,12 +83,11 @@ def get_executer():
 
     importlib.reload(race_plan_control.control.pid)
     importlib.reload(race_plan_control.execute.executer)
-    importlib.reload(race_plan_control.execute.executer_sim)
     importlib.reload(race_plan_control.perceive.state)
 
     RNDPlanner = race_plan_control.plan.sampling_planner.RNDPlanner
     PIDController = race_plan_control.control.pid.PIDController
-    SimpleSim = race_plan_control.execute.executer_sim.SimpleSim
+    SimpleSim = race_plan_control.execute.executer.Executer
     VehicleState = race_plan_control.perceive.state.VehicleState
 
     state = VehicleState(

@@ -46,9 +46,14 @@ class VisualizerApp(tk.Tk):
         self.show_local_lattice = tk.BooleanVar(value=True)
         self.show_state = tk.BooleanVar(value=True)
 
+        # Exec Options
+        self.exec_plan = tk.BooleanVar(value=True)
+        self.exec_control = tk.BooleanVar(value=True)
+        self.exec_perceive = tk.BooleanVar(value=True)
+
         self.animation_running = False
 
-        self.exec_option = tk.StringVar(value="Simple Sim")
+        self.exec_option = tk.StringVar(value="Basic")
         self.debug_option = tk.StringVar(value="INFO")
 
         self.show_plan_logs = tk.BooleanVar(value=True)
@@ -86,7 +91,7 @@ class VisualizerApp(tk.Tk):
 
         # ----------------------------------------------------------------------
         # -Plot Frame ----------------------------------------------------------
-        # ----------------------------------------------------------------------
+       # ----------------------------------------------------------------------
 
         self.plot_frame = ttk.Frame(self)
         self.plot_frame.pack(fill=tk.BOTH, expand=True)
@@ -181,8 +186,15 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.dt_exec_pl_entry.insert(0, ".7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
 
-        self.start_exec_button = ttk.Button(
-            exec_second_frame, text="Start", command=self.toggle_exec
+
+        gruvbox_green = "#b8bb26"
+        gruvbox_light_green = "#fe8019"
+        gruvbox_orange = "#d65d0e"
+        self.start_exec_button = tk.Button(
+            exec_second_frame, text="Start", command=self.toggle_exec, bg=gruvbox_orange, fg="white",
+            borderwidth=0, 
+            highlightthickness=0,
+            width=10
         )
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
 
@@ -199,9 +211,9 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         ttk.Label(exec_third_frame, text="Bridge:").pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
-            text="Simple Sim",
+            text="Basic",
             variable=self.exec_option,
-            value="Simple Sim",
+            value="Basic",
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame, text="ROS", variable=self.exec_option, value="ROS"
@@ -209,6 +221,19 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         ttk.Radiobutton(
             exec_third_frame, text="Carla", variable=self.exec_option, value="Carla"
         ).pack(side=tk.LEFT)
+
+
+        ttk.Checkbutton(
+            exec_third_frame, text="Control", variable=self.exec_control
+        ).pack(side=tk.RIGHT)
+        ttk.Checkbutton(
+            exec_third_frame, text="Plan", variable=self.exec_plan
+        ).pack(side=tk.RIGHT)
+        ttk.Checkbutton(
+            exec_third_frame, text="Percieve", variable=self.exec_perceive
+        ).pack(side=tk.RIGHT)
+
+
 
         # ----------------------------------------------------------------------
         # Visualize frame setup
@@ -509,6 +534,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
     def _toggle_dark_mode(self):
         self.__dark_mode() if self.dark_mode.get() else self.__light_mode()
+        
 
     def _toggle_dark_mode_shortcut(self):
         if self.dark_mode.get():
@@ -522,11 +548,13 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
         plot.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
+
         try:
             from ttkthemes import ThemedStyle
 
             style = ThemedStyle(self)
             style.set_theme("equilux")
+
 
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
