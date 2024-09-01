@@ -531,6 +531,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             self.perceive_plan_control_frame.pack(fill=tk.X)
             self.log_area.pack(fill=tk.BOTH, expand=True)
             self.log_frame.pack(fill=tk.X)
+        self._replot()
 
     def _toggle_dark_mode(self):
         self.__dark_mode() if self.dark_mode.get() else self.__light_mode()

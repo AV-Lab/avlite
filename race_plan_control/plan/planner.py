@@ -1,5 +1,6 @@
+from numpy import who
 from race_plan_control.perceive.state import VehicleState
-from race_plan_control.plan.lattice import Edge
+from race_plan_control.plan.lattice import Edge, Lattice
 from typing import Optional
 
 import logging
@@ -17,7 +18,6 @@ class Planner(ABC):
         reference_path,
         ref_left_boundary_d,
         ref_right_boundary_d,
-        num_of_edge_points=10,
     ):
         self.global_trajectory: Trajectory
         self.ref_left_boundary_d: list[float]
@@ -31,48 +31,37 @@ class Planner(ABC):
         self.traversed_y: list[float]
         self.traversed_d: list[float]
         self.traversed_s: list[float]
-        self.selected_next_edge: Optional[Edge] = None
-        self.next_edges: list[Edge] = [] # list of available next edges
-        self.num_of_edge_points:int = num_of_edge_points
 
+        self.lattice:Lattice
+        self.selected_next_edge: Optional[Edge] = None
+        self.next_edges: list[Edge] = []  # list of available next edges
 
         self.global_trajectory = Trajectory(reference_path)
+        self.lattice = Lattice(self.global_trajectory, ref_left_boundary_d, ref_right_boundary_d)
+
         self.ref_left_boundary_d = ref_left_boundary_d
 
         self.ref_right_boundary_d = ref_right_boundary_d
 
-        self.ref_left_boundary_x, self.ref_left_boundary_y = (
-            self.global_trajectory.convert_sd_path_to_xy_path(
-                self.global_trajectory.path_s, self.ref_left_boundary_d
-            )
+        self.ref_left_boundary_x, self.ref_left_boundary_y = self.global_trajectory.convert_sd_path_to_xy_path(
+            self.global_trajectory.path_s, self.ref_left_boundary_d
         )
-        self.ref_right_boundary_x, self.ref_right_boundary_y = (
-            self.global_trajectory.convert_sd_path_to_xy_path(
-                self.global_trajectory.path_s, self.ref_right_boundary_d
-            )
+        self.ref_right_boundary_x, self.ref_right_boundary_y = self.global_trajectory.convert_sd_path_to_xy_path(
+            self.global_trajectory.path_s, self.ref_right_boundary_d
         )
-
 
         # these are localization data
-        self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[0]], [
-            self.global_trajectory.path_y[0]
-        ]
-        self.traversed_d, self.traversed_s = [self.global_trajectory.path_s[0]], [
-            self.global_trajectory.path_d[0]
-        ]
-
+        self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[0]], [self.global_trajectory.path_y[0]]
+        self.traversed_d, self.traversed_s = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
 
     def reset(self, wp=0):
-        self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [
-            self.global_trajectory.path_y[wp]
-        ]
-        self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[wp]], [
-            self.global_trajectory.path_d[wp]
-        ]
+        self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
+        self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[wp]], [self.global_trajectory.path_d[wp]]
         self.global_trajectory.update_waypoint_by_wp(wp)
+
         self.selected_next_edge = None
         self.next_edges = []
-        
+        self.lattice.reset()
 
     @abstractmethod
     def replan(self):
@@ -86,10 +75,7 @@ class Planner(ABC):
 
     def step_wp(self):
         log.info(f"Step: {self.global_trajectory.current_wp}")
-        if (
-            self.selected_next_edge is not None
-            and not self.selected_next_edge.local_trajectory.is_traversed()
-        ):
+        if self.selected_next_edge is not None and not self.selected_next_edge.local_trajectory.is_traversed():
             self.selected_next_edge.local_trajectory.update_to_next_waypoint()
             x_current, y_current = self.selected_next_edge.local_trajectory.get_current_xy()
 
@@ -124,9 +110,7 @@ class Planner(ABC):
         # TODO some error check might be needed
         self.global_trajectory.update_waypoint_by_xy(x_current, y_current)
         if self.selected_next_edge is not None:
-            self.selected_next_edge.local_trajectory.update_waypoint_by_xy(
-                x_current, y_current
-            )
+            self.selected_next_edge.local_trajectory.update_waypoint_by_xy(x_current, y_current)
 
         #### Frenet Coordinates
         s_, d_ = self.global_trajectory.convert_xy_to_sd(x_current, y_current)
