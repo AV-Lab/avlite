@@ -6,6 +6,7 @@ import logging
 from icecream import ic
 import math
 import numpy as np
+from collections import defaultdict
 
 log = logging.getLogger(__name__)
 
@@ -78,13 +79,14 @@ def create_edge(start: Node, end: Node, global_tj: Trajectory, num_of_points=30)
     return edge
 
 class Lattice:
-    def __init__(self, global_tj: Trajectory, planning_horizon=5, num_of_points=30):
-        raise NotImplementedError("This class is not implemented yet")
+    def __init__(self, global_tj: Trajectory, ref_left_boundary_d:list, ref_right_boundary_d:list, planning_horizon=5, num_of_points=30):
         self.global_trajectory = global_tj
         self.num_of_points = num_of_points
         self.planning_horizon = planning_horizon
         self.nodes: Dict[Node, Node] = {}
         self.edges: Dict[Edge, Edge] = {}
+        self.ref_left_boundary_d = ref_left_boundary_d
+        self.ref_right_boundary_d = ref_right_boundary_d
 
         # delete previous plan
         self.next_edges = []
@@ -95,22 +97,21 @@ class Lattice:
 
 
 
-
-    def sample_nodes(self, s,d):
+    def sample_nodes(self, s,d, sample_size, maneuver_distance, boundary_clearance):
         s1_ = s
         self.lattice_nodes[0].append(Node(s1_, d, self.global_trajectory))
 
         for l in range(1,self.planning_horizon+1):
-            s1_ = s1_ + self.maneuver_distance
+            s1_ = s1_ + maneuver_distance
             if s1_ > self.global_trajectory.path_s[-2]:  # at -1 path_s is zero
                 log.warn("No Replan, reaching the end of lap")
                 return
             self.lattice_nodes[l].append(Node(s1_, 0, self.global_trajectory)) # always a node at track line
-            for _ in np.arange(self.sample_size-1):
+            for _ in np.arange(sample_size-1):
                 target_wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
                 d1_ = np.random.uniform(
-                    self.ref_left_boundary_d[target_wp] - self.boundary_clearance,
-                    self.ref_right_boundary_d[target_wp] + self.boundary_clearance,
+                    self.ref_left_boundary_d[target_wp] - boundary_clearance,
+                    self.ref_right_boundary_d[target_wp] + boundary_clearance,
                 )
                 self.lattice_nodes[l].append(Node(s1_, d1_, self.global_trajectory))
             
@@ -141,4 +142,9 @@ class Lattice:
         edge = Edge(start, end, local_trajectory, None, [], self.num_of_points)
         
         return edge
+
+    def reset(self):
+        self.next_edges = []
+        self.selected_next_edge = None
+        self.lattice_nodes:Dict[int,list] = defaultdict(list)
                     

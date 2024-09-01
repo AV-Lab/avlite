@@ -26,9 +26,10 @@ class RNDPlanner(Planner):
         self.maneuver_distance: float = maneuver_distance
         self.boundary_clearance: int = boundary_clearance
         self.sample_size: int = sample_size
+        self.num_of_edge_points: int = num_of_edge_points
 
         super().__init__(
-            reference_path, ref_left_boundary_d, ref_right_boundary_d, num_of_edge_points=num_of_edge_points
+            reference_path, ref_left_boundary_d, ref_right_boundary_d
         )
 
     def replan(self, back_to_ref_horizon=10):
