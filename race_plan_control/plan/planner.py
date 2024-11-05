@@ -1,4 +1,3 @@
-from numpy import who
 from race_plan_control.perceive.state import VehicleState
 from race_plan_control.plan.lattice import Edge, Lattice
 from typing import Optional
