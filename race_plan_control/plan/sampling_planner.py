@@ -26,9 +26,10 @@ class RNDPlanner(Planner):
         self.maneuver_distance: float = maneuver_distance
         self.boundary_clearance: int = boundary_clearance
         self.sample_size: int = sample_size
+        self.num_of_edge_points: int = num_of_edge_points
 
         super().__init__(
-            reference_path, ref_left_boundary_d, ref_right_boundary_d, num_of_edge_points=num_of_edge_points
+            reference_path, ref_left_boundary_d, ref_right_boundary_d
         )
 
     def replan(self, back_to_ref_horizon=10):
@@ -87,12 +88,7 @@ class RNDPlanner(Planner):
                         self.next_edges.append(edge)
                 for e in self.incoming_edges[node]: 
                     for o in self.outgoing_edges[node]:
-                        ic(f"adding to {e.end.s:.2f},{e.end.d:.2f} next edge {o.start.s:.2f},{o.start.d:.2f}->{o.end.s:.2f},{o.end.d:.2f}")
                         e.next_edges.append(o) 
-        for l in range(self.planning_horizon+1):
-            ic(l)
-            for node in self.lattice_nodes[l]:
-                ic(l,len(self.incoming_edges[node]))
                         
                 
 

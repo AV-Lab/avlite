@@ -1,6 +1,6 @@
 path_to_track: "resource/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
 
-tkinter_visualizer:
+visualizer_UI_config:
   log_level: "DEBUG"
   log_items: ["Percieve", "Plan", "Control", "Visualize"]
 
