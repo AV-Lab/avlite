@@ -1,4 +1,9 @@
-# Race Planner and Controller
+# High Level AV Stack
+The stack provides a clear logical abstraction of the autonomous vehicle driving components, isolating the developer
+from lower-level technical details when not needed. The code also includes tools for hot reloading and debugging, 
+making it easier to develop and test the code while running the stack.
+
+## Installation
 
 To install the package from source 
 ```bash
@@ -17,6 +22,15 @@ To run the package system wide:
 ```bash
 race_plan_control
 ```
+## Project structure 
+The project is structured as follows:
+- Core components are prevised with `ci_` prefix, where `i` is the component number. For examplle `c10_control` is the controllers.
+Utility.
+- Auxilary components are prefixed with `xi_` where `i` is the component number. For example `x50_visualizer` is the logger.
+- Within each coponent, each module has also number prefix. For example `c32_pid_controller` is the PID controller module `c30_control`.
+
+The goal is to be able to quicly navigate to the desired module by using the search function of the editor. It also provide a quick understanding on where the code belongs to.
+
 
 ## Local Planner
 ![](docs/imgs/tk_visualizer.png)

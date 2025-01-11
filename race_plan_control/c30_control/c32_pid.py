@@ -1,4 +1,4 @@
-from race_plan_control.control.controller import Controller
+from c30_control.c31_controller import Controller
 
 import logging
 

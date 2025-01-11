@@ -162,10 +162,10 @@ class Trajectory:
         d_start: float,
         s_end: float,
         d_end: float,
-        start_d_1st_derv: float=0.0,
-        start_d_2nd_derv: float=0.0,
-        end_d_1st_derv: float=0.0,
-        end_d_2nd_derv: float=0.0,
+        start_d_1st_derv: float = 0.0,
+        start_d_2nd_derv: float = 0.0,
+        end_d_1st_derv: float = 0.0,
+        end_d_2nd_derv: float = 0.0,
         num_points=10,
     ) -> "Trajectory":
 
@@ -229,7 +229,7 @@ class Trajectory:
 
         # Create the polynomial
         poly = Polynomial(coefficients[::-1])  # Reverse coefficients for Polynomial
-        
+
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
@@ -254,7 +254,6 @@ class Trajectory:
         d_start_2nd_derv: float,
         num_points=10,
     ) -> "Trajectory":
-        
 
         A = np.array(
             [
@@ -436,13 +435,12 @@ class Trajectory:
         start_y_2nd_derv: float,
         num_points=10,
     ) -> list["Trajectory"]:
-        assert(len(x_values) == len(y_values))
+        assert len(x_values) == len(y_values)
 
         local_trajectories = []
         k = len(x_values)
 
         for i, (x, y) in enumerate(zip(x_values, y_values)):
-
 
             local_trajectories.append(local_trajectory)
         return local_trajectories
@@ -529,7 +527,7 @@ class Trajectory:
     def convert_xy_path_to_sd_path_np(self, points):
 
         reference_path = self.__reference_path
-        frenet_coords = np.empty((0,2))
+        frenet_coords = np.empty((0, 2))
         cumulative_distances = self.__cumulative_distances
         for point in points:
 
@@ -565,7 +563,7 @@ class Trajectory:
 
             frenet_coords = np.vstack((frenet_coords, (s, d)))
 
-        return frenet_coords    
+        return frenet_coords
 
     def convert_sd_path_to_xy_path(self, s_values, d_values):
         # return [self.getXY(s, d) for s, d in zip(s_values, d_values)]
@@ -603,9 +601,7 @@ class Trajectory:
         reference_path = np.array(self.__reference_path)
         cumulative_distances = [0]
         for i in range(1, len(reference_path)):
-            cumulative_distances.append(
-                cumulative_distances[i - 1] + np.linalg.norm(reference_path[i] - reference_path[i - 1])
-            )
+            cumulative_distances.append(cumulative_distances[i - 1] + np.linalg.norm(reference_path[i] - reference_path[i - 1]))
         return cumulative_distances
 
     # TODO: this inefficient! need to look into a window only not the whole track

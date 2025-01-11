@@ -1,94 +1,37 @@
-from race_plan_control.visualize.tk_visualizer import VisualizerApp
-import race_plan_control.plan.planner
-import race_plan_control.plan.sampling_planner
-import race_plan_control.plan.lattice
-import race_plan_control.plan.trajectory
+from x50_visualize.x51_tk_visualizer import VisualizerApp
+import c20_plan.c21_planner
+import c20_plan.c22_sampling_planner
+import c20_plan.c23_lattice
+import c20_plan.c24_trajectory
+import c30_control.c32_pid
+import x40_execute.x41_executer
+import c10_perceive.c12_state
+from race_plan_control.utils import load_config
 
-import race_plan_control.control.pid
-import race_plan_control.execute.executer
-import race_plan_control.perceive.state
-
-
-import yaml
 import numpy as np
 import logging
-import json
-import os
-from pathlib import Path
-
-
-import sys
-import pkg_resources
 import logging
 import importlib
 
 log = logging.getLogger(__name__)
 
-is_running_from_source = False
 
-
-def load_config(config_path):
-    if os.path.isabs(config_path):
-        raise ValueError("config_path should be relative to the project directory")
-
-    pkg_config = pkg_resources.resource_filename("race_plan_control", "config.yaml")
-    if is_running_from_source:
-        current_file_name = os.path.realpath(__file__) if sys.argv[0] == "" else sys.argv[0]
-    else:
-        current_file_name = pkg_config if sys.argv[0] == "" else sys.argv[0]
-
-    print(f"current_file_name: {current_file_name}")
-    if is_running_from_source:
-        project_dir = Path(current_file_name).parent.parent
-    else:
-        project_dir = Path(current_file_name).parent.parent / "share/race_plan_control"
-
-    config_file = project_dir / config_path
-
-    with open(config_file, "r") as f:
-        config_data = yaml.safe_load(f)
-        path_to_track = project_dir / config_data["path_to_track"]
-    # loading race trajectory data
-    with open(path_to_track, "r") as f:
-        track_data = json.load(f)
-        reference_path = [point[:2] for point in track_data["ReferenceLine"]]  # ignoring z
-        ref_left_boundary_d = track_data["LeftBound"]
-        ref_right_boundary_d = track_data["RightBound"]
-    logging.info(f"Track data loaded from {path_to_track}")
-
-    return reference_path, ref_left_boundary_d, ref_right_boundary_d
-
-
-def reload_imports():
-    pass
-
-def get_executer():
-    global reference_path, ref_left_boundary_d, ref_right_boundary_d
+def get_executer(config_path="config.yaml", source_run=True):
     log.info("Reloading imports...")
-    # reload imports
-    import race_plan_control.plan.planner
-    import race_plan_control.plan.sampling_planner
-    import race_plan_control.plan.lattice
-    import race_plan_control.plan.trajectory
+    importlib.reload(c20_plan.c21_planner)
+    importlib.reload(c20_plan.c22_sampling_planner)
+    importlib.reload(c20_plan.c23_lattice)
+    importlib.reload(c20_plan.c24_trajectory)
+    importlib.reload(c30_control.c32_pid)
+    importlib.reload(x40_execute.x41_executer)
+    importlib.reload(c10_perceive.c12_state)
 
-    import race_plan_control.control.pid
-    import race_plan_control.execute.executer
-    import race_plan_control.perceive.state
+    reference_path, ref_left_boundary_d, ref_right_boundary_d = load_config(config_path=config_path, source_run=source_run)
 
-    importlib.reload(race_plan_control.plan.planner)
-    importlib.reload(race_plan_control.plan.sampling_planner)
-    importlib.reload(race_plan_control.plan.lattice)
-    importlib.reload(race_plan_control.plan.trajectory)
-
-    importlib.reload(race_plan_control.control.pid)
-    importlib.reload(race_plan_control.execute.executer)
-    importlib.reload(race_plan_control.perceive.state)
-
-
-    RNDPlanner = race_plan_control.plan.sampling_planner.RNDPlanner
-    PIDController = race_plan_control.control.pid.PIDController
-    SimpleSim = race_plan_control.execute.executer.Executer
-    VehicleState = race_plan_control.perceive.state.VehicleState
+    RNDPlanner = c20_plan.c22_sampling_planner.RNDPlanner
+    PIDController = c30_control.c32_pid.PIDController
+    SimpleSim = x40_execute.x41_executer.Executer
+    VehicleState = c10_perceive.c12_state.VehicleState
 
     state = VehicleState(x=reference_path[0][0], y=reference_path[0][1], speed=30, theta=-np.pi / 4)
     pl = RNDPlanner(
@@ -102,14 +45,12 @@ def get_executer():
     return executer
 
 
-def run(config_path="config.yaml", headless=False):
-    global reference_path, ref_left_boundary_d, ref_right_boundary_d
-    reference_path, ref_left_boundary_d, ref_right_boundary_d = load_config(config_path=config_path)
-    executer = get_executer()
+def run(source_run=True):
+    executer = get_executer(config_path="config.yaml", source_run=source_run)
     app = VisualizerApp(executer, code_reload_function=get_executer)
     app.mainloop()
 
 
 if __name__ == "__main__":
-    is_running_from_source = True
-    run()
+    source_run = True
+    run(source_run)
