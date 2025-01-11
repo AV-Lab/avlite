@@ -1,5 +1,5 @@
-import race_plan_control.visualize.plot as plot
-from race_plan_control.execute.executer import Executer
+import x50_visualize.x52_plot as x52_plot
+from x40_execute.x41_executer import Executer
 
 from matplotlib import colors
 
@@ -22,9 +22,7 @@ log_blacklist = set()  # used to filter 'excute', 'plan', 'control' subpackage l
 class VisualizerApp(tk.Tk):
     exe: Executer
 
-    def __init__(
-        self, executer: Executer, code_reload_function=None, only_visualize=False
-    ):
+    def __init__(self, executer: Executer, code_reload_function=None, only_visualize=False):
         super().__init__()
 
         self.exec = executer
@@ -91,7 +89,7 @@ class VisualizerApp(tk.Tk):
 
         # ----------------------------------------------------------------------
         # -Plot Frame ----------------------------------------------------------
-       # ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
 
         self.plot_frame = ttk.Frame(self)
         self.plot_frame.pack(fill=tk.BOTH, expand=True)
@@ -99,12 +97,10 @@ class VisualizerApp(tk.Tk):
         self.xy_zoom = 30
         self.frenet_zoom = 30
 
-        self.fig = plot.fig
-        self.ax1 = plot.ax1
-        self.ax2 = plot.ax2
-        self.canvas = FigureCanvasTkAgg(
-            self.fig, master=self.plot_frame
-        )  # A tk.DrawingArea.
+        self.fig = x52_plot.fig
+        self.ax1 = x52_plot.ax1
+        self.ax2 = x52_plot.ax2
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.after(300, self._replot)
@@ -118,9 +114,7 @@ class VisualizerApp(tk.Tk):
         # ------------------------------------------------------
         config_frame = ttk.LabelFrame(self, text="Config")
         config_frame.pack(fill=tk.X, side=tk.TOP)
-        ttk.Button(config_frame, text="Reload Code", command=self._reload_stack).pack(
-            side=tk.RIGHT
-        )
+        ttk.Button(config_frame, text="Reload Code", command=self._reload_stack).pack(side=tk.RIGHT)
         ttk.Checkbutton(
             config_frame,
             text="Shortcut Mode",
@@ -160,9 +154,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         # ----------------------------------------------------------------------
         ## Execute Frame
         # ----------------------------------------------------------------------
-        self.execution_frame = ttk.LabelFrame(
-            self.vis_exec_frame, text="Execute (Auto)"
-        )
+        self.execution_frame = ttk.LabelFrame(self.vis_exec_frame, text="Execute (Auto)")
         self.execution_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         exec_first_frame = ttk.Frame(self.execution_frame)
@@ -172,41 +164,34 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         exec_third_frame = ttk.Frame(self.execution_frame)
         exec_third_frame.pack(fill=tk.X)
 
-        ttk.Label(exec_first_frame, text="Control Δt ").pack(
-            side=tk.LEFT, padx=5, pady=5
-        )
+        ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, width=5)
         self.dt_exec_cn_entry.insert(0, "0.02")
         self.dt_exec_cn_entry.pack(side=tk.LEFT)
 
-        ttk.Label(exec_first_frame, text="Replan Δt ").pack(
-            side=tk.LEFT, padx=5, pady=5
-        )
+        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, width=5)
         self.dt_exec_pl_entry.insert(0, ".7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
-
 
         gruvbox_green = "#b8bb26"
         gruvbox_light_green = "#fe8019"
         gruvbox_orange = "#d65d0e"
         self.start_exec_button = tk.Button(
-            exec_second_frame, text="Start", command=self.toggle_exec, bg=gruvbox_orange, fg="white",
-            borderwidth=0, 
+            exec_second_frame,
+            text="Start",
+            command=self.toggle_exec,
+            bg=gruvbox_orange,
+            fg="white",
+            borderwidth=0,
             highlightthickness=0,
-            width=10
+            width=10,
         )
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
 
-        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(
-            side=tk.LEFT
-        )
+        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
 
         ttk.Label(exec_third_frame, text="Bridge:").pack(side=tk.LEFT)
         ttk.Radiobutton(
@@ -215,25 +200,12 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             variable=self.exec_option,
             value="Basic",
         ).pack(side=tk.LEFT)
-        ttk.Radiobutton(
-            exec_third_frame, text="ROS", variable=self.exec_option, value="ROS"
-        ).pack(side=tk.LEFT)
-        ttk.Radiobutton(
-            exec_third_frame, text="Carla", variable=self.exec_option, value="Carla"
-        ).pack(side=tk.LEFT)
+        ttk.Radiobutton(exec_third_frame, text="ROS", variable=self.exec_option, value="ROS").pack(side=tk.LEFT)
+        ttk.Radiobutton(exec_third_frame, text="Carla", variable=self.exec_option, value="Carla").pack(side=tk.LEFT)
 
-
-        ttk.Checkbutton(
-            exec_third_frame, text="Control", variable=self.exec_control
-        ).pack(side=tk.RIGHT)
-        ttk.Checkbutton(
-            exec_third_frame, text="Plan", variable=self.exec_plan
-        ).pack(side=tk.RIGHT)
-        ttk.Checkbutton(
-            exec_third_frame, text="Percieve", variable=self.exec_perceive
-        ).pack(side=tk.RIGHT)
-
-
+        ttk.Checkbutton(exec_third_frame, text="Control", variable=self.exec_control).pack(side=tk.RIGHT)
+        ttk.Checkbutton(exec_third_frame, text="Plan", variable=self.exec_plan).pack(side=tk.RIGHT)
+        ttk.Checkbutton(exec_third_frame, text="Percieve", variable=self.exec_perceive).pack(side=tk.RIGHT)
 
         # ----------------------------------------------------------------------
         # Visualize frame setup
@@ -291,26 +263,14 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         zoom_global_frame = ttk.Frame(self.visualize_frame)
         zoom_global_frame.pack(fill=tk.X, padx=5)
 
-        ttk.Label(zoom_global_frame, text="Global Coordinate").pack(
-            anchor=tk.W, side=tk.LEFT
-        )
-        ttk.Button(zoom_global_frame, text="Zoom In", command=self.zoom_in).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(zoom_global_frame, text="Zoom Out", command=self.zoom_out).pack(
-            side=tk.LEFT
-        )
+        ttk.Label(zoom_global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom Out", command=self.zoom_out).pack(side=tk.LEFT)
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(
-            anchor=tk.W, side=tk.LEFT
-        )
-        ttk.Button(zoom_frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(
-            zoom_frenet_frame, text="Zoom Out", command=self.zoom_out_frenet
-        ).pack(side=tk.LEFT)
+        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Button(zoom_frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
+        ttk.Button(zoom_frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
 
         # ----------------------------------------------------------------------
         # Percieve Plan Control Frame -----------------------------------------
@@ -321,53 +281,37 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         # ----------------------------------------------------------------------
         ## Perceive Frame
         # ----------------------------------------------------------------------
-        self.perceive_frame = ttk.LabelFrame(
-            self.perceive_plan_control_frame, text="Perceive"
-        )
+        self.perceive_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Perceive")
         self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
         self.vehicle_state_label = ttk.Label(self.perceive_frame, text="")
         self.vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, pady=5)
 
-        self.coordinates_label = ttk.Label(
-            self.perceive_frame, text="Spawn Agent: Click on the plot."
-        )
+        self.coordinates_label = ttk.Label(self.perceive_frame, text="Spawn Agent: Click on the plot.")
         self.coordinates_label.pack(side=tk.LEFT, pady=5)
         # ----------------------------------------------------------------------
 
         # ----------------------------------------------------------------------
         ## Plan frame
         # ----------------------------------------------------------------------
-        self.plan_frame = ttk.LabelFrame(
-            self.perceive_plan_control_frame, text="Plan (Manual)"
-        )
+        self.plan_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Plan (Manual)")
         self.plan_frame.pack(fill=tk.X, side=tk.LEFT, padx=5, pady=5)
 
         wp_frame = ttk.Frame(self.plan_frame)
         wp_frame.pack(fill=tk.X)
 
-        ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(
-            side=tk.LEFT
-        )
+        ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
         self.global_tj_wp_entry = ttk.Entry(wp_frame, width=6)
         self.global_tj_wp_entry.insert(0, "0")
         self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Label(
-            wp_frame, text=f"{len(self.exec.planner.global_trajectory.path_x)-1}"
-        ).pack(side=tk.LEFT, padx=5)
+        ttk.Label(wp_frame, text=f"{len(self.exec.planner.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(
-            side=tk.LEFT, fill=tk.X, expand=True
-        )
+        ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT)
+        ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # ----------------------------------------------------------------------
         ## Control Frame
         # ----------------------------------------------------------------------
-        self.control_frame = ttk.LabelFrame(
-            self.perceive_plan_control_frame, text="Control (Manual)"
-        )
+        self.control_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Control (Manual)")
         self.control_frame.pack(fill=tk.X, side=tk.LEFT)
         dt_frame = ttk.Frame(self.control_frame)
         dt_frame.pack(fill=tk.X)
@@ -375,25 +319,13 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.dt_entry = ttk.Entry(dt_frame, width=5)
         self.dt_entry.insert(2, "0.1")
         self.dt_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Button(dt_frame, text="Control Step", command=self.step_control).pack(
-            side=tk.LEFT, fill=tk.X, expand=True
-        )
-        ttk.Button(dt_frame, text="Re-align", command=self.align_control).pack(
-            side=tk.LEFT
-        )  # Re-alignes with plan
+        ttk.Button(dt_frame, text="Control Step", command=self.step_control).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(dt_frame, text="Re-align", command=self.align_control).pack(side=tk.LEFT)  # Re-alignes with plan
 
-        ttk.Button(
-            self.control_frame, text="Steer Left", command=self.step_steer_left
-        ).pack(side=tk.LEFT)
-        ttk.Button(
-            self.control_frame, text="Steer Right", command=self.step_steer_right
-        ).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="Accelerate", command=self.step_acc).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(self.control_frame, text="Deccelerate", command=self.step_dec).pack(
-            side=tk.LEFT
-        )
+        ttk.Button(self.control_frame, text="Steer Left", command=self.step_steer_left).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="Steer Right", command=self.step_steer_right).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="Accelerate", command=self.step_acc).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="Deccelerate", command=self.step_dec).pack(side=tk.LEFT)
 
         # ----------------------------------------------------------------------
         # -End of Perceive Plan Contorl Frame --------------------------------------
@@ -497,9 +429,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         # -------------------------------------------
         logger = logging.getLogger()
         text_handler = VisualizerApp.LogTextHandler(self.log_area)
-        formatter = logging.Formatter(
-            "[%(levelname).4s] %(name)-40s (L: %(lineno)3d): %(message)s"
-        )
+        formatter = logging.Formatter("[%(levelname).4s] %(name)-33s (L: %(lineno)3d): %(message)s")
         text_handler.setFormatter(formatter)
         # remove other handlers to avoid duplicate logs
         for handler in logger.handlers[:]:
@@ -535,7 +465,6 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
     def _toggle_dark_mode(self):
         self.__dark_mode() if self.dark_mode.get() else self.__light_mode()
-        
 
     def _toggle_dark_mode_shortcut(self):
         if self.dark_mode.get():
@@ -548,14 +477,13 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.configure(bg="black")
         self.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-        plot.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
+        x52_plot.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
 
         try:
             from ttkthemes import ThemedStyle
 
             style = ThemedStyle(self)
             style.set_theme("equilux")
-
 
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
@@ -564,7 +492,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.configure(bg="white")
         self.log_area.config(bg="white", fg="black")
         self.help_text.config(bg="white", fg="black")
-        plot.set_plot_theme(bg_color="white", fg_color="black")
+        x52_plot.set_plot_theme(bg_color="white", fg_color="black")
         # reset the theme
         try:
             from ttkthemes import ThemedStyle
@@ -582,7 +510,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
-        plot.plot(
+        x52_plot.plot(
             exec=self.exec,
             aspect_ratio=aspect_ratio,
             xy_zoom=self.xy_zoom,
@@ -601,9 +529,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         )
 
         self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(
-            0, str(self.exec.planner.global_trajectory.current_wp)
-        )
+        self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.current_wp))
 
     def _reload_stack(self):
         if self.code_reload_function is not None:
@@ -616,13 +542,9 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         if event.inaxes:
             x, y = event.xdata, event.ydata
             if event.inaxes == self.ax1:
-                self.coordinates_label.config(
-                    text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}"
-                )
+                self.coordinates_label.config(text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
             elif event.inaxes == self.ax2:
-                self.coordinates_label.config(
-                    text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}"
-                )
+                self.coordinates_label.config(text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
         else:
             # Optionally, clear the coordinates display when the mouse is not over the axes
             self.coordinates_label.config(text="Spawn Agent: Click on the plot.")
@@ -642,10 +564,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
                 self.frenet_zoom += increment
 
         threshold = 0.01
-        if (
-            self._prev_scroll_time is None
-            or time.time() - self._prev_scroll_time > threshold
-        ) and not self.animation_running:
+        if (self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold) and not self.animation_running:
             self._replot()
 
         self._prev_scroll_time = time.time()
@@ -688,9 +607,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.exec.planner.step_wp()
         log.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(
-            0, str(self.exec.planner.global_trajectory.next_wp - 1)
-        )
+        self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.next_wp - 1))
         self._replot()
 
     # --------------------------------------------------------------------------------------------
@@ -706,12 +623,8 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self._replot()
 
     def align_control(self):
-        self.exec.ego_state.x = self.exec.planner.global_trajectory.path_x[
-            self.exec.planner.global_trajectory.next_wp - 1
-        ]
-        self.exec.ego_state.y = self.exec.planner.global_trajectory.path_y[
-            self.exec.planner.global_trajectory.next_wp - 1
-        ]
+        self.exec.ego_state.x = self.exec.planner.global_trajectory.path_x[self.exec.planner.global_trajectory.next_wp - 1]
+        self.exec.ego_state.y = self.exec.planner.global_trajectory.path_y[self.exec.planner.global_trajectory.next_wp - 1]
 
         self._replot()
 
@@ -752,12 +665,10 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
             cn_dt = float(self.dt_exec_cn_entry.get())
             pl_dt = float(self.dt_exec_pl_entry.get())
 
-            self.exec.run(control_dt=cn_dt, replan_dt=pl_dt)
+            self.exec.step(control_dt=cn_dt, replan_dt=pl_dt)
             self._replot()
             self.global_tj_wp_entry.delete(0, tk.END)
-            self.global_tj_wp_entry.insert(
-                0, str(self.exec.planner.global_trajectory.next_wp - 1)
-            )
+            self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.next_wp - 1))
             self.after(int(cn_dt * 1000), self._exec_loop)
 
     def stop_exec(self):
@@ -767,7 +678,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
     def step_exec(self):
         cn_dt = float(self.dt_exec_cn_entry.get())
         pl_dt = float(self.dt_exec_pl_entry.get())
-        self.exec.run(control_dt=cn_dt, replan_dt=pl_dt)
+        self.exec.step(control_dt=cn_dt, replan_dt=pl_dt)
         self._replot()
 
     def reset_exec(self):
@@ -776,26 +687,10 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
     def update_log_filter(self):
         # based on blacklist, LogTextHandler will filter out the logs
-        (
-            log_blacklist.discard("plan")
-            if "selected" in self.ck_plan.state()
-            else log_blacklist.add("plan")
-        )
-        (
-            log_blacklist.discard("control")
-            if "selected" in self.ck_control.state()
-            else log_blacklist.add("control")
-        )
-        (
-            log_blacklist.discard("execute")
-            if "selected" in self.ck_exec.state()
-            else log_blacklist.add("execute")
-        )
-        (
-            log_blacklist.discard("visualize")
-            if "selected" in self.ck_vis.state()
-            else log_blacklist.add("visualize")
-        )
+        (log_blacklist.discard("c20_plan") if "selected" in self.ck_plan.state() else log_blacklist.add("c20_plan"))
+        (log_blacklist.discard("c30_control") if "selected" in self.ck_control.state() else log_blacklist.add("c30_control"))
+        (log_blacklist.discard("x40_execute") if "selected" in self.ck_exec.state() else log_blacklist.add("x40_execute"))
+        (log_blacklist.discard("x50_visualize") if "selected" in self.ck_vis.state() else log_blacklist.add("x50_visualize"))
 
     def update_log_level(self):
         if self.rb_db_debug.instate(["selected"]):
@@ -822,7 +717,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
         def emit(self, record):
             for bl in log_blacklist:
-                if "." + bl + "." in record.name:
+                if bl + "." in record.name:
                     return
             msg = self.format(record)
             self.text_widget.configure(state="normal")
@@ -842,9 +737,3 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
         def flush(self):
             pass
-
-
-if __name__ == "__main__":
-    import race_plan_control.main as main
-
-    main.run()

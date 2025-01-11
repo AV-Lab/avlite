@@ -71,18 +71,18 @@ class VehicleState(State):
         # Calculate the four corners of the rectangle
         corners_x = np.array(
             [
-                self.x - self.length / 2,
-                self.x + self.length / 2,
-                self.x + self.length / 2,
-                self.x - self.length / 2,
+                 - self.length / 2,
+                 + self.length / 2,
+                 + self.length / 2,
+                 - self.length / 2,
             ]
         )
         corners_y = np.array(
             [
-                self.y - self.width / 2,
-                self.y - self.width / 2,
-                self.y + self.width / 2,
-                self.y + self.width / 2,
+                 - self.width / 2,
+                 - self.width / 2,
+                 + self.width / 2,
+                 + self.width / 2,
             ]
         )
 
@@ -93,7 +93,7 @@ class VehicleState(State):
                 [np.sin(self.theta), np.cos(self.theta)],
             ]
         )
-        rotated_corners = np.dot(rotation_matrix, np.array([corners_x - self.x, corners_y - self.y]))
+        rotated_corners = np.dot(rotation_matrix, np.array([corners_x, corners_y]))
 
         rotated_corners_x = rotated_corners[0, :] + self.x
         rotated_corners_y = rotated_corners[1, :] + self.y

@@ -1,4 +1,4 @@
-from race_plan_control.plan.trajectory import Trajectory
+from c20_plan.c24_trajectory import Trajectory
 from typing import Dict
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
@@ -80,18 +80,18 @@ class Edge:
     risk: float = 0
 
 
-# TODO: delete this function and use Lattice instead of it once tested
-def create_edge(start: Node, end: Node, global_tj: Trajectory, num_of_points=30) -> Edge:
-    local_trajectory = global_tj.create_quintic_trajectory_sd(
-        s_start=start.s,
-        d_start=start.d,
-        s_end=end.s,
-        d_end=end.d,
-        num_points=num_of_points,
-    )
-    edge = Edge(start, end, local_trajectory, None, [], num_of_points)
+    @staticmethod
+    def create_edge(start: Node, end: Node, global_tj: Trajectory, num_of_points=30) -> "Edge":
+        local_trajectory = global_tj.create_quintic_trajectory_sd(
+            s_start=start.s,
+            d_start=start.d,
+            s_end=end.s,
+            d_end=end.d,
+            num_points=num_of_points,
+        )
+        edge = Edge(start, end, local_trajectory, None, [], num_of_points)
 
-    return edge
+        return edge
 
 
 class Lattice:
@@ -111,12 +111,12 @@ class Lattice:
         self.ref_left_boundary_d = ref_left_boundary_d
         self.ref_right_boundary_d = ref_right_boundary_d
 
-        # delete previous plan
         self.next_edges = []
         self.selected_next_edge = None
         self.lattice_nodes: Dict[int, list] = defaultdict(list)  # key is level, value is list of nodes
         self.incoming_edges: Dict[Node, list[Edge]] = defaultdict(list)  # key is node, value is incoming edge
         self.outgoing_edges: Dict[Node, list[Edge]] = defaultdict(list)  # key is node, value is incoming edge
+
 
     def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance):
         s1_ = s
@@ -136,12 +136,14 @@ class Lattice:
                 )
                 self.lattice_nodes[l].append(Node(s1_, d1_, self.global_trajectory))
 
+
+
     def create_edges(self):
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes[l]:
                 for next_node in self.lattice_nodes[l + 1]:
                     assert node != next_node
-                    edge = self.__create_edge(node, next_node, self.global_trajectory)
+                    edge = Edge.create_edge(node, next_node, self.global_trajectory)
                     self.incoming_edges[next_node].append(edge)
                     self.outgoing_edges[node].append(edge)
                     if l == 0:
@@ -150,17 +152,6 @@ class Lattice:
                     for o in self.outgoing_edges[node]:
                         e.next_edges.append(o)
 
-    def __create_edge(self, start: Node, end: Node, global_tj: Trajectory) -> Edge:
-        local_trajectory = global_tj.create_quintic_trajectory_sd(
-            s_start=start.s,
-            d_start=start.d,
-            s_end=end.s,
-            d_end=end.d,
-            num_points=self.num_of_points,
-        )
-        edge = Edge(start, end, local_trajectory, None, [], self.num_of_points)
-
-        return edge
 
     def reset(self):
         self.next_edges = []

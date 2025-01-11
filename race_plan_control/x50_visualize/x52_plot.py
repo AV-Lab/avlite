@@ -1,12 +1,12 @@
-from plan.planner import Planner
-from plan.lattice import Edge
-from race_plan_control.execute.executer import Executer
-from race_plan_control.perceive.state import VehicleState
+from c20_plan.c21_planner import Planner
+from c20_plan.c23_lattice import Edge
+from x40_execute.x41_executer import Executer
+from c10_perceive.c12_state import VehicleState
 from icecream import ic
 import numpy as np
 import matplotlib.pyplot as plt
 
-from race_plan_control.plan.trajectory import Trajectory
+from c20_plan.c24_trajectory import Trajectory
 
 
 MAX_LATTICE_SIZE = 30
@@ -327,7 +327,7 @@ def __update_lattice_edge_plots(v: Edge = None, pl: Planner = None, level: int =
 
 
 def update_local_plan_plots(pl: Planner, show_plot=True):
-    if not show_plot or pl.selected_next_edge is None:
+    if not show_plot or pl.selected_local_plan is None:
         for i in range(MAX_PLAN_LENGTH):
             local_plan_plots_ax1[i].set_data([], [])
             local_plan_plots_ax2[i].set_data([], [])
@@ -336,16 +336,16 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
         next_wp_plot_ax1.set_data([], [])
         next_wp_plot_ax2.set_data([], [])
 
-    elif pl.selected_next_edge is not None:
-        x, y = pl.selected_next_edge.local_trajectory.get_current_xy()
-        s = pl.selected_next_edge.local_trajectory.path_s_from_parent[pl.selected_next_edge.local_trajectory.current_wp]
-        d = pl.selected_next_edge.local_trajectory.path_d_from_parent[pl.selected_next_edge.local_trajectory.current_wp]
+    elif pl.selected_local_plan is not None:
+        x, y = pl.selected_local_plan.local_trajectory.get_current_xy()
+        s = pl.selected_local_plan.local_trajectory.path_s_from_parent[pl.selected_local_plan.local_trajectory.current_wp]
+        d = pl.selected_local_plan.local_trajectory.path_d_from_parent[pl.selected_local_plan.local_trajectory.current_wp]
 
-        x_n, y_n = pl.selected_next_edge.local_trajectory.get_xy_by_waypoint(
-            pl.selected_next_edge.local_trajectory.next_wp
+        x_n, y_n = pl.selected_local_plan.local_trajectory.get_xy_by_waypoint(
+            pl.selected_local_plan.local_trajectory.next_wp
         )
-        s_n = pl.selected_next_edge.local_trajectory.path_s_from_parent[pl.selected_next_edge.local_trajectory.next_wp]
-        d_n = pl.selected_next_edge.local_trajectory.path_d_from_parent[pl.selected_next_edge.local_trajectory.next_wp]
+        s_n = pl.selected_local_plan.local_trajectory.path_s_from_parent[pl.selected_local_plan.local_trajectory.next_wp]
+        d_n = pl.selected_local_plan.local_trajectory.path_d_from_parent[pl.selected_local_plan.local_trajectory.next_wp]
 
         # waypoints
         current_wp_plot_ax1.set_data([x], [y])
@@ -354,7 +354,7 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
         next_wp_plot_ax1.set_data([x_n], [y_n])
         next_wp_plot_ax2.set_data([s_n], [d_n])
 
-        v = pl.selected_next_edge
+        v = pl.selected_local_plan
 
         __update_local_plan_plots(v)
 

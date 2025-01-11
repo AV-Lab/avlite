@@ -1,5 +1,5 @@
 import logging
-from race_plan_control.plan.trajectory import Trajectory
+from c20_plan.c24_trajectory import Trajectory
 from abc import ABC, abstractmethod
 import logging
 

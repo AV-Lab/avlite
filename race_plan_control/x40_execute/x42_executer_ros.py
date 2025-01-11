@@ -1,4 +1,4 @@
-from plan.planner import Planner
+from c20_plan.c21_planner import Planner
 import rclpy
 from rclpy.node import Node
 from a2rl_bs_msgs.msg import Localization, EgoState
