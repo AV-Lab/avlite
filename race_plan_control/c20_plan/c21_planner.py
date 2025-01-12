@@ -87,17 +87,17 @@ class Planner(ABC):
         elif (
             self.selected_local_plan is not None
             and self.selected_local_plan.local_trajectory.is_traversed()
-            and self.selected_local_plan.selected_next_edge is not None
+            and self.selected_local_plan.selected_next_local_plan is not None
         ):
             log.info("Local Plan Completed, choosing next selected Local Plan")
-            self.selected_local_plan = self.selected_local_plan.selected_next_edge
+            self.selected_local_plan = self.selected_local_plan.selected_next_local_plan
             self.selected_local_plan.local_trajectory.update_to_next_waypoint()
             x_new, y_new = self.selected_local_plan.local_trajectory.get_current_xy()
         # no edge selected
         elif (
             self.selected_local_plan is not None
             and self.selected_local_plan.local_trajectory.is_traversed()
-            and self.selected_local_plan.selected_next_edge is None
+            and self.selected_local_plan.selected_next_local_plan is None
         ):
             log.info("Local Plan Traversed. No next Local Plan selected")
             x_new = self.global_trajectory.path_x[self.global_trajectory.next_wp]
@@ -145,12 +145,12 @@ class Planner(ABC):
             
             self.selected_local_plan.local_trajectory.update_waypoint_by_xy(state.x, state.y)
 
-            if self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_edge is not None:
+            if self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_local_plan is not None:
                 log.info("Local Plan Traversed, choosing next selected Local Plan")
-                self.selected_local_plan = self.selected_local_plan.selected_next_edge
+                self.selected_local_plan = self.selected_local_plan.selected_next_local_plan
                 self.selected_local_plan.local_trajectory.update_to_next_waypoint()
 
-            elif self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_edge is None:
+            elif self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_local_plan is None:
                 log.info("Local plan traversed, no next local plan selected. I'll follow the global trajectory")
                 self.selected_local_plan = None
 
