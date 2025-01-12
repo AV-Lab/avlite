@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
@@ -67,9 +68,9 @@ class Trajectory:
         self.next_wp = 1
 
         self.poly_d: Polynomial = None  # for local trajectory
-        self.parent_trajectory = None
-        self.path_s_from_parent = None
-        self.path_d_from_parent = None
+        self.parent_trajectory: Optional("Trajectory") = None
+        self.path_s_from_parent: Optional[list]  = None
+        self.path_d_from_parent: Optional[list] = None
 
     def get_current_xy(self) -> tuple[float, float]:
         """

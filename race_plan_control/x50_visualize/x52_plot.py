@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from c20_plan.c24_trajectory import Trajectory
+import logging
+log = logging.getLogger(__name__)
 
 
 MAX_LATTICE_SIZE = 30
@@ -282,12 +284,9 @@ def update_global_plan_plots(pl: Planner, show_plot=True):
         )
 
 
-edge_index = 0
-
-
 def update_lattice_graph_plots(pl: Planner, show_plot=True):
     global edge_index
-    if not show_plot or len(pl.next_edges) == 0:
+    if not show_plot or len(pl.lattice.edges) == 0:
         # clear all lattice graph plots
         for line in (
             lattice_graph_plots_ax1
@@ -299,31 +298,29 @@ def update_lattice_graph_plots(pl: Planner, show_plot=True):
         return
 
     edge_index = 0
-    __update_lattice_edge_plots(edge_index, pl=pl)
-
-
-def __update_lattice_edge_plots(v: Edge = None, pl: Planner = None, level: int = 0):
-    global edge_index
-    edges = pl.next_edges if pl is not None else v.next_edges
-    for next_edge in edges:
+    for edge in pl.lattice.edges:
         if edge_index < MAX_LATTICE_SIZE:
             lattice_graph_plots_ax1[edge_index].set_data(
-                next_edge.local_trajectory.path_x, next_edge.local_trajectory.path_y
+                edge.local_trajectory.path_x, edge.local_trajectory.path_y
             )
             lattice_graph_plots_ax2[edge_index].set_data(
-                next_edge.local_trajectory.path_s_from_parent,
-                next_edge.local_trajectory.path_d_from_parent,
+                edge.local_trajectory.path_s_from_parent,
+                edge.local_trajectory.path_d_from_parent,
             )
             lattice_graph_endpoints_ax1[edge_index].set_data(
-                [next_edge.local_trajectory.path_x[-1]],
-                [next_edge.local_trajectory.path_y[-1]],
+                [edge.local_trajectory.path_x[-1]],
+                [edge.local_trajectory.path_y[-1]],
             )
             lattice_graph_endpoints_ax2[edge_index].set_data(
-                [next_edge.local_trajectory.path_s_from_parent[-1]],
-                [next_edge.local_trajectory.path_d_from_parent[-1]],
+                [edge.local_trajectory.path_s_from_parent[-1]],
+                [edge.local_trajectory.path_d_from_parent[-1]],
             )
             edge_index += 1
-            __update_lattice_edge_plots(v=next_edge, level=level + 1)
+        else:
+            log.warning(f"Lattice graph size exceeded: attempting to plot edge {edge_index+1} out of {MAX_LATTICE_SIZE}")
+
+    return
+
 
 
 def update_local_plan_plots(pl: Planner, show_plot=True):
@@ -369,7 +366,7 @@ def __update_local_plan_plots(v: Edge, index: int = 0):
             v.local_trajectory.path_s_from_parent,
             v.local_trajectory.path_d_from_parent,
         )
-        __update_local_plan_plots(v.selected_next_edge, index + 1)
+        __update_local_plan_plots(v.selected_next_local_plan, index + 1)
 
 
 def update_state_plots(state: VehicleState, global_trajectory: Trajectory, show_plot=True):
