@@ -10,12 +10,14 @@ import pkg_resources
 import logging
 import importlib
 
+import c10_perceive.c11_environment 
+import c10_perceive.c12_state 
 import c20_plan.c21_planner
 import c20_plan.c22_sampling_planner
 import c20_plan.c23_lattice
 import c20_plan.c24_trajectory
 import c30_control.c32_pid
-import x40_execute.x41_executer
+import c40_execute.c41_executer
 import c10_perceive.c12_state
 
 import logging
@@ -53,10 +55,12 @@ def load_config(config_path, source_run=True):
 
 def reload_lib():
     log.info("Reloading imports...")
+    importlib.reload(c10_perceive.c11_environment)
+    importlib.reload(c10_perceive.c12_state)
     importlib.reload(c20_plan.c21_planner)
     importlib.reload(c20_plan.c22_sampling_planner)
     importlib.reload(c20_plan.c23_lattice)
     importlib.reload(c20_plan.c24_trajectory)
     importlib.reload(c30_control.c32_pid)
-    importlib.reload(x40_execute.x41_executer)
+    importlib.reload(c40_execute.c41_executer)
     importlib.reload(c10_perceive.c12_state)

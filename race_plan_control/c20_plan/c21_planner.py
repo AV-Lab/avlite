@@ -1,4 +1,5 @@
-from c10_perceive.c12_state import VehicleState
+from c10_perceive.c11_environment import Environment
+from c10_perceive.c12_state import EgoState
 from c20_plan.c23_lattice import Edge, Lattice
 from typing import Optional
 from c20_plan.c24_trajectory import Trajectory
@@ -12,9 +13,10 @@ class Planner(ABC):
 
     def __init__(
         self,
-        reference_path,
-        ref_left_boundary_d: list,
-        ref_right_boundary_d: list,
+        global_path: list[tuple[float, float]],
+        ref_left_boundary_d: list[float],
+        ref_right_boundary_d: list[float],
+        env: Environment,
     ):
         self.global_trajectory: Trajectory
         self.ref_left_boundary_d: list[float]
@@ -30,7 +32,7 @@ class Planner(ABC):
         self.traversed_s: list[float]
 
 
-        self.global_trajectory = Trajectory(reference_path)
+        self.global_trajectory = Trajectory(global_path)
 
         self.ref_left_boundary_d = ref_left_boundary_d
         self.ref_right_boundary_d = ref_right_boundary_d
@@ -50,6 +52,8 @@ class Planner(ABC):
         
         self.selected_local_plan: Optional[Edge] = None
         self.lattice = Lattice(self.global_trajectory, ref_left_boundary_d, ref_right_boundary_d)
+
+        self._env = env
 
     def reset(self, wp=0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
@@ -130,7 +134,7 @@ class Planner(ABC):
 
         return x_new, y_new
 
-    def step(self, state: VehicleState):
+    def step(self, state: EgoState):
         """
         Advances the planner based on the given vehicle state and updates the traversed path.
 

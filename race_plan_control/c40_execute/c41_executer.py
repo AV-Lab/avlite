@@ -1,6 +1,7 @@
+from c10_perceive.c11_environment import Environment
 from c20_plan.c21_planner import Planner
 from c30_control.c31_controller import Controller
-from c10_perceive.c12_state import VehicleState
+from c10_perceive.c12_state import EgoState
 
 import logging
 import numpy as np
@@ -11,14 +12,16 @@ log = logging.getLogger(__name__)
 
 
 class Executer():
-    def __init__(self, state: VehicleState, pl: Planner, cn: Controller):
+    def __init__(self, env: Environment, state: EgoState, pl: Planner, cn: Controller):
+        self.env = env
         self.ego_state = state
         self.planner = pl
         self.controller = cn
-        self.__prev_exec_time = None
-        self.__time_since_last_replan = 0
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
+        
+        self.__prev_exec_time = None
+        self.__time_since_last_replan = 0
 
     def step(self, control_dt=0.01, replan_dt=None):
         if replan_dt is not None:
@@ -29,7 +32,7 @@ class Executer():
         # update planner location
         self.planner.step(self.ego_state)
 
-        global_cte = self.planner.traversed_d[-1]  # this one is with respect to global trajectory
+
         local_tj = self.planner.get_local_plan()
         _, cte = local_tj.convert_xy_to_sd(self.ego_state.x, self.ego_state.y)
 
@@ -55,6 +58,7 @@ class Executer():
             self.step(control_dt=control_dt, replan_dt=replan_dt)
 
     def reset(self):
+        self.env.reset()
         self.ego_state.reset()
         self.planner.reset()
         self.controller.reset()
@@ -64,7 +68,7 @@ class Executer():
         self.elapsed_sim_time = 0
 
     
-    def update_state(self, dt=0.01, acceleration=0, steering_angle=0) -> VehicleState:
+    def update_state(self, dt=0.01, acceleration=0, steering_angle=0) -> EgoState:
         self.ego_state.x += self.ego_state.speed * math.cos(self.ego_state.theta) * dt
         self.ego_state.y += self.ego_state.speed * math.sin(self.ego_state.theta) * dt
         self.ego_state.speed += acceleration * dt

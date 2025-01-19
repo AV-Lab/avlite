@@ -32,7 +32,7 @@ class PIDController(Controller):
         steer = P + I + D
 
         # Logging with formatted string for clarity
-        log.info(
+        log.debug(
             f"Steering Angle: {steer:+.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}"
         )
         self.last_steer = steer

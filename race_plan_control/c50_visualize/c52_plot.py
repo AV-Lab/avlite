@@ -1,28 +1,36 @@
+from c10_perceive.c11_environment import Environment
 from c20_plan.c21_planner import Planner
 from c20_plan.c23_lattice import Edge
-from x40_execute.x41_executer import Executer
-from c10_perceive.c12_state import VehicleState
+from c40_execute.c41_executer import Executer
+from c10_perceive.c12_state import EgoState
 from icecream import ic
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
 
 from c20_plan.c24_trajectory import Trajectory
 import logging
+
 log = logging.getLogger(__name__)
 
 
 MAX_LATTICE_SIZE = 30
 MAX_PLAN_LENGTH = 5
+MAX_AGENT_COUNT = 12
 
 # plt.style.use('dark_background')
 fig, (ax1, ax2) = plt.subplots(2, 1)
 
 
-def initiate_plots(max_lattice_size=30, max_plan_length=5):
-    global MAX_LATTICE_SIZE, MAX_PLAN_LENGTH
+# TODO: Add a function to initialize the plots
+def initiate_plots(max_lattice_size=30, max_plan_length=5, max_agent_count=12):
+    global MAX_LATTICE_SIZE, MAX_PLAN_LENGTH, MAX_AGENT_COUNT
+    global lattice_graph_plots_ax1, lattice_graph_plots_ax2, lattice_graph_endpoints_ax1, lattice_graph_endpoints_ax2, local_plan_plots_ax1, local_plan_plots_ax2
+    global env_plots
+
     MAX_LATTICE_SIZE = max_lattice_size
     MAX_PLAN_LENGTH = max_plan_length
-    global lattice_graph_plots_ax1, lattice_graph_plots_ax2, lattice_graph_endpoints_ax1, lattice_graph_endpoints_ax2, local_plan_plots_ax1, local_plan_plots_ax2
+    MAX_AGENT_COUNT = max_agent_count
 
     # Initialize lattice graph plots
     lattice_graph_plots_ax1 = []
@@ -62,18 +70,12 @@ def initiate_plots(max_lattice_size=30, max_plan_length=5):
     )
 
 
-(left_boundry_x1,) = ax1.plot(
-    [], [], color="orange", label="Left Boundary", linewidth=2
-)  # Change color and label as needed
-(right_boundry_x1,) = ax1.plot(
-    [], [], color="tan", label="Right Boundary", linewidth=2
-)  # Change color and label as needed
+(left_boundry_x1,) = ax1.plot([], [], color="orange", label="Left Boundary", linewidth=2)  # Change color and label as needed
+(right_boundry_x1,) = ax1.plot([], [], color="tan", label="Right Boundary", linewidth=2)  # Change color and label as needed
 left_boundry_ax2 = ax2.scatter([], [], color="orange", s=5, label="Left Boundary (Ref)")
 right_boundry_ax2 = ax2.scatter([], [], color="tan", s=5, label="Right Boundary (Ref)")
 
-(reference_trajectory_ax1,) = ax1.plot(
-    [], [], "gray", label="Reference Trajectory", linewidth=2
-)  # reference path in gray
+(reference_trajectory_ax1,) = ax1.plot([], [], "gray", label="Reference Trajectory", linewidth=2)  # reference path in gray
 reference_trajectory_ax2 = ax2.scatter(
     [], [], s=5, alpha=0.5, color="gray", label="Reference Trajectory"
 )  # reference path in blue
@@ -119,6 +121,18 @@ ax1.add_patch(ego_vehicle_ax1)
 ax2.add_patch(ego_vehicle_ax2)
 
 
+# Environment plots
+env_plots_ax1 = []
+env_plots_ax2 = []
+for _ in range(MAX_AGENT_COUNT):
+    agent_vehicle_ax1 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="g", facecolor="azure", alpha=0.7)
+    agent_vehicle_ax2 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="g", facecolor="azure", alpha=0.7)
+    ax1.add_patch(agent_vehicle_ax1)
+    ax2.add_patch(agent_vehicle_ax2)
+    env_plots_ax1.append(agent_vehicle_ax1)
+    env_plots_ax2.append(agent_vehicle_ax2)
+
+
 # Assuming a maximum number of lattice graph edges
 for _ in range(MAX_LATTICE_SIZE):
     (line_ax1,) = ax1.plot([], [], "b--", color="lightskyblue", alpha=0.6)
@@ -161,6 +175,7 @@ def plot(
     plot_local_plan=True,
     plot_local_lattice=True,
     plot_state=True,
+    plot_env=True,
     num_plot_last_pts=100,
 ):
 
@@ -210,6 +225,9 @@ def plot(
 
     # update state
     update_state_plots(exec.ego_state, exec.planner.global_trajectory, plot_state)
+
+    # update Environment
+    update_env_plots(exec.env, plot_env)
 
     redraw_plots()
 
@@ -288,21 +306,14 @@ def update_lattice_graph_plots(pl: Planner, show_plot=True):
     global edge_index
     if not show_plot or len(pl.lattice.edges) == 0:
         # clear all lattice graph plots
-        for line in (
-            lattice_graph_plots_ax1
-            + lattice_graph_endpoints_ax1
-            + lattice_graph_plots_ax2
-            + lattice_graph_endpoints_ax2
-        ):
+        for line in lattice_graph_plots_ax1 + lattice_graph_endpoints_ax1 + lattice_graph_plots_ax2 + lattice_graph_endpoints_ax2:
             line.set_data([], [])
         return
 
     edge_index = 0
     for edge in pl.lattice.edges:
         if edge_index < MAX_LATTICE_SIZE:
-            lattice_graph_plots_ax1[edge_index].set_data(
-                edge.local_trajectory.path_x, edge.local_trajectory.path_y
-            )
+            lattice_graph_plots_ax1[edge_index].set_data(edge.local_trajectory.path_x, edge.local_trajectory.path_y)
             lattice_graph_plots_ax2[edge_index].set_data(
                 edge.local_trajectory.path_s_from_parent,
                 edge.local_trajectory.path_d_from_parent,
@@ -322,7 +333,6 @@ def update_lattice_graph_plots(pl: Planner, show_plot=True):
     return
 
 
-
 def update_local_plan_plots(pl: Planner, show_plot=True):
     if not show_plot or pl.selected_local_plan is None:
         for i in range(MAX_PLAN_LENGTH):
@@ -338,9 +348,7 @@ def update_local_plan_plots(pl: Planner, show_plot=True):
         s = pl.selected_local_plan.local_trajectory.path_s_from_parent[pl.selected_local_plan.local_trajectory.current_wp]
         d = pl.selected_local_plan.local_trajectory.path_d_from_parent[pl.selected_local_plan.local_trajectory.current_wp]
 
-        x_n, y_n = pl.selected_local_plan.local_trajectory.get_xy_by_waypoint(
-            pl.selected_local_plan.local_trajectory.next_wp
-        )
+        x_n, y_n = pl.selected_local_plan.local_trajectory.get_xy_by_waypoint(pl.selected_local_plan.local_trajectory.next_wp)
         s_n = pl.selected_local_plan.local_trajectory.path_s_from_parent[pl.selected_local_plan.local_trajectory.next_wp]
         d_n = pl.selected_local_plan.local_trajectory.path_d_from_parent[pl.selected_local_plan.local_trajectory.next_wp]
 
@@ -369,7 +377,7 @@ def __update_local_plan_plots(v: Edge, index: int = 0):
         __update_local_plan_plots(v.selected_next_local_plan, index + 1)
 
 
-def update_state_plots(state: VehicleState, global_trajectory: Trajectory, show_plot=True):
+def update_state_plots(state: EgoState, global_trajectory: Trajectory, show_plot=True):
     if not show_plot:
         car_heading_plot.set_data([], [])
         car_location_plot.set_data([], [])
@@ -388,15 +396,30 @@ def update_state_plots(state: VehicleState, global_trajectory: Trajectory, show_
     car_heading_plot.set_data([car_x_front, car_x_rear], [car_y_front, car_y_rear])
     car_location_plot.set_data([state.x], [state.y])
 
-    ego_vehicle_ax1.set_xy(state.get_corners())
+    ego_vehicle_ax1.set_xy(state.get_bb_corners())
 
     # sd_corners = [p for p in zip(* global_trajectory.convert_xy_path_to_sd_path(state.get_corners()))]
-    sd_corners = global_trajectory.convert_xy_path_to_sd_path_np(state.get_corners())
+    sd_corners = global_trajectory.convert_xy_path_to_sd_path_np(state.get_bb_corners())
 
     if np.abs(sd_corners[0][0] - sd_corners[1][0]) < 10:
         ego_vehicle_ax2.set_xy(np.array(sd_corners))
     else:
         ego_vehicle_ax2.set_xy(np.empty((0, 2)))
+
+
+def update_env_plots(env: Environment, show_plot=True):
+    if not show_plot:
+        for i, agent in enumerate(env.agent_vehicles):
+            env_plots_ax1[i].set_xy(np.empty((0, 2)))
+            env_plots_ax2[i].set_xy(np.empty((0, 2)))
+        return
+
+    for i, agent in enumerate(env.agent_vehicles):
+        if i >= MAX_AGENT_COUNT:
+            log.warning(f"Exceeded maximum number of agents: {MAX_AGENT_COUNT}")
+            break
+        env_plots_ax1[i].set_xy(agent.get_bb_corners())
+
 
 
 def set_plot_theme(bg_color="white", fg_color="black"):
