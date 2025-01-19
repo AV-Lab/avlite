@@ -69,7 +69,6 @@ class Node:
         )
 
 
-@dataclass
 class Edge:
     start: Node
     end: Node
@@ -81,8 +80,7 @@ class Edge:
     risk: float = 0
 
 
-    @staticmethod
-    def edge_factory(start: Node, end: Node, global_tj: Trajectory, num_of_points=30) -> "Edge":
+    def __init__(self,start: Node, end: Node, global_tj: Trajectory, num_of_points=30):
         local_trajectory = global_tj.create_quintic_trajectory_sd(
             s_start=start.s,
             d_start=start.d,
@@ -90,9 +88,13 @@ class Edge:
             d_end=end.d,
             num_points=num_of_points,
         )
-        edge = Edge(start, end, local_trajectory, None, [], num_of_points)
+        self.start = start
+        self.end = end
+        self.local_trajectory = local_trajectory
+        self.selected_next_local_plan = None
+        self.next_edges = []
+        self.num_of_points = num_of_points
 
-        return edge
 
 
 class Lattice:
@@ -151,7 +153,7 @@ class Lattice:
             for node in self.lattice_nodes_by_level[l]:
                 for next_node in self.lattice_nodes_by_level[l + 1]:
                     assert node != next_node
-                    edge = Edge.edge_factory(node, next_node, self.global_trajectory)
+                    edge = Edge(node, next_node, self.global_trajectory)
                     self.edges.append(edge)
                     self.incoming_edges[next_node].append(edge)
                     self.outgoing_edges[node].append(edge)
@@ -160,6 +162,7 @@ class Lattice:
                 for e in self.incoming_edges[node]:
                     for o in self.outgoing_edges[node]:
                         e.next_edges.append(o)
+
     def reset(self):
         self.lattice_nodes_by_level.clear()
         self.incoming_edges.clear()

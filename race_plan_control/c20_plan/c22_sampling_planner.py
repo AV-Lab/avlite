@@ -1,11 +1,8 @@
-from os import wait
+from c10_perceive.c11_environment import Environment
 from c20_plan.c21_planner import Planner
-from c20_plan.c23_lattice import Edge, Node, Lattice
-from typing import Optional, Dict
+from c20_plan.c23_lattice import Lattice
 import numpy as np
 import logging
-from icecream import ic
-from collections import defaultdict
 
 
 log = logging.getLogger(__name__)
@@ -14,16 +11,17 @@ log = logging.getLogger(__name__)
 class RNDPlanner(Planner):
     def __init__(
         self,
-        reference_path,
-        ref_left_boundary_d,
-        ref_right_boundary_d,
+        global_path: list[tuple[float, float]],
+        ref_left_boundary_d: list[float],
+        ref_right_boundary_d: list[float],
+        env: Environment,
         num_of_edge_points=10,
         planning_horizon=3,
         maneuver_distance=20,
         boundary_clearance=1,
         sample_size=3,
     ):
-        super().__init__(reference_path, ref_left_boundary_d, ref_right_boundary_d)
+        super().__init__(global_path, ref_left_boundary_d, ref_right_boundary_d, env=env)
         self.planning_horizon: int = planning_horizon
         self.maneuver_distance: float = maneuver_distance
         self.boundary_clearance: int = boundary_clearance
@@ -42,7 +40,6 @@ class RNDPlanner(Planner):
         if len(self.traversed_s) == 0:
             log.debug("Location unkown. Cannot replan")
             return
-
 
         # delete previous plans
         self.lattice.reset()

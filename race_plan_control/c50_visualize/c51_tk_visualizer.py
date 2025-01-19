@@ -1,8 +1,6 @@
-import x50_visualize.x52_plot as x52_plot
-from x40_execute.x41_executer import Executer
-
-from matplotlib import colors
-
+from c10_perceive.c12_state import AgentState
+import c50_visualize.c52_plot as c52_plot
+from c40_execute.c41_executer import Executer
 
 import tkinter as tk
 from tkinter import ttk
@@ -54,6 +52,7 @@ class VisualizerApp(tk.Tk):
         self.exec_option = tk.StringVar(value="Basic")
         self.debug_option = tk.StringVar(value="INFO")
 
+        self.show_perceive_logs = tk.BooleanVar(value=True)
         self.show_plan_logs = tk.BooleanVar(value=True)
         self.show_control_logs = tk.BooleanVar(value=True)
         self.show_execute_logs = tk.BooleanVar(value=True)
@@ -97,9 +96,9 @@ class VisualizerApp(tk.Tk):
         self.xy_zoom = 30
         self.frenet_zoom = 30
 
-        self.fig = x52_plot.fig
-        self.ax1 = x52_plot.ax1
-        self.ax2 = x52_plot.ax2
+        self.fig = c52_plot.fig
+        self.ax1 = c52_plot.ax1
+        self.ax2 = c52_plot.ax2
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -107,6 +106,7 @@ class VisualizerApp(tk.Tk):
 
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
+        self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
         self._prev_scroll_time = None  # used to throttle the replot
 
         # ----------------------------------------------------------------------
@@ -132,18 +132,79 @@ class VisualizerApp(tk.Tk):
         # Shortcut frame
         # ------------------------------------------------------
         self.shortcut_frame = ttk.LabelFrame(self, text="Shortcuts")
-        self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=6)
+        self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=7)
         key_binding_info = """
-App:     Q - Quit             S - Toggle shortcut          D - Toggle Dark Mode        R - Reload imports     
-         + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out F
-Execute: c - Step Execution   t - Reset execution          x - Toggle execution
-Plan:    n - Step plan        r - Replan            
-Control: h - Control Step     g - Re-align control         w - Accelerate 
-         a - Steer left       d - Steer right              s - Deccelerate
+Perceive: 
+Plan:     n - Step plan        r - Replan            
+Control:  h - Control Step     g - Re-align control         w - Accelerate 
+          a - Steer left       d - Steer right              s - Deccelerate
+Visalize: Q - Quit             S - Toggle shortcut          D - Toggle Dark Mode        R - Reload imports     
+          + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out F
+Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
          """.strip()
         self.help_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
         self.help_text.insert(tk.END, key_binding_info)
         self.help_text.config(state=tk.DISABLED)  # Make the text area read-only
+
+
+        # ----------------------------------------------------------------------
+        # Percieve Plan Control Frame -----------------------------------------
+        # ----------------------------------------------------------------------
+
+        self.perceive_plan_control_frame = ttk.Frame(self)
+        self.perceive_plan_control_frame.pack(fill=tk.X)
+        # ----------------------------------------------------------------------
+        ## Perceive Frame
+        # ----------------------------------------------------------------------
+        self.perceive_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Perceive")
+        self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
+        self.vehicle_state_label = ttk.Label(self.perceive_frame, text="")
+        self.vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, pady=5)
+
+        self.coordinates_label = ttk.Label(self.perceive_frame, text="Spawn Agent: Click on the plot.")
+        self.coordinates_label.pack(side=tk.LEFT, pady=5)
+        # ----------------------------------------------------------------------
+
+        # ----------------------------------------------------------------------
+        ## Plan frame
+        # ----------------------------------------------------------------------
+        self.plan_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Plan (Manual)")
+        self.plan_frame.pack(fill=tk.X, expand=True, side=tk.LEFT, padx=5, pady=5)
+
+        wp_frame = ttk.Frame(self.plan_frame)
+        wp_frame.pack(fill=tk.X)
+
+        ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
+        self.global_tj_wp_entry = ttk.Entry(wp_frame, width=6)
+        self.global_tj_wp_entry.insert(0, "0")
+        self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
+        ttk.Label(wp_frame, text=f"{len(self.exec.planner.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT)
+        ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # ----------------------------------------------------------------------
+        ## Control Frame
+        # ----------------------------------------------------------------------
+        self.control_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Control (Manual)")
+        self.control_frame.pack(fill=tk.X, expand=True, side=tk.LEFT)
+        dt_frame = ttk.Frame(self.control_frame)
+        dt_frame.pack(fill=tk.X)
+        ttk.Label(dt_frame, text="Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        self.dt_entry = ttk.Entry(dt_frame, width=5)
+        self.dt_entry.insert(2, "0.1")
+        self.dt_entry.pack(side=tk.LEFT, padx=5)
+        ttk.Button(dt_frame, text="Control Step", command=self.step_control).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(dt_frame, text="Re-align", command=self.align_control).pack(side=tk.LEFT)  # Re-alignes with plan
+
+        ttk.Button(self.control_frame, text="Steer Left", command=self.step_steer_left).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="Steer Right", command=self.step_steer_right).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="Accelerate", command=self.step_acc).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="Deccelerate", command=self.step_dec).pack(side=tk.LEFT)
+
+        # ----------------------------------------------------------------------
+        # -End of Perceive Plan Contorl Frame --------------------------------------
+        # ----------------------------------------------------------------------
 
         # ----------------------------------------------------------------------
         # Visualize + Exec ------------------------------------------------
@@ -211,7 +272,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         # Visualize frame setup
         # ----------------------------------------------------------------------
         self.visualize_frame = ttk.LabelFrame(self.vis_exec_frame, text="Visualize")
-        self.visualize_frame.pack(side=tk.LEFT)
+        self.visualize_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         ## UI Elements for Visualize - Checkboxes
         checkboxes_frame = ttk.Frame(self.visualize_frame)
@@ -273,65 +334,6 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         ttk.Button(zoom_frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
 
         # ----------------------------------------------------------------------
-        # Percieve Plan Control Frame -----------------------------------------
-        # ----------------------------------------------------------------------
-
-        self.perceive_plan_control_frame = ttk.Frame(self)
-        self.perceive_plan_control_frame.pack(fill=tk.X)
-        # ----------------------------------------------------------------------
-        ## Perceive Frame
-        # ----------------------------------------------------------------------
-        self.perceive_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Perceive")
-        self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
-        self.vehicle_state_label = ttk.Label(self.perceive_frame, text="")
-        self.vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, pady=5)
-
-        self.coordinates_label = ttk.Label(self.perceive_frame, text="Spawn Agent: Click on the plot.")
-        self.coordinates_label.pack(side=tk.LEFT, pady=5)
-        # ----------------------------------------------------------------------
-
-        # ----------------------------------------------------------------------
-        ## Plan frame
-        # ----------------------------------------------------------------------
-        self.plan_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Plan (Manual)")
-        self.plan_frame.pack(fill=tk.X, side=tk.LEFT, padx=5, pady=5)
-
-        wp_frame = ttk.Frame(self.plan_frame)
-        wp_frame.pack(fill=tk.X)
-
-        ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
-        self.global_tj_wp_entry = ttk.Entry(wp_frame, width=6)
-        self.global_tj_wp_entry.insert(0, "0")
-        self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Label(wp_frame, text=f"{len(self.exec.planner.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(self.plan_frame, text="Replan", command=self.replan).pack(side=tk.LEFT)
-        ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        # ----------------------------------------------------------------------
-        ## Control Frame
-        # ----------------------------------------------------------------------
-        self.control_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Control (Manual)")
-        self.control_frame.pack(fill=tk.X, side=tk.LEFT)
-        dt_frame = ttk.Frame(self.control_frame)
-        dt_frame.pack(fill=tk.X)
-        ttk.Label(dt_frame, text="Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_entry = ttk.Entry(dt_frame, width=5)
-        self.dt_entry.insert(2, "0.1")
-        self.dt_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Button(dt_frame, text="Control Step", command=self.step_control).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(dt_frame, text="Re-align", command=self.align_control).pack(side=tk.LEFT)  # Re-alignes with plan
-
-        ttk.Button(self.control_frame, text="Steer Left", command=self.step_steer_left).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="Steer Right", command=self.step_steer_right).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="Accelerate", command=self.step_acc).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="Deccelerate", command=self.step_dec).pack(side=tk.LEFT)
-
-        # ----------------------------------------------------------------------
-        # -End of Perceive Plan Contorl Frame --------------------------------------
-        # ----------------------------------------------------------------------
-
-        # ----------------------------------------------------------------------
         # - Log Frame
         # ----------------------------------------------------------------------
         self.log_frame = ttk.LabelFrame(self, text="Log")
@@ -339,6 +341,16 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
         log_cb_frame = ttk.Frame(self.log_frame)
         log_cb_frame.pack(fill=tk.X)
+
+        self.ck_perceive = ttk.Checkbutton(
+            log_cb_frame,
+            text="Perceive",
+            variable=self.show_perceive_logs,
+            command=self.update_log_filter,
+        )
+        self.ck_perceive.pack(side=tk.LEFT)
+        self.ck_perceive.state(["!alternate"])
+        self.ck_perceive.state(["selected"])
 
         self.ck_plan = ttk.Checkbutton(
             log_cb_frame,
@@ -477,7 +489,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.configure(bg="black")
         self.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-        x52_plot.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
+        c52_plot.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
 
         try:
             from ttkthemes import ThemedStyle
@@ -492,7 +504,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         self.configure(bg="white")
         self.log_area.config(bg="white", fg="black")
         self.help_text.config(bg="white", fg="black")
-        x52_plot.set_plot_theme(bg_color="white", fg_color="black")
+        c52_plot.set_plot_theme(bg_color="white", fg_color="black")
         # reset the theme
         try:
             from ttkthemes import ThemedStyle
@@ -510,7 +522,7 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
-        x52_plot.plot(
+        c52_plot.plot(
             exec=self.exec,
             aspect_ratio=aspect_ratio,
             xy_zoom=self.xy_zoom,
@@ -548,6 +560,18 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
         else:
             # Optionally, clear the coordinates display when the mouse is not over the axes
             self.coordinates_label.config(text="Spawn Agent: Click on the plot.")
+
+
+    def on_mouse_click(self, event):
+        if event.inaxes == self.ax1:
+            x, y = event.xdata, event.ydata
+            agent = AgentState(x=x, y=y, theta=0, speed=0)
+            self.exec.env.add_agent_vehicle(agent)
+
+            self._replot()
+        elif event.inaxes == self.ax2:
+            s, d = event.xdata, event.ydata
+            self._replot()
 
     def on_mouse_scroll(self, event, increment=10):
         if event.inaxes == self.ax1:
@@ -687,10 +711,11 @@ Control: h - Control Step     g - Re-align control         w - Accelerate
 
     def update_log_filter(self):
         # based on blacklist, LogTextHandler will filter out the logs
+        (log_blacklist.discard("c10_perceive") if "selected" in self.ck_perceive.state() else log_blacklist.add("c10_perceive"))
         (log_blacklist.discard("c20_plan") if "selected" in self.ck_plan.state() else log_blacklist.add("c20_plan"))
         (log_blacklist.discard("c30_control") if "selected" in self.ck_control.state() else log_blacklist.add("c30_control"))
-        (log_blacklist.discard("x40_execute") if "selected" in self.ck_exec.state() else log_blacklist.add("x40_execute"))
-        (log_blacklist.discard("x50_visualize") if "selected" in self.ck_vis.state() else log_blacklist.add("x50_visualize"))
+        (log_blacklist.discard("c40_execute") if "selected" in self.ck_exec.state() else log_blacklist.add("c40_execute"))
+        (log_blacklist.discard("c50_visualize") if "selected" in self.ck_vis.state() else log_blacklist.add("c50_visualize"))
 
     def update_log_level(self):
         if self.rb_db_debug.instate(["selected"]):

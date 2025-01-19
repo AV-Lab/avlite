@@ -24,9 +24,8 @@ race_plan_control
 ```
 ## Project structure 
 The project is structured as follows:
-- Core components are prevised with `ci_` prefix, where `i` is the component number. For examplle `c10_control` is the controllers.
+- Core components are prevised with `ci_` prefix, where `i` is the component number. For examplle `c30_control` is the controllers.
 Utility.
-- Auxilary components are prefixed with `xi_` where `i` is the component number. For example `x50_visualizer` is the logger.
 - Within each coponent, each module has also number prefix. For example `c32_pid_controller` is the PID controller module `c30_control`.
 
 The goal is to be able to quicly navigate to the desired module by using the search function of the editor. It also provide a quick understanding on where the code belongs to.
