@@ -232,7 +232,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
         ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, width=5)
-        self.dt_exec_pl_entry.insert(0, ".7")
+        self.dt_exec_pl_entry.insert(0, "1.7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
 
         gruvbox_green = "#b8bb26"
