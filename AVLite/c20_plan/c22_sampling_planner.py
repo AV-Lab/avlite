@@ -41,6 +41,7 @@ class RNDPlanner(Planner):
             log.debug("Location unkown. Cannot replan")
             return
 
+        self.selected_local_plan = None
         # delete previous plans
         self.lattice.reset()
         self.lattice.sample_nodes(
