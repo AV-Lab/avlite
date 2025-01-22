@@ -8,7 +8,7 @@ import c30_control.c32_pid
 import c40_execute.c41_executer
 import c10_perceive.c12_state
 import c40_execute.c42_basic_sim_executer
-from race_plan_control.utils import load_config, reload_lib
+from utils import load_config, reload_lib
 
 import numpy as np
 
