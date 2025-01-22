@@ -264,9 +264,9 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         ttk.Radiobutton(exec_third_frame, text="ROS", variable=self.exec_option, value="ROS").pack(side=tk.LEFT)
         ttk.Radiobutton(exec_third_frame, text="Carla", variable=self.exec_option, value="Carla").pack(side=tk.LEFT)
 
-        ttk.Checkbutton(exec_third_frame, text="Control", variable=self.exec_control).pack(side=tk.RIGHT)
-        ttk.Checkbutton(exec_third_frame, text="Plan", variable=self.exec_plan).pack(side=tk.RIGHT)
-        ttk.Checkbutton(exec_third_frame, text="Percieve", variable=self.exec_perceive).pack(side=tk.RIGHT)
+        # ttk.Checkbutton(exec_third_frame, text="Control", variable=self.exec_control).pack(side=tk.RIGHT)
+        # ttk.Checkbutton(exec_third_frame, text="Plan", variable=self.exec_plan).pack(side=tk.RIGHT)
+        # ttk.Checkbutton(exec_third_frame, text="Percieve", variable=self.exec_perceive).pack(side=tk.RIGHT)
 
         # ----------------------------------------------------------------------
         # Visualize frame setup
@@ -345,6 +345,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_perceive = ttk.Checkbutton(
             log_cb_frame,
             text="Perceive",
+            state = "selected",
             variable=self.show_perceive_logs,
             command=self.update_log_filter,
         )
@@ -355,6 +356,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_plan = ttk.Checkbutton(
             log_cb_frame,
             text="Plan",
+            state = "selected",
             variable=self.show_plan_logs,
             command=self.update_log_filter,
         )
@@ -364,6 +366,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_control = ttk.Checkbutton(
             log_cb_frame,
             text="Control",
+            state = "selected",
             variable=self.show_control_logs,
             command=self.update_log_filter,
         )
@@ -373,6 +376,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_exec = ttk.Checkbutton(
             log_cb_frame,
             text="Execute",
+            state = "selected",
             variable=self.show_execute_logs,
             command=self.update_log_filter,
         )
@@ -383,6 +387,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_vis = ttk.Checkbutton(
             log_cb_frame,
             text="Visualize",
+            state = "selected",
             variable=self.show_vis_logs,
             command=self.update_log_filter,
         )
@@ -548,7 +553,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             self.exec = self.code_reload_function()
             self._replot()
         else:
-            log.warn("No code reload function provided.")
+            log.warning("No code reload function provided.")
 
     def on_mouse_move(self, event):
         if event.inaxes:
@@ -565,12 +570,12 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
     def on_mouse_click(self, event):
         if event.inaxes == self.ax1:
             x, y = event.xdata, event.ydata
-            agent = AgentState(x=x, y=y, theta=0, speed=0)
-            self.exec.env.add_agent_vehicle(agent)
+            self.exec.spawn_agent(x=x,y=y)
 
             self._replot()
         elif event.inaxes == self.ax2:
             s, d = event.xdata, event.ydata
+            self.exec.spawn_agent(d=d, s=s)
             self._replot()
 
     def on_mouse_scroll(self, event, increment=10):
@@ -629,7 +634,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         # Placeholder for the method to step to the next waypoint
         t1 = time.time()
         self.exec.planner.step_wp()
-        log.info(f"Step Time: {(time.time()-t1)*1000:.2f} ms")
+        log.info(f"Plan Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.global_tj_wp_entry.delete(0, tk.END)
         self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.next_wp - 1))
         self._replot()
@@ -643,7 +648,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         steer = self.exec.controller.control(d)
 
         dt = float(self.dt_entry.get())
-        self.exec.update_state(steering_angle=steer, dt=dt)
+        self.exec.update_ego_state(steering_angle=steer, dt=dt)
         self._replot()
 
     def align_control(self):
@@ -654,22 +659,22 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
-        self.exec.update_state(dt=dt, steering_angle=0.1)
+        self.exec.update_ego_state(dt=dt, steering_angle=0.1)
         self._replot()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
-        self.exec.update_state(dt=dt, steering_angle=-0.1)
+        self.exec.update_ego_state(dt=dt, steering_angle=-0.1)
         self._replot()
 
     def step_acc(self):
         dt = float(self.dt_entry.get())
-        self.exec.update_state(dt=dt, acceleration=8)
+        self.exec.update_ego_state(dt=dt, acceleration=8)
         self._replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
-        self.exec.update_state(dt=dt, acceleration=-8)
+        self.exec.update_ego_state(dt=dt, acceleration=-8)
         self._replot()
 
     # --------------------------------------------------------------------------------------------
@@ -710,12 +715,15 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self._replot()
 
     def update_log_filter(self):
+        log.info("Log filter updated.")
         # based on blacklist, LogTextHandler will filter out the logs
-        (log_blacklist.discard("c10_perceive") if "selected" in self.ck_perceive.state() else log_blacklist.add("c10_perceive"))
-        (log_blacklist.discard("c20_plan") if "selected" in self.ck_plan.state() else log_blacklist.add("c20_plan"))
-        (log_blacklist.discard("c30_control") if "selected" in self.ck_control.state() else log_blacklist.add("c30_control"))
-        (log_blacklist.discard("c40_execute") if "selected" in self.ck_exec.state() else log_blacklist.add("c40_execute"))
-        (log_blacklist.discard("c50_visualize") if "selected" in self.ck_vis.state() else log_blacklist.add("c50_visualize"))
+        (log_blacklist.discard("c10_perceive") if self.show_perceive_logs.get() else log_blacklist.add("c10_perceive"))
+        (log_blacklist.discard("c20_plan") if self.show_plan_logs.get() else log_blacklist.add("c20_plan"))
+        (log_blacklist.discard("c30_control") if self.show_control_logs.get() else log_blacklist.add("c30_control"))
+        (log_blacklist.discard("c40_execute") if self.show_execute_logs.get() else log_blacklist.add("c40_execute"))
+        (log_blacklist.discard("c50_visualize") if self.show_vis_logs.get() else log_blacklist.add("c50_visualize"))
+        
+
 
     def update_log_level(self):
         if self.rb_db_debug.instate(["selected"]):

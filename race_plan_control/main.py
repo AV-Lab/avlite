@@ -1,4 +1,3 @@
-from os import wait
 from c50_visualize.c51_tk_visualizer import VisualizerApp
 import c10_perceive.c11_environment 
 import c10_perceive.c12_state 
@@ -8,6 +7,7 @@ import c20_plan.c24_trajectory
 import c30_control.c32_pid
 import c40_execute.c41_executer
 import c10_perceive.c12_state
+import c40_execute.c42_basic_sim_executer
 from race_plan_control.utils import load_config, reload_lib
 
 import numpy as np
@@ -24,11 +24,11 @@ def get_executer(config_path="config.yaml", source_run=True):
     Enivronment = c10_perceive.c11_environment.Environment
     RNDPlanner = c20_plan.c22_sampling_planner.RNDPlanner
     PIDController = c30_control.c32_pid.PIDController
-    Executer = c40_execute.c41_executer.Executer
+    BasicSimExecuter = c40_execute.c42_basic_sim_executer.BasicSimExecuter
     EgoState = c10_perceive.c12_state.EgoState
 
-    env = Enivronment() 
     ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=30, theta=-np.pi / 4)
+    env = Enivronment(ego_state) 
     pl = RNDPlanner(
         global_path=reference_path,
         ref_left_boundary_d=ref_left_boundary_d,
@@ -36,7 +36,7 @@ def get_executer(config_path="config.yaml", source_run=True):
         env=env
     )
     cn = PIDController()
-    executer = Executer(env, ego_state, pl, cn)
+    executer = BasicSimExecuter(env, ego_state, pl, cn)
 
     return executer
 

@@ -3,23 +3,25 @@ from c20_plan.c21_planner import Planner
 from c30_control.c31_controller import Controller
 from c10_perceive.c12_state import EgoState
 
+from abc import ABC, abstractmethod
+
 import logging
 import numpy as np
 import time
-import math
+from c10_perceive.c12_state import AgentState
 
 log = logging.getLogger(__name__)
 
 
-class Executer():
-    def __init__(self, env: Environment, state: EgoState, pl: Planner, cn: Controller):
+class Executer(ABC):
+    def __init__(self, env: Environment, ego_state: EgoState, pl: Planner, cn: Controller):
         self.env = env
-        self.ego_state = state
+        self.ego_state = ego_state
         self.planner = pl
         self.controller = cn
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
-        
+
         self.__prev_exec_time = None
         self.__time_since_last_replan = 0
 
@@ -32,7 +34,6 @@ class Executer():
         # update planner location
         self.planner.step(self.ego_state)
 
-
         local_tj = self.planner.get_local_plan()
         _, cte = local_tj.convert_xy_to_sd(self.ego_state.x, self.ego_state.y)
 
@@ -41,7 +42,7 @@ class Executer():
         steering_angle = np.clip(steering_angle, -self.ego_state.max_steering, self.ego_state.max_steering)
         t2 = time.time()
         t3 = time.time()
-        self.update_state(dt=control_dt, steering_angle=steering_angle)
+        self.update_ego_state(dt=control_dt, steering_angle=steering_angle)
         t4 = time.time()
 
         self.elapsed_sim_time += control_dt
@@ -68,12 +69,25 @@ class Executer():
         self.elapsed_sim_time = 0
 
     
-    def update_state(self, dt=0.01, acceleration=0, steering_angle=0) -> EgoState:
-        self.ego_state.x += self.ego_state.speed * math.cos(self.ego_state.theta) * dt
-        self.ego_state.y += self.ego_state.speed * math.sin(self.ego_state.theta) * dt
-        self.ego_state.speed += acceleration * dt
-        self.ego_state.theta += self.ego_state.speed / self.ego_state.L_f * steering_angle * dt
-        return self.ego_state
+    def spawn_agent(self, x=None, y=None, s=None, d=None, theta=None):
+        if x is not None and y is not None:
+            t = self.ego_state.theta if theta is None else theta
+            agent = AgentState(x=x, y=y, theta=t, speed=0)
+        elif s is not None and d is not None:
+            # Convert (s, d) to (x, y) using some transformation logic
+            x,y = self.planner.global_trajectory.convert_sd_to_xy(s, d)
+            log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
+            log.info(f"Ego State: {self.ego_state}")
+            t = self.ego_state.theta if theta is None else theta
+            agent = AgentState(x=x, y=y, theta=t, speed=0)
+        else:
+            raise ValueError("Either (x, y) or (s, d) must be provided")
+        
+        self.env.add_agent_vehicle(agent)
+
+    @abstractmethod
+    def update_ego_state(self, dt=0.01, acceleration=0, steering_angle=0) -> EgoState:
+        pass
 
 
 if __name__ == "__main__":

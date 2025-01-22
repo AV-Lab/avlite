@@ -125,8 +125,8 @@ ax2.add_patch(ego_vehicle_ax2)
 env_plots_ax1 = []
 env_plots_ax2 = []
 for _ in range(MAX_AGENT_COUNT):
-    agent_vehicle_ax1 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="g", facecolor="azure", alpha=0.7)
-    agent_vehicle_ax2 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="g", facecolor="azure", alpha=0.7)
+    agent_vehicle_ax1 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6)
+    agent_vehicle_ax2 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6)
     ax1.add_patch(agent_vehicle_ax1)
     ax2.add_patch(agent_vehicle_ax2)
     env_plots_ax1.append(agent_vehicle_ax1)
@@ -227,7 +227,7 @@ def plot(
     update_state_plots(exec.ego_state, exec.planner.global_trajectory, plot_state)
 
     # update Environment
-    update_env_plots(exec.env, plot_env)
+    update_env_plots(exec.env, exec.planner.global_trajectory,  plot_env)
 
     redraw_plots()
 
@@ -407,18 +407,24 @@ def update_state_plots(state: EgoState, global_trajectory: Trajectory, show_plot
         ego_vehicle_ax2.set_xy(np.empty((0, 2)))
 
 
-def update_env_plots(env: Environment, show_plot=True):
-    if not show_plot:
-        for i, agent in enumerate(env.agent_vehicles):
+def update_env_plots(env: Environment, global_trajectory: Trajectory, show_plot=True):
+    if not show_plot or len(env.agent_vehicles) == 0:
+        log.info("No agents to plot")
+        for i in range(MAX_AGENT_COUNT):
             env_plots_ax1[i].set_xy(np.empty((0, 2)))
             env_plots_ax2[i].set_xy(np.empty((0, 2)))
         return
 
-    for i, agent in enumerate(env.agent_vehicles):
+    
+    def transform(row):
+        log.info(f"Transforming: {row[0]}, {row[1]}")
+        return global_trajectory.convert_xy_to_sd(row[0], row[1])
+    for i, agent in enumerate(env.agent_vehicles):    
         if i >= MAX_AGENT_COUNT:
             log.warning(f"Exceeded maximum number of agents: {MAX_AGENT_COUNT}")
             break
         env_plots_ax1[i].set_xy(agent.get_bb_corners())
+        env_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
 
 
 
