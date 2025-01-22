@@ -44,11 +44,13 @@ class Trajectory:
     current_wp: int
     next_wp: int
 
-    poly_d: Polynomial
-    poly_x: Polynomial
-    poly_y: Polynomial
-    parent_trajectory: "Trajectory"
     name: str
+    poly_d:Optional[Polynomial]  # for local trajectory
+    poly_x: Optional[Polynomial] = None
+    poly_y: Optional[Polynomial] = None
+    parent_trajectory: "Trajectory" 
+    path_s_from_parent: Optional[list]  = None
+    path_d_from_parent: Optional[list] = None
 
     def __init__(self, reference_xy_path, name="Global Trajectory"):
         """
@@ -66,11 +68,6 @@ class Trajectory:
 
         self.current_wp = 0
         self.next_wp = 1
-
-        self.poly_d: Polynomial = None  # for local trajectory
-        self.parent_trajectory: Optional("Trajectory") = None
-        self.path_s_from_parent: Optional[list]  = None
-        self.path_d_from_parent: Optional[list] = None
 
     def get_current_xy(self) -> tuple[float, float]:
         """

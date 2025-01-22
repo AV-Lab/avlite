@@ -1,10 +1,16 @@
 import numpy as np
-from typing import Optional
+from shapely.geometry import Polygon
 
 import logging
 log = logging.getLogger(__name__)
 
 class State:
+    x:float
+    y:float
+    theta:float
+    width:float
+    length:float
+
     def __init__(self, x=0.0, y=0.0, theta=-np.pi / 4, width=2.0, length=4.5):
         self.x:float  = x
         self.y:float = y
@@ -57,11 +63,16 @@ class State:
 
         return np.c_[rotated_corners_x, rotated_corners_y]
 
+    def get_bb_polygon(self):
+        return Polygon(self.get_bb_corners())
+
     def get_transformed_bb_corners(self, func):
         corners = self.get_bb_corners()
         return np.apply_along_axis(func, 1, corners)
 
 class AgentState(State):
+    speed:float
+
     def __init__(self, x=0.0, y=0.0, theta=-np.pi / 4, speed=0.0, width=2.0, length=4.5):
         self.speed:float = speed
 
@@ -82,6 +93,12 @@ class AgentState(State):
 
 
 class EgoState(AgentState):
+    max_speed:float
+    max_acceleration:float
+    max_deceleration:float
+    max_steering:float
+    L_f:float
+
     def __init__(
         self,
         x=0.0,
