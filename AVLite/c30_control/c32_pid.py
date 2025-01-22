@@ -44,7 +44,4 @@ class PIDController(Controller):
         self.cte_prev = 0
 
 
-import race_plan_control.main as main
 
-if __name__ == "__main__":
-    main.run()

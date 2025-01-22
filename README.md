@@ -3,6 +3,8 @@ The stack provides a clear logical abstraction of the autonomous vehicle driving
 from lower-level technical details when not needed. The code also includes tools for hot reloading and debugging, 
 making it easier to develop and test the code while running the stack.
 
+![](docs/imgs/tk_visualizer.png)
+
 ## Installation
 
 To install the package from source 
@@ -11,7 +13,7 @@ pip install -r requirements.txt
 ```
 To run the package from source:
 ```bash
-python race_plan_control/main.py
+python AVLite/main.py
 ```
 
 To install the package system wide:
@@ -20,7 +22,7 @@ pip install .
 ```
 To run the package system wide:
 ```bash
-race_plan_control
+AVLite
 ```
 ## Project structure 
 The project is structured as follows:
@@ -31,8 +33,6 @@ Utility.
 The goal is to be able to quicly navigate to the desired module by using the search function of the editor. It also provide a quick understanding on where the code belongs to.
 
 
-## Local Planner
-![](docs/imgs/tk_visualizer.png)
 
 
 

@@ -93,7 +93,3 @@ class Executer(ABC):
         pass
 
 
-if __name__ == "__main__":
-    import race_plan_control.main as main
-
-    main.run()
