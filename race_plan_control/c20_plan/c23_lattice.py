@@ -1,4 +1,5 @@
 from os import wait
+from c10_perceive.c11_environment import Environment
 from c20_plan.c24_trajectory import Trajectory
 from typing import Dict
 from dataclasses import dataclass, field
@@ -76,9 +77,9 @@ class Edge:
     selected_next_local_plan: Optional["Edge"]
     next_edges: list["Edge"] = field(default_factory=list["Edge"])
     num_of_points: int = 30
+    collision: bool = False
     cost: float = 0
     risk: float = 0
-
 
     def __init__(self,start: Node, end: Node, global_tj: Trajectory, num_of_points=30):
         local_trajectory = global_tj.create_quintic_trajectory_sd(
@@ -148,12 +149,14 @@ class Lattice:
 
 
 
-    def generate_lattice_from_nodes(self):
+    def generate_lattice_from_nodes(self, env: Optional[Environment] = None):
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
                 for next_node in self.lattice_nodes_by_level[l + 1]:
                     assert node != next_node
                     edge = Edge(node, next_node, self.global_trajectory)
+                    if env is not None:
+                        edge.collision = not env.is_tj_collision_free(edge.local_trajectory)
                     self.edges.append(edge)
                     self.incoming_edges[next_node].append(edge)
                     self.outgoing_edges[node].append(edge)

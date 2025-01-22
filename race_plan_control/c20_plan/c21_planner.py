@@ -10,6 +10,20 @@ log = logging.getLogger(__name__)
 
 
 class Planner(ABC):
+    global_trajectory: Trajectory
+    ref_left_boundary_d: list[float]
+    ref_right_boundary_d: list[float]
+    ref_left_boundary_x: list[float]
+    ref_left_boundary_y: list[float]
+    ref_right_boundary_x: list[float]
+    ref_right_boundary_y: list[float]
+    traversed_x: list[float]
+    traversed_y: list[float]
+    traversed_d: list[float]
+    traversed_s: list[float]
+    location_xy: tuple[float, float]
+    location_sd: tuple[float, float]
+    lap: int = 0
 
     def __init__(
         self,
@@ -18,18 +32,8 @@ class Planner(ABC):
         ref_right_boundary_d: list[float],
         env: Environment,
     ):
-        self.global_trajectory: Trajectory
-        self.ref_left_boundary_d: list[float]
-        self.ref_right_boundary_d: list[float]
-        self.ref_left_boundary_x: list[float]
-        self.ref_left_boundary_y: list[float]
-        self.ref_right_boundary_x: list[float]
-        self.ref_right_boundary_y: list[float]
-        self.lap: int = 0
-        self.traversed_x: list[float]
-        self.traversed_y: list[float]
-        self.traversed_d: list[float]
-        self.traversed_s: list[float]
+        
+        self._env = env
 
 
         self.global_trajectory = Trajectory(global_path)
@@ -53,7 +57,6 @@ class Planner(ABC):
         self.selected_local_plan: Optional[Edge] = None
         self.lattice = Lattice(self.global_trajectory, ref_left_boundary_d, ref_right_boundary_d)
 
-        self._env = env
 
     def reset(self, wp=0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]

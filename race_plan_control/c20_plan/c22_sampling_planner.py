@@ -50,15 +50,27 @@ class RNDPlanner(Planner):
             boundary_clearance=self.boundary_clearance,
             sample_size=self.sample_size,
         )
-        self.lattice.generate_lattice_from_nodes()
-        self.selected_local_plan = np.random.choice(self.lattice.level0_edges) if len(self.lattice.level0_edges) > 0 else None
-        edge = self.selected_local_plan
+
+        self.lattice.generate_lattice_from_nodes(env=self._env)
+
+        no_collision_edges = [edge for edge in self.lattice.level0_edges if not edge.collision]
+        if not no_collision_edges:
+            self.selected_local_plan = None
+            return
+
+        sorted_edges = sorted(no_collision_edges, key=lambda edge: abs(edge.end.d))
+        edge = sorted_edges[0]
+
+        self.selected_local_plan = edge
         while edge is not None and len(edge.next_edges) > 0:
-            edge.selected_next_local_plan = np.random.choice(edge.next_edges)
+            no_collision_edges = [edge for edge in edge.next_edges if not edge.collision]
+            if not no_collision_edges:
+                edge.selected_next_local_plan = None
+                break
+            sorted_edges = sorted(no_collision_edges, key=lambda edge: abs(edge.end.d))
+            edge.selected_next_local_plan = sorted_edges[0]
             edge = edge.selected_next_local_plan
 
-        log.debug(f"Sampled Lattice has {len(self.lattice.edges)} edges and {len(self.lattice.nodes)} nodes") 
+        log.debug(f"Sampled Lattice has {len(self.lattice.edges)} edges and {len(self.lattice.nodes)} nodes")
 
         return
-
-

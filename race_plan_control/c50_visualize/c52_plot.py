@@ -318,6 +318,13 @@ def update_lattice_graph_plots(pl: Planner, show_plot=True):
                 edge.local_trajectory.path_s_from_parent,
                 edge.local_trajectory.path_d_from_parent,
             )
+            if edge.collision:
+                lattice_graph_plots_ax1[edge_index].set_color("firebrick")
+                lattice_graph_plots_ax2[edge_index].set_color("firebrick")
+            else:
+                lattice_graph_plots_ax1[edge_index].set_color("lightskyblue")
+                lattice_graph_plots_ax2[edge_index].set_color("lightskyblue")
+
             lattice_graph_endpoints_ax1[edge_index].set_data(
                 [edge.local_trajectory.path_x[-1]],
                 [edge.local_trajectory.path_y[-1]],
@@ -409,7 +416,6 @@ def update_state_plots(state: EgoState, global_trajectory: Trajectory, show_plot
 
 def update_env_plots(env: Environment, global_trajectory: Trajectory, show_plot=True):
     if not show_plot or len(env.agent_vehicles) == 0:
-        log.info("No agents to plot")
         for i in range(MAX_AGENT_COUNT):
             env_plots_ax1[i].set_xy(np.empty((0, 2)))
             env_plots_ax2[i].set_xy(np.empty((0, 2)))
@@ -417,7 +423,6 @@ def update_env_plots(env: Environment, global_trajectory: Trajectory, show_plot=
 
     
     def transform(row):
-        log.info(f"Transforming: {row[0]}, {row[1]}")
         return global_trajectory.convert_xy_to_sd(row[0], row[1])
     for i, agent in enumerate(env.agent_vehicles):    
         if i >= MAX_AGENT_COUNT:

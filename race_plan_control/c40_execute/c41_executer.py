@@ -26,11 +26,13 @@ class Executer(ABC):
         self.__time_since_last_replan = 0
 
     def step(self, control_dt=0.01, replan_dt=None):
+        t0 = time.time()
         if replan_dt is not None:
             self.__time_since_last_replan += control_dt
             if self.__time_since_last_replan > replan_dt:
                 self.__time_since_last_replan = 0
                 self.planner.replan()
+
         # update planner location
         self.planner.step(self.ego_state)
 
@@ -50,7 +52,9 @@ class Executer(ABC):
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
 
-        log.info(f"Exec Step Time:{delta_t_exec:.3f}  | Control Time: {(t2-t1):.4f},  Plan Update Time: {(t4-t3):.4f}")
+        log.info(
+            f"Exec Step Time: {(t4-t0)*1000:.2f} ms | Plan Tim: {(t1 - t0)*1000:.2} ms, Control Time: {(t2-t1)*1000:.2f} ms,  Sim Step Time: {(t4-t3)*1000:.2f} ms"
+        )
         log.info(f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}")
 
     def run(self, control_dt=0.01, replan_dt=None, max_time=100):
@@ -68,21 +72,20 @@ class Executer(ABC):
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
 
-    
     def spawn_agent(self, x=None, y=None, s=None, d=None, theta=None):
         if x is not None and y is not None:
             t = self.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, speed=0)
         elif s is not None and d is not None:
             # Convert (s, d) to (x, y) using some transformation logic
-            x,y = self.planner.global_trajectory.convert_sd_to_xy(s, d)
+            x, y = self.planner.global_trajectory.convert_sd_to_xy(s, d)
             log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
             log.info(f"Ego State: {self.ego_state}")
             t = self.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, speed=0)
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")
-        
+
         self.env.add_agent_vehicle(agent)
 
     @abstractmethod
