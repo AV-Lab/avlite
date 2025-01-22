@@ -18,7 +18,7 @@ import c20_plan.c23_lattice
 import c20_plan.c24_trajectory
 import c30_control.c32_pid
 import c40_execute.c41_executer
-import c10_perceive.c12_state
+import c40_execute.c42_basic_sim_executer
 
 import logging
 log = logging.getLogger(__name__)
@@ -63,4 +63,5 @@ def reload_lib():
     importlib.reload(c20_plan.c24_trajectory)
     importlib.reload(c30_control.c32_pid)
     importlib.reload(c40_execute.c41_executer)
+    importlib.reload(c40_execute.c42_basic_sim_executer)
     importlib.reload(c10_perceive.c12_state)

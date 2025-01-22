@@ -1,13 +1,17 @@
 import numpy as np
+from typing import Optional
 
+import logging
+log = logging.getLogger(__name__)
 
 class State:
     def __init__(self, x=0.0, y=0.0, theta=-np.pi / 4, width=2.0, length=4.5):
-        self.x = x
-        self.y = y
-        self.theta = theta
-        self.width = width
-        self.length = length
+        self.x:float  = x
+        self.y:float = y
+        self.theta:float = theta
+        self.width:float = width
+        self.length:float = length
+
         # initial x,y position, useful for reset
         self.__init_x = x
         self.__init_y = y
@@ -53,11 +57,14 @@ class State:
 
         return np.c_[rotated_corners_x, rotated_corners_y]
 
+    def get_transformed_bb_corners(self, func):
+        corners = self.get_bb_corners()
+        return np.apply_along_axis(func, 1, corners)
 
 class AgentState(State):
-
     def __init__(self, x=0.0, y=0.0, theta=-np.pi / 4, speed=0.0, width=2.0, length=4.5):
-        self.speed: float = speed
+        self.speed:float = speed
+
         self.__init_speed = 0.0
         super().__init__(x, y, theta, width, length)
 
@@ -92,9 +99,9 @@ class EgoState(AgentState):
         super().__init__(x, y, theta, speed, width, length)
 
         # car parameters
-        self.max_speed = max_speed
-        self.max_acceleration = max_acceleration
-        self.max_deceleration = max_deceleration
-        self.max_steering = max_steering
+        self.max_speed:float = max_speed
+        self.max_acceleration:float = max_acceleration
+        self.max_deceleration:float = max_deceleration
+        self.max_steering:float = max_steering
         self.L_f = l_f  # Distance from center of mass to front axle
 
