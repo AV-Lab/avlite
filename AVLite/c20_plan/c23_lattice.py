@@ -1,11 +1,11 @@
-from os import wait
+
 from c10_perceive.c11_environment import Environment
 from c20_plan.c24_trajectory import Trajectory
 from typing import Dict
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
 import logging
-from icecream import ic
+
 import math
 import numpy as np
 from collections import defaultdict

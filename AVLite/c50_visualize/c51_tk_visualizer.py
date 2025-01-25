@@ -1,6 +1,7 @@
 from c10_perceive.c12_state import AgentState
 import c50_visualize.c52_plot as c52_plot
 from c40_execute.c41_executer import Executer
+from c50_visualize.c53_plot_view import PlotView
 
 import tkinter as tk
 from tkinter import ttk
@@ -32,7 +33,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         # Variables for checkboxes --------------------------------------------
         # ----------------------------------------------------------------------
-        self.plot_only_UI = tk.BooleanVar(value=only_visualize)
+        self.shortcut_mode = tk.BooleanVar(value=only_visualize)
         self.dark_mode = tk.BooleanVar(value=True)
 
         self.show_legend = tk.BooleanVar(value=True)
@@ -52,6 +53,7 @@ class VisualizerApp(tk.Tk):
         self.exec_option = tk.StringVar(value="Basic")
         self.debug_option = tk.StringVar(value="INFO")
 
+        # self.show_perceive_logs = tk.BooleanVar(value=True)
         self.show_perceive_logs = tk.BooleanVar(value=True)
         self.show_plan_logs = tk.BooleanVar(value=True)
         self.show_control_logs = tk.BooleanVar(value=True)
@@ -64,7 +66,7 @@ class VisualizerApp(tk.Tk):
         self.bind("Q", lambda e: self.quit())
         self.bind("R", lambda e: self._reload_stack())
         self.bind("D", lambda e: self._toggle_dark_mode_shortcut())
-        self.bind("S", lambda e: self._shortcut_mode())
+        self.bind("S", lambda e: self._set_shortcut_mode())
 
         self.bind("x", lambda e: self.toggle_exec())
         self.bind("c", lambda e: self.step_exec())
@@ -89,25 +91,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         # -Plot Frame ----------------------------------------------------------
         # ----------------------------------------------------------------------
-
-        self.plot_frame = ttk.Frame(self)
-        self.plot_frame.pack(fill=tk.BOTH, expand=True)
-
-        self.xy_zoom = 30
-        self.frenet_zoom = 30
-
-        self.fig = c52_plot.fig
-        self.ax1 = c52_plot.ax1
-        self.ax2 = c52_plot.ax2
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
-        self.canvas.draw()
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.after(300, self._replot)
-
-        self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
-        self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
-        self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
-        self._prev_scroll_time = None  # used to throttle the replot
+        self.plot_view = PlotView(self)
 
         # ----------------------------------------------------------------------
         # Config frame
@@ -118,7 +102,7 @@ class VisualizerApp(tk.Tk):
         ttk.Checkbutton(
             config_frame,
             text="Shortcut Mode",
-            variable=self.plot_only_UI,
+            variable=self.shortcut_mode,
             command=self._update_UI,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
@@ -281,43 +265,37 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             checkboxes_frame,
             text="Legend",
             variable=self.show_legend,
-            state="selected",
-            command=self._replot,
+            command=self.plot_view.replot,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Locations",
             variable=self.show_past_locations,
-            state="selected",
-            command=self._replot,
+            command=self.plot_view.replot,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Global Plan",
             variable=self.show_global_plan,
-            state="selected",
-            command=self._replot,
+            command=self.plot_view.replot,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Local Plan",
             variable=self.show_local_plan,
-            state="selected",
-            command=self._replot,
+            command=self.plot_view.replot,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Local Lattice",
             variable=self.show_local_lattice,
-            state="selected",
-            command=self._replot,
+            command=self.plot_view.replot,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="State",
             variable=self.show_state,
-            state="selected",
-            command=self._replot,
+            command=self.plot_view.replot,
         ).pack(anchor=tk.W, side=tk.LEFT)
 
         ## UI Elements for Visualize - Buttons
@@ -325,19 +303,19 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         zoom_global_frame.pack(fill=tk.X, padx=5)
 
         ttk.Label(zoom_global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="Zoom In", command=self.zoom_in).pack(side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="Zoom Out", command=self.zoom_out).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom In", command=self.plot_view.zoom_in).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom Out", command=self.plot_view.zoom_out).pack(side=tk.LEFT)
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
         ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(zoom_frenet_frame, text="Zoom In", command=self.zoom_in_frenet).pack(side=tk.LEFT)
-        ttk.Button(zoom_frenet_frame, text="Zoom Out", command=self.zoom_out_frenet).pack(side=tk.LEFT)
+        ttk.Button(zoom_frenet_frame, text="Zoom In", command=self.plot_view.zoom_in_frenet).pack(side=tk.LEFT)
+        ttk.Button(zoom_frenet_frame, text="Zoom Out", command=self.plot_view.zoom_out_frenet).pack(side=tk.LEFT)
 
         # ----------------------------------------------------------------------
         # - Log Frame
         # ----------------------------------------------------------------------
         self.log_frame = ttk.LabelFrame(self, text="Log")
-        self.log_frame.pack(fill=tk.X)
+        self.log_frame.pack(fill=tk.BOTH, expand=True)
 
         log_cb_frame = ttk.Frame(self.log_frame)
         log_cb_frame.pack(fill=tk.X)
@@ -345,18 +323,16 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_perceive = ttk.Checkbutton(
             log_cb_frame,
             text="Perceive",
-            state = "selected",
             variable=self.show_perceive_logs,
             command=self.update_log_filter,
         )
         self.ck_perceive.pack(side=tk.LEFT)
-        self.ck_perceive.state(["!alternate"])
-        self.ck_perceive.state(["selected"])
+        # self.ck_perceive.state(["!alternate"])
+        # self.ck_perceive.state(["selected"])
 
         self.ck_plan = ttk.Checkbutton(
             log_cb_frame,
             text="Plan",
-            state = "selected",
             variable=self.show_plan_logs,
             command=self.update_log_filter,
         )
@@ -366,7 +342,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_control = ttk.Checkbutton(
             log_cb_frame,
             text="Control",
-            state = "selected",
             variable=self.show_control_logs,
             command=self.update_log_filter,
         )
@@ -376,7 +351,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_exec = ttk.Checkbutton(
             log_cb_frame,
             text="Execute",
-            state = "selected",
             variable=self.show_execute_logs,
             command=self.update_log_filter,
         )
@@ -387,7 +361,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.ck_vis = ttk.Checkbutton(
             log_cb_frame,
             text="Visualize",
-            state = "selected",
             variable=self.show_vis_logs,
             command=self.update_log_filter,
         )
@@ -430,6 +403,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
         ttk.Label(log_cb_frame, text="Log Level:").pack(side=tk.RIGHT)
 
+
         self.log_area = ScrolledText(self.log_frame, state="disabled", height=8)
         self.log_area.pack(fill=tk.BOTH, expand=True)
 
@@ -439,7 +413,8 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
 
-        self.__dark_mode()
+        self.__set_dark_mode()
+        self._update_UI() #its confusing why I need to do this
 
         # -------------------------------------------
         # -Configure logging-------------------------
@@ -455,15 +430,15 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         logger.setLevel(logging.INFO)
         log.info("Log initialized.")
 
-    def _shortcut_mode(self):
-        if self.plot_only_UI.get():
-            self.plot_only_UI.set(False)
+    def _set_shortcut_mode(self):
+        if self.shortcut_mode.get():
+            self.shortcut_mode.set(False)
         else:
-            self.plot_only_UI.set(True)
+            self.shortcut_mode.set(True)
         self._update_UI()
 
     def _update_UI(self):
-        if self.plot_only_UI.get():
+        if self.shortcut_mode.get():
             self.vis_exec_frame.pack_forget()
             self.perceive_plan_control_frame.pack_forget()
             self.log_frame.pack_forget()
@@ -478,10 +453,13 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             self.perceive_plan_control_frame.pack(fill=tk.X)
             self.log_area.pack(fill=tk.BOTH, expand=True)
             self.log_frame.pack(fill=tk.X)
-        self._replot()
+
+        # max_height = int(self.winfo_height() * 0.4)
+        # self.log_frame.config(height=max_height)
+        self.plot_view.replot()
 
     def _toggle_dark_mode(self):
-        self.__dark_mode() if self.dark_mode.get() else self.__light_mode()
+        self.__set_dark_mode() if self.dark_mode.get() else self.__light_mode()
 
     def _toggle_dark_mode_shortcut(self):
         if self.dark_mode.get():
@@ -490,7 +468,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             self.dark_mode.set(True)
         self._toggle_dark_mode()
 
-    def __dark_mode(self):
+    def __set_dark_mode(self):
         self.configure(bg="black")
         self.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
@@ -519,100 +497,13 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
 
-    def _replot(self):
-        canvas_widget = self.canvas.get_tk_widget()
-        width = canvas_widget.winfo_width()
-        height = canvas_widget.winfo_height()
-        aspect_ratio = width / height
-
-        t1 = time.time()
-        # self.canvas.restore_region(self.plt_background)
-        c52_plot.plot(
-            exec=self.exec,
-            aspect_ratio=aspect_ratio,
-            xy_zoom=self.xy_zoom,
-            frenet_zoom=self.frenet_zoom,
-            show_legend=self.show_legend.get(),
-            plot_last_pts=self.show_past_locations.get(),
-            plot_global_plan=self.show_global_plan.get(),
-            plot_local_plan=self.show_local_plan.get(),
-            plot_local_lattice=self.show_local_lattice.get(),
-            plot_state=self.show_state.get(),
-        )
-        self.canvas.draw()
-        log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
-        self.vehicle_state_label.config(
-            text=f"Ego State: X: {self.exec.ego_state.x:+.2f}, Y: {self.exec.ego_state.y:+.2f}, v: {self.exec.ego_state.speed:+.2f}, θ: {self.exec.ego_state.theta:+.2f}"
-        )
-
-        self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.current_wp))
 
     def _reload_stack(self):
         if self.code_reload_function is not None:
             self.exec = self.code_reload_function()
-            self._replot()
+            self.plot_view.replot()
         else:
             log.warning("No code reload function provided.")
-
-    def on_mouse_move(self, event):
-        if event.inaxes:
-            x, y = event.xdata, event.ydata
-            if event.inaxes == self.ax1:
-                self.coordinates_label.config(text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
-            elif event.inaxes == self.ax2:
-                self.coordinates_label.config(text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
-        else:
-            # Optionally, clear the coordinates display when the mouse is not over the axes
-            self.coordinates_label.config(text="Spawn Agent: Click on the plot.")
-
-
-    def on_mouse_click(self, event):
-        if event.inaxes == self.ax1:
-            x, y = event.xdata, event.ydata
-            self.exec.spawn_agent(x=x,y=y)
-
-            self._replot()
-        elif event.inaxes == self.ax2:
-            s, d = event.xdata, event.ydata
-            self.exec.spawn_agent(d=d, s=s)
-            self._replot()
-
-    def on_mouse_scroll(self, event, increment=10):
-        if event.inaxes == self.ax1:
-            log.debug(f"Scroll Event in real coordinate: {event.button}")
-            if event.button == "up":
-                self.xy_zoom -= increment if self.xy_zoom > increment else 0
-            elif event.button == "down":
-                self.xy_zoom += increment
-        elif event.inaxes == self.ax2:
-            log.debug(f"Scroll Event in frenet: {event.button}")
-            if event.button == "up":
-                self.frenet_zoom -= increment if self.frenet_zoom > increment else 0
-            elif event.button == "down":
-                self.frenet_zoom += increment
-
-        threshold = 0.01
-        if (self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold) and not self.animation_running:
-            self._replot()
-
-        self._prev_scroll_time = time.time()
-
-    def zoom_in(self):
-        self.xy_zoom -= 5 if self.xy_zoom > 5 else 0
-        self._replot()
-
-    def zoom_out(self):
-        self.xy_zoom += 5
-        self._replot()
-
-    def zoom_in_frenet(self):
-        self.frenet_zoom -= 5 if self.frenet_zoom > 5 else 0
-        self._replot()
-
-    def zoom_out_frenet(self):
-        self.frenet_zoom += 5
-        self._replot()
 
     # --------------------------------------------------------------------------------------------
     # -Plan---------------------------------------------------------------------------------------
@@ -621,14 +512,14 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
     def set_waypoint(self):
         timestep_value = int(self.global_tj_wp_entry.get())
         self.exec.planner.reset(wp=timestep_value)
-        self._replot()
+        self.plot_view.replot()
 
     def replan(self):
         t1 = time.time()
         self.exec.planner.replan()
         t2 = time.time()
         log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
-        self._replot()
+        self.plot_view.replot()
 
     def step_plan(self):
         # Placeholder for the method to step to the next waypoint
@@ -637,7 +528,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         log.info(f"Plan Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.global_tj_wp_entry.delete(0, tk.END)
         self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.next_wp - 1))
-        self._replot()
+        self.plot_view.replot()
 
     # --------------------------------------------------------------------------------------------
     # -Control------------------------------------------------------------------------------------
@@ -649,33 +540,33 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
         dt = float(self.dt_entry.get())
         self.exec.update_ego_state(steering_angle=steer, dt=dt)
-        self._replot()
+        self.plot_view.replot()
 
     def align_control(self):
         self.exec.ego_state.x = self.exec.planner.global_trajectory.path_x[self.exec.planner.global_trajectory.next_wp - 1]
         self.exec.ego_state.y = self.exec.planner.global_trajectory.path_y[self.exec.planner.global_trajectory.next_wp - 1]
 
-        self._replot()
+        self.plot_view.replot()
 
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
         self.exec.update_ego_state(dt=dt, steering_angle=0.1)
-        self._replot()
+        self.plot_view.replot()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
         self.exec.update_ego_state(dt=dt, steering_angle=-0.1)
-        self._replot()
+        self.plot_view.replot()
 
     def step_acc(self):
         dt = float(self.dt_entry.get())
         self.exec.update_ego_state(dt=dt, acceleration=8)
-        self._replot()
+        self.plot_view.replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
         self.exec.update_ego_state(dt=dt, acceleration=-8)
-        self._replot()
+        self.plot_view.replot()
 
     # --------------------------------------------------------------------------------------------
     # -SIM----------------------------------------------------------------------------------------
@@ -695,7 +586,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             pl_dt = float(self.dt_exec_pl_entry.get())
 
             self.exec.step(control_dt=cn_dt, replan_dt=pl_dt)
-            self._replot()
+            self.plot_view.replot()
             self.global_tj_wp_entry.delete(0, tk.END)
             self.global_tj_wp_entry.insert(0, str(self.exec.planner.global_trajectory.next_wp - 1))
             self.after(int(cn_dt * 1000), self._exec_loop)
@@ -708,13 +599,14 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         cn_dt = float(self.dt_exec_cn_entry.get())
         pl_dt = float(self.dt_exec_pl_entry.get())
         self.exec.step(control_dt=cn_dt, replan_dt=pl_dt)
-        self._replot()
+        self.plot_view.replot()
 
     def reset_exec(self):
         self.exec.reset()
-        self._replot()
+        self.plot_view.replot()
 
     def update_log_filter(self):
+        log.warning(f"show_perceive_logs: {self.show_perceive_logs.get()}")
         log.info("Log filter updated.")
         # based on blacklist, LogTextHandler will filter out the logs
         (log_blacklist.discard("c10_perceive") if self.show_perceive_logs.get() else log_blacklist.add("c10_perceive"))

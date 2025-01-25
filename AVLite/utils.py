@@ -27,7 +27,7 @@ def load_config(config_path, source_run=True):
     if os.path.isabs(config_path):
         raise ValueError("config_path should be relative to the project directory")
 
-    pkg_config = pkg_resources.resource_filename("AVLite", "config.yaml")
+    # pkg_config = pkg_resources.resource_filename("AVLite", "config.yaml")
     if source_run:
         current_file_name = os.path.realpath(__file__) if sys.argv[0] == "" else sys.argv[0]
     else:
