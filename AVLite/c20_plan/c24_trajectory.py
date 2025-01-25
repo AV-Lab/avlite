@@ -3,7 +3,7 @@ import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
 import numpy as np
-from icecream import ic
+
 
 # from icecream import ic
 import logging

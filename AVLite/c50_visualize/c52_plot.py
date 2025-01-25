@@ -3,7 +3,7 @@ from c20_plan.c21_planner import Planner
 from c20_plan.c23_lattice import Edge
 from c40_execute.c41_executer import Executer
 from c10_perceive.c12_state import EgoState
-from icecream import ic
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
