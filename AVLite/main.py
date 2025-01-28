@@ -1,4 +1,4 @@
-from c50_visualize.c51_tk_visualizer import VisualizerApp
+from AVLite.c50_visualize.c51_visualizer_app import VisualizerApp
 import c10_perceive.c11_environment 
 import c10_perceive.c12_state 
 import c20_plan.c22_sampling_planner

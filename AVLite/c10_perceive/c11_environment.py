@@ -28,7 +28,6 @@ class Environment:
         self.agent_vehicles.append(agent)
         log.info(f"Total agent vehicles {len(self.agent_vehicles)}")
 
-    # TODO: fix orientation 
     def is_tj_collision_free(self, trajectory: Trajectory = None, sample_size=4):
         ego = self.ego_vehicle
         if trajectory is not None:

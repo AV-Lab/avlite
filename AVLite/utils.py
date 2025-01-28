@@ -33,7 +33,7 @@ def load_config(config_path, source_run=True):
     else:
         current_file_name = pkg_config if sys.argv[0] == "" else sys.argv[0]
 
-    print(f"current_file_name: {current_file_name}")
+    log.info(f"current_file_name: {current_file_name}")
     if source_run:
         project_dir = Path(current_file_name).parent.parent
     else:

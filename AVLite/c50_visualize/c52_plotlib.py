@@ -446,6 +446,7 @@ def set_plot_theme(bg_color="white", fg_color="black"):
         ax.xaxis.label.set_color(fg_color)  # Set x-axis label color to white
         ax.yaxis.label.set_color(fg_color)  # Set y-axis label color to white
 
+    log.info(f"Plot theme set to {bg_color} background and {fg_color} foreground.")
     redraw_plots()
 
 

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import c50_visualize.c52_plot as c52_plot
+import AVLite.c50_visualize.c52_plotlib as c52_plotlib
 
 
 import tkinter as tk
@@ -21,9 +21,11 @@ class PlotView:
         self.xy_zoom = 30
         self.frenet_zoom = 30
 
-        self.fig = c52_plot.fig
-        self.ax1 = c52_plot.ax1
-        self.ax2 = c52_plot.ax2
+        self.fig = c52_plotlib.fig
+        self.ax1 = c52_plotlib.ax1
+        self.ax2 = c52_plotlib.ax2
+        self.set_plot_theme = c52_plotlib.set_plot_theme
+
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -39,12 +41,12 @@ class PlotView:
         if event.inaxes:
             x, y = event.xdata, event.ydata
             if event.inaxes == self.ax1:
-                self.root.coordinates_label.config(text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
+                self.root.perceive_plan_control_view.coordinates_label.config(text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
             elif event.inaxes == self.ax2:
-                self.root.coordinates_label.config(text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
+                self.root.perceive_plan_control_view.coordinates_label.config(text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
         else:
             # Optionally, clear the coordinates display when the mouse is not over the axes
-            self.root.coordinates_label.config(text="Spawn Agent: Click on the plot.")
+            self.root.perceive_plan_control_view.coordinates_label.config(text="Spawn Agent: Click on the plot.")
 
     def on_mouse_click(self, event):
         if event.inaxes == self.ax1:
@@ -74,7 +76,7 @@ class PlotView:
         threshold = 0.01
         if (
             self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold
-        ) and not self.root.animation_running:
+        ) and not self.root.data.animation_running:
             self.replot()
 
         self._prev_scroll_time = time.time()
@@ -103,25 +105,28 @@ class PlotView:
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
-        c52_plot.plot(
+        c52_plotlib.plot(
             exec=self.root.exec,
             aspect_ratio=aspect_ratio,
             xy_zoom=self.xy_zoom,
             frenet_zoom=self.frenet_zoom,
-            show_legend=self.root.show_legend.get(),
-            plot_last_pts=self.root.show_past_locations.get(),
-            plot_global_plan=self.root.show_global_plan.get(),
-            plot_local_plan=self.root.show_local_plan.get(),
-            plot_local_lattice=self.root.show_local_lattice.get(),
-            plot_state=self.root.show_state.get(),
+            show_legend=self.root.data.show_legend.get(),
+            plot_last_pts=self.root.data.show_past_locations.get(),
+            plot_global_plan=self.root.data.show_global_plan.get(),
+            plot_local_plan=self.root.data.show_local_plan.get(),
+            plot_local_lattice=self.root.data.show_local_lattice.get(),
+            plot_state=self.root.data.show_state.get(),
         )
         self.canvas.draw()
         log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
-        self.root.vehicle_state_label.config(
+
+
+
+        self.root.perceive_plan_control_view.vehicle_state_label.config(
             text=f"Ego State: X: {self.root.exec.ego_state.x:+.2f}, Y: {self.root.exec.ego_state.y:+.2f}, v: {self.root.exec.ego_state.speed:+.2f}, θ: {self.root.exec.ego_state.theta:+.2f}"
         )
 
-        self.root.global_tj_wp_entry.delete(0, tk.END)
-        self.root.global_tj_wp_entry.insert(
+        self.root.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
+        self.root.perceive_plan_control_view.global_tj_wp_entry.insert(
             0, str(self.root.exec.planner.global_trajectory.current_wp)
         )
