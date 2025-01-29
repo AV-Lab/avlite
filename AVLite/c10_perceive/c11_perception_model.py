@@ -10,16 +10,16 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class Environment:
+class PerceptionModel:
     # static_obstacles: list[State]
     agent_vehicles: list[AgentState]
     ego_vehicle: EgoState
     max_agent_vehicles:int = 12
 
-    def __init__(self, ego_state: EgoState, satatic_obstacles: list[State] = [], agent_vehicles: list[AgentState] = []):
+    def __init__(self, ego_state: EgoState = None, satatic_obstacles: list[State] = [], agent_vehicles: list[AgentState] = []):
         self.static_obstacles: list[State] = satatic_obstacles
         self.agent_vehicles: list[AgentState] = agent_vehicles
-        self.ego_vehicle: EgoState = ego_state
+        self.ego_vehicle: EgoState = ego_state if ego_state is not None else EgoState()
 
     def add_agent_vehicle(self, agent: AgentState):
         if len(self.agent_vehicles) == self.max_agent_vehicles:

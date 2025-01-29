@@ -1,11 +1,11 @@
-from c20_plan.c21_planner import Planner
+from AVLite.c20_plan.c21_base_planner import BasePlanner
 import rclpy
 from rclpy.node import Node
 from a2rl_bs_msgs.msg import Localization, EgoState
 import yaml
 
 
-class local_planner(Node, Planner):
+class local_planner(Node, BasePlanner):
     def __init__(self, path_to_track, frenet_zoom=15, xy_zoom=15):
         super().__init__(path_to_track, frenet_zoom, xy_zoom)
 

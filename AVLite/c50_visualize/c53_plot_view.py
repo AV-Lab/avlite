@@ -1,5 +1,5 @@
 from __future__ import annotations
-import AVLite.c50_visualize.c52_plotlib as c52_plotlib
+import c50_visualize.c52_plotlib as c52_plotlib
 
 
 import tkinter as tk
@@ -11,11 +11,12 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class PlotView:
+class PlotView(tk.Frame):
 
     def __init__(self, root: VisualizerApp):
-        self.plot_frame = ttk.Frame(root)
-        self.plot_frame.pack(fill=tk.BOTH, expand=True)
+        super().__init__(root)
+        # self.plot_frame = ttk.Frame(root)
+        # self.plot_frame.pack(fill=tk.BOTH, expand=True)
         # self.plot_frame.grid(row=0, column=0, sticky="nsew")
 
         self.xy_zoom = 30
@@ -26,7 +27,7 @@ class PlotView:
         self.ax2 = c52_plotlib.ax2
         self.set_plot_theme = c52_plotlib.set_plot_theme
 
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)  # A tk.DrawingArea.
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         root.after(300, self.replot)

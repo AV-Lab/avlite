@@ -1,5 +1,5 @@
-from c10_perceive.c11_environment import Environment
-from c20_plan.c21_planner import Planner
+from c10_perceive.c11_perception_model import PerceptionModel
+from c20_plan.c21_base_planner import BasePlanner
 from c20_plan.c23_lattice import Lattice
 import numpy as np
 import logging
@@ -8,13 +8,13 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class RNDPlanner(Planner):
+class RNDPlanner(BasePlanner):
     def __init__(
         self,
         global_path: list[tuple[float, float]],
         ref_left_boundary_d: list[float],
         ref_right_boundary_d: list[float],
-        env: Environment,
+        env: PerceptionModel,
         num_of_edge_points=10,
         planning_horizon=3,
         maneuver_distance=20,

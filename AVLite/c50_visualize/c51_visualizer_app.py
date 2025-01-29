@@ -1,13 +1,12 @@
 from c40_execute.c41_executer import Executer
 from c50_visualize.c53_plot_view import PlotView
 from c50_visualize.c54_perceive_plan_control_view import PerceivePlanControlView
-from c50_visualize.c55_visualize_exec_view import VisualizeExecView
+from c50_visualize.c55_exec_visualize_view import ExecVisualizeView
 from c50_visualize.c59_data import VisualizerData
 from c50_visualize.c56_log_view import LogView
 from c50_visualize.c57_config_shortcut_view import ConfigShortcutView
 
 import tkinter as tk
-from tkinter import ttk
 
 import logging
 
@@ -36,10 +35,19 @@ class VisualizerApp(tk.Tk):
         # UI Views 
         # ----------------------------------------------------------------------
         self.plot_view = PlotView(self)
+        self.plot_view.pack(fill=tk.BOTH, expand=True)
+
         self.config_view = ConfigShortcutView(self)
+        self.config_view.pack(fill=tk.X, side=tk.TOP)
+
         self.perceive_plan_control_view = PerceivePlanControlView(self)
-        self.visualize_exec_view = VisualizeExecView(self)
+        self.perceive_plan_control_view.pack(fill=tk.X)
+
+        self.visualize_exec_view = ExecVisualizeView(self)
+        self.visualize_exec_view.pack(fill=tk.X)
+
         self.log_view = LogView(self)
+        self.log_view.pack(fill=tk.X)
         # ----------------------------------------------------------------------
 
 
