@@ -6,18 +6,14 @@ import time
 import logging
 log = logging.getLogger(__name__)
 
-class PerceivePlanControlView:
+class PerceivePlanControlView(ttk.Frame):
     def __init__(self, root: VisualizerApp):
+        super().__init__(root)
         self.root = root
-        # ----------------------------------------------------------------------
-        # Percieve Plan Control Frame -----------------------------------------
-        # ----------------------------------------------------------------------
-        self.perceive_plan_control_frame = ttk.Frame(root)
-        self.perceive_plan_control_frame.pack(fill=tk.X)
         # ----------------------------------------------------------------------
         ## Perceive Frame
         # ----------------------------------------------------------------------
-        self.perceive_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Perceive")
+        self.perceive_frame = ttk.LabelFrame(self, text="Perceive")
         self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
         self.vehicle_state_label = ttk.Label(self.perceive_frame, text="")
         self.vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, pady=5)
@@ -29,7 +25,7 @@ class PerceivePlanControlView:
         # ----------------------------------------------------------------------
         ## Plan frame
         # ----------------------------------------------------------------------
-        self.plan_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Plan (Manual)")
+        self.plan_frame = ttk.LabelFrame(self, text="Plan (Manual)")
         self.plan_frame.pack(fill=tk.X, expand=True, side=tk.LEFT, padx=5, pady=5)
 
         wp_frame = ttk.Frame(self.plan_frame)
@@ -47,7 +43,7 @@ class PerceivePlanControlView:
         # ----------------------------------------------------------------------
         ## Control Frame
         # ----------------------------------------------------------------------
-        self.control_frame = ttk.LabelFrame(self.perceive_plan_control_frame, text="Control (Manual)")
+        self.control_frame = ttk.LabelFrame(self, text="Control (Manual)")
         self.control_frame.pack(fill=tk.X, expand=True, side=tk.LEFT)
         dt_frame = ttk.Frame(self.control_frame)
         dt_frame.pack(fill=tk.X)

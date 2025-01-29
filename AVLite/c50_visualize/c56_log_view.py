@@ -8,21 +8,21 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class LogView:
+class LogView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
+        super().__init__(root, text="Log")
         self.root = root
         self.log_blacklist = set()  # used to filter 'excute', 'plan', 'control' subpackage logs
         # ----------------------------------------------------------------------
         # - Log Frame
         # ----------------------------------------------------------------------
-        self.log_frame = ttk.LabelFrame(root, text="Log")
-        self.log_frame.pack(fill=tk.BOTH, expand=True)
+        # self.log_frame = ttk.LabelFrame(root, text="Log")
 
-        log_cb_frame = ttk.Frame(self.log_frame)
-        log_cb_frame.pack(fill=tk.X)
+        self.controls_frame = ttk.Frame(self)
+        self.controls_frame.pack(fill=tk.X, side=tk.TOP)
 
         self.ck_perceive = ttk.Checkbutton(
-            log_cb_frame,
+            self.controls_frame,
             text="Perceive",
             variable=self.root.data.show_perceive_logs,
             command=self.update_log_filter,
@@ -32,7 +32,7 @@ class LogView:
         # self.ck_perceive.state(["selected"])
 
         self.ck_plan = ttk.Checkbutton(
-            log_cb_frame,
+            self.controls_frame,
             text="Plan",
             variable=self.root.data.show_plan_logs,
             command=self.update_log_filter,
@@ -40,8 +40,9 @@ class LogView:
         self.ck_plan.pack(side=tk.LEFT)
         self.ck_plan.state(["!alternate"])
         self.ck_plan.state(["selected"])
+
         self.ck_control = ttk.Checkbutton(
-            log_cb_frame,
+            self.controls_frame,
             text="Control",
             variable=self.root.data.show_control_logs,
             command=self.update_log_filter,
@@ -49,8 +50,9 @@ class LogView:
         self.ck_control.pack(side=tk.LEFT)
         self.ck_control.state(["!alternate"])
         self.ck_control.state(["selected"])
+
         self.ck_exec = ttk.Checkbutton(
-            log_cb_frame,
+            self.controls_frame,
             text="Execute",
             variable=self.root.data.show_execute_logs,
             command=self.update_log_filter,
@@ -60,7 +62,7 @@ class LogView:
         self.ck_exec.state(["selected"])
 
         self.ck_vis = ttk.Checkbutton(
-            log_cb_frame,
+            self.controls_frame,
             text="Visualize",
             variable=self.root.data.show_vis_logs,
             command=self.update_log_filter,
@@ -70,31 +72,34 @@ class LogView:
         self.ck_vis.state(["selected"])
 
         self.rb_db_stdout = ttk.Radiobutton(
-            log_cb_frame,
+            self.controls_frame,
             text="STDOUT",
             variable=self.root.data.debug_option,
             value="STDOUT",
             command=self.update_log_level,
         )
         self.rb_db_stdout.pack(side=tk.RIGHT)
+        
         self.rb_db_warn = ttk.Radiobutton(
-            log_cb_frame,
+            self.controls_frame,
             text="WARN",
             variable=self.root.data.debug_option,
             value="WARN",
             command=self.update_log_level,
         )
         self.rb_db_warn.pack(side=tk.RIGHT)
+
         self.rb_db_info = ttk.Radiobutton(
-            log_cb_frame,
+            self.controls_frame,
             text="INFO",
             variable=self.root.data.debug_option,
             value="INFO",
             command=self.update_log_level,
         )
         self.rb_db_info.pack(side=tk.RIGHT)
+
         self.rb_db_debug = ttk.Radiobutton(
-            log_cb_frame,
+            self.controls_frame,
             text="DEBUG",
             variable=self.root.data.debug_option,
             value="DEBUG",
@@ -102,11 +107,9 @@ class LogView:
         )
         self.rb_db_debug.pack(side=tk.RIGHT)
 
-        ttk.Label(log_cb_frame, text="Log Level:").pack(side=tk.RIGHT)
 
-
-        self.log_area = ScrolledText(self.log_frame, state="disabled", height=8)
-        self.log_area.pack(fill=tk.BOTH, expand=True)
+        self.log_area = ScrolledText(self, state="disabled", height=8)
+        self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
 
         # ----------------------------------------------------------------------

@@ -6,7 +6,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class Controller(ABC):
+class BaseController(ABC):
     def __init__(self):
         self.last_steer = None
         self.last_acc = None

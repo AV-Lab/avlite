@@ -1,11 +1,11 @@
-from c30_control.c31_controller import Controller
+from c30_control.c31_base_controller import BaseController
 
 import logging
 
 log = logging.getLogger(__name__)
 
 
-class PIDController(Controller):
+class PIDController(BaseController):
     def __init__(self, alpha=0.05, beta=0.001, gamma=0.7):
         self.alpha, self.beta, self.gamma = alpha, beta, gamma
         self.past_cte = []

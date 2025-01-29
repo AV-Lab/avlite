@@ -1,5 +1,5 @@
-from c10_perceive.c11_environment import Environment
-from c20_plan.c21_planner import Planner
+from c10_perceive.c11_perception_model import PerceptionModel
+from c20_plan.c21_base_planner import BasePlanner
 from c20_plan.c23_lattice import Edge
 from c40_execute.c41_executer import Executer
 from c10_perceive.c12_state import EgoState
@@ -26,7 +26,6 @@ fig, (ax1, ax2) = plt.subplots(2, 1)
 def initiate_plots(max_lattice_size=30, max_plan_length=5, max_agent_count=12):
     global MAX_LATTICE_SIZE, MAX_PLAN_LENGTH, MAX_AGENT_COUNT
     global lattice_graph_plots_ax1, lattice_graph_plots_ax2, lattice_graph_endpoints_ax1, lattice_graph_endpoints_ax2, local_plan_plots_ax1, local_plan_plots_ax2
-    global env_plots
 
     MAX_LATTICE_SIZE = max_lattice_size
     MAX_PLAN_LENGTH = max_plan_length
@@ -122,15 +121,15 @@ ax2.add_patch(ego_vehicle_ax2)
 
 
 # Environment plots
-env_plots_ax1 = []
-env_plots_ax2 = []
+pm_plots_ax1 = []
+pm_plots_ax2 = []
 for _ in range(MAX_AGENT_COUNT):
     agent_vehicle_ax1 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6)
     agent_vehicle_ax2 = plt.Polygon(np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6)
     ax1.add_patch(agent_vehicle_ax1)
     ax2.add_patch(agent_vehicle_ax2)
-    env_plots_ax1.append(agent_vehicle_ax1)
-    env_plots_ax2.append(agent_vehicle_ax2)
+    pm_plots_ax1.append(agent_vehicle_ax1)
+    pm_plots_ax2.append(agent_vehicle_ax2)
 
 
 # Assuming a maximum number of lattice graph edges
@@ -175,7 +174,7 @@ def plot(
     plot_local_plan=True,
     plot_local_lattice=True,
     plot_state=True,
-    plot_env=True,
+    plot_perception_model=True,
     num_plot_last_pts=100,
 ):
 
@@ -227,7 +226,7 @@ def plot(
     update_state_plots(exec.ego_state, exec.planner.global_trajectory, plot_state)
 
     # update Environment
-    update_env_plots(exec.env, exec.planner.global_trajectory,  plot_env)
+    update_perception_model_plots(exec.pm, exec.planner.global_trajectory,  plot_perception_model)
 
     redraw_plots()
 
@@ -256,7 +255,7 @@ initialized = False
 toggle_plot = False
 
 
-def update_global_plan_plots(pl: Planner, show_plot=True):
+def update_global_plan_plots(pl: BasePlanner, show_plot=True):
     global initialized
     global toggle_plot
     if not initialized:
@@ -302,7 +301,7 @@ def update_global_plan_plots(pl: Planner, show_plot=True):
         )
 
 
-def update_lattice_graph_plots(pl: Planner, show_plot=True):
+def update_lattice_graph_plots(pl: BasePlanner, show_plot=True):
     global edge_index
     if not show_plot or len(pl.lattice.edges) == 0:
         # clear all lattice graph plots
@@ -340,7 +339,7 @@ def update_lattice_graph_plots(pl: Planner, show_plot=True):
     return
 
 
-def update_local_plan_plots(pl: Planner, show_plot=True):
+def update_local_plan_plots(pl: BasePlanner, show_plot=True):
     if not show_plot or pl.selected_local_plan is None:
         for i in range(MAX_PLAN_LENGTH):
             local_plan_plots_ax1[i].set_data([], [])
@@ -414,22 +413,22 @@ def update_state_plots(state: EgoState, global_trajectory: Trajectory, show_plot
         ego_vehicle_ax2.set_xy(np.empty((0, 2)))
 
 
-def update_env_plots(env: Environment, global_trajectory: Trajectory, show_plot=True):
-    if not show_plot or len(env.agent_vehicles) == 0:
+def update_perception_model_plots(pm: PerceptionModel, global_trajectory: Trajectory, show_plot=True):
+    if not show_plot or len(pm.agent_vehicles) == 0:
         for i in range(MAX_AGENT_COUNT):
-            env_plots_ax1[i].set_xy(np.empty((0, 2)))
-            env_plots_ax2[i].set_xy(np.empty((0, 2)))
+            pm_plots_ax1[i].set_xy(np.empty((0, 2)))
+            pm_plots_ax2[i].set_xy(np.empty((0, 2)))
         return
 
     
     def transform(row):
         return global_trajectory.convert_xy_to_sd(row[0], row[1])
-    for i, agent in enumerate(env.agent_vehicles):    
+    for i, agent in enumerate(pm.agent_vehicles):    
         if i >= MAX_AGENT_COUNT:
             log.warning(f"Exceeded maximum number of agents: {MAX_AGENT_COUNT}")
             break
-        env_plots_ax1[i].set_xy(agent.get_bb_corners())
-        env_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
+        pm_plots_ax1[i].set_xy(agent.get_bb_corners())
+        pm_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
 
 
 

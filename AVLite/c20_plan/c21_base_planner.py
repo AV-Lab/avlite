@@ -1,4 +1,4 @@
-from c10_perceive.c11_environment import Environment
+from c10_perceive.c11_perception_model import PerceptionModel
 from c10_perceive.c12_state import EgoState
 from c20_plan.c23_lattice import Edge, Lattice
 from typing import Optional
@@ -9,7 +9,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class Planner(ABC):
+class BasePlanner(ABC):
     global_trajectory: Trajectory
     ref_left_boundary_d: list[float]
     ref_right_boundary_d: list[float]
@@ -30,7 +30,7 @@ class Planner(ABC):
         global_path: list[tuple[float, float]],
         ref_left_boundary_d: list[float],
         ref_right_boundary_d: list[float],
-        env: Environment,
+        env: PerceptionModel,
     ):
         
         self._env = env

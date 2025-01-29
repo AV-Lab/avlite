@@ -1,5 +1,4 @@
-
-from c10_perceive.c11_environment import Environment
+from c10_perceive.c11_perception_model import PerceptionModel
 from c20_plan.c24_trajectory import Trajectory
 from typing import Dict
 from dataclasses import dataclass, field
@@ -149,7 +148,7 @@ class Lattice:
 
 
 
-    def generate_lattice_from_nodes(self, env: Optional[Environment] = None):
+    def generate_lattice_from_nodes(self, env: Optional[PerceptionModel] = None):
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
                 for next_node in self.lattice_nodes_by_level[l + 1]:

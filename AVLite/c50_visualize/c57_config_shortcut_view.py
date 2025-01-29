@@ -8,8 +8,9 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class ConfigShortcutView():
+class ConfigShortcutView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
+        super().__init__(root, text="Config")
         self.root = root
         # ----------------------------------------------------------------------
         # Key Bindings --------------------------------------------------------
@@ -43,17 +44,16 @@ class ConfigShortcutView():
         # Config frame
         # ------------------------------------------------------
         config_frame = ttk.LabelFrame(root, text="Config")
-        config_frame.pack(fill=tk.X, side=tk.TOP)
-        ttk.Button(config_frame, text="Reload Code", command=self.reload_stack).pack(side=tk.RIGHT)
+        ttk.Button(self, text="Reload Code", command=self.reload_stack).pack(side=tk.RIGHT)
         ttk.Checkbutton(
-            config_frame,
+            self,
             text="Shortcut Mode",
         
             variable=self.root.data.shortcut_mode,
             command=self.update_UI,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
-            config_frame,
+            self,
             text="Dark Mode",
             variable=self.root.data.dark_mode,
             command=self.toggle_dark_mode,
@@ -88,20 +88,20 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
     def update_UI(self):
 
         if self.root.data.shortcut_mode.get():
-            self.root.visualize_exec_view.vis_exec_frame.pack_forget()
-            self.root.perceive_plan_control_view.perceive_plan_control_frame.pack_forget()
-            self.root.log_view.log_frame.pack_forget()
+            self.root.visualize_exec_view.pack_forget()
+            self.root.perceive_plan_control_view.pack_forget()
+            self.root.log_view.pack_forget()
 
             self.shortcut_frame.pack(fill=tk.X, side=tk.TOP)
-            self.root.log_view.log_frame.pack(fill=tk.X)
+            self.root.log_view.pack(fill=tk.X)
         else:
             self.shortcut_frame.pack_forget()
-            self.root.log_view.log_frame.pack_forget()
+            self.root.log_view.pack_forget()
 
-            self.root.visualize_exec_view.vis_exec_frame.pack(fill=tk.X, side=tk.TOP)
-            self.root.perceive_plan_control_view.perceive_plan_control_frame.pack(fill=tk.X)
+            self.root.visualize_exec_view.pack(fill=tk.X, side=tk.TOP)
+            self.root.perceive_plan_control_view.pack(fill=tk.X)
             self.root.log_view.log_area.pack(fill=tk.BOTH, expand=True)
-            self.root.log_view.log_frame.pack(fill=tk.X)
+            self.root.log_view.pack(fill=tk.X)
 
         # max_height = int(self.winfo_height() * 0.4)
         # self.log_frame.config(height=max_height)

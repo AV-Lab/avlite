@@ -6,16 +6,16 @@ import time
 import logging
 log = logging.getLogger(__name__)
 
-class VisualizeExecView:
+class ExecVisualizeView(ttk.Frame):
     def __init__(self, root: VisualizerApp):
+        super().__init__(root)
+
         self.root = root
-        self.vis_exec_frame = ttk.Frame(root)
-        self.vis_exec_frame.pack(fill=tk.X)
 
         # ----------------------------------------------------------------------
         ## Execute Frame
         # ----------------------------------------------------------------------
-        self.execution_frame = ttk.LabelFrame(self.vis_exec_frame, text="Execute (Auto)")
+        self.execution_frame = ttk.LabelFrame(self, text="Execute (Auto)")
         self.execution_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         exec_first_frame = ttk.Frame(self.execution_frame)
@@ -71,7 +71,7 @@ class VisualizeExecView:
         # ----------------------------------------------------------------------
         # Visualize frame setup
         # ----------------------------------------------------------------------
-        self.visualize_frame = ttk.LabelFrame(self.vis_exec_frame, text="Visualize")
+        self.visualize_frame = ttk.LabelFrame(self, text="Visualize")
         self.visualize_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         ## UI Elements for Visualize - Checkboxes
