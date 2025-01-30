@@ -79,7 +79,7 @@ class Executer():
         log.info(
             f"Exec Step Time: {(t4-t0)*1000:.2f} ms | Plan Tim: {(t1 - t0)*1000:.2} ms, Control Time: {(t2-t1)*1000:.2f} ms,  Sim Step Time: {(t4-t3)*1000:.2f} ms"
         )
-        log.info(f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}")
+        log.debug(f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}")
 
 
     def run(self, control_dt=0.01, replan_dt=None, max_time=100):

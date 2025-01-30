@@ -2,7 +2,6 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-import c50_visualize.c52_plotlib as c52_plotlib
 
 import logging
 log = logging.getLogger(__name__)
@@ -11,7 +10,7 @@ log = logging.getLogger(__name__)
 class ConfigShortcutView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root, text="Config")
-        self.root = root
+        self.root:VisualizerApp = root
         # ----------------------------------------------------------------------
         # Key Bindings --------------------------------------------------------
         # ----------------------------------------------------------------------
@@ -103,7 +102,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.plot_view.replot()
 
     def toggle_dark_mode(self):
-        self.set_dark_mode() if self.root.data.dark_mode.get() else self.light_mode()
+        self.set_dark_mode() if self.root.data.dark_mode.get() else self.set_light_mode()
 
     def toggle_dark_mode_shortcut(self):
         if self.root.data.dark_mode.get():
@@ -117,6 +116,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
         self.root.plot_view.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
+        log.info("Dark mode enabled.")
 
         try:
             from ttkthemes import ThemedStyle
@@ -127,11 +127,13 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
 
-    def light_mode(self):
+    def set_light_mode(self):
         self.root.configure(bg="white")
         self.root.log_view.log_area.config(bg="white", fg="black")
         self.help_text.config(bg="white", fg="black")
+
         self.root.plot_view.set_plot_theme(bg_color="white", fg_color="black")
+        log.info("Light mode enabled.")
         # reset the theme
         try:
             from ttkthemes import ThemedStyle

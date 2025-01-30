@@ -51,7 +51,10 @@ class VisualizerApp(tk.Tk):
         self.grid_rowconfigure(0, weight=1) # make the plot view expand 
         self.grid_columnconfigure(0, weight=1)
 
-        self.config_shortcut_view.set_dark_mode()
+        # self.config_shortcut_view.set_light_mode()
+
+        
+        self.after(50, self.config_shortcut_view.set_dark_mode)
 
 
 
