@@ -35,19 +35,10 @@ class VisualizerApp(tk.Tk):
         # UI Views 
         # ----------------------------------------------------------------------
         self.plot_view = PlotView(self)
-        # self.plot_view.pack(fill=tk.BOTH, expand=True)
-
         self.config_shortcut_view = ConfigShortcutView(self)
-        # self.config_view.pack(fill=tk.X, side=tk.TOP)
-
         self.perceive_plan_control_view = PerceivePlanControlView(self)
-        # self.perceive_plan_control_view.pack(fill=tk.X)
-
         self.visualize_exec_view = ExecVisualizeView(self)
-        # self.visualize_exec_view.pack(fill=tk.X)
-
         self.log_view = LogView(self)
-        # self.log_view.pack(fill=tk.X)
         # ----------------------------------------------------------------------
 
         self.plot_view.grid(row=0, column=0, sticky="nswe")
@@ -62,6 +53,5 @@ class VisualizerApp(tk.Tk):
 
         self.config_shortcut_view.set_dark_mode()
 
-        self.config_shortcut_view.update_UI() #its confusing why I need to do this
 
 
