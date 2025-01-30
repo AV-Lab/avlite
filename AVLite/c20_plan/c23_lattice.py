@@ -14,19 +14,17 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class Node:
-    def __init__(self, s, d, global_tj: Optional[Trajectory] = None, d_1st_derv=0, d_2nd_derv=0):
+    def __init__(self, s=0, d=0, x=0, y=0, d_1st_derv=0, d_2nd_derv=0):
         self.s: float = s
         self.d: float = d
-        self.x: float = 0
-        self.y: float = 0
+        self.x: float = x
+        self.y: float = y
         self.x_1st_derv: float = 0
         self.y_1st_derv: float = 0
         self.x_2nd_derv: float = 0
         self.y_2nd_derv: float = 0
         self.d_1st_derv: float = d_1st_derv
         self.d_2nd_derv: float = d_2nd_derv
-        if global_tj is not None:
-            self.x, self.y = global_tj.convert_sd_to_xy(s, d)
 
     def __eq__(self, other):
         tol = 1e-9
@@ -126,23 +124,31 @@ class Lattice:
 
     def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance):
         s1_ = s
-        self.lattice_nodes_by_level[0].append(Node(s1_, d, self.global_trajectory))
+        x, y = self.global_trajectory.convert_sd_to_xy(s1_, d)
+        self.lattice_nodes_by_level[0].append(Node(s1_, d,x,y))
 
         for l in range(1, self.planning_horizon + 1):
             s1_ = s1_ + maneuver_distance
             if s1_ > self.global_trajectory.path_s[-2]:  # at -1 path_s is zero
                 log.warning("No Replan, reaching the end of lap")
                 return
-            node = Node(s1_, d, self.global_trajectory)
+            
+            # One line always at track line
+            wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
+            _,dg = self.global_trajectory.get_sd_by_waypoint(wp)
+            x, y = self.global_trajectory.convert_sd_to_xy(s1_, dg)
+            node = Node(s1_, dg, x,y) 
             self.lattice_nodes_by_level[l].append(node)  # always a node at track line
             self.nodes.append(node)
+
             for _ in np.arange(sample_size - 1):
                 target_wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
                 d1_ = np.random.uniform(
                     self.__ref_left_boundary_d[target_wp] - boundary_clearance,
                     self.__ref_right_boundary_d[target_wp] + boundary_clearance,
                 )
-                n_ = Node(s1_, d1_, self.global_trajectory)
+                x, y = self.global_trajectory.convert_sd_to_xy(s1_, d1_)
+                n_ = Node(s1_, d1_, x,y)
                 self.nodes.append(n_)
                 self.lattice_nodes_by_level[l].append(n_)
 
