@@ -43,12 +43,18 @@ class PlotView(tk.Frame):
         if event.inaxes:
             x, y = event.xdata, event.ydata
             if event.inaxes == self.ax1:
-                self.root.perceive_plan_control_view.coordinates_label.config(text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
+                self.root.perceive_plan_control_view.coordinates_label.config(
+                    text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}"
+                )
             elif event.inaxes == self.ax2:
-                self.root.perceive_plan_control_view.coordinates_label.config(text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
+                self.root.perceive_plan_control_view.coordinates_label.config(
+                    text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}"
+                )
         else:
             # Optionally, clear the coordinates display when the mouse is not over the axes
-            self.root.perceive_plan_control_view.coordinates_label.config(text="Spawn Agent: Click on the plot.")
+            self.root.perceive_plan_control_view.coordinates_label.config(
+                text="Spawn Agent: Click on the plot."
+            )
 
     def on_mouse_click(self, event):
         if event.inaxes == self.ax1:
@@ -120,9 +126,7 @@ class PlotView(tk.Frame):
             plot_state=self.root.data.show_state.get(),
         )
         self.canvas.draw()
-        log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms")
-
-
+        log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
 
         self.root.perceive_plan_control_view.vehicle_state_label.config(
             text=f"Ego State: X: {self.root.exec.ego_state.x:+.2f}, Y: {self.root.exec.ego_state.y:+.2f}, v: {self.root.exec.ego_state.speed:+.2f}, θ: {self.root.exec.ego_state.theta:+.2f}"

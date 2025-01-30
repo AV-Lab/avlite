@@ -112,7 +112,7 @@ class LogView(ttk.LabelFrame):
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
 
-        # ----------------------------------------------------------------------
+        # -------------------------------------------
         # -------------------------------------------
         # -Configure logging-------------------------
         # -------------------------------------------
@@ -125,7 +125,9 @@ class LogView(ttk.LabelFrame):
             logger.removeHandler(handler)
         logger.addHandler(text_handler)
         logger.setLevel(logging.INFO)
+        sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         log.info("Log initialized.")
+
 
 
     def update_log_filter(self):
@@ -149,8 +151,7 @@ class LogView(ttk.LabelFrame):
             log.info("Log setting updated to INFO.")
         elif self.rb_db_warn.instate(["selected"]):
             logging.getLogger().setLevel(logging.WARNING)
-            log.warn("Log setting updated to WARNING.")
-
+            log.warning("Log setting updated to WARNING.")
         if self.rb_db_stdout.instate(["selected"]):
             logging.getLogger().setLevel(logging.CRITICAL)
             sys.stdout = LogView.TextRedirector(self.log_area)
@@ -163,18 +164,28 @@ class LogView(ttk.LabelFrame):
             super().__init__()
             self.text_widget = text_widget
             self.log_view = log_view
+            self.text_widget.tag_configure("error", foreground="red")
 
         def emit(self, record):
             for bl in self.log_view.log_blacklist:
                 if bl + "." in record.name:
                     return
             msg = self.format(record)
+            # self.text_widget.configure(state="normal")
+            # self.text_widget.insert(tk.END, msg + "\n")
+            # self.text_widget.configure(state="disabled")
+            # self.text_widget.yview(tk.END)
+
             self.text_widget.configure(state="normal")
-            self.text_widget.insert(tk.END, msg + "\n")
+            if record.levelno >= logging.ERROR:
+                self.text_widget.tag_configure("error", foreground="red")
+                self.text_widget.insert(tk.END, msg + "\n", "error")
+            else:
+                self.text_widget.insert(tk.END, msg + "\n")
             self.text_widget.configure(state="disabled")
             self.text_widget.yview(tk.END)
 
-    class TextRedirector(object):
+    class TextRedirector:
         def __init__(self, widget):
             self.widget = widget
 
@@ -186,3 +197,16 @@ class LogView(ttk.LabelFrame):
 
         def flush(self):
             pass
+
+    class StreamToLogger:
+       def __init__(self, logger, log_level=logging.ERROR):
+           self.logger = logger
+           self.log_level = log_level
+           self.linebuf = ''
+
+       def write(self, buf):
+           for line in buf.rstrip().splitlines():
+               self.logger.log(self.log_level, line)
+
+       def flush(self):
+           pass
