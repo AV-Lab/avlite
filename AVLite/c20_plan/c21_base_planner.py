@@ -35,7 +35,7 @@ class BasePlanner(ABC):
         num_of_edge_points=10,
     ):
         
-        self._env = env
+        self.pm = env
 
 
         self.global_trajectory = Trajectory(global_path)

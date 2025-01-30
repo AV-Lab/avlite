@@ -49,7 +49,7 @@ class RNDPlanner(BasePlanner):
             sample_size=self.sample_size,
         )
 
-        self.lattice.generate_lattice_from_nodes(env=self._env)
+        self.lattice.generate_lattice_from_nodes(env=self.pm)
 
         no_collision_edges = [edge for edge in self.lattice.level0_edges if not edge.collision]
         if not no_collision_edges:
