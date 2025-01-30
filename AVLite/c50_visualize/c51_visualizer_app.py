@@ -25,7 +25,7 @@ class VisualizerApp(tk.Tk):
         self.code_reload_function = code_reload_function
 
         self.title("AVlite Visualizer")
-        self.geometry("1200x1100")
+        # self.geometry("1200x1100")
 
         # ----------------------------------------------------------------------
         # Variables
@@ -35,23 +35,33 @@ class VisualizerApp(tk.Tk):
         # UI Views 
         # ----------------------------------------------------------------------
         self.plot_view = PlotView(self)
-        self.plot_view.pack(fill=tk.BOTH, expand=True)
+        # self.plot_view.pack(fill=tk.BOTH, expand=True)
 
-        self.config_view = ConfigShortcutView(self)
-        self.config_view.pack(fill=tk.X, side=tk.TOP)
+        self.config_shortcut_view = ConfigShortcutView(self)
+        # self.config_view.pack(fill=tk.X, side=tk.TOP)
 
         self.perceive_plan_control_view = PerceivePlanControlView(self)
-        self.perceive_plan_control_view.pack(fill=tk.X)
+        # self.perceive_plan_control_view.pack(fill=tk.X)
 
         self.visualize_exec_view = ExecVisualizeView(self)
-        self.visualize_exec_view.pack(fill=tk.X)
+        # self.visualize_exec_view.pack(fill=tk.X)
 
         self.log_view = LogView(self)
-        self.log_view.pack(fill=tk.X)
+        # self.log_view.pack(fill=tk.X)
         # ----------------------------------------------------------------------
 
+        self.plot_view.grid(row=0, column=0, sticky="nswe")
+        self.config_shortcut_view.grid(row=1, column=0, sticky="ew")
+        self.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
+        self.visualize_exec_view.grid(row=3, column=0, sticky="ew")
+        self.log_view.grid(row=4, column=0, sticky="nsew")
 
-        self.config_view.set_dark_mode()
-        self.config_view.update_UI() #its confusing why I need to do this
+        # Configure grid weights
+        self.grid_rowconfigure(0, weight=1) # make the plot view expand 
+        self.grid_columnconfigure(0, weight=1)
+
+        self.config_shortcut_view.set_dark_mode()
+
+        self.config_shortcut_view.update_UI() #its confusing why I need to do this
 
 

@@ -37,6 +37,7 @@ class PlotView(tk.Frame):
         self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
         self._prev_scroll_time = None  # used to throttle the replot
         self.root = root
+        # c52_plotlib.initialize_plots()
 
     def on_mouse_move(self, event):
         if event.inaxes:

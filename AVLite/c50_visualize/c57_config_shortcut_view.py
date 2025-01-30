@@ -40,10 +40,7 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("<plus>", lambda e: self.root.plot_view.zoom_in())
         self.root.bind("<minus>", lambda e: self.root.plot_view.zoom_out())
         
-        # ----------------------------------------------------------------------
-        # Config frame
-        # ------------------------------------------------------
-        config_frame = ttk.LabelFrame(root, text="Config")
+
         ttk.Button(self, text="Reload Code", command=self.reload_stack).pack(side=tk.RIGHT)
         ttk.Checkbutton(
             self,
@@ -88,20 +85,18 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
     def update_UI(self):
 
         if self.root.data.shortcut_mode.get():
-            self.root.visualize_exec_view.pack_forget()
-            self.root.perceive_plan_control_view.pack_forget()
-            self.root.log_view.pack_forget()
+            self.root.visualize_exec_view.grid_forget()
+            self.root.perceive_plan_control_view.grid_forget()
 
-            self.shortcut_frame.pack(fill=tk.X, side=tk.TOP)
-            self.root.log_view.pack(fill=tk.X)
+            self.shortcut_frame.grid(row=2, column=0, sticky="ew")
         else:
-            self.shortcut_frame.pack_forget()
-            self.root.log_view.pack_forget()
+            self.shortcut_frame.grid_forget()
 
-            self.root.visualize_exec_view.pack(fill=tk.X, side=tk.TOP)
-            self.root.perceive_plan_control_view.pack(fill=tk.X)
-            self.root.log_view.log_area.pack(fill=tk.BOTH, expand=True)
-            self.root.log_view.pack(fill=tk.X)
+            self.root.plot_view.grid(row=0, column=0, sticky="nswe")
+            self.root.config_shortcut_view.grid(row=1, column=0, sticky="ew")
+            self.root.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
+            self.root.visualize_exec_view.grid(row=3, column=0, sticky="ew")
+            self.root.log_view.grid(row=4, column=0, sticky="nsew")
 
         # max_height = int(self.winfo_height() * 0.4)
         # self.log_frame.config(height=max_height)
