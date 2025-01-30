@@ -23,7 +23,7 @@ class BasePlanner(ABC):
     traversed_s: list[float]
     location_xy: tuple[float, float]
     location_sd: tuple[float, float]
-    lap: int = 0
+    lap: int = 0 
 
     def __init__(
         self,
@@ -31,6 +31,8 @@ class BasePlanner(ABC):
         ref_left_boundary_d: list[float],
         ref_right_boundary_d: list[float],
         env: PerceptionModel,
+        planning_horizon=3,
+        num_of_edge_points=10,
     ):
         
         self._env = env
@@ -55,7 +57,16 @@ class BasePlanner(ABC):
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
         
         self.selected_local_plan: Optional[Edge] = None
-        self.lattice = Lattice(self.global_trajectory, ref_left_boundary_d, ref_right_boundary_d)
+        
+        self.planning_horizon: int = planning_horizon
+        self.num_of_edge_points: int = num_of_edge_points
+        self.lattice = Lattice(
+            self.global_trajectory,
+            self.ref_left_boundary_d,
+            self.ref_right_boundary_d,
+            planning_horizon=self.planning_horizon,
+            num_of_points=self.num_of_edge_points,
+        )
 
 
     def reset(self, wp=0):

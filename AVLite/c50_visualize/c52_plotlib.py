@@ -14,7 +14,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-MAX_LATTICE_SIZE = 30
+MAX_LATTICE_SIZE = 21 # suitable for horizon 3 and sample 3
 MAX_PLAN_LENGTH = 5
 MAX_AGENT_COUNT = 12
 
@@ -23,7 +23,7 @@ fig, (ax1, ax2) = plt.subplots(2, 1)
 
 
 # TODO: Add a function to initialize the plots
-def initiate_plots(max_lattice_size=30, max_plan_length=5, max_agent_count=12):
+def initialize_plots(max_lattice_size=30, max_plan_length=5, max_agent_count=12):
     global MAX_LATTICE_SIZE, MAX_PLAN_LENGTH, MAX_AGENT_COUNT
     global lattice_graph_plots_ax1, lattice_graph_plots_ax2, lattice_graph_endpoints_ax1, lattice_graph_endpoints_ax2, local_plan_plots_ax1, local_plan_plots_ax2
 
@@ -339,16 +339,10 @@ def update_lattice_graph_plots(pl: BasePlanner, show_plot=True):
     return
 
 
+
 def update_local_plan_plots(pl: BasePlanner, show_plot=True):
     if not show_plot or pl.selected_local_plan is None:
-        for i in range(MAX_PLAN_LENGTH):
-            local_plan_plots_ax1[i].set_data([], [])
-            local_plan_plots_ax2[i].set_data([], [])
-        current_wp_plot_ax1.set_data([], [])
-        current_wp_plot_ax2.set_data([], [])
-        next_wp_plot_ax1.set_data([], [])
-        next_wp_plot_ax2.set_data([], [])
-
+        __clear_local_plan_plots(pl)
     elif pl.selected_local_plan is not None:
         x, y = pl.selected_local_plan.local_trajectory.get_current_xy()
         s = pl.selected_local_plan.local_trajectory.path_s_from_parent[pl.selected_local_plan.local_trajectory.current_wp]
@@ -367,10 +361,10 @@ def update_local_plan_plots(pl: BasePlanner, show_plot=True):
 
         v = pl.selected_local_plan
 
-        __update_local_plan_plots(v)
+        __update_local_plan_plots(v, index=0, horizon = pl.planning_horizon)
 
 
-def __update_local_plan_plots(v: Edge, index: int = 0):
+def __update_local_plan_plots(v: Edge, index: int = 0, horizon: int = MAX_PLAN_LENGTH - 1):
     if v is not None:
         local_plan_plots_ax1[index].set_data(
             v.local_trajectory.path_x,
@@ -380,7 +374,20 @@ def __update_local_plan_plots(v: Edge, index: int = 0):
             v.local_trajectory.path_s_from_parent,
             v.local_trajectory.path_d_from_parent,
         )
-        __update_local_plan_plots(v.selected_next_local_plan, index + 1)
+        __update_local_plan_plots(v.selected_next_local_plan, index + 1, horizon)
+    elif index < horizon-1:
+        log.info(f"Index: {index} is less than {MAX_PLAN_LENGTH-1}")
+        __clear_local_plan_plots(v, index)
+
+def __clear_local_plan_plots(pl: BasePlanner, index=0):
+    for i in range(index, MAX_PLAN_LENGTH):
+        local_plan_plots_ax1[i].set_data([], [])
+        local_plan_plots_ax2[i].set_data([], [])
+    current_wp_plot_ax1.set_data([], [])
+    current_wp_plot_ax2.set_data([], [])
+    next_wp_plot_ax1.set_data([], [])
+    next_wp_plot_ax2.set_data([], [])
+        
 
 
 def update_state_plots(state: EgoState, global_trajectory: Trajectory, show_plot=True):

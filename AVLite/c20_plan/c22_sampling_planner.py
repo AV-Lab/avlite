@@ -19,22 +19,19 @@ class RNDPlanner(BasePlanner):
         planning_horizon=3,
         maneuver_distance=20,
         boundary_clearance=1,
-        sample_size=3,
+        sample_size=3, # number of nodes to sample in each level
     ):
-        super().__init__(global_path, ref_left_boundary_d, ref_right_boundary_d, env=env)
-        self.planning_horizon: int = planning_horizon
+        super().__init__(
+            global_path,
+            ref_left_boundary_d,
+            ref_right_boundary_d,
+            env=env,
+            num_of_edge_points=num_of_edge_points,
+            planning_horizon=planning_horizon,
+        )
         self.maneuver_distance: float = maneuver_distance
         self.boundary_clearance: int = boundary_clearance
         self.sample_size: int = sample_size
-        self.num_of_edge_points: int = num_of_edge_points
-
-        self.lattice = Lattice(
-            self.global_trajectory,
-            self.ref_left_boundary_d,
-            self.ref_right_boundary_d,
-            planning_horizon=self.planning_horizon,
-            num_of_points=self.num_of_edge_points,
-        )
 
     def replan(self, back_to_ref_horizon=10):
         if len(self.traversed_s) == 0:
@@ -72,6 +69,8 @@ class RNDPlanner(BasePlanner):
             edge.selected_next_local_plan = sorted_edges[0]
             edge = edge.selected_next_local_plan
 
-        log.debug(f"Sampled Lattice has {len(self.lattice.edges)} edges and {len(self.lattice.nodes)} nodes")
+        log.debug(
+            f"Sampled Lattice has {len(self.lattice.edges)} edges and {len(self.lattice.nodes)} nodes"
+        )
 
         return

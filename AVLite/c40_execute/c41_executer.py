@@ -101,7 +101,7 @@ class Executer():
         if x is not None and y is not None:
             t = self.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, speed=0)
-            self.pm.spawn_agent(agent)
+            self.world.spawn_agent(agent)
         elif s is not None and d is not None:
             # Convert (s, d) to (x, y) using some transformation logic
             x, y = self.planner.global_trajectory.convert_sd_to_xy(s, d)
@@ -109,11 +109,13 @@ class Executer():
             log.info(f"Ego State: {self.ego_state}")
             t = self.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, speed=0)
-            self.pm.spawn_agent(agent)
+            self.world.spawn_agent(agent)
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")
 
         self.pm.add_agent_vehicle(agent)
 
+    def update_ego_state(self, dt=0.01, acceleration=0.0, steering_angle=0.0):
+        self.world.update_ego_state(self.ego_state, dt=dt, acceleration=acceleration, steering_angle=steering_angle)
 
 
