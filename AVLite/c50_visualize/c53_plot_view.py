@@ -1,5 +1,5 @@
 from __future__ import annotations
-import c50_visualize.c52_plotlib as c52_plotlib
+from c50_visualize.c52_plotlib import PlotLib
 
 
 import tkinter as tk
@@ -22,10 +22,10 @@ class PlotView(tk.Frame):
         self.xy_zoom = 30
         self.frenet_zoom = 30
 
-        self.fig = c52_plotlib.fig
-        self.ax1 = c52_plotlib.ax1
-        self.ax2 = c52_plotlib.ax2
-        self.set_plot_theme = c52_plotlib.set_plot_theme
+        self.plot_lib = PlotLib()
+        self.fig = self.plot_lib.fig
+        self.ax1 = self.plot_lib.ax1
+        self.ax2 = self.plot_lib.ax2
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # A tk.DrawingArea.
         self.canvas.draw()
@@ -37,7 +37,7 @@ class PlotView(tk.Frame):
         self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
         self._prev_scroll_time = None  # used to throttle the replot
         self.root = root
-        # c52_plotlib.initialize_plots()
+        
 
     def on_mouse_move(self, event):
         if event.inaxes:
@@ -105,6 +105,11 @@ class PlotView(tk.Frame):
         self.frenet_zoom += 5
         self.replot()
 
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        self.plot_lib.set_plot_theme(bg_color, fg_color)
+
+
+
     def replot(self):
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
@@ -113,7 +118,7 @@ class PlotView(tk.Frame):
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
-        c52_plotlib.plot(
+        self.plot_lib.plot(
             exec=self.root.exec,
             aspect_ratio=aspect_ratio,
             xy_zoom=self.xy_zoom,
