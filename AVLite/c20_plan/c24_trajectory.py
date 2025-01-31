@@ -25,6 +25,8 @@ class Trajectory:
         Public field: S coordinates of the path.
     path_d : list[float]
         Public field: D coordinates of the path.
+    velocity: list[float]
+        Public field: Velocity values along the path.
     current_wp : int
         Public field: Current waypoint index.
     next_wp : int
@@ -41,6 +43,7 @@ class Trajectory:
     path_y: np.ndarray
     path_s: list[float]
     path_d: list[float]
+    velocity: list[float]
     current_wp: int
     next_wp: int
 
@@ -52,12 +55,13 @@ class Trajectory:
     path_s_from_parent: Optional[list]  = None
     path_d_from_parent: Optional[list] = None
 
-    def __init__(self, reference_xy_path, name="Global Trajectory"):
+    def __init__(self, reference_xy_path, velocity, name="Global Trajectory"):
         """
         Initializes a Trajectory object with a reference path in the xy-plane.
         """
         self.name = name  # needed to distinguish between global and local trajectory
         self.__reference_path = np.array(reference_xy_path)
+        self.velocity = velocity
         self.path_x = self.__reference_path[:, 0]
         self.path_y = self.__reference_path[:, 1]
         self.__cumulative_distances = self.__precompute_cumulative_distances()
@@ -281,7 +285,6 @@ class Trajectory:
 
         # Generate a list of s values from s_start to s_end
         s_values = np.linspace(s_start, s_end, num_points)
-        ic(s_values)
         return self.__decorate_trajectory_sd(poly, s_values)
 
     def __decorate_trajectory_sd(self, poly: Polynomial, s_values: list[float]) -> "Trajectory":
@@ -301,8 +304,22 @@ class Trajectory:
 
         tx, ty = zip(*[self.convert_sd_to_xy(s, d) for s, d in zip(s_values, d_values)])
 
+        # finding velocities
+        start_v = self.get_closest_waypoint_frm_sd(s_values[0], d_values[0])
+        end_v = self.get_closest_waypoint_frm_sd(s_values[-1], d_values[-1])
+
+        vel = self.velocity[start_v:end_v+1]
+
+        # increasing the resolution of the velocity array
+        current_size = len(vel)
+        if current_size < 2:
+            raise ValueError("Need at least two velocity values to interpolate.")
+        x_old = np.linspace(0, 1, current_size)
+        x_new = np.linspace(0, 1, len(s_values))
+        velocity_high_res = np.interp(x_new, x_old, vel)
+
         path = list(zip(tx, ty))
-        local_trajectory = Trajectory(path, name="Local Trajectory")
+        local_trajectory = Trajectory(path, name="Local Trajectory", velocity=velocity_high_res)
 
         local_trajectory.poly_d = poly
         local_trajectory.parent_trajectory = self

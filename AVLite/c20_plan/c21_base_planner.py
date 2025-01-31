@@ -24,10 +24,15 @@ class BasePlanner(ABC):
     location_xy: tuple[float, float]
     location_sd: tuple[float, float]
     lap: int = 0 
+    lattice: Lattice
+    selected_local_plan: Optional[Edge]
+    planning_horizon: int
+    num_of_edge_points: int
 
     def __init__(
         self,
         global_path: list[tuple[float, float]],
+        global_velocity: list[float],
         ref_left_boundary_d: list[float],
         ref_right_boundary_d: list[float],
         env: PerceptionModel,
@@ -38,7 +43,7 @@ class BasePlanner(ABC):
         self.pm = env
 
 
-        self.global_trajectory = Trajectory(global_path)
+        self.global_trajectory = Trajectory(global_path, global_velocity)
 
         self.ref_left_boundary_d = ref_left_boundary_d
         self.ref_right_boundary_d = ref_right_boundary_d

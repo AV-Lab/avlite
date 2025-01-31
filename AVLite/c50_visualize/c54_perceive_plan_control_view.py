@@ -4,6 +4,8 @@ from tkinter import ttk
 import time
 
 import logging
+
+from AVLite.c30_control.c31_base_controller import ControlComand
 log = logging.getLogger(__name__)
 
 class PerceivePlanControlView(ttk.Frame):
@@ -89,35 +91,32 @@ class PerceivePlanControlView(ttk.Frame):
     # --------------------------------------------------------------------------------------------
 
     def step_control(self):
-        d = self.root.exec.planner.traversed_d[-1]
-        steer = self.root.exec.controller.control(d)
+        cmd = self.root.exec.controller.control(self.root.exec.ego_state, self.root.exec.planner.get_local_plan())
 
         dt = float(self.dt_entry.get())
-        self.root.exec.update_ego_state(steering_angle=steer, dt=dt)
+        self.root.exec.world.update_ego_state(ego_state=self.root.exec.ego_state, cmd=cmd, dt=dt)
         self.root.plot_view.replot()
 
     def align_control(self):
-        self.root.exec.ego_state.x = self.root.exec.planner.global_trajectory.path_x[self.root.exec.planner.global_trajectory.next_wp - 1]
-        self.root.exec.ego_state.y = self.root.exec.planner.global_trajectory.path_y[self.root.exec.planner.global_trajectory.next_wp - 1]
-
+        self.root.exec.ego_state.x, self.root.exec.ego_state.y = self.root.exec.planner.location_xy
         self.root.plot_view.replot()
 
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
-        self.root.exec.update_ego_state(dt=dt, steering_angle=0.1)
+        self.root.exec.world.update_ego_state(ego_state=self.root.exec.ego_state, cmd=ControlComand(steer=0.1), dt=dt)
         self.root.plot_view.replot()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
-        self.root.exec.update_ego_state(dt=dt, steering_angle=-0.1)
+        self.root.exec.world.update_ego_state(ego_state=self.root.exec.ego_state, cmd=ControlComand(steer=-0.1), dt=dt)
         self.root.plot_view.replot()
 
     def step_acc(self):
         dt = float(self.dt_entry.get())
-        self.root.exec.update_ego_state(dt=dt, acceleration=8)
+        self.root.exec.world.update_ego_state(ego_state=self.root.exec.ego_state, cmd=ControlComand(acc=8), dt=dt)
         self.root.plot_view.replot()
 
     def step_dec(self):
         dt = float(self.dt_entry.get())
-        self.root.exec.update_ego_state(dt=dt, acceleration=-8)
+        self.root.exec.world.update_ego_state(ego_state=self.root.exec.ego_state, cmd=ControlComand(acc=-8), dt=dt)
         self.root.plot_view.replot()

@@ -37,7 +37,6 @@ class PlotView(tk.Frame):
         self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
         self._prev_scroll_time = None  # used to throttle the replot
         self.root = root
-        
 
     def on_mouse_move(self, event):
         if event.inaxes:
@@ -83,7 +82,8 @@ class PlotView(tk.Frame):
 
         threshold = 0.01
         if (
-            self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold
+            self._prev_scroll_time is None
+            or time.time() - self._prev_scroll_time > threshold
         ) and not self.root.data.animation_running:
             self.replot()
 
@@ -108,8 +108,6 @@ class PlotView(tk.Frame):
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         self.plot_lib.set_plot_theme(bg_color, fg_color)
 
-
-
     def replot(self):
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
@@ -131,10 +129,12 @@ class PlotView(tk.Frame):
             plot_state=self.root.data.show_state.get(),
         )
         self.canvas.draw()
-        log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
+        log.debug(
+            f"Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})"
+        )
 
         self.root.perceive_plan_control_view.vehicle_state_label.config(
-            text=f"Ego State: X: {self.root.exec.ego_state.x:+.2f}, Y: {self.root.exec.ego_state.y:+.2f}, v: {self.root.exec.ego_state.speed:+.2f}, θ: {self.root.exec.ego_state.theta:+.2f}"
+            text=f"Ego State: X: {self.root.exec.ego_state.x:+.2f}, Y: {self.root.exec.ego_state.y:+.2f}, v: {self.root.exec.ego_state.velocity:+.2f} ({self.root.exec.ego_state.velocity*3.6:+.2f} km/h), θ: {self.root.exec.ego_state.theta:+.2f}"
         )
 
         self.root.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
