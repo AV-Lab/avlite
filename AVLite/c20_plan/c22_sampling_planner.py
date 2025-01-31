@@ -12,6 +12,7 @@ class RNDPlanner(BasePlanner):
     def __init__(
         self,
         global_path: list[tuple[float, float]],
+        global_velocity: list[float],
         ref_left_boundary_d: list[float],
         ref_right_boundary_d: list[float],
         env: PerceptionModel,
@@ -23,6 +24,7 @@ class RNDPlanner(BasePlanner):
     ):
         super().__init__(
             global_path,
+            global_velocity, 
             ref_left_boundary_d,
             ref_right_boundary_d,
             env=env,

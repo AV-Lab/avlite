@@ -1,5 +1,4 @@
 import yaml
-import numpy as np
 import logging
 import json
 import os
@@ -17,12 +16,15 @@ import c20_plan.c22_sampling_planner
 import c20_plan.c23_lattice
 import c20_plan.c24_trajectory
 import c30_control.c31_base_controller
-import c30_control.c32_pid
+import c30_control.c32_pid_controller
 import c40_execute.c41_executer
 import c40_execute.c42_basic_sim
 
 import logging
 log = logging.getLogger(__name__)
+
+class Config:
+    pass
 
 def load_config(config_path, source_run=True):
     if os.path.isabs(config_path):
@@ -49,10 +51,11 @@ def load_config(config_path, source_run=True):
     with open(path_to_track, "r") as f:
         track_data = json.load(f)
         reference_path = [point[:2] for point in track_data["ReferenceLine"]]  # ignoring z
+        reference_velocity = track_data["ReferenceSpeed"]
         ref_left_boundary_d = track_data["LeftBound"]
         ref_right_boundary_d = track_data["RightBound"]
     logging.info(f"Track data loaded from {path_to_track}")
-    return reference_path, ref_left_boundary_d, ref_right_boundary_d
+    return reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d
 
 def reload_lib():
     log.info("Reloading imports...")
@@ -63,6 +66,7 @@ def reload_lib():
     importlib.reload(c20_plan.c23_lattice)
     importlib.reload(c20_plan.c24_trajectory)
     importlib.reload(c30_control.c31_base_controller)
-    importlib.reload(c30_control.c32_pid)
+    importlib.reload(c30_control.c32_pid_controller)
     importlib.reload(c40_execute.c41_executer)
     importlib.reload(c40_execute.c42_basic_sim)
+

@@ -1,14 +1,4 @@
 from c50_visualize.c51_visualizer_app import VisualizerApp
-import c10_perceive.c11_perception_model
-import c10_perceive.c12_state
-import c20_plan.c22_sampling_planner
-import c20_plan.c23_lattice
-import c20_plan.c24_trajectory
-import c30_control.c32_pid
-import c40_execute.c41_executer
-import c10_perceive.c12_state
-import c40_execute.c41_executer
-import c40_execute.c42_basic_sim
 from utils import load_config, reload_lib
 
 import numpy as np
@@ -20,23 +10,24 @@ log = logging.getLogger(__name__)
 
 def get_executer(config_path="config.yaml", source_run=True):
 
-    reference_path, ref_left_boundary_d, ref_right_boundary_d = load_config(
+    reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d = load_config(
         config_path=config_path, source_run=source_run
     )
 
     reload_lib()
-    PerceptionModel = c10_perceive.c11_perception_model.PerceptionModel
-    RNDPlanner = c20_plan.c22_sampling_planner.RNDPlanner
-    PIDController = c30_control.c32_pid.PIDController
-    Executer = c40_execute.c41_executer.Executer
-    BasicSim = c40_execute.c42_basic_sim.BasicSim
-    EgoState = c10_perceive.c12_state.EgoState
+    from c10_perceive.c11_perception_model import PerceptionModel
+    from c20_plan.c22_sampling_planner import RNDPlanner
+    from c30_control.c32_pid_controller import PIDController
+    from c40_execute.c41_executer import Executer
+    from c40_execute.c42_basic_sim import BasicSim
+    from c10_perceive.c12_state import EgoState
 
     world = BasicSim()
-    ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=30, theta=-np.pi / 4)
+    ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
     pm = PerceptionModel(ego_state)
     pl = RNDPlanner(
         global_path=reference_path,
+        global_velocity=reference_velocity,
         ref_left_boundary_d=ref_left_boundary_d,
         ref_right_boundary_d=ref_right_boundary_d,
         env=pm,

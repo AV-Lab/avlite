@@ -13,10 +13,6 @@ class LogView(ttk.LabelFrame):
         super().__init__(root, text="Log")
         self.root = root
         self.log_blacklist = set()  # used to filter 'excute', 'plan', 'control' subpackage logs
-        # ----------------------------------------------------------------------
-        # - Log Frame
-        # ----------------------------------------------------------------------
-        # self.log_frame = ttk.LabelFrame(root, text="Log")
 
         self.controls_frame = ttk.Frame(self)
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
@@ -28,8 +24,6 @@ class LogView(ttk.LabelFrame):
             command=self.update_log_filter,
         )
         self.ck_perceive.pack(side=tk.LEFT)
-        # self.ck_perceive.state(["!alternate"])
-        # self.ck_perceive.state(["selected"])
 
         self.ck_plan = ttk.Checkbutton(
             self.controls_frame,
@@ -38,8 +32,6 @@ class LogView(ttk.LabelFrame):
             command=self.update_log_filter,
         )
         self.ck_plan.pack(side=tk.LEFT)
-        self.ck_plan.state(["!alternate"])
-        self.ck_plan.state(["selected"])
 
         self.ck_control = ttk.Checkbutton(
             self.controls_frame,
@@ -48,8 +40,6 @@ class LogView(ttk.LabelFrame):
             command=self.update_log_filter,
         )
         self.ck_control.pack(side=tk.LEFT)
-        self.ck_control.state(["!alternate"])
-        self.ck_control.state(["selected"])
 
         self.ck_exec = ttk.Checkbutton(
             self.controls_frame,
@@ -58,8 +48,6 @@ class LogView(ttk.LabelFrame):
             command=self.update_log_filter,
         )
         self.ck_exec.pack(side=tk.LEFT)
-        self.ck_exec.state(["!alternate"])
-        self.ck_exec.state(["selected"])
 
         self.ck_vis = ttk.Checkbutton(
             self.controls_frame,
@@ -68,8 +56,6 @@ class LogView(ttk.LabelFrame):
             command=self.update_log_filter,
         )
         self.ck_vis.pack(side=tk.LEFT)
-        self.ck_vis.state(["!alternate"])
-        self.ck_vis.state(["selected"])
 
         self.rb_db_stdout = ttk.Radiobutton(
             self.controls_frame,
@@ -108,7 +94,7 @@ class LogView(ttk.LabelFrame):
         self.rb_db_debug.pack(side=tk.RIGHT)
 
 
-        self.log_area = ScrolledText(self, state="disabled", height=8)
+        self.log_area = ScrolledText(self, state="disabled", height=12)
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
 
@@ -118,7 +104,7 @@ class LogView(ttk.LabelFrame):
         # -------------------------------------------
         logger = logging.getLogger()
         text_handler = LogView.LogTextHandler(self.log_area, self)
-        formatter = logging.Formatter("[%(levelname).4s] %(name)-33s (L: %(lineno)3d): %(message)s")
+        formatter = logging.Formatter("[%(levelname).4s] %(name)-30s (L: %(lineno)3d): %(message)s")
         text_handler.setFormatter(formatter)
         # remove other handlers to avoid duplicate logs
         for handler in logger.handlers[:]:

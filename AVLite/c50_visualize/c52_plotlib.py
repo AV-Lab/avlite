@@ -219,13 +219,13 @@ class PlotLib:
             self.__update_local_plan_plots(v, index=0, horizon=pl.planning_horizon)
 
     def __update_local_plan_plots(self, v: Edge, index: int = 0, horizon: int = None):
-        if horizon is None:
+       if horizon is None:
             horizon = self.MAX_PLAN_LENGTH - 1
-        if v is not None:
+       if v is not None:
             self.local_plan_plots_ax1[index].set_data(v.local_trajectory.path_x, v.local_trajectory.path_y)
             self.local_plan_plots_ax2[index].set_data(v.local_trajectory.path_s_from_parent, v.local_trajectory.path_d_from_parent)
             self.__update_local_plan_plots(v.selected_next_local_plan, index + 1, horizon)
-        elif index < horizon - 1:
+       elif index < horizon - 1:
             log.info(f"Index: {index} is less than {self.MAX_PLAN_LENGTH - 1}")
             self.__clear_local_plan_plots(index=index)
 

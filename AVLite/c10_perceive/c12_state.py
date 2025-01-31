@@ -2,21 +2,23 @@ import numpy as np
 from shapely.geometry import Polygon
 
 import logging
+
 log = logging.getLogger(__name__)
 
+
 class State:
-    x:float
-    y:float
-    theta:float
-    width:float
-    length:float
+    x: float
+    y: float
+    theta: float
+    width: float
+    length: float
 
     def __init__(self, x=0.0, y=0.0, theta=-np.pi / 4, width=2.0, length=4.5):
-        self.x:float  = x
-        self.y:float = y
-        self.theta:float = theta
-        self.width:float = width
-        self.length:float = length
+        self.x: float = x
+        self.y: float = y
+        self.theta: float = theta
+        self.width: float = width
+        self.length: float = length
 
         # initial x,y position, useful for reset
         self.__init_x = x
@@ -70,34 +72,35 @@ class State:
         corners = self.get_bb_corners()
         return np.apply_along_axis(func, 1, corners)
 
+
 class AgentState(State):
-    speed:float
+    velocity: float
 
     def __init__(self, x=0.0, y=0.0, theta=-np.pi / 4, speed=0.0, width=2.0, length=4.5):
-        self.speed:float = speed
+        self.velocity: float = speed
 
         self.__init_speed = 0.0
         super().__init__(x, y, theta, width, length)
 
     # constant velocity model
     def predict(self, dt):
-        self.x += self.speed * np.cos(self.theta) * dt
-        self.y += self.speed * np.sin(self.theta) * dt
+        self.x += self.velocity * np.cos(self.theta) * dt
+        self.y += self.velocity * np.sin(self.theta) * dt
 
     def reset(self):
         super().reset()
-        self.speed = self.__init_speed
-    
+        self.velocity = self.__init_speed
+
     def __repr__(self):
-        return f"VehicleState(x={self.x}, y={self.y}, speed={self.speed}, theta={self.theta})"
+        return f"VehicleState(x={self.x}, y={self.y}, speed={self.velocity}, theta={self.theta})"
 
 
 class EgoState(AgentState):
-    max_speed:float
-    max_acceleration:float
-    max_deceleration:float
-    max_steering:float
-    L_f:float
+    max_speed: float
+    max_acceleration: float
+    max_deceleration: float
+    max_steering: float
+    L_f: float
 
     def __init__(
         self,
@@ -109,16 +112,15 @@ class EgoState(AgentState):
         length=4.5,
         max_speed=30,
         max_acceleration=10,
-        max_deceleration=10,
+        max_deceleration=20,
         l_f=2.5,
         max_steering=0.5,
     ):
         super().__init__(x, y, theta, speed, width, length)
 
         # car parameters
-        self.max_speed:float = max_speed
-        self.max_acceleration:float = max_acceleration
-        self.max_deceleration:float = max_deceleration
-        self.max_steering:float = max_steering
+        self.max_speed: float = max_speed
+        self.max_acceleration: float = max_acceleration
+        self.max_deceleration: float = max_deceleration
+        self.max_steering: float = max_steering
         self.L_f = l_f  # Distance from center of mass to front axle
-

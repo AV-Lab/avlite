@@ -7,13 +7,11 @@ log = logging.getLogger(__name__)
 
 class VisualizerData:
     def __init__(self, only_visualize: bool = False):
-        # ----------------------------------------------------------------------
-        # Variables for checkboxes --------------------------------------------
-        # ----------------------------------------------------------------------
         self.shortcut_mode = tk.BooleanVar(value=only_visualize)
         self.dark_mode = tk.BooleanVar(value=True)
 
-        self.show_legend = tk.BooleanVar(value=True)
+        # Plot options
+        self.show_legend = tk.BooleanVar(value=False) # causes slow
         self.show_past_locations = tk.BooleanVar(value=True)
         self.show_global_plan = tk.BooleanVar(value=True)
         self.show_local_plan = tk.BooleanVar(value=True)
@@ -36,3 +34,6 @@ class VisualizerData:
         self.show_control_logs = tk.BooleanVar(value=True)
         self.show_execute_logs = tk.BooleanVar(value=True)
         self.show_vis_logs = tk.BooleanVar(value=True)
+
+
+
