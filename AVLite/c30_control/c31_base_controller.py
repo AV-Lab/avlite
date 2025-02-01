@@ -14,7 +14,7 @@ class ControlComand:
     steer: float
     acceleration: float
 
-    def __init__(self, steer=0, acc=0):
+    def __init__(self, steer:float=0, acc:float=0):
         self.steer = steer
         self.acceleration = acc
 
@@ -27,9 +27,15 @@ class ControlComand:
 
 class BaseController(ABC):
     tj: Optional[Trajectory]
+    cmd: ControlComand
+    cte_steer: float
+    cte_velocity: float
 
     def __init__(self, tj: Trajectory = None):
         self.tj = tj
+        self.cmd = ControlComand()
+        self.cte_steer = 0
+        self.cte_velocity = 0
 
     @abstractmethod
     def control(self, ego: EgoState, tj: Trajectory=None) -> ControlComand:

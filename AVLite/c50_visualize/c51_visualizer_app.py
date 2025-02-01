@@ -6,8 +6,9 @@ from c50_visualize.c59_data import VisualizerData
 from c50_visualize.c56_log_view import LogView
 from c50_visualize.c57_config_shortcut_view import ConfigShortcutView
 
-import tkinter as tk
 
+import tkinter as tk
+from tkinter import ttk
 import logging
 
 
@@ -26,6 +27,7 @@ class VisualizerApp(tk.Tk):
 
         self.title("AVlite Visualizer")
         # self.geometry("1200x1100")
+        self.small_font = ("Courier", 10)
 
         # ----------------------------------------------------------------------
         # Variables
@@ -51,10 +53,39 @@ class VisualizerApp(tk.Tk):
         self.grid_rowconfigure(0, weight=1) # make the plot view expand 
         self.grid_columnconfigure(0, weight=1)
 
-        # self.config_shortcut_view.set_light_mode()
-
-        
+        # need otherwise matplotlib plt acts funny        
         self.after(50, self.config_shortcut_view.set_dark_mode)
 
+    def disable_frame(self, frame: ttk.Frame):
+        for child in frame.winfo_children():
+            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button)):
+                child.configure(state='disabled')
+            elif isinstance(child, (ttk.LabelFrame, ttk.Frame, tk.Frame)):
+                self.disable_frame(child)
 
+    def enable_frame(self, frame: ttk.Frame):
+        for child in frame.winfo_children():
+            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button)):
+                child.configure(state='normal')
+            elif isinstance(child, (ttk.LabelFrame, ttk.Frame, tk.Frame)):
+                self.enable_frame(child)
 
+    def update_ui(self):
+        self.plot_view.plot()
+        self.perceive_plan_control_view.vehicle_state_label.config(
+            text=f"Ego: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), v: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+4.1f}"
+        )
+
+        self.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
+        self.perceive_plan_control_view.global_tj_wp_entry.insert(
+            0, str(self.exec.planner.global_trajectory.current_wp)
+        )
+
+        acc =self.exec.controller.cmd.acceleration  
+        steer = self.exec.controller.cmd.steer
+        state = self.exec.ego_state
+
+        self.perceive_plan_control_view.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
+        self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
+        self.perceive_plan_control_view.progressbar_acc.set_value(acc)
+        self.perceive_plan_control_view.progressbar_steer.set_value(steer)

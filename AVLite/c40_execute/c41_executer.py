@@ -64,19 +64,18 @@ class Executer:
     def step(
         self,
         control_dt=0.01,
-        replan_dt=None,
+        replan_dt=0.01,
         call_replan=True,
         call_control=True,
         call_perceive=True,
     ):
         t0 = time.time()
-        if replan_dt is not None and call_replan:
+        if call_replan:
             self.__time_since_last_replan += control_dt
             if self.__time_since_last_replan > replan_dt:
                 self.__time_since_last_replan = 0
                 self.planner.replan()
 
-        # update planner location
         self.planner.step(self.ego_state)
 
         if call_control:
@@ -89,11 +88,7 @@ class Executer:
             t4 = time.time()
 
         self.elapsed_sim_time += control_dt
-        delta_t_exec = (
-            time.time() - self.__prev_exec_time
-            if self.__prev_exec_time is not None
-            else 0
-        )
+        delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
 
@@ -105,10 +100,14 @@ class Executer:
                 f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}"
             )
 
-    def run(self, control_dt=0.01, replan_dt=None, max_time=100):
+    def run(self, replan_dt=0.5, control_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
         self.reset()
-        while self.elapsed_sim_time < max_time:
-            self.step(control_dt=control_dt, replan_dt=replan_dt)
+        while True:
+            self.step(control_dt=control_dt)
+            time.sleep(control_dt)
+
+    def stop(self):
+        pass
 
     def reset(self):
         self.pm.reset()
