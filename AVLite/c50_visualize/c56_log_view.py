@@ -7,6 +7,10 @@ import sys
 import logging
 log = logging.getLogger(__name__)
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from c50_visualize.c51_visualizer_app import VisualizerApp
+
 
 class LogView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
@@ -107,7 +111,7 @@ class LogView(ttk.LabelFrame):
         formatter = logging.Formatter("[%(levelname).4s] %(name)-30s (L: %(lineno)3d): %(message)s")
         text_handler.setFormatter(formatter)
         # remove other handlers to avoid duplicate logs
-        for handler in logger.handlers[:]:
+        for handler in logger.handlers:
             logger.removeHandler(handler)
         logger.addHandler(text_handler)
         logger.setLevel(logging.INFO)
@@ -157,10 +161,6 @@ class LogView(ttk.LabelFrame):
                 if bl + "." in record.name:
                     return
             msg = self.format(record)
-            # self.text_widget.configure(state="normal")
-            # self.text_widget.insert(tk.END, msg + "\n")
-            # self.text_widget.configure(state="disabled")
-            # self.text_widget.yview(tk.END)
 
             self.text_widget.configure(state="normal")
             if record.levelno >= logging.ERROR:

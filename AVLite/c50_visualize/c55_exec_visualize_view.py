@@ -1,7 +1,11 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 import tkinter as tk
 from tkinter import ttk
 import time
+
+if TYPE_CHECKING:
+    from c50_visualize.c51_visualizer_app import VisualizerApp
 
 import logging
 
@@ -27,19 +31,23 @@ class ExecVisualizeView(ttk.Frame):
         exec_third_frame = ttk.Frame(self.execution_frame)
         exec_third_frame.pack(fill=tk.X)
 
-        ttk.Label(exec_first_frame, text="Control Δt ").pack(
-            side=tk.LEFT, padx=5, pady=5
-        )
+        ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, width=5)
         self.dt_exec_cn_entry.insert(0, "0.02")
         self.dt_exec_cn_entry.pack(side=tk.LEFT)
 
-        ttk.Label(exec_first_frame, text="Replan Δt ").pack(
-            side=tk.LEFT, padx=5, pady=5
-        )
+        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, width=5)
         self.dt_exec_pl_entry.insert(0, "1.7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
+
+        self.asyc_exec_cb = ttk.Checkbutton(
+            exec_first_frame,
+            text="Async Mode",
+            command=self.root.config_shortcut_view.reload_stack,
+            variable=self.root.data.async_exec,
+        )
+        self.asyc_exec_cb.pack(side=tk.RIGHT)
 
         gruvbox_green = "#b8bb26"
         gruvbox_light_green = "#fe8019"
@@ -56,15 +64,9 @@ class ExecVisualizeView(ttk.Frame):
         )
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
 
-        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(
-            side=tk.LEFT
-        )
+        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
 
         ttk.Label(exec_third_frame, text="Bridge:").pack(side=tk.LEFT)
         ttk.Radiobutton(
@@ -86,15 +88,9 @@ class ExecVisualizeView(ttk.Frame):
             value="Carla",
         ).pack(side=tk.LEFT)
 
-        ttk.Checkbutton(
-            exec_third_frame, text="Control", variable=self.root.data.exec_control
-        ).pack(side=tk.RIGHT)
-        ttk.Checkbutton(
-            exec_third_frame, text="Plan", variable=self.root.data.exec_plan
-        ).pack(side=tk.RIGHT)
-        ttk.Checkbutton(
-            exec_third_frame, text="Percieve", variable=self.root.data.exec_perceive
-        ).pack(side=tk.RIGHT)
+        ttk.Checkbutton(exec_third_frame, text="Control", variable=self.root.data.exec_control).pack(side=tk.RIGHT)
+        ttk.Checkbutton(exec_third_frame, text="Plan", variable=self.root.data.exec_plan).pack(side=tk.RIGHT)
+        ttk.Checkbutton(exec_third_frame, text="Percieve", variable=self.root.data.exec_perceive).pack(side=tk.RIGHT)
 
         # ----------------------------------------------------------------------
         # Visualize frame setup
@@ -109,57 +105,49 @@ class ExecVisualizeView(ttk.Frame):
             checkboxes_frame,
             text="Legend",
             variable=self.root.data.show_legend,
-            command=self.root.plot_view.replot,
+            command=self.root.update_ui,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Locations",
             variable=self.root.data.show_past_locations,
-            command=self.root.plot_view.replot,
+            command=self.root.update_ui,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Global Plan",
             variable=self.root.data.show_global_plan,
-            command=self.root.plot_view.replot,
+            command=self.root.update_ui,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Local Plan",
             variable=self.root.data.show_local_plan,
-            command=self.root.plot_view.replot,
+            command=self.root.update_ui,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="Local Lattice",
             variable=self.root.data.show_local_lattice,
-            command=self.root.plot_view.replot,
+            command=self.root.update_ui,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             checkboxes_frame,
             text="State",
             variable=self.root.data.show_state,
-            command=self.root.plot_view.replot,
+            command=self.root.update_ui,
         ).pack(anchor=tk.W, side=tk.LEFT)
 
         ## UI Elements for Visualize - Buttons
         zoom_global_frame = ttk.Frame(self.visualize_frame)
         zoom_global_frame.pack(fill=tk.X, padx=5)
 
-        ttk.Label(zoom_global_frame, text="Global Coordinate").pack(
-            anchor=tk.W, side=tk.LEFT
-        )
-        ttk.Button(
-            zoom_global_frame, text="Zoom In", command=self.root.plot_view.zoom_in
-        ).pack(side=tk.LEFT)
-        ttk.Button(
-            zoom_global_frame, text="Zoom Out", command=self.root.plot_view.zoom_out
-        ).pack(side=tk.LEFT)
+        ttk.Label(zoom_global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom In", command=self.root.plot_view.zoom_in).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="Zoom Out", command=self.root.plot_view.zoom_out).pack(side=tk.LEFT)
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(
-            anchor=tk.W, side=tk.LEFT
-        )
+        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(
             zoom_frenet_frame,
             text="Zoom In",
@@ -188,22 +176,40 @@ class ExecVisualizeView(ttk.Frame):
             cn_dt = float(self.dt_exec_cn_entry.get())
             pl_dt = float(self.dt_exec_pl_entry.get())
 
-            self.root.exec.step(
-                control_dt=cn_dt,
-                replan_dt=pl_dt,
-                call_replan=self.root.data.exec_plan.get(),
-                call_control=self.root.data.exec_control.get(),
-                call_perceive=self.root.data.exec_perceive.get(),
-            )
-            self.root.plot_view.replot()
+            if self.root.data.async_exec.get():
+                self.after(
+                    100,
+                    self.root.exec.run(
+                        replan_dt=pl_dt,
+                        control_dt=cn_dt,
+                        call_replan=self.root.data.exec_plan.get(),
+                        call_control=self.root.data.exec_control.get(),
+                        call_perceive=self.root.data.exec_perceive.get(),
+                    ),
+                )
+                time.sleep(0.1)
+            else:
+                self.root.exec.step(
+                    control_dt=cn_dt,
+                    replan_dt=pl_dt,
+                    call_replan=self.root.data.exec_plan.get(),
+                    call_control=self.root.data.exec_control.get(),
+                    call_perceive=self.root.data.exec_perceive.get(),
+                )
+            self.root.update_ui()
             self.root.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
             self.root.perceive_plan_control_view.global_tj_wp_entry.insert(
                 0, str(self.root.exec.planner.global_trajectory.next_wp - 1)
             )
-            self.root.after(int(cn_dt * 1000), self._exec_loop)
+
+            if not self.root.data.async_exec.get():
+                self.root.after(int(cn_dt * 1000), self._exec_loop)
 
     def stop_exec(self):
         self.root.data.animation_running = False
+        if self.root.data.async_exec.get():
+            self.root.after(100, self.root.exec.stop())
+            time.sleep(0.1)
         self.start_exec_button.config(state=tk.NORMAL)
 
     def step_exec(self):
@@ -216,8 +222,8 @@ class ExecVisualizeView(ttk.Frame):
             call_control=self.root.data.exec_control.get(),
             call_perceive=self.root.data.exec_perceive.get(),
         )
-        self.root.plot_view.replot()
+        self.root.update_ui()
 
     def reset_exec(self):
         self.root.exec.reset()
-        self.root.plot_view.replot()
+        self.root.update_ui()

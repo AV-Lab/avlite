@@ -96,10 +96,11 @@ class AgentState(State):
 
 
 class EgoState(AgentState):
-    max_speed: float
+    max_valocity: float
     max_acceleration: float
-    max_deceleration: float
+    min_acceleration: float
     max_steering: float
+    min_steering: float
     L_f: float
 
     def __init__(
@@ -110,17 +111,19 @@ class EgoState(AgentState):
         speed=0.0,
         width=2.0,
         length=4.5,
-        max_speed=30,
+        max_velocity=30,
         max_acceleration=10,
-        max_deceleration=20,
+        min_acceleration=-20,
+        max_steering=0.7, # in radians
+        min_steering=-0.7,
         l_f=2.5,
-        max_steering=0.5,
     ):
         super().__init__(x, y, theta, speed, width, length)
 
         # car parameters
-        self.max_speed: float = max_speed
-        self.max_acceleration: float = max_acceleration
-        self.max_deceleration: float = max_deceleration
-        self.max_steering: float = max_steering
+        self.max_valocity = max_velocity
+        self.max_acceleration = max_acceleration
+        self.min_acceleration = min_acceleration
+        self.max_steering = max_steering
+        self.min_steering = min_steering
         self.L_f = l_f  # Distance from center of mass to front axle

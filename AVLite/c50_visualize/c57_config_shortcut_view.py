@@ -1,10 +1,17 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from c50_visualize.c51_visualizer_app import VisualizerApp
 import tkinter as tk
 from tkinter import ttk
 
 
 import logging
 log = logging.getLogger(__name__)
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from c50_visualize.c51_visualizer_app import VisualizerApp
 
 
 class ConfigShortcutView(ttk.LabelFrame):
@@ -99,7 +106,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
         # max_height = int(self.winfo_height() * 0.4)
         # self.log_frame.config(height=max_height)
-        self.root.plot_view.replot()
+        self.root.update_ui()
 
     def toggle_dark_mode(self):
         self.set_dark_mode() if self.root.data.dark_mode.get() else self.set_light_mode()
@@ -123,6 +130,13 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
             style = ThemedStyle(self.root)
             style.set_theme("equilux")
+            # style.configure("TProgressbar",
+            #                 thickness=10,
+            #                 troughcolor='black',  # Background color
+            #                 background='white',  # Pointer color
+            #                 bordercolor='gray',  # Border color
+            #                 lightcolor='white',  # Light part color
+            #                 darkcolor='gray')    # Dark part color
 
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
@@ -145,10 +159,20 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
 
     def reload_stack(self):
+        log.info(f"Reloading the code with async_mode: {self.root.data.async_exec.get()}")
+        self.root.visualize_exec_view.stop_exec()
         if self.root.code_reload_function is not None:
-            self.root.exec = self.root.code_reload_function()
-            self.root.plot_view.replot()
+            self.root.exec = self.root.code_reload_function(async_mode=self.root.data.async_exec.get())
+            self.root.update_ui()
         else:
             log.warning("No code reload function provided.")
+
+        if self.root.data.async_exec.get():
+            log.info(f"Disabling the Perceive-Plan-Control view")
+            self.root.disable_frame(self.root.perceive_plan_control_view)
+        else:
+            log.info(f"Enabling the Perceive-Plan-Control view")
+            self.root.enable_frame(self.root.perceive_plan_control_view)
+
 
 

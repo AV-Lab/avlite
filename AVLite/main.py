@@ -8,7 +8,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def get_executer(config_path="config.yaml", source_run=True):
+def get_executer(config_path="config.yaml", async_mode=False, source_run=True):
 
     reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d = load_config(
         config_path=config_path, source_run=source_run
@@ -19,7 +19,8 @@ def get_executer(config_path="config.yaml", source_run=True):
     from c20_plan.c22_sampling_planner import RNDPlanner
     from c30_control.c32_pid_controller import PIDController
     from c40_execute.c41_executer import Executer
-    from c40_execute.c42_basic_sim import BasicSim
+    from c40_execute.c42_async_executer import AsyncExecuter
+    from c40_execute.c43_basic_sim import BasicSim
     from c10_perceive.c12_state import EgoState
 
     world = BasicSim()
@@ -33,7 +34,7 @@ def get_executer(config_path="config.yaml", source_run=True):
         env=pm,
     )
     cn = PIDController()
-    executer = Executer(pm, pl, cn, world)
+    executer = Executer(pm, pl, cn, world) if not async_mode else AsyncExecuter(pm, pl, cn, world)
 
     return executer
 
