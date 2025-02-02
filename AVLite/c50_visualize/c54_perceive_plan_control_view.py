@@ -180,14 +180,14 @@ class PerceivePlanControlView(ttk.Frame):
     def step_steer_left(self):
         dt = float(self.dt_entry.get())
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(steer=0.1), dt=dt
+            state=self.root.exec.ego_state, cmd=ControlComand(steer=0.05), dt=dt
         )
         self.root.update_ui()
 
     def step_steer_right(self):
         dt = float(self.dt_entry.get())
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(steer=-0.1), dt=dt
+            state=self.root.exec.ego_state, cmd=ControlComand(steer=-0.05), dt=dt
         )
         self.root.update_ui()
 

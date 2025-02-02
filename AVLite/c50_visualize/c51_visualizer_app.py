@@ -56,19 +56,30 @@ class VisualizerApp(tk.Tk):
         # need otherwise matplotlib plt acts funny        
         self.after(50, self.config_shortcut_view.set_dark_mode)
 
+        self.disabled_components = False
+
     def disable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
-            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button)):
+            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton, ttk.Radiobutton)):
                 child.configure(state='disabled')
             elif isinstance(child, (ttk.LabelFrame, ttk.Frame, tk.Frame)):
                 self.disable_frame(child)
 
     def enable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
-            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button)):
+            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton,ttk.Radiobutton)):
                 child.configure(state='normal')
             elif isinstance(child, (ttk.LabelFrame, ttk.Frame, tk.Frame)):
                 self.enable_frame(child)
+    
+    def validate_float_input(self, user_input):
+        if user_input == "" or user_input == "-":
+            return True
+        try:
+            float(user_input)
+            return True
+        except ValueError:
+            return False
 
     def update_ui(self):
         self.plot_view.plot()
@@ -89,3 +100,18 @@ class VisualizerApp(tk.Tk):
         self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
         self.perceive_plan_control_view.progressbar_acc.set_value(acc)
         self.perceive_plan_control_view.progressbar_steer.set_value(steer)
+        # log.info(f"animation running: {self.data.animation_running}")
+        
+        if self.data.async_exec.get() and self.data.exec_running and (self.data.replan_dt.get() < 0.1 or self.data.control_dt.get() < 0.5):
+            if not self.disabled_components:
+                # self.disable_frame(self.perceive_plan_control_view)
+                # self.disable_frame(self.log_view.controls_frame)
+                self.data.show_control_logs.set(False)
+                self.data.show_plan_logs.set(False)
+                self.disabled_components = True
+                self.data.log_level.set("STDOUT")
+        elif not self.data.exec_running or (self.data.replan_dt.get() >= 0.1 and self.data.control_dt.get() >= 0.5):
+            if self.disabled_components:
+                # self.enable_frame(self.perceive_plan_control_view)
+                # self.enable_frame(self.log_view.controls_frame)
+                self.disabled_components = False

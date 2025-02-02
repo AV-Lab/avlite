@@ -32,13 +32,13 @@ class ExecVisualizeView(ttk.Frame):
         exec_third_frame.pack(fill=tk.X)
 
         ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, width=5)
-        self.dt_exec_cn_entry.insert(0, "0.02")
+        self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, textvariable=self.root.data.control_dt, validatecommand=self.root.validate_float_input, width=5)
+        # self.dt_exec_cn_entry.insert(0, "0.02")
         self.dt_exec_cn_entry.pack(side=tk.LEFT)
 
         ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, width=5)
-        self.dt_exec_pl_entry.insert(0, "1.7")
+        self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, textvariable=self.root.data.replan_dt, validatecommand=self.root.validate_float_input, width=5)
+        # self.dt_exec_pl_entry.insert(0, "1.7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
 
         self.asyc_exec_cb = ttk.Checkbutton(
@@ -170,15 +170,16 @@ class ExecVisualizeView(ttk.Frame):
     # --------------------------------------------------------------------------------------------
 
     def toggle_exec(self):
-        if self.root.data.animation_running:
+        if self.root.data.exec_running:
             self.stop_exec()
             return
-        self.root.data.animation_running = True
+        self.root.data.exec_running = True
         self.start_exec_button.config(state=tk.DISABLED)
         self._exec_loop()
+        self.root.update_ui()
 
     def _exec_loop(self):
-        if self.root.data.animation_running:
+        if self.root.data.exec_running:
             cn_dt = float(self.dt_exec_cn_entry.get())
             pl_dt = float(self.dt_exec_pl_entry.get())
 
@@ -199,12 +200,13 @@ class ExecVisualizeView(ttk.Frame):
             self.root.after(int(cn_dt * 1000), self._exec_loop)
 
     def stop_exec(self):
-        self.root.data.animation_running = False
+        self.root.data.exec_running = False
         if self.root.data.async_exec.get():
             log.info(f"Stopping Async Exec in 0.1 sec.")
             self.root.after(100, self.root.exec.stop())
             time.sleep(0.1)
         self.start_exec_button.config(state=tk.NORMAL)
+        self.root.update_ui()
 
     def step_exec(self):
         cn_dt = float(self.dt_exec_cn_entry.get())

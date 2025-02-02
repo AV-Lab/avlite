@@ -167,12 +167,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         else:
             log.warning("No code reload function provided.")
 
-        if self.root.data.async_exec.get():
-            log.info(f"Disabling the Perceive-Plan-Control view")
-            self.root.disable_frame(self.root.perceive_plan_control_view)
-        else:
-            log.info(f"Enabling the Perceive-Plan-Control view")
-            self.root.enable_frame(self.root.perceive_plan_control_view)
 
 
 
