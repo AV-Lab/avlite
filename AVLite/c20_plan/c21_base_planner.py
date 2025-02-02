@@ -4,6 +4,7 @@ from c20_plan.c23_lattice import Edge, Lattice
 from typing import Optional
 from c20_plan.c24_trajectory import Trajectory
 from abc import ABC, abstractmethod
+import copy
 
 import logging
 log = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ class BasePlanner(ABC):
     def replan(self):
         pass
 
-    def get_local_plan(self):
+    def get_local_plan(self) -> Trajectory:
         if self.selected_local_plan is not None:
             # log.info(f"Selected Edge: ({self.selected_edge.start_s:.2f},{self.selected_edge.start_d:.2f}) -> ({self.selected_edge.end_s:.2f},{self.selected_edge.end_d:.2f})")
             return self.selected_local_plan.local_trajectory
@@ -160,6 +161,7 @@ class BasePlanner(ABC):
         Args:
             state: The current state of the vehicle.
         """
+        # log.debug(f"Step called with state:  {state}")
         self.traversed_x.append(state.x)
         self.traversed_y.append(state.y)
         self.global_trajectory.update_waypoint_by_xy(state.x, state.y)
@@ -187,3 +189,21 @@ class BasePlanner(ABC):
         self.traversed_s.append(s_)
         self.location_xy = (state.x, state.y)
         self.location_sd = (s_, d_)
+
+
+    # For serializaztion
+
+    def get_copy(self):
+        return copy.deepcopy(self)
+    
+    def get_serializable_local_plan(self) -> tuple[list[tuple[float, float]],list[float]]:
+        tj = self.get_local_plan()
+        path = tj.reference_xy_path
+        velocity = tj.velocity
+
+        return path, velocity
+
+    def get_location_xy(self) -> tuple[float, float]:
+        return self.location_xy
+    def get_location_sd(self) -> tuple[float, float]:
+        return self.location_sd

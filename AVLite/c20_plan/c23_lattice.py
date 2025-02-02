@@ -93,6 +93,8 @@ class Edge:
         self.next_edges = []
         self.num_of_points = num_of_points
 
+    def __str__(self):
+        return f"Edge: {self.start} -> {self.end}"
 
 
 class Lattice:

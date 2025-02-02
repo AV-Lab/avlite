@@ -6,14 +6,16 @@ from c10_perceive.c12_state import EgoState
 from abc import ABC, abstractmethod
 
 import logging
-import numpy as np
 import time
 from c10_perceive.c12_state import AgentState
+import copy
 
 log = logging.getLogger(__name__)
 
 
 class WorldInterface(ABC):
+    ego_state: EgoState
+    
     @abstractmethod
     def update_ego_state(self, state: EgoState, cmd: ControlComand, dt=0.01):
         """
@@ -33,7 +35,9 @@ class WorldInterface(ABC):
 
         """
         pass
-
+    @abstractmethod
+    def get_copy(self):
+        pass
 
 class Executer:
     pm: PerceptionModel
@@ -48,18 +52,23 @@ class Executer:
         pl: BasePlanner,
         cn: BaseController,
         world: WorldInterface,
+        replan_dt=0.5,
+        control_dt=0.01
     ):
         self.pm = pm
         self.ego_state = pm.ego_vehicle
         self.planner = pl
         self.controller = cn
         self.world = world
+        self.replan_dt = replan_dt
+        self.control_dt = control_dt
 
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
 
         self.__prev_exec_time = None
         self.__time_since_last_replan = 0
+        
 
     def step(
         self,
@@ -85,6 +94,7 @@ class Executer:
             t2 = time.time()
             t3 = time.time()
             self.world.update_ego_state(self.ego_state, cmd, dt=control_dt)
+            self.ego_state = self.world.ego_state
             t4 = time.time()
 
         self.elapsed_sim_time += control_dt
@@ -136,3 +146,4 @@ class Executer:
             raise ValueError("Either (x, y) or (s, d) must be provided")
 
         self.pm.add_agent_vehicle(agent)
+

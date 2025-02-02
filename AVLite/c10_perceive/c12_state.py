@@ -1,5 +1,6 @@
 import numpy as np
 from shapely.geometry import Polygon
+import copy
 
 import logging
 
@@ -32,6 +33,9 @@ class State:
         self.x = self.__init_x
         self.y = self.__init_y
         self.theta = self.__init_theta
+
+    def get_copy(self):
+        return copy.deepcopy(self)
 
     def get_bb_corners(self) -> np.ndarray:
         # Calculate the four corners of the rectangle
@@ -127,3 +131,18 @@ class EgoState(AgentState):
         self.max_steering = max_steering
         self.min_steering = min_steering
         self.L_f = l_f  # Distance from center of mass to front axle
+
+    def __reduce__(self):
+            state = {
+                'x': self.x,
+                'y': self.y,
+                'theta': self.theta,
+                'width': self.width,
+                'length': self.length,
+                'velocity': self.velocity,
+            }
+            return (self.__class__, (), state)
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        

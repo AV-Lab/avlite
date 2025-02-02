@@ -23,8 +23,8 @@ def get_executer(config_path="config.yaml", async_mode=False, source_run=True):
     from c40_execute.c43_basic_sim import BasicSim
     from c10_perceive.c12_state import EgoState
 
-    world = BasicSim()
     ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
+    world = BasicSim(ego_state)
     pm = PerceptionModel(ego_state)
     pl = RNDPlanner(
         global_path=reference_path,

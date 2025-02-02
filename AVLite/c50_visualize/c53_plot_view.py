@@ -122,6 +122,8 @@ class PlotView(ttk.Frame):
             plot_local_plan=self.root.data.show_local_plan.get(),
             plot_local_lattice=self.root.data.show_local_lattice.get(),
             plot_state=self.root.data.show_state.get(),
+            global_follow_planner=self.root.data.global_view_follow_planner.get(),
+            frenet_follow_planner=self.root.data.frenet_view_follow_planner.get(),
         )
         self.canvas.draw()
         log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")

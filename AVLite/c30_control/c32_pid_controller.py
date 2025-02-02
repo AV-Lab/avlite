@@ -2,6 +2,7 @@ from c10_perceive.c12_state import EgoState
 from c20_plan.c24_trajectory import Trajectory
 from c30_control.c31_base_controller import BaseController, ControlComand
 import numpy as np
+import copy
 
 import logging
 
@@ -23,7 +24,8 @@ class PIDController(BaseController):
         if tj is not None:
             self.tj = tj
         elif tj is None and self.tj is None:
-            raise ValueError("Trajectory is not provided")
+            log.error("Trajectory is not provided")
+            return
 
         s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
         # self.past_cte.append(cte)
@@ -76,3 +78,8 @@ class PIDController(BaseController):
         self.cte_steer = 0
         self.cte_v_sum = 0
         self.cte_velocity = 0
+    
+    def get_copy(self):
+        return copy.deepcopy(self)
+    
+

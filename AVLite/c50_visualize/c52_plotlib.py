@@ -47,33 +47,45 @@ class PlotLib:
             self.local_plan_plots_ax1.append(local_plan_ax1)
             self.local_plan_plots_ax2.append(local_plan_ax2)
 
-        self.left_boundry_x1, = self.ax1.plot([], [], color="orange", label="Left Boundary", linewidth=2)
-        self.right_boundry_x1, = self.ax1.plot([], [], color="tan", label="Right Boundary", linewidth=2)
+        (self.left_boundry_x1,) = self.ax1.plot([], [], color="orange", label="Left Boundary", linewidth=2)
+        (self.right_boundry_x1,) = self.ax1.plot([], [], color="tan", label="Right Boundary", linewidth=2)
         self.left_boundry_ax2 = self.ax2.scatter([], [], color="orange", s=5, label="Left Boundary (Ref)")
         self.right_boundry_ax2 = self.ax2.scatter([], [], color="tan", s=5, label="Right Boundary (Ref)")
 
-        self.reference_trajectory_ax1, = self.ax1.plot([], [], "gray", label="Reference Trajectory", linewidth=2)
-        self.reference_trajectory_ax2 = self.ax2.scatter([], [], s=5, alpha=0.5, color="gray", label="Reference Trajectory")
+        (self.reference_trajectory_ax1,) = self.ax1.plot([], [], "gray", label="Reference Trajectory", linewidth=2)
+        self.reference_trajectory_ax2 = self.ax2.scatter(
+            [], [], s=5, alpha=0.5, color="gray", label="Reference Trajectory"
+        )
 
-        self.last_locs_ax1, = self.ax1.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
-        self.planner_loc_ax1, = self.ax1.plot([], [], "ro", markersize=10, label="Planner Location")
+        (self.last_locs_ax1,) = self.ax1.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
+        (self.planner_loc_ax1,) = self.ax1.plot([], [], "ro", markersize=10, label="Planner Location")
 
-        self.last_locs_ax2, = self.ax2.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
-        self.planner_loc_ax2, = self.ax2.plot([], [], "ro", markersize=10, label="Planner Location")
+        (self.last_locs_ax2,) = self.ax2.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
+        (self.planner_loc_ax2,) = self.ax2.plot([], [], "ro", markersize=10, label="Planner Location")
 
-        self.g_wp_current_ax1, = self.ax1.plot([], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none")
-        self.g_wp_current_ax2, = self.ax2.plot([], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none")
+        (self.g_wp_current_ax1,) = self.ax1.plot(
+            [], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none"
+        )
+        (self.g_wp_current_ax2,) = self.ax2.plot(
+            [], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none"
+        )
 
-        self.g_wp_next_ax1, = self.ax1.plot([], [], "gx", markersize=13, label="G WP: Next")
-        self.g_wp_next_ax2, = self.ax2.plot([], [], "gx", markersize=13, label="G WP: Next")
+        (self.g_wp_next_ax1,) = self.ax1.plot([], [], "gx", markersize=13, label="G WP: Next")
+        (self.g_wp_next_ax2,) = self.ax2.plot([], [], "gx", markersize=13, label="G WP: Next")
 
-        self.current_wp_plot_ax1, = self.ax1.plot([], [], "bo", markersize=15, label="L WP: Current", fillstyle="none")
-        self.current_wp_plot_ax2, = self.ax2.plot([], [], "bo", markersize=15, label="L WP: Current", fillstyle="none")
-        self.next_wp_plot_ax1, = self.ax1.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
-        self.next_wp_plot_ax2, = self.ax2.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
+        (self.current_wp_plot_ax1,) = self.ax1.plot(
+            [], [], "bo", markersize=15, label="L WP: Current", fillstyle="none"
+        )
+        (self.current_wp_plot_ax2,) = self.ax2.plot(
+            [], [], "bo", markersize=15, label="L WP: Current", fillstyle="none"
+        )
+        (self.next_wp_plot_ax1,) = self.ax1.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
+        (self.next_wp_plot_ax2,) = self.ax2.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
 
-        self.car_heading_plot, = self.ax1.plot([], [], "k-", color="darkslategray", label="Car Heading")
-        self.car_location_plot, = self.ax1.plot([], [], "ko", color="darkslategray", markersize=7, label="Car Location")
+        (self.car_heading_plot,) = self.ax1.plot([], [], "k-", color="darkslategray", label="Car Heading")
+        (self.car_location_plot,) = self.ax1.plot(
+            [], [], "ko", color="darkslategray", markersize=7, label="Car Location"
+        )
 
         self.ego_vehicle_ax1 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
         self.ego_vehicle_ax2 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
@@ -83,8 +95,12 @@ class PlotLib:
         self.pm_plots_ax1 = []
         self.pm_plots_ax2 = []
         for _ in range(self.MAX_AGENT_COUNT):
-            agent_vehicle_ax1 = Polygon(np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6)
-            agent_vehicle_ax2 = Polygon(np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6)
+            agent_vehicle_ax1 = Polygon(
+                np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6
+            )
+            agent_vehicle_ax2 = Polygon(
+                np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6
+            )
             self.ax1.add_patch(agent_vehicle_ax1)
             self.ax2.add_patch(agent_vehicle_ax2)
             self.pm_plots_ax1.append(agent_vehicle_ax1)
@@ -95,26 +111,56 @@ class PlotLib:
         self.ax2.set_aspect("equal")
 
         self.legend_ax = self.fig.add_axes([0.0, -0.013, 1, 0.1])
-        self.legend_ax.legend(*self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3)
+        self.legend_ax.legend(
+            *self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3
+        )
         self.legend_ax.axis("off")
 
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-    
-    def plot(self, exec: Executer, aspect_ratio=4.0, frenet_zoom=15, xy_zoom=30, show_legend=True, plot_last_pts=True, plot_global_plan=True, plot_local_plan=True, plot_local_lattice=True, plot_state=True, plot_perception_model=True, num_plot_last_pts=100):
+
+    def plot(
+        self,
+        exec: Executer,
+        aspect_ratio=4.0,
+        frenet_zoom=15,
+        xy_zoom=30,
+        show_legend=True,
+        plot_last_pts=True,
+        plot_global_plan=True,
+        plot_local_plan=True,
+        plot_local_lattice=True,
+        plot_state=True,
+        plot_perception_model=True,
+        num_plot_last_pts=100,
+        global_follow_planner = False,
+        frenet_follow_planner = False
+    ):
         self.legend_ax.set_visible(show_legend)
+        
+        center_xy = exec.planner.location_xy if global_follow_planner else  (exec.ego_state.x, exec.ego_state.y)
+        center_sd = exec.planner.location_sd if frenet_follow_planner else exec.planner.global_trajectory.convert_xy_to_sd(*center_xy)
         if xy_zoom is not None:
-            self.ax1.set_xlim(exec.planner.traversed_x[-1] - xy_zoom, exec.planner.traversed_x[-1] + xy_zoom)
-            self.ax1.set_ylim(exec.planner.traversed_y[-1] - xy_zoom / aspect_ratio / 2, exec.planner.traversed_y[-1] + xy_zoom / aspect_ratio / 2)
+            self.ax1.set_xlim(center_xy[0] - xy_zoom, center_xy[0] + xy_zoom)
+            self.ax1.set_ylim(
+                center_xy[1] - xy_zoom / aspect_ratio / 2,
+                center_xy[1] + xy_zoom / aspect_ratio / 2,
+            )
         if frenet_zoom is not None:
-            self.ax2.set_xlim(exec.planner.traversed_s[-1] - frenet_zoom / 2, exec.planner.traversed_s[-1] + 1.5 * frenet_zoom)
+            self.ax2.set_xlim(
+                center_sd[0] - frenet_zoom / 2, center_sd[0] + 1.5 * frenet_zoom
+            )
             self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
 
         if plot_last_pts and num_plot_last_pts > 0:
-            self.last_locs_ax1.set_data(exec.planner.traversed_x[-num_plot_last_pts:], exec.planner.traversed_y[-num_plot_last_pts:])
-            self.planner_loc_ax1.set_data([exec.planner.traversed_x[-1]], [exec.planner.traversed_y[-1]])
+            self.last_locs_ax1.set_data(
+                exec.planner.traversed_x[-num_plot_last_pts:], exec.planner.traversed_y[-num_plot_last_pts:]
+            )
+            self.planner_loc_ax1.set_data([exec.planner.location_xy[0]], [exec.planner.location_xy[1]])
 
-            self.last_locs_ax2.set_data(exec.planner.traversed_s[-num_plot_last_pts:], exec.planner.traversed_d[-num_plot_last_pts:])
-            self.planner_loc_ax2.set_data([exec.planner.traversed_s[-1]], [exec.planner.traversed_d[-1]])
+            self.last_locs_ax2.set_data(
+                exec.planner.traversed_s[-num_plot_last_pts:], exec.planner.traversed_d[-num_plot_last_pts:]
+            )
+            self.planner_loc_ax2.set_data([exec.planner.location_sd[0]], [exec.planner.location_sd[1]])
         else:
             self.last_locs_ax1.set_data([], [])
             self.planner_loc_ax1.set_data([], [])
@@ -141,9 +187,9 @@ class PlotLib:
         self.fig.canvas.blit(self.ax2.bbox)
 
     def update_global_plan_plots(self, pl: BasePlanner, show_plot=True):
-        if not hasattr(self, 'initialized'):
+        if not hasattr(self, "initialized"):
             self.initialized = False
-        if not hasattr(self, 'toggle_plot'):
+        if not hasattr(self, "toggle_plot"):
             self.toggle_plot = False
 
         if not self.initialized:
@@ -170,22 +216,43 @@ class PlotLib:
             self.toggle_plot = False
 
         if pl.global_trajectory.next_wp is not None:
-            self.g_wp_current_ax1.set_data([pl.global_trajectory.path_x[pl.global_trajectory.current_wp]], [pl.global_trajectory.path_y[pl.global_trajectory.current_wp]])
-            self.g_wp_current_ax2.set_data([pl.global_trajectory.path_s[pl.global_trajectory.current_wp]], [pl.global_trajectory.path_d[pl.global_trajectory.current_wp]])
-            self.g_wp_next_ax1.set_data([pl.global_trajectory.path_x[pl.global_trajectory.next_wp]], [pl.global_trajectory.path_y[pl.global_trajectory.next_wp]])
-            self.g_wp_next_ax2.set_data([pl.global_trajectory.path_s[pl.global_trajectory.next_wp]], [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]])
+            self.g_wp_current_ax1.set_data(
+                [pl.global_trajectory.path_x[pl.global_trajectory.current_wp]],
+                [pl.global_trajectory.path_y[pl.global_trajectory.current_wp]],
+            )
+            self.g_wp_current_ax2.set_data(
+                [pl.global_trajectory.path_s[pl.global_trajectory.current_wp]],
+                [pl.global_trajectory.path_d[pl.global_trajectory.current_wp]],
+            )
+            self.g_wp_next_ax1.set_data(
+                [pl.global_trajectory.path_x[pl.global_trajectory.next_wp]],
+                [pl.global_trajectory.path_y[pl.global_trajectory.next_wp]],
+            )
+            self.g_wp_next_ax2.set_data(
+                [pl.global_trajectory.path_s[pl.global_trajectory.next_wp]],
+                [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]],
+            )
 
     def update_lattice_graph_plots(self, pl: BasePlanner, show_plot=True):
         if not show_plot or len(pl.lattice.edges) == 0:
-            for line in self.lattice_graph_plots_ax1 + self.lattice_graph_endpoints_ax1 + self.lattice_graph_plots_ax2 + self.lattice_graph_endpoints_ax2:
+            for line in (
+                self.lattice_graph_plots_ax1
+                + self.lattice_graph_endpoints_ax1
+                + self.lattice_graph_plots_ax2
+                + self.lattice_graph_endpoints_ax2
+            ):
                 line.set_data([], [])
             return
 
         edge_index = 0
         for edge in pl.lattice.edges:
             if edge_index < self.MAX_LATTICE_SIZE:
-                self.lattice_graph_plots_ax1[edge_index].set_data(edge.local_trajectory.path_x, edge.local_trajectory.path_y)
-                self.lattice_graph_plots_ax2[edge_index].set_data(edge.local_trajectory.path_s_from_parent, edge.local_trajectory.path_d_from_parent)
+                self.lattice_graph_plots_ax1[edge_index].set_data(
+                    edge.local_trajectory.path_x, edge.local_trajectory.path_y
+                )
+                self.lattice_graph_plots_ax2[edge_index].set_data(
+                    edge.local_trajectory.path_s_from_parent, edge.local_trajectory.path_d_from_parent
+                )
                 if edge.collision:
                     self.lattice_graph_plots_ax1[edge_index].set_color("firebrick")
                     self.lattice_graph_plots_ax2[edge_index].set_color("firebrick")
@@ -193,11 +260,17 @@ class PlotLib:
                     self.lattice_graph_plots_ax1[edge_index].set_color("lightskyblue")
                     self.lattice_graph_plots_ax2[edge_index].set_color("lightskyblue")
 
-                self.lattice_graph_endpoints_ax1[edge_index].set_data([edge.local_trajectory.path_x[-1]], [edge.local_trajectory.path_y[-1]])
-                self.lattice_graph_endpoints_ax2[edge_index].set_data([edge.local_trajectory.path_s_from_parent[-1]], [edge.local_trajectory.path_d_from_parent[-1]])
+                self.lattice_graph_endpoints_ax1[edge_index].set_data(
+                    [edge.local_trajectory.path_x[-1]], [edge.local_trajectory.path_y[-1]]
+                )
+                self.lattice_graph_endpoints_ax2[edge_index].set_data(
+                    [edge.local_trajectory.path_s_from_parent[-1]], [edge.local_trajectory.path_d_from_parent[-1]]
+                )
                 edge_index += 1
             else:
-                log.warning(f"Lattice graph size exceeded: attempting to plot edge {edge_index+1} out of {self.MAX_LATTICE_SIZE}")
+                log.warning(
+                    f"Lattice graph size exceeded: attempting to plot edge {edge_index+1} out of {self.MAX_LATTICE_SIZE}"
+                )
 
     def update_local_plan_plots(self, pl: BasePlanner, show_plot=True):
         if not show_plot or pl.selected_local_plan is None:
@@ -226,13 +299,15 @@ class PlotLib:
             self.__update_local_plan_plots(v, index=0, horizon=pl.planning_horizon)
 
     def __update_local_plan_plots(self, v: Edge, index: int = 0, horizon: int = None):
-       if horizon is None:
+        if horizon is None:
             horizon = self.MAX_PLAN_LENGTH - 1
-       if v is not None:
+        if v is not None:
             self.local_plan_plots_ax1[index].set_data(v.local_trajectory.path_x, v.local_trajectory.path_y)
-            self.local_plan_plots_ax2[index].set_data(v.local_trajectory.path_s_from_parent, v.local_trajectory.path_d_from_parent)
+            self.local_plan_plots_ax2[index].set_data(
+                v.local_trajectory.path_s_from_parent, v.local_trajectory.path_d_from_parent
+            )
             self.__update_local_plan_plots(v.selected_next_local_plan, index + 1, horizon)
-       elif index < horizon - 1:
+        elif index < horizon - 1:
             # log.info(f"Index: {index} is less than {self.MAX_PLAN_LENGTH - 1}")
             self.__clear_local_plan_plots(index=index)
 
@@ -300,7 +375,3 @@ class PlotLib:
 
         log.debug(f"Plot theme set to {bg_color} background and {fg_color} foreground.")
         self.redraw_plots()
-
-
-
-
