@@ -1,9 +1,13 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from c10_perceive.c11_perception_model import PerceptionModel
 from c20_plan.c21_base_planner import BasePlanner
 from c20_plan.c23_lattice import Lattice
 import numpy as np
 import logging
 
+if TYPE_CHECKING:
+    from c20_plan.c24_trajectory import Trajectory
 
 log = logging.getLogger(__name__)
 
@@ -76,3 +80,4 @@ class RNDPlanner(BasePlanner):
         )
 
         return
+

@@ -141,10 +141,13 @@ class ExecVisualizeView(ttk.Frame):
         ## UI Elements for Visualize - Buttons
         zoom_global_frame = ttk.Frame(self.visualize_frame)
         zoom_global_frame.pack(fill=tk.X, padx=5)
-
         ttk.Label(zoom_global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(zoom_global_frame, text="Zoom In", command=self.root.plot_view.zoom_in).pack(side=tk.LEFT)
         ttk.Button(zoom_global_frame, text="Zoom Out", command=self.root.plot_view.zoom_out).pack(side=tk.LEFT)
+        ttk.Checkbutton(
+            zoom_global_frame, text="Follow Planner", variable=self.root.data.global_view_follow_planner
+        ).pack(side=tk.LEFT)
+
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
         ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
@@ -157,6 +160,9 @@ class ExecVisualizeView(ttk.Frame):
             zoom_frenet_frame,
             text="Zoom Out",
             command=self.root.plot_view.zoom_out_frenet,
+        ).pack(side=tk.LEFT)
+        ttk.Checkbutton(
+            zoom_frenet_frame, text="Follow Planner", variable=self.root.data.frenet_view_follow_planner
         ).pack(side=tk.LEFT)
 
     # --------------------------------------------------------------------------------------------
@@ -176,38 +182,26 @@ class ExecVisualizeView(ttk.Frame):
             cn_dt = float(self.dt_exec_cn_entry.get())
             pl_dt = float(self.dt_exec_pl_entry.get())
 
-            if self.root.data.async_exec.get():
-                self.after(
-                    100,
-                    self.root.exec.run(
-                        replan_dt=pl_dt,
-                        control_dt=cn_dt,
-                        call_replan=self.root.data.exec_plan.get(),
-                        call_control=self.root.data.exec_control.get(),
-                        call_perceive=self.root.data.exec_perceive.get(),
-                    ),
-                )
-                time.sleep(0.1)
-            else:
-                self.root.exec.step(
-                    control_dt=cn_dt,
-                    replan_dt=pl_dt,
-                    call_replan=self.root.data.exec_plan.get(),
-                    call_control=self.root.data.exec_control.get(),
-                    call_perceive=self.root.data.exec_perceive.get(),
-                )
+            self.root.exec.step(
+                control_dt=cn_dt,
+                replan_dt=pl_dt,
+                call_replan=self.root.data.exec_plan.get(),
+                call_control=self.root.data.exec_control.get(),
+                call_perceive=self.root.data.exec_perceive.get(),
+            ),
             self.root.update_ui()
             self.root.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
             self.root.perceive_plan_control_view.global_tj_wp_entry.insert(
                 0, str(self.root.exec.planner.global_trajectory.next_wp - 1)
             )
 
-            if not self.root.data.async_exec.get():
-                self.root.after(int(cn_dt * 1000), self._exec_loop)
+            # if not self.root.data.async_exec.get():
+            self.root.after(int(cn_dt * 1000), self._exec_loop)
 
     def stop_exec(self):
         self.root.data.animation_running = False
         if self.root.data.async_exec.get():
+            log.info(f"Stopping Async Exec in 0.1 sec.")
             self.root.after(100, self.root.exec.stop())
             time.sleep(0.1)
         self.start_exec_button.config(state=tk.NORMAL)

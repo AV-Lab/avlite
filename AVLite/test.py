@@ -31,6 +31,31 @@ class Counter:
     def get_copy(self):
         return self
 
+class SimpleCounter:
+    def __init__(self):
+        self.shared_counter = mp.Value('i', 0)
+        self.lock = mp.Lock()
+
+    def increment_counter(self, id):
+        print(f"Process {id} started with counter value {self.shared_counter.value}")
+        for _ in range(100):
+            with self.lock:
+                self.shared_counter.value += 1
+        print(f"Process {id} end with counter value {self.shared_counter.value}")
+
+    def run(self):
+        processes = [mp.Process(target=self.increment_counter, args=(id,)) 
+                    for id in range(10)]
+
+        for p in processes:
+            p.start()
+        for p in processes:
+            p.join()
+
+        print(f"Final counter value: {self.shared_counter.value}")
+
+
+
 
 BaseManager.register('Counter', Counter, exposed=('increment', 'get_value', 'set_value', 'get_copy'))
 
@@ -45,6 +70,10 @@ def increment_counter(id, shared_counter, lock):
     print(f"Process {id} end with counter value {counter.get_value()}")
 
 if __name__ == "__main__":
+
+    sm = SimpleCounter()
+    sm.run()
+    exit(0)
     manager = BaseManager()
     manager.start()
     shared_counter = manager.Counter(0)  # Initialize Counter object
@@ -58,3 +87,5 @@ if __name__ == "__main__":
         p.join()
 
     print(f"Final counter value: {shared_counter.get_value()}")
+
+

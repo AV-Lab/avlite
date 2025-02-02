@@ -18,6 +18,8 @@ class VisualizerData:
         self.show_local_plan = tk.BooleanVar(value=True)
         self.show_local_lattice = tk.BooleanVar(value=True)
         self.show_state = tk.BooleanVar(value=True)
+        self.global_view_follow_planner = tk.BooleanVar(value=False)
+        self.frenet_view_follow_planner = tk.BooleanVar(value=False)
 
         # Exec Options
         self.async_exec = tk.BooleanVar(value=False)

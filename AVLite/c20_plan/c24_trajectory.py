@@ -10,6 +10,12 @@ import logging
 
 log = logging.getLogger(__name__)
 
+def check_initialized(func):
+    def wrapper(self, *args, **kwargs):
+        if not self.is_initialized:
+            raise ValueError("Trajectory not initialized")
+        return func(self, *args, **kwargs)
+    return wrapper
 
 class Trajectory:
     """
@@ -55,11 +61,24 @@ class Trajectory:
     path_s_from_parent: Optional[list]  = None
     path_d_from_parent: Optional[list] = None
 
-    def __init__(self, reference_xy_path, velocity, name="Global Trajectory"):
+    def __init__(self, reference_xy_path:list[tuple[float,float]]=None, velocity:list[float]=None, name="Global Trajectory"):
         """
         Initializes a Trajectory object with a reference path in the xy-plane.
         """
         self.name = name  # needed to distinguish between global and local trajectory
+        self.reference_xy_path = reference_xy_path
+        self.velocity = velocity
+        
+        self.current_wp = 0
+        self.next_wp = 1
+        self.is_initialized = False
+        if reference_xy_path is None or len(reference_xy_path) == 0:
+            return
+        
+        self.initialize_trajectory(reference_xy_path, velocity)
+
+    def initialize_trajectory(self, reference_xy_path: list[tuple[float, float]], velocity: list[float]):
+        self.is_initialized = True  
         self.__reference_path = np.array(reference_xy_path)
         self.velocity = velocity
         self.path_x = self.__reference_path[:, 0]
@@ -70,21 +89,25 @@ class Trajectory:
         )  # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
 
-        self.current_wp = 0
-        self.next_wp = 1
 
+    @check_initialized
     def get_current_xy(self) -> tuple[float, float]:
         """
         Returns the current X and Y coordinates.
         """
         return self.path_x[self.current_wp], self.path_y[self.current_wp]
 
+    @check_initialized
     def get_current_sd(self) -> tuple[float, float]:
         """
         Returns the current S and D coordinates.
         """
+        if not self.is_initialized:
+            raise ValueError("Trajectory not initialized")
+
         return self.path_s[self.current_wp], self.path_d[self.current_wp]
 
+    @check_initialized
     def get_xy_by_waypoint(self, wp: int) -> tuple[float, float]:
         """
         Returns the X and Y coordinates for a given waypoint.
@@ -93,8 +116,12 @@ class Trajectory:
         wp : int
             The waypoint index.
         """
+        if not self.is_initialized:
+            raise ValueError("Trajectory not initialized")
+
         return self.path_x[wp], self.path_y[wp]
 
+    @check_initialized
     def get_sd_by_waypoint(self, wp: int) -> tuple[float, float]:
         """
         Returns the S and D coordinates for a given waypoint.
@@ -105,6 +132,7 @@ class Trajectory:
         """
         return self.path_s[wp], self.path_d[wp]
 
+    @check_initialized
     def update_waypoint_by_xy(self, x_current: float, y_current: float) -> None:
         """
         Updates the current and next waypoints based on the current x and y coordinates.
@@ -140,13 +168,16 @@ class Trajectory:
             self.next_wp = closest_wp
             self.current_wp = closest_wp - 1
 
+    @check_initialized
     def update_waypoint_by_wp(self, current_wp: int) -> None:
         self.current_wp = current_wp % len(self.__reference_path)
         self.next_wp = current_wp + 1 % len(self.__reference_path)
 
+    @check_initialized
     def update_to_next_waypoint(self) -> None:
         self.update_waypoint_by_wp(self.current_wp + 1)
 
+    @check_initialized
     def is_traversed(self) -> bool:
         """
         Check if the trajectory has been fully traversed.
@@ -158,6 +189,7 @@ class Trajectory:
         """
         return self.current_wp == len(self.__reference_path) - 1
 
+    @check_initialized
     def create_quintic_trajectory_sd(
         self,
         s_start: float,
@@ -236,6 +268,7 @@ class Trajectory:
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
 
+    @check_initialized
     def create_default_trajectory_sd(
         self, s_start: float, d_start: float, s_end: float, d_end: float, num_points=10
     ) -> "Trajectory":
@@ -246,6 +279,7 @@ class Trajectory:
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
 
+    @check_initialized
     def create_cubic_trajectory_sd(
         self,
         s_start: float,
@@ -287,6 +321,7 @@ class Trajectory:
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
 
+    @check_initialized
     def __decorate_trajectory_sd(self, poly: Polynomial, s_values: list[float]) -> "Trajectory":
         """
         Decorate the trajectory with calculated d values and convert to (x, y) coordinates.
@@ -328,6 +363,7 @@ class Trajectory:
 
         return local_trajectory
 
+    @check_initialized
     def create_cubic_trajectory_xy(
         self,
         start_x: float,
@@ -365,6 +401,7 @@ class Trajectory:
 
         return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
 
+    @check_initialized
     def create_quintic_trajectory_xy(
         self,
         start_x: float,
@@ -427,6 +464,7 @@ class Trajectory:
 
         return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
 
+    @check_initialized
     def __decoreate_trajectory_xy(self, poly_x: Polynomial, poly_y: Polynomial, t_values: np.ndarray) -> "Trajectory":
         x_values = poly_x(t_values)
         y_values = poly_y(t_values)
@@ -440,6 +478,7 @@ class Trajectory:
 
         return local_trajectory
 
+    @check_initialized
     def create_multiple_cubic_trajectories_xy(
         self,
         x_values: list[float],
@@ -460,6 +499,7 @@ class Trajectory:
             local_trajectories.append(local_trajectory)
         return local_trajectories
 
+    @check_initialized
     def convert_xy_to_sd(self, x: float, y: float) -> tuple[float, float]:
         s, d = self.convert_xy_path_to_sd_path([(x, y)])
         _s = s[0]
@@ -468,6 +508,7 @@ class Trajectory:
         return _s, _d
 
     # s,d need to be current
+    @check_initialized
     def convert_sd_to_xy(self, s: float, d: float) -> tuple[float, float]:
         closest_wp = self.get_closest_waypoint_frm_sd(s, d)
 
@@ -498,6 +539,7 @@ class Trajectory:
         # TODO: need to fix the issue when prev is the last point in the track and we come back to the biginning
         return x_final, y_final
 
+    @check_initialized
     def convert_xy_path_to_sd_path(self, points):
 
         reference_path = self.__reference_path
@@ -539,6 +581,7 @@ class Trajectory:
         return zip(*frenet_coords)
 
     # A numpy version of the above function
+    @check_initialized
     def convert_xy_path_to_sd_path_np(self, points):
 
         reference_path = self.__reference_path
@@ -580,6 +623,7 @@ class Trajectory:
 
         return frenet_coords
 
+    @check_initialized
     def convert_sd_path_to_xy_path(self, s_values, d_values):
         # return [self.getXY(s, d) for s, d in zip(s_values, d_values)]
         x_values = []
@@ -612,6 +656,7 @@ class Trajectory:
 
         return x_values, y_values
 
+    @check_initialized
     def __precompute_cumulative_distances(self):
         reference_path = np.array(self.__reference_path)
         cumulative_distances = [0]
@@ -620,6 +665,7 @@ class Trajectory:
         return cumulative_distances
 
     # TODO: this inefficient! need to look into a window only not the whole track
+    @check_initialized
     def get_closest_waypoint_frm_xy(self, x, y):
         diffs = self.__reference_path - np.array((x, y))
         dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
@@ -627,14 +673,39 @@ class Trajectory:
         return closest_wp
 
     # TODO: this inefficient! need to look into a window only not the whole track
+    @check_initialized
     def get_closest_waypoint_frm_sd(self, s, d):
         diffs = self.__reference_sd_path - np.array((s, d))
         dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
         closest_wp = np.argmin(dists)
         return closest_wp
 
+    def __str__(self):
+        return f"Trajectory: {self.name}"
 
-if __name__ == "__main__":
-    import race_plan_control.main as main
+    # # Used for pickling
+    # def __reduce__(self):
+    #     state = {
+    #         'path_x': self.path_x if hasattr(self, 'path_x') else None,
+    #         'path_y': self.path_y if hasattr(self, 'path_y') else None,
+    #         'path_s': self.path_s if hasattr(self, 'path_s') else None,
+    #         'path_d': self.path_d if hasattr(self, 'path_d') else None,
+    #         'velocity': self.velocity if hasattr(self, 'velocity') else None,
+    #         'current_wp': self.current_wp if hasattr(self, 'current_wp') else 0,
+    #         'next_wp': self.next_wp if hasattr(self, 'next_wp') else 1,
+    #         'name': self.name if hasattr(self, 'name') else "Global Trajectory",
+    #         'poly_d': self.poly_d if hasattr(self, 'poly_d') else None,
+    #         'poly_x': self.poly_x if hasattr(self, 'poly_x') else None,
+    #         'poly_y': self.poly_y if hasattr(self, 'poly_y') else None,
+    #         'is_initialized': self.is_initialized if hasattr(self, 'is_initialized') else False,
+    #         '__reference_path': self.__reference_path if hasattr(self, '_Trajectory__reference_path') else None,
+    #         '__cumulative_distances': self.__cumulative_distances if hasattr(self, '_Trajectory__cumulative_distances') else None,
+    #         '__reference_sd_path': self.__reference_sd_path if hasattr(self, '_Trajectory__reference_sd_path') else None
+    #     }
+    #     
+    #     return (self.__class__, (), state)
+    #
+    # def __setstate__(self, state):
+    #     self.__dict__.update(state)
 
-    main.run()
+

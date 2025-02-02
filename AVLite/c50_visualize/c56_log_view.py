@@ -155,6 +155,8 @@ class LogView(ttk.LabelFrame):
             self.text_widget = text_widget
             self.log_view = log_view
             self.text_widget.tag_configure("error", foreground="red")
+            # self.text_widget.tag_configure("warning", foreground="yellow") 
+            self.text_widget.tag_configure("warning", foreground="#FFFF00")  # bright yellow
 
         def emit(self, record):
             for bl in self.log_view.log_blacklist:

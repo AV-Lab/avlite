@@ -6,6 +6,7 @@ from c10_perceive.c12_state import EgoState
 from c20_plan.c24_trajectory import Trajectory
 from abc import ABC, abstractmethod
 import logging
+import copy 
 
 log = logging.getLogger(__name__)
 
@@ -43,8 +44,19 @@ class BaseController(ABC):
     
 
     def update_trajectory(self, tj: Trajectory):
+        log.debug("Controller Trajectory updated")
         self.tj = tj
+
+
 
     @abstractmethod
     def reset(self):
         pass
+    
+    def get_copy(self):
+        return copy.deepcopy(self)
+
+    
+    def update_serializable_trajectory(self, path: list[tuple[float, float]], velocity_list: list[float]):
+        self.tj = Trajectory(path, velocity_list)
+        
