@@ -64,7 +64,7 @@ class LogView(ttk.LabelFrame):
         self.rb_db_stdout = ttk.Radiobutton(
             self.controls_frame,
             text="STDOUT",
-            variable=self.root.data.debug_option,
+            variable=self.root.data.log_level,
             value="STDOUT",
             command=self.update_log_level,
         )
@@ -73,7 +73,7 @@ class LogView(ttk.LabelFrame):
         self.rb_db_warn = ttk.Radiobutton(
             self.controls_frame,
             text="WARN",
-            variable=self.root.data.debug_option,
+            variable=self.root.data.log_level,
             value="WARN",
             command=self.update_log_level,
         )
@@ -82,7 +82,7 @@ class LogView(ttk.LabelFrame):
         self.rb_db_info = ttk.Radiobutton(
             self.controls_frame,
             text="INFO",
-            variable=self.root.data.debug_option,
+            variable=self.root.data.log_level,
             value="INFO",
             command=self.update_log_level,
         )
@@ -91,7 +91,7 @@ class LogView(ttk.LabelFrame):
         self.rb_db_debug = ttk.Radiobutton(
             self.controls_frame,
             text="DEBUG",
-            variable=self.root.data.debug_option,
+            variable=self.root.data.log_level,
             value="DEBUG",
             command=self.update_log_level,
         )
@@ -108,7 +108,7 @@ class LogView(ttk.LabelFrame):
         # -------------------------------------------
         logger = logging.getLogger()
         text_handler = LogView.LogTextHandler(self.log_area, self)
-        formatter = logging.Formatter("[%(levelname).4s] %(name)-30s (L: %(lineno)3d): %(message)s")
+        formatter = logging.Formatter("[%(levelname).4s] %(name)-35s (L: %(lineno)3d): %(message)s")
         text_handler.setFormatter(formatter)
         # remove other handlers to avoid duplicate logs
         for handler in logger.handlers:

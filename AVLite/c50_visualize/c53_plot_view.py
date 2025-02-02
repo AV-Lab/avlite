@@ -79,7 +79,7 @@ class PlotView(ttk.Frame):
         threshold = 0.01
         if (
             self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold
-        ) and not self.root.data.animation_running:
+        ) and not self.root.data.exec_running:
             self.root.update_ui()
 
         self._prev_scroll_time = time.time()

@@ -26,12 +26,14 @@ class VisualizerData:
         self.exec_plan = tk.BooleanVar(value=True)
         self.exec_control = tk.BooleanVar(value=True)
         self.exec_perceive = tk.BooleanVar(value=True)
+        self.exec_running = False
 
-        self.animation_running = False
+        self.control_dt = tk.DoubleVar(value=0.01)
+        self.replan_dt = tk.DoubleVar(value=0.5)
 
         # Logger Options
         self.exec_option = tk.StringVar(value="Basic")
-        self.debug_option = tk.StringVar(value="INFO")
+        self.log_level = tk.StringVar(value="INFO")
 
         self.show_perceive_logs = tk.BooleanVar(value=True)
         self.show_plan_logs = tk.BooleanVar(value=True)

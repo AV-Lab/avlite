@@ -31,8 +31,8 @@ class AsyncExecuter(Executer):
         call_replan=True,
         call_control=True,
         call_perceive=False,
-        replan_dt=2,
-        control_dt=0.01,
+        replan_dt=0.5,
+        control_dt=0.05,
     ):
         super().__init__(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
         BaseManager.register("BasePlanner", 
@@ -59,9 +59,11 @@ class AsyncExecuter(Executer):
         self.shared_world = self.manager.WorldInterface()
         # self.shared_trajectory = self.manager.Trajectory()
 
-        self.__planner_last_replan_time = Value("d", 0.0)  # Shared double variable
+        self.__planner_last_replan_time = Value("d", time.time())  # Shared double variable
         self.__planner_elapsed_time = Value("d", 0.0)  # Shared double variable
         self.__planner_start_time = Value("d", time.time())  # Shared double variable
+        
+        self.__controller_last_step_time = Value("d", 0.0)  # Shared double variable
 
         self.lock_planner = Lock()
         self.lock_controller = Lock()
@@ -123,13 +125,13 @@ class AsyncExecuter(Executer):
         log.info(f"Plan Worker Started")
 
         while True:
-            time.sleep(0.1)
+            time.sleep(0.05)
             with self.lock_planner:
                 self.__planner_elapsed_time.value += time.time() - self.__planner_start_time.value
                 dt = time.time() - self.__planner_last_replan_time.value
                 # log.info(f"Planner iteration: {dt:.2f} s")
                 if dt > self.replan_dt:
-                    log.info(f"Replanning... at {dt:.2f} s")
+                    # log.info(f"Replanning... at {dt:.2f} s")
                     self.__planner_last_replan_time.value = time.time()
                     self.shared_planner.replan()
                     path,vel = self.shared_planner.get_serializable_local_plan()
@@ -144,12 +146,10 @@ class AsyncExecuter(Executer):
     def worker_controller(self, control_dt, *args):
         log.info(f"Controller Worker Started")
         while True:
-            time.sleep(0.1)
+            time.sleep(0.01)
+            # with self.lock_world:
             state = self.shared_world.get_ego_state()
-            # log.info(f"World ego state: {state}")
-            # log.info(f"shared_ego_state: {state}")
             cmd = self.shared_controller.control(state)
-            # log.info(f"Control Command: {cmd}")
             self.shared_world.update_ego_state(state, cmd, dt=0.01)
 
 
@@ -211,6 +211,7 @@ class AsyncExecuter(Executer):
                 args=(
                     "Controller",
                     self.control_dt,
+                    self.__controller_last_step_time,
                     self.shared_world,
                 ),
             )
@@ -222,6 +223,7 @@ class AsyncExecuter(Executer):
 
     # TODO: fix this 
     def start_processes(self):
+        self.setup_worker_logging()
         log.info(f"Starting processes...")
         for p in self.processes:
             self.__planner_start_time = Value("d", time.time())  # Shared double variable

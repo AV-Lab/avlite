@@ -683,29 +683,3 @@ class Trajectory:
     def __str__(self):
         return f"Trajectory: {self.name}"
 
-    # # Used for pickling
-    # def __reduce__(self):
-    #     state = {
-    #         'path_x': self.path_x if hasattr(self, 'path_x') else None,
-    #         'path_y': self.path_y if hasattr(self, 'path_y') else None,
-    #         'path_s': self.path_s if hasattr(self, 'path_s') else None,
-    #         'path_d': self.path_d if hasattr(self, 'path_d') else None,
-    #         'velocity': self.velocity if hasattr(self, 'velocity') else None,
-    #         'current_wp': self.current_wp if hasattr(self, 'current_wp') else 0,
-    #         'next_wp': self.next_wp if hasattr(self, 'next_wp') else 1,
-    #         'name': self.name if hasattr(self, 'name') else "Global Trajectory",
-    #         'poly_d': self.poly_d if hasattr(self, 'poly_d') else None,
-    #         'poly_x': self.poly_x if hasattr(self, 'poly_x') else None,
-    #         'poly_y': self.poly_y if hasattr(self, 'poly_y') else None,
-    #         'is_initialized': self.is_initialized if hasattr(self, 'is_initialized') else False,
-    #         '__reference_path': self.__reference_path if hasattr(self, '_Trajectory__reference_path') else None,
-    #         '__cumulative_distances': self.__cumulative_distances if hasattr(self, '_Trajectory__cumulative_distances') else None,
-    #         '__reference_sd_path': self.__reference_sd_path if hasattr(self, '_Trajectory__reference_sd_path') else None
-    #     }
-    #     
-    #     return (self.__class__, (), state)
-    #
-    # def __setstate__(self, state):
-    #     self.__dict__.update(state)
-
-
