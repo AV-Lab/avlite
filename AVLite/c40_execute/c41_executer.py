@@ -83,25 +83,28 @@ class Executer:
         call_control=True,
         call_perceive=True,
     ):
-        pln_time, cn_time, sim_time = "", "", ""
+        pln_time_txt, cn_time_txt, sim_time_txt = "", "", ""
         t0 = time.time()
         if call_replan:
             self.__time_since_last_replan += control_dt
             if self.__time_since_last_replan > replan_dt:
                 self.__time_since_last_replan = 0
                 self.planner.replan()
-                pln_time = f" P: {(time.time() - t0):.2} sec,"
+                pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
+                self.planner_fps = int(1 / max(time.time() - t0, 0))
         self.planner.step(self.ego_state)
 
         t1 = time.time() 
         if call_control:
             local_tj = self.planner.get_local_plan()
             cmd = self.controller.control(self.ego_state, local_tj)
-            cn_time = f"C: {(time.time() - t1):.4f} sec,"
+            cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
+            self.control_fps = int(1 / max(time.time() - t1, 0))
+
             t2 = time.time()
             self.world.update_ego_state(self.ego_state, cmd, dt=control_dt)
             self.ego_state = self.world.ego_state
-            sim_time = f"Sim: {(time.time() - t2):.4f} sec"
+            sim_time_txt = f"Sim: {(time.time() - t2):.4f} sec"
 
 
         self.elapsed_sim_time += control_dt
@@ -109,7 +112,7 @@ class Executer:
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
 
-        log.info(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time} {cn_time} {sim_time}")
+        log.info(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {sim_time_txt}")
 
         # if call_perceive and call_replan and call_control:
         #     log.info(
