@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 import logging
 import time
 from c10_perceive.c12_state import AgentState
-import copy
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +45,9 @@ class Executer:
     controller: BaseController
     world: WorldInterface
 
+    planner_fps: int
+    control_fps: int 
+
     def __init__(
         self,
         pm: PerceptionModel,
@@ -68,6 +70,9 @@ class Executer:
 
         self.__prev_exec_time = None
         self.__time_since_last_replan = 0
+
+        self.planner_fps = 0
+        self.control_fps = 0
         
 
     def step(
@@ -78,37 +83,39 @@ class Executer:
         call_control=True,
         call_perceive=True,
     ):
+        pln_time, cn_time, sim_time = "", "", ""
         t0 = time.time()
         if call_replan:
             self.__time_since_last_replan += control_dt
             if self.__time_since_last_replan > replan_dt:
                 self.__time_since_last_replan = 0
                 self.planner.replan()
-
+                pln_time = f" P: {(time.time() - t0):.2} sec,"
         self.planner.step(self.ego_state)
 
+        t1 = time.time() 
         if call_control:
-            t1 = time.time()
             local_tj = self.planner.get_local_plan()
             cmd = self.controller.control(self.ego_state, local_tj)
+            cn_time = f"C: {(time.time() - t1):.4f} sec,"
             t2 = time.time()
-            t3 = time.time()
             self.world.update_ego_state(self.ego_state, cmd, dt=control_dt)
             self.ego_state = self.world.ego_state
-            t4 = time.time()
+            sim_time = f"Sim: {(time.time() - t2):.4f} sec"
+
 
         self.elapsed_sim_time += control_dt
         delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
 
-        if call_perceive and call_replan and call_control:
-            log.info(
-                f"Exec Step Time: {(t4-t0)*1000:.2f} ms | P: {(t1 - t0)*1000:.2} ms, C: {(t2-t1)*1000:.2f} ms,  Sim: {(t4-t3)*1000:.2f} ms"
-            )
-            log.debug(
-                f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}"
-            )
+        log.info(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time} {cn_time} {sim_time}")
+
+        # if call_perceive and call_replan and call_control:
+        #     log.info(
+        #         f"Exec Step Time: {(t4-t0)*1000:.2f} ms | P: {(t1 - t0)*1000:.2} ms, C: {(t2-t1)*1000:.2f} ms,  Sim: {(t4-t3)*1000:.2f} ms"
+        #     )
+        log.debug(f"Elapsed Real Time: {self.elapsed_real_time:.3f} | Elapsed Sim Time: {self.elapsed_sim_time:.3f}")
 
     def run(self, replan_dt=0.5, control_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
         self.reset()

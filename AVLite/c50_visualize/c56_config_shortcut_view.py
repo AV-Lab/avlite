@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from c50_visualize.c51_visualizer_app import VisualizerApp
 import tkinter as tk
@@ -7,9 +8,11 @@ from tkinter import ttk
 
 
 import logging
+
 log = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from c50_visualize.c51_visualizer_app import VisualizerApp
 
@@ -17,7 +20,7 @@ if TYPE_CHECKING:
 class ConfigShortcutView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root, text="Config")
-        self.root:VisualizerApp = root
+        self.root: VisualizerApp = root
         # ----------------------------------------------------------------------
         # Key Bindings --------------------------------------------------------
         # ----------------------------------------------------------------------
@@ -45,13 +48,11 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("<Control-minus>", lambda e: self.root.plot_view.zoom_out_frenet())
         self.root.bind("<plus>", lambda e: self.root.plot_view.zoom_in())
         self.root.bind("<minus>", lambda e: self.root.plot_view.zoom_out())
-        
 
         ttk.Button(self, text="Reload Code", command=self.reload_stack).pack(side=tk.RIGHT)
         ttk.Checkbutton(
             self,
             text="Shortcut Mode",
-        
             variable=self.root.data.shortcut_mode,
             command=self.update_UI,
         ).pack(anchor=tk.W, side=tk.LEFT)
@@ -79,7 +80,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.help_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
         self.help_text.insert(tk.END, key_binding_info)
         self.help_text.config(state=tk.DISABLED)  # Make the text area read-only
-    
 
     def set_shortcut_mode(self):
         if self.root.data.shortcut_mode.get():
@@ -157,16 +157,15 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
 
-
     def reload_stack(self):
         log.info(f"Reloading the code with async_mode: {self.root.data.async_exec.get()}")
         self.root.visualize_exec_view.stop_exec()
         if self.root.code_reload_function is not None:
-            self.root.exec = self.root.code_reload_function(async_mode=self.root.data.async_exec.get())
+            self.root.exec = self.root.code_reload_function(
+                async_mode=self.root.data.async_exec.get(),
+                replan_dt=self.root.data.replan_dt.get(),
+                control_dt=self.root.data.control_dt.get(),
+            )
             self.root.update_ui()
         else:
             log.warning("No code reload function provided.")
-
-
-
-

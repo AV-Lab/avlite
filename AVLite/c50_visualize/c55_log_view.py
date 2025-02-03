@@ -147,7 +147,7 @@ class LogView(ttk.LabelFrame):
             sys.stdout = LogView.TextRedirector(self.log_area)
         else:
             sys.stdout = sys.__stdout__
-        print("Log setting updated: routing CRITICAL and stdout.")
+        print("Log setting updated: showing only CRITICAL and STDOUT messages.")
 
     class LogTextHandler(logging.Handler):
         def __init__(self, text_widget, log_view: LogView):

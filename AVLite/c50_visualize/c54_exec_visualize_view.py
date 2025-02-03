@@ -148,6 +148,9 @@ class ExecVisualizeView(ttk.Frame):
             zoom_global_frame, text="Follow Planner", variable=self.root.data.global_view_follow_planner
         ).pack(side=tk.LEFT)
 
+        ttk.Label(zoom_global_frame, textvariable=self.root.data.replan_fps).pack(anchor=tk.W, side=tk.RIGHT)
+        ttk.Label(zoom_global_frame, text="Plan FPS: ").pack(anchor=tk.W, side=tk.RIGHT)
+
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
         ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
@@ -164,6 +167,8 @@ class ExecVisualizeView(ttk.Frame):
         ttk.Checkbutton(
             zoom_frenet_frame, text="Follow Planner", variable=self.root.data.frenet_view_follow_planner
         ).pack(side=tk.LEFT)
+        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.control_fps).pack(anchor=tk.W, side=tk.RIGHT)
+        ttk.Label(zoom_frenet_frame, text="Con. FPS: ").pack(anchor=tk.W, side=tk.RIGHT)
 
     # --------------------------------------------------------------------------------------------
     # -SIM----------------------------------------------------------------------------------------
@@ -175,8 +180,8 @@ class ExecVisualizeView(ttk.Frame):
             return
         self.root.data.exec_running = True
         self.start_exec_button.config(state=tk.DISABLED)
-        self._exec_loop()
         self.root.update_ui()
+        self._exec_loop()
 
     def _exec_loop(self):
         if self.root.data.exec_running:
@@ -190,11 +195,11 @@ class ExecVisualizeView(ttk.Frame):
                 call_control=self.root.data.exec_control.get(),
                 call_perceive=self.root.data.exec_perceive.get(),
             ),
-            self.root.update_ui()
             self.root.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
             self.root.perceive_plan_control_view.global_tj_wp_entry.insert(
                 0, str(self.root.exec.planner.global_trajectory.next_wp - 1)
             )
+            self.root.update_ui()
 
             # if not self.root.data.async_exec.get():
             self.root.after(int(cn_dt * 1000), self._exec_loop)
@@ -204,7 +209,6 @@ class ExecVisualizeView(ttk.Frame):
         if self.root.data.async_exec.get():
             log.info(f"Stopping Async Exec in 0.1 sec.")
             self.root.after(100, self.root.exec.stop())
-            time.sleep(0.1)
         self.start_exec_button.config(state=tk.NORMAL)
         self.root.update_ui()
 

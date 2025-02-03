@@ -1,5 +1,5 @@
 from __future__ import annotations
-from c50_visualize.c52_plotlib import PlotLib
+from c50_visualize.c57_plot_lib import PlotLib
 
 import tkinter as tk
 from tkinter import ttk
