@@ -20,6 +20,9 @@ class VisualizerData:
         self.show_state = tk.BooleanVar(value=True)
         self.global_view_follow_planner = tk.BooleanVar(value=False)
         self.frenet_view_follow_planner = tk.BooleanVar(value=False)
+        
+        self.xy_zoom = 30
+        self.frenet_zoom = 30
 
         # Exec Options
         self.async_exec = tk.BooleanVar(value=False)
@@ -42,8 +45,8 @@ class VisualizerData:
         self.show_vis_logs = tk.BooleanVar(value=True)
         
 
-        self.xy_zoom = 30
-        self.frenet_zoom = 30
 
-
-
+        # General configs
+        self.disable_log = tk.BooleanVar(value=False)
+        self.replan_fps = tk.StringVar(value="0")
+        self.control_fps = tk.StringVar(value="0")

@@ -8,7 +8,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def get_executer(config_path="config.yaml", async_mode=False, source_run=True):
+def get_executer(config_path="config.yaml", async_mode=False, source_run=True, replan_dt=0.5, control_dt=0.05):
 
     reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d = load_config(
         config_path=config_path, source_run=source_run
@@ -34,7 +34,11 @@ def get_executer(config_path="config.yaml", async_mode=False, source_run=True):
         env=pm,
     )
     cn = PIDController()
-    executer = Executer(pm, pl, cn, world) if not async_mode else AsyncExecuter(pm, pl, cn, world)
+    executer = (
+        Executer(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
+        if not async_mode
+        else AsyncExecuter(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
+    )
 
     return executer
 

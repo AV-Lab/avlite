@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 
 class PIDController(BaseController):
-    def __init__(self, tj:Trajectory=None, alpha=0.2, beta=0.001, gamma=0.6, valpha=0.8, vbeta=0.01, vgamma=0.3):
+    def __init__(self, tj:Trajectory=None, alpha=0.1, beta=0.001, gamma=0.6, valpha=0.8, vbeta=0.01, vgamma=0.3):
         super().__init__(tj)
         self.alpha, self.beta, self.gamma = alpha, beta, gamma
 

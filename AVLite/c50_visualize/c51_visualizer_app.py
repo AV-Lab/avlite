@@ -1,10 +1,10 @@
 from c40_execute.c41_executer import Executer
-from c50_visualize.c53_plot_view import PlotView
-from c50_visualize.c54_perceive_plan_control_view import PerceivePlanControlView
-from c50_visualize.c55_exec_visualize_view import ExecVisualizeView
+from c50_visualize.c52_plot_view import PlotView
+from c50_visualize.c53_perceive_plan_control_view import PerceivePlanControlView
+from c50_visualize.c54_exec_visualize_view import ExecVisualizeView
 from c50_visualize.c59_data import VisualizerData
-from c50_visualize.c56_log_view import LogView
-from c50_visualize.c57_config_shortcut_view import ConfigShortcutView
+from c50_visualize.c55_log_view import LogView
+from c50_visualize.c56_config_shortcut_view import ConfigShortcutView
 
 
 import tkinter as tk
@@ -56,7 +56,7 @@ class VisualizerApp(tk.Tk):
         # need otherwise matplotlib plt acts funny        
         self.after(50, self.config_shortcut_view.set_dark_mode)
 
-        self.disabled_components = False
+        self.disabled_log = False
 
     def disable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
@@ -79,6 +79,7 @@ class VisualizerApp(tk.Tk):
             float(user_input)
             return True
         except ValueError:
+            log.error("Please enter a valid float number")
             return False
 
     def update_ui(self):
@@ -100,18 +101,32 @@ class VisualizerApp(tk.Tk):
         self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
         self.perceive_plan_control_view.progressbar_acc.set_value(acc)
         self.perceive_plan_control_view.progressbar_steer.set_value(steer)
-        # log.info(f"animation running: {self.data.animation_running}")
         
-        if self.data.async_exec.get() and self.data.exec_running and (self.data.replan_dt.get() < 0.1 or self.data.control_dt.get() < 0.5):
-            if not self.disabled_components:
-                # self.disable_frame(self.perceive_plan_control_view)
-                # self.disable_frame(self.log_view.controls_frame)
-                self.data.show_control_logs.set(False)
-                self.data.show_plan_logs.set(False)
-                self.disabled_components = True
-                self.data.log_level.set("STDOUT")
-        elif not self.data.exec_running or (self.data.replan_dt.get() >= 0.1 and self.data.control_dt.get() >= 0.5):
-            if self.disabled_components:
-                # self.enable_frame(self.perceive_plan_control_view)
-                # self.enable_frame(self.log_view.controls_frame)
-                self.disabled_components = False
+        
+        self.data.replan_fps.set(f"{self.exec.planner_fps:5d}")
+        self.data.control_fps.set(f"{self.exec.control_fps:5d}")
+
+        if self.data.async_exec.get():
+            if self.data.control_dt.get() < 0.1 or self.data.replan_dt.get() < 0.1:
+                if not self.data.disable_log.get():
+                    self.data.disable_log.set(True)
+                    log.warning(f"Logs removed due to low control_dt: {self.data.control_dt} or replan_dt: {self.data.replan_dt}.")
+                    self.data.log_level.set("STDOUT")
+                    self.log_view.update_log_level()
+                    self.disable_frame(self.perceive_plan_control_view)
+                    self.disable_frame(self.log_view.controls_frame)
+            else:
+                    if self.data.disable_log.get():
+                        self.data.disable_log.set(False)
+                        self.data.log_level.set("INFO")
+                        self.log_view.update_log_level()
+                        self.enable_frame(self.log_view.controls_frame)
+                        self.disable_frame(self.perceive_plan_control_view)
+        else:
+            if self.data.disable_log.get():
+                self.data.disable_log.set(False)
+                self.data.log_level.set("INFO")
+                self.log_view.update_log_level()
+                self.enable_frame(self.perceive_plan_control_view)
+                self.enable_frame(self.log_view.controls_frame)
+

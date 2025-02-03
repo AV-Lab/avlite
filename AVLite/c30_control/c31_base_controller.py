@@ -31,6 +31,8 @@ class BaseController(ABC):
     cmd: ControlComand
     cte_steer: float
     cte_velocity: float
+    
+    __control_dt:float=0
 
     def __init__(self, tj: Trajectory = None):
         self.tj = tj
@@ -59,4 +61,8 @@ class BaseController(ABC):
     
     def update_serializable_trajectory(self, path: list[tuple[float, float]], velocity_list: list[float]):
         self.tj = Trajectory(path, velocity_list)
-        
+    
+    def get_control_dt(self)->float:
+        return self.__control_dt
+    def set_control_dt(self, dt:float):
+        self.__control_dt = dt

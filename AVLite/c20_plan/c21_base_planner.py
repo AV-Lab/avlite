@@ -30,6 +30,8 @@ class BasePlanner(ABC):
     planning_horizon: int
     num_of_edge_points: int
 
+    __replan_dt:float=0 # used during execution
+
     def __init__(
         self,
         global_path: list[tuple[float, float]],
@@ -207,3 +209,7 @@ class BasePlanner(ABC):
         return self.location_xy
     def get_location_sd(self) -> tuple[float, float]:
         return self.location_sd
+    def set_replan_dt(self, dt: float):
+        self.__replan_dt = dt
+    def get_replan_dt(self) -> float:
+        return self.__replan_dt

@@ -37,10 +37,10 @@ class AsyncExecuter(Executer):
         super().__init__(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
         BaseManager.register("BasePlanner", 
                     callable=lambda: self.planner.get_copy(),
-                    exposed=("replan", "step", "get_serializable_local_plan", "get_location_xy", "get_location_sd"))
+                    exposed=("replan", "step", "get_serializable_local_plan", "get_location_xy", "get_location_sd", "get_replan_dt", "set_replan_dt"))
         BaseManager.register('BaseController', 
                     callable=lambda: cn.get_copy(),
-                    exposed=('update_serializable_trajectory', 'control', 'dummy', 'reset'))
+                    exposed=('update_serializable_trajectory', 'control', 'get_control_dt', 'set_control_dt'))
         BaseManager.register('WorldInterface', 
                     callable=lambda: world.get_copy(),
                     exposed=('get_ego_state', 'update_ego_state'))
@@ -87,12 +87,16 @@ class AsyncExecuter(Executer):
         self.create_processes()
 
     def step(self, control_dt=0.01, replan_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
+        self.control_dt = control_dt
+        self.replan_dt = replan_dt
+
         if self.processes_started == False:
+            self.create_processes()
             self.start_processes()
             return
         elif all(not p.is_alive() for p in self.processes) and self.processes_started == True:
-            log.warning(f"All processes finished. Recreating and starting new processes in 1 sec.")
-            time.sleep(1)
+            log.warning(f"All processes finished. Recreating and starting processes.")
+            self.stop()
             self.create_processes()
             self.start_processes()
             return
@@ -100,38 +104,36 @@ class AsyncExecuter(Executer):
             # UI coordination tasks
             alive_processes = [p for p in self.processes if p.is_alive()]
             log.error(
-                f"Some Async Executer Processes are dead! {len(alive_processes)}/{len(self.processes)} processes are still alive."
+                f"Some Async Executer Processes are dead! {len(alive_processes)}/{len(self.processes)} processes are still alive. Call stop() to terminate all processes."
             )
+            # self.stop()
             return
 
 
         with self.lock_world:
             self.ego_state = self.shared_world.get_ego_state()
 
-
         with self.lock_planner:
-            # self.planner. = self.shared_planner.get_location()[0]
             self.planner.location_xy = self.shared_planner.get_location_xy()
             self.planner.location_sd = self.shared_planner.get_location_sd()
+        
+        if self.shared_planner.get_replan_dt() > 0 and self.shared_controller.get_control_dt() > 0:
+            log.info(f"planner dt: {1/self.shared_planner.get_replan_dt():.2f} fps, control dt: {1/self.shared_controller.get_control_dt():.2f} fps")
+            self.planner_fps = int(1/self.shared_planner.get_replan_dt())
+            self.control_fps = int(1/self.shared_controller.get_control_dt())
 
-        # self.planner.location_xy = (self.ego_state.x, self.ego_state.y)
-        # self.shared_planner.replan()
-        # path,vel = self.shared_planner.get_serializable_local_plan()
-        # self.shared_controller.update_serializable_trajectory(path, vel)
 
-
-
-    def worker_planner(self, replan_dt,*args):
+    def worker_planner(self,*args):
+        time.sleep(self.replan_dt)
         log.info(f"Plan Worker Started")
+        log.info(f"replan dt:  {self.replan_dt}")
 
         while True:
-            time.sleep(0.05)
+            t1 = time.time()
             with self.lock_planner:
+                dt = t1 - self.__planner_last_replan_time.value
                 self.__planner_elapsed_time.value += time.time() - self.__planner_start_time.value
-                dt = time.time() - self.__planner_last_replan_time.value
-                # log.info(f"Planner iteration: {dt:.2f} s")
                 if dt > self.replan_dt:
-                    # log.info(f"Replanning... at {dt:.2f} s")
                     self.__planner_last_replan_time.value = time.time()
                     self.shared_planner.replan()
                     path,vel = self.shared_planner.get_serializable_local_plan()
@@ -142,35 +144,37 @@ class AsyncExecuter(Executer):
                     state = self.shared_world.get_ego_state()
                     self.shared_planner.step(state)
 
+                self.shared_planner.set_replan_dt(time.time()-t1)
 
-    def worker_controller(self, control_dt, *args):
+            t2 = time.time()
+            sleep_time = max(0, self.replan_dt - (t2 - t1))
+            time.sleep(sleep_time)
+            log.info(f"Planner iteration actual step time {t2-t1:.3f}  - > sleep time: {sleep_time:.2f} s")
+
+
+    def worker_controller(self, *args):
+        time.sleep(self.replan_dt)
         log.info(f"Controller Worker Started")
         while True:
-            time.sleep(0.01)
-            # with self.lock_world:
-            state = self.shared_world.get_ego_state()
-            cmd = self.shared_controller.control(state)
-            self.shared_world.update_ego_state(state, cmd, dt=0.01)
+            t1 = time.time()
+            with self.lock_world:
+                dt = t1 - self.__controller_last_step_time.value
+                self.__controller_last_step_time.value = time.time()
+                if dt > self.control_dt:
+                    state = self.shared_world.get_ego_state()
+                    cmd = self.shared_controller.control(state)
+                    self.shared_world.update_ego_state(state, cmd, dt=0.01)
+                    self.shared_controller.set_control_dt(time.time()-t1)
+            t2 = time.time()
+            sleep_time = max(0, self.control_dt - (t2 - t1))
+            time.sleep(sleep_time)
+            log.info(f"Controller iteration actual step time {t2-t1:.3f}  - > sleep time: {sleep_time:.2f} s")
 
 
 
     def worker_perceiver(self, *args):
         raise NotImplementedError
 
-    def worker_dummy(self, name):
-        # Simulate some work done in a separate process
-        # self.setup_worker_logging()
-        for i in range(10000):
-            msg = f"{name} - iteration {i}"
-            print(msg)
-            log.info(msg)
-
-            # self.queue.put(msg)
-            time.sleep(0.2)
-        msg2 = f"{name} - finished"
-        print(msg2)
-        log.info(msg2)
-        # self.queue.put(msg2)
 
     def stop(self):
         count = 0
@@ -182,19 +186,23 @@ class AsyncExecuter(Executer):
                 p.join()  # Wait for process to finish
         log.info(f"Async Executer Processes Stopped. {count}/{len(self.processes)}  processes terminated.")
         self.processes = []
+        self.planner_process = None
+        self.controller_process = None
+        self.processes_started = False
 
     def create_processes(self):
         self.processes = []
+        self.planner_process = None
+        self.controller_process = None
         # for i in range(2):
         # p = mp.Process(target=self._dummy_worker, args=(f"Process {i}",))
         # self.processes.append(p)
 
         if self.call_replan:
-            p = mp.Process(
+            self.planner_process = mp.Process(
                 target=self.worker_planner,
                 args=(
                     "Planner",
-                    self.replan_dt,
                     self.shared_world,
                     self.shared_planner,
                     self.shared_controller,
@@ -204,33 +212,39 @@ class AsyncExecuter(Executer):
                 ),
             )
             # p = mp.Process(target=self._plan_worker)
-            self.processes.append(p)
+            self.processes.append(self.planner_process)
 
         if self.call_control:
-            p = mp.Process(target=self.worker_controller,
+            self.controller_process = mp.Process(target=self.worker_controller,
                 args=(
                     "Controller",
-                    self.control_dt,
                     self.__controller_last_step_time,
                     self.shared_world,
                 ),
             )
-            self.processes.append(p)
-        #
-        # if self.call_perceive:
-        #     p = mp.Process(target=self.worker_perceiver)
-        #     self.processes.append(p)
+            self.processes.append(self.controller_process)
 
     # TODO: fix this 
     def start_processes(self):
+        if self.processes_started:
+            log.warning("Processes already started. Call stop() to restart.")
+            return
+        if len(self.processes) < 2:
+            log.warning("No processes to start. Call create_processes() first.")  
+            return
+
+        t1 = time.time()
         self.setup_worker_logging()
-        log.info(f"Starting processes...")
-        for p in self.processes:
-            self.__planner_start_time = Value("d", time.time())  # Shared double variable
-            p.start()
+        log.info(f"Starting Planner...")
+        self.__planner_start_time = Value("d", time.time())  # Shared double variable
+        self.planner_process.start()
+        
+        log.info(f"Starting Controller...")
+        self.controller_process.start()
         
         # self.__planner_time_since_last_replan = Value("d", 0.0)  # Shared double variable
         self.processes_started = True
+        log.info(f"Processes started in {time.time()-t1:.3f} s")
 
     def setup_worker_logging(self):
         """Configure worker process to send logs to queue"""
