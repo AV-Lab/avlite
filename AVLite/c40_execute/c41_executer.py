@@ -99,7 +99,9 @@ class Executer:
             local_tj = self.planner.get_local_plan()
             cmd = self.controller.control(self.ego_state, local_tj)
             cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
-            self.control_fps = int(1 / max(time.time() - t1, 0))
+            d = time.time() - t1
+            if d > 0:
+                self.control_fps = int(1 / d) 
 
             t2 = time.time()
             self.world.update_ego_state(self.ego_state, cmd, dt=control_dt)

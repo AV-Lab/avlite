@@ -148,8 +148,8 @@ class ExecVisualizeView(ttk.Frame):
             zoom_global_frame, text="Follow Planner", variable=self.root.data.global_view_follow_planner
         ).pack(side=tk.LEFT)
 
-        ttk.Label(zoom_global_frame, textvariable=self.root.data.replan_fps).pack(anchor=tk.W, side=tk.RIGHT)
-        ttk.Label(zoom_global_frame, text="Plan FPS: ").pack(anchor=tk.W, side=tk.RIGHT)
+        ttk.Label(zoom_global_frame, textvariable=self.root.data.replan_fps, font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
+        ttk.Label(zoom_global_frame, text="Plan FPS: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
 
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
@@ -167,8 +167,9 @@ class ExecVisualizeView(ttk.Frame):
         ttk.Checkbutton(
             zoom_frenet_frame, text="Follow Planner", variable=self.root.data.frenet_view_follow_planner
         ).pack(side=tk.LEFT)
-        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.control_fps).pack(anchor=tk.W, side=tk.RIGHT)
-        ttk.Label(zoom_frenet_frame, text="Con. FPS: ").pack(anchor=tk.W, side=tk.RIGHT)
+
+        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.control_fps, font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
+        ttk.Label(zoom_frenet_frame, text="Con. FPS: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
 
     # --------------------------------------------------------------------------------------------
     # -SIM----------------------------------------------------------------------------------------

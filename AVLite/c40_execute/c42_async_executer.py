@@ -17,8 +17,6 @@ from logging.handlers import QueueHandler, QueueListener
 
 log = logging.getLogger(__name__)
 
-class TrajectoryManager(BaseManager):
-    pass
 
 
 class AsyncExecuter(Executer):
@@ -44,9 +42,6 @@ class AsyncExecuter(Executer):
         BaseManager.register('WorldInterface', 
                     callable=lambda: world.get_copy(),
                     exposed=('get_ego_state', 'update_ego_state'))
-        # BaseManager.register('Trajectory', 
-        #             callable=lambda: self.planner.get_local_plan(),
-        #             exposed=('update_trajectory', 'control', 'dummy', 'reset'))
         
 
 
@@ -62,8 +57,8 @@ class AsyncExecuter(Executer):
         self.__planner_last_replan_time = Value("d", time.time())  # Shared double variable
         self.__planner_elapsed_time = Value("d", 0.0)  # Shared double variable
         self.__planner_start_time = Value("d", time.time())  # Shared double variable
-        
         self.__controller_last_step_time = Value("d", 0.0)  # Shared double variable
+        self.__controller_ready = Value("b", False)  # used to signal controller to start
 
         self.lock_planner = Lock()
         self.lock_controller = Lock()
@@ -75,7 +70,7 @@ class AsyncExecuter(Executer):
             self.__log_queue, logging.getLogger().handlers[0]  # Forward to default handler
         )
         self.__queue_listener.start()
-        self.setup_worker_logging()
+        self.setup_process_logging()
 
         self.call_replan = call_replan
         self.call_control = call_control
@@ -95,16 +90,15 @@ class AsyncExecuter(Executer):
             self.start_processes()
             return
         elif all(not p.is_alive() for p in self.processes) and self.processes_started == True:
-            log.warning(f"All processes finished. Recreating and starting processes.")
+            log.warning(f"All processes are dead. Recreating and starting processes.")
             self.stop()
             self.create_processes()
             self.start_processes()
             return
         elif any(p.is_alive() for p in self.processes) and not all(p.is_alive() for p in self.processes):
             # UI coordination tasks
-            alive_processes = [p for p in self.processes if p.is_alive()]
             log.error(
-                f"Some Async Executer Processes are dead! {len(alive_processes)}/{len(self.processes)} processes are still alive. Call stop() to terminate all processes."
+                    f"Some Async Executer Processes are dead! Planner status: {self.planner_process.is_alive()}, Controller status: {self.controller_process.is_alive()} . Call stop() to terminate all processes."
             )
             # self.stop()
             return
@@ -121,6 +115,9 @@ class AsyncExecuter(Executer):
             log.info(f"planner dt: {1/self.shared_planner.get_replan_dt():.2f} fps, control dt: {1/self.shared_controller.get_control_dt():.2f} fps")
             self.planner_fps = int(1/self.shared_planner.get_replan_dt())
             self.control_fps = int(1/self.shared_controller.get_control_dt())
+
+        # self.__controller_ready.value = False
+        log.info(f"########## Controller Ready: {self.__controller_ready.value}")
 
 
     def worker_planner(self,*args):
@@ -139,6 +136,7 @@ class AsyncExecuter(Executer):
                     path,vel = self.shared_planner.get_serializable_local_plan()
                     with self.lock_controller:
                         self.shared_controller.update_serializable_trajectory(path, vel)
+                        self.__controller_ready.value = True
 
                 with self.lock_world:
                     state = self.shared_world.get_ego_state()
@@ -157,14 +155,15 @@ class AsyncExecuter(Executer):
         log.info(f"Controller Worker Started")
         while True:
             t1 = time.time()
-            with self.lock_world:
-                dt = t1 - self.__controller_last_step_time.value
-                self.__controller_last_step_time.value = time.time()
-                if dt > self.control_dt:
-                    state = self.shared_world.get_ego_state()
-                    cmd = self.shared_controller.control(state)
-                    self.shared_world.update_ego_state(state, cmd, dt=0.01)
-                    self.shared_controller.set_control_dt(time.time()-t1)
+            if self.__controller_ready.value:
+                with self.lock_world:
+                    dt = t1 - self.__controller_last_step_time.value
+                    self.__controller_last_step_time.value = time.time()
+                    if dt > self.control_dt:
+                        state = self.shared_world.get_ego_state()
+                        cmd = self.shared_controller.control(state)
+                        self.shared_world.update_ego_state(state, cmd, dt=0.01)
+                        self.shared_controller.set_control_dt(time.time()-t1)
             t2 = time.time()
             sleep_time = max(0, self.control_dt - (t2 - t1))
             time.sleep(sleep_time)
@@ -230,11 +229,11 @@ class AsyncExecuter(Executer):
             log.warning("Processes already started. Call stop() to restart.")
             return
         if len(self.processes) < 2:
-            log.warning("No processes to start. Call create_processes() first.")  
+            log.warning("Not processes created to start. Call create_processes() first.")  
             return
 
         t1 = time.time()
-        self.setup_worker_logging()
+        self.setup_process_logging()
         log.info(f"Starting Planner...")
         self.__planner_start_time = Value("d", time.time())  # Shared double variable
         self.planner_process.start()
@@ -246,7 +245,7 @@ class AsyncExecuter(Executer):
         self.processes_started = True
         log.info(f"Processes started in {time.time()-t1:.3f} s")
 
-    def setup_worker_logging(self):
+    def setup_process_logging(self):
         """Configure worker process to send logs to queue"""
         # Remove all handlers
         root = logging.getLogger()

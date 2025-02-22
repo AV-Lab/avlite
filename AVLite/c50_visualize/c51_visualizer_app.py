@@ -10,14 +10,15 @@ from c50_visualize.c56_config_shortcut_view import ConfigShortcutView
 import tkinter as tk
 from tkinter import ttk
 import logging
-
+import sys
+import os
 
 log = logging.getLogger(__name__)
 
 
 
 class VisualizerApp(tk.Tk):
-    exe: Executer
+    exec: Executer
 
     def __init__(self, executer: Executer, code_reload_function=None, only_visualize=False):
         super().__init__()
@@ -56,7 +57,6 @@ class VisualizerApp(tk.Tk):
         # need otherwise matplotlib plt acts funny        
         self.after(50, self.config_shortcut_view.set_dark_mode)
 
-        self.disabled_log = False
 
     def disable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
@@ -84,6 +84,7 @@ class VisualizerApp(tk.Tk):
 
     def update_ui(self):
         self.plot_view.plot()
+        # if not self.data.shortcut_mode:
         self.perceive_plan_control_view.vehicle_state_label.config(
             text=f"Ego: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), v: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+4.1f}"
         )
@@ -103,8 +104,8 @@ class VisualizerApp(tk.Tk):
         self.perceive_plan_control_view.progressbar_steer.set_value(steer)
         
         
-        self.data.replan_fps.set(f"{self.exec.planner_fps:5d}")
-        self.data.control_fps.set(f"{self.exec.control_fps:5d}")
+        self.data.replan_fps.set(f"{self.exec.planner_fps:6d}")
+        self.data.control_fps.set(f"{self.exec.control_fps:6d}")
 
         if self.data.async_exec.get():
             if self.data.control_dt.get() < 0.1 or self.data.replan_dt.get() < 0.1:
