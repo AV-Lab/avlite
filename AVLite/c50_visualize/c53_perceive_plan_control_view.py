@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 import time
 from typing import TYPE_CHECKING
-from AVLite.c30_control.c31_base_controller import ControlComand
+from c30_control.c31_base_controller import ControlComand
 from c50_visualize.c58_ui_lib import ValueGauge
 import logging
 

@@ -84,7 +84,7 @@ class PlotLib:
 
         (self.car_heading_plot,) = self.ax1.plot([], [], "k-", color="darkslategray", label="Car Heading")
         (self.car_location_plot,) = self.ax1.plot(
-            [], [], "ko", color="darkslategray", markersize=7, label="Car Location"
+            [], [], "ko", markersize=7, label="Car Location"
         )
 
         self.ego_vehicle_ax1 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
