@@ -58,7 +58,6 @@ class AsyncExecuter(Executer):
         self.__planner_elapsed_time = Value("d", 0.0)  # Shared double variable
         self.__planner_start_time = Value("d", time.time())  # Shared double variable
         self.__controller_last_step_time = Value("d", 0.0)  # Shared double variable
-        self.__controller_ready = Value("b", False)  # used to signal controller to start
 
         self.lock_planner = Lock()
         self.lock_controller = Lock()
@@ -116,9 +115,6 @@ class AsyncExecuter(Executer):
             self.planner_fps = int(1/self.shared_planner.get_replan_dt())
             self.control_fps = int(1/self.shared_controller.get_control_dt())
 
-        # self.__controller_ready.value = False
-        log.info(f"########## Controller Ready: {self.__controller_ready.value}")
-
 
     def worker_planner(self,*args):
         time.sleep(self.replan_dt)
@@ -136,7 +132,7 @@ class AsyncExecuter(Executer):
                     path,vel = self.shared_planner.get_serializable_local_plan()
                     with self.lock_controller:
                         self.shared_controller.update_serializable_trajectory(path, vel)
-                        self.__controller_ready.value = True
+                        # self.__controller_ready.value = True
 
                 with self.lock_world:
                     state = self.shared_world.get_ego_state()
@@ -155,15 +151,15 @@ class AsyncExecuter(Executer):
         log.info(f"Controller Worker Started")
         while True:
             t1 = time.time()
-            if self.__controller_ready.value:
-                with self.lock_world:
-                    dt = t1 - self.__controller_last_step_time.value
-                    self.__controller_last_step_time.value = time.time()
-                    if dt > self.control_dt:
-                        state = self.shared_world.get_ego_state()
-                        cmd = self.shared_controller.control(state)
-                        self.shared_world.update_ego_state(state, cmd, dt=0.01)
-                        self.shared_controller.set_control_dt(time.time()-t1)
+            # if self.__controller_ready.value:
+            with self.lock_world:
+                dt = t1 - self.__controller_last_step_time.value
+                self.__controller_last_step_time.value = time.time()
+                if dt > self.control_dt:
+                    state = self.shared_world.get_ego_state()
+                    cmd = self.shared_controller.control(state)
+                    self.shared_world.update_ego_state(state, cmd, dt=0.01)
+                    self.shared_controller.set_control_dt(time.time()-t1)
             t2 = time.time()
             sleep_time = max(0, self.control_dt - (t2 - t1))
             time.sleep(sleep_time)

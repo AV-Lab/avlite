@@ -24,8 +24,8 @@ class PIDController(BaseController):
         if tj is not None:
             self.tj = tj
         elif tj is None and self.tj is None:
-            log.error("Trajectory is not provided")
-            return
+            log.warning("Trajectory is not provided")
+            return ControlComand(steer=0, acc=0)
 
         s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
         # self.past_cte.append(cte)
