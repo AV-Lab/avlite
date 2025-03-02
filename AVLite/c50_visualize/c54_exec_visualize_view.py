@@ -206,12 +206,12 @@ class ExecVisualizeView(ttk.Frame):
             self.root.after(int(cn_dt * 1000), self._exec_loop)
 
     def stop_exec(self):
-        self.root.data.exec_running = False
         if self.root.data.async_exec.get():
             log.info(f"Stopping Async Exec in 0.1 sec.")
             self.root.after(100, self.root.exec.stop())
         self.start_exec_button.config(state=tk.NORMAL)
         self.root.update_ui()
+        self.root.data.exec_running = False
 
     def step_exec(self):
         cn_dt = float(self.dt_exec_cn_entry.get())
