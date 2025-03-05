@@ -13,7 +13,7 @@ class BasicSim(WorldInterface):
         self.ego_state = ego_state
     
 
-    def update_ego_state(self, state:EgoState, cmd:ControlComand, dt=0.01):
+    def update_ego_state(self, state:EgoState, cmd:ControlComand, dt=0.01) -> EgoState:
         acceleration = cmd.acceleration
         steering_angle = cmd.steer
 
@@ -23,6 +23,8 @@ class BasicSim(WorldInterface):
         state.theta += state.velocity / state.L_f * steering_angle * dt
 
         self.ego_state = state
+
+        return state
         
     def spawn_agent(self, agent_state:AgentState):
         pass

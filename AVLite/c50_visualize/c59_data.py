@@ -33,6 +33,7 @@ class VisualizerData:
 
         self.control_dt = tk.DoubleVar(value=0.01)
         self.replan_dt = tk.DoubleVar(value=0.5)
+        self.sim_dt= tk.DoubleVar(value=0.01)
 
         # Logger Options
         self.exec_option = tk.StringVar(value="Basic")
@@ -50,3 +51,5 @@ class VisualizerData:
         self.disable_log = tk.BooleanVar(value=False)
         self.replan_fps = tk.StringVar(value="0")
         self.control_fps = tk.StringVar(value="0")
+
+        self.lap = tk.StringVar(value="0")

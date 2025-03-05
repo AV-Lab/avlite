@@ -41,7 +41,6 @@ class PerceivePlanControlView(ttk.Frame):
         self.gauge_cte_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
         self.gauge_cte_steer.set_marker(0)
         # ----
-
         self.vehicle_state_label = ttk.Label(self.perceive_frame,font=self.root.small_font, text="")
         self.vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
@@ -70,6 +69,8 @@ class PerceivePlanControlView(ttk.Frame):
         ttk.Label(wp_frame, text=f"{len(self.root.exec.planner.global_trajectory.path_x)-1}").pack(
             side=tk.LEFT, padx=5
         )
+        ttk.Label(wp_frame, text="Lap: ").pack(side=tk.LEFT, padx=5)
+        ttk.Label(wp_frame, font=self.root.small_font, textvariable=self.root.data.lap).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(self.plan_frame, text="Local Replan", command=self.replan).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(
@@ -115,10 +116,6 @@ class PerceivePlanControlView(ttk.Frame):
 
         dt_frame = ttk.Frame(self.control_frame)
         dt_frame.pack(fill=tk.X)
-        ttk.Label(dt_frame, text="Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_entry = ttk.Entry(dt_frame, width=5)
-        self.dt_entry.insert(2, "0.1")
-        self.dt_entry.pack(side=tk.LEFT, padx=5)
         ttk.Button(dt_frame, text="Control Step", command=self.step_control).pack(
             side=tk.LEFT, fill=tk.X, expand=True
         )
@@ -169,8 +166,7 @@ class PerceivePlanControlView(ttk.Frame):
             self.root.exec.ego_state, self.root.exec.planner.get_local_plan()
         )
 
-        dt = float(self.dt_entry.get())
-        self.root.exec.world.update_ego_state(state=self.root.exec.ego_state, cmd=cmd, dt=dt)
+        self.root.exec.world.update_ego_state(state=self.root.exec.ego_state, cmd=cmd, dt=self.root.data.sim_dt.get())
         self.root.update_ui()
 
     def align_control(self):
@@ -178,29 +174,25 @@ class PerceivePlanControlView(ttk.Frame):
         self.root.update_ui()
 
     def step_steer_left(self):
-        dt = float(self.dt_entry.get())
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(steer=0.05), dt=dt
+            state=self.root.exec.ego_state, cmd=ControlComand(steer=0.05), dt=self.root.data.sim_dt.get()
         )
         self.root.update_ui()
 
     def step_steer_right(self):
-        dt = float(self.dt_entry.get())
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(steer=-0.05), dt=dt
+            state=self.root.exec.ego_state, cmd=ControlComand(steer=-0.05), dt=self.root.data.sim_dt.get()
         )
         self.root.update_ui()
 
     def step_acc(self):
-        dt = float(self.dt_entry.get())
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(acc=8), dt=dt
+            state=self.root.exec.ego_state, cmd=ControlComand(acc=8), dt=self.root.data.sim_dt.get()
         )
         self.root.update_ui()
 
     def step_dec(self):
-        dt = float(self.dt_entry.get())
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(acc=-8), dt=dt
+            state=self.root.exec.ego_state, cmd=ControlComand(acc=-8), dt=self.root.data.sim_dt.get()
         )
         self.root.update_ui()

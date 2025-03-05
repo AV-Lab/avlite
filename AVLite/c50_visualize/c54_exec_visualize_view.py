@@ -21,7 +21,7 @@ class ExecVisualizeView(ttk.Frame):
         # ----------------------------------------------------------------------
         ## Execute Frame
         # ----------------------------------------------------------------------
-        self.execution_frame = ttk.LabelFrame(self, text="Execute (Auto)")
+        self.execution_frame = ttk.LabelFrame(self, text="Execute")
         self.execution_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         exec_first_frame = ttk.Frame(self.execution_frame)
@@ -40,6 +40,9 @@ class ExecVisualizeView(ttk.Frame):
         self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, textvariable=self.root.data.replan_dt, validatecommand=self.root.validate_float_input, width=5)
         # self.dt_exec_pl_entry.insert(0, "1.7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
+        
+        ttk.Label(exec_first_frame, text="Sim Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Entry(exec_first_frame, textvariable=self.root.data.sim_dt, validatecommand=self.root.validate_float_input, width=5).pack(side=tk.LEFT)
 
         self.asyc_exec_cb = ttk.Checkbutton(
             exec_first_frame,
@@ -192,6 +195,7 @@ class ExecVisualizeView(ttk.Frame):
             self.root.exec.step(
                 control_dt=cn_dt,
                 replan_dt=pl_dt,
+                sim_dt=float(self.root.data.sim_dt.get()),
                 call_replan=self.root.data.exec_plan.get(),
                 call_control=self.root.data.exec_control.get(),
                 call_perceive=self.root.data.exec_perceive.get(),

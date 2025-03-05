@@ -54,13 +54,13 @@ class BaseController(ABC):
     def reset(self):
         pass
     
+    # methods used for multiprocessing
     def get_copy(self):
         return copy.deepcopy(self)
-
-    
     def update_serializable_trajectory(self, path: list[tuple[float, float]], velocity_list: list[float]):
         self.tj = Trajectory(path, velocity_list)
-    
+        log.info("Controller Trajectory updated")
+
     def get_control_dt(self)->float:
         return self.__control_dt
     def set_control_dt(self, dt:float):
