@@ -86,7 +86,7 @@ class VisualizerApp(tk.Tk):
         self.plot_view.plot()
         # if not self.data.shortcut_mode:
         self.perceive_plan_control_view.vehicle_state_label.config(
-            text=f"Ego: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), v: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+4.1f}"
+            text=f"Ego: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), v: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+5.1f}"
         )
 
         self.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
@@ -104,8 +104,9 @@ class VisualizerApp(tk.Tk):
         self.perceive_plan_control_view.progressbar_steer.set_value(steer)
         
         
-        self.data.replan_fps.set(f"{self.exec.planner_fps:6d}")
-        self.data.control_fps.set(f"{self.exec.control_fps:6d}")
+        self.data.replan_fps.set(f"{self.exec.planner_fps:6.1f}")
+        self.data.control_fps.set(f"{self.exec.control_fps:6.1f}")
+        self.data.lap.set(f"{self.exec.planner.lap:5d}")
 
         if self.data.async_exec.get():
             if self.data.control_dt.get() < 0.1 or self.data.replan_dt.get() < 0.1:
