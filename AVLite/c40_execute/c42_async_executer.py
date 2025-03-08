@@ -73,6 +73,7 @@ class AsyncExecuter(Executer):
         self.__planner_elapsed_time = Value("d", 0.0)  # Shared double variable
         self.__planner_start_time = Value("d", time.time())  # Shared double variable
         self.__controller_last_step_time = Value("d", 0.0)  # Shared double variable
+        self.__kill_flag = Value("b", False)  # Shared boolean variable
 
         self.lock_planner = Lock()
         self.lock_controller = Lock()
@@ -99,6 +100,9 @@ class AsyncExecuter(Executer):
         self.control_dt = control_dt
         self.replan_dt = replan_dt
         self.sim_dt = sim_dt
+        self.call_replan = call_replan
+        self.call_control = call_control
+        self.call_perceive = call_perceive
 
         if self.processes_started == False:
             self.create_processes()
@@ -119,72 +123,115 @@ class AsyncExecuter(Executer):
         with self.lock_world:
             self.ego_state = self.shared_world.get_ego_state()
 
-        with self.lock_planner:
-            self.planner.location_xy = self.shared_planner.get_location_xy()
-            self.planner.location_sd = self.shared_planner.get_location_sd()
+        # with self.lock_planner:
+        self.planner.location_xy = self.shared_planner.get_location_xy()
+        self.planner.location_sd = self.shared_planner.get_location_sd()
 
-            if self.shared_planner.get_replan_dt() > 0:
-                log.info(
-                    f"planner dt: {1/self.shared_planner.get_replan_dt():.2f} fps, control dt: {1/self.shared_controller.get_control_dt():.2f} fps"
-                )
-                self.planner_fps = 1 / self.shared_planner.get_replan_dt()
+        if self.shared_planner.get_replan_dt() > 0:
+            log.info(
+                f"planner dt: {1/self.shared_planner.get_replan_dt():.2f} fps, control dt: {self.shared_controller.get_control_dt():.2f} fps"
+            )
+            self.planner_fps = 1 / self.shared_planner.get_replan_dt()
 
-        with self.lock_controller:
-            if self.shared_controller.get_control_dt() > 0:
-                self.controller.cmd = self.shared_controller.get_cmd()
-                self.controller.cte_steer = self.shared_controller.get_cte_steer()
-                self.controller.cte_velocity = self.shared_controller.get_cte_velocity()
-                self.control_fps = 1 / self.shared_controller.get_control_dt()
+        # with self.lock_controller:
+        if self.shared_controller.get_control_dt() > 0:
+            self.controller.cmd = self.shared_controller.get_cmd()
+            self.controller.cte_steer = self.shared_controller.get_cte_steer()
+            self.controller.cte_velocity = self.shared_controller.get_cte_velocity()
+            self.control_fps = 1 / self.shared_controller.get_control_dt()
 
+    # def worker_planner(self, *args):
+    #     time.sleep(self.replan_dt)
+    #     log.info(f"Plan Worker Started")
+    #     log.info(f"replan dt:  {self.replan_dt}")
+    #
+    #     while not self.__kill_flag.value and self.call_replan:
+    #         try:
+    #             t1 = time.time()
+    #             with self.lock_planner:
+    #                 dt = t1 - self.__planner_last_step_time.value
+    #                 self.__planner_elapsed_time.value += time.time() - self.__planner_start_time.value
+    #                 if dt > self.replan_dt:
+    #                     self.shared_planner.set_replan_dt(dt)
+    #                     self.__planner_last_step_time.value = time.time()
+    #                     self.shared_planner.replan()
+    #                     path, vel = self.shared_planner.get_serializable_local_plan()
+    #                 if dt > self.sim_dt:
+    #                     with self.lock_controller:
+    #                         self.shared_controller.update_serializable_trajectory(path, vel)
+    #
+    #                 with self.lock_world:
+    #                     state = self.shared_world.get_ego_state()
+    #                     self.shared_planner.step(state)
+    #
+    #
+    #             t2 = time.time()
+    #             sleep_time = max(0, self.replan_dt - (t2 - t1))
+    #             time.sleep(sleep_time)
+    #             log.info(f"Planner iteration actual step time {t2-t1:.3f}  - > sleep time: {sleep_time:.2f} s")
+    #         except Exception as e:
+    #             log.error(f"Error in planner worker: {e}", exc_info=True)
+    #             time.sleep(0.1)  # Avoid tight loop if persistent errors
     def worker_planner(self, *args):
-        time.sleep(self.replan_dt)
         log.info(f"Plan Worker Started")
         log.info(f"replan dt:  {self.replan_dt}")
-
-        while True:
+        
+        # Initialize path and velocity
+        path, vel = None, None
+        next_plan_time = time.time()
+        
+        while not self.__kill_flag.value and self.call_replan:
             try:
+                current_time = time.time()
+                # Wait until it's time for the next planning cycle
+                if current_time < next_plan_time:
+                    time.sleep(next_plan_time - current_time)
+                    current_time = time.time()
+                next_plan_time = current_time + self.replan_dt
+                
                 t1 = time.time()
-                with self.lock_planner:
-                    dt = t1 - self.__planner_last_step_time.value
-                    self.__planner_elapsed_time.value += time.time() - self.__planner_start_time.value
-                    if dt > self.replan_dt:
-                        self.shared_planner.set_replan_dt(dt)
-                        self.__planner_last_step_time.value = time.time()
-                        self.shared_planner.replan()
-                        path, vel = self.shared_planner.get_serializable_local_plan()
-                    if dt > self.sim_dt:
-                        with self.lock_controller:
-                            self.shared_controller.update_serializable_trajectory(path, vel)
+                # with self.lock_planner:
+                dt = t1 - self.__planner_last_step_time.value
+                self.__planner_elapsed_time.value += time.time() - self.__planner_start_time.value
+                
+                # Execute planning cycle
+                self.shared_planner.set_replan_dt(dt)
+                self.__planner_last_step_time.value = time.time()
+                self.shared_planner.replan()
+                path, vel = self.shared_planner.get_serializable_local_plan()
+                
+                # Update controller if enough time has passed
+                if dt > self.sim_dt:
+                    # with self.lock_contoller:
+                    self.shared_controller.update_serializable_trajectory(path, vel)
 
-                    with self.lock_world:
-                        state = self.shared_world.get_ego_state()
-                        self.shared_planner.step(state)
-
+                    # with self.lock_world:
+                    state = self.shared_world.get_ego_state()
+                    self.shared_planner.step(state)
 
                 t2 = time.time()
-                sleep_time = max(0, self.replan_dt - (t2 - t1))
-                time.sleep(sleep_time)
-                log.info(f"Planner iteration actual step time {t2-t1:.3f}  - > sleep time: {sleep_time:.2f} s")
+                log.info(f"Planner iteration: dt={dt:.3f}s, execution time={t2-t1:.3f}s")
             except Exception as e:
                 log.error(f"Error in planner worker: {e}", exc_info=True)
                 time.sleep(0.1)  # Avoid tight loop if persistent errors
+                next_plan_time = time.time() + self.replan_dt  # Reset timer after error
 
 
     def worker_controller(self, *args):
         log.info(f"Controller Worker Started")
-        while True:
+        while not self.__kill_flag.value and self.call_control:
             try:
                 t1 = time.time()
-                with self.lock_world:
-                    dt = t1 - self.__controller_last_step_time.value
-                    if dt > 10 * self.control_dt: # If controller is sleeping for too long, reset the time
-                        self.__controller_last_step_time.value = t1
-                    elif dt > self.control_dt:
-                        self.shared_controller.set_control_dt(dt)
-                        self.__controller_last_step_time.value = t1
-                        state = self.shared_world.get_ego_state()
-                        cmd = self.shared_controller.control(state)
-                        self.shared_world.update_ego_state(state, cmd, dt=self.sim_dt)
+                # with self.lock_worl:
+                dt = t1 - self.__controller_last_step_time.value
+                if dt > 10 * self.control_dt: # If controller is sleeping for too long, reset the time
+                    self.__controller_last_step_time.value = t1
+                elif dt > self.control_dt:
+                    self.shared_controller.set_control_dt(dt)
+                    self.__controller_last_step_time.value = t1
+                    state = self.shared_world.get_ego_state()
+                    cmd = self.shared_controller.control(state)
+                    self.shared_world.update_ego_state(state, cmd, dt=self.sim_dt)
                 t2 = time.time()
                 sleep_time = max(0, self.control_dt - (t2 - t1))
                 time.sleep(sleep_time)
@@ -199,7 +246,8 @@ class AsyncExecuter(Executer):
         raise NotImplementedError
 
     def stop(self):
-        # First stop the queue listener to prevent logging issues
+
+        # stop the queue listener to prevent logging issues
         if hasattr(self, "__queue_listener") and self.__queue_listener:
             self.__queue_listener.stop()
 
@@ -208,7 +256,8 @@ class AsyncExecuter(Executer):
             if p and p.is_alive():
                 log.info(f"Terminating process {p.name}")
                 count += 1
-                p.terminate()
+                self.__kill_flag.value = True
+                # p.terminate()
                 p.join(timeout=1.0)  # Add timeout to prevent indefinite blocking
                 if p.is_alive():
                     log.warning(f"Process {p.name} did not terminate cleanly, forcing exit")
@@ -225,36 +274,23 @@ class AsyncExecuter(Executer):
         self.processes = []
         self.planner_process = None
         self.controller_process = None
-        # for i in range(2):
-        # p = mp.Process(target=self._dummy_worker, args=(f"Process {i}",))
-        # self.processes.append(p)
 
-        if self.call_replan:
-            self.planner_process = mp.Process(
-                target=self.worker_planner,
-                args=(
-                    "Planner",
-                    # self.shared_world,
-                    # self.shared_planner,
-                    # self.shared_controller,
-                    # self.__planner_elapsed_time,
-                    # self.__planner_start_time,
-                    # self.__planner_last_replan_time,
-                ),
-            )
-            # p = mp.Process(target=self._plan_worker)
-            self.processes.append(self.planner_process)
+        self.planner_process = mp.Process(
+            target=self.worker_planner,
+            args=(
+                "Planner",
+            ),
+        )
+        # p = mp.Process(target=self._plan_worker)
+        self.processes.append(self.planner_process)
 
-        if self.call_control:
-            self.controller_process = mp.Process(
-                target=self.worker_controller,
-                args=(
-                    "Controller",
-                    self.__controller_last_step_time,
-                    self.shared_world,
-                ),
-            )
-            self.processes.append(self.controller_process)
+        self.controller_process = mp.Process(
+            target=self.worker_controller,
+            args=(
+                "Controller",
+          ),
+        )
+        self.processes.append(self.controller_process)
 
     # TODO: fix this
     def start_processes(self):
@@ -264,6 +300,7 @@ class AsyncExecuter(Executer):
         if len(self.processes) < 2:
             log.warning("Not processes created to start. Call create_processes() first.")
             return
+        self.__kill_flag.value = False
 
         t1 = time.time()
         self.setup_process_logging()

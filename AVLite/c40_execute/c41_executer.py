@@ -4,7 +4,6 @@ from c30_control.c31_base_controller import BaseController, ControlComand
 from c10_perceive.c12_state import EgoState
 
 from abc import ABC, abstractmethod
-import numpy as np
 
 import logging
 import time
@@ -34,10 +33,6 @@ class WorldInterface(ABC):
         Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that.
 
         """
-        pass
-
-    @abstractmethod
-    def get_copy(self):
         pass
 
 
@@ -72,11 +67,11 @@ class Executer:
         self.elapsed_sim_time = 0
 
         self.__prev_exec_time = None
-        self.__planner_last_time = time.time()
-        self.__controller_last_time = time.time()
+        self.__planner_last_time = 0.0
+        self.__controller_last_time = 0.0
 
-        self.planner_fps = 0
-        self.control_fps = 0
+        self.planner_fps = 0.0
+        self.control_fps = 0.0
 
     def step(
         self,
@@ -90,21 +85,21 @@ class Executer:
         pln_time_txt, cn_time_txt, sim_time_txt = "", "", ""
         t0 = time.time()
         if call_replan:
-            dt_p = time.time() - self.__planner_last_time
+            dt_p = self.elapsed_sim_time - self.__planner_last_time
             if dt_p >= replan_dt:
                 self.planner.replan()
-                self.__planner_last_time = time.time()
-                self.planner_fps = 1 / dt_p
+                self.__planner_last_time = self.elapsed_sim_time
+                self.planner_fps = 1.0 / dt_p
                 pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
-                log.info(f"DT Planner: {dt_p:.4f} sec")
+                # log.info(f"DT Planner: {dt_p:.4f} sec")
         self.planner.step(self.ego_state)
 
         t1 = time.time()
         if call_control:
-            dt_c = time.time() - self.__controller_last_time
+            dt_c = self.elapsed_sim_time - self.__controller_last_time
             if dt_c >= control_dt:
-                self.__controller_last_time = time.time()
-                self.control_fps = 1 / dt_c
+                self.__controller_last_time = self.elapsed_sim_time
+                self.control_fps = 1.0 / dt_c
                 local_tj = self.planner.get_local_plan()
                 cmd = self.controller.control(self.ego_state, local_tj)
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
@@ -117,8 +112,8 @@ class Executer:
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
 
-        log.info(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {sim_time_txt}")
-        log.debug(f"Elapsed Real Time: {self.elapsed_real_time:.3f}")
+        log.debug(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {sim_time_txt}")
+        log.debug(f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec")
 
     def run(self, replan_dt=0.5, control_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
         self.reset()

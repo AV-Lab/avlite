@@ -32,17 +32,32 @@ class ExecVisualizeView(ttk.Frame):
         exec_third_frame.pack(fill=tk.X)
 
         ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_cn_entry = ttk.Entry(exec_first_frame, textvariable=self.root.data.control_dt, validatecommand=self.root.validate_float_input, width=5)
+        self.dt_exec_cn_entry = ttk.Entry(
+            exec_first_frame,
+            textvariable=self.root.data.control_dt,
+            validatecommand=self.root.validate_float_input,
+            width=5,
+        )
         # self.dt_exec_cn_entry.insert(0, "0.02")
         self.dt_exec_cn_entry.pack(side=tk.LEFT)
 
         ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_pl_entry = ttk.Entry(exec_first_frame, textvariable=self.root.data.replan_dt, validatecommand=self.root.validate_float_input, width=5)
+        self.dt_exec_pl_entry = ttk.Entry(
+            exec_first_frame,
+            textvariable=self.root.data.replan_dt,
+            validatecommand=self.root.validate_float_input,
+            width=5,
+        )
         # self.dt_exec_pl_entry.insert(0, "1.7")
         self.dt_exec_pl_entry.pack(side=tk.LEFT)
-        
+
         ttk.Label(exec_first_frame, text="Sim Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        ttk.Entry(exec_first_frame, textvariable=self.root.data.sim_dt, validatecommand=self.root.validate_float_input, width=5).pack(side=tk.LEFT)
+        ttk.Entry(
+            exec_first_frame,
+            textvariable=self.root.data.sim_dt,
+            validatecommand=self.root.validate_float_input,
+            width=5,
+        ).pack(side=tk.LEFT)
 
         self.asyc_exec_cb = ttk.Checkbutton(
             exec_first_frame,
@@ -144,34 +159,49 @@ class ExecVisualizeView(ttk.Frame):
         ## UI Elements for Visualize - Buttons
         zoom_global_frame = ttk.Frame(self.visualize_frame)
         zoom_global_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_global_frame, text="Global Coordinate").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="Zoom In", command=self.root.plot_view.zoom_in).pack(side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="Zoom Out", command=self.root.plot_view.zoom_out).pack(side=tk.LEFT)
+        ttk.Label(zoom_global_frame, text="Global Coordinate 🔍").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.plot_view.zoom_in).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="➖", width=2, command=self.root.plot_view.zoom_out).pack(side=tk.LEFT)
         ttk.Checkbutton(
             zoom_global_frame, text="Follow Planner", variable=self.root.data.global_view_follow_planner
         ).pack(side=tk.LEFT)
 
-        ttk.Label(zoom_global_frame, textvariable=self.root.data.replan_fps, font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
+        ttk.Label(zoom_global_frame, text="Real time: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        ttk.Label(zoom_global_frame, textvariable=self.root.data.elapsed_real_time, font=self.root.small_font).pack(
+            anchor=tk.W, side=tk.LEFT, padx=10
+        )
+
+        ttk.Label(zoom_global_frame, textvariable=self.root.data.replan_fps, font=self.root.small_font).pack(
+            anchor=tk.W, side=tk.RIGHT, padx=5
+        )
+
         ttk.Label(zoom_global_frame, text="Plan FPS: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
 
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate 🔍").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(
             zoom_frenet_frame,
-            text="Zoom In",
+            text="➕",
+            width=2,
             command=self.root.plot_view.zoom_in_frenet,
         ).pack(side=tk.LEFT)
         ttk.Button(
             zoom_frenet_frame,
-            text="Zoom Out",
+            text="➖",
+            width=2,
             command=self.root.plot_view.zoom_out_frenet,
         ).pack(side=tk.LEFT)
         ttk.Checkbutton(
             zoom_frenet_frame, text="Follow Planner", variable=self.root.data.frenet_view_follow_planner
         ).pack(side=tk.LEFT)
 
-        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.control_fps, font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
+        ttk.Label(zoom_frenet_frame, text="Sim time : ", font=self.root.small_font).pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.elapsed_sim_time, font=self.root.small_font).pack(side=tk.LEFT, padx=10)
+
+        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.control_fps, font=self.root.small_font).pack(
+            anchor=tk.W, side=tk.RIGHT
+        )
         ttk.Label(zoom_frenet_frame, text="Con. FPS: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
 
     # --------------------------------------------------------------------------------------------
@@ -191,11 +221,12 @@ class ExecVisualizeView(ttk.Frame):
         if self.root.data.exec_running:
             cn_dt = float(self.dt_exec_cn_entry.get())
             pl_dt = float(self.dt_exec_pl_entry.get())
+            sim_dt = float(self.root.data.sim_dt.get())
 
             self.root.exec.step(
                 control_dt=cn_dt,
                 replan_dt=pl_dt,
-                sim_dt=float(self.root.data.sim_dt.get()),
+                sim_dt=sim_dt,
                 call_replan=self.root.data.exec_plan.get(),
                 call_control=self.root.data.exec_control.get(),
                 call_perceive=self.root.data.exec_perceive.get(),
@@ -207,12 +238,13 @@ class ExecVisualizeView(ttk.Frame):
             self.root.update_ui()
 
             # if not self.root.data.async_exec.get():
-            self.root.after(int(cn_dt * 1000), self._exec_loop)
+            self.root.after(int(sim_dt * 1000), self._exec_loop)
 
     def stop_exec(self):
         if self.root.data.async_exec.get():
             log.info(f"Stopping Async Exec in 0.1 sec.")
-            self.root.after(100, self.root.exec.stop())
+            # self.root.after(100, self.root.exec.stop())
+            self.root.exec.stop()
         self.start_exec_button.config(state=tk.NORMAL)
         self.root.update_ui()
         self.root.data.exec_running = False

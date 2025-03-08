@@ -12,14 +12,14 @@ class ValueGauge(ttk.Frame):
         self.pack_propagate(False)
         self.font = ("Helvetica", 8, "bold")
 
-        self.min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font, bg="black", fg="white")
+        self.min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font, bg="#2f2f2f", fg="gray")
         self.min_label.pack(side=tk.LEFT, padx=0)
         
-        self.max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font, bg="black", fg="white")
+        self.max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font, bg="#2f2f2f", fg="gray")
         self.max_label.pack(side=tk.RIGHT, padx=0)
 
         # Create canvas between labels
-        self.canvas = tk.Canvas(self, height=20, bg="gray", highlightthickness=0)
+        self.canvas = tk.Canvas(self, height=22, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
 
         # Update the binding to use a lambda function that calls self._draw()
