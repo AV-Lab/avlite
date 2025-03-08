@@ -38,12 +38,12 @@ class BasePlanner(ABC):
         global_velocity: list[float],
         ref_left_boundary_d: list[float],
         ref_right_boundary_d: list[float],
-        env: PerceptionModel,
+        pm: PerceptionModel,
         planning_horizon=3,
         num_of_edge_points=10,
     ):
         
-        self.pm = env
+        self.pm = pm
 
 
         self.global_trajectory = Trajectory(global_path, global_velocity)
@@ -192,19 +192,22 @@ class BasePlanner(ABC):
         self.location_xy = (state.x, state.y)
         self.location_sd = (s_, d_)
 
+    def local_plan_len(self, tmp_plan=None):
+        edge = self.selected_local_plan if tmp_plan is None else tmp_plan
+        return 1 + self.__plan_len(edge=edge.selected_next_local_plan)
+    def __plan_len(self, edge):
+        if edge is None:
+            return 0
+        return 1 + self.__plan_len(edge=edge.selected_next_local_plan)
 
     # For serializaztion
-
     def get_copy(self):
         return copy.deepcopy(self)
-    
     def get_serializable_local_plan(self) -> tuple[list[tuple[float, float]],list[float]]:
         tj = self.get_local_plan()
         path = tj.reference_xy_path
         velocity = tj.velocity
-
         return path, velocity
-
     def get_location_xy(self) -> tuple[float, float]:
         return self.location_xy
     def get_location_sd(self) -> tuple[float, float]:

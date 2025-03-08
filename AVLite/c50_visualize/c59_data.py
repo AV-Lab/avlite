@@ -53,3 +53,8 @@ class VisualizerData:
         self.control_fps = tk.StringVar(value="0")
 
         self.lap = tk.StringVar(value="0")
+        self.elapsed_real_time = tk.StringVar(value="0")
+        self.elapsed_sim_time = tk.StringVar(value="0")
+
+        self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
+        self.current_wp = tk.StringVar(value="0")

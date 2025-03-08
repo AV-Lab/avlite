@@ -1,5 +1,6 @@
 from c10_perceive.c11_perception_model import PerceptionModel
 from c20_plan.c24_trajectory import Trajectory
+from c10_perceive.c12_state import State
 from typing import Dict
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
@@ -78,13 +79,15 @@ class Edge:
     cost: float = 0
     risk: float = 0
 
-    def __init__(self,start: Node, end: Node, global_tj: Trajectory, num_of_points=30):
+    def __init__(self, start: Node, end: Node, global_tj: Trajectory, num_of_points=30):
         local_trajectory = global_tj.create_quintic_trajectory_sd(
             s_start=start.s,
             d_start=start.d,
             s_end=end.s,
             d_end=end.d,
             num_points=num_of_points,
+            start_d_1st_derv=start.d_1st_derv,
+            start_d_2nd_derv=start.d_2nd_derv,
         )
         self.start = start
         self.end = end
@@ -101,6 +104,17 @@ class Lattice:
     """
     Lattice class to generate lattice from sample_nodes
     """
+
+    global_tj: Trajectory
+    num_of_points: int
+    planning_horizon: int
+    nodes: list[Node]
+    edges: list[Edge]
+    level0_edges: list[Edge]
+    lattice_nodes_by_level: Dict[int, list]
+    incoming_edges: Dict[Node, list]
+    outgoing_edges: Dict[Node, list]
+
     def __init__(
         self,
         global_tj: Trajectory,
@@ -111,35 +125,34 @@ class Lattice:
     ):
         self.global_trajectory = global_tj
         self.num_of_points = num_of_points
-        self.planning_horizon = planning_horizon # number of levels in the lattice
+        self.planning_horizon = planning_horizon  # number of levels in the lattice
         self.__ref_left_boundary_d = ref_left_boundary_d
         self.__ref_right_boundary_d = ref_right_boundary_d
-        
-        self.nodes: list[Node] = []
-        self.edges: list[Edge] = []
-        self.level0_edges: list[Edge] = []
 
-        self.lattice_nodes_by_level: Dict[int, list] = defaultdict(list)  # key is level, value is list of nodes
-        self.incoming_edges: Dict[Node, list[Edge]] = defaultdict(list)  # key is node, value is incoming edge
-        self.outgoing_edges: Dict[Node, list[Edge]] = defaultdict(list)  # key is node, value is incoming edge
+        self.nodes = []
+        self.edges = []
+        self.level0_edges = []
 
+        self.lattice_nodes_by_level = defaultdict(list)  # key is level, value is list of nodes
+        self.incoming_edges = defaultdict(list)  # key is node, value is incoming edge
+        self.outgoing_edges = defaultdict(list)  # key is node, value is incoming edge
 
-    def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance):
+    def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance, orientation=0):
         s1_ = s
         x, y = self.global_trajectory.convert_sd_to_xy(s1_, d)
-        self.lattice_nodes_by_level[0].append(Node(s1_, d,x,y))
+        self.lattice_nodes_by_level[0].append(Node(s1_, d, x, y, d_1st_derv=orientation))
 
         for l in range(1, self.planning_horizon + 1):
             s1_ = s1_ + maneuver_distance
             if s1_ > self.global_trajectory.path_s[-2]:  # at -1 path_s is zero
                 log.warning("No Replan, reaching the end of lap")
                 return
-            
+
             # One line always at track line
             wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
-            _,dg = self.global_trajectory.get_sd_by_waypoint(wp)
+            _, dg = self.global_trajectory.get_sd_by_waypoint(wp)
             x, y = self.global_trajectory.convert_sd_to_xy(s1_, dg)
-            node = Node(s1_, dg, x,y) 
+            node = Node(s1_, dg, x, y)
             self.lattice_nodes_by_level[l].append(node)  # always a node at track line
             self.nodes.append(node)
 
@@ -150,11 +163,9 @@ class Lattice:
                     self.__ref_right_boundary_d[target_wp] + boundary_clearance,
                 )
                 x, y = self.global_trajectory.convert_sd_to_xy(s1_, d1_)
-                n_ = Node(s1_, d1_, x,y)
+                n_ = Node(s1_, d1_, x, y)
                 self.nodes.append(n_)
                 self.lattice_nodes_by_level[l].append(n_)
-
-
 
     def generate_lattice_from_nodes(self, env: Optional[PerceptionModel] = None):
         for l in range(self.planning_horizon + 1):
@@ -180,5 +191,4 @@ class Lattice:
         self.level0_edges.clear()
         self.nodes.clear()
         self.edges.clear()
-
 

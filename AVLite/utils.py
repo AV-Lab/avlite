@@ -19,7 +19,8 @@ import c30_control.c31_base_controller
 import c30_control.c32_pid_controller
 import c40_execute.c41_executer
 import c40_execute.c42_async_executer 
-import c40_execute.c43_basic_sim
+import c40_execute.c43_async_threaded_executer
+import c40_execute.c44_basic_sim
 
 import logging
 log = logging.getLogger(__name__)
@@ -70,5 +71,6 @@ def reload_lib():
     importlib.reload(c30_control.c32_pid_controller)
     importlib.reload(c40_execute.c41_executer)
     importlib.reload(c40_execute.c42_async_executer)
-    importlib.reload(c40_execute.c43_basic_sim)
+    importlib.reload(c40_execute.c43_async_threaded_executer)
+    importlib.reload(c40_execute.c44_basic_sim)
 

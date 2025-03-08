@@ -20,7 +20,8 @@ def get_executer(config_path="config.yaml", async_mode=False, source_run=True, r
     from c30_control.c32_pid_controller import PIDController
     from c40_execute.c41_executer import Executer
     from c40_execute.c42_async_executer import AsyncExecuter
-    from c40_execute.c43_basic_sim import BasicSim
+    from c40_execute.c43_async_threaded_executer import AsyncThreadedExecuter
+    from c40_execute.c44_basic_sim import BasicSim
     from c10_perceive.c12_state import EgoState
 
     ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
@@ -37,7 +38,7 @@ def get_executer(config_path="config.yaml", async_mode=False, source_run=True, r
     executer = (
         Executer(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
         if not async_mode
-        else AsyncExecuter(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
+        else AsyncThreadedExecuter(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
     )
 
     return executer
