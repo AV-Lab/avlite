@@ -21,8 +21,8 @@ class RNDPlanner(BasePlanner):
         ref_right_boundary_d: list[float],
         env: PerceptionModel,
         num_of_edge_points=10,
-        planning_horizon=3,
-        maneuver_distance=20,
+        planning_horizon=4,
+        maneuver_distance=35,
         boundary_clearance=1,
         sample_size=3, # number of nodes to sample in each level
     ):
