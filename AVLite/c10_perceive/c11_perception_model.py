@@ -28,7 +28,7 @@ class PerceptionModel:
         self.agent_vehicles.append(agent)
         log.info(f"Total agent vehicles {len(self.agent_vehicles)}")
 
-    def is_tj_collision_free(self, trajectory: Trajectory = None, sample_size=4):
+    def is_tj_collision_free(self, trajectory: Trajectory = None, sample_size=5):
         ego = self.ego_vehicle
         if trajectory is not None:
             path_x = trajectory.path_x
