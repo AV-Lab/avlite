@@ -38,6 +38,7 @@ class RNDPlanner(BasePlanner):
         self.maneuver_distance: float = maneuver_distance
         self.boundary_clearance: int = boundary_clearance
         self.sample_size: int = sample_size
+        self.lattice.targetted_num_edges = 3 * 3**(self.planning_horizon - 1)
 
     def replan(self, back_to_ref_horizon=10):
         if len(self.traversed_s) == 0:

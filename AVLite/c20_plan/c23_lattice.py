@@ -114,6 +114,7 @@ class Lattice:
     lattice_nodes_by_level: Dict[int, list]
     incoming_edges: Dict[Node, list]
     outgoing_edges: Dict[Node, list]
+    targetted_num_edges: int
 
     def __init__(
         self,
