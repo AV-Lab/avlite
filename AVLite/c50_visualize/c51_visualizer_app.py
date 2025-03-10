@@ -10,8 +10,6 @@ from c50_visualize.c56_config_shortcut_view import ConfigShortcutView
 import tkinter as tk
 from tkinter import ttk
 import logging
-import sys
-import os
 
 log = logging.getLogger(__name__)
 
@@ -111,7 +109,7 @@ class VisualizerApp(tk.Tk):
                     )
                     self.data.log_level.set("STDOUT")
                     self.log_view.update_log_level()
-                    self.disable_frame(self.perceive_plan_control_view)
+                    # self.disable_frame(self.perceive_plan_control_view)
                     self.disable_frame(self.log_view.controls_frame)
             else:
                 if self.data.disable_log.get():
@@ -119,11 +117,11 @@ class VisualizerApp(tk.Tk):
                     self.data.log_level.set("INFO")
                     self.log_view.update_log_level()
                     self.enable_frame(self.log_view.controls_frame)
-                    self.disable_frame(self.perceive_plan_control_view)
+                    # self.disable_frame(self.perceive_plan_control_view)
         else:
             if self.data.disable_log.get():
                 self.data.disable_log.set(False)
                 self.data.log_level.set("INFO")
                 self.log_view.update_log_level()
-                self.enable_frame(self.perceive_plan_control_view)
+                # self.enable_frame(self.perceive_plan_control_view)
                 self.enable_frame(self.log_view.controls_frame)

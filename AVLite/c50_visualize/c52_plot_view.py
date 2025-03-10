@@ -19,7 +19,7 @@ class PlotView(ttk.Frame):
         self.root = root
 
 
-        self.plot_lib = PlotLib()
+        self.plot_lib = PlotLib(max_lattice_size=self.root.exec.planner.lattice.targetted_num_edges)
         self.fig = self.plot_lib.fig
         self.ax1 = self.plot_lib.ax1
         self.ax2 = self.plot_lib.ax2
