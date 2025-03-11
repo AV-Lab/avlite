@@ -1,5 +1,5 @@
 from __future__ import annotations
-from c50_visualize.c57_plot_lib import PlotLib
+from c50_visualize.c57_plot_lib import LocalPlot, GlobalPlot
 
 import tkinter as tk
 from tkinter import ttk
@@ -12,14 +12,54 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from c50_visualize.c51_visualizer_app import VisualizerApp
 
-class PlotView(ttk.Frame):
+class GlobalPlanPlotView(ttk.Frame):
+    def __init__(self, root: VisualizerApp):
+        super().__init__(root)
+        self.root = root
+
+        self.global_plot = GlobalPlot()
+        self.fig = self.global_plot.fig
+
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        # Pack the canvas widget to make it visible
+        self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Apply current theme
+        if self.root.data.dark_mode.get():
+            bg_color = "#333333" if self.root.data.dark_mode.get() else "white"
+            fg_color = "white" if self.root.data.dark_mode.get() else "black"
+            self.set_plot_theme(bg_color, fg_color)
+            
+        self.plot()  # Initialize the view
+
+    def plot(self):
+        canvas_widget = self.canvas.get_tk_widget()
+        width = canvas_widget.winfo_width()
+        height = canvas_widget.winfo_height()
+        aspect_ratio = width / height if height > 0 else 4.0
+        
+        self.global_plot.plot(
+            exec=self.root.exec,
+            aspect_ratio=aspect_ratio,
+            zoom=self.root.data.xy_zoom,
+            show_legend=self.root.data.show_legend.get(),
+            follow_vehicle=self.root.data.global_view_follow_planner.get()
+        )
+        
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        """Apply theme to the global plot"""
+        self.global_plot.set_plot_theme(bg_color, fg_color)
+        # Force a complete redraw after theme change
+        self.plot()
+
+class LocalPlanPlotView(ttk.Frame):
 
     def __init__(self, root: VisualizerApp):
         super().__init__(root)
         self.root = root
 
 
-        self.plot_lib = PlotLib(max_lattice_size=self.root.exec.planner.lattice.targetted_num_edges)
+        self.plot_lib = LocalPlot(max_lattice_size=self.root.exec.planner.lattice.targetted_num_edges)
         self.fig = self.plot_lib.fig
         self.ax1 = self.plot_lib.ax1
         self.ax2 = self.plot_lib.ax2
@@ -101,6 +141,9 @@ class PlotView(ttk.Frame):
         self.root.update_ui()
 
     def set_plot_theme(self, bg_color="white", fg_color="black"):
+        # Ensure we're using the same background color as GlobalPlanPlotView
+        if bg_color == "#000000":
+            bg_color = "#333333"  # Use dark gray instead of pure black
         self.plot_lib.set_plot_theme(bg_color, fg_color)
 
     def plot(self):

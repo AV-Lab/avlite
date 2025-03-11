@@ -27,7 +27,7 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("Q", lambda e: self.root.quit())
         self.root.bind("R", lambda e: self.reload_stack())
         self.root.bind("D", lambda e: self.toggle_dark_mode_shortcut())
-        self.root.bind("S", lambda e: self.set_shortcut_mode())
+        self.root.bind("S", lambda e: self.toggle_shortcut_mode())
 
         self.root.bind("x", lambda e: self.root.visualize_exec_view.toggle_exec())
         self.root.bind("c", lambda e: self.root.visualize_exec_view.step_exec())
@@ -44,17 +44,17 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("w", lambda e: self.root.perceive_plan_control_view.step_acc())
         self.root.bind("s", lambda e: self.root.perceive_plan_control_view.step_dec())
 
-        self.root.bind("<Control-plus>", lambda e: self.root.plot_view.zoom_in_frenet())
-        self.root.bind("<Control-minus>", lambda e: self.root.plot_view.zoom_out_frenet())
-        self.root.bind("<plus>", lambda e: self.root.plot_view.zoom_in())
-        self.root.bind("<minus>", lambda e: self.root.plot_view.zoom_out())
+        self.root.bind("<Control-plus>", lambda e: self.root.local_plan_plot_view.zoom_in_frenet())
+        self.root.bind("<Control-minus>", lambda e: self.root.local_plan_plot_view.zoom_out_frenet())
+        self.root.bind("<plus>", lambda e: self.root.local_plan_plot_view.zoom_in())
+        self.root.bind("<minus>", lambda e: self.root.local_plan_plot_view.zoom_out())
 
         ttk.Button(self, text="Reload Code", command=self.reload_stack).pack(side=tk.RIGHT)
         ttk.Checkbutton(
             self,
             text="Shortcut Mode",
             variable=self.root.data.shortcut_mode,
-            command=self.update_UI,
+            command=self.toggle_shortcut_mode,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             self,
@@ -81,14 +81,8 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.help_text.insert(tk.END, key_binding_info)
         self.help_text.config(state=tk.DISABLED)  # Make the text area read-only
 
-    def set_shortcut_mode(self):
-        if self.root.data.shortcut_mode.get():
-            self.root.data.shortcut_mode.set(False)
-        else:
-            self.root.data.shortcut_mode.set(True)
-        self.update_UI()
 
-    def update_UI(self):
+    def toggle_shortcut_mode(self):
 
         if self.root.data.shortcut_mode.get():
             self.root.visualize_exec_view.grid_forget()
@@ -98,7 +92,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         else:
             self.shortcut_frame.grid_forget()
 
-            self.root.plot_view.grid(row=0, column=0, sticky="nswe")
+            self.root.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
             self.root.config_shortcut_view.grid(row=1, column=0, sticky="ew")
             self.root.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
             self.root.visualize_exec_view.grid(row=3, column=0, sticky="ew")
@@ -122,7 +116,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.configure(bg="black")
         self.root.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-        self.root.plot_view.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
+        self.root.local_plan_plot_view.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
         log.info("Dark mode enabled.")
 
         try:
@@ -146,7 +140,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.log_view.log_area.config(bg="white", fg="black")
         self.help_text.config(bg="white", fg="black")
 
-        self.root.plot_view.set_plot_theme(bg_color="white", fg_color="black")
+        self.root.local_plan_plot_view.set_plot_theme(bg_color="white", fg_color="black")
         log.info("Light mode enabled.")
         # reset the theme
         try:

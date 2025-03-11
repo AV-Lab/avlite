@@ -39,8 +39,10 @@ class PerceivePlanControlView(ttk.Frame):
         # ----------------------------------------------------------------------
         self.plan_frame = ttk.LabelFrame(self, text="Plan")
         self.plan_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
-        self.global_button = ttk.Button(self.plan_frame, text="Global Replan")
-        self.global_button.pack(side=tk.TOP, fill=tk.X, expand=True)
+        global_frame = ttk.Frame(self.plan_frame)
+        global_frame.pack(fill=tk.X)
+        ttk.Checkbutton(global_frame, text="Show Global Plan", command=self.root.toggle_global_plan_view, variable=self.root.data.global_plan_view).pack(side=tk.LEFT)
+        ttk.Button(global_frame, text="Global Replan").pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         wp_frame = ttk.Frame(self.plan_frame)
         wp_frame.pack(fill=tk.X)
@@ -173,3 +175,4 @@ class PerceivePlanControlView(ttk.Frame):
             state=self.root.exec.ego_state, cmd=ControlComand(acc=-8), dt=self.root.data.sim_dt.get()
         )
         self.root.update_ui()
+    
