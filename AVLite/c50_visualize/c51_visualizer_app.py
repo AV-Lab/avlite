@@ -1,5 +1,5 @@
 from c40_execute.c41_executer import Executer
-from c50_visualize.c52_plot_view import PlotView
+from c50_visualize.c52_plot_view import LocalPlanPlotView, GlobalPlanPlotView
 from c50_visualize.c53_perceive_plan_control_view import PerceivePlanControlView
 from c50_visualize.c54_exec_visualize_view import ExecVisualizeView
 from c50_visualize.c59_data import VisualizerData
@@ -34,14 +34,15 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         # UI Views
         # ----------------------------------------------------------------------
-        self.plot_view = PlotView(self)
+        self.local_plan_plot_view = LocalPlanPlotView(self)
+        self.global_plan_plot_view = GlobalPlanPlotView(self)
         self.config_shortcut_view = ConfigShortcutView(self)
         self.perceive_plan_control_view = PerceivePlanControlView(self)
         self.visualize_exec_view = ExecVisualizeView(self)
         self.log_view = LogView(self)
         # ----------------------------------------------------------------------
 
-        self.plot_view.grid(row=0, column=0, sticky="nswe")
+        self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
         self.config_shortcut_view.grid(row=1, column=0, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
         self.visualize_exec_view.grid(row=3, column=0, sticky="ew")
@@ -79,7 +80,7 @@ class VisualizerApp(tk.Tk):
             return False
 
     def update_ui(self):
-        self.plot_view.plot()
+        self.local_plan_plot_view.plot() if not self.data.global_plan_view.get() else self.global_plan_plot_view.plot()
         self.data.vehicle_state.set(
             f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}"
         )
@@ -125,3 +126,15 @@ class VisualizerApp(tk.Tk):
                 self.log_view.update_log_level()
                 # self.enable_frame(self.perceive_plan_control_view)
                 self.enable_frame(self.log_view.controls_frame)
+
+    def toggle_global_plan_view(self):
+        if self.data.global_plan_view.get():
+            self.local_plan_plot_view.grid_forget()
+            self.global_plan_plot_view.grid(row=0, column=0, sticky="nsew")
+            # Ensure the global view is updated when switching to it
+            self.global_plan_plot_view.plot()
+        else:
+            self.global_plan_plot_view.grid_forget()
+            self.local_plan_plot_view.grid(row=0, column=0, sticky="nsew")
+            # Ensure the local view is updated when switching to it
+            self.local_plan_plot_view.plot()

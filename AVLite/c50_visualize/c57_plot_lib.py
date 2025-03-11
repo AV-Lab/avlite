@@ -12,9 +12,101 @@ from c20_plan.c24_trajectory import Trajectory
 import logging
 
 log = logging.getLogger(__name__)
+class GlobalPlot:
+    def __init__(self):
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(10, 6))
+        
+        # Create plot elements with empty data - they'll be updated later
+        self.left_boundary, = self.ax.plot([], [], 'orange', linewidth=3, label="Left Boundary")
+        self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
+        self.reference_trajectory, = self.ax.plot([], [], 'gray', linewidth=3, label="Reference Trajectory")
+        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=10, label="Vehicle Location")
+        
+        # Set plot properties
+        self.ax.set_aspect('equal')
+        self.ax.grid(True)
+        self.ax.set_title("Global View")
+        self.ax.legend()
+        
+        # Adjust layout
+        self.fig.tight_layout()
+        
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        """Set the plot theme colors"""
+        # Use the same colors as LocalPlot
+        self.fig.patch.set_facecolor(bg_color)
+        self.ax.patch.set_facecolor(bg_color)
+        self.ax.set_title("Global View", color=fg_color)
+        
+        # Set axis, ticks, and label colors
+        for spine in self.ax.spines.values():
+            spine.set_edgecolor(fg_color)
+        
+        self.ax.tick_params(axis="both", colors=fg_color)
+        self.ax.xaxis.label.set_color(fg_color)
+        self.ax.yaxis.label.set_color(fg_color)
+        
+        # Set grid color with proper alpha for visibility
+        self.ax.grid(True, color=fg_color, alpha=0.3)
+        
+        # Use the same colors as LocalPlot, not black/white specific colors
+        self.left_boundary.set_color("orange")
+        self.right_boundary.set_color("tan")
+        self.reference_trajectory.set_color("gray")
+        self.vehicle_location.set_color("red")
+            
+        # Apply redraw
+        self.fig.canvas.draw()
+        
+        log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
+        
+    def plot(self, exec: Executer, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+        """Update the plot with current data"""
+        try:
+            # Get vehicle location
+            vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
+            
+            # Update boundary and trajectory data
+            self.left_boundary.set_data(exec.planner.ref_left_boundary_x, exec.planner.ref_left_boundary_y)
+            self.right_boundary.set_data(exec.planner.ref_right_boundary_x, exec.planner.ref_right_boundary_y)
+            self.reference_trajectory.set_data(exec.planner.global_trajectory.path_x, exec.planner.global_trajectory.path_y)
+            self.vehicle_location.set_data([vehicle_x], [vehicle_y])
+            
+            # Set view limits
+            if zoom is not None and follow_vehicle:
+                self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
+                self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
+            else:
+                # Calculate auto-zoom to fit all data
+                min_x = min(min(exec.planner.ref_left_boundary_x), min(exec.planner.ref_right_boundary_x), vehicle_x)
+                max_x = max(max(exec.planner.ref_left_boundary_x), max(exec.planner.ref_right_boundary_x), vehicle_x)
+                min_y = min(min(exec.planner.ref_left_boundary_y), min(exec.planner.ref_right_boundary_y), vehicle_y)
+                max_y = max(max(exec.planner.ref_left_boundary_y), max(exec.planner.ref_right_boundary_y), vehicle_y)
+                
+                padding_x = (max_x - min_x) * 0.1
+                padding_y = (max_y - min_y) * 0.1
+                
+                self.ax.set_xlim(min_x - padding_x, max_x + padding_x)
+                self.ax.set_ylim(min_y - padding_y, max_y + padding_y)
+            
+            # Update legend visibility
+            if show_legend:
+                self.ax.legend()
+            else:
+                if self.ax.get_legend() is not None:
+                    self.ax.get_legend().remove()
+            
+            # Draw
+            self.fig.canvas.draw()
+            
+        except Exception as e:
+            log.error(f"Error in GlobalPlot.plot: {e}")
+            import traceback
+            log.error(traceback.format_exc())
 
 
-class PlotLib:
+
+class LocalPlot:
     def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12):
         self.MAX_LATTICE_SIZE = max_lattice_size
         self.MAX_PLAN_LENGTH = max_plan_length

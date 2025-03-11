@@ -48,6 +48,7 @@ class VisualizerData:
 
 
         # General configs
+        self.global_plan_view = tk.BooleanVar(value=False)
         self.disable_log = tk.BooleanVar(value=False)
         self.replan_fps = tk.StringVar(value="0")
         self.control_fps = tk.StringVar(value="0")
@@ -58,3 +59,5 @@ class VisualizerData:
 
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.current_wp = tk.StringVar(value="0")
+
+

@@ -160,8 +160,8 @@ class ExecVisualizeView(ttk.Frame):
         zoom_global_frame = ttk.Frame(self.visualize_frame)
         zoom_global_frame.pack(fill=tk.X, padx=5)
         ttk.Label(zoom_global_frame, text="Global Coordinate 🔍").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.plot_view.zoom_in).pack(side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="➖", width=2, command=self.root.plot_view.zoom_out).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.local_plan_plot_view.zoom_in).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="➖", width=2, command=self.root.local_plan_plot_view.zoom_out).pack(side=tk.LEFT)
         ttk.Checkbutton(
             zoom_global_frame, text="Follow Planner", variable=self.root.data.global_view_follow_planner
         ).pack(side=tk.LEFT)
@@ -184,13 +184,13 @@ class ExecVisualizeView(ttk.Frame):
             zoom_frenet_frame,
             text="➕",
             width=2,
-            command=self.root.plot_view.zoom_in_frenet,
+            command=self.root.local_plan_plot_view.zoom_in_frenet,
         ).pack(side=tk.LEFT)
         ttk.Button(
             zoom_frenet_frame,
             text="➖",
             width=2,
-            command=self.root.plot_view.zoom_out_frenet,
+            command=self.root.local_plan_plot_view.zoom_out_frenet,
         ).pack(side=tk.LEFT)
         ttk.Checkbutton(
             zoom_frenet_frame, text="Follow Planner", variable=self.root.data.frenet_view_follow_planner
