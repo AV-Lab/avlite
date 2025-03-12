@@ -41,20 +41,107 @@ class VisualizerApp(tk.Tk):
         self.visualize_exec_view = ExecVisualizeView(self)
         self.log_view = LogView(self)
         # ----------------------------------------------------------------------
+        if self.data.global_plan_view.get():
+            self._update_two_plots_layout()
+        else: # Default to local view
+            self._update_one_plot_layout()
 
+
+        # need otherwise matplotlib plt acts funny
+        self.after(50, self.config_shortcut_view.set_dark_mode)
+
+    def __forget_all(self):
+        self.local_plan_plot_view.grid_forget()
+        self.global_plan_plot_view.grid_forget()
+        self.config_shortcut_view.grid_forget()
+        self.perceive_plan_control_view.grid_forget()
+        self.visualize_exec_view.grid_forget()
+        self.log_view.grid_forget()
+
+    def _update_two_plots_layout(self):
+        def __update_column_sizes(event=None):
+            """Update column sizes when window is resized to maintain 3:1 ratio."""
+            if event and event.widget == self:
+                width = event.width
+                if width > 10:  # Avoid division by zero or tiny windows
+                    local_width = int(width * 0.75)
+                    global_width = int(width * 0.25)
+                    self.grid_columnconfigure(0, minsize=local_width)
+                    self.grid_columnconfigure(1, minsize=global_width)
+            self.global_plan_plot_view.plot()
+        self.__forget_all()
+        self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
+        self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
+        self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
+        self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
+        self.visualize_exec_view.grid(row=3, column=0, columnspan=2, sticky="ew")
+        self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
+        # Configure grid weights for the 3:1 ratio
+        self.grid_rowconfigure(0, weight=1)  # make the plot views expand
+        self.grid_columnconfigure(0, weight=3)  # local view gets 3x weight
+        self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
+        
+        # Set minimum sizes to help enforce the ratio
+        self.update_idletasks()
+        total_width = self.winfo_width()
+        if total_width > 0:
+            # Set minimum sizes to maintain approximate ratio
+            self.grid_columnconfigure(0, minsize=int(total_width * 0.75))
+            self.grid_columnconfigure(1, minsize=int(total_width * 0.25))
+            
+        # Bind to window resize to maintain ratio
+        self.bind("<Configure>", __update_column_sizes)
+
+    def _update_one_plot_layout(self):
+        self.__forget_all()
         self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
         self.config_shortcut_view.grid(row=1, column=0, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
         self.visualize_exec_view.grid(row=3, column=0, sticky="ew")
         self.log_view.grid(row=4, column=0, sticky="nsew")
+        
+        # Reset column configuration
+        self.grid_columnconfigure(0, weight=1, minsize=0)  # Full width
+        self.grid_columnconfigure(1, weight=0, minsize=0)  # Reset column 1
+        self.grid_rowconfigure(0, weight=1)  # make the plot views expand
+        
+        # Unbind Configure event to prevent ratio maintenance
+        self.unbind("<Configure>")
+    
+    def toggle_global_plan_view(self):
+        if self.data.global_plan_view.get():
+            self._update_two_plots_layout()
+            # self.local_plan_plot_view.grid(row=0, column=0)
+            # self.global_plan_plot_view.grid(row=0, column=1)
+            # # Ensure the global view is updated when switching to it
+            self.global_plan_plot_view.plot()
+            self.local_plan_plot_view.plot()
+        else:
+            self._update_one_plot_layout()
+            # self.global_plan_plot_view.grid_forget()
+            # self.local_plan_plot_view.grid(row=0, column=0, sticky="nsew")
+            # # Ensure the local view is pdated when switching to it
+            self.local_plan_plot_view.plot()
 
-        # Configure grid weights
-        self.grid_rowconfigure(0, weight=1)  # make the plot view expand
-        self.grid_columnconfigure(0, weight=1)
+    def toggle_shortcut_mode(self):
+        if self.data.shortcut_mode.get():
+            self.visualize_exec_view.grid_forget()
+            self.perceive_plan_control_view.grid_forget()
 
-        # need otherwise matplotlib plt acts funny
-        self.after(50, self.config_shortcut_view.set_dark_mode)
+            if self.data.global_plan_view.get():
+                self.config_shortcut_view.shortcut_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
+            else:
+                self.config_shortcut_view.shortcut_frame.grid(row=1, column=0, columnspan=1, sticky="ew")
+        else:
+            if self.data.global_plan_view.get():
+                self._update_two_plots_layout()
+            else:
+                self._update_one_plot_layout()
+            self.config_shortcut_view.shortcut_frame.grid_forget()
 
+        # max_height = int(self.winfo_height() * 0.4)
+        # self.log_frame.config(height=max_height)
+        self.update_ui()
     def disable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
             if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton, ttk.Radiobutton)):
@@ -79,8 +166,13 @@ class VisualizerApp(tk.Tk):
             log.error("Please enter a valid float number")
             return False
 
+
+    
     def update_ui(self):
-        self.local_plan_plot_view.plot() if not self.data.global_plan_view.get() else self.global_plan_plot_view.plot()
+        self.local_plan_plot_view.plot() 
+        if self.data.global_plan_view.get():
+            self.global_plan_plot_view.plot()
+
         self.data.vehicle_state.set(
             f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}"
         )
@@ -126,15 +218,3 @@ class VisualizerApp(tk.Tk):
                 self.log_view.update_log_level()
                 # self.enable_frame(self.perceive_plan_control_view)
                 self.enable_frame(self.log_view.controls_frame)
-
-    def toggle_global_plan_view(self):
-        if self.data.global_plan_view.get():
-            self.local_plan_plot_view.grid_forget()
-            self.global_plan_plot_view.grid(row=0, column=0, sticky="nsew")
-            # Ensure the global view is updated when switching to it
-            self.global_plan_plot_view.plot()
-        else:
-            self.global_plan_plot_view.grid_forget()
-            self.local_plan_plot_view.grid(row=0, column=0, sticky="nsew")
-            # Ensure the local view is updated when switching to it
-            self.local_plan_plot_view.plot()

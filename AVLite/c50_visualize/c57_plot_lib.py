@@ -19,24 +19,24 @@ class GlobalPlot:
         # Create plot elements with empty data - they'll be updated later
         self.left_boundary, = self.ax.plot([], [], 'orange', linewidth=3, label="Left Boundary")
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
-        self.reference_trajectory, = self.ax.plot([], [], 'gray', linewidth=3, label="Reference Trajectory")
-        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=10, label="Vehicle Location")
+        self.reference_trajectory, = self.ax.plot([], [], 'gray', linewidth=3, label="Global Trajectory")
+        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=10, label="Planner Location")
         
+      
         # Set plot properties
         self.ax.set_aspect('equal')
         self.ax.grid(True)
-        self.ax.set_title("Global View")
         self.ax.legend()
         
-        # Adjust layout
-        self.fig.tight_layout()
+        # Adjust layout to align with LocalPlot
+        self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
         
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         """Set the plot theme colors"""
         # Use the same colors as LocalPlot
         self.fig.patch.set_facecolor(bg_color)
         self.ax.patch.set_facecolor(bg_color)
-        self.ax.set_title("Global View", color=fg_color)
+        # self.ax.set_title("Global View", color=fg_color)
         
         # Set axis, ticks, and label colors
         for spine in self.ax.spines.values():
@@ -104,6 +104,33 @@ class GlobalPlot:
             import traceback
             log.error(traceback.format_exc())
 
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        """Set the plot theme colors"""
+        # Apply background color with no transparency
+        self.fig.set_facecolor(bg_color)
+        self.ax.set_facecolor(bg_color)
+        
+        # Set axis, ticks, and label colors
+        for spine in self.ax.spines.values():
+            spine.set_edgecolor(fg_color)
+        
+        self.ax.tick_params(axis="both", colors=fg_color)
+        self.ax.xaxis.label.set_color(fg_color)
+        self.ax.yaxis.label.set_color(fg_color)
+        
+        # Set grid color with proper alpha for visibility
+        self.ax.grid(True, color=fg_color, alpha=0.3)
+        
+        # Use the same colors as LocalPlot, not black/white specific colors
+        self.left_boundary.set_color("orange")
+        self.right_boundary.set_color("tan")
+        self.reference_trajectory.set_color("gray")
+        self.vehicle_location.set_color("red")
+            
+        # Apply redraw
+        self.fig.canvas.draw()
+        
+        log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
 
 
 class LocalPlot:
@@ -146,7 +173,7 @@ class LocalPlot:
 
         (self.reference_trajectory_ax1,) = self.ax1.plot([], [], "gray", label="Reference Trajectory", linewidth=2)
         self.reference_trajectory_ax2 = self.ax2.scatter(
-            [], [], s=5, alpha=0.5, color="gray", label="Reference Trajectory"
+            [], [], s=5, alpha=0.5, color="gray", label="Global Trajectory"
         )
 
         (self.last_locs_ax1,) = self.ax1.plot([], [], "g-", label="Last 100 Locations", linewidth=2)

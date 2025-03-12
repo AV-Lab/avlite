@@ -54,7 +54,7 @@ class ConfigShortcutView(ttk.LabelFrame):
             self,
             text="Shortcut Mode",
             variable=self.root.data.shortcut_mode,
-            command=self.toggle_shortcut_mode,
+            command=self.root.toggle_shortcut_mode,
         ).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Checkbutton(
             self,
@@ -81,26 +81,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.help_text.insert(tk.END, key_binding_info)
         self.help_text.config(state=tk.DISABLED)  # Make the text area read-only
 
-
-    def toggle_shortcut_mode(self):
-
-        if self.root.data.shortcut_mode.get():
-            self.root.visualize_exec_view.grid_forget()
-            self.root.perceive_plan_control_view.grid_forget()
-
-            self.shortcut_frame.grid(row=2, column=0, sticky="ew")
-        else:
-            self.shortcut_frame.grid_forget()
-
-            self.root.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
-            self.root.config_shortcut_view.grid(row=1, column=0, sticky="ew")
-            self.root.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
-            self.root.visualize_exec_view.grid(row=3, column=0, sticky="ew")
-            self.root.log_view.grid(row=4, column=0, sticky="nsew")
-
-        # max_height = int(self.winfo_height() * 0.4)
-        # self.log_frame.config(height=max_height)
-        self.root.update_ui()
 
     def toggle_dark_mode(self):
         self.set_dark_mode() if self.root.data.dark_mode.get() else self.set_light_mode()
