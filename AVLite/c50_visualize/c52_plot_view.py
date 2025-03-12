@@ -59,10 +59,10 @@ class LocalPlanPlotView(ttk.Frame):
         self.root = root
 
 
-        self.plot_lib = LocalPlot(max_lattice_size=self.root.exec.planner.lattice.targetted_num_edges)
-        self.fig = self.plot_lib.fig
-        self.ax1 = self.plot_lib.ax1
-        self.ax2 = self.plot_lib.ax2
+        self.local_plot = LocalPlot(max_lattice_size=self.root.exec.planner.lattice.targetted_num_edges)
+        self.fig = self.local_plot.fig
+        self.ax1 = self.local_plot.ax1
+        self.ax2 = self.local_plot.ax2
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # A tk.DrawingArea.
         self.canvas.draw()
@@ -144,7 +144,7 @@ class LocalPlanPlotView(ttk.Frame):
         # Ensure we're using the same background color as GlobalPlanPlotView
         if bg_color == "#000000":
             bg_color = "#333333"  # Use dark gray instead of pure black
-        self.plot_lib.set_plot_theme(bg_color, fg_color)
+        self.local_plot.set_plot_theme(bg_color, fg_color)
 
     def plot(self):
         canvas_widget = self.canvas.get_tk_widget()
@@ -154,7 +154,7 @@ class LocalPlanPlotView(ttk.Frame):
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
-        self.plot_lib.plot(
+        self.local_plot.plot(
             exec=self.root.exec,
             aspect_ratio=aspect_ratio,
             xy_zoom=self.root.data.xy_zoom,
