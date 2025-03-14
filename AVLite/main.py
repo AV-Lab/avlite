@@ -16,7 +16,7 @@ def get_executer(config_path="configs/c20_plan.yaml", async_mode=False, source_r
 
     reload_lib()
     from c10_perceive.c11_perception_model import PerceptionModel
-    from c20_plan.c22_sampling_planner import RNDPlanner
+    from c20_plan.c24_sampling_local_planner import RNDPlanner
     from c30_control.c32_pid_controller import PIDController
     from c40_execute.c41_executer import Executer
     from c40_execute.c42_async_executer import AsyncExecuter

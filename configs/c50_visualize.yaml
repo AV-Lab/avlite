@@ -1,7 +1,7 @@
 async_exec: true
 control_dt: 0.02
-control_fps: '  48.3'
-current_wp: '34'
+control_fps: '   0.0'
+current_wp: '0'
 dark_mode: true
 disable_log: true
 elapsed_real_time: '  0.00'
@@ -12,13 +12,13 @@ exec_perceive: true
 exec_plan: true
 exec_running: false
 frenet_view_follow_planner: false
-frenet_zoom: 30
-global_plan_view: false
+frenet_zoom: 60
+global_plan_view: true
 global_view_follow_planner: false
 lap: '    0'
 log_level: STDOUT
 replan_dt: 0.01
-replan_fps: '   1.9'
+replan_fps: '   0.0'
 shortcut_mode: false
 show_control_logs: true
 show_execute_logs: true
@@ -32,5 +32,5 @@ show_plan_logs: true
 show_state: true
 show_vis_logs: true
 sim_dt: 0.01
-vehicle_state: "Loc: (+372.00, -747.49),\nVel: 19.39 ( 69.81 km/h),\n\u03B8:  -0.0"
+vehicle_state: "Loc: (+274.44, -714.05),\nVel: 42.08 (151.47 km/h),\n\u03B8:  -0.8"
 xy_zoom: 30

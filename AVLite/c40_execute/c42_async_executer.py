@@ -1,6 +1,6 @@
 from __future__ import annotations
 from c10_perceive.c11_perception_model import PerceptionModel
-from c20_plan.c21_base_planner import BasePlanner
+from c20_plan.c23_base_local_planner import BaseLocalPlanner
 from c30_control.c31_base_controller import BaseController
 from c40_execute.c41_executer import Executer, WorldInterface
 
@@ -20,7 +20,7 @@ class AsyncExecuter(Executer):
     def __init__(
         self,
         pm: PerceptionModel,
-        pl: BasePlanner,
+        pl: BaseLocalPlanner,
         cn: BaseController,
         world: WorldInterface,
         call_replan=True,

@@ -96,9 +96,10 @@ def save_visualizer_config(data, filepath: str="configs/c50_visualize.yaml") -> 
             
         # Handle tkinter variables
         if isinstance(attr_value, tk.Variable):
+            # Extract the actual value
             config[attr_name] = attr_value.get()
         # Handle regular Python values (non-tkinter)
-        elif not isinstance(attr_value, tk.Tk):  
+        elif not isinstance(attr_value, tk.Tk):  # Fixed: using tk.Tk instead of tk._tkinter.Tk
             config[attr_name] = attr_value
     
     # Create directory if it doesn't exist

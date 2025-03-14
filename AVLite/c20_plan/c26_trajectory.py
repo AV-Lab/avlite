@@ -683,3 +683,14 @@ class Trajectory:
     def __str__(self):
         return f"Trajectory: {self.name}"
 
+# TODO: clean up
+class LocalTrajectory(Trajectory):
+    poly_d:Optional[Polynomial]  # for local trajectory
+    poly_x: Optional[Polynomial] = None
+    poly_y: Optional[Polynomial] = None
+    parent_trajectory: "Trajectory" 
+    path_s_from_parent: Optional[list]  = None
+    path_d_from_parent: Optional[list] = None
+    def __init__(self, reference_xy_path:list[tuple[float,float]]=None, velocity:list[float]=None, name="Local Trajectory"):
+        super().__init__(reference_xy_path, velocity, name)
+

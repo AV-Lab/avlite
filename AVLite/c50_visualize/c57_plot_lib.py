@@ -1,6 +1,6 @@
 from c10_perceive.c11_perception_model import PerceptionModel
-from c20_plan.c21_base_planner import BasePlanner
-from c20_plan.c23_lattice import Edge
+from c20_plan.c23_base_local_planner import BaseLocalPlanner
+from c20_plan.c25_lattice import Edge
 from c40_execute.c41_executer import Executer
 from c10_perceive.c12_state import EgoState
 
@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
-from c20_plan.c24_trajectory import Trajectory
+from c20_plan.c26_trajectory import Trajectory
 import logging
 
 log = logging.getLogger(__name__)
@@ -305,7 +305,7 @@ class LocalPlot:
         self.fig.canvas.blit(self.ax1.bbox)
         self.fig.canvas.blit(self.ax2.bbox)
 
-    def update_global_plan_plots(self, pl: BasePlanner, show_plot=True):
+    def update_global_plan_plots(self, pl: BaseLocalPlanner, show_plot=True):
         if not hasattr(self, "initialized"):
             self.initialized = False
         if not hasattr(self, "toggle_plot"):
@@ -352,7 +352,7 @@ class LocalPlot:
                 [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]],
             )
 
-    def update_lattice_graph_plots(self, pl: BasePlanner, show_plot=True):
+    def update_lattice_graph_plots(self, pl: BaseLocalPlanner, show_plot=True):
         if not show_plot or len(pl.lattice.edges) == 0:
             for line in (
                 self.lattice_graph_plots_ax1
@@ -391,7 +391,7 @@ class LocalPlot:
                     f"Lattice graph size exceeded: attempting to plot edge {edge_index+1} out of {self.MAX_LATTICE_SIZE}"
                 )
 
-    def update_local_plan_plots(self, pl: BasePlanner, show_plot=True):
+    def update_local_plan_plots(self, pl: BaseLocalPlanner, show_plot=True):
         if not show_plot or pl.selected_local_plan is None:
             self.__clear_local_plan_plots()
             self.current_wp_plot_ax1.set_data([], [])

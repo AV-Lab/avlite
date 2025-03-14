@@ -1,5 +1,5 @@
 from c10_perceive.c11_perception_model import PerceptionModel
-from c20_plan.c21_base_planner import BasePlanner
+from c20_plan.c23_base_local_planner import BaseLocalPlanner
 from c30_control.c31_base_controller import BaseController, ControlComand
 from c10_perceive.c12_state import EgoState
 
@@ -39,7 +39,7 @@ class WorldInterface(ABC):
 class Executer:
     pm: PerceptionModel
     ego_state: EgoState
-    planner: BasePlanner
+    planner: BaseLocalPlanner
     controller: BaseController
     world: WorldInterface
 
@@ -49,7 +49,7 @@ class Executer:
     def __init__(
         self,
         pm: PerceptionModel,
-        pl: BasePlanner,
+        pl: BaseLocalPlanner,
         cn: BaseController,
         world: WorldInterface,
         replan_dt=0.5,
