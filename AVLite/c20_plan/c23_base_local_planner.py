@@ -1,8 +1,8 @@
 from c10_perceive.c11_perception_model import PerceptionModel
 from c10_perceive.c12_state import EgoState
-from c20_plan.c23_lattice import Edge, Lattice
+from c20_plan.c25_lattice import Edge, Lattice
 from typing import Optional
-from c20_plan.c24_trajectory import Trajectory
+from c20_plan.c26_trajectory import Trajectory
 from abc import ABC, abstractmethod
 import copy
 
@@ -10,7 +10,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class BasePlanner(ABC):
+class BaseLocalPlanner(ABC):
     global_trajectory: Trajectory
     ref_left_boundary_d: list[float]
     ref_right_boundary_d: list[float]
