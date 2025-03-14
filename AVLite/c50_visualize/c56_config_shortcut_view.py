@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-
+from utils import save_visualizer_config, load_visualizer_config
 if TYPE_CHECKING:
     from c50_visualize.c51_visualizer_app import VisualizerApp
 import tkinter as tk
@@ -50,6 +50,8 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("<minus>", lambda e: self.root.local_plan_plot_view.zoom_out())
 
         ttk.Button(self, text="Reload Code", command=self.reload_stack).pack(side=tk.RIGHT)
+        ttk.Button(self, text="Load Config", command=self.load_config).pack(side=tk.RIGHT)
+        ttk.Button(self, text="Save Config", command=self.save_config).pack(side=tk.RIGHT)
         ttk.Checkbutton(
             self,
             text="Shortcut Mode",
@@ -134,6 +136,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
     def reload_stack(self):
         log.info(f"Reloading the code with async_mode: {self.root.data.async_exec.get()}")
         self.root.visualize_exec_view.stop_exec()
+        # load_visualizer_config(self.root.data)
         if self.root.code_reload_function is not None:
             self.root.exec = self.root.code_reload_function(
                 async_mode=self.root.data.async_exec.get(),
@@ -143,3 +146,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             self.root.update_ui()
         else:
             log.warning("No code reload function provided.")
+    def save_config(self):
+        save_visualizer_config(self.root.data)
+    def load_config(self):
+        load_visualizer_config(self.root.data)

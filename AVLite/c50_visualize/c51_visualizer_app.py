@@ -5,6 +5,8 @@ from c50_visualize.c54_exec_visualize_view import ExecVisualizeView
 from c50_visualize.c59_data import VisualizerData
 from c50_visualize.c55_log_view import LogView
 from c50_visualize.c56_config_shortcut_view import ConfigShortcutView
+from utils import load_visualizer_config
+
 
 
 import tkinter as tk
@@ -47,6 +49,8 @@ class VisualizerApp(tk.Tk):
             self._update_one_plot_layout()
 
 
+        load_visualizer_config(self.data)
+        self.config_shortcut_view.reload_stack()
         # need otherwise matplotlib plt acts funny
         self.after(50, self.config_shortcut_view.set_dark_mode)
 

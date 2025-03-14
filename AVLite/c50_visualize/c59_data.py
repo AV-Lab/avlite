@@ -1,12 +1,15 @@
 from __future__ import annotations
 import tkinter as tk
+import os
 
 import logging
+import yaml
 log = logging.getLogger(__name__)
 
 
 
 class VisualizerData:
+    
     def __init__(self, only_visualize: bool = False):
         self.shortcut_mode = tk.BooleanVar(value=only_visualize)
         self.dark_mode = tk.BooleanVar(value=True)
@@ -45,8 +48,6 @@ class VisualizerData:
         self.show_execute_logs = tk.BooleanVar(value=True)
         self.show_vis_logs = tk.BooleanVar(value=True)
         
-
-
         # General configs
         self.global_plan_view = tk.BooleanVar(value=False)
         self.disable_log = tk.BooleanVar(value=False)
@@ -59,5 +60,3 @@ class VisualizerData:
 
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.current_wp = tk.StringVar(value="0")
-
-

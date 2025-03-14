@@ -9,20 +9,9 @@ import pkg_resources
 import logging
 import importlib
 
-import c10_perceive.c11_perception_model 
-import c10_perceive.c12_state 
-import c20_plan.c21_base_planner
-import c20_plan.c22_sampling_planner
-import c20_plan.c23_lattice
-import c20_plan.c24_trajectory
-import c30_control.c31_base_controller
-import c30_control.c32_pid_controller
-import c40_execute.c41_executer
-import c40_execute.c42_async_executer 
-import c40_execute.c43_async_threaded_executer
-import c40_execute.c44_basic_sim
 
-import logging
+import tkinter as tk
+
 log = logging.getLogger(__name__)
 
 class Config:
@@ -42,13 +31,14 @@ def load_config(config_path, source_run=True):
     if source_run:
         project_dir = Path(current_file_name).parent.parent
     else:
-        project_dir = Path(current_file_name).parent.parent / "share/race_plan_control"
+        project_dir = Path(current_file_name).parent.parent / "share/AVLite"
 
     config_file = project_dir / config_path
 
     with open(config_file, "r") as f:
         config_data = yaml.safe_load(f)
-        path_to_track = project_dir / config_data["path_to_track"]
+        path_to_track = project_dir / config_data["global_trajectory"]
+
     # loading race trajectory data
     with open(path_to_track, "r") as f:
         track_data = json.load(f)
@@ -57,20 +47,103 @@ def load_config(config_path, source_run=True):
         ref_left_boundary_d = track_data["LeftBound"]
         ref_right_boundary_d = track_data["RightBound"]
     logging.info(f"Track data loaded from {path_to_track}")
-    return reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d
+    return reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d, config_data
 
 def reload_lib():
+    """Dynamically reload all modules in the project."""
     log.info("Reloading imports...")
-    importlib.reload(c10_perceive.c11_perception_model)
-    importlib.reload(c10_perceive.c12_state)
-    importlib.reload(c20_plan.c21_base_planner)
-    importlib.reload(c20_plan.c22_sampling_planner)
-    importlib.reload(c20_plan.c23_lattice)
-    importlib.reload(c20_plan.c24_trajectory)
-    importlib.reload(c30_control.c31_base_controller)
-    importlib.reload(c30_control.c32_pid_controller)
-    importlib.reload(c40_execute.c41_executer)
-    importlib.reload(c40_execute.c42_async_executer)
-    importlib.reload(c40_execute.c43_async_threaded_executer)
-    importlib.reload(c40_execute.c44_basic_sim)
+    
+    # Get the base package name (AVLite) and all submodules
+    project_modules = []
+    base_prefixes = ["c10_perceive", "c20_plan", "c30_control", "c40_execute", "c50_visualize"]
+    
+    # Find all loaded modules that belong to our project
+    for module_name in list(sys.modules.keys()):
+        if any(module_name.startswith(prefix) for prefix in base_prefixes):
+            project_modules.append(module_name)
+    
+    # Sort modules to ensure proper reload order (parent modules before child modules)
+    project_modules.sort(key=lambda x: x.count('.'))
+    
+    # Reload each module
+    for module_name in project_modules:
+        if module_name in sys.modules:
+            try:
+                module = sys.modules[module_name]
+                importlib.reload(module)
+                log.debug(f"Reloaded: {module_name}")
+            except Exception as e:
+                log.warning(f"Failed to reload {module_name}: {e}")
+    
+    log.info(f"Reloaded {len(project_modules)} modules")
+
+
+
+def save_visualizer_config(data, filepath: str="configs/c50_visualize.yaml") -> None:
+    """Save current visualization configuration to a YAML file.
+    
+    Args:
+        data: The VisualizerData instance
+        filepath: Path where to save the configuration
+    """
+    config = {}
+    
+    # Extract all attributes from the data
+    for attr_name, attr_value in vars(data).items():
+        # Skip methods, private attributes, and non-serializable objects
+        if callable(attr_value) or attr_name.startswith('_'):
+            continue
+            
+        # Handle tkinter variables
+        if isinstance(attr_value, tk.Variable):
+            config[attr_name] = attr_value.get()
+        # Handle regular Python values (non-tkinter)
+        elif not isinstance(attr_value, tk.Tk):  
+            config[attr_name] = attr_value
+    
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    # Save to YAML file
+    with open(filepath, 'w') as f:
+        yaml.dump(config, f, default_flow_style=False)
+    log.info(f"Visualization configuration saved to {filepath}")
+
+def load_visualizer_config(data, filepath: str="configs/c50_visualize.yaml") -> None:
+    """Load visualization configuration from a YAML file.
+    
+    Args:
+        data: The VisualizerData instance
+        filepath: Path from where to load the configuration
+    """
+    try:
+        with open(filepath, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        if not config:
+            log.warning(f"Empty or invalid configuration file: {filepath}")
+            return
+            
+        # Load all settings
+        for attr_name, value in config.items():
+            # Check if attribute exists in the data class
+            if not hasattr(data, attr_name):  # Changed from app.data to data
+                log.warning(f"Skipping unknown attribute: {attr_name}")
+                continue
+                
+            attr_value = getattr(data, attr_name)  # Changed from app.data to data
+            
+            # Handle tkinter variables
+            if isinstance(attr_value, tk.Variable):
+                if isinstance(attr_value, tk.BooleanVar):
+                    attr_value.set(bool(value))
+                else:
+                    attr_value.set(value)
+            # Handle regular Python values
+            elif not callable(attr_value):
+                setattr(data, attr_name, value)
+        
+        log.info(f"Visualization configuration loaded from {filepath}")
+    except Exception as e:
+        log.error(f"Failed to load visualization configuration: {e}")
 

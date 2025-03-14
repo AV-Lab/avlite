@@ -8,9 +8,9 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def get_executer(config_path="configs/app.yaml", async_mode=False, source_run=True, replan_dt=0.5, control_dt=0.05):
+def get_executer(config_path="configs/c20_plan.yaml", async_mode=False, source_run=True, replan_dt=0.5, control_dt=0.05):
 
-    reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d = load_config(
+    reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d, config_data = load_config(
         config_path=config_path, source_run=source_run
     )
 
@@ -45,7 +45,7 @@ def get_executer(config_path="configs/app.yaml", async_mode=False, source_run=Tr
 
 
 def run(source_run=True):
-    executer = get_executer(config_path="configs/app.yaml", source_run=source_run)
+    executer = get_executer(config_path="configs/c20_plan.yaml", source_run=source_run)
     app = VisualizerApp(executer, code_reload_function=get_executer)
     app.mainloop()
 
