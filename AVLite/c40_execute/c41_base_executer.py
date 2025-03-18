@@ -1,5 +1,5 @@
-from c10_perceive.c11_perception_model import PerceptionModel
-from c20_plan.c23_base_local_planner import BaseLocalPlanner
+from c10_perceive.c11_base_perception import PerceptionModel
+from c20_plan.c24_base_local_planner import BaseLocalPlanner
 from c30_control.c31_base_controller import BaseController, ControlComand
 from c10_perceive.c12_state import EgoState
 
@@ -35,8 +35,12 @@ class WorldInterface(ABC):
         """
         pass
 
+    def reset(self):
+        pass
 
-class Executer:
+
+
+class BaseExecuter:
     pm: PerceptionModel
     ego_state: EgoState
     planner: BaseLocalPlanner
@@ -77,7 +81,7 @@ class Executer:
         self,
         control_dt=0.01,
         replan_dt=0.01,
-        sim_dt = 0.01,
+        sim_dt=0.01,
         call_replan=True,
         call_control=True,
         call_perceive=True,
@@ -113,7 +117,9 @@ class Executer:
         self.elapsed_real_time += delta_t_exec
 
         log.debug(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {sim_time_txt}")
-        log.debug(f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec")
+        log.debug(
+            f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec"
+        )
 
     def run(self, replan_dt=0.5, control_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
         self.reset()
@@ -135,6 +141,7 @@ class Executer:
         self.ego_state.reset()
         self.planner.reset()
         self.controller.reset()
+        self.world.reset
         self.__prev_exec_time = None
         self.__time_since_last_replan = 0
         self.elapsed_real_time = 0

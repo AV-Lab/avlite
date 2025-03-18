@@ -62,13 +62,14 @@ class ExecVisualizeView(ttk.Frame):
         self.asyc_exec_cb = ttk.Checkbutton(
             exec_first_frame,
             text="Async Mode",
-            command=self.root.config_shortcut_view.reload_stack,
+            command=self.root.reload_stack,
             variable=self.root.data.async_exec,
         )
         self.asyc_exec_cb.pack(side=tk.RIGHT)
 
         gruvbox_green = "#b8bb26"
         gruvbox_light_green = "#fe8019"
+        gruvbox_red = "#9d0006"
         gruvbox_orange = "#d65d0e"
         self.start_exec_button = tk.Button(
             exec_second_frame,
@@ -82,7 +83,15 @@ class ExecVisualizeView(ttk.Frame):
         )
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
 
-        ttk.Button(exec_second_frame, text="Stop", command=self.stop_exec).pack(side=tk.LEFT)
+        tk.Button(
+            exec_second_frame,
+            text="Stop",
+            command=self.stop_exec,
+            bg=gruvbox_red,
+            fg="white",
+            borderwidth=0,
+            highlightthickness=0,
+        ).pack(side=tk.LEFT, padx=1)
         ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
         ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
 
@@ -90,20 +99,23 @@ class ExecVisualizeView(ttk.Frame):
         ttk.Radiobutton(
             exec_third_frame,
             text="Basic",
-            variable=self.root.data.exec_option,
+            variable=self.root.data.execution_bridge,
             value="Basic",
+            command=self.root.reload_stack,
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
             text="ROS",
-            variable=self.root.data.exec_option,
+            variable=self.root.data.execution_bridge,
             value="ROS",
+            command=self.root.reload_stack,
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
             text="Carla",
-            variable=self.root.data.exec_option,
+            variable=self.root.data.execution_bridge,
             value="Carla",
+            command=self.root.reload_stack,
         ).pack(side=tk.LEFT)
 
         ttk.Checkbutton(exec_third_frame, text="Control", variable=self.root.data.exec_control).pack(side=tk.RIGHT)
@@ -160,13 +172,19 @@ class ExecVisualizeView(ttk.Frame):
         zoom_global_frame = ttk.Frame(self.visualize_frame)
         zoom_global_frame.pack(fill=tk.X, padx=5)
         ttk.Label(zoom_global_frame, text="Global Coordinate 🔍").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.local_plan_plot_view.zoom_in).pack(side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="➖", width=2, command=self.root.local_plan_plot_view.zoom_out).pack(side=tk.LEFT)
+        ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.local_plan_plot_view.zoom_in).pack(
+            side=tk.LEFT
+        )
+        ttk.Button(zoom_global_frame, text="➖", width=2, command=self.root.local_plan_plot_view.zoom_out).pack(
+            side=tk.LEFT
+        )
         ttk.Checkbutton(
             zoom_global_frame, text="Follow Planner", variable=self.root.data.global_view_follow_planner
         ).pack(side=tk.LEFT)
 
-        ttk.Label(zoom_global_frame, text="Real time: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        ttk.Label(zoom_global_frame, text="Real time: ", font=self.root.small_font).pack(
+            anchor=tk.W, side=tk.LEFT, padx=5
+        )
         ttk.Label(zoom_global_frame, textvariable=self.root.data.elapsed_real_time, font=self.root.small_font).pack(
             anchor=tk.W, side=tk.LEFT, padx=10
         )
@@ -196,8 +214,12 @@ class ExecVisualizeView(ttk.Frame):
             zoom_frenet_frame, text="Follow Planner", variable=self.root.data.frenet_view_follow_planner
         ).pack(side=tk.LEFT)
 
-        ttk.Label(zoom_frenet_frame, text="Sim time : ", font=self.root.small_font).pack(anchor=tk.W, side=tk.LEFT, padx=5)
-        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.elapsed_sim_time, font=self.root.small_font).pack(side=tk.LEFT, padx=10)
+        ttk.Label(zoom_frenet_frame, text="Sim time : ", font=self.root.small_font).pack(
+            anchor=tk.W, side=tk.LEFT, padx=5
+        )
+        ttk.Label(zoom_frenet_frame, textvariable=self.root.data.elapsed_sim_time, font=self.root.small_font).pack(
+            side=tk.LEFT, padx=10
+        )
 
         ttk.Label(zoom_frenet_frame, textvariable=self.root.data.control_fps, font=self.root.small_font).pack(
             anchor=tk.W, side=tk.RIGHT

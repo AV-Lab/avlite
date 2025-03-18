@@ -1,5 +1,5 @@
-from c10_perceive.c11_perception_model import PerceptionModel
-from c20_plan.c26_trajectory import Trajectory
+from c10_perceive.c11_base_perception import PerceptionModel
+from c20_plan.c27_trajectory import Trajectory
 from c10_perceive.c12_state import State
 from typing import Dict
 from dataclasses import dataclass, field

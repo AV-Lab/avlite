@@ -87,9 +87,9 @@ class AgentState(State):
         super().__init__(x, y, theta, width, length)
 
     # constant velocity model
-    def predict(self, dt):
-        self.x += self.velocity * np.cos(self.theta) * dt
-        self.y += self.velocity * np.sin(self.theta) * dt
+    # def predict(self, dt):
+        # self.x += self.velocity * np.cos(self.theta) * dt
+        # self.y += self.velocity * np.sin(self.theta) * dt
 
     def reset(self):
         super().reset()
@@ -106,6 +106,7 @@ class EgoState(AgentState):
     max_steering: float
     min_steering: float
     L_f: float
+
 
     def __init__(
         self,
@@ -132,17 +133,8 @@ class EgoState(AgentState):
         self.min_steering = min_steering
         self.L_f = l_f  # Distance from center of mass to front axle
 
-    def __reduce__(self):
-            state = {
-                'x': self.x,
-                'y': self.y,
-                'theta': self.theta,
-                'width': self.width,
-                'length': self.length,
-                'velocity': self.velocity,
-            }
-            return (self.__class__, (), state)
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        
+    def __repr__(self):
+        return f"EgoState(x={self.x}, y={self.y}, theta={self.theta}, speed={self.velocity}, " \
+               f"width={self.width}, length={self.length}, max_velocity={self.max_valocity}, " \
+               f"max_acceleration={self.max_acceleration}, min_acceleration={self.min_acceleration}, " \
+               f"max_steering={self.max_steering}, min_steering={self.min_steering}, l_f={self.L_f})"

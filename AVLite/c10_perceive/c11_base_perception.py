@@ -1,10 +1,8 @@
 
 from shapely.geometry import Polygon
 from c10_perceive.c12_state import State, AgentState, EgoState
-from c20_plan.c26_trajectory import Trajectory
+from c20_plan.c27_trajectory import Trajectory
 import numpy as np
-
-
 import logging
 
 log = logging.getLogger(__name__)
@@ -15,6 +13,7 @@ class PerceptionModel:
     agent_vehicles: list[AgentState]
     ego_vehicle: EgoState
     max_agent_vehicles:int = 12
+    agent_predictions: list[tuple[AgentState,float]] # a list of agent state and the time of prediction, where t = 0 is the current time
 
     def __init__(self, ego_state: EgoState = None, satatic_obstacles: list[State] = [], agent_vehicles: list[AgentState] = []):
         self.static_obstacles: list[State] = satatic_obstacles
@@ -58,3 +57,21 @@ class PerceptionModel:
     def reset(self):
         self.static_obstacles = []
         self.agent_vehicles = []
+
+class BasePerception:
+    pm: PerceptionModel
+
+    def __init__(self):
+        pass
+
+    def calibrate(self):
+        pass
+        
+    def perceive(self, rgb_img = None, depth_img = None, lidar_data = None):
+        pass
+
+    def predict(self):
+        pass
+
+    def reset(self):
+        pass

@@ -1,4 +1,4 @@
-from c40_execute.c41_executer import Executer
+from c40_execute.c41_base_executer import BaseExecuter
 from c50_visualize.c52_plot_view import LocalPlanPlotView, GlobalPlanPlotView
 from c50_visualize.c53_perceive_plan_control_view import PerceivePlanControlView
 from c50_visualize.c54_exec_visualize_view import ExecVisualizeView
@@ -17,9 +17,9 @@ log = logging.getLogger(__name__)
 
 
 class VisualizerApp(tk.Tk):
-    exec: Executer
+    exec: BaseExecuter
 
-    def __init__(self, executer: Executer, code_reload_function=None, only_visualize=False):
+    def __init__(self, executer: BaseExecuter, code_reload_function=None, only_visualize=False):
         super().__init__()
 
         self.exec = executer
@@ -33,9 +33,10 @@ class VisualizerApp(tk.Tk):
         # Variables
         # ----------------------------------------------------------------------
         self.data = VisualizerData(only_visualize=only_visualize)
+        load_visualizer_config(self.data)
         # ----------------------------------------------------------------------
         # UI Views
-        # ----------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         self.local_plan_plot_view = LocalPlanPlotView(self)
         self.global_plan_plot_view = GlobalPlanPlotView(self)
         self.config_shortcut_view = ConfigShortcutView(self)
@@ -48,11 +49,11 @@ class VisualizerApp(tk.Tk):
         else: # Default to local view
             self._update_one_plot_layout()
 
-
-        load_visualizer_config(self.data)
-        self.config_shortcut_view.reload_stack()
-        # need otherwise matplotlib plt acts funny
-        self.after(50, self.config_shortcut_view.set_dark_mode)
+        self.reload_stack()
+        # Bind to window resize to maintain ratio
+        self.toggle_shortcut_mode()
+        # self.config_shortcut_view.toggle_dark_mode()  
+        self.after(0, self.config_shortcut_view.toggle_dark_mode)
 
     def __forget_all(self):
         self.local_plan_plot_view.grid_forget()
@@ -92,9 +93,23 @@ class VisualizerApp(tk.Tk):
             # Set minimum sizes to maintain approximate ratio
             self.grid_columnconfigure(0, minsize=int(total_width * 0.75))
             self.grid_columnconfigure(1, minsize=int(total_width * 0.25))
-            
-        # Bind to window resize to maintain ratio
+        
         self.bind("<Configure>", __update_column_sizes)
+            
+    def reload_stack(self):
+        log.info(f"Reloading the code with async_mode: {self.data.async_exec.get()}")
+        self.visualize_exec_view.stop_exec()
+        # load_visualizer_config(self.data)
+        if self.code_reload_function is not None:
+            self.exec = self.code_reload_function(
+                async_mode=self.data.async_exec.get(),
+                bridge=self.data.execution_bridge.get(),
+                replan_dt=self.data.replan_dt.get(),
+                control_dt=self.data.control_dt.get(),
+            )
+            self.update_ui()
+        else:
+            log.warning("No code reload function provided.")
 
     def _update_one_plot_layout(self):
         self.__forget_all()
@@ -129,13 +144,12 @@ class VisualizerApp(tk.Tk):
 
     def toggle_shortcut_mode(self):
         if self.data.shortcut_mode.get():
-            self.visualize_exec_view.grid_forget()
             self.perceive_plan_control_view.grid_forget()
+            self.visualize_exec_view.grid_forget()
 
-            if self.data.global_plan_view.get():
-                self.config_shortcut_view.shortcut_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
-            else:
-                self.config_shortcut_view.shortcut_frame.grid(row=1, column=0, columnspan=1, sticky="ew")
+            column_count = 2 if self.data.global_plan_view.get() else 1
+            self.config_shortcut_view.grid(row=1, column=0, columnspan=column_count, sticky="ew")
+            self.config_shortcut_view.shortcut_frame.grid(row=2, column=0, columnspan=column_count, sticky="ew")
         else:
             if self.data.global_plan_view.get():
                 self._update_two_plots_layout()
