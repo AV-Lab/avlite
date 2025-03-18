@@ -3,7 +3,6 @@ import tkinter as tk
 import os
 
 import logging
-import yaml
 log = logging.getLogger(__name__)
 
 
@@ -39,7 +38,7 @@ class VisualizerData:
         self.sim_dt= tk.DoubleVar(value=0.01)
 
         # Logger Options
-        self.exec_option = tk.StringVar(value="Basic")
+        self.execution_bridge = tk.StringVar(value="Basic")
         self.log_level = tk.StringVar(value="INFO")
 
         self.show_perceive_logs = tk.BooleanVar(value=True)
@@ -60,3 +59,4 @@ class VisualizerData:
 
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.current_wp = tk.StringVar(value="0")
+        self.global_planner_type = tk.StringVar(value="Race Planner")

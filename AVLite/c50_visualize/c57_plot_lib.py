@@ -1,14 +1,14 @@
-from c10_perceive.c11_perception_model import PerceptionModel
-from c20_plan.c23_base_local_planner import BaseLocalPlanner
-from c20_plan.c25_lattice import Edge
-from c40_execute.c41_executer import Executer
+from c10_perceive.c11_base_perception import PerceptionModel
+from c20_plan.c24_base_local_planner import BaseLocalPlanner
+from c20_plan.c26_lattice import Edge
+from c40_execute.c41_base_executer import BaseExecuter
 from c10_perceive.c12_state import EgoState
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
-from c20_plan.c26_trajectory import Trajectory
+from c20_plan.c27_trajectory import Trajectory
 import logging
 
 log = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ class GlobalPlot:
         
         log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
         
-    def plot(self, exec: Executer, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Update the plot with current data"""
         try:
             # Get vehicle location
@@ -239,7 +239,7 @@ class LocalPlot:
 
     def plot(
         self,
-        exec: Executer,
+        exec: BaseExecuter,
         aspect_ratio=4.0,
         frenet_zoom=15,
         xy_zoom=30,

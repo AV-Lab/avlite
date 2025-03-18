@@ -1,4 +1,4 @@
-class BaseGlobalPlanner:
+class GlobalPlan:
     start:tuple[float,float]
     goal:tuple[float,float]
     path: list[tuple[float,float]]

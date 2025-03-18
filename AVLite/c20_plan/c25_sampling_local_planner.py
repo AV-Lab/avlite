@@ -1,13 +1,13 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from c10_perceive.c11_perception_model import PerceptionModel
-from c20_plan.c23_base_local_planner import BaseLocalPlanner
-from c20_plan.c25_lattice import Lattice
+from c10_perceive.c11_base_perception import PerceptionModel
+from c20_plan.c24_base_local_planner import BaseLocalPlanner
+from c20_plan.c26_lattice import Lattice
 import numpy as np
 import logging
 
 if TYPE_CHECKING:
-    from c20_plan.c26_trajectory import Trajectory
+    from c20_plan.c27_trajectory import Trajectory
 
 log = logging.getLogger(__name__)
 

@@ -42,6 +42,11 @@ class PerceivePlanControlView(ttk.Frame):
         global_frame = ttk.Frame(self.plan_frame)
         global_frame.pack(fill=tk.X)
         ttk.Checkbutton(global_frame, text="Show Global Plan", command=self.root.toggle_global_plan_view, variable=self.root.data.global_plan_view).pack(side=tk.LEFT)
+        self.dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.data.global_planner_type, width=10)
+        self.dropdown_menu['values'] = ('Race Planner', 'HD Map Planner')
+        self.dropdown_menu.current(0)  # Set default selection
+        self.dropdown_menu.pack(side=tk.LEFT)
+
         ttk.Button(global_frame, text="Global Replan").pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         wp_frame = ttk.Frame(self.plan_frame)
@@ -54,8 +59,8 @@ class PerceivePlanControlView(ttk.Frame):
         ttk.Label(wp_frame, text="Lap: ").pack(side=tk.LEFT, padx=5)
         ttk.Label(wp_frame, font=self.root.small_font, textvariable=self.root.data.lap).pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(self.plan_frame, text="Local Replan", command=self.replan).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(self.plan_frame, text="Local Replan", command=self.replan).pack(side=tk.LEFT)
 
         # ----------------------------------------------------------------------
         ## Control Frame
@@ -154,13 +159,13 @@ class PerceivePlanControlView(ttk.Frame):
 
     def step_steer_left(self):
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(steer=0.05), dt=self.root.data.sim_dt.get()
+            state=self.root.exec.ego_state, cmd=ControlComand(steer=0.7), dt=self.root.data.sim_dt.get()
         )
         self.root.update_ui()
 
     def step_steer_right(self):
         self.root.exec.world.update_ego_state(
-            state=self.root.exec.ego_state, cmd=ControlComand(steer=-0.05), dt=self.root.data.sim_dt.get()
+            state=self.root.exec.ego_state, cmd=ControlComand(steer=-0.7), dt=self.root.data.sim_dt.get()
         )
         self.root.update_ui()
 

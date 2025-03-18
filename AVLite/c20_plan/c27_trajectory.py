@@ -57,7 +57,7 @@ class Trajectory:
     poly_d:Optional[Polynomial]  # for local trajectory
     poly_x: Optional[Polynomial] = None
     poly_y: Optional[Polynomial] = None
-    parent_trajectory: "Trajectory" 
+    parent_trajectory: "Trajectory" = None
     path_s_from_parent: Optional[list]  = None
     path_d_from_parent: Optional[list] = None
 

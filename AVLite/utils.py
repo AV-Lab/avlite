@@ -9,6 +9,8 @@ import pkg_resources
 import logging
 import importlib
 
+from c50_visualize.c59_data import VisualizerData
+
 
 import tkinter as tk
 
@@ -79,7 +81,7 @@ def reload_lib():
 
 
 
-def save_visualizer_config(data, filepath: str="configs/c50_visualize.yaml") -> None:
+def save_visualizer_config(data:VisualizerData, filepath: str="configs/c50_visualize.yaml") -> None:
     """Save current visualization configuration to a YAML file.
     
     Args:
@@ -110,7 +112,7 @@ def save_visualizer_config(data, filepath: str="configs/c50_visualize.yaml") -> 
         yaml.dump(config, f, default_flow_style=False)
     log.info(f"Visualization configuration saved to {filepath}")
 
-def load_visualizer_config(data, filepath: str="configs/c50_visualize.yaml") -> None:
+def load_visualizer_config(data:VisualizerData, filepath: str="configs/c50_visualize.yaml") -> None:
     """Load visualization configuration from a YAML file.
     
     Args:

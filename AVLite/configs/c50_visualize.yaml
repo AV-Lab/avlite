@@ -1,0 +1,36 @@
+async_exec: false
+control_dt: 0.01
+control_fps: ' 100.0'
+current_wp: '10'
+dark_mode: true
+disable_log: false
+elapsed_real_time: '  7.36'
+elapsed_sim_time: '  0.84'
+exec_control: true
+exec_option: Basic
+exec_perceive: true
+exec_plan: true
+exec_running: false
+frenet_view_follow_planner: false
+frenet_zoom: 30
+global_plan_view: true
+global_view_follow_planner: false
+lap: '    0'
+log_level: INFO
+replan_dt: 0.5
+replan_fps: '   2.0'
+shortcut_mode: false
+show_control_logs: true
+show_execute_logs: true
+show_global_plan: true
+show_legend: false
+show_local_lattice: true
+show_local_plan: true
+show_past_locations: true
+show_perceive_logs: true
+show_plan_logs: true
+show_state: true
+show_vis_logs: true
+sim_dt: 0.01
+vehicle_state: "Loc: (+303.35, -726.24),\nVel: 39.66 (142.79 km/h),\n\u03B8:  -0.6"
+xy_zoom: 30

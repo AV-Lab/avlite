@@ -1,5 +1,5 @@
 from c10_perceive.c12_state import EgoState
-from c20_plan.c26_trajectory import Trajectory
+from c20_plan.c27_trajectory import Trajectory
 from c30_control.c31_base_controller import BaseController, ControlComand
 import numpy as np
 import copy
@@ -20,15 +20,26 @@ class PIDController(BaseController):
         self.cte_v_sum = 0
 
 
-    def control(self, ego: EgoState, tj: Trajectory = None) -> ControlComand:
+    def control(self, ego: EgoState, tj: Trajectory = None, lookahead=2):
         if tj is not None:
             self.tj = tj
         elif tj is None and self.tj is None:
             log.warning("Trajectory is not provided")
             return ControlComand(steer=0, acc=0)
 
-        s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
-        # self.past_cte.append(cte)
+        # to deal with fast replanning, need to have a lookahead to the next trajectory
+        if self.tj.parent_trajectory is not None:  
+            parent = self.tj.parent_trajectory
+            sp, dp =  parent.convert_xy_to_sd(ego.x, ego.y)
+            sp = sp + lookahead
+            x, y =  parent.convert_sd_to_xy(sp, dp)
+            s, cte = self.tj.convert_xy_to_sd(x, y)
+            s_, cte_ = self.tj.convert_xy_to_sd(ego.x, ego.y)
+            log.debug(f"CTE with Lookahead: {lookahead}, cte: {cte:.2f}, W.O LA cte: {cte_:.2f}")
+            # cte = cte_
+        else:   
+            s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
+            # self.past_cte.append(cte)
 
         self.cte_s_sum += self.cte_steer
         # Compute P, I, D components for steering
