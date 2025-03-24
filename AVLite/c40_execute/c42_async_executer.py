@@ -231,7 +231,7 @@ class AsyncExecuter(BaseExecuter):
                     self.__controller_last_step_time.value = t1
                     state = self.shared_world.get_ego_state()
                     cmd = self.shared_controller.control(state)
-                    self.shared_world.update_ego_state(state, cmd, dt=self.sim_dt)
+                    self.shared_world.update_ego_state(cmd, dt=self.sim_dt)
                 t2 = time.time()
                 sleep_time = max(0, self.control_dt - (t2 - t1))
                 time.sleep(sleep_time)

@@ -59,4 +59,7 @@ class VisualizerData:
 
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.current_wp = tk.StringVar(value="0")
-        self.global_planner_type = tk.StringVar(value="Race Planner")
+        self.global_planner_type = tk.StringVar(value="Race Planner") # "Race Planner", "HD Map Planner"
+
+
+        self.enable_joystick = tk.BooleanVar(value=True)

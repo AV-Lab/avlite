@@ -1,28 +1,29 @@
 async_exec: false
 control_dt: 0.01
-control_fps: '  50.0'
-current_wp: '22'
+control_fps: '   0.0'
+current_wp: '0'
 dark_mode: true
 disable_log: false
-elapsed_real_time: ' 52.37'
-elapsed_sim_time: '  3.79'
-exec_control: true
-exec_option: Basic
+elapsed_real_time: '  0.00'
+elapsed_sim_time: '  0.00'
+enable_joystick: true
+exec_control: false
 exec_perceive: false
-exec_plan: true
-exec_running: true
+exec_plan: false
+exec_running: false
+execution_bridge: Basic
 frenet_view_follow_planner: false
-frenet_zoom: 60
+frenet_zoom: 210
 global_plan_view: false
 global_planner_type: Race Planner
 global_view_follow_planner: false
 lap: '    0'
-log_level: INFO
+log_level: DEBUG
 replan_dt: 0.01
-replan_fps: '  50.0'
+replan_fps: '   0.0'
 shortcut_mode: false
 show_control_logs: false
-show_execute_logs: false
+show_execute_logs: true
 show_global_plan: true
 show_legend: false
 show_local_lattice: true
@@ -33,5 +34,5 @@ show_plan_logs: false
 show_state: true
 show_vis_logs: true
 sim_dt: 0.01
-vehicle_state: "Loc: (+334.98, -744.85),\nVel: 30.30 (109.09 km/h),\n\u03B8:  -0.1"
-xy_zoom: 30
+vehicle_state: "Loc: (+274.44, -714.05),\nVel: 42.08 (151.47 km/h),\n\u03B8:  -0.8"
+xy_zoom: 120

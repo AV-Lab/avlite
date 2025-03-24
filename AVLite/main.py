@@ -8,7 +8,14 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def get_executer(config_path="configs/c20_plan.yaml", async_mode=False, bridge="Basic", source_run=True, replan_dt=0.5, control_dt=0.05):
+def get_executer(
+    config_path="configs/c20_plan.yaml",
+    async_mode=False,
+    bridge="Basic",
+    source_run=True,
+    replan_dt=0.5,
+    control_dt=0.05,
+):
 
     reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d, config_data = load_config(
         config_path=config_path, source_run=source_run
@@ -25,17 +32,21 @@ def get_executer(config_path="configs/c20_plan.yaml", async_mode=False, bridge="
     from c10_perceive.c12_state import EgoState
 
     ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
+
+    # Loading bridge
     if bridge == "Basic":
-        world = BasicSim(ego_state)
+        world = BasicSim(ego_state=ego_state)
     elif bridge == "Carla":
+        print("Loading Carla bridge...")
         from c40_execute.c45_carla_bridge import CarlaBridge
-        world = CarlaBridge()
+        world = CarlaBridge(ego_state=ego_state)
     elif bridge == "ROS":
         raise NotImplementedError("ROS bridge not implemented")
 
     pm = PerceptionModel(ego_state)
+
     pl = RNDPlanner(
-        global_path=reference_path,
+       global_path=reference_path,
         global_velocity=reference_velocity,
         ref_left_boundary_d=ref_left_boundary_d,
         ref_right_boundary_d=ref_right_boundary_d,
@@ -62,16 +73,18 @@ if __name__ == "__main__":
 
     import platform
     import os
+
     if platform.system() == "Linux":
         # Linux-specific code
-        os.environ['TK_WINDOWS_FORCE_OPENGL'] = '1'
+        os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
     else:
 
         import ctypes
-        try: # >= win 8.
+
+        try:  # >= win 8.
             ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except: # win 8.0 or less
+        except:  # win 8.0 or less
             ctypes.windll.user32.SetProcessDPIAware()
-        os.environ['TK_WINDOWS_FORCE_OPENGL'] = '1'
+        os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
 
     run(source_run)

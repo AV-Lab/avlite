@@ -139,9 +139,9 @@ class AsyncThreadedExecuter(BaseExecuter):
                         self.__controller_last_step_time = t1
 
                     with self.lock_world:
-                        state = self.world.get_ego_state()
+                        state = self.world.ego_state
                         cmd = self.controller.control(state)
-                        self.world.update_ego_state(state, cmd, dt=self.sim_dt)
+                        self.world.update_ego_state(cmd, dt=self.sim_dt)
                     self.control_fps = 1.0 / dt
 
                 t2 = time.time()
