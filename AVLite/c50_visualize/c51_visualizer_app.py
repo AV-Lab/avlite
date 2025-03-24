@@ -196,14 +196,12 @@ class VisualizerApp(tk.Tk):
         )
         self.data.current_wp.set(str(self.exec.planner.global_trajectory.current_wp))
 
-        acc = self.exec.controller.cmd.acceleration
-        steer = self.exec.controller.cmd.steer
-        state = self.exec.ego_state
 
         self.perceive_plan_control_view.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
         self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
-        self.perceive_plan_control_view.progressbar_acc.set_value(acc)
-        self.perceive_plan_control_view.progressbar_steer.set_value(steer)
+        self.perceive_plan_control_view.gauge_acc.set_value(self.exec.controller.cmd.acceleration
+)
+        self.perceive_plan_control_view.gauge_steer.set_value(self.exec.controller.cmd.steer)
 
         self.data.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
         self.data.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")

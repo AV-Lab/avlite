@@ -150,3 +150,43 @@ def load_visualizer_config(data:VisualizerData, filepath: str="configs/c50_visua
     except Exception as e:
         log.error(f"Failed to load visualization configuration: {e}")
 
+def joy_stick_test():
+    import pygame
+    import time
+
+    pygame.init()
+    pygame.joystick.init()
+
+    # Check for joystick
+    if pygame.joystick.get_count() == 0:
+        log.warning("No joystick connected")
+        return
+
+    # Initialize the first joystick
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+
+    log.info(f"Joystick name: {joystick.get_name()}")
+    log.info(f"Number of axes: {joystick.get_numaxes()}")
+
+    try:
+        while True:
+            # Pump the event loop
+            pygame.event.pump()
+
+            # Read axis values
+            for i in range(joystick.get_numaxes()):
+                axis_value = joystick.get_axis(i)
+                print(f"Axis {i} value: {axis_value:.3f}")
+
+            # Add a small delay to make the output readable
+            time.sleep(0.1)
+
+    except KeyboardInterrupt:
+        log.info("Exiting...")
+
+    finally:
+        pygame.quit()
+
+if __name__ == "__main__":
+    main()

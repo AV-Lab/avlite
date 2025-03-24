@@ -101,6 +101,8 @@ class LogView(ttk.LabelFrame):
         self.log_area = ScrolledText(self, state="disabled", height=12)
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
+        self.after(100, self.update_log_level)
+
 
         # -------------------------------------------
         # -------------------------------------------

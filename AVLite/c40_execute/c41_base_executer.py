@@ -16,16 +16,19 @@ class WorldInterface(ABC):
     ego_state: EgoState
 
     @abstractmethod
-    def update_ego_state(self, state: EgoState, cmd: ControlComand, dt=0.01):
+    def update_ego_state(self, cmd: ControlComand, dt=0.01):
         """
         Update the ego state.
 
-        Parameters:
+        Parameters
         state (EgoState): A mutable object representing the ego state.
         cmd (ControlCommand): The control command containing acceleration and steering angle.
         dt (float): Time delta for the update. Default is 0.01.
         """
         pass
+
+    def get_ego_state(self) -> EgoState:
+        return self.ego_state
 
     @abstractmethod
     def spawn_agent(self, agent_state: AgentState):
@@ -108,8 +111,8 @@ class BaseExecuter:
                 cmd = self.controller.control(self.ego_state, local_tj)
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
 
-                self.world.update_ego_state(self.ego_state, cmd, dt=sim_dt)
-                self.ego_state = self.world.ego_state
+                self.world.update_ego_state(cmd, dt=sim_dt)
+        self.ego_state = self.world.get_ego_state()
 
         self.elapsed_sim_time += control_dt
         delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
