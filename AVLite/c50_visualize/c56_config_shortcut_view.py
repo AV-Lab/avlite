@@ -29,9 +29,9 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("D", lambda e: self.toggle_dark_mode_shortcut())
         self.root.bind("S", lambda e: self.root.toggle_shortcut_mode())
 
-        self.root.bind("x", lambda e: self.root.visualize_exec_view.toggle_exec())
-        self.root.bind("c", lambda e: self.root.visualize_exec_view.step_exec())
-        self.root.bind("t", lambda e: self.root.visualize_exec_view.reset_exec())
+        self.root.bind("x", lambda e: self.root.exec_visualize_view.toggle_exec())
+        self.root.bind("c", lambda e: self.root.exec_visualize_view.step_exec())
+        self.root.bind("t", lambda e: self.root.exec_visualize_view.reset_exec())
 
         self.root.bind("n", lambda e: self.root.perceive_plan_control_view.step_plan())
         self.root.bind("r", lambda e: self.root.perceive_plan_control_view.replan())
