@@ -234,7 +234,9 @@ class PerceivePlanControlView(ttk.Frame):
         # Apply deadzone to avoid drift
         if abs(left_stick_x) < 0.02:
             left_stick_x = 0
-        log.debug(f"Left stick x: {left_stick_x}, Right trigger: {right_trigger}, Left trigger: {left_trigger}")
+
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(f"Left stick x: {left_stick_x}, Right trigger: {right_trigger}, Left trigger: {left_trigger}")
             
         # Scale inputs to control values
         steering = -left_stick_x * self.root.exec.ego_state.max_steering  # Negative for correct direction
@@ -243,5 +245,6 @@ class PerceivePlanControlView(ttk.Frame):
         
         # Apply controls if needed
         if abs(steering) > 0.01 or abs(acceleration) > 0.01 or abs(braking) > 0.01:
-            cmd = ControlComand(steer=steering, acc=acceleration-braking)
+            cmd = ControlComand(steer=steering, acc=acceleration+braking)
+            log.debug(f"Controller Command: {cmd}")
             self.root.exec.world.update_ego_state(cmd=cmd, dt=self.root.data.sim_dt.get())

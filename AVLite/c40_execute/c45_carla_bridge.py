@@ -10,11 +10,13 @@ log = logging.getLogger(__name__)
 
 
 class CarlaBridge(WorldInterface):
-    def __init__(self, ego_state:EgoState, host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0):
+    def __init__(
+        self, ego_state: EgoState, host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0
+    ):
         log.info(f"Connecting to Carla at {host}:{port}")
         self.client = None
         self.world = None
-        self.ego_state =  ego_state
+        self.ego_state = ego_state
 
         # Carla stuff
         self.vehicle = None
@@ -147,7 +149,7 @@ class CarlaBridge(WorldInterface):
         if not self.world or not self.vehicle_blueprint:
             log.error("Cannot spawn vehicle: world not connected or blueprint not initialized")
             return
-            
+
         # Check if state is None and create a default state if needed
         if state is None:
             log.warning("Ego state is None, creating default state at first spawn point")
@@ -226,39 +228,34 @@ class CarlaBridge(WorldInterface):
         assert self.ego_state is not None, "Ego state is None. Cannot update state without a reference."
 
         current_velocity = self.ego_state.velocity
-        
+
         # Calculate throttle and brake values
         throttle = np.abs(cmd.acceleration) / self.ego_state.max_acceleration if cmd.acceleration > 0 else 0.0
         brake = np.abs(cmd.acceleration) / self.ego_state.min_acceleration if cmd.acceleration < 0 else 0.0
-        
+
         # Convert to float to ensure correct type
         throttle = float(throttle)
         brake = float(brake)
         steer = float(-cmd.steer)
-        
+
         # Determine reverse state
         is_nearly_stopped = current_velocity < 0.1  # threshold for "stopped"
         wants_reverse = cmd.acceleration < 0
         is_reverse = wants_reverse and is_nearly_stopped
-        
+
         # In reverse mode, use throttle instead of brake for backward movement
         if is_reverse and wants_reverse:
             throttle = float(np.abs(cmd.acceleration) / self.ego_state.max_acceleration)
             brake = 0.0
-        
+
         # When steering with zero throttle, maintain a small throttle to prevent stopping
         if throttle == 0.0 and brake == 0.0 and abs(cmd.steer) > 0.01:
             throttle = 0.05  # Small throttle value to maintain momentum during steering
-        
+
         log.info(f"Velocity: {current_velocity}, Throttle: {throttle}, Brake: {brake}, Reverse: {is_reverse}")
 
         # Ensure all parameters are of the correct type for the Carla API
-        control = carla.VehicleControl(
-            throttle=throttle, 
-            steer=steer,      
-            brake=brake,     
-            reverse=bool(is_reverse)  
-        )
+        control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=bool(is_reverse))
         self.vehicle.apply_control(control)
 
         # Update self.ego_state from vehicle

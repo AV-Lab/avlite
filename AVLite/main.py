@@ -7,7 +7,6 @@ import logging
 
 log = logging.getLogger(__name__)
 
-
 def get_executer(
     config_path="configs/c20_plan.yaml",
     async_mode=False,

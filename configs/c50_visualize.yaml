@@ -7,18 +7,18 @@ disable_log: false
 elapsed_real_time: '  0.00'
 elapsed_sim_time: '  0.00'
 enable_joystick: true
-exec_control: false
+exec_control: true
 exec_perceive: false
 exec_plan: false
 exec_running: false
 execution_bridge: Basic
 frenet_view_follow_planner: false
-frenet_zoom: 210
+frenet_zoom: 80
 global_plan_view: false
 global_planner_type: Race Planner
 global_view_follow_planner: false
 lap: '    0'
-log_level: DEBUG
+log_level: INFO
 replan_dt: 0.01
 replan_fps: '   0.0'
 shortcut_mode: false
@@ -32,7 +32,7 @@ show_past_locations: true
 show_perceive_logs: false
 show_plan_logs: false
 show_state: true
-show_vis_logs: true
+show_vis_logs: false
 sim_dt: 0.01
 vehicle_state: "Loc: (+274.44, -714.05),\nVel: 42.08 (151.47 km/h),\n\u03B8:  -0.8"
 xy_zoom: 120

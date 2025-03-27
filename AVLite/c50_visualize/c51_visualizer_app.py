@@ -6,8 +6,7 @@ from c50_visualize.c59_data import VisualizerData
 from c50_visualize.c55_log_view import LogView
 from c50_visualize.c56_config_shortcut_view import ConfigShortcutView
 from utils import load_visualizer_config
-
-
+import threading
 
 import tkinter as tk
 from tkinter import ttk
@@ -24,6 +23,7 @@ class VisualizerApp(tk.Tk):
 
         self.exec = executer
         self.code_reload_function = code_reload_function
+        self.is_loading = False    
 
         self.title("AVlite Visualizer")
         # self.geometry("1200x1100")
@@ -41,7 +41,7 @@ class VisualizerApp(tk.Tk):
         self.global_plan_plot_view = GlobalPlanPlotView(self)
         self.config_shortcut_view = ConfigShortcutView(self)
         self.perceive_plan_control_view = PerceivePlanControlView(self)
-        self.visualize_exec_view = ExecVisualizeView(self)
+        self.exec_visualize_view = ExecVisualizeView(self)
         self.log_view = LogView(self)
         # ----------------------------------------------------------------------
         if self.data.global_plan_view.get():
@@ -55,12 +55,13 @@ class VisualizerApp(tk.Tk):
         # self.config_shortcut_view.toggle_dark_mode()  
         self.after(0, self.config_shortcut_view.toggle_dark_mode)
 
+
     def __forget_all(self):
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
         self.config_shortcut_view.grid_forget()
         self.perceive_plan_control_view.grid_forget()
-        self.visualize_exec_view.grid_forget()
+        self.exec_visualize_view.grid_forget()
         self.log_view.grid_forget()
 
     def _update_two_plots_layout(self):
@@ -79,7 +80,7 @@ class VisualizerApp(tk.Tk):
         self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
-        self.visualize_exec_view.grid(row=3, column=0, columnspan=2, sticky="ew")
+        self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
         self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
         # Configure grid weights for the 3:1 ratio
         self.grid_rowconfigure(0, weight=1)  # make the plot views expand
@@ -95,28 +96,47 @@ class VisualizerApp(tk.Tk):
             self.grid_columnconfigure(1, minsize=int(total_width * 0.25))
         
         self.bind("<Configure>", __update_column_sizes)
-            
+    
     def reload_stack(self):
-        log.info(f"Reloading the code with async_mode: {self.data.async_exec.get()}")
-        self.visualize_exec_view.stop_exec()
-        # load_visualizer_config(self.data)
-        if self.code_reload_function is not None:
-            self.exec = self.code_reload_function(
-                async_mode=self.data.async_exec.get(),
-                bridge=self.data.execution_bridge.get(),
-                replan_dt=self.data.replan_dt.get(),
-                control_dt=self.data.control_dt.get(),
-            )
-            self.update_ui()
-        else:
-            log.warning("No code reload function provided.")
+        if not self.is_loading:
+            log.info(f"Reloading the code with async_mode: {self.data.async_exec.get()}")
+            thread = threading.Thread(target=self.__reload_stack_async)
+            thread.daemon = True
+            thread.start()
+            self.is_loading = True
+            self.disable_frame(self.exec_visualize_view.execution_frame)
+
+        # if self.is_loading:
+        #     log.info("loading...")
+        #     self.after(500, self.reload_stack)
+
+    def __reload_stack_async(self):
+        try:
+            self.exec_visualize_view.stop_exec()
+            if self.code_reload_function is not None:
+                self.exec = self.code_reload_function(
+                    async_mode=self.data.async_exec.get(),
+                    bridge=self.data.execution_bridge.get(),
+                    replan_dt=self.data.replan_dt.get(),
+                    control_dt=self.data.control_dt.get(),
+                )
+                self.update_ui()
+            else:
+                log.warning("No code reload function provided.")
+        except Exception as e:
+            log.error(f"Error reloading stack: {e}", exc_info=True)
+
+        finally:
+            self.is_loading = False
+            self.enable_frame(self.exec_visualize_view.execution_frame)
+            
 
     def _update_one_plot_layout(self):
         self.__forget_all()
         self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
         self.config_shortcut_view.grid(row=1, column=0, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
-        self.visualize_exec_view.grid(row=3, column=0, sticky="ew")
+        self.exec_visualize_view.grid(row=3, column=0, sticky="ew")
         self.log_view.grid(row=4, column=0, sticky="nsew")
         
         # Reset column configuration
@@ -145,7 +165,7 @@ class VisualizerApp(tk.Tk):
     def toggle_shortcut_mode(self):
         if self.data.shortcut_mode.get():
             self.perceive_plan_control_view.grid_forget()
-            self.visualize_exec_view.grid_forget()
+            self.exec_visualize_view.grid_forget()
 
             column_count = 2 if self.data.global_plan_view.get() else 1
             self.config_shortcut_view.grid(row=1, column=0, columnspan=column_count, sticky="ew")
