@@ -2,7 +2,7 @@ from tkinter import ttk
 import tkinter as tk
 
 class ValueGauge(ttk.Frame):
-    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=10, **kwargs):
+    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=17, **kwargs):
         super().__init__(parent, **kwargs)
         self.min_value = min_value
         self.max_value = max_value
@@ -22,7 +22,7 @@ class ValueGauge(ttk.Frame):
         self.max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font, bg="#2f2f2f", fg="gray")
         self.max_label.pack(side=tk.RIGHT, padx=0)
 
-        self.canvas = tk.Canvas(self, height=22, bg="gray", highlightthickness=0)
+        self.canvas = tk.Canvas(self, height=height, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
         self.bind("<Configure>", lambda e: self.after_idle(self._draw))
 

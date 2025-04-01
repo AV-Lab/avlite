@@ -106,10 +106,6 @@ class VisualizerApp(tk.Tk):
             self.is_loading = True
             self.disable_frame(self.exec_visualize_view.execution_frame)
 
-        # if self.is_loading:
-        #     log.info("loading...")
-        #     self.after(500, self.reload_stack)
-
     def __reload_stack_async(self):
         try:
             self.exec_visualize_view.stop_exec()
@@ -117,9 +113,12 @@ class VisualizerApp(tk.Tk):
                 self.exec = self.code_reload_function(
                     async_mode=self.data.async_exec.get(),
                     bridge=self.data.execution_bridge.get(),
+                    global_planner=self.data.global_planner_type.get(),
                     replan_dt=self.data.replan_dt.get(),
                     control_dt=self.data.control_dt.get(),
                 )
+                self.global_plan_plot_view.update_plot_type()
+                
                 self.update_ui()
             else:
                 log.warning("No code reload function provided.")
@@ -211,23 +210,23 @@ class VisualizerApp(tk.Tk):
         if self.data.global_plan_view.get():
             self.global_plan_plot_view.plot()
 
-        self.data.vehicle_state.set(
-            f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}"
-        )
-        self.data.current_wp.set(str(self.exec.planner.global_trajectory.current_wp))
+        if not self.data.shortcut_mode.get():
+            self.data.vehicle_state.set(
+                f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}"
+            )
+            self.data.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
 
 
-        self.perceive_plan_control_view.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
-        self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
-        self.perceive_plan_control_view.gauge_acc.set_value(self.exec.controller.cmd.acceleration
-)
-        self.perceive_plan_control_view.gauge_steer.set_value(self.exec.controller.cmd.steer)
+            self.perceive_plan_control_view.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
+            self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
+            self.perceive_plan_control_view.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
+            self.perceive_plan_control_view.gauge_steer.set_value(self.exec.controller.cmd.steer)
 
-        self.data.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
-        self.data.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
-        self.data.replan_fps.set(f"{self.exec.planner_fps:6.1f}")
-        self.data.control_fps.set(f"{self.exec.control_fps:6.1f}")
-        self.data.lap.set(f"{self.exec.planner.lap:5d}")
+            self.data.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
+            self.data.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
+            self.data.replan_fps.set(f"{self.exec.planner_fps:6.1f}")
+            self.data.control_fps.set(f"{self.exec.control_fps:6.1f}")
+            self.data.lap.set(f"{self.exec.local_planner.lap:5d}")
 
         if self.data.async_exec.get():
             if self.data.control_dt.get() < 0.1 or self.data.replan_dt.get() < 0.1:
@@ -238,19 +237,13 @@ class VisualizerApp(tk.Tk):
                     )
                     self.data.log_level.set("STDOUT")
                     self.log_view.update_log_level()
-                    # self.disable_frame(self.perceive_plan_control_view)
-                    self.disable_frame(self.log_view.controls_frame)
             else:
                 if self.data.disable_log.get():
                     self.data.disable_log.set(False)
                     self.data.log_level.set("INFO")
                     self.log_view.update_log_level()
-                    self.enable_frame(self.log_view.controls_frame)
-                    # self.disable_frame(self.perceive_plan_control_view)
         else:
             if self.data.disable_log.get():
                 self.data.disable_log.set(False)
                 self.data.log_level.set("INFO")
                 self.log_view.update_log_level()
-                # self.enable_frame(self.perceive_plan_control_view)
-                self.enable_frame(self.log_view.controls_frame)

@@ -1,5 +1,6 @@
 from c10_perceive.c11_base_perception import PerceptionModel
 from c20_plan.c24_base_local_planner import BaseLocalPlanner
+from c20_plan.c21_base_global_planner import BaseGlobalPlanner
 from c30_control.c31_base_controller import BaseController, ControlComand
 from c10_perceive.c12_state import EgoState
 
@@ -46,7 +47,8 @@ class WorldInterface(ABC):
 class BaseExecuter:
     pm: PerceptionModel
     ego_state: EgoState
-    planner: BaseLocalPlanner
+    global_planner: BaseGlobalPlanner
+    local_planner: BaseLocalPlanner
     controller: BaseController
     world: WorldInterface
 
@@ -56,6 +58,7 @@ class BaseExecuter:
     def __init__(
         self,
         pm: PerceptionModel,
+        glob_pl: BaseGlobalPlanner,
         pl: BaseLocalPlanner,
         cn: BaseController,
         world: WorldInterface,
@@ -64,7 +67,8 @@ class BaseExecuter:
     ):
         self.pm = pm
         self.ego_state = pm.ego_vehicle
-        self.planner = pl
+        self.global_planner = glob_pl
+        self.local_planner = pl
         self.controller = cn
         self.world = world
         self.replan_dt = replan_dt
@@ -94,12 +98,12 @@ class BaseExecuter:
         if call_replan:
             dt_p = self.elapsed_sim_time - self.__planner_last_time
             if dt_p >= replan_dt:
-                self.planner.replan()
+                self.local_planner.replan()
                 self.__planner_last_time = self.elapsed_sim_time
                 self.planner_fps = 1.0 / dt_p
                 pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
                 # log.info(f"DT Planner: {dt_p:.4f} sec")
-        self.planner.step(self.ego_state)
+        self.local_planner.step(self.ego_state)
 
         t1 = time.time()
         if call_control:
@@ -107,7 +111,7 @@ class BaseExecuter:
             if dt_c >= control_dt:
                 self.__controller_last_time = self.elapsed_sim_time
                 self.control_fps = 1.0 / dt_c
-                local_tj = self.planner.get_local_plan()
+                local_tj = self.local_planner.get_local_plan()
                 cmd = self.controller.control(self.ego_state, local_tj)
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
 
@@ -142,7 +146,7 @@ class BaseExecuter:
     def reset(self):
         self.pm.reset()
         self.ego_state.reset()
-        self.planner.reset()
+        self.local_planner.reset()
         self.controller.reset()
         self.world.reset
         self.__prev_exec_time = None
@@ -157,7 +161,7 @@ class BaseExecuter:
             self.world.spawn_agent(agent)
         elif s is not None and d is not None:
             # Convert (s, d) to (x, y) using some transformation logic
-            x, y = self.planner.global_trajectory.convert_sd_to_xy(s, d)
+            x, y = self.local_planner.global_trajectory.convert_sd_to_xy(s, d)
             log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
             log.info(f"Ego State: {self.ego_state}")
             t = self.ego_state.theta if theta is None else theta

@@ -64,7 +64,7 @@ class PerceivePlanControlView(ttk.Frame):
         ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
         self.global_tj_wp_entry = ttk.Entry(wp_frame, width=6, textvariable=self.root.data.current_wp)
         self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
-        ttk.Label(wp_frame, text=f"{len(self.root.exec.planner.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
+        ttk.Label(wp_frame, text=f"{len(self.root.exec.local_planner.global_trajectory.path_x)-1}").pack(side=tk.LEFT, padx=5)
         ttk.Label(wp_frame, text="Lap: ").pack(side=tk.LEFT, padx=5)
         ttk.Label(wp_frame, font=self.root.small_font, textvariable=self.root.data.lap).pack(side=tk.LEFT, padx=5)
 
@@ -147,12 +147,12 @@ class PerceivePlanControlView(ttk.Frame):
 
     def set_waypoint(self):
         timestep_value = int(self.global_tj_wp_entry.get())
-        self.root.exec.planner.reset(wp=timestep_value)
+        self.root.exec.local_planner.reset(wp=timestep_value)
         self.root.update_ui()
 
     def replan(self):
         t1 = time.time()
-        self.root.exec.planner.replan()
+        self.root.exec.local_planner.replan()
         t2 = time.time()
         log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
         self.root.update_ui()
@@ -160,10 +160,10 @@ class PerceivePlanControlView(ttk.Frame):
     def step_plan(self):
         # Placeholder for the method to step to the next waypoint
         t1 = time.time()
-        self.root.exec.planner.step_wp()
+        self.root.exec.local_planner.step_wp()
         log.info(f"Plan Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(0, str(self.root.exec.planner.global_trajectory.next_wp - 1))
+        self.global_tj_wp_entry.insert(0, str(self.root.exec.local_planner.global_trajectory.next_wp - 1))
         self.root.update_ui()
 
     # --------------------------------------------------------------------------------------------
@@ -171,13 +171,13 @@ class PerceivePlanControlView(ttk.Frame):
     # --------------------------------------------------------------------------------------------
 
     def step_control(self):
-        cmd = self.root.exec.controller.control(self.root.exec.ego_state, self.root.exec.planner.get_local_plan())
+        cmd = self.root.exec.controller.control(self.root.exec.ego_state, self.root.exec.local_planner.get_local_plan())
 
         self.root.exec.world.update_ego_state(cmd=cmd, dt=self.root.data.sim_dt.get())
         self.root.update_ui()
 
     def align_control(self):
-        self.root.exec.ego_state.x, self.root.exec.ego_state.y = self.root.exec.planner.location_xy
+        self.root.exec.ego_state.x, self.root.exec.ego_state.y = self.root.exec.local_planner.location_xy
         self.root.update_ui()
 
     def step_steer_left(self):
