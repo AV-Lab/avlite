@@ -1,4 +1,5 @@
 from c50_visualize.c51_visualizer_app import VisualizerApp
+from c20_plan.c21_base_global_planner import PlannerType
 from utils import load_config, reload_lib
 
 import numpy as np
@@ -11,7 +12,7 @@ def get_executer(
     config_path="configs/c20_plan.yaml",
     async_mode=False,
     bridge="Basic",
-    global_planner = "Race Planner",
+    global_planner = PlannerType.RACE_PLANNER.value,
     source_run=True,
     replan_dt=0.5,
     control_dt=0.05,
@@ -47,9 +48,9 @@ def get_executer(
     pm = PerceptionModel(ego_state)
 
 
-    if global_planner == "Race Planner":
+    if global_planner == PlannerType.RACE_PLANNER.value:
         gp = RaceGlobalPlanner() 
-    elif global_planner == "HD Map Planner":
+    elif global_planner == PlannerType.HD_MAP_PLANNER.value:
         gp = GlobalHDMapPlanner()
 
     pl = RNDPlanner(
@@ -63,7 +64,7 @@ def get_executer(
     executer = (
         BaseExecuter(pm=pm,glob_pl=gp, pl=pl, cn=cn, world=world, replan_dt=replan_dt, control_dt=control_dt)
         if not async_mode
-        else AsyncThreadedExecuter(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
+        else AsyncThreadedExecuter(pm=pm, glob_pl=gp, pl=pl, cn=cn, world=world, replan_dt=replan_dt, control_dt=control_dt)
     )
 
     return executer

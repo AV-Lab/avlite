@@ -1,6 +1,6 @@
 from __future__ import annotations
 import tkinter as tk
-import os
+from c20_plan.c21_base_global_planner import PlannerType
 
 import logging
 log = logging.getLogger(__name__)
@@ -59,7 +59,8 @@ class VisualizerData:
 
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.current_wp = tk.StringVar(value="0")
-        self.global_planner_type = tk.StringVar(value="Race Planner") # "Race Planner", "HD Map Planner"
+        self.global_planner_type = tk.StringVar(value=PlannerType.RACE_PLANNER.value) 
 
 
         self.enable_joystick = tk.BooleanVar(value=True)
+

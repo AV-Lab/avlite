@@ -1,5 +1,10 @@
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
+from enum import Enum
+
+class PlannerType(Enum):
+    RACE_PLANNER = "Race Planner"
+    HD_MAP_PLANNER = "HD Map Planner"
 
 @dataclass
 class GlobalPlan:

@@ -105,6 +105,9 @@ class VisualizerApp(tk.Tk):
             thread.start()
             self.is_loading = True
             self.disable_frame(self.exec_visualize_view.execution_frame)
+        
+            # self.global_plan_plot_view.update_plot_type()
+            # self.after(100, self.global_plan_plot_view.update_plot_type)
 
     def __reload_stack_async(self):
         try:
@@ -117,8 +120,7 @@ class VisualizerApp(tk.Tk):
                     replan_dt=self.data.replan_dt.get(),
                     control_dt=self.data.control_dt.get(),
                 )
-                self.global_plan_plot_view.update_plot_type()
-                
+
                 self.update_ui()
             else:
                 log.warning("No code reload function provided.")
