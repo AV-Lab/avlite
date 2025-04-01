@@ -1,5 +1,6 @@
 from __future__ import annotations
 from c10_perceive.c11_base_perception import PerceptionModel
+from c20_plan.c21_base_global_planner import BaseGlobalPlanner
 from c20_plan.c24_base_local_planner import BaseLocalPlanner
 from c30_control.c31_base_controller import BaseController
 from c40_execute.c41_base_executer import BaseExecuter, WorldInterface
@@ -18,6 +19,7 @@ class AsyncThreadedExecuter(BaseExecuter):
     def __init__(
         self,
         pm: PerceptionModel,
+        glob_pl: BaseGlobalPlanner,
         pl: BaseLocalPlanner,
         cn: BaseController,
         world: WorldInterface,
@@ -27,7 +29,7 @@ class AsyncThreadedExecuter(BaseExecuter):
         replan_dt=0.5,
         control_dt=0.05,
     ):
-        super().__init__(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
+        super().__init__(pm, glob_pl, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
 
         # Thread-specific attributes - no need for shared Values
         self.__planner_last_step_time = time.time()

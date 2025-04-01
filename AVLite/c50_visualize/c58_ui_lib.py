@@ -2,7 +2,7 @@ from tkinter import ttk
 import tkinter as tk
 
 class ValueGauge(ttk.Frame):
-    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=17, **kwargs):
+    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=12, **kwargs):
         super().__init__(parent, **kwargs)
         self.min_value = min_value
         self.max_value = max_value

@@ -76,7 +76,6 @@ class GlobalRacePlot(GlobalPlot):
         try:
             # Get vehicle location
             vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
-            log.info(f"Plotting vehicle at {vehicle_x}, {vehicle_y}")
             
             # Update boundary and trajectory data
             self.left_boundary.set_data(exec.local_planner.ref_left_boundary_x, exec.local_planner.ref_left_boundary_y)
