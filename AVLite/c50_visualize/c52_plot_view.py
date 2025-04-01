@@ -1,5 +1,8 @@
 from __future__ import annotations
-from c50_visualize.c57_plot_lib import LocalPlot, GlobalPlot
+
+from c20_plan.c23_race_global_planner import RaceGlobalPlanner
+from c20_plan.c22_hdmap_global_planner import GlobalHDMapPlanner
+from c50_visualize.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 
 import tkinter as tk
 from tkinter import ttk
@@ -17,7 +20,11 @@ class GlobalPlanPlotView(ttk.Frame):
         super().__init__(root)
         self.root = root
 
-        self.global_plot = GlobalPlot()
+        if isinstance(self.root.exec.global_planner, RaceGlobalPlanner):
+            self.global_plot = GlobalRacePlot()
+        elif isinstance(self.root.exec.global_planner, GlobalHDMapPlanner):
+            self.global_plot = GlobalHDMapPlot()
+
         self.fig = self.global_plot.fig
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
@@ -32,11 +39,15 @@ class GlobalPlanPlotView(ttk.Frame):
             
         self.plot()  # Initialize the view
 
+
     def plot(self):
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()
         aspect_ratio = width / height if height > 0 else 4.0
+
+        # log.info(f"Global planner type: {self.root.exec.global_planner.__class__.__name__}")
+
         
         self.global_plot.plot(
             exec=self.root.exec,
@@ -52,6 +63,16 @@ class GlobalPlanPlotView(ttk.Frame):
         # Force a complete redraw after theme change
         self.plot()
 
+    def update_plot_type(self):
+        """Update the plot type based on the selected global planner"""
+        if isinstance(self.root.exec.global_planner, RaceGlobalPlanner):
+            self.global_plot = GlobalRacePlot()
+            log.debug("Global Plot type changed to Race Plot.")
+        elif isinstance(self.root.exec.global_planner, GlobalHDMapPlanner):
+            self.global_plot = GlobalHDMapPlot()
+            log.debug("Global Plot type changed to HD Map Plot.")
+        self.plot()
+
 class LocalPlanPlotView(ttk.Frame):
 
     def __init__(self, root: VisualizerApp):
@@ -59,7 +80,7 @@ class LocalPlanPlotView(ttk.Frame):
         self.root = root
 
 
-        self.local_plot = LocalPlot(max_lattice_size=self.root.exec.planner.lattice.targetted_num_edges)
+        self.local_plot = LocalPlot(max_lattice_size=self.root.exec.local_planner.lattice.targetted_num_edges)
         self.fig = self.local_plot.fig
         self.ax1 = self.local_plot.ax1
         self.ax2 = self.local_plot.ax2

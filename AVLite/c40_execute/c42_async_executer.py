@@ -32,7 +32,7 @@ class AsyncExecuter(BaseExecuter):
         super().__init__(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
         BaseManager.register(
             "BasePlanner",
-            callable=lambda: self.planner.get_copy(),
+            callable=lambda: self.local_planner.get_copy(),
             exposed=(
                 "replan",
                 "step",
@@ -124,8 +124,8 @@ class AsyncExecuter(BaseExecuter):
             self.ego_state = self.shared_world.get_ego_state()
 
         # with self.lock_planner:
-        self.planner.location_xy = self.shared_planner.get_location_xy()
-        self.planner.location_sd = self.shared_planner.get_location_sd()
+        self.local_planner.location_xy = self.shared_planner.get_location_xy()
+        self.local_planner.location_sd = self.shared_planner.get_location_sd()
 
         if self.shared_planner.get_replan_dt() > 0:
             log.info(

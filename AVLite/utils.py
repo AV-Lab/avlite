@@ -150,7 +150,7 @@ def load_visualizer_config(data:VisualizerData, filepath: str="configs/c50_visua
     except Exception as e:
         log.error(f"Failed to load visualization configuration: {e}")
 
-def joy_stick_test():
+def joystick_test():
     import pygame
     import time
 

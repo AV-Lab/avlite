@@ -108,15 +108,15 @@ class AsyncThreadedExecuter(BaseExecuter):
 
                 elif dt > self.replan_dt:
                     self.__planner_last_step_time = time.time()
-                    self.planner.replan()
+                    self.local_planner.replan()
                     self.planner_fps = 1.0 / dt
 
                 # with self.lock_controller:
-                self.controller.tj = self.planner.get_local_plan()
+                self.controller.tj = self.local_planner.get_local_plan()
 
                 # with self.lock_world:
                 state = self.world.get_ego_state()
-                self.planner.step(state)
+                self.local_planner.step(state)
 
                 t2 = time.time()
                 log.debug(f"Planner iteration: dt={dt:.3f}s, execution time={t2-t1:.3f}s")

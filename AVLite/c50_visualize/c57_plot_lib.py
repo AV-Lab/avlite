@@ -4,6 +4,7 @@ from c20_plan.c26_lattice import Edge
 from c40_execute.c41_base_executer import BaseExecuter
 from c10_perceive.c12_state import EgoState
 
+from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
@@ -12,7 +13,17 @@ from c20_plan.c27_trajectory import Trajectory
 import logging
 
 log = logging.getLogger(__name__)
-class GlobalPlot:
+
+class GlobalPlot(ABC):
+    @abstractmethod
+    def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+        pass
+
+    @abstractmethod
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        pass
+
+class GlobalRacePlot(GlobalPlot):
     def __init__(self):
         self.fig, self.ax = plt.subplots(1, 1, figsize=(10, 6))
         
@@ -47,7 +58,7 @@ class GlobalPlot:
         self.ax.yaxis.label.set_color(fg_color)
         
         # Set grid color with proper alpha for visibility
-        self.ax.grid(True, color=fg_color, alpha=0.3)
+        self.ax.grid(False, color=fg_color, alpha=0.3)
         
         # Use the same colors as LocalPlot, not black/white specific colors
         self.left_boundary.set_color("orange")
@@ -65,11 +76,12 @@ class GlobalPlot:
         try:
             # Get vehicle location
             vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
+            log.info(f"Plotting vehicle at {vehicle_x}, {vehicle_y}")
             
             # Update boundary and trajectory data
-            self.left_boundary.set_data(exec.planner.ref_left_boundary_x, exec.planner.ref_left_boundary_y)
-            self.right_boundary.set_data(exec.planner.ref_right_boundary_x, exec.planner.ref_right_boundary_y)
-            self.reference_trajectory.set_data(exec.planner.global_trajectory.path_x, exec.planner.global_trajectory.path_y)
+            self.left_boundary.set_data(exec.local_planner.ref_left_boundary_x, exec.local_planner.ref_left_boundary_y)
+            self.right_boundary.set_data(exec.local_planner.ref_right_boundary_x, exec.local_planner.ref_right_boundary_y)
+            self.reference_trajectory.set_data(exec.local_planner.global_trajectory.path_x, exec.local_planner.global_trajectory.path_y)
             self.vehicle_location.set_data([vehicle_x], [vehicle_y])
             
             # Set view limits
@@ -78,10 +90,10 @@ class GlobalPlot:
                 self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
             else:
                 # Calculate auto-zoom to fit all data
-                min_x = min(min(exec.planner.ref_left_boundary_x), min(exec.planner.ref_right_boundary_x), vehicle_x)
-                max_x = max(max(exec.planner.ref_left_boundary_x), max(exec.planner.ref_right_boundary_x), vehicle_x)
-                min_y = min(min(exec.planner.ref_left_boundary_y), min(exec.planner.ref_right_boundary_y), vehicle_y)
-                max_y = max(max(exec.planner.ref_left_boundary_y), max(exec.planner.ref_right_boundary_y), vehicle_y)
+                min_x = min(min(exec.local_planner.ref_left_boundary_x), min(exec.local_planner.ref_right_boundary_x), vehicle_x)
+                max_x = max(max(exec.local_planner.ref_left_boundary_x), max(exec.local_planner.ref_right_boundary_x), vehicle_x)
+                min_y = min(min(exec.local_planner.ref_left_boundary_y), min(exec.local_planner.ref_right_boundary_y), vehicle_y)
+                max_y = max(max(exec.local_planner.ref_left_boundary_y), max(exec.local_planner.ref_right_boundary_y), vehicle_y)
                 
                 padding_x = (max_x - min_x) * 0.1
                 padding_y = (max_y - min_y) * 0.1
@@ -98,6 +110,7 @@ class GlobalPlot:
             
             # Draw
             self.fig.canvas.draw()
+
             
         except Exception as e:
             log.error(f"Error in GlobalPlot.plot: {e}")
@@ -119,7 +132,7 @@ class GlobalPlot:
         self.ax.yaxis.label.set_color(fg_color)
         
         # Set grid color with proper alpha for visibility
-        self.ax.grid(True, color=fg_color, alpha=0.3)
+        self.ax.grid(False, color=fg_color, alpha=0.3)
         
         # Use the same colors as LocalPlot, not black/white specific colors
         self.left_boundary.set_color("orange")
@@ -131,6 +144,16 @@ class GlobalPlot:
         self.fig.canvas.draw()
         
         log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
+
+class GlobalHDMapPlot(GlobalPlot):
+    def __init__(self):
+        pass
+
+    def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+        pass
+    
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        pass
 
 
 class LocalPlot:
@@ -256,8 +279,8 @@ class LocalPlot:
     ):
         self.legend_ax.set_visible(show_legend)
         
-        center_xy = exec.planner.location_xy if global_follow_planner else  (exec.ego_state.x, exec.ego_state.y)
-        center_sd = exec.planner.location_sd if frenet_follow_planner else exec.planner.global_trajectory.convert_xy_to_sd(*center_xy)
+        center_xy = exec.local_planner.location_xy if global_follow_planner else  (exec.ego_state.x, exec.ego_state.y)
+        center_sd = exec.local_planner.location_sd if frenet_follow_planner else exec.local_planner.global_trajectory.convert_xy_to_sd(*center_xy)
         if xy_zoom is not None:
             self.ax1.set_xlim(center_xy[0] - xy_zoom, center_xy[0] + xy_zoom)
             self.ax1.set_ylim(
@@ -272,25 +295,25 @@ class LocalPlot:
 
         if plot_last_pts and num_plot_last_pts > 0:
             self.last_locs_ax1.set_data(
-                exec.planner.traversed_x[-num_plot_last_pts:], exec.planner.traversed_y[-num_plot_last_pts:]
+                exec.local_planner.traversed_x[-num_plot_last_pts:], exec.local_planner.traversed_y[-num_plot_last_pts:]
             )
-            self.planner_loc_ax1.set_data([exec.planner.location_xy[0]], [exec.planner.location_xy[1]])
+            self.planner_loc_ax1.set_data([exec.local_planner.location_xy[0]], [exec.local_planner.location_xy[1]])
 
             self.last_locs_ax2.set_data(
-                exec.planner.traversed_s[-num_plot_last_pts:], exec.planner.traversed_d[-num_plot_last_pts:]
+                exec.local_planner.traversed_s[-num_plot_last_pts:], exec.local_planner.traversed_d[-num_plot_last_pts:]
             )
-            self.planner_loc_ax2.set_data([exec.planner.location_sd[0]], [exec.planner.location_sd[1]])
+            self.planner_loc_ax2.set_data([exec.local_planner.location_sd[0]], [exec.local_planner.location_sd[1]])
         else:
             self.last_locs_ax1.set_data([], [])
             self.planner_loc_ax1.set_data([], [])
             self.last_locs_ax2.set_data([], [])
             self.planner_loc_ax2.set_data([], [])
 
-        self.update_global_plan_plots(exec.planner, plot_global_plan)
-        self.update_lattice_graph_plots(exec.planner, plot_local_lattice)
-        self.update_local_plan_plots(exec.planner, plot_local_plan)
-        self.update_state_plots(exec.ego_state, exec.planner.global_trajectory, plot_state)
-        self.update_perception_model_plots(exec.pm, exec.planner.global_trajectory, plot_perception_model)
+        self.update_global_plan_plots(exec.local_planner, plot_global_plan)
+        self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
+        self.update_local_plan_plots(exec.local_planner, plot_local_plan)
+        self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
+        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model)
         self.redraw_plots()
 
     def redraw_plots(self):

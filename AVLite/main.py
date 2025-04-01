@@ -11,6 +11,7 @@ def get_executer(
     config_path="configs/c20_plan.yaml",
     async_mode=False,
     bridge="Basic",
+    global_planner = "Race Planner",
     source_run=True,
     replan_dt=0.5,
     control_dt=0.05,
@@ -22,6 +23,8 @@ def get_executer(
 
     reload_lib()
     from c10_perceive.c11_base_perception import PerceptionModel
+    from c20_plan.c22_hdmap_global_planner import GlobalHDMapPlanner
+    from c20_plan.c23_race_global_planner import RaceGlobalPlanner
     from c20_plan.c25_sampling_local_planner import RNDPlanner
     from c30_control.c32_pid_controller import PIDController
     from c40_execute.c41_base_executer import BaseExecuter
@@ -31,8 +34,7 @@ def get_executer(
     from c10_perceive.c12_state import EgoState
 
     ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
-
-    # Loading bridge
+# Loading bridge
     if bridge == "Basic":
         world = BasicSim(ego_state=ego_state)
     elif bridge == "Carla":
@@ -44,6 +46,12 @@ def get_executer(
 
     pm = PerceptionModel(ego_state)
 
+
+    if global_planner == "Race Planner":
+        gp = RaceGlobalPlanner() 
+    elif global_planner == "HD Map Planner":
+        gp = GlobalHDMapPlanner()
+
     pl = RNDPlanner(
        global_path=reference_path,
         global_velocity=reference_velocity,
@@ -53,7 +61,7 @@ def get_executer(
     )
     cn = PIDController()
     executer = (
-        BaseExecuter(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
+        BaseExecuter(pm=pm,glob_pl=gp, pl=pl, cn=cn, world=world, replan_dt=replan_dt, control_dt=control_dt)
         if not async_mode
         else AsyncThreadedExecuter(pm, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
     )

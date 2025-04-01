@@ -5,9 +5,11 @@ from tkinter.scrolledtext import ScrolledText
 import sys
 
 import logging
+
 log = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from c50_visualize.c51_visualizer_app import VisualizerApp
 
@@ -69,7 +71,7 @@ class LogView(ttk.LabelFrame):
             command=self.update_log_level,
         )
         self.rb_db_stdout.pack(side=tk.RIGHT)
-        
+
         self.rb_db_warn = ttk.Radiobutton(
             self.controls_frame,
             text="WARN",
@@ -97,12 +99,11 @@ class LogView(ttk.LabelFrame):
         )
         self.rb_db_debug.pack(side=tk.RIGHT)
 
-
         self.log_area = ScrolledText(self, state="disabled", height=12)
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
         self.after(100, self.update_log_level)
-
+        self.after(100, self.update_log_filter)
 
         # -------------------------------------------
         # -------------------------------------------
@@ -120,19 +121,35 @@ class LogView(ttk.LabelFrame):
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         log.info("Log initialized.")
 
-
-
     def update_log_filter(self):
         log.warning(f"show_perceive_logs: {self.root.data.show_perceive_logs.get()}")
         log.info("Log filter updated.")
         # based on blacklist, LogTextHandler will filter out the logs
-        (self.log_blacklist.discard("c10_perceive") if self.root.data.show_perceive_logs.get() else self.log_blacklist.add("c10_perceive"))
-        (self.log_blacklist.discard("c20_plan") if self.root.data.show_plan_logs.get() else self.log_blacklist.add("c20_plan"))
-        (self.log_blacklist.discard("c30_control") if self.root.data.show_control_logs.get() else self.log_blacklist.add("c30_control"))
-        (self.log_blacklist.discard("c40_execute") if self.root.data.show_execute_logs.get() else self.log_blacklist.add("c40_execute"))
-        (self.log_blacklist.discard("c50_visualize") if self.root.data.show_vis_logs.get() else self.log_blacklist.add("c50_visualize"))
-        
-
+        (
+            self.log_blacklist.discard("c10_perceive")
+            if self.root.data.show_perceive_logs.get()
+            else self.log_blacklist.add("c10_perceive")
+        )
+        (
+            self.log_blacklist.discard("c20_plan")
+            if self.root.data.show_plan_logs.get()
+            else self.log_blacklist.add("c20_plan")
+        )
+        (
+            self.log_blacklist.discard("c30_control")
+            if self.root.data.show_control_logs.get()
+            else self.log_blacklist.add("c30_control")
+        )
+        (
+            self.log_blacklist.discard("c40_execute")
+            if self.root.data.show_execute_logs.get()
+            else self.log_blacklist.add("c40_execute")
+        )
+        (
+            self.log_blacklist.discard("c50_visualize")
+            if self.root.data.show_vis_logs.get()
+            else self.log_blacklist.add("c50_visualize")
+        )
 
     def update_log_level(self):
         if self.rb_db_debug.instate(["selected"]):
@@ -157,7 +174,7 @@ class LogView(ttk.LabelFrame):
             self.text_widget = text_widget
             self.log_view = log_view
             self.text_widget.tag_configure("error", foreground="red")
-            # self.text_widget.tag_configure("warning", foreground="yellow") 
+            # self.text_widget.tag_configure("warning", foreground="yellow")
             self.text_widget.tag_configure("warning", foreground="#FFFF00")  # bright yellow
 
         def emit(self, record):
@@ -189,14 +206,14 @@ class LogView(ttk.LabelFrame):
             pass
 
     class StreamToLogger:
-       def __init__(self, logger, log_level=logging.ERROR):
-           self.logger = logger
-           self.log_level = log_level
-           self.linebuf = ''
+        def __init__(self, logger, log_level=logging.ERROR):
+            self.logger = logger
+            self.log_level = log_level
+            self.linebuf = ""
 
-       def write(self, buf):
-           for line in buf.rstrip().splitlines():
-               self.logger.log(self.log_level, line)
+        def write(self, buf):
+            for line in buf.rstrip().splitlines():
+                self.logger.log(self.log_level, line)
 
-       def flush(self):
-           pass
+        def flush(self):
+            pass

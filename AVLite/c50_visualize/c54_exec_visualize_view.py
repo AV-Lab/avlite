@@ -241,6 +241,7 @@ class ExecVisualizeView(ttk.Frame):
 
     def _exec_loop(self):
         if self.root.data.exec_running:
+            current_time = time.time()
             cn_dt = float(self.dt_exec_cn_entry.get())
             pl_dt = float(self.dt_exec_pl_entry.get())
             sim_dt = float(self.root.data.sim_dt.get())
@@ -255,12 +256,15 @@ class ExecVisualizeView(ttk.Frame):
             ),
             self.root.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
             self.root.perceive_plan_control_view.global_tj_wp_entry.insert(
-                0, str(self.root.exec.planner.global_trajectory.next_wp - 1)
+                0, str(self.root.exec.local_planner.global_trajectory.next_wp - 1)
             )
             self.root.update_ui()
 
-            # if not self.root.data.async_exec.get():
-            self.root.after(int(sim_dt * 1000), self._exec_loop)
+            processing_time = time.time() - current_time
+            next_frame_delay = max(0.001, sim_dt - processing_time)  # Ensure positive delay
+
+            # self.root.after(int(sim_dt * 1000), self._exec_loop)
+            self.root.after(int(next_frame_delay * 1000), self._exec_loop)
 
     def stop_exec(self):
         if self.root.data.async_exec.get():
