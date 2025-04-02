@@ -6,8 +6,9 @@ from c50_visualize.c59_data import VisualizerData
 from c50_visualize.c55_log_view import LogView
 from c50_visualize.c56_config_shortcut_view import ConfigShortcutView
 from utils import load_visualizer_config
+    
 import threading
-
+import time
 import tkinter as tk
 from tkinter import ttk
 import logging
@@ -98,6 +99,8 @@ class VisualizerApp(tk.Tk):
         self.bind("<Configure>", __update_column_sizes)
     
     def reload_stack(self):
+        # self.__reload_stack_async()
+        # return
         if not self.is_loading:
             log.info(f"Reloading the code with async_mode: {self.data.async_exec.get()}")
             thread = threading.Thread(target=self.__reload_stack_async)
@@ -106,8 +109,6 @@ class VisualizerApp(tk.Tk):
             self.is_loading = True
             self.disable_frame(self.exec_visualize_view.execution_frame)
         
-            # self.global_plan_plot_view.update_plot_type()
-            # self.after(100, self.global_plan_plot_view.update_plot_type)
 
     def __reload_stack_async(self):
         try:
@@ -208,6 +209,7 @@ class VisualizerApp(tk.Tk):
 
     
     def update_ui(self):
+        t1 = time.time()
         self.local_plan_plot_view.plot() 
         if self.data.global_plan_view.get():
             self.global_plan_plot_view.plot()
@@ -249,3 +251,5 @@ class VisualizerApp(tk.Tk):
                 self.data.disable_log.set(False)
                 self.data.log_level.set("INFO")
                 self.log_view.update_log_level()
+
+        log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")

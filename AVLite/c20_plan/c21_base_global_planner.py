@@ -11,9 +11,11 @@ class GlobalPlan:
     start: tuple[float, float] = (0.0, 0.0)
     goal: tuple[float, float] = (0.0, 0.0)
     path: list[tuple[float, float]] = field(default_factory=list)
-    velocity_profile: list[float] = field(default_factory=list)
+    velocity: list[float] = field(default_factory=list)
     left_boundary_d: list[float] = field(default_factory=list)
     right_boundary_d: list[float] = field(default_factory=list)
+    left_boundary_path: list[tuple[float, float]] = field(default_factory=list)
+    right_boundary_path: list[tuple[float, float]] = field(default_factory=list)
 
 class BaseGlobalPlanner(ABC):
     global_plan: GlobalPlan

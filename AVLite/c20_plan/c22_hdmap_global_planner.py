@@ -5,7 +5,9 @@ import numpy as np
 import networkx as nx
 from scipy.interpolate import CubicSpline
 from c20_plan.c21_base_global_planner import BaseGlobalPlanner, GlobalPlan
+import logging
 
+log = logging.getLogger(__name__)
 
 class GlobalHDMapPlanner(BaseGlobalPlanner):
     """
@@ -16,7 +18,7 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
       4. Returns a smooth path and a simple velocity profile.
     """
 
-    def __init__(self, xodr_file=None, sampling_resolution=1.0):
+    def __init__(self, xodr_file, sampling_resolution=1.0):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
@@ -26,10 +28,11 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
 
         # Directed graph of (x, y) nodes, edges store distance
         self.graph = nx.DiGraph()
+        log.info(f"Loading HD Map: {xodr_file}")
 
         # Parse the roads & build the graph
-        if xodr_file:
-            self._parse_opendrive()
+        self._parse_opendrive()
+
 
     def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
         pass

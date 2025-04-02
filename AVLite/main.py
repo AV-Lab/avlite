@@ -8,11 +8,12 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 def get_executer(
     config_path="configs/c20_plan.yaml",
     async_mode=False,
     bridge="Basic",
-    global_planner = PlannerType.RACE_PLANNER.value,
+    global_planner=PlannerType.RACE_PLANNER.value,
     source_run=True,
     replan_dt=0.5,
     control_dt=0.05,
@@ -35,26 +36,26 @@ def get_executer(
     from c10_perceive.c12_state import EgoState
 
     ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
-# Loading bridge
+    # Loading bridge
     if bridge == "Basic":
         world = BasicSim(ego_state=ego_state)
     elif bridge == "Carla":
         print("Loading Carla bridge...")
         from c40_execute.c45_carla_bridge import CarlaBridge
+
         world = CarlaBridge(ego_state=ego_state)
     elif bridge == "ROS":
         raise NotImplementedError("ROS bridge not implemented")
 
     pm = PerceptionModel(ego_state)
 
-
     if global_planner == PlannerType.RACE_PLANNER.value:
-        gp = RaceGlobalPlanner() 
+        gp = RaceGlobalPlanner()
     elif global_planner == PlannerType.HD_MAP_PLANNER.value:
-        gp = GlobalHDMapPlanner()
+        gp = GlobalHDMapPlanner(xodr_file=config_data["hd_map"])
 
     pl = RNDPlanner(
-       global_path=reference_path,
+        global_path=reference_path,
         global_velocity=reference_velocity,
         ref_left_boundary_d=ref_left_boundary_d,
         ref_right_boundary_d=ref_right_boundary_d,
@@ -62,9 +63,11 @@ def get_executer(
     )
     cn = PIDController()
     executer = (
-        BaseExecuter(pm=pm,glob_pl=gp, pl=pl, cn=cn, world=world, replan_dt=replan_dt, control_dt=control_dt)
+        BaseExecuter(pm=pm, glob_pl=gp, pl=pl, cn=cn, world=world, replan_dt=replan_dt, control_dt=control_dt)
         if not async_mode
-        else AsyncThreadedExecuter(pm=pm, glob_pl=gp, pl=pl, cn=cn, world=world, replan_dt=replan_dt, control_dt=control_dt)
+        else AsyncThreadedExecuter(
+            pm=pm, glob_pl=gp, pl=pl, cn=cn, world=world, replan_dt=replan_dt, control_dt=control_dt
+        )
     )
 
     return executer
@@ -83,10 +86,8 @@ if __name__ == "__main__":
     import os
 
     if platform.system() == "Linux":
-        # Linux-specific code
         os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
     else:
-
         import ctypes
 
         try:  # >= win 8.
