@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
+import networkx as nx
 
 from c20_plan.c27_trajectory import Trajectory
 import logging
@@ -73,6 +74,7 @@ class GlobalRacePlot(GlobalPlot):
         
     def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Update the plot with current data"""
+        log.debug("Plotting Race Global Plot")
         try:
             # Get vehicle location
             vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
@@ -145,14 +147,115 @@ class GlobalRacePlot(GlobalPlot):
         log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
 
 class GlobalHDMapPlot(GlobalPlot):
-    def __init__(self):
-        pass
+    def __init__(self, exec: BaseExecuter, figsize=(10, 8), show_arrows=True, road_colors=None):
+        self.fig, self.ax = plt.subplots(figsize=figsize)
+        self.show_arrows = show_arrows
+        self.road_colors = road_colors
+        self.exec = exec
+        
+        # Set initial properties
+        self.ax.set_title("HD Map Road Network")
+        self.ax.set_aspect('equal')  # Equal aspect ratio
+        self.fig.tight_layout()
+        
+        # Draw the initial plot
+        # self.update_plot(exec)
+        
+    def update_plot(self, exec: BaseExecuter):
+        """Update the plot with current data"""
+        # Clear previous plot
+        self.ax.clear()
+        self.graph = self.exec.global_planner.graph
+        
+        # Extract node positions (they are already x,y coordinates)
+        pos = {node: node for node in self.graph.nodes()}
+        
+        # Draw nodes
+        nx.draw_networkx_nodes(self.graph, pos, ax=self.ax, node_size=5, node_color='blue', alpha=0.6)
+        
+        # Group edges by road for consistent coloring
+        if self.road_colors is None:
+            road_edges = {}
+            for u, v, data in self.graph.edges(data=True):
+                road_id = data.get('road', 'unknown')
+                if road_id not in road_edges:
+                    road_edges[road_id] = []
+                road_edges[road_id].append((u, v))
+                
+            # Draw edges with different colors for different roads
+            for i, (road_id, edges) in enumerate(road_edges.items()):
+                color = plt.cm.tab10(i % 10)  # Cycle through 10 colors
+                nx.draw_networkx_edges(self.graph, pos, ax=self.ax, edgelist=edges, 
+                                    width=1, alpha=0.5, edge_color=color, 
+                                    arrows=self.show_arrows, arrowsize=8)
+        else:
+            # Use provided color mapping
+            for road_id, color in self.road_colors.items():
+                edges = [(u, v) for u, v, data in self.graph.edges(data=True) 
+                        if data.get('road') == road_id]
+                nx.draw_networkx_edges(self.graph, pos, ax=self.ax, edgelist=edges, 
+                                    width=1, alpha=0.5, edge_color=color,
+                                    arrows=self.show_arrows, arrowsize=8)
+        
+        # Add vehicle location if available
+        if hasattr(exec, 'ego_state'):
+            self.ax.plot(exec.ego_state.x, exec.ego_state.y, 'ro', markersize=10, label="Vehicle Location")
+            
+        self.ax.set_title("HD Map Road Network")
+        self.ax.set_aspect('equal')  # Equal aspect ratio
+        
+        # Apply redraw
+        self.fig.canvas.draw()
 
     def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
-        pass
+        """Implement the abstract method from GlobalPlot"""
+        log.debug("Plotting HD Map")
+        try:
+            # Update the plot with current data
+            self.update_plot(exec)
+            
+            # Set view limits if zoom is specified
+            if zoom is not None and follow_vehicle:
+                vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
+                self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
+                self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
+            
+            # Update legend visibility
+            if show_legend:
+                self.ax.legend()
+            else:
+                if self.ax.get_legend() is not None:
+                    self.ax.get_legend().remove()
+                    
+        except Exception as e:
+            log.error(f"Error in GlobalHDMapPlot.plot: {e}")
+            import traceback
+            log.error(traceback.format_exc())
     
     def set_plot_theme(self, bg_color="white", fg_color="black"):
-        pass
+        """Set the plot theme colors"""
+        # Apply background color
+        self.fig.set_facecolor(bg_color)
+        self.ax.set_facecolor(bg_color)
+        
+        # Set axis, ticks, and label colors
+        for spine in self.ax.spines.values():
+            spine.set_edgecolor(fg_color)
+        
+        self.ax.tick_params(axis="both", colors=fg_color)
+        self.ax.xaxis.label.set_color(fg_color)
+        self.ax.yaxis.label.set_color(fg_color)
+        self.ax.title.set_color(fg_color)
+        
+        # Set grid color with proper alpha for visibility
+        self.ax.grid(False, color=fg_color, alpha=0.3)
+            
+        # Apply redraw
+        self.fig.canvas.draw()
+        
+        log.debug(f"HD Map plot theme set to {bg_color} background and {fg_color} foreground.")
+
+        
 
 
 class LocalPlot:

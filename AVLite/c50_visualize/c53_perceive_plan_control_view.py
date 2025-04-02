@@ -5,6 +5,7 @@ import time
 from typing import TYPE_CHECKING
 from c30_control.c31_base_controller import ControlComand
 from c50_visualize.c58_ui_lib import ValueGauge
+from c20_plan.c21_base_global_planner import PlannerType
 import logging
 
 if TYPE_CHECKING:
@@ -51,10 +52,11 @@ class PerceivePlanControlView(ttk.Frame):
             variable=self.root.data.global_plan_view,
         ).pack(side=tk.LEFT)
         self.dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.data.global_planner_type, width=10)
-        self.dropdown_menu["values"] = ("Race Planner", "HD Map Planner")
+        self.dropdown_menu["values"] = tuple([pt.value for pt in PlannerType])
         self.dropdown_menu.state(["readonly"])
         self.dropdown_menu.current(0)  # Set default selection
         self.dropdown_menu.pack(side=tk.LEFT)
+        self.dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
 
         ttk.Button(global_frame, text="Global Replan").pack(side=tk.LEFT, fill=tk.X, expand=True)
 
@@ -165,6 +167,13 @@ class PerceivePlanControlView(ttk.Frame):
         self.global_tj_wp_entry.delete(0, tk.END)
         self.global_tj_wp_entry.insert(0, str(self.root.exec.local_planner.global_trajectory.next_wp - 1))
         self.root.update_ui()
+    
+    def __on_dropdown_change(self, event):
+        log.debug(f"Dropdown changed to: {self.root.data.global_planner_type.get()}")
+        self.root.reload_stack()
+        # self.after(100,self.root.global_plan_plot_view.update_plot_type )
+        self.root.global_plan_plot_view.update_plot_type()
+        
 
     # --------------------------------------------------------------------------------------------
     # -Control------------------------------------------------------------------------------------

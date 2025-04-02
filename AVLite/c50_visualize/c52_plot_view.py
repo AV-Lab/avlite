@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from c20_plan.c23_race_global_planner import RaceGlobalPlanner
 from c20_plan.c22_hdmap_global_planner import GlobalHDMapPlanner
+from c20_plan.c21_base_global_planner import PlannerType
 from c50_visualize.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 
 import tkinter as tk
@@ -41,6 +42,7 @@ class GlobalPlanPlotView(ttk.Frame):
 
 
     def plot(self):
+        t1 = time.time()
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()
@@ -57,6 +59,8 @@ class GlobalPlanPlotView(ttk.Frame):
             follow_vehicle=self.root.data.global_view_follow_planner.get()
         )
         
+        log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
+        
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         """Apply theme to the global plot"""
         self.global_plot.set_plot_theme(bg_color, fg_color)
@@ -65,11 +69,11 @@ class GlobalPlanPlotView(ttk.Frame):
 
     def update_plot_type(self):
         """Update the plot type based on the selected global planner"""
-        if isinstance(self.root.exec.global_planner, RaceGlobalPlanner):
+        if self.root.data.global_planner_type.get() == PlannerType.RACE_PLANNER.value:
             self.global_plot = GlobalRacePlot()
             log.debug("Global Plot type changed to Race Plot.")
-        elif isinstance(self.root.exec.global_planner, GlobalHDMapPlanner):
-            self.global_plot = GlobalHDMapPlot()
+        elif self.root.data.global_planner_type.get() == PlannerType.HD_MAP_PLANNER.value:
+            self.global_plot = GlobalHDMapPlot(self.root.exec)
             log.debug("Global Plot type changed to HD Map Plot.")
         self.plot()
 
@@ -190,4 +194,4 @@ class LocalPlanPlotView(ttk.Frame):
             frenet_follow_planner=self.root.data.frenet_view_follow_planner.get(),
         )
         self.canvas.draw()
-        log.debug(f"Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
+        log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")

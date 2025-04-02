@@ -241,6 +241,7 @@ class ExecVisualizeView(ttk.Frame):
 
     def _exec_loop(self):
         if self.root.data.exec_running:
+            t1 = time.time()
             current_time = time.time()
             cn_dt = float(self.dt_exec_cn_entry.get())
             pl_dt = float(self.dt_exec_pl_entry.get())
@@ -263,6 +264,7 @@ class ExecVisualizeView(ttk.Frame):
             processing_time = time.time() - current_time
             next_frame_delay = max(0.001, sim_dt - processing_time)  # Ensure positive delay
 
+            log.debug(f"Processing Time: {int(processing_time*1000):3d} ms")
             # self.root.after(int(sim_dt * 1000), self._exec_loop)
             self.root.after(int(next_frame_delay * 1000), self._exec_loop)
 
