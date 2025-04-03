@@ -108,6 +108,7 @@ class VisualizerApp(tk.Tk):
             thread.start()
             self.is_loading = True
             self.disable_frame(self.exec_visualize_view.execution_frame)
+            
         
 
     def __reload_stack_async(self):

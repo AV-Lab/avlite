@@ -2,9 +2,11 @@ from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from enum import Enum
 
+
 class PlannerType(Enum):
     RACE_PLANNER = "Race Planner"
-    HD_MAP_PLANNER = "HD Map Planner"
+    HD_MAP_PLANNER = "HD Map Plannr"
+
 
 @dataclass
 class GlobalPlan:
@@ -19,6 +21,7 @@ class GlobalPlan:
 
 class BaseGlobalPlanner(ABC):
     global_plan: GlobalPlan
+    registry = {}
 
     def __init__(self):
         pass
@@ -26,3 +29,11 @@ class BaseGlobalPlanner(ABC):
     @abstractmethod
     def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
         pass
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:  # only register non-abstract subclasses
+            BaseGlobalPlanner.registry[cls.__name__] = cls
+
+
+

@@ -15,21 +15,19 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class Node:
-    def __init__(self, s=0, d=0, x=0, y=0, d_1st_derv=0, d_2nd_derv=0):
-        self.s: float = s
-        self.d: float = d
-        self.x: float = x
-        self.y: float = y
-        self.x_1st_derv: float = 0
-        self.y_1st_derv: float = 0
-        self.x_2nd_derv: float = 0
-        self.y_2nd_derv: float = 0
-        self.d_1st_derv: float = d_1st_derv
-        self.d_2nd_derv: float = d_2nd_derv
+    s: float = 0
+    d: float = 0
+    x: float = 0
+    y: float = 0
+    x_1st_derv: float = 0
+    y_1st_derv: float = 0
+    x_2nd_derv: float = 0
+    y_2nd_derv: float = 0
+    d_1st_derv: float = 0
+    d_2nd_derv: float = 0
 
     def __eq__(self, other):
         tol = 1e-9
-
         return (
             math.isclose(self.s, other.s, abs_tol=tol)
             and math.isclose(self.d, other.d, abs_tol=tol)
@@ -59,84 +57,52 @@ class Node:
             )
         )
 
-    def __repr__(self):
-        return (
-            f"Node(s={self.s}, d={self.d}, x={self.x}, y={self.y}, "
-            f"x_1st_derv={self.x_1st_derv}, y_1st_derv={self.y_1st_derv}, "
-            f"x_2nd_derv={self.x_2nd_derv}, y_2nd_derv={self.y_2nd_derv}, "
-            f"d_1st_derv={self.d_1st_derv}, d_2nd_derv={self.d_2nd_derv})"
-        )
-
-
+@dataclass
 class Edge:
     start: Node
     end: Node
-    local_trajectory: Trajectory
-    selected_next_local_plan: Optional["Edge"]
-    next_edges: list["Edge"] = field(default_factory=list["Edge"])
+    global_tj: Trajectory
     num_of_points: int = 30
+    local_trajectory: Optional[Trajectory] = None
+    selected_next_local_plan: Optional[Trajectory] = None
+    next_edges: list["Edge"] = field(default_factory=list)
     collision: bool = False
     cost: float = 0
     risk: float = 0
-
-    def __init__(self, start: Node, end: Node, global_tj: Trajectory, num_of_points=30):
-        local_trajectory = global_tj.create_quintic_trajectory_sd(
-            s_start=start.s,
-            d_start=start.d,
-            s_end=end.s,
-            d_end=end.d,
-            num_points=num_of_points,
-            start_d_1st_derv=start.d_1st_derv,
-            start_d_2nd_derv=start.d_2nd_derv,
+    
+    def __post_init__(self):
+        # Create the local trajectory during initialization
+        self.local_trajectory = self.global_tj.create_quintic_trajectory_sd(
+            s_start=self.start.s,
+            d_start=self.start.d,
+            s_end=self.end.s,
+            d_end=self.end.d,
+            num_points=self.num_of_points,
+            start_d_1st_derv=self.start.d_1st_derv,
+            start_d_2nd_derv=self.start.d_2nd_derv,
         )
-        self.start = start
-        self.end = end
-        self.local_trajectory = local_trajectory
-        self.selected_next_local_plan = None
-        self.next_edges = []
-        self.num_of_points = num_of_points
 
     def __str__(self):
         return f"Edge: {self.start} -> {self.end}"
 
 
+@dataclass
 class Lattice:
     """
     Lattice class to generate lattice from sample_nodes
     """
-
-    global_tj: Trajectory
-    num_of_points: int
-    planning_horizon: int
-    nodes: list[Node]
-    edges: list[Edge]
-    level0_edges: list[Edge]
-    lattice_nodes_by_level: Dict[int, list]
-    incoming_edges: Dict[Node, list]
-    outgoing_edges: Dict[Node, list]
-    targetted_num_edges: int
-
-    def __init__(
-        self,
-        global_tj: Trajectory,
-        ref_left_boundary_d: list,
-        ref_right_boundary_d: list,
-        planning_horizon=5,
-        num_of_points=30,
-    ):
-        self.global_trajectory = global_tj
-        self.num_of_points = num_of_points
-        self.planning_horizon = planning_horizon  # number of levels in the lattice
-        self.__ref_left_boundary_d = ref_left_boundary_d
-        self.__ref_right_boundary_d = ref_right_boundary_d
-
-        self.nodes = []
-        self.edges = []
-        self.level0_edges = []
-
-        self.lattice_nodes_by_level = defaultdict(list)  # key is level, value is list of nodes
-        self.incoming_edges = defaultdict(list)  # key is node, value is incoming edge
-        self.outgoing_edges = defaultdict(list)  # key is node, value is incoming edge
+    global_trajectory: Trajectory
+    ref_left_boundary_d: list
+    ref_right_boundary_d: list
+    planning_horizon: int = 5
+    num_of_points: int = 30
+    nodes: list[Node] = field(default_factory=list)
+    edges: list[Edge] = field(default_factory=list)
+    level0_edges: list[Edge] = field(default_factory=list)
+    lattice_nodes_by_level: Dict[int, list] = field(default_factory=lambda: defaultdict(list))
+    incoming_edges: Dict[Node, list] = field(default_factory=lambda: defaultdict(list))
+    outgoing_edges: Dict[Node, list] = field(default_factory=lambda: defaultdict(list))
+    targetted_num_edges: int = 0
 
     def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance, orientation=0):
         s1_ = s
@@ -160,8 +126,8 @@ class Lattice:
             for _ in np.arange(sample_size - 1):
                 target_wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
                 d1_ = np.random.uniform(
-                    self.__ref_left_boundary_d[target_wp] - boundary_clearance,
-                    self.__ref_right_boundary_d[target_wp] + boundary_clearance,
+                    self.ref_left_boundary_d[target_wp] - boundary_clearance,
+                    self.ref_right_boundary_d[target_wp] + boundary_clearance,
                 )
                 x, y = self.global_trajectory.convert_sd_to_xy(s1_, d1_)
                 n_ = Node(s1_, d1_, x, y)
@@ -192,4 +158,3 @@ class Lattice:
         self.level0_edges.clear()
         self.nodes.clear()
         self.edges.clear()
-

@@ -1,21 +1,11 @@
+import logging
 from typing import Optional
 import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
-import numpy as np
-
-
-# from icecream import ic
-import logging
 
 log = logging.getLogger(__name__)
 
-def check_initialized(func):
-    def wrapper(self, *args, **kwargs):
-        if not self.is_initialized:
-            raise ValueError("Trajectory not initialized")
-        return func(self, *args, **kwargs)
-    return wrapper
 
 class Trajectory:
     """
@@ -90,7 +80,7 @@ class Trajectory:
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
 
 
-    @check_initialized
+    
     def get_current_xy(self) -> tuple[float, float]:
         """
         Returns the current X and Y coordinates.

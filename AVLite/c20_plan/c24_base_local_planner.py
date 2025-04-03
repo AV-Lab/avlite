@@ -29,6 +29,7 @@ class BaseLocalPlanner(ABC):
     selected_local_plan: Optional[Edge]
     planning_horizon: int
     num_of_edge_points: int
+    registry = {}
 
     __replan_dt:float=0 # used during execution
 
@@ -76,6 +77,10 @@ class BaseLocalPlanner(ABC):
             num_of_points=self.num_of_edge_points,
         )
 
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:  # only register non-abstract subclasses
+            BaseLocalPlanner.registry[cls.__name__] = cls
 
     def reset(self, wp=0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
