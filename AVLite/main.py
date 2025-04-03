@@ -1,5 +1,7 @@
 from c50_visualize.c51_visualizer_app import VisualizerApp
 from c20_plan.c21_base_global_planner import PlannerType
+from c40_execute.c41_base_executer import BaseExecuter
+from c40_execute.c43_async_threaded_executer import AsyncThreadedExecuter
 from utils import load_config, reload_lib
 
 import numpy as np
@@ -17,7 +19,7 @@ def get_executer(
     source_run=True,
     replan_dt=0.5,
     control_dt=0.05,
-):
+) -> (BaseExecuter | AsyncThreadedExecuter):
 
     reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d, config_data = load_config(
         config_path=config_path, source_run=source_run
@@ -37,15 +39,16 @@ def get_executer(
 
     ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
     # Loading bridge
-    if bridge == "Basic":
-        world = BasicSim(ego_state=ego_state)
-    elif bridge == "Carla":
+    if bridge == "Carla":
         print("Loading Carla bridge...")
         from c40_execute.c45_carla_bridge import CarlaBridge
 
         world = CarlaBridge(ego_state=ego_state)
     elif bridge == "ROS":
         raise NotImplementedError("ROS bridge not implemented")
+    else:
+        world = BasicSim(ego_state=ego_state)
+
 
     pm = PerceptionModel(ego_state)
 

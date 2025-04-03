@@ -3,6 +3,7 @@ from c20_plan.c24_base_local_planner import BaseLocalPlanner
 from c20_plan.c21_base_global_planner import BaseGlobalPlanner
 from c30_control.c31_base_controller import BaseController, ControlComand
 from c10_perceive.c12_state import EgoState
+from  c20_plan.c21_base_global_planner import PlannerTypeEnum
 
 from abc import ABC, abstractmethod
 
@@ -92,9 +93,11 @@ class BaseExecuter:
         call_replan=True,
         call_control=True,
         call_perceive=True,
-    ):
+        ) -> None:
+        log.info("Global Plan Registry %s",  BaseGlobalPlanner.registry.keys())
         pln_time_txt, cn_time_txt, sim_time_txt = "", "", ""
         t0 = time.time()
+
         if call_replan:
             dt_p = self.elapsed_sim_time - self.__planner_last_time
             if dt_p >= replan_dt:
