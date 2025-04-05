@@ -1,5 +1,5 @@
-from c10_perceive.c12_state import EgoState
-from c20_plan.c27_trajectory import Trajectory
+from c10_perception.c12_state import EgoState
+from c20_planning.c27_trajectory import Trajectory
 from c30_control.c31_base_controller import BaseController, ControlComand
 import numpy as np
 import copy
