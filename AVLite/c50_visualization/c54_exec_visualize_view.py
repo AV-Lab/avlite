@@ -32,32 +32,32 @@ class ExecVisualizeView(ttk.Frame):
         exec_third_frame.pack(fill=tk.X)
 
         ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_cn_entry = ttk.Entry(
+        dt_control_entry = ttk.Entry(
             exec_first_frame,
             textvariable=self.root.setting.control_dt,
-            validatecommand=self.root.validate_float_input,
             width=5,
         )
         # self.dt_exec_cn_entry.insert(0, "0.02")
-        self.dt_exec_cn_entry.pack(side=tk.LEFT)
+        dt_control_entry.pack(side=tk.LEFT)
+        dt_control_entry.bind("<Return>", self.text_on_enter)
 
         ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        self.dt_exec_pl_entry = ttk.Entry(
+        dt_plan_entry = ttk.Entry(
             exec_first_frame,
             textvariable=self.root.setting.replan_dt,
-            validatecommand=self.root.validate_float_input,
             width=5,
         )
-        # self.dt_exec_pl_entry.insert(0, "1.7")
-        self.dt_exec_pl_entry.pack(side=tk.LEFT)
+        dt_plan_entry.pack(side=tk.LEFT)
+        dt_plan_entry.bind("<Return>", self.text_on_enter)
 
         ttk.Label(exec_first_frame, text="Sim Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        ttk.Entry(
+        sim_dt=ttk.Entry(
             exec_first_frame,
             textvariable=self.root.setting.sim_dt,
-            validatecommand=self.root.validate_float_input,
             width=5,
-        ).pack(side=tk.LEFT)
+        )
+        sim_dt.pack(side=tk.LEFT)
+        sim_dt.bind("<Return>", self.text_on_enter)
 
         self.asyc_exec_cb = ttk.Checkbutton(
             exec_first_frame,
@@ -229,6 +229,12 @@ class ExecVisualizeView(ttk.Frame):
     # --------------------------------------------------------------------------------------------
     # -SIM----------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------
+    def text_on_enter(self, event):
+        widget = event.widget  # Get the widget that triggered the event
+        text = widget.get()    # Retrieve the text from the widget
+        self.root.validate_float_input(text)  # Validate the input
+        log.debug("Text entered: %s", text)
+        widget.tk_focusNext().focus_set()  # Move focus to the next widget
 
     def toggle_exec(self):
         if self.root.setting.exec_running:
@@ -243,8 +249,8 @@ class ExecVisualizeView(ttk.Frame):
         if self.root.setting.exec_running:
             t1 = time.time()
             current_time = time.time()
-            cn_dt = float(self.dt_exec_cn_entry.get())
-            pl_dt = float(self.dt_exec_pl_entry.get())
+            cn_dt = float(self.root.setting.control_dt.get())
+            pl_dt = float(self.root.setting.replan_dt.get())
             sim_dt = float(self.root.setting.sim_dt.get())
 
             self.root.exec.step(
@@ -255,10 +261,6 @@ class ExecVisualizeView(ttk.Frame):
                 call_control=self.root.setting.exec_control.get(),
                 call_perceive=self.root.setting.exec_perceive.get(),
             ),
-            self.root.perceive_plan_control_view.global_tj_wp_entry.delete(0, tk.END)
-            self.root.perceive_plan_control_view.global_tj_wp_entry.insert(
-                0, str(self.root.exec.local_planner.global_trajectory.next_wp - 1)
-            )
             self.root.update_ui()
 
             processing_time = time.time() - current_time
@@ -278,8 +280,8 @@ class ExecVisualizeView(ttk.Frame):
         self.root.setting.exec_running = False
 
     def step_exec(self):
-        cn_dt = float(self.dt_exec_cn_entry.get())
-        pl_dt = float(self.dt_exec_pl_entry.get())
+        cn_dt = float(self.root.setting.control_dt.get())
+        pl_dt = float(self.root.setting.replan_dt.get())
         self.root.exec.step(
             control_dt=cn_dt,
             replan_dt=pl_dt,

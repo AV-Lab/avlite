@@ -258,7 +258,7 @@ class GlobalHDMapPlot(GlobalPlot):
         
 
 
-class LocalPlot:
+class BaseExecPlot:
     def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12):
         self.MAX_LATTICE_SIZE = max_lattice_size
         self.MAX_PLAN_LENGTH = max_plan_length
