@@ -197,7 +197,7 @@ class VisualizerApp(tk.Tk):
             elif isinstance(child, (ttk.LabelFrame, ttk.Frame, tk.Frame)):
                 self.enable_frame(child)
 
-    def validate_float_input(self, user_input):
+    def validate_float_input(self, user_input:str):
         if user_input == "" or user_input == "-":
             return True
         try:

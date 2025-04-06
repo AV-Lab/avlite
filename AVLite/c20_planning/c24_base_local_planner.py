@@ -78,7 +78,7 @@ class BaseLocalPlanner(ABC):
 
 
 
-    def reset(self, wp=0):
+    def reset(self, wp:int=0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
         self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[wp]], [self.global_trajectory.path_d[wp]]
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])

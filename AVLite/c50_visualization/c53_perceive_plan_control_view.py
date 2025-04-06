@@ -56,12 +56,12 @@ class PerceivePlanControlView(ttk.Frame):
             command=self.root.toggle_plan_view,
             variable=self.root.setting.global_plan_view,
         ).pack(side=tk.LEFT)
-        self.global_planner_dropdown_menu = ttk.Combobox(
+        global_planner_dropdown_menu = ttk.Combobox(
             global_frame, textvariable=self.root.setting.global_planner_type, width=10)
-        self.global_planner_dropdown_menu["values"] = tuple(BaseGlobalPlanner.registry.keys())
-        self.global_planner_dropdown_menu.state(["readonly"])
-        self.global_planner_dropdown_menu.pack(side=tk.LEFT)
-        self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>",
+        global_planner_dropdown_menu["values"] = tuple(BaseGlobalPlanner.registry.keys())
+        global_planner_dropdown_menu.state(["readonly"])
+        global_planner_dropdown_menu.pack(side=tk.LEFT)
+        global_planner_dropdown_menu.bind("<<ComboboxSelected>>",
                                 self.__on_dropdown_change)
 
         ttk.Button(global_frame, text="Global Replan").pack(
@@ -77,18 +77,20 @@ class PerceivePlanControlView(ttk.Frame):
             variable=self.root.setting.local_plan_view,
         ).pack(side=tk.LEFT)
 
-        self.local_planner_dropdown_menu = ttk.Combobox(
+        local_planner_dropdown_menu = ttk.Combobox(
             wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
-        self.local_planner_dropdown_menu["values"] = tuple(BaseLocalPlanner.registry.keys())
-        self.local_planner_dropdown_menu.pack(side=tk.LEFT)
-        self.local_planner_dropdown_menu.bind("<<ComboboxSelected>>",
+        local_planner_dropdown_menu["values"] = tuple(BaseLocalPlanner.registry.keys())
+        local_planner_dropdown_menu.state(["readonly"])
+        local_planner_dropdown_menu.pack(side=tk.LEFT)
+        local_planner_dropdown_menu.bind("<<ComboboxSelected>>",
                                 self.__on_dropdown_change)
 
         ttk.Button(wp_frame, text="Set Waypoint",
                    command=self.set_waypoint).pack(side=tk.LEFT)
-        self.global_tj_wp_entry = ttk.Entry(
+        global_tj_wp_entry = ttk.Entry(
             wp_frame, width=6, textvariable=self.root.setting.current_wp)
-        self.global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
+        global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
+        global_tj_wp_entry.bind("<Return>", self.text_on_enter)
         ttk.Label(wp_frame, text=f"{len(self.root.exec.local_planner.global_trajectory.path_x)-1}").pack(
             side=tk.LEFT, padx=5
         )
@@ -188,8 +190,16 @@ class PerceivePlanControlView(ttk.Frame):
     # --------------------------------------------------------------------------------------------
 
     def set_waypoint(self):
-        timestep_value = int(self.global_tj_wp_entry.get())
-        self.root.exec.local_planner.reset(wp=timestep_value)
+        self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
+        self.root.update_ui()
+    
+    def text_on_enter(self, event):
+        widget = event.widget  # Get the widget that triggered the event
+        text = widget.get()    # Retrieve the text from the widget
+        self.root.validate_float_input(text)  # Validate the input
+        log.debug("Text entered: %s", text)
+        widget.tk_focusNext().focus_set()  # Move focus to the next widget
+        self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
         self.root.update_ui()
 
     def replan(self):
@@ -204,9 +214,7 @@ class PerceivePlanControlView(ttk.Frame):
         t1 = time.time()
         self.root.exec.local_planner.step_wp()
         log.info(f"Plan Step Time: {(time.time()-t1)*1000:.2f} ms")
-        self.global_tj_wp_entry.delete(0, tk.END)
-        self.global_tj_wp_entry.insert(
-            0, str(self.root.exec.local_planner.global_trajectory.next_wp - 1))
+        self.root.setting.current_wp.set(str(self.root.exec.local_planner.global_trajectory.next_wp - 1))
         self.root.update_ui()
 
     def __on_dropdown_change(self, event):

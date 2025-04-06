@@ -3,7 +3,7 @@ from __future__ import annotations
 from c20_planning.c23_race_global_planner import RaceGlobalPlanner
 from c20_planning.c22_hdmap_global_planner import GlobalHDMapPlanner
 from c20_planning.c21_base_global_planner import PlannerType
-from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
+from c50_visualization.c57_plot_lib import BaseExecPlot, GlobalRacePlot, GlobalHDMapPlot
 
 import tkinter as tk
 from tkinter import ttk
@@ -84,7 +84,7 @@ class LocalPlanPlotView(ttk.Frame):
         self.root = root
 
 
-        self.local_plot = LocalPlot(max_lattice_size=self.root.exec.local_planner.lattice.targetted_num_edges)
+        self.local_plot = BaseExecPlot(max_lattice_size=self.root.exec.local_planner.lattice.targetted_num_edges)
         self.fig = self.local_plot.fig
         self.ax1 = self.local_plot.ax1
         self.ax2 = self.local_plot.ax2
