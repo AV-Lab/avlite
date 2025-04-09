@@ -27,7 +27,6 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
         self.sampling_resolution = sampling_resolution
 
         # Directed graph of (x, y) nodes, edges store distance
-        self.graph = nx.DiGraph()
         log.info(f"Loading HD Map: {xodr_file}")
 
         # Parse the roads & build the graph

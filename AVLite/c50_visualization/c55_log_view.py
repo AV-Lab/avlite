@@ -23,45 +23,47 @@ class LogView(ttk.LabelFrame):
         self.controls_frame = ttk.Frame(self)
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
 
-        self.ck_perceive = ttk.Checkbutton(
+        ttk.Checkbutton(
             self.controls_frame,
-            text="Perceive",
+            text="Perception",
             variable=self.root.setting.show_perceive_logs,
             command=self.update_log_filter,
-        )
-        self.ck_perceive.pack(side=tk.LEFT)
+        ).pack(side=tk.LEFT)
 
-        self.ck_plan = ttk.Checkbutton(
+        ttk.Checkbutton(
             self.controls_frame,
-            text="Plan",
+            text="Planning",
             variable=self.root.setting.show_plan_logs,
             command=self.update_log_filter,
-        )
-        self.ck_plan.pack(side=tk.LEFT)
+        ).pack(side=tk.LEFT)
 
-        self.ck_control = ttk.Checkbutton(
+        ttk.Checkbutton(
             self.controls_frame,
             text="Control",
             variable=self.root.setting.show_control_logs,
             command=self.update_log_filter,
-        )
-        self.ck_control.pack(side=tk.LEFT)
+        ).pack(side=tk.LEFT)
 
-        self.ck_exec = ttk.Checkbutton(
+        ttk.Checkbutton(
             self.controls_frame,
-            text="Execute",
+            text="Execution",
             variable=self.root.setting.show_execute_logs,
             command=self.update_log_filter,
-        )
-        self.ck_exec.pack(side=tk.LEFT)
+        ).pack(side=tk.LEFT)
 
-        self.ck_vis = ttk.Checkbutton(
+        ttk.Checkbutton(
             self.controls_frame,
-            text="Visualize",
+            text="Visualization",
             variable=self.root.setting.show_vis_logs,
             command=self.update_log_filter,
-        )
-        self.ck_vis.pack(side=tk.LEFT)
+        ).pack(side=tk.LEFT)
+        
+        ttk.Checkbutton(
+            self.controls_frame,
+            text="Tools",
+            variable=self.root.setting.show_tools_logs,
+            command=self.update_log_filter,
+        ).pack(side=tk.LEFT)
 
         self.rb_db_stdout = ttk.Radiobutton(
             self.controls_frame,
@@ -126,12 +128,12 @@ class LogView(ttk.LabelFrame):
         log.info("Log filter updated.")
         # based on blacklist, LogTextHandler will filter out the logs
         (
-            self.log_blacklist.discard("c10_perceive")
+            self.log_blacklist.discard("c10_perception")
             if self.root.setting.show_perceive_logs.get()
-            else self.log_blacklist.add("c10_perceive")
+            else self.log_blacklist.add("c10_perception")
         )
         (
-            self.log_blacklist.discard("c20_plan")
+            self.log_blacklist.discard("c20_planning")
             if self.root.setting.show_plan_logs.get()
             else self.log_blacklist.add("c20_plan")
         )
@@ -141,14 +143,19 @@ class LogView(ttk.LabelFrame):
             else self.log_blacklist.add("c30_control")
         )
         (
-            self.log_blacklist.discard("c40_execute")
+            self.log_blacklist.discard("c40_execution")
             if self.root.setting.show_execute_logs.get()
-            else self.log_blacklist.add("c40_execute")
+            else self.log_blacklist.add("c40_execution")
         )
         (
-            self.log_blacklist.discard("c50_visualize")
+            self.log_blacklist.discard("c50_visualization")
             if self.root.setting.show_vis_logs.get()
-            else self.log_blacklist.add("c50_visualize")
+            else self.log_blacklist.add("c50_visualization")
+        )
+        (
+            self.log_blacklist.discard("c60_tools")
+            if self.root.setting.show_tools_logs.get()
+            else self.log_blacklist.add("c60_tools")
         )
 
     def update_log_level(self):
@@ -177,7 +184,7 @@ class LogView(ttk.LabelFrame):
             self.log_view = log_view
             self.text_widget.tag_configure("error", foreground="red")
             # self.text_widget.tag_configure("warning", foreground="yellow")
-            self.text_widget.tag_configure("warning", foreground="#FFFF00")  # bright yellow
+            self.text_widget.tag_configure("warn", foreground="#FFFF00")  # bright yellow
 
         def emit(self, record):
             for bl in self.log_view.log_blacklist:

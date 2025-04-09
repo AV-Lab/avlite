@@ -59,6 +59,7 @@ class VisualizationSettings:
         self.show_control_logs = tk.BooleanVar(value=True)
         self.show_execute_logs = tk.BooleanVar(value=True)
         self.show_vis_logs = tk.BooleanVar(value=True)
+        self.show_tools_logs = tk.BooleanVar(value=True)
         self.disable_log = tk.BooleanVar(value=False)
 
         # General variables - Not saved

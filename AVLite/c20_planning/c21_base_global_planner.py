@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from enum import Enum
+import networkx as nx
 
 
 class PlannerType(Enum):
@@ -24,6 +25,7 @@ class BaseGlobalPlanner(ABC):
 
     def __init__(self):
         self.global_plan: GlobalPlan = GlobalPlan()
+        self.graph = nx.DiGraph()
 
     @abstractmethod
     def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:

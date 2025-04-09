@@ -57,6 +57,7 @@ def get_executer(
         log.debug("RaceGlobalPlanner loaded")
     elif global_planner == GlobalHDMapPlanner.__name__:
         gp = GlobalHDMapPlanner(xodr_file=config_data["hd_map"])
+        log.debug(f"GlobalPlan graph loaded {gp.graph}")
         log.debug("GlobalHDMapPlanner loaded")
 
     pl = RNDPlanner(
