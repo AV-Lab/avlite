@@ -43,20 +43,7 @@ class WorldInterface(ABC):
     def reset(self):
         pass
 
-
-
-@dataclass
 class BaseExecuter:
-    pm: PerceptionModel
-    ego_state: EgoState
-    global_planner: BaseGlobalPlanner
-    local_planner: BaseLocalPlanner
-    controller: BaseController
-    world: WorldInterface
-
-    planner_fps: float
-    control_fps: float
-
     def __init__(
         self,
         pm: PerceptionModel,
@@ -67,14 +54,17 @@ class BaseExecuter:
         replan_dt=0.5,
         control_dt=0.01,
     ):
-        self.pm = pm
-        self.ego_state = pm.ego_vehicle
-        self.global_planner = glob_pl
-        self.local_planner = pl
-        self.controller = cn
-        self.world = world
-        self.replan_dt = replan_dt
-        self.control_dt = control_dt
+        self.pm: PerceptionModel = pm
+        self.ego_state: EgoState = pm.ego_vehicle
+        self.global_planner: BaseGlobalPlanner = glob_pl
+        self.local_planner: BaseLocalPlanner = pl
+        self.controller: BaseController = cn
+        self.world: WorldInterface = world
+        self.planner_fps: float = 0.0
+        self.control_fps: float = 0.0
+
+        self.replan_dt: float = replan_dt
+        self.control_dt: float = control_dt
 
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
@@ -83,8 +73,6 @@ class BaseExecuter:
         self.__planner_last_time = 0.0
         self.__controller_last_time = 0.0
 
-        self.planner_fps = 0.0
-        self.control_fps = 0.0
 
     def step(
         self,
@@ -95,8 +83,9 @@ class BaseExecuter:
         call_control=True,
         call_perceive=True,
         ) -> None:
+
+        log.debug(f"Global Planner Graph: {self.global_planner.graph}")
         pln_time_txt, cn_time_txt, sim_time_txt = "", "", ""
-        log.debug(f"Local Planner Registry: {BaseLocalPlanner.registry}")
         t0 = time.time()
 
         if call_replan:

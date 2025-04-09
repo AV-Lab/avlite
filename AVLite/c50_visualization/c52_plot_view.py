@@ -49,7 +49,6 @@ class GlobalPlanPlotView(ttk.Frame):
         aspect_ratio = width / height if height > 0 else 4.0
 
         # log.info(f"Global planner type: {self.root.exec.global_planner.__class__.__name__}")
-
         
         self.global_plot.plot(
             exec=self.root.exec,
@@ -69,11 +68,11 @@ class GlobalPlanPlotView(ttk.Frame):
 
     def update_plot_type(self):
         """Update the plot type based on the selected global planner"""
-        if self.root.setting.global_planner_type.get() == PlannerType.RACE_PLANNER.value:
+        if self.root.setting.global_planner_type.get() == "RaceGlobalPlanner":
             self.global_plot = GlobalRacePlot()
             log.debug("Global Plot type changed to Race Plot.")
-        elif self.root.setting.global_planner_type.get() == PlannerType.HD_MAP_PLANNER.value:
-            self.global_plot = GlobalHDMapPlot(self.root.exec)
+        elif self.root.setting.global_planner_type.get() == "GlobalHDMapPlanner":
+            self.global_plot = GlobalHDMapPlot()
             log.debug("Global Plot type changed to HD Map Plot.")
         self.plot()
 

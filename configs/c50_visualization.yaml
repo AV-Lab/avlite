@@ -27,6 +27,7 @@ show_past_locations: true
 show_perceive_logs: false
 show_plan_logs: false
 show_state: true
+show_tools_logs: true
 show_vis_logs: true
 sim_dt: 0.01
 xy_zoom: 120

@@ -17,11 +17,11 @@ log = logging.getLogger(__name__)
 
 class GlobalPlot(ABC):
     @abstractmethod
-    def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         pass
 
     @abstractmethod
-    def set_plot_theme(self, bg_color="white", fg_color="black"):
+    def set_plot_theme(self,exec:BaseExecuter, bg_color="white", fg_color="black"):
         pass
 
 class GlobalRacePlot(GlobalPlot):
@@ -147,7 +147,7 @@ class GlobalRacePlot(GlobalPlot):
         log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
 
 class GlobalHDMapPlot(GlobalPlot):
-    def __init__(self, exec: BaseExecuter, figsize=(10, 8), show_arrows=True, road_colors=None):
+    def __init__(self, figsize=(10, 8), show_arrows=True, road_colors=None):
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self.show_arrows = show_arrows
         self.road_colors = road_colors
@@ -165,7 +165,12 @@ class GlobalHDMapPlot(GlobalPlot):
         """Update the plot with current data"""
         # Clear previous plot
         self.ax.clear()
-        self.graph = self.exec.global_planner.graph
+        if not hasattr(exec.global_planner, 'graph'):
+            log.warning("No graph data available in global planner.")
+            return
+
+        self.graph = exec.global_planner.graph
+        log.debug(f"HD Map graph: {self.graph}")
         
         # Extract node positions (they are already x,y coordinates)
         pos = {node: node for node in self.graph.nodes()}
