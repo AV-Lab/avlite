@@ -135,7 +135,7 @@ class LogView(ttk.LabelFrame):
         (
             self.log_blacklist.discard("c20_planning")
             if self.root.setting.show_plan_logs.get()
-            else self.log_blacklist.add("c20_plan")
+            else self.log_blacklist.add("c20_planning")
         )
         (
             self.log_blacklist.discard("c30_control")

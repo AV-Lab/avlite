@@ -45,40 +45,12 @@ class VisualizerApp(tk.Tk):
         self.exec_visualize_view = ExecVisualizeView(self)
         self.log_view = LogView(self)
         # ----------------------------------------------------------------------
-        if self.setting.global_plan_view.get():
+       
+        if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
             self._update_two_plots_layout()
-        else: # Default to local view
+        else:
             self._update_one_plot_layout()
 
-        self.reload_stack()
-        # Bind to window resize to maintain ratio
-        self.toggle_shortcut_mode()
-        # self.config_shortcut_view.toggle_dark_mode()  
-        self.after(0, self.config_shortcut_view.toggle_dark_mode)
-
-
-    def __forget_all(self):
-        self.local_plan_plot_view.grid_forget()
-        self.global_plan_plot_view.grid_forget()
-        self.config_shortcut_view.grid_forget()
-        self.perceive_plan_control_view.grid_forget()
-        self.exec_visualize_view.grid_forget()
-        self.log_view.grid_forget()
-
-    def _update_two_plots_layout(self):
-        def __update_column_sizes(event=None):
-            """Update column sizes when window is resized to maintain 3:1 ratio."""
-            if event and event.widget == self:
-                width = event.width
-                if width > 10:  # Avoid division by zero or tiny windows
-                    local_width = int(width * 0.75)
-                    global_width = int(width * 0.25)
-                    self.grid_columnconfigure(0, minsize=local_width)
-                    self.grid_columnconfigure(1, minsize=global_width)
-            self.global_plan_plot_view.plot()
-        self.__forget_all()
-        self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
-        self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
         self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
@@ -87,82 +59,67 @@ class VisualizerApp(tk.Tk):
         self.grid_rowconfigure(0, weight=1)  # make the plot views expand
         self.grid_columnconfigure(0, weight=3)  # local view gets 3x weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
+        self.update_idletasks()
         
         # Set minimum sizes to help enforce the ratio
-        self.update_idletasks()
-        total_width = self.winfo_width()
-        if total_width > 0:
-            # Set minimum sizes to maintain approximate ratio
-            self.grid_columnconfigure(0, minsize=int(total_width * 0.75))
-            self.grid_columnconfigure(1, minsize=int(total_width * 0.25))
+        # total_width = self.winfo_width()
+        # if total_width > 0:
+        #     # Set minimum sizes to maintain approximate ratio
+        #     self.grid_columnconfigure(0, minsize=int(total_width * 0.75))
+        #     self.grid_columnconfigure(1, minsize=int(total_width * 0.25))
         
-        self.bind("<Configure>", __update_column_sizes)
+        self.bind("<Configure>", self.__update_grid_column_sizes)
+
+        self.reload_stack()
+        # Bind to window resize to maintain ratio
+        self.toggle_shortcut_mode()
+        # self.config_shortcut_view.toggle_dark_mode()  
+        self.after(0, self.config_shortcut_view.toggle_dark_mode)
+
+        # self.after(10, self.toggle_plan_view)
+
+
+
+    def __update_grid_column_sizes(self,event=None, update_plot=False):
+        """Update column sizes when window is resized to maintain 3:1 ratio."""
+        if event and event.widget == self:
+            width = event.width
+            if width > 10:  # Avoid division by zero or tiny windows
+                local_width = int(width * 0.75)
+                global_width = int(width * 0.25)
+                self.grid_columnconfigure(0, minsize=local_width)
+                self.grid_columnconfigure(1, minsize=global_width)
+
+        if update_plot:
+            if self.setting.global_plan_view.get():
+                self.global_plan_plot_view.plot()
+            if self.setting.local_plan_view.get():
+                self.local_plan_plot_view.plot()
     
-    def reload_stack(self):
-        # self.__reload_stack_async()
-        # return
-        if not self.is_loading:
-            log.info(f"Reloading the code with async_mode: {self.setting.async_exec.get()}")
-            thread = threading.Thread(target=self.__reload_stack_async)
-            thread.daemon = True
-            thread.start()
-            self.is_loading = True
-            self.disable_frame(self.exec_visualize_view.execution_frame)
-            
-        
 
-    def __reload_stack_async(self):
-        try:
-            self.exec_visualize_view.stop_exec()
-            if self.code_reload_function is not None:
-                self.exec = self.code_reload_function(
-                    async_mode=self.setting.async_exec.get(),
-                    bridge=self.setting.execution_bridge.get(),
-                    global_planner=self.setting.global_planner_type.get(),
-                    replan_dt=self.setting.replan_dt.get(),
-                    control_dt=self.setting.control_dt.get(),
-                )
-
-                self.update_ui()
-            else:
-                log.warning("No code reload function provided.")
-        except Exception as e:
-            log.error(f"Error reloading stack: {e}", exc_info=True)
-
-        finally:
-            self.is_loading = False
-            self.enable_frame(self.exec_visualize_view.execution_frame)
-            
+    def _update_two_plots_layout(self):
+        log.debug(f"Updating two plots layout: global_plan_view: {self.setting.global_plan_view.get()}, local_plan_view: {self.setting.local_plan_view.get()}")
+        self.local_plan_plot_view.grid_forget()
+        self.global_plan_plot_view.grid_forget()
+        self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
+        self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
 
     def _update_one_plot_layout(self):
-        self.__forget_all()
-        self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
-        self.config_shortcut_view.grid(row=1, column=0, sticky="ew")
-        self.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
-        self.exec_visualize_view.grid(row=3, column=0, sticky="ew")
-        self.log_view.grid(row=4, column=0, sticky="nsew")
-        
-        # Reset column configuration
-        self.grid_columnconfigure(0, weight=1, minsize=0)  # Full width
-        self.grid_columnconfigure(1, weight=0, minsize=0)  # Reset column 1
-        self.grid_rowconfigure(0, weight=1)  # make the plot views expand
-        
-        # Unbind Configure event to prevent ratio maintenance
-        self.unbind("<Configure>")
+        log.debug(f"Updating one plot layout: global_plan_view: {self.setting.global_plan_view.get()}, local_plan_view: {self.setting.local_plan_view.get()}")
+        self.local_plan_plot_view.grid_forget()
+        self.global_plan_plot_view.grid_forget()
+        if self.setting.global_plan_view.get() and not self.setting.local_plan_view.get():
+            self.global_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
+        elif self.setting.local_plan_view.get() and not self.setting.global_plan_view.get():
+            self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
     
     def toggle_plan_view(self):
-        if self.setting.global_plan_view.get():
+        if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
             self._update_two_plots_layout()
-            # self.local_plan_plot_view.grid(row=0, column=0)
-            # self.global_plan_plot_view.grid(row=0, column=1)
-            # # Ensure the global view is updated when switching to it
             self.global_plan_plot_view.plot()
             self.local_plan_plot_view.plot()
         else:
             self._update_one_plot_layout()
-            # self.global_plan_plot_view.grid_forget()
-            # self.local_plan_plot_view.grid(row=0, column=0, sticky="nsew")
-            # # Ensure the local view is pdated when switching to it
             self.local_plan_plot_view.plot()
 
     def toggle_shortcut_mode(self):
@@ -170,19 +127,15 @@ class VisualizerApp(tk.Tk):
             self.perceive_plan_control_view.grid_forget()
             self.exec_visualize_view.grid_forget()
 
-            column_count = 2 if self.setting.global_plan_view.get() else 1
-            self.config_shortcut_view.grid(row=1, column=0, columnspan=column_count, sticky="ew")
-            self.config_shortcut_view.shortcut_frame.grid(row=2, column=0, columnspan=column_count, sticky="ew")
+            self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
+            self.config_shortcut_view.shortcut_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
         else:
-            if self.setting.global_plan_view.get():
-                self._update_two_plots_layout()
-            else:
-                self._update_one_plot_layout()
             self.config_shortcut_view.shortcut_frame.grid_forget()
+            self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
+            self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
+            self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
 
-        # max_height = int(self.winfo_height() * 0.4)
-        # self.log_frame.config(height=max_height)
-        self.update_ui()
+
     def disable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
             if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton, ttk.Radiobutton)):
@@ -211,9 +164,10 @@ class VisualizerApp(tk.Tk):
     
     def update_ui(self):
         t1 = time.time()
-        self.local_plan_plot_view.plot() 
         if self.setting.global_plan_view.get():
             self.global_plan_plot_view.plot()
+        if self.setting.local_plan_view.get():
+            self.local_plan_plot_view.plot()
 
         if not self.setting.shortcut_mode.get():
             self.setting.vehicle_state.set(
@@ -233,24 +187,60 @@ class VisualizerApp(tk.Tk):
             self.setting.control_fps.set(f"{self.exec.control_fps:6.1f}")
             self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
 
-        if self.setting.async_exec.get():
-            if self.setting.control_dt.get() < 0.1 or self.setting.replan_dt.get() < 0.1:
-                if not self.setting.disable_log.get():
-                    self.setting.disable_log.set(True)
-                    log.warning(
-                        f"Logs removed due to low control_dt: {self.setting.control_dt} or replan_dt: {self.setting.replan_dt}."
-                    )
-                    self.setting.log_level.set("STDOUT")
-                    self.log_view.update_log_level()
-            else:
-                if self.setting.disable_log.get():
-                    self.setting.disable_log.set(False)
-                    self.setting.log_level.set("INFO")
-                    self.log_view.update_log_level()
-        else:
-            if self.setting.disable_log.get():
-                self.setting.disable_log.set(False)
-                self.setting.log_level.set("INFO")
-                self.log_view.update_log_level()
+        # if self.setting.async_exec.get():
+        #     if self.setting.control_dt.get() < 0.1 or self.setting.replan_dt.get() < 0.1:
+        #         if not self.setting.disable_log.get():
+        #             self.setting.disable_log.set(True)
+        #             log.warning(
+        #                 f"Logs removed due to low control_dt: {self.setting.control_dt} or replan_dt: {self.setting.replan_dt}."
+        #             )
+        #             self.setting.log_level.set("STDOUT")
+        #             self.log_view.update_log_level()
+        #     else:
+        #         if self.setting.disable_log.get():
+        #             self.setting.disable_log.set(False)
+        #             self.setting.log_level.set("INFO")
+        #             self.log_view.update_log_level()
+        # else:
+        #     if self.setting.disable_log.get():
+        #         self.setting.disable_log.set(False)
+        #         self.setting.log_level.set("INFO")
+        #         self.log_view.update_log_level()
 
         log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
+    
+
+
+    def reload_stack(self):
+        # self.__reload_stack_async()
+        self.exec_visualize_view.stop_exec()
+        if not self.is_loading:
+            log.info(f"Reloading the code with async_mode: {self.setting.async_exec.get()}")
+            thread = threading.Thread(target=self.__reload_stack_async)
+            thread.daemon = True
+            thread.start()
+            self.is_loading = True
+            self.disable_frame(self.exec_visualize_view.execution_frame)
+            
+
+    def __reload_stack_async(self):
+        try:
+            self.exec_visualize_view.stop_exec()
+            if self.code_reload_function is not None:
+                self.exec = self.code_reload_function(
+                    async_mode=self.setting.async_exec.get(),
+                    bridge=self.setting.execution_bridge.get(),
+                    global_planner=self.setting.global_planner_type.get(),
+                    replan_dt=self.setting.replan_dt.get(),
+                    control_dt=self.setting.control_dt.get(),
+                )
+
+                self.update_ui()
+            else:
+                log.warning("No code reload function provided.")
+        except Exception as e:
+            log.error(f"Error reloading stack: {e}", exc_info=True)
+
+        finally:
+            self.is_loading = False
+            self.enable_frame(self.exec_visualize_view.execution_frame)

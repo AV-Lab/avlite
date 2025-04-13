@@ -80,7 +80,7 @@ def reload_lib():
 
 
 
-def save_visualizer_config(setting) -> None:
+def save_config(setting) -> None:
     """Save current visualization configuration to a YAML file.
 
     Args:

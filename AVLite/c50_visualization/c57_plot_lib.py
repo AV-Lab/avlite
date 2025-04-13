@@ -16,18 +16,46 @@ import logging
 log = logging.getLogger(__name__)
 
 class GlobalPlot(ABC):
-    @abstractmethod
-    def plot(self, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
-        pass
+    def __init__(self, figsize=(8, 10), name="Global Plot"):
+        self.fig, self.ax = plt.subplots(figsize=figsize)
+        self.exec = None
+        self.name = name
+        self.ax.set_title(self.name)
+        self.ax.set_aspect('equal')  # Equal aspect ratio
+        self.ax.grid(True)
 
     @abstractmethod
-    def set_plot_theme(self,exec:BaseExecuter, bg_color="white", fg_color="black"):
+    def plot(self,exec:BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         pass
+
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        """Set the plot theme colors"""
+        # Apply background color with no transparency
+        self.fig.set_facecolor(bg_color)
+        self.ax.set_facecolor(bg_color)
+        
+        # Set axis, ticks, and label colors
+        for spine in self.ax.spines.values():
+            spine.set_edgecolor(fg_color)
+        
+        self.ax.tick_params(axis="both", colors=fg_color)
+        self.ax.xaxis.label.set_color(fg_color)
+        self.ax.yaxis.label.set_color(fg_color)
+        
+        # Set grid color with proper alpha for visibility
+        self.ax.grid(False, color=fg_color, alpha=0.3)
+        self.ax.set_title(label=self.name, color=fg_color)
+        
+            
+        # Apply redraw
+        self.fig.canvas.draw()
+        
+        log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
 
 class GlobalRacePlot(GlobalPlot):
-    def __init__(self):
-        self.fig, self.ax = plt.subplots(1, 1, figsize=(10, 6))
-        
+    def __init__(self, figsize=(8, 10)):
+
+        super().__init__(figsize, name = "Global Race Plot")
         # Create plot elements with empty data - they'll be updated later
         self.left_boundary, = self.ax.plot([], [], 'orange', linewidth=3, label="Left Boundary")
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
@@ -42,35 +70,16 @@ class GlobalRacePlot(GlobalPlot):
         
         # Adjust layout to align with LocalPlot
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-        
+
     def set_plot_theme(self, bg_color="white", fg_color="black"):
-        """Set the plot theme colors"""
-        # Use the same colors as LocalPlot
-        self.fig.patch.set_facecolor(bg_color)
-        self.ax.patch.set_facecolor(bg_color)
-        # self.ax.set_title("Global View", color=fg_color)
-        
-        # Set axis, ticks, and label colors
-        for spine in self.ax.spines.values():
-            spine.set_edgecolor(fg_color)
-        
-        self.ax.tick_params(axis="both", colors=fg_color)
-        self.ax.xaxis.label.set_color(fg_color)
-        self.ax.yaxis.label.set_color(fg_color)
-        
-        # Set grid color with proper alpha for visibility
-        self.ax.grid(False, color=fg_color, alpha=0.3)
-        
+
         # Use the same colors as LocalPlot, not black/white specific colors
         self.left_boundary.set_color("orange")
         self.right_boundary.set_color("tan")
         self.reference_trajectory.set_color("gray")
         self.vehicle_location.set_color("red")
-            
-        # Apply redraw
-        self.fig.canvas.draw()
+        super().set_plot_theme(bg_color, fg_color)
         
-        log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
         
     def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Update the plot with current data"""
@@ -118,147 +127,29 @@ class GlobalRacePlot(GlobalPlot):
             import traceback
             log.error(traceback.format_exc())
 
-    def set_plot_theme(self, bg_color="white", fg_color="black"):
-        """Set the plot theme colors"""
-        # Apply background color with no transparency
-        self.fig.set_facecolor(bg_color)
-        self.ax.set_facecolor(bg_color)
-        
-        # Set axis, ticks, and label colors
-        for spine in self.ax.spines.values():
-            spine.set_edgecolor(fg_color)
-        
-        self.ax.tick_params(axis="both", colors=fg_color)
-        self.ax.xaxis.label.set_color(fg_color)
-        self.ax.yaxis.label.set_color(fg_color)
-        
-        # Set grid color with proper alpha for visibility
-        self.ax.grid(False, color=fg_color, alpha=0.3)
-        
-        # Use the same colors as LocalPlot, not black/white specific colors
-        self.left_boundary.set_color("orange")
-        self.right_boundary.set_color("tan")
-        self.reference_trajectory.set_color("gray")
-        self.vehicle_location.set_color("red")
-            
-        # Apply redraw
-        self.fig.canvas.draw()
-        
-        log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
 
 class GlobalHDMapPlot(GlobalPlot):
-    def __init__(self, figsize=(10, 8), show_arrows=True, road_colors=None):
+    def __init__(self, figsize=(8, 10)):
+        super().__init__(figsize)
         self.fig, self.ax = plt.subplots(figsize=figsize)
-        self.show_arrows = show_arrows
-        self.road_colors = road_colors
         self.exec = exec
+        
+        # Create plot elements with empty data - they'll be updated later
+        self.ego_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
         
         # Set initial properties
         self.ax.set_title("HD Map Road Network")
         self.ax.set_aspect('equal')  # Equal aspect ratio
-        self.fig.tight_layout()
-        
-        # Draw the initial plot
-        # self.update_plot(exec)
-        
-    def update_plot(self, exec: BaseExecuter):
-        """Update the plot with current data"""
-        # Clear previous plot
-        self.ax.clear()
-        if not hasattr(exec.global_planner, 'graph'):
-            log.warning("No graph data available in global planner.")
-            return
-
-        self.graph = exec.global_planner.graph
-        log.debug(f"HD Map graph: {self.graph}")
-        
-        # Extract node positions (they are already x,y coordinates)
-        pos = {node: node for node in self.graph.nodes()}
-        
-        # Draw nodes
-        nx.draw_networkx_nodes(self.graph, pos, ax=self.ax, node_size=5, node_color='blue', alpha=0.6)
-        
-        # Group edges by road for consistent coloring
-        if self.road_colors is None:
-            road_edges = {}
-            for u, v, data in self.graph.edges(data=True):
-                road_id = data.get('road', 'unknown')
-                if road_id not in road_edges:
-                    road_edges[road_id] = []
-                road_edges[road_id].append((u, v))
-                
-            # Draw edges with different colors for different roads
-            for i, (road_id, edges) in enumerate(road_edges.items()):
-                color = plt.cm.tab10(i % 10)  # Cycle through 10 colors
-                nx.draw_networkx_edges(self.graph, pos, ax=self.ax, edgelist=edges, 
-                                    width=1, alpha=0.5, edge_color=color, 
-                                    arrows=self.show_arrows, arrowsize=8)
-        else:
-            # Use provided color mapping
-            for road_id, color in self.road_colors.items():
-                edges = [(u, v) for u, v, data in self.graph.edges(data=True) 
-                        if data.get('road') == road_id]
-                nx.draw_networkx_edges(self.graph, pos, ax=self.ax, edgelist=edges, 
-                                    width=1, alpha=0.5, edge_color=color,
-                                    arrows=self.show_arrows, arrowsize=8)
-        
-        # Add vehicle location if available
-        if hasattr(exec, 'ego_state'):
-            self.ax.plot(exec.ego_state.x, exec.ego_state.y, 'ro', markersize=10, label="Vehicle Location")
-            
-        self.ax.set_title("HD Map Road Network")
-        self.ax.set_aspect('equal')  # Equal aspect ratio
-        
-        # Apply redraw
-        self.fig.canvas.draw()
-
     def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Implement the abstract method from GlobalPlot"""
-        log.debug("Plotting HD Map")
-        try:
-            # Update the plot with current data
-            self.update_plot(exec)
-            
-            # Set view limits if zoom is specified
-            if zoom is not None and follow_vehicle:
-                vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
-                self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
-                self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
-            
-            # Update legend visibility
-            if show_legend:
-                self.ax.legend()
-            else:
-                if self.ax.get_legend() is not None:
-                    self.ax.get_legend().remove()
-                    
-        except Exception as e:
-            log.error(f"Error in GlobalHDMapPlot.plot: {e}")
-            import traceback
-            log.error(traceback.format_exc())
-    
-    def set_plot_theme(self, bg_color="white", fg_color="black"):
-        """Set the plot theme colors"""
-        # Apply background color
-        self.fig.set_facecolor(bg_color)
-        self.ax.set_facecolor(bg_color)
-        
-        # Set axis, ticks, and label colors
-        for spine in self.ax.spines.values():
-            spine.set_edgecolor(fg_color)
-        
-        self.ax.tick_params(axis="both", colors=fg_color)
-        self.ax.xaxis.label.set_color(fg_color)
-        self.ax.yaxis.label.set_color(fg_color)
-        self.ax.title.set_color(fg_color)
-        
-        # Set grid color with proper alpha for visibility
-        self.ax.grid(False, color=fg_color, alpha=0.3)
-            
-        # Apply redraw
+        self.ego_location.set_data([exec.ego_state.x], [exec.ego_state.y])
+
         self.fig.canvas.draw()
+
+        log.debug(f"Plotting HD Map Global Plot at location: {exec.ego_state.x}, {exec.ego_state.y}")
         
-        log.debug(f"HD Map plot theme set to {bg_color} background and {fg_color} foreground.")
+
+    
 
         
 

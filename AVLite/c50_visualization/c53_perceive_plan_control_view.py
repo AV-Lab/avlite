@@ -221,7 +221,6 @@ class PerceivePlanControlView(ttk.Frame):
         log.debug(
             f"Dropdown changed to: {self.root.setting.global_planner_type.get()}")
         self.root.reload_stack()
-        # self.after(100,self.root.global_plan_plot_view.update_plot_type )
         self.root.global_plan_plot_view.update_plot_type()
 
     # --------------------------------------------------------------------------------------------
