@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 class VisualizerApp(tk.Tk):
     exec: BaseExecuter
 
-    def __init__(self, executer: BaseExecuter, code_reload_function=None, only_visualize=False):
+    def __init__(self, executer: BaseExecuter, code_reload_function=None):
         super().__init__()
 
         self.exec = executer
@@ -33,7 +33,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         # Variables
         # ----------------------------------------------------------------------
-        self.setting = VisualizationSettings(only_visualize=only_visualize)
+        self.setting = VisualizationSettings()
         load_setting(self.setting)
         # ----------------------------------------------------------------------
         # UI Views

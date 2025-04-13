@@ -9,8 +9,8 @@ class VisualizationSettings:
                          "control_fps", "current_wp", "exec_running"]
     filepath: str="configs/c50_visualization.yaml"
 
-    def __init__(self, only_visualize: bool = False):
-        self.shortcut_mode = tk.BooleanVar(value=only_visualize)
+    def __init__(self):
+        self.shortcut_mode = tk.BooleanVar()
         self.dark_mode = tk.BooleanVar(value=True)
 
         # Plot options
@@ -73,3 +73,9 @@ class VisualizationSettings:
         self.vehicle_state = tk.StringVar(
             value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.current_wp = tk.StringVar(value="0")
+
+
+
+
+        self.bg_color = "#333333" if self.dark_mode.get() else "white"
+        self.fg_color = "white" if self.dark_mode.get() else "black"

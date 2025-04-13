@@ -4,6 +4,7 @@ from c20_planning.c26_lattice import Edge
 from c40_execution.c41_base_executer import BaseExecuter
 from c10_perception.c12_state import EgoState
 
+
 from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +19,6 @@ log = logging.getLogger(__name__)
 class GlobalPlot(ABC):
     def __init__(self, figsize=(8, 10), name="Global Plot"):
         self.fig, self.ax = plt.subplots(figsize=figsize)
-        self.exec = None
         self.name = name
         self.ax.set_title(self.name)
         self.ax.set_aspect('equal')  # Equal aspect ratio
@@ -72,6 +72,7 @@ class GlobalRacePlot(GlobalPlot):
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
     def set_plot_theme(self, bg_color="white", fg_color="black"):
+        super().set_plot_theme(bg_color, fg_color)
 
         # Use the same colors as LocalPlot, not black/white specific colors
         self.left_boundary.set_color("orange")
@@ -110,16 +111,12 @@ class GlobalRacePlot(GlobalPlot):
                 
                 self.ax.set_xlim(min_x - padding_x, max_x + padding_x)
                 self.ax.set_ylim(min_y - padding_y, max_y + padding_y)
-            
-            # Update legend visibility
-            if show_legend:
-                self.ax.legend()
-            else:
-                if self.ax.get_legend() is not None:
-                    self.ax.get_legend().remove()
-            
-            # Draw
+
+            if not show_legend:
+                self.ax.get_legend().remove() if self.ax.get_legend() else None
+
             self.fig.canvas.draw()
+
 
             
         except Exception as e:
@@ -130,23 +127,214 @@ class GlobalRacePlot(GlobalPlot):
 
 class GlobalHDMapPlot(GlobalPlot):
     def __init__(self, figsize=(8, 10)):
-        super().__init__(figsize)
-        self.fig, self.ax = plt.subplots(figsize=figsize)
-        self.exec = exec
+        super().__init__(figsize, name="HD Map Road Network")
         
         # Create plot elements with empty data - they'll be updated later
-        self.ego_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
+        self.vehicle_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
+        self.vehicle_location.set_color("red")
         
         # Set initial properties
-        self.ax.set_title("HD Map Road Network")
         self.ax.set_aspect('equal')  # Equal aspect ratio
-    def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, exec, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Implement the abstract method from GlobalPlot"""
-        self.ego_location.set_data([exec.ego_state.x], [exec.ego_state.y])
+        vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
+        self.vehicle_location.set_data([vehicle_x], [vehicle_y])
 
-        self.fig.canvas.draw()
+        if not show_legend:
+             self.ax.get_legend().remove() if self.ax.get_legend() else None
 
+        # Clear previous plots to avoid overlapping
+        for line in self.ax.lines[1:]:  # Keep the first line (vehicle_location)
+            line.remove()
+        
+        global_pl = exec.global_planner.xodr_root
+        roads = global_pl.findall('road')
+        colors = plt.cm.tab20(np.linspace(0, 1, 20))
+        
+        # Store all road coordinates to calculate plot limits
+        all_x_coords = [vehicle_x]
+        all_y_coords = [vehicle_y]
+        
+        for i, road in enumerate(roads):
+            plan_view = road.find('planView')
+            if plan_view is None:
+                continue
+            # We'll collect all geometry segments in one continuous set,
+            # separating segments with NaN so they don't connect.
+            road_x, road_y = [], []
+            for geometry in plan_view.findall('geometry'):
+                x0 = float(geometry.get('x', '0'))
+                y0 = float(geometry.get('y', '0'))
+                hdg = float(geometry.get('hdg', '0'))
+                length = float(geometry.get('length', '0'))
+                gtype = 'line'  # Default to line if no specific geometry type is found
+                params = {}
+                
+                # Check for all possible geometry types in OpenDRIVE
+                for child in geometry:
+                    if child.tag in ['line', 'arc', 'spiral', 'poly3', 'paramPoly3']:
+                        gtype = child.tag
+                        params = child.attrib
+                        break
+                
+                x_vals, y_vals = self.__sample_geometry(x0, y0, hdg, length, gtype, params)
+                if road_x:  # add gap between consecutive segments
+                    road_x.append(np.nan)
+                    road_y.append(np.nan)
+                road_x.extend(x_vals)
+                road_y.extend(y_vals)
+                
+                # Add non-NaN values to coordinate lists for calculating bounds
+                all_x_coords.extend([x for x in x_vals if not np.isnan(x)])
+                all_y_coords.extend([y for y in y_vals if not np.isnan(y)])
+                
+            color = colors[i % 20]
+            self.ax.plot(road_x, road_y, color=color)
+        
+        # Calculate appropriate plot limits based on all road data
+        if all_x_coords and all_y_coords:
+            min_x, max_x = min(all_x_coords), max(all_x_coords)
+            min_y, max_y = min(all_y_coords), max(all_y_coords)
+            
+            # Add padding (10% of range)
+            x_padding = max(20, (max_x - min_x) * 0.1)
+            y_padding = max(20, (max_y - min_y) * 0.1)
+            
+            if follow_vehicle:
+                # Center on vehicle with appropriate zoom
+                if zoom is not None:
+                    self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
+                    self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
+                else:
+                    self.ax.set_xlim(min_x - x_padding, max_x + x_padding)
+                    self.ax.set_ylim(min_y - y_padding, max_y + y_padding)
+            else:
+                # Show all roads
+                self.ax.set_xlim(min_x - x_padding, max_x + x_padding)
+                self.ax.set_ylim(min_y - y_padding, max_y + y_padding)
+        else:
+            # Fallback to default limits if no coordinates found
+            self.ax.set_xlim(-150, 150)
+            self.ax.set_ylim(-150, 150)
+            
         log.debug(f"Plotting HD Map Global Plot at location: {exec.ego_state.x}, {exec.ego_state.y}")
+        self.fig.canvas.draw()
+    
+    def __sample_geometry(self, x0, y0, hdg, length, geom_type='line', params=None, n_pts=50):
+            """
+            Returns (x_vals, y_vals) for various geometry types in OpenDRIVE.
+            Supports line, arc, and basic handling for other types.
+            """
+            x_vals, y_vals = [], []
+            s_array = np.linspace(0, length, n_pts)
+
+            if geom_type == 'arc' and params is not None:
+                curvature = float(params.get('curvature', 0))
+                if curvature != 0:
+                    radius = abs(1.0 / curvature)  # Use absolute value for radius
+                    # Determine arc direction based on curvature sign
+                    arc_direction = np.sign(curvature)
+                    
+                    # Calculate center of the arc
+                    # For positive curvature (left turn), center is to the left of heading
+                    # For negative curvature (right turn), center is to the right of heading
+                    center_x = x0 - np.sin(hdg) * radius * arc_direction
+                    center_y = y0 + np.cos(hdg) * radius * arc_direction
+                    
+                    # Calculate start angle (from center to start point)
+                    start_angle = np.arctan2(y0 - center_y, x0 - center_x)
+                    
+                    # Calculate angle change over the arc length
+                    dtheta = length / radius * arc_direction
+                    
+                    # Generate points along the arc
+                    angles = np.linspace(start_angle, start_angle + dtheta, n_pts)
+                    for angle in angles:
+                        x_vals.append(center_x + radius * np.cos(angle))
+                        y_vals.append(center_y + radius * np.sin(angle))
+                    return x_vals, y_vals
+            
+            elif geom_type == 'spiral' and params is not None:
+                # Basic approximation for spirals - treat as a series of arcs with changing curvature
+                # This is a simplified approach - for accurate spirals, use the Fresnel integrals
+                curvStart = float(params.get('curvStart', 0))
+                curvEnd = float(params.get('curvEnd', 0))
+                
+                # If both curvatures are 0, treat as a line
+                if abs(curvStart) < 1e-10 and abs(curvEnd) < 1e-10:
+                    for s in s_array:
+                        x = x0 + s * np.cos(hdg)
+                        y = y0 + s * np.sin(hdg)
+                        x_vals.append(x)
+                        y_vals.append(y)
+                    return x_vals, y_vals
+                
+                # Approximate spiral as a series of arcs with gradually changing curvature
+                current_x, current_y = x0, y0
+                current_hdg = hdg
+                
+                for i in range(n_pts - 1):
+                    s_start = s_array[i]
+                    s_end = s_array[i+1]
+                    s_mid = (s_start + s_end) / 2
+                    segment_length = s_end - s_start
+                    
+                    # Calculate curvature at this point along the spiral
+                    t = s_mid / length  # Normalized position along spiral (0 to 1)
+                    current_curv = curvStart + t * (curvEnd - curvStart)
+                    
+                    if abs(current_curv) < 1e-10:
+                        # Nearly straight segment
+                        next_x = current_x + segment_length * np.cos(current_hdg)
+                        next_y = current_y + segment_length * np.sin(current_hdg)
+                    else:
+                        # Arc segment
+                        radius = abs(1.0 / current_curv)
+                        arc_direction = np.sign(current_curv)
+                        dtheta = segment_length / radius * arc_direction
+                        
+                        # Update heading
+                        next_hdg = current_hdg + dtheta
+                        
+                        # Calculate next point
+                        next_x = current_x + segment_length * np.cos((current_hdg + next_hdg) / 2)
+                        next_y = current_y + segment_length * np.sin((current_hdg + next_hdg) / 2)
+                        
+                        current_hdg = next_hdg
+                    
+                    x_vals.append(current_x)
+                    y_vals.append(current_y)
+                    
+                    current_x, current_y = next_x, next_y
+                
+                # Add the final point
+                x_vals.append(current_x)
+                y_vals.append(current_y)
+                
+                return x_vals, y_vals
+            
+            elif geom_type in ['poly3', 'paramPoly3'] and params is not None:
+                # For polynomial geometries, we'll use a simplified approach
+                # In a real implementation, you would use the polynomial coefficients
+                # For now, we'll just use a straight line approximation
+                log.debug(f"Using simplified approximation for {geom_type} geometry")
+                for s in s_array:
+                    x = x0 + s * np.cos(hdg)
+                    y = y0 + s * np.sin(hdg)
+                    x_vals.append(x)
+                    y_vals.append(y)
+                return x_vals, y_vals
+
+            # Default: treat as a straight line
+            for s in s_array:
+                x = x0 + s * np.cos(hdg)
+                y = y0 + s * np.sin(hdg)
+                x_vals.append(x)
+                y_vals.append(y)
+            return x_vals, y_vals
+
+    def set_plot_theme(self, bg_color="white", fg_color="black"):
+        super().set_plot_theme(bg_color, fg_color)
         
 
     
@@ -154,7 +342,7 @@ class GlobalHDMapPlot(GlobalPlot):
         
 
 
-class BaseExecPlot:
+class LocalPlot:
     def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12):
         self.MAX_LATTICE_SIZE = max_lattice_size
         self.MAX_PLAN_LENGTH = max_plan_length

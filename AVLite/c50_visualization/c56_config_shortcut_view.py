@@ -99,21 +99,17 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.configure(bg="black")
         self.root.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-        self.root.local_plan_plot_view.set_plot_theme(bg_color="#2d2d2d", fg_color="white")
+
+        self.root.setting.bg_color = "#333333"
+        self.root.setting.fg_color = "white"
+        self.root.local_plan_plot_view.toggle_plot_theme()
+        self.root.global_plan_plot_view.toggle_plot_theme()
         log.info("Dark mode enabled.")
 
         try:
             from ttkthemes import ThemedStyle
-
             style = ThemedStyle(self.root)
             style.set_theme("equilux")
-            # style.configure("TProgressbar",
-            #                 thickness=10,
-            #                 troughcolor='black',  # Background color
-            #                 background='white',  # Pointer color
-            #                 bordercolor='gray',  # Border color
-            #                 lightcolor='white',  # Light part color
-            #                 darkcolor='gray')    # Dark part color
 
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
@@ -123,7 +119,10 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.log_view.log_area.config(bg="white", fg="black")
         self.help_text.config(bg="white", fg="black")
 
-        self.root.local_plan_plot_view.set_plot_theme(bg_color="white", fg_color="black")
+        self.root.setting.bg_color = "white"
+        self.root.setting.fg_color = "black"
+        self.root.local_plan_plot_view.toggle_plot_theme()
+        self.root.global_plan_plot_view.toggle_plot_theme()
         log.info("Light mode enabled.")
         # reset the theme
         try:

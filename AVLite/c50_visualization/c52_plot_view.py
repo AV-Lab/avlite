@@ -3,7 +3,8 @@ from __future__ import annotations
 from c20_planning.c23_race_global_planner import RaceGlobalPlanner
 from c20_planning.c22_hdmap_global_planner import GlobalHDMapPlanner
 from c20_planning.c21_base_global_planner import PlannerType
-from c50_visualization.c57_plot_lib import BaseExecPlot, GlobalRacePlot, GlobalHDMapPlot
+from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
 import tkinter as tk
 from tkinter import ttk
@@ -29,16 +30,10 @@ class GlobalPlanPlotView(ttk.Frame):
         self.fig = self.global_plot.fig
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
-        # Pack the canvas widget to make it visible
         self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
         
-        # Apply current theme
-        if self.root.setting.dark_mode.get():
-            bg_color = "#333333" if self.root.setting.dark_mode.get() else "white"
-            fg_color = "white" if self.root.setting.dark_mode.get() else "black"
-            self.set_plot_theme(bg_color, fg_color)
-            
-        # self.plot()  # Initialize the view
+         
 
 
     def plot(self):
@@ -48,8 +43,6 @@ class GlobalPlanPlotView(ttk.Frame):
         height = canvas_widget.winfo_height()
         aspect_ratio = width / height if height > 0 else 4.0
 
-        # log.info(f"Global planner type: {self.root.exec.global_planner.__class__.__name__}")
-        
         self.global_plot.plot(
             exec=self.root.exec,
             aspect_ratio=aspect_ratio,
@@ -59,22 +52,37 @@ class GlobalPlanPlotView(ttk.Frame):
         )
         
         log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
+    
+    def toggle_plot_theme(self):
+        self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
         
-    def set_plot_theme(self, bg_color="white", fg_color="black"):
-        """Apply theme to the global plot"""
-        self.global_plot.set_plot_theme(bg_color, fg_color)
-        # Force a complete redraw after theme change
-        self.plot()
 
     def update_plot_type(self):
         """Update the plot type based on the selected global planner"""
+
+        self.canvas.get_tk_widget().destroy()  
         if self.root.setting.global_planner_type.get() == "RaceGlobalPlanner":
             self.global_plot = GlobalRacePlot()
+            self.fig = self.global_plot.fig
+            self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+            self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
+            self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
+            self.toolbar.update()
+            self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
             log.debug("Global Plot type changed to Race Plot.")
         elif self.root.setting.global_planner_type.get() == "GlobalHDMapPlanner":
             self.global_plot = GlobalHDMapPlot()
+            self.fig = self.global_plot.fig
+            self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+            self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
+            self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
+            self.toolbar.update()
+            self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+            # NavigationToolbar2Tk(self.fig.canvas, self)
             log.debug("Global Plot type changed to HD Map Plot.")
-        self.plot()
+        # self.plot()
 
 class LocalPlanPlotView(ttk.Frame):
 
@@ -83,7 +91,7 @@ class LocalPlanPlotView(ttk.Frame):
         self.root = root
 
 
-        self.local_plot = BaseExecPlot(max_lattice_size=self.root.exec.local_planner.lattice.targetted_num_edges)
+        self.local_plot = LocalPlot(max_lattice_size=self.root.exec.local_planner.lattice.targetted_num_edges)
         self.fig = self.local_plot.fig
         self.ax1 = self.local_plot.ax1
         self.ax2 = self.local_plot.ax2
@@ -164,11 +172,8 @@ class LocalPlanPlotView(ttk.Frame):
         self.root.setting.frenet_zoom += 5
         self.root.update_ui()
 
-    def set_plot_theme(self, bg_color="white", fg_color="black"):
-        # Ensure we're using the same background color as GlobalPlanPlotView
-        if bg_color == "#000000":
-            bg_color = "#333333"  # Use dark gray instead of pure black
-        self.local_plot.set_plot_theme(bg_color, fg_color)
+    def toggle_plot_theme(self):
+        self.local_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
 
     def plot(self):
         canvas_widget = self.canvas.get_tk_widget()
