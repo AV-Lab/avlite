@@ -46,9 +46,6 @@ class CarlaBridge(WorldInterface):
             self.spawn_points = self.world.get_map().get_spawn_points()
             log.info(f"Found {len(self.spawn_points)} spawn points in the map")
 
-            weather = carla.WeatherParameters.ClearNoon
-            self.world.set_weather(weather)
-
             # Initialize vehicle blueprint
             self.__initialize_vehicle_blueprint()
             self.start_bg_camera_and_state_update()
@@ -117,54 +114,18 @@ class CarlaBridge(WorldInterface):
         vehicle_blueprints = [bp.id for bp in blueprint_library.filter("vehicle.*")]
         log.info(f"Available vehicle blueprints: {vehicle_blueprints}")
 
-        # Try to find the Tesla model, but use a fallback if not available
-        try:
-            self.vehicle_blueprint = blueprint_library.find("vehicle.tesla.model3")
-            log.info("Using Tesla Model 3 as ego vehicle")
-        except IndexError:
-            # Try some common alternatives
-            for vehicle_id in [
-                "vehicle.audi.etron",
-                "vehicle.lincoln.mkz2017",
-                "vehicle.audi.a2",
-                "vehicle.tesla.cybertruck",
-            ]:
-                try:
-                    self.vehicle_blueprint = blueprint_library.find(vehicle_id)
-                    log.info(f"Using alternative vehicle: {vehicle_id}")
-                    break
-                except IndexError:
-                    continue
-            else:
-                # If none of the alternatives worked, use the first available vehicle
-                if vehicle_blueprints:
-                    self.vehicle_blueprint = blueprint_library.find(vehicle_blueprints[0])
-                    log.info(f"Using first available vehicle: {vehicle_blueprints[0]}")
-                else:
-                    log.error("No vehicle blueprints available in Carla")
-                    self.vehicle_blueprint = None
+        if vehicle_blueprints:
+            self.vehicle_blueprint = blueprint_library.find(vehicle_blueprints[0])
+            log.info(f"Using first available vehicle: {vehicle_blueprints[0]}")
+        else:
+            log.error("No vehicle blueprints available in Carla")
+            self.vehicle_blueprint = None
 
     def __spawn_ego_vehicle(self, state: EgoState):
         """Spawn the ego vehicle at the given state position"""
         if not self.world or not self.vehicle_blueprint:
             log.error("Cannot spawn vehicle: world not connected or blueprint not initialized")
             return
-
-        # Check if state is None and create a default state if needed
-        if state is None:
-            log.warning("Ego state is None, creating default state at first spawn point")
-            state = EgoState()
-            if self.spawn_points:
-                spawn_point = self.spawn_points[0]
-                state.x = spawn_point.location.x
-                state.y = spawn_point.location.y
-                state.theta = spawn_point.rotation.yaw * (3.14159 / 180.0)
-            else:
-                # Default position if no spawn points
-                state.x = 0.0
-                state.y = 0.0
-                state.theta = 0.0
-            self.ego_state = state
 
         # Use a valid spawn point from Carla
         if self.spawn_points:
@@ -261,13 +222,20 @@ class CarlaBridge(WorldInterface):
         # Update self.ego_state from vehicle
         self.get_ego_state()
 
+    
+    # TODO: Carla transformation
     def get_ego_state(self):
         if not self.vehicle:
             self.__spawn_ego_vehicle(self.ego_state)
         transform = self.vehicle.get_transform()
         velocity = self.vehicle.get_velocity()
-        self.ego_state.x = transform.location.x
-        self.ego_state.y = transform.location.y
+        
+        # Log the raw transform data for debugging
+        log.debug(f"Vehicle Transform: Location({transform.location.x}, {transform.location.y}, {transform.location.z}), "
+                  f"Rotation({transform.rotation.pitch}, {transform.rotation.yaw}, {transform.rotation.roll})")
+        
+        self.ego_state.x = transform.location.x * 1
+        self.ego_state.y = transform.location.y  * -1
         self.ego_state.theta = transform.rotation.yaw * (3.14159 / 180.0)
         self.ego_state.velocity = (velocity.x**2 + velocity.y**2) ** 0.5
         return self.ego_state

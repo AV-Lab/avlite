@@ -1,6 +1,7 @@
 from c10_perception.c11_base_perception import PerceptionModel
 from c20_planning.c24_base_local_planner import BaseLocalPlanner
 from c20_planning.c26_lattice import Edge
+from c20_planning.c27_trajectory import Trajectory
 from c40_execution.c41_base_executer import BaseExecuter
 from c10_perception.c12_state import EgoState
 
@@ -11,7 +12,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 import networkx as nx
 
-from c20_planning.c27_trajectory import Trajectory
 import logging
 
 log = logging.getLogger(__name__)
@@ -135,6 +135,8 @@ class GlobalHDMapPlot(GlobalPlot):
         
         # Set initial properties
         self.ax.set_aspect('equal')  # Equal aspect ratio
+
+    # TODO: clean up location isues
     def plot(self, exec, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Implement the abstract method from GlobalPlot"""
         vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
@@ -191,31 +193,10 @@ class GlobalHDMapPlot(GlobalPlot):
             color = colors[i % 20]
             self.ax.plot(road_x, road_y, color=color)
         
-        # Calculate appropriate plot limits based on all road data
-        if all_x_coords and all_y_coords:
-            min_x, max_x = min(all_x_coords), max(all_x_coords)
-            min_y, max_y = min(all_y_coords), max(all_y_coords)
-            
-            # Add padding (10% of range)
-            x_padding = max(20, (max_x - min_x) * 0.1)
-            y_padding = max(20, (max_y - min_y) * 0.1)
-            
-            if follow_vehicle:
-                # Center on vehicle with appropriate zoom
-                if zoom is not None:
-                    self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
-                    self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
-                else:
-                    self.ax.set_xlim(min_x - x_padding, max_x + x_padding)
-                    self.ax.set_ylim(min_y - y_padding, max_y + y_padding)
-            else:
-                # Show all roads
-                self.ax.set_xlim(min_x - x_padding, max_x + x_padding)
-                self.ax.set_ylim(min_y - y_padding, max_y + y_padding)
-        else:
-            # Fallback to default limits if no coordinates found
-            self.ax.set_xlim(-150, 150)
-            self.ax.set_ylim(-150, 150)
+        # Fallback to default limits if no coordinates found
+        self.ax.set_xlim(np.min(all_x_coords), np.max(all_x_coords))
+        self.ax.set_ylim(np.min(all_y_coords), np.max(all_y_coords))
+        # self.ax.autoscale()
             
         log.debug(f"Plotting HD Map Global Plot at location: {exec.ego_state.x}, {exec.ego_state.y}")
         self.fig.canvas.draw()

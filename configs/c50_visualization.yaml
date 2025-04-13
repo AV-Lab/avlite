@@ -14,7 +14,7 @@ frenet_zoom: 30
 global_plan_view: true
 global_planner_type: GlobalHDMapPlanner
 global_view_follow_planner: false
-local_plan_view: true
+local_plan_view: false
 local_planner_type: RNDPlanner
 log_level: DEBUG
 replan_dt: 0.01
