@@ -5,6 +5,7 @@ if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
 import tkinter as tk
 from tkinter import ttk
+from tkinter import TclError
 
 
 import logging

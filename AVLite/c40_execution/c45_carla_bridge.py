@@ -1,10 +1,12 @@
 from c40_execution.c41_base_executer import WorldInterface
 from c10_perception.c12_state import EgoState, AgentState
 from c30_control.c31_base_controller import ControlComand
+from typing import Union
 import carla
 import math
 import logging
 import numpy as np
+import time
 
 log = logging.getLogger(__name__)
 
@@ -21,14 +23,12 @@ class CarlaBridge(WorldInterface):
         # Carla stuff
         self.vehicle = None
         self.spectator = None
-        self.camera_distance = 6.0  # Distance behind the car
-        self.camera_height = 2.5  # Height above the car
-        self.follow_camera = True  # Whether to follow the car with the camera
-        self.spawn_points = []  # Available spawn points in the map
-        self.scene_name = scene_name  # Store the scene name for resets
-        self.current_camera_transform = None  # For smooth camera movement
-        self.target_camera_transform = None  # For smooth camera movement
-        self.vehicle_blueprint = None  # Store the vehicle blueprint
+        self.vehicle_blueprint = None 
+        self.camera_distance = 6.0 
+        self.camera_height = 2.5 
+        self.follow_camera = True 
+        self.spawn_points = []  
+        self.scene_name = scene_name  
 
         try:
             self.client = carla.Client(host, port)
@@ -53,7 +53,8 @@ class CarlaBridge(WorldInterface):
             log.error(f"Failed to connect to Carla: {e}")
             log.error("Make sure the Carla simulator is running on the specified host and port.")
 
-    def start_bg_camera_and_state_update(self, interval=0.1):
+
+    def start_bg_camera_and_state_update(self, interval=0.01):
         """Start a periodic update of the camera position"""
         import threading
         import time
@@ -76,20 +77,12 @@ class CarlaBridge(WorldInterface):
         vehicle_transform = self.vehicle.get_transform()
 
         # update state
-        self.ego_state.x = vehicle_transform.location.x
-        self.ego_state.y = vehicle_transform.location.y
-        self.ego_state.theta = vehicle_transform.rotation.yaw * (3.14159 / 180.0)
-        self.ego_state.velocity = self.vehicle.get_velocity().x
+        # self.get_ego_state()
 
-        # Calculate a position behind and above the vehicle
-        # Convert yaw from degrees to radians
         yaw_rad = vehicle_transform.rotation.yaw * (3.14159 / 180.0)
-
-        # Calculate position behind the car (negative of forward vector)
         dx = -self.camera_distance * math.cos(yaw_rad)
         dy = -self.camera_distance * math.sin(yaw_rad)
 
-        # Create the camera transform
         camera_location = carla.Location(
             x=vehicle_transform.location.x + dx,
             y=vehicle_transform.location.y + dy,
@@ -121,7 +114,7 @@ class CarlaBridge(WorldInterface):
             log.error("No vehicle blueprints available in Carla")
             self.vehicle_blueprint = None
 
-    def __spawn_ego_vehicle(self, state: EgoState):
+    def __spawn_vehicle(self, state: Union[EgoState, AgentState]):
         """Spawn the ego vehicle at the given state position"""
         if not self.world or not self.vehicle_blueprint:
             log.error("Cannot spawn vehicle: world not connected or blueprint not initialized")
@@ -149,10 +142,6 @@ class CarlaBridge(WorldInterface):
                 f"Using spawn point at ({spawn_point.location.x}, {spawn_point.location.y}, {spawn_point.location.z})"
             )
 
-            # Update the state to match the spawn point
-            state.x = spawn_point.location.x
-            state.y = spawn_point.location.y
-            state.theta = spawn_point.rotation.yaw * (3.14159 / 180.0)
         else:
             log.warning("No spawn points found in Carla map! Using arbitrary spawn point.")
             spawn_point = carla.Transform(carla.Location(x=state.x, y=state.y, z=1.0))
@@ -183,7 +172,7 @@ class CarlaBridge(WorldInterface):
         """
         # If vehicle doesn't exist, spawn it
         if not self.vehicle:
-            self.__spawn_ego_vehicle(self.ego_state)
+            self.__spawn_vehicle(self.ego_state)
 
         log.debug(f"Applying control: {cmd}")
         assert self.ego_state is not None, "Ego state is None. Cannot update state without a reference."
@@ -225,8 +214,11 @@ class CarlaBridge(WorldInterface):
     
     # TODO: Carla transformation
     def get_ego_state(self):
+        """Get the current state of the ego vehicle.
+        The method handles the difference of left-hand rule of Carla to right-hand rule of AVLite. 
+        """
         if not self.vehicle:
-            self.__spawn_ego_vehicle(self.ego_state)
+            self.__spawn_vehicle(self.ego_state)
         transform = self.vehicle.get_transform()
         velocity = self.vehicle.get_velocity()
         
@@ -234,64 +226,23 @@ class CarlaBridge(WorldInterface):
         log.debug(f"Vehicle Transform: Location({transform.location.x}, {transform.location.y}, {transform.location.z}), "
                   f"Rotation({transform.rotation.pitch}, {transform.rotation.yaw}, {transform.rotation.roll})")
         
-        self.ego_state.x = transform.location.x * 1
-        self.ego_state.y = transform.location.y  * -1
-        self.ego_state.theta = transform.rotation.yaw * (3.14159 / 180.0)
+        self.ego_state.x = transform.location.x
+        self.ego_state.y = -1*transform.location.y
+        self.ego_state.theta = -transform.rotation.yaw * (3.14159 / 180.0)
         self.ego_state.velocity = (velocity.x**2 + velocity.y**2) ** 0.5
+        log.debug(f"Updated Ego State: x={self.ego_state.x}, y={self.ego_state.y}, theta={self.ego_state.theta}, velocity={self.ego_state.velocity}")
+#
+        # self.__update_camera_position_and_state()
+
+
         return self.ego_state
 
     def spawn_agent(self, agent_state: AgentState):
-        blueprint_library = self.world.get_blueprint_library()
-        vehicle_bp = blueprint_library.find("vehicle.audi.a2")
-
-        # Use a valid spawn point from Carla
-        if self.spawn_points:
-            # Find the closest spawn point to the requested state
-            closest_point = None
-            min_distance = float("inf")
-            for point in self.spawn_points:
-                distance = ((point.location.x - agent_state.x) ** 2 + (point.location.y - agent_state.y) ** 2) ** 0.5
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_point = point
-
-            # If we're too far from any spawn point, just use the first one
-            if min_distance > 100.0:  # If more than 100 meters away
-                log.warning(f"Requested position is too far from any valid spawn point. Using first spawn point.")
-                spawn_point = self.spawn_points[0]
-            else:
-                spawn_point = closest_point
-
-            log.info(
-                f"Spawning agent at ({spawn_point.location.x}, {spawn_point.location.y}, {spawn_point.location.z})"
-            )
-
-            # Update the agent state to match the spawn point
-            agent_state.x = spawn_point.location.x
-            agent_state.y = spawn_point.location.y
-            agent_state.theta = spawn_point.rotation.yaw * (3.14159 / 180.0)
-        else:
-            log.warning("No spawn points found in Carla map! Using arbitrary spawn point.")
-            spawn_point = carla.Transform(carla.Location(x=agent_state.x, y=agent_state.y, z=1.0))
-
-        # Try to spawn the agent
-        agent = self.world.try_spawn_actor(vehicle_bp, spawn_point)
-
-        # If spawning fails, try other spawn points
-        if not agent and self.spawn_points:
-            log.warning("Failed to spawn agent at selected point. Trying other spawn points.")
-            for i, spawn_point in enumerate(self.spawn_points):
-                agent = self.world.try_spawn_actor(vehicle_bp, spawn_point)
-                if agent:
-                    log.info(f"Successfully spawned agent at alternative point {i}")
-                    # Update the agent state to match the spawn point
-                    agent_state.x = spawn_point.location.x
-                    agent_state.y = spawn_point.location.y
-                    agent_state.theta = spawn_point.rotation.yaw * (3.14159 / 180.0)
-                    break
-
-            if not agent:
-                log.error("Failed to spawn agent at any spawn point!")
+        """Spawn an agent in the Carla simulator.
+        This method handles the spawning of agents in the Carla simulator.
+        It uses the agent's state to determine the spawn point and vehicle type.
+        """
+        self.__spawn_vehicle(agent_state)
 
     def reset(self):
         """Reset the simulator and state.
