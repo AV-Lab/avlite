@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from c60_tools.c61_utils import save_visualizer_config, load_setting
+from c60_tools.c61_utils import save_config, load_setting
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
 import tkinter as tk
@@ -135,6 +135,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             log.error("Please install ttkthemes to use dark mode.")
 
     def save_config(self):
-        save_visualizer_config(self.root.setting)
+        save_config(self.root.setting)
     def load_config(self):
         load_setting(self.root.setting)

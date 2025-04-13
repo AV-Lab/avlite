@@ -23,13 +23,12 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
         """
+        super().__init__()
         self.xodr_file = xodr_file
         self.sampling_resolution = sampling_resolution
 
-        # Directed graph of (x, y) nodes, edges store distance
         log.info(f"Loading HD Map: {xodr_file}")
 
-        # Parse the roads & build the graph
         self._parse_opendrive()
 
 

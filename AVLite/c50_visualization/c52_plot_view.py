@@ -38,7 +38,7 @@ class GlobalPlanPlotView(ttk.Frame):
             fg_color = "white" if self.root.setting.dark_mode.get() else "black"
             self.set_plot_theme(bg_color, fg_color)
             
-        self.plot()  # Initialize the view
+        # self.plot()  # Initialize the view
 
 
     def plot(self):
