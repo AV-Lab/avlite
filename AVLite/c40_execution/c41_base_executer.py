@@ -2,12 +2,15 @@ from dataclasses import dataclass
 import logging
 import time
 from abc import ABC, abstractmethod
+from typing import Union
 
 from c10_perception.c11_base_perception import PerceptionModel
 from c10_perception.c12_state import EgoState
 from c10_perception.c12_state import AgentState
 from c20_planning.c21_base_global_planner import BaseGlobalPlanner
 from c20_planning.c24_base_local_planner import BaseLocalPlanner
+from c20_planning.c22_hdmap_global_planner import GlobalHDMapPlanner
+from c20_planning.c23_race_global_planner import RaceGlobalPlanner
 from c30_control.c31_base_controller import BaseController, ControlComand
 
 log = logging.getLogger(__name__)
@@ -47,7 +50,7 @@ class BaseExecuter:
     def __init__(
         self,
         pm: PerceptionModel,
-        glob_pl: BaseGlobalPlanner,
+        glob_pl: Union[RaceGlobalPlanner, GlobalHDMapPlanner],
         pl: BaseLocalPlanner,
         cn: BaseController,
         world: WorldInterface,
@@ -56,7 +59,7 @@ class BaseExecuter:
     ):
         self.pm: PerceptionModel = pm
         self.ego_state: EgoState = pm.ego_vehicle
-        self.global_planner: BaseGlobalPlanner = glob_pl
+        self.global_planner:Union[RaceGlobalPlanner, GlobalHDMapPlanner] = glob_pl
         self.local_planner: BaseLocalPlanner = pl
         self.controller: BaseController = cn
         self.world: WorldInterface = world
@@ -84,7 +87,6 @@ class BaseExecuter:
         call_perceive=True,
         ) -> None:
 
-        log.debug(f"Global Planner Graph: {self.global_planner.graph}")
         pln_time_txt, cn_time_txt, sim_time_txt = "", "", ""
         t0 = time.time()
 

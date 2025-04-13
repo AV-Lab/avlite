@@ -1,4 +1,5 @@
 async_exec: false
+bg_color: '#333333'
 control_dt: 0.01
 dark_mode: true
 disable_log: false
@@ -7,12 +8,13 @@ exec_control: true
 exec_perceive: false
 exec_plan: true
 execution_bridge: Basic
+fg_color: white
 frenet_view_follow_planner: false
 frenet_zoom: 30
-global_plan_view: false
-global_planner_type: RaceGlobalPlanner
+global_plan_view: true
+global_planner_type: GlobalHDMapPlanner
 global_view_follow_planner: false
-local_plan_view: false
+local_plan_view: true
 local_planner_type: RNDPlanner
 log_level: DEBUG
 replan_dt: 0.01
