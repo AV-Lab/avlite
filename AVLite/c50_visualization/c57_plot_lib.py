@@ -126,7 +126,7 @@ class GlobalRacePlot(GlobalPlot):
 
 
 class GlobalHDMapPlot(GlobalPlot):
-    def __init__(self, figsize=(8, 10)):
+    def __init__(self, figsize=(10, 10)):
         super().__init__(figsize, name="HD Map Road Network")
         
         # Create plot elements with empty data - they'll be updated later
@@ -149,8 +149,10 @@ class GlobalHDMapPlot(GlobalPlot):
         for line in self.ax.lines[1:]:  # Keep the first line (vehicle_location)
             line.remove()
         
-        global_pl = exec.global_planner.xodr_root
-        roads = global_pl.findall('road')
+        if not hasattr(exec.global_planner, 'xodr_root'):
+            return
+        root = exec.global_planner.xodr_root
+        roads = root.findall('road')
         colors = plt.cm.tab20(np.linspace(0, 1, 20))
         
         # Store all road coordinates to calculate plot limits
@@ -632,6 +634,7 @@ class LocalPlot:
             self.ego_vehicle_ax1.set_xy(np.empty((0, 2)))
             self.ego_vehicle_ax2.set_xy(np.empty((0, 2)))
             return
+
 
         car_L_f = state.L_f
         car_L_r = state.length - car_L_f

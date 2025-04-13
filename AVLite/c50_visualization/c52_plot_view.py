@@ -30,7 +30,7 @@ class GlobalPlanPlotView(ttk.Frame):
         self.fig = self.global_plot.fig
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
-        self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
         self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
         
          
@@ -65,11 +65,11 @@ class GlobalPlanPlotView(ttk.Frame):
             self.global_plot = GlobalRacePlot()
             self.fig = self.global_plot.fig
             self.canvas = FigureCanvasTkAgg(self.fig, master=self)
-            self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
             self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
-            self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
-            self.toolbar.update()
-            self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+            # self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
+            # self.toolbar.update()
+            # self.toolbar.pack(fill=tk.X)
             log.debug("Global Plot type changed to Race Plot.")
         elif self.root.setting.global_planner_type.get() == "GlobalHDMapPlanner":
             self.global_plot = GlobalHDMapPlot()
@@ -77,10 +77,9 @@ class GlobalPlanPlotView(ttk.Frame):
             self.canvas = FigureCanvasTkAgg(self.fig, master=self)
             self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
             self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
-            self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
-            self.toolbar.update()
-            self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-            # NavigationToolbar2Tk(self.fig.canvas, self)
+            # self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
+            # self.toolbar.update()
+            # self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
             log.debug("Global Plot type changed to HD Map Plot.")
         # self.plot()
 
