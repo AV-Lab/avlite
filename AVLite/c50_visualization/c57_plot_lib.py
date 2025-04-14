@@ -21,8 +21,15 @@ class GlobalPlot(ABC):
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self.name = name
         self.ax.set_title(self.name)
-        self.ax.set_aspect('equal')  # Equal aspect ratio
+        self.ax.set_aspect('equal') 
         self.ax.grid(True)
+        
+        # Disable the 'l' shortcut for toggling log scale
+        self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
+
+        self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
+        
+        # self.ax.set_position([0, 0.05, 0.99, 0.94])  # [left, bottom, width, height]
 
     @abstractmethod
     def plot(self,exec:BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
@@ -63,9 +70,6 @@ class GlobalRacePlot(GlobalPlot):
         self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=10, label="Planner Location")
         
       
-        # Set plot properties
-        self.ax.set_aspect('equal')
-        self.ax.grid(True)
         self.ax.legend()
         
         # Adjust layout to align with LocalPlot
@@ -133,8 +137,6 @@ class GlobalHDMapPlot(GlobalPlot):
         self.vehicle_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
         self.vehicle_location.set_color("red")
         
-        # Set initial properties
-        self.ax.set_aspect('equal')  # Equal aspect ratio
 
     # TODO: clean up location isues
     def plot(self, exec, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
@@ -320,8 +322,6 @@ class GlobalHDMapPlot(GlobalPlot):
         super().set_plot_theme(bg_color, fg_color)
         
 
-    
-
         
 
 
@@ -334,6 +334,17 @@ class LocalPlot:
         self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
         # Disable the 'l' shortcut for toggling log scale
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
+        self.ax2.set_title("Frenet Coordinate", pad=-100)
+
+        self.ax1.set_aspect("equal")
+        self.ax2.set_aspect("equal")
+        self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
+        # self.ax1.set_position([0, 0.5, 0.99, .5])  # [left, bottom, width, height]
+        # self.ax2.set_position([0, 0.0, 0.99, .5])  # [left, bottom, width, height]
+
+
+
+
 
         self.lattice_graph_plots_ax1 = []
         self.lattice_graph_plots_ax2 = []
@@ -417,17 +428,11 @@ class LocalPlot:
             self.pm_plots_ax1.append(agent_vehicle_ax1)
             self.pm_plots_ax2.append(agent_vehicle_ax2)
 
-        self.ax2.set_title("Frenet Coordinate")
-        self.ax1.set_aspect("equal")
-        self.ax2.set_aspect("equal")
-
         self.legend_ax = self.fig.add_axes([0.0, -0.013, 1, 0.1])
         self.legend_ax.legend(
             *self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3
         )
         self.legend_ax.axis("off")
-
-        self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
     def plot(
         self,

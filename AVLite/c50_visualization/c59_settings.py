@@ -72,6 +72,9 @@ class VisualizationSettings:
 
         self.vehicle_state = tk.StringVar(
             value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
+        
+        self.perception_status_text = tk.StringVar(value="Spawn Agent: Click on the plot.")
+
         self.current_wp = tk.StringVar(value="0")
 
 

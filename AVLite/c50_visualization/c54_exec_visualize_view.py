@@ -67,30 +67,20 @@ class ExecVisualizeView(ttk.Frame):
         )
         self.asyc_exec_cb.pack(side=tk.RIGHT)
 
-        gruvbox_green = "#b8bb26"
-        gruvbox_light_green = "#fe8019"
-        gruvbox_red = "#9d0006"
-        gruvbox_orange = "#d65d0e"
-        self.start_exec_button = tk.Button(
+        self.start_exec_button = ttk.Button(
             exec_second_frame,
             text="Start",
             command=self.toggle_exec,
-            bg=gruvbox_orange,
-            fg="white",
-            borderwidth=0,
-            highlightthickness=0,
+            style="Start.TButton",
             width=10,
         )
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
 
-        tk.Button(
+        ttk.Button(
             exec_second_frame,
             text="Stop",
             command=self.stop_exec,
-            bg=gruvbox_red,
-            fg="white",
-            borderwidth=0,
-            highlightthickness=0,
+            style="Stop.TButton",
         ).pack(side=tk.LEFT, padx=1)
         ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
         ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)

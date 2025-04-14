@@ -143,7 +143,7 @@ class AsyncThreadedExecuter(BaseExecuter):
                     with self.lock_world:
                         state = self.world.ego_state
                         cmd = self.controller.control(state)
-                        self.world.update_ego_state(cmd, dt=self.sim_dt)
+                        self.world.control_ego_state(cmd, dt=self.sim_dt)
                     self.control_fps = 1.0 / dt
 
                 t2 = time.time()

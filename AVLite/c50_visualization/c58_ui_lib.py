@@ -15,16 +15,16 @@ class ValueGauge(ttk.Frame):
         self._old_value = 0 # used to not draw if value is same
 
         if name != "":
-            tk.Label(self, text=name, font=self.font, bg="#2f2f2f", fg="gray").pack(side=tk.LEFT, padx=0)
-        self.min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font, bg="#2f2f2f", fg="gray")
-        self.min_label.pack(side=tk.LEFT, padx=0)
+            tk.Label(self, text=name, font=self.font).pack(side=tk.LEFT, padx=0)
+        min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font)
+        min_label.pack(side=tk.LEFT, padx=0)
         
-        self.max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font, bg="#2f2f2f", fg="gray")
-        self.max_label.pack(side=tk.RIGHT, padx=0)
+        max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font)
+        max_label.pack(side=tk.RIGHT, padx=0)
 
         self.canvas = tk.Canvas(self, height=height, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
-        self.bind("<Configure>", lambda e: self.after_idle(self._draw))
+        # self.bind("<Configure>", lambda e: self.after_idle(self._draw))
 
         self.bind("<Configure>", lambda e: self._draw())
 
@@ -37,6 +37,7 @@ class ValueGauge(ttk.Frame):
     
     def _variable_changed(self, *args):
         self.set_value(self.variable.get())
+
     def set_value(self, value):
         if value == self.current_value:
             return  # Skip if no change

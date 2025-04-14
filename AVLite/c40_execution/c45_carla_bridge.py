@@ -7,6 +7,7 @@ import math
 import logging
 import numpy as np
 import time
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class CarlaBridge(WorldInterface):
         self.spectator = None
         self.vehicle_blueprint = None 
         self.camera_distance = 6.0 
-        self.camera_height = 2.5 
+        self.camera_height = 2.5
         self.follow_camera = True 
         self.spawn_points = []  
         self.scene_name = scene_name  
@@ -59,12 +60,12 @@ class CarlaBridge(WorldInterface):
         import threading
         import time
 
-        def update():
+        def update_thread():
             while True:
                 self.__update_camera_position_and_state()
                 time.sleep(interval)
 
-        camera_thread = threading.Thread(target=update)
+        camera_thread = threading.Thread(target=update_thread)
         camera_thread.daemon = True
         camera_thread.start()
 
@@ -165,7 +166,7 @@ class CarlaBridge(WorldInterface):
             if not self.vehicle:
                 log.error("Failed to spawn vehicle at any spawn point!")
 
-    def update_ego_state(self, cmd: ControlComand, dt=0.01):
+    def control_ego_state(self, cmd: ControlComand, dt=0.01):
         """Update the ego state with the given command.
         This method applies control commands to the vehicle and updates the state.
         If the vehicle doesn't exist yet, it will be spawned.
@@ -210,6 +211,24 @@ class CarlaBridge(WorldInterface):
 
         # Update self.ego_state from vehicle
         self.get_ego_state()
+    
+
+    def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
+        if not self.vehicle:
+            self.__spawn_vehicle(self.ego_state)
+        self.ego_state.x = x
+        self.ego_state.y = y
+        if theta is not None:
+            self.ego_state.theta = theta
+
+        if self.vehicle:
+            # Convert theta from radians to degrees for Carla
+            theta_deg = self.ego_state.theta * (180.0 / 3.14159) if theta else None
+            transform = carla.Transform(
+                carla.Location(x=x, y=-y, z=1.0),
+                carla.Rotation(yaw=theta_deg) if theta_deg is not None else carla.Rotation()
+            )
+            self.vehicle.set_transform(transform)
 
     
     # TODO: Carla transformation
