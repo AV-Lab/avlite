@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 class ConfigShortcutView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root, text="Config")
+
+
         self.root: VisualizerApp = root
         # ----------------------------------------------------------------------
         # Key Bindings --------------------------------------------------------
@@ -87,52 +89,16 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
 
     def toggle_dark_mode(self):
-        self.set_dark_mode() if self.root.setting.dark_mode.get() else self.set_light_mode()
+        self.root.set_dark_mode_themed() if self.root.setting.dark_mode.get() else self.root.set_light_mode()
 
     def toggle_dark_mode_shortcut(self):
-        if self.root.setting.dark_mode.get():
-            self.root.setting.dark_mode.set(False)
-        else:
-            self.root.setting.dark_mode.set(True)
+        # if self.root.setting.dark_mode.get():
+        #     self.root.setting.dark_mode.set(False)
+        # else:
+        #     self.root.setting.dark_mode.set(True)
+
         self.toggle_dark_mode()
 
-    def set_dark_mode(self):
-        self.root.configure(bg="black")
-        self.root.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
-        self.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-
-        self.root.setting.bg_color = "#333333"
-        self.root.setting.fg_color = "white"
-        self.root.local_plan_plot_view.toggle_plot_theme()
-        self.root.global_plan_plot_view.toggle_plot_theme()
-        log.info("Dark mode enabled.")
-
-        try:
-            from ttkthemes import ThemedStyle
-            style = ThemedStyle(self.root)
-            style.set_theme("equilux")
-
-        except ImportError:
-            log.error("Please install ttkthemes to use dark mode.")
-
-    def set_light_mode(self):
-        self.root.configure(bg="white")
-        self.root.log_view.log_area.config(bg="white", fg="black")
-        self.help_text.config(bg="white", fg="black")
-
-        self.root.setting.bg_color = "white"
-        self.root.setting.fg_color = "black"
-        self.root.local_plan_plot_view.toggle_plot_theme()
-        self.root.global_plan_plot_view.toggle_plot_theme()
-        log.info("Light mode enabled.")
-        # reset the theme
-        try:
-            from ttkthemes import ThemedStyle
-
-            style = ThemedStyle(self.root)
-            style.set_theme("yaru")
-        except ImportError:
-            log.error("Please install ttkthemes to use dark mode.")
 
     def save_config(self):
         save_config(self.root.setting)

@@ -27,14 +27,19 @@ class GlobalPlanPlotView(ttk.Frame):
         elif self.root.setting.global_planner_type.get() == GlobalHDMapPlanner.__name__:
             self.global_plot = GlobalHDMapPlot()
 
+        self.__config_canvas()
+        self.bind("<Configure>",lambda x: self.plot())
+         
+    def __config_canvas(self):  
         self.fig = self.global_plot.fig
+        self.ax = self.global_plot.ax   
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
         self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
+        self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
+        self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
         
-         
-
 
     def plot(self):
         t1 = time.time()
@@ -53,7 +58,7 @@ class GlobalPlanPlotView(ttk.Frame):
         
         log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
     
-    def toggle_plot_theme(self):
+    def update_plot_theme(self):
         self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
         
 
@@ -63,25 +68,27 @@ class GlobalPlanPlotView(ttk.Frame):
         self.canvas.get_tk_widget().destroy()  
         if self.root.setting.global_planner_type.get() == "RaceGlobalPlanner":
             self.global_plot = GlobalRacePlot()
-            self.fig = self.global_plot.fig
-            self.canvas = FigureCanvasTkAgg(self.fig, master=self)
-            self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-            self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
-            # self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
-            # self.toolbar.update()
-            # self.toolbar.pack(fill=tk.X)
+            self.__config_canvas()
             log.debug("Global Plot type changed to Race Plot.")
         elif self.root.setting.global_planner_type.get() == "GlobalHDMapPlanner":
             self.global_plot = GlobalHDMapPlot()
-            self.fig = self.global_plot.fig
-            self.canvas = FigureCanvasTkAgg(self.fig, master=self)
-            self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-            self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
-            # self.toolbar = NavigationToolbar2Tk(self.fig.canvas, self)
-            # self.toolbar.update()
-            # self.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+            self.__config_canvas()
             log.debug("Global Plot type changed to HD Map Plot.")
-        # self.plot()
+
+
+    def on_mouse_move(self, event):
+        if event.inaxes:
+            x, y = event.xdata, event.ydata
+            if event.inaxes == self.ax:
+                self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
+        else:
+            self.root.setting.perception_status_text.set("Click on the plot.")
+
+    def on_mouse_click(self, event):
+        if event.inaxes == self.ax:
+            x, y = event.xdata, event.ydata
+            self.root.exec.world.teleport_ego(x=x, y=y)
+            self.root.update_ui()
 
 class LocalPlanPlotView(ttk.Frame):
 
@@ -104,23 +111,18 @@ class LocalPlanPlotView(ttk.Frame):
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
         self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
         self._prev_scroll_time = None  # used to throttle the replot
+        
+        self.bind("<Configure>",lambda x: self.plot())
 
     def on_mouse_move(self, event):
         if event.inaxes:
             x, y = event.xdata, event.ydata
             if event.inaxes == self.ax1:
-                self.root.perceive_plan_control_view.coordinates_label.config(
-                    text=f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}"
-                )
+                self.root.setting.perception_status_text.set(f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
             elif event.inaxes == self.ax2:
-                self.root.perceive_plan_control_view.coordinates_label.config(
-                    text=f"Spawn Agent: S: {x:.2f}, D: {y:.2f}"
-                )
+                self.root.setting.perception_status_text.set(f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
         else:
-            # Optionally, clear the coordinates display when the mouse is not over the axes
-            self.root.perceive_plan_control_view.coordinates_label.config(
-                text="Spawn Agent: Click on the plot."
-            )
+            self.root.setting.perception_status_text.set("Click on the plot.")
 
     def on_mouse_click(self, event):
         if event.inaxes == self.ax1:
@@ -171,10 +173,11 @@ class LocalPlanPlotView(ttk.Frame):
         self.root.setting.frenet_zoom += 5
         self.root.update_ui()
 
-    def toggle_plot_theme(self):
+    def update_plot_theme(self):
         self.local_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
 
     def plot(self):
+        """Plot the local plan and update the canvas."""
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()

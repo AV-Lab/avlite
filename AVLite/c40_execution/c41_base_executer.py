@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Optional, Union
 
 from c10_perception.c11_base_perception import PerceptionModel
 from c10_perception.c12_state import EgoState
@@ -21,7 +21,7 @@ class WorldInterface(ABC):
     ego_state: EgoState
 
     @abstractmethod
-    def update_ego_state(self, cmd: ControlComand, dt=0.01):
+    def control_ego_state(self, cmd: ControlComand, dt=0.01):
         """
         Update the ego state.
 
@@ -34,6 +34,18 @@ class WorldInterface(ABC):
 
     def get_ego_state(self) -> EgoState:
         return self.ego_state
+
+    @abstractmethod
+    def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
+        """
+        Teleport the ego vehicle to a new position and orientation.
+
+        Parameters
+        x (float): The new x-coordinate.
+        y (float): The new y-coordinate.
+        theta (float): The new orientation in radians.
+        """
+        pass
 
     @abstractmethod
     def spawn_agent(self, agent_state: AgentState):
@@ -110,7 +122,7 @@ class BaseExecuter:
                 cmd = self.controller.control(self.ego_state, local_tj)
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
 
-                self.world.update_ego_state(cmd, dt=sim_dt)
+                self.world.control_ego_state(cmd, dt=sim_dt)
         self.ego_state = self.world.get_ego_state()
 
         self.elapsed_sim_time += control_dt
@@ -166,3 +178,4 @@ class BaseExecuter:
             raise ValueError("Either (x, y) or (s, d) must be provided")
 
         self.pm.add_agent_vehicle(agent)
+

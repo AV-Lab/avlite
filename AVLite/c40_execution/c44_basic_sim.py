@@ -1,9 +1,11 @@
+import math
+import copy
+from typing import Optional
+
 from c10_perception.c12_state import AgentState
 from c10_perception.c12_state import EgoState
 from c30_control.c31_base_controller import ControlComand
 from c40_execution.c41_base_executer import WorldInterface
-import math
-import copy
 
 import logging
 log = logging.getLogger(__name__)
@@ -13,7 +15,7 @@ class BasicSim(WorldInterface):
         self.ego_state = ego_state
     
 
-    def update_ego_state(self, cmd:ControlComand, dt=0.01):
+    def control_ego_state(self, cmd:ControlComand, dt=0.01):
         acceleration = cmd.acceleration
         steering_angle = cmd.steer
 
@@ -27,4 +29,11 @@ class BasicSim(WorldInterface):
 
     def get_ego_state(self):
         return self.ego_state
+
+    def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
+        self.ego_state.x = x
+        self.ego_state.y = y
+        if theta is not None:
+            self.ego_state.theta = theta
+
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import tkinter as tk
-from tkinter import ttk
+from tkinter import Variable, ttk
 import time
 import logging
 
@@ -27,18 +27,18 @@ class PerceivePlanControlView(ttk.Frame):
         self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
         # ----
-        self.vehicle_state_label = ttk.Label(
+        vehicle_state_label = ttk.Label(
             self.perceive_frame,
             font=self.root.small_font,
             textvariable=self.root.setting.vehicle_state,
             width=30,
             wraplength=235,  # Set wrap length in pixels
         )
-        self.vehicle_state_label.pack(
+        vehicle_state_label.pack(
             side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
         self.coordinates_label = ttk.Label(
-            self.perceive_frame, text="Spawn Agent: Click on the plot.", width=30)
+            self.perceive_frame, textvariable=self.root.setting.perception_status_text, width=30)
         self.coordinates_label.pack(side=tk.LEFT, padx=5, pady=5)
         # ----------------------------------------------------------------------
 
@@ -232,7 +232,7 @@ class PerceivePlanControlView(ttk.Frame):
         cmd = self.root.exec.controller.control(
             self.root.exec.ego_state, self.root.exec.local_planner.get_local_plan())
 
-        self.root.exec.world.update_ego_state(
+        self.root.exec.world.control_ego_state(
             cmd=cmd, dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
@@ -241,24 +241,24 @@ class PerceivePlanControlView(ttk.Frame):
         self.root.update_ui()
 
     def step_steer_left(self):
-        self.root.exec.world.update_ego_state(cmd=ControlComand(
+        self.root.exec.world.control_ego_state(cmd=ControlComand(
             steer=0.7), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_steer_right(self):
-        self.root.exec.world.update_ego_state(cmd=ControlComand(
+        self.root.exec.world.control_ego_state(cmd=ControlComand(
             steer=-0.7), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_acc(self):
         acc = 3
-        self.root.exec.world.update_ego_state(
+        self.root.exec.world.control_ego_state(
             cmd=ControlComand(acc=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_dec(self):
         acc = -3
-        self.root.exec.world.update_ego_state(
+        self.root.exec.world.control_ego_state(
             cmd=ControlComand(acc=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
@@ -308,5 +308,5 @@ class PerceivePlanControlView(ttk.Frame):
         if abs(steering) > 0.01 or abs(acceleration) > 0.01 or abs(braking) > 0.01:
             cmd = ControlComand(steer=steering, acc=acceleration + braking)
             log.debug(f"Controller Command: {cmd}")
-            self.root.exec.world.update_ego_state(
+            self.root.exec.world.control_ego_state(
                 cmd=cmd, dt=self.root.setting.sim_dt.get())

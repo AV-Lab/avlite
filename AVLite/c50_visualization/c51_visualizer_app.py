@@ -21,6 +21,8 @@ class VisualizerApp(tk.Tk):
 
     def __init__(self, executer: BaseExecuter, code_reload_function=None):
         super().__init__()
+        # self.set_dark_mode()
+        self.set_dark_mode_themed()
 
         self.exec = executer
         self.code_reload_function = code_reload_function
@@ -57,24 +59,19 @@ class VisualizerApp(tk.Tk):
         self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
         # Configure grid weights for the 3:1 ratio
         self.grid_rowconfigure(0, weight=1)  # make the plot views expand
-        self.grid_columnconfigure(0, weight=3)  # local view gets 3x weight
+        self.grid_columnconfigure(0, weight=1)  # local view gets 3x weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.update_idletasks()
         
-        # Set minimum sizes to help enforce the ratio
-        # total_width = self.winfo_width()
-        # if total_width > 0:
-        #     # Set minimum sizes to maintain approximate ratio
-        #     self.grid_columnconfigure(0, minsize=int(total_width * 0.75))
-        #     self.grid_columnconfigure(1, minsize=int(total_width * 0.25))
-        
         self.bind("<Configure>", self.__update_grid_column_sizes)
+        
+        
 
         self.reload_stack()
         # Bind to window resize to maintain ratio
         self.toggle_shortcut_mode()
-        # self.config_shortcut_view.toggle_dark_mode()  
-        self.after(0, self.config_shortcut_view.toggle_dark_mode)
+        self.config_shortcut_view.toggle_dark_mode()  
+        # self.after(0, self.config_shortcut_view.toggle_dark_mode)
 
         # self.after(10, self.toggle_plan_view)
 
@@ -85,8 +82,8 @@ class VisualizerApp(tk.Tk):
         if event and event.widget == self:
             width = event.width
             if width > 10:  # Avoid division by zero or tiny windows
-                local_width = int(width * 0.75)
-                global_width = int(width * 0.25)
+                local_width = int(width * 0.5)
+                global_width = int(width * 0.5)
                 self.grid_columnconfigure(0, minsize=local_width)
                 self.grid_columnconfigure(1, minsize=global_width)
 
@@ -244,3 +241,135 @@ class VisualizerApp(tk.Tk):
         finally:
             self.is_loading = False
             self.enable_frame(self.exec_visualize_view.execution_frame)
+
+    def set_dark_mode(self):
+        # self.local_plan_plot_view.update_plot_theme()
+        # self.global_plan_plot_view.toggle_plot_theme()
+        # self.configure(bg="gray14")
+        # self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
+        # self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+
+        # self.setting.bg_color = "#333333"
+        # self.setting.fg_color = "white"
+
+        try:
+            from ttkbootstrap import Style
+
+            # style = Style("darkly")  # Or "cyborg", etc.
+            style = Style()
+            style.load_user_themes("data/avlite-theme.json")
+            style.theme_use("avlitetheme")
+            style.configure("TButton",borderwidth=5, bordercolor="black", padding=(5,2))
+
+            style.master = self
+            gruvbox_green = "#b8bb26"
+            gruvbox_light_green = "#fe8019"
+            gruvbox_red = "#9d0006"
+            gruvbox_orange = "#d65d0e"
+            
+            style.configure(
+                "Start.TButton",
+                background=gruvbox_orange,
+                foreground="white",
+            )
+            style.configure(
+                "Stop.TButton",
+                background=gruvbox_red,
+                foreground="white",
+            )
+
+        except ImportError: 
+            log.error("Please install ttkbootstrap to use dark mode.")
+            self.set_set_light_mode_darker()
+
+
+    def set_dark_mode_themed(self):
+
+        self.configure(bg="gray14")
+
+        if hasattr(self, "setting"):
+            self.setting.bg_color = "#333333"
+            self.setting.fg_color = "white"
+        if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
+            self.local_plan_plot_view.update_plot_theme()
+            self.global_plan_plot_view.update_plot_theme()
+        
+        if hasattr(self, "log_view") and hasattr(self, "config_shortcut_view"):
+            self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
+            self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+
+        try:
+            from ttkthemes import ThemedStyle
+            style = ThemedStyle(self)
+            style.set_theme("equilux")
+            gruvbox_red = "#9d0006"
+            gruvbox_orange = "#d65d0e"
+            style.layout(
+                "Start.TButton",
+                [("Button.border", {"sticky": "nswe", "children": [
+                    ("Button.padding", {"sticky": "nswe", "children": [
+                        ("Button.label", {"sticky": "nswe"})
+                    ]})
+                ]})]
+            )
+            style.layout(
+                "Stop.TButton",
+                [("Button.border", {"sticky": "nswe", "children": [
+                    ("Button.padding", {"sticky": "nswe", "children": [
+                        ("Button.label", {"sticky": "nswe"})
+                    ]})
+                ]})]
+            )
+            
+            style.configure(
+                "Start.TButton",
+                background=gruvbox_orange,
+                foreground="white",
+            )
+            style.configure(
+                "Stop.TButton",
+                background=gruvbox_red,
+                foreground="white",
+            )
+            style.map(
+                "Start.TButton",
+                background=[("active", "#ff8800")],  # Lighter orange on click/hover
+                foreground=[("active", "white")],
+            )
+            style.map(
+                "Stop.TButton",
+                background=[("active", "#ff4444")],  # Lighter red on click/hover
+                foreground=[("active", "white")],
+            )
+
+        except ImportError:
+            log.error("Please install ttkthemes to use dark mode.")
+            # self.set_set_light_mode_darker()
+        
+        log.info("Dark mode enabled.")
+
+    def set_light_mode(self):
+        self.configure(bg="white")
+        self.log_view.log_area.config(bg="white", fg="black")
+        self.config_shortcut_view.help_text.config(bg="white", fg="black")
+
+        self.setting.bg_color = "white"
+        self.setting.fg_color = "black"
+        self.local_plan_plot_view.update_plot_theme()
+        self.global_plan_plot_view.update_plot_theme()
+        log.info("Light mode enabled.")
+        style = ttk.Style(self)
+        style.theme_use('default')  # Reset to default theme
+
+    def set_set_light_mode_darker(self):
+        self.configure(bg="gray14")
+        self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
+        self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+
+        self.setting.bg_color = "#333333"
+        self.setting.fg_color = "white"
+        self.local_plan_plot_view.update_plot_theme()
+        self.global_plan_plot_view.update_plot_theme()
+        
+        style = ttk.Style(self)
+        style.theme_use('default')  # Reset to default theme
