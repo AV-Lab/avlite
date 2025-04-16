@@ -21,19 +21,47 @@ class GlobalPlot(ABC):
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self.name = name
         self.ax.set_title(self.name)
-        self.ax.set_aspect('equal') 
         self.ax.grid(True)
+        self.ax.set_aspect('equal') 
+        
+        self.background = None  # For blitting
         
         # Disable the 'l' shortcut for toggling log scale
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
-
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-        
-        # self.ax.set_position([0, 0.05, 0.99, 0.94])  # [left, bottom, width, height]
+        self.start, = self.ax.plot([], [], 'bo', markersize=10, label="Start", zorder = 3)
+        self.goal, = self.ax.plot([], [], 'go', markersize=10, label="Goal", zorder = 3)    
 
-    @abstractmethod
+        
+
     def plot(self,exec:BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
-        pass
+        start_x, start_y = exec.global_planner.global_plan.start_point
+        goal_x, goal_y = exec.global_planner.global_plan.goal_point
+        
+        # self.ax.set_aspect(aspect_ratio)
+        # if self.background is None:
+            # self.fig.canvas.draw()
+            # self.background = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+
+        self.start.set_data([start_x], [start_y])
+        self.goal.set_data([goal_x], [goal_y])
+
+    def set_start(self, x, y):
+        """Set the start point"""
+        self.start.set_data([x], [y])
+        self.ax.draw_artist(self.start)
+        self.fig.canvas.blit(self.ax.bbox)
+
+        self.fig.canvas.draw()
+
+    def set_goal(self, x, y):
+        """Set the goal point"""
+        self.goal.set_data([x], [y])
+        self.ax.draw_artist(self.goal)
+        self.fig.canvas.blit(self.ax.bbox)
+        
+        self.fig.canvas.draw()
+
 
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         """Set the plot theme colors"""
@@ -61,7 +89,6 @@ class GlobalPlot(ABC):
 
 class GlobalRacePlot(GlobalPlot):
     def __init__(self, figsize=(8, 10)):
-
         super().__init__(figsize, name = "Global Race Plot")
         # Create plot elements with empty data - they'll be updated later
         self.left_boundary, = self.ax.plot([], [], 'orange', linewidth=3, label="Left Boundary")
@@ -83,11 +110,12 @@ class GlobalRacePlot(GlobalPlot):
         self.right_boundary.set_color("tan")
         self.reference_trajectory.set_color("gray")
         self.vehicle_location.set_color("red")
-        super().set_plot_theme(bg_color, fg_color)
         
         
     def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Update the plot with current data"""
+        super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
+
         log.debug("Plotting Race Global Plot")
         try:
             # Get vehicle location
@@ -118,6 +146,9 @@ class GlobalRacePlot(GlobalPlot):
 
             if not show_legend:
                 self.ax.get_legend().remove() if self.ax.get_legend() else None
+        
+
+            # self.ax.set_aspect(aspect_ratio)
 
             self.fig.canvas.draw()
 
@@ -133,26 +164,33 @@ class GlobalHDMapPlot(GlobalPlot):
     def __init__(self, figsize=(10, 10)):
         super().__init__(figsize, name="HD Map Road Network")
         
+        # self.fig.canvas.restore_region(self.background)
+        
         # Create plot elements with empty data - they'll be updated later
         self.vehicle_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
         self.vehicle_location.set_color("red")
         
+        
 
     # TODO: clean up location isues
-    def plot(self, exec, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, exec:BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Implement the abstract method from GlobalPlot"""
+        super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
         vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
         self.vehicle_location.set_data([vehicle_x], [vehicle_y])
+        
+        
+        # if self.background is not None:
+            # self.fig.canvas.restore_region(self.background)
+       
 
         if not show_legend:
              self.ax.get_legend().remove() if self.ax.get_legend() else None
 
-        # Clear previous plots to avoid overlapping
-        for line in self.ax.lines[1:]:  # Keep the first line (vehicle_location)
-            line.remove()
         
         if not hasattr(exec.global_planner, 'xodr_root'):
             return
+
         root = exec.global_planner.xodr_root
         roads = root.findall('road')
         colors = plt.cm.tab20(np.linspace(0, 1, 20))
@@ -300,7 +338,7 @@ class GlobalHDMapPlot(GlobalPlot):
             
             elif geom_type in ['poly3', 'paramPoly3'] and params is not None:
                 # For polynomial geometries, we'll use a simplified approach
-                # In a real implementation, you would use the polynomial coefficients
+                # In a real implementation, we would use the polynomial coefficients
                 # For now, we'll just use a straight line approximation
                 log.debug(f"Using simplified approximation for {geom_type} geometry")
                 for s in s_array:

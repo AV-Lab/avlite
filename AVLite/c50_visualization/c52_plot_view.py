@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from c20_planning.c23_race_global_planner import RaceGlobalPlanner
 from c20_planning.c22_hdmap_global_planner import GlobalHDMapPlanner
-from c20_planning.c21_base_global_planner import PlannerType
 from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
@@ -29,6 +28,8 @@ class GlobalPlanPlotView(ttk.Frame):
 
         self.__config_canvas()
         self.bind("<Configure>",lambda x: self.plot())
+
+        self.start_point = None
          
     def __config_canvas(self):  
         self.fig = self.global_plot.fig
@@ -86,9 +87,20 @@ class GlobalPlanPlotView(ttk.Frame):
 
     def on_mouse_click(self, event):
         if event.inaxes == self.ax:
-            x, y = event.xdata, event.ydata
-            self.root.exec.world.teleport_ego(x=x, y=y)
-            self.root.update_ui()
+            if event.button == 1:  # Left click
+                x, y = event.xdata, event.ydata
+                self.root.exec.world.teleport_ego(x=x, y=y)
+                self.root.update_ui()
+            elif event.button == 3: # Right click
+                log.debug("Right click on the plot.")
+                if self.start_point:
+                    self.global_plot.set_goal(event.xdata, event.ydata)
+                    self.root.exec.global_planner.set_start_goal(start_point=self.start_point, goal_point=(event.xdata, event.ydata))
+                    self.start_point = None
+                else:
+                    self.global_plot.set_start(event.xdata, event.ydata)
+                    self.pending_goal_set = True
+                    self.start_point = (event.xdata, event.ydata)
 
 class LocalPlanPlotView(ttk.Frame):
 
@@ -125,15 +137,15 @@ class LocalPlanPlotView(ttk.Frame):
             self.root.setting.perception_status_text.set("Click on the plot.")
 
     def on_mouse_click(self, event):
-        if event.inaxes == self.ax1:
-            x, y = event.xdata, event.ydata
-            self.root.exec.spawn_agent(x=x, y=y)
-
-            self.root.update_ui()
-        elif event.inaxes == self.ax2:
-            s, d = event.xdata, event.ydata
-            self.root.exec.spawn_agent(d=d, s=s)
-            self.root.update_ui()
+        if event.button == 1:
+            if event.inaxes == self.ax1:
+                x, y = event.xdata, event.ydata
+                self.root.exec.spawn_agent(x=x, y=y)
+                self.root.update_ui()
+            elif event.inaxes == self.ax2:
+                s, d = event.xdata, event.ydata
+                self.root.exec.spawn_agent(d=d, s=s)
+                self.root.update_ui()
 
     def on_mouse_scroll(self, event, increment=10):
         if event.inaxes == self.ax1:
