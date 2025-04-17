@@ -10,11 +10,11 @@ exec_plan: true
 execution_bridge: Basic
 fg_color: white
 frenet_view_follow_planner: false
-frenet_zoom: 260
-global_plan_view: true
+frenet_zoom: 20
+global_plan_view: false
 global_planner_type: GlobalHDMapPlanner
 global_view_follow_planner: false
-local_plan_view: false
+local_plan_view: true
 local_planner_type: RNDPlanner
 log_level: DEBUG
 perception_status_text: Click on the plot.
@@ -33,4 +33,4 @@ show_state: true
 show_tools_logs: true
 show_vis_logs: true
 sim_dt: 0.01
-xy_zoom: 810
+xy_zoom: 1590

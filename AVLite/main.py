@@ -1,5 +1,5 @@
 from c50_visualization.c51_visualizer_app import VisualizerApp
-from c20_planning.c21_base_global_planner import BaseGlobalPlanner
+from c20_planning.c22_base_global_planner import BaseGlobalPlanner
 from c40_execution.c41_base_executer import BaseExecuter
 from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
 from c60_tools.c61_utils import load_config, reload_lib
@@ -26,18 +26,18 @@ def get_executer(
     )
 
     reload_lib()
-    from c10_perception.c11_base_perception import PerceptionModel
-    from c20_planning.c22_hdmap_global_planner import GlobalHDMapPlanner
-    from c20_planning.c23_race_global_planner import RaceGlobalPlanner
-    from c20_planning.c25_sampling_local_planner import RNDPlanner
-    from c30_control.c32_pid_controller import PIDController
+    from c10_perception.c11_perception_model import PerceptionModel, EgoState
+    from c20_planning.c25_hdmap_global_planner import GlobalHDMapPlanner
+    from c20_planning.c24_race_global_planner import RaceGlobalPlanner
+    from c20_planning.c26_sampling_local_planner import RNDPlanner
+    from c30_control.c33_pid import PIDController
     from c40_execution.c41_base_executer import BaseExecuter
     from c40_execution.c42_async_executer import AsyncExecuter
     from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
     from c40_execution.c44_basic_sim import BasicSim
-    from c10_perception.c12_state import EgoState
 
-    ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], speed=reference_velocity[0], theta=-np.pi / 4)
+    ego_state = EgoState(x=reference_path[0][0], y=reference_path[0][1], velocity=reference_velocity[0], theta=-np.pi / 4)
+    pm = PerceptionModel(ego_vehicle=ego_state)
     # Loading bridge
     if bridge == "Carla":
         print("Loading Carla bridge...")
@@ -50,7 +50,6 @@ def get_executer(
         world = BasicSim(ego_state=ego_state)
 
 
-    pm = PerceptionModel(ego_state)
 
     if global_planner == RaceGlobalPlanner.__name__:
         gp = RaceGlobalPlanner()

@@ -2,8 +2,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from c10_perception.c12_state import EgoState
-from c20_planning.c27_trajectory import Trajectory
+from c10_perception.c11_perception_model import EgoState
+from c20_planning.c28_trajectory import Trajectory
 from abc import ABC, abstractmethod
 import logging
 import copy 
