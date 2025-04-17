@@ -38,8 +38,12 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
     def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
         pass
 
+def generate_lane_graph(self):
+    self.graph = nx.DiGraph()
+    raise NotImplementedError("Lane graph generation not implemented yet.")
 
-def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', params=None, n_pts=50):
+
+def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', attributes=None, n_pts=50):
         """
         Returns (x_vals, y_vals) for various geometry types in OpenDRIVE.
         Supports line, arc, and basic handling for other types.
@@ -47,8 +51,9 @@ def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', params=None
         x_vals, y_vals = [], []
         s_array = np.linspace(0, length, n_pts)
 
-        if geom_type == 'arc' and params is not None:
-            curvature = float(params.get('curvature', 0))
+        ### Arc case
+        if geom_type == 'arc' and attributes is not None:
+            curvature = float(attributes.get('curvature', 0))
             if curvature != 0:
                 radius = abs(1.0 / curvature)  # Use absolute value for radius
                 # Determine arc direction based on curvature sign
@@ -73,11 +78,12 @@ def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', params=None
                     y_vals.append(center_y + radius * np.sin(angle))
                 return x_vals, y_vals
         
-        elif geom_type == 'spiral' and params is not None:
+        ### Spiral case
+        elif geom_type == 'spiral' and attributes is not None:
             # Basic approximation for spirals - treat as a series of arcs with changing curvature
             # This is a simplified approach - for accurate spirals, use the Fresnel integrals
-            curvStart = float(params.get('curvStart', 0))
-            curvEnd = float(params.get('curvEnd', 0))
+            curvStart = float(attributes.get('curvStart', 0))
+            curvEnd = float(attributes.get('curvEnd', 0))
             
             # If both curvatures are 0, treat as a line
             if abs(curvStart) < 1e-10 and abs(curvEnd) < 1e-10:
@@ -132,19 +138,11 @@ def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', params=None
             
             return x_vals, y_vals
         
-        elif geom_type in ['poly3', 'paramPoly3'] and params is not None:
-            # For polynomial geometries, we'll use a simplified approach
-            # In a real implementation, we would use the polynomial coefficients
-            # For now, we'll just use a straight line approximation
-            log.debug(f"Using simplified approximation for {geom_type} geometry")
-            for s in s_array:
-                x = x0 + s * np.cos(hdg)
-                y = y0 + s * np.sin(hdg)
-                x_vals.append(x)
-                y_vals.append(y)
-            return x_vals, y_vals
+        ### Poly3 case
+        elif geom_type in ['poly3', 'paramPoly3'] and attributes is not None:
+            log.error(f"Unsupported geometry type: {geom_type}. Will use default line approximation.")
 
-        # Default: treat as a straight line
+        ### Line case (default)
         for s in s_array:
             x = x0 + s * np.cos(hdg)
             y = y0 + s * np.sin(hdg)

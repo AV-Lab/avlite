@@ -183,18 +183,16 @@ class GlobalHDMapPlot(GlobalPlot):
         
         # if self.background is not None:
             # self.fig.canvas.restore_region(self.background)
-       
 
         if not show_legend:
              self.ax.get_legend().remove() if self.ax.get_legend() else None
-
         
         if not hasattr(exec.global_planner, 'xodr_root'):
             return
 
         root = exec.global_planner.xodr_root
         roads = root.findall('road')
-        colors = plt.cm.tab20(np.linspace(0, 1, 20))
+        log.debug(f"Number of roads in HD Map: {len(roads)}")
         
         # Store all road coordinates to calculate plot limits
         all_x_coords = [vehicle_x]
@@ -213,16 +211,16 @@ class GlobalHDMapPlot(GlobalPlot):
                 hdg = float(geometry.get('hdg', '0'))
                 length = float(geometry.get('length', '0'))
                 gtype = 'line'  # Default to line if no specific geometry type is found
-                params = {}
+                attrib = {}
                 
                 # Check for all possible geometry types in OpenDRIVE
                 for child in geometry:
                     if child.tag in ['line', 'arc', 'spiral', 'poly3', 'paramPoly3']:
                         gtype = child.tag
-                        params = child.attrib
+                        attrib = child.attrib
                         break
                 
-                x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, params)
+                x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
                 if road_x:  # add gap between consecutive segments
                     road_x.append(np.nan)
                     road_y.append(np.nan)
@@ -233,8 +231,9 @@ class GlobalHDMapPlot(GlobalPlot):
                 all_x_coords.extend([x for x in x_vals if not np.isnan(x)])
                 all_y_coords.extend([y for y in y_vals if not np.isnan(y)])
                 
-            color = colors[i % 20]
+            color = "white" if int(road.get("junction", -1)) == -1 else "#e8b4b0"
             self.ax.plot(road_x, road_y, color=color)
+
         
         # Fallback to default limits if no coordinates found
         self.ax.set_xlim(np.min(all_x_coords), np.max(all_x_coords))
