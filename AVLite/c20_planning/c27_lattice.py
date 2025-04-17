@@ -42,20 +42,7 @@ class Node:
         )
 
     def __hash__(self):
-        return hash(
-            (
-                self.s,
-                self.d,
-                self.x,
-                self.y,
-                self.x_1st_derv,
-                self.y_1st_derv,
-                self.x_2nd_derv,
-                self.y_2nd_derv,
-                self.d_1st_derv,
-                self.d_2nd_derv,
-            )
-        )
+        return hash((self.s, self.d, self.x, self.y, self.x_1st_derv, self.y_1st_derv, self.x_2nd_derv, self.y_2nd_derv, self.d_1st_derv, self.d_2nd_derv,))
 
 @dataclass
 class Edge:

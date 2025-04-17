@@ -80,7 +80,7 @@ class PIDController(BaseController):
             f"Acc  : {acc:+6.2f} [P={vP:+.3f}, I={vI:+.3f}, D={vD:+.3f}] based on CTE: {v_error:+.2f} ({ego.velocity:.2f} vs target: {target_velocity:.2f})"
         )
 
-        cmd = ControlComand(steer=steer, acc=acc)
+        cmd = ControlComand(steer=steer, acceleration=acc)
         self.cmd = cmd
         return cmd
 

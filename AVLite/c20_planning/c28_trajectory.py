@@ -3,72 +3,45 @@ from typing import Optional
 import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 log = logging.getLogger(__name__)
 
 @dataclass
 class Trajectory:
     """
-    A class to represent a trajectory.
-
-    Attributes:
-    ----------
-    path_x : np.ndarray
-        Public field: X coordinates of the path.
-    path_y : np.ndarray
-        Public field: Y coordinates of the path.
-    path_s : list[float]
-        Public field: S coordinates of the path.
-    path_d : list[float]
-        Public field: D coordinates of the path.
-    velocity: list[float]
-        Public field: Velocity values along the path.
-    current_wp : int
-        Public field: Current waypoint index.
-    next_wp : int
-        Public field: Next waypoint index.
-    poly : Polynomial
-        Public field: Polynomial representation of the path (optional).
-    parent_trajectory : Trajectory
-        Public field: Parent trajectory identifier (optional).
-    name : str
-        Public field: Name of the trajectory.
+    A class to represent a trajectory (path + velocity with aligned resolution).
     """
+    path: list[tuple[float,float]] = field(default_factory=list)
+    path_x: np.ndarray = np.ndarray(0)
+    path_y: np.ndarray = np.ndarray(0)
+    path_s: list[float] = field(default_factory=list) # progress along the path
+    path_d: list[float] = field(default_factory=list) # always zero, for debugging
+    velocity: list[float] = field(default_factory=list)
+    current_wp: int = 0
+    next_wp: int = 1
 
-    path_x: np.ndarray 
-    path_y: np.ndarray
-    path_s: list[float]
-    path_d: list[float]
-    velocity: list[float]
-    current_wp: int
-    next_wp: int
+    name: str = "Global Trajectory"
+    is_initialized:bool = False
+    
 
-    name: str
-    poly_d:Optional[Polynomial]  # for local trajectory
+    poly_d:Optional[Polynomial] = None # for sub trajectory (used by local planner)
     poly_x: Optional[Polynomial] = None
     poly_y: Optional[Polynomial] = None
-    parent_trajectory: "Trajectory" = None
-    path_s_from_parent: Optional[list]  = None
-    path_d_from_parent: Optional[list] = None
+    parent_trajectory: Optional["Trajectory"] = None
+    path_s_from_parent: Optional[list[float]]  = None
+    path_d_from_parent: Optional[list[float]] = None
 
-    def __init__(self, reference_xy_path:list[tuple[float,float]]=None, velocity:list[float]=None, name="Global Trajectory"):
-        """
-        Initializes a Trajectory object with a reference path in the xy-plane.
-        """
-        self.name = name  # needed to distinguish between global and local trajectory
-        self.reference_xy_path = reference_xy_path
-        self.velocity = velocity
-        
-        self.current_wp = 0
-        self.next_wp = 1
-        self.is_initialized = False
-        if reference_xy_path is None or len(reference_xy_path) == 0:
-            return
-        
-        self.initialize_trajectory(reference_xy_path, velocity)
+
+    def __post_init__(self):
+        self.initialize_trajectory(self.path, self.velocity)
+
 
     def initialize_trajectory(self, reference_xy_path: list[tuple[float, float]], velocity: list[float]):
+        self.path = reference_xy_path
+        if reference_xy_path is None or len(reference_xy_path) == 0:
+            return
+
         self.is_initialized = True  
         self.__reference_path = np.array(reference_xy_path)
         self.velocity = velocity
@@ -77,7 +50,10 @@ class Trajectory:
         self.__cumulative_distances = self.__precompute_cumulative_distances()
         self.path_s, self.path_d = self.convert_xy_path_to_sd_path(
             self.__reference_path
-        )  # this should be with respect to parent trajectory
+        )  
+
+
+        # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
 
 
@@ -165,13 +141,8 @@ class Trajectory:
     def is_traversed(self) -> bool:
         """
         Check if the trajectory has been fully traversed.
-
-        Returns:
-        -------
-        bool
-            True if the current waypoint is the last waypoint in the reference path, False otherwise.
         """
-        return self.current_wp == len(self.__reference_path) - 1
+        return self.current_wp >= len(self.__reference_path) - 1
 
     def create_quintic_trajectory_sd(
         self,
@@ -185,6 +156,10 @@ class Trajectory:
         end_d_2nd_derv: float = 0.0,
         num_points=10,
     ) -> "Trajectory":
+        """
+        Create a quintic polynomial trajectory in the s-d plane with C2 continuity with respect to the current trajectory.
+        By default, speed profile is taken 
+        """
 
         A = np.array(
             [
@@ -334,6 +309,7 @@ class Trajectory:
         velocity_high_res = np.interp(x_new, x_old, vel)
 
         path = list(zip(tx, ty))
+
         local_trajectory = Trajectory(path, name="Local Trajectory", velocity=velocity_high_res)
 
         local_trajectory.poly_d = poly
@@ -650,15 +626,4 @@ class Trajectory:
 
     def __str__(self):
         return f"Trajectory: {self.name}"
-
-# TODO: clean up
-class LocalTrajectory(Trajectory):
-    poly_d:Optional[Polynomial]  # for local trajectory
-    poly_x: Optional[Polynomial] = None
-    poly_y: Optional[Polynomial] = None
-    parent_trajectory: "Trajectory" 
-    path_s_from_parent: Optional[list]  = None
-    path_d_from_parent: Optional[list] = None
-    def __init__(self, reference_xy_path:list[tuple[float,float]]=None, velocity:list[float]=None, name="Local Trajectory"):
-        super().__init__(reference_xy_path, velocity, name)
 

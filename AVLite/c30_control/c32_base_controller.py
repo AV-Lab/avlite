@@ -4,27 +4,12 @@ from typing import Optional
 
 from c10_perception.c11_perception_model import EgoState
 from c20_planning.c28_trajectory import Trajectory
+from c30_control.c31_control_model import ControlComand
 from abc import ABC, abstractmethod
 import logging
 import copy 
 
 log = logging.getLogger(__name__)
-
-
-class ControlComand:
-    steer: float
-    acceleration: float
-
-    def __init__(self, steer:float=0, acc:float=0):
-        self.steer = steer
-        self.acceleration = acc
-
-    def __str__(self):
-        return f"Steer: {self.steer:+.2f}, Acc: {self.acceleration:+.2f}"
-
-    def __repr__(self):
-        return self.__str__()
-
 
 class BaseController(ABC):
     tj: Optional[Trajectory]
