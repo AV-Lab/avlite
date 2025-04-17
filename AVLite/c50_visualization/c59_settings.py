@@ -1,7 +1,7 @@
 from __future__ import annotations
 import tkinter as tk
-from c20_planning.c21_base_global_planner import BaseGlobalPlanner
-from c20_planning.c24_base_local_planner import BaseLocalPlanner
+from c20_planning.c22_base_global_planner import BaseGlobalPlanner
+from c20_planning.c23_base_local_planner import BaseLocalPlanner
 
 
 class VisualizationSettings:

@@ -4,21 +4,25 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Union
 
-from c10_perception.c11_base_perception import PerceptionModel
-from c10_perception.c12_state import EgoState
-from c10_perception.c12_state import AgentState
-from c20_planning.c21_base_global_planner import BaseGlobalPlanner
-from c20_planning.c24_base_local_planner import BaseLocalPlanner
-from c20_planning.c22_hdmap_global_planner import GlobalHDMapPlanner
-from c20_planning.c23_race_global_planner import RaceGlobalPlanner
-from c30_control.c31_base_controller import BaseController, ControlComand
+from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
+from c20_planning.c22_base_global_planner import BaseGlobalPlanner
+from c20_planning.c23_base_local_planner import BaseLocalPlanner
+from c20_planning.c25_hdmap_global_planner import GlobalHDMapPlanner
+from c20_planning.c24_race_global_planner import RaceGlobalPlanner
+from c30_control.c31_control_model import  ControlComand
+from c30_control.c32_base_controller import BaseController
 
 log = logging.getLogger(__name__)
 
-
 @dataclass
 class WorldInterface(ABC):
+    """
+    Abstract class for the world interface. This class is used to control the ego vehicle and spawn agents in the world.
+    It provides an interface for the simulator or ROS bridge to implement its own world logic.
+    """
+    
     ego_state: EgoState
+    perception_model: Optional[PerceptionModel] = None # Simulators can provide their own perception model
 
     @abstractmethod
     def control_ego_state(self, cmd: ControlComand, dt=0.01):
@@ -34,6 +38,9 @@ class WorldInterface(ABC):
 
     def get_ego_state(self) -> EgoState:
         return self.ego_state
+
+    def get_perception_model(self) -> PerceptionModel:
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     @abstractmethod
     def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
@@ -172,7 +179,7 @@ class BaseExecuter:
             log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
             log.info(f"Ego State: {self.ego_state}")
             t = self.ego_state.theta if theta is None else theta
-            agent = AgentState(x=x, y=y, theta=t, speed=0)
+            agent = AgentState(x=x, y=y, theta=t, velocity=0)
             self.world.spawn_agent(agent)
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")

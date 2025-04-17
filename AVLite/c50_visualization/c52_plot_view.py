@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from c20_planning.c23_race_global_planner import RaceGlobalPlanner
-from c20_planning.c22_hdmap_global_planner import GlobalHDMapPlanner
+from c20_planning.c24_race_global_planner import RaceGlobalPlanner
+from c20_planning.c25_hdmap_global_planner import GlobalHDMapPlanner
 from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 

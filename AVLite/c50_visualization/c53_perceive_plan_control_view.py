@@ -5,10 +5,10 @@ import time
 import logging
 
 from typing import TYPE_CHECKING
-from c30_control.c31_base_controller import ControlComand
+from c30_control.c32_base_controller import ControlComand
 from c50_visualization.c58_ui_lib import ValueGauge
-from c20_planning.c21_base_global_planner import BaseGlobalPlanner
-from c20_planning.c24_base_local_planner import BaseLocalPlanner
+from c20_planning.c22_base_global_planner import BaseGlobalPlanner
+from c20_planning.c23_base_local_planner import BaseLocalPlanner
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp

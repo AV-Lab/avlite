@@ -1,13 +1,13 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from c10_perception.c11_base_perception import PerceptionModel
-from c20_planning.c24_base_local_planner import BaseLocalPlanner
-from c20_planning.c26_lattice import Lattice
+from c10_perception.c12_base_perception import PerceptionModel
+from c20_planning.c23_base_local_planner import BaseLocalPlanner
+from c20_planning.c27_lattice import Lattice
 import numpy as np
 import logging
 
 if TYPE_CHECKING:
-    from c20_planning.c27_trajectory import Trajectory
+    from c20_planning.c28_trajectory import Trajectory
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class RNDPlanner(BaseLocalPlanner):
             # orientation = np.tan(self.pm.ego_vehicle.theta)/2 -  0.1* self.location_sd[1],
         )
 
-        self.lattice.generate_lattice_from_nodes(env=self.pm)
+        self.lattice.generate_lattice_from_nodes(pm=self.pm)
 
         no_collision_edges = [edge for edge in self.lattice.level0_edges if not edge.collision]
         if no_collision_edges:

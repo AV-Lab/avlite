@@ -1,11 +1,12 @@
 import math
 import xml.etree.ElementTree as ET
-
 import numpy as np
 import networkx as nx
 from scipy.interpolate import CubicSpline
-from c20_planning.c21_base_global_planner import BaseGlobalPlanner, GlobalPlan
 import logging
+
+from c20_planning.c22_base_global_planner import BaseGlobalPlanner
+from c20_planning.c21_planning_model import GlobalPlan
 
 log = logging.getLogger(__name__)
 

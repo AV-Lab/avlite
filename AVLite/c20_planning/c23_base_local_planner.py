@@ -1,8 +1,8 @@
-from c10_perception.c11_base_perception import PerceptionModel
-from c10_perception.c12_state import EgoState
-from c20_planning.c26_lattice import Edge, Lattice
+from c10_perception.c12_base_perception import PerceptionModel
+from c10_perception.c11_perception_model import EgoState
+from c20_planning.c27_lattice import Edge, Lattice
 from typing import Optional
-from c20_planning.c27_trajectory import Trajectory
+from c20_planning.c28_trajectory import Trajectory
 from abc import ABC, abstractmethod
 import copy
 
@@ -24,7 +24,6 @@ class BaseLocalPlanner(ABC):
     traversed_s: list[float]
     location_xy: tuple[float, float]
     location_sd: tuple[float, float]
-    lap: int = 0 
     lattice: Lattice
     selected_local_plan: Optional[Edge]
     planning_horizon: int
@@ -42,6 +41,7 @@ class BaseLocalPlanner(ABC):
         planning_horizon=3,
         num_of_edge_points=10,
     ):
+        self.lap: int = 0 
         
         self.pm = pm
 

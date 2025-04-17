@@ -1,6 +1,6 @@
-from c10_perception.c11_base_perception import PerceptionModel
-from c20_planning.c27_trajectory import Trajectory
-from c10_perception.c12_state import State
+from c10_perception.c11_perception_model import PerceptionModel, EgoState
+from c20_planning.c28_trajectory import Trajectory
+from c10_perception.c11_perception_model import State
 from typing import Dict
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
@@ -134,14 +134,14 @@ class Lattice:
                 self.nodes.append(n_)
                 self.lattice_nodes_by_level[l].append(n_)
 
-    def generate_lattice_from_nodes(self, env: Optional[PerceptionModel] = None):
+    def generate_lattice_from_nodes(self, pm: Optional[PerceptionModel] = None):
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
                 for next_node in self.lattice_nodes_by_level[l + 1]:
                     assert node != next_node
                     edge = Edge(start=node, end=next_node, global_tj = self.global_trajectory)
-                    if env is not None:
-                        edge.collision = not env.is_tj_collision_free(edge.local_trajectory)
+                    if pm is not None:
+                        edge.collision = not check_collision(pm, edge.local_trajectory)
                     self.edges.append(edge)
                     self.incoming_edges[next_node].append(edge)
                     self.outgoing_edges[node].append(edge)
@@ -158,3 +158,32 @@ class Lattice:
         self.level0_edges.clear()
         self.nodes.clear()
         self.edges.clear()
+
+
+
+def check_collision(pm:PerceptionModel, trajectory: Trajectory = None, sample_size=5)-> bool:
+    ego = pm.ego_vehicle
+    if trajectory is not None:
+        path_x = trajectory.path_x
+        path_y = trajectory.path_y
+        indices = np.linspace(1, len(trajectory.path_x) - 1, sample_size, dtype=int)
+        for i in indices:
+            dx = path_x[i] - path_x[i - 1]
+            dy = path_y[i] - path_y[i - 1]
+            theta = np.arctan2(dy, dx)
+            ego = EgoState(
+                x = float(path_x[i]),
+                y = float(path_y[i]),
+                theta = float(theta)
+            )
+
+            for agent in pm.agent_vehicles:
+                if ego.get_bb_polygon().intersects(agent.get_bb_polygon()):
+                    log.debug(f"Collision at {ego.x}, {ego.y}")
+                    return False
+    else:
+        for agent in pm.agent_vehicles:
+            if ego.get_bb_polygon().intersects(agent.get_bb_polygon()):
+                log.info(f"Collision at {ego.x}, {ego.y}")
+                return False
+    return True

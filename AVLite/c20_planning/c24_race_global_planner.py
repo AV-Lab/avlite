@@ -1,6 +1,6 @@
 import json
 import logging
-from c20_planning.c21_base_global_planner import BaseGlobalPlanner, GlobalPlan
+from c20_planning.c22_base_global_planner import BaseGlobalPlanner, GlobalPlan
 
 log = logging.getLogger(__name__)
 

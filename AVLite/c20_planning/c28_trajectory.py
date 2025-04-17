@@ -3,10 +3,11 @@ from typing import Optional
 import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
+from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 
-
+@dataclass
 class Trajectory:
     """
     A class to represent a trajectory.
@@ -35,7 +36,7 @@ class Trajectory:
         Public field: Name of the trajectory.
     """
 
-    path_x: np.ndarray
+    path_x: np.ndarray 
     path_y: np.ndarray
     path_s: list[float]
     path_d: list[float]
