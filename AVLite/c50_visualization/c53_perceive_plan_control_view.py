@@ -253,13 +253,13 @@ class PerceivePlanControlView(ttk.Frame):
     def step_acc(self):
         acc = 3
         self.root.exec.world.control_ego_state(
-            cmd=ControlComand(acc=acc), dt=self.root.setting.sim_dt.get())
+            cmd=ControlComand(acceleration=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_dec(self):
         acc = -3
         self.root.exec.world.control_ego_state(
-            cmd=ControlComand(acc=acc), dt=self.root.setting.sim_dt.get())
+            cmd=ControlComand(acceleration=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def start_controller_polling(self):

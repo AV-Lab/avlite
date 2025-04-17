@@ -2,9 +2,9 @@ import numpy as np
 from shapely.geometry import Polygon
 import copy
 from dataclasses import dataclass, field
+
 import logging
 
-from c20_planning.c28_trajectory import Trajectory
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ class State:
 
 
     def get_bb_corners(self) -> np.ndarray:
+        """Get the bounding box corners of the vehicle in world coordinates."""
         corners_x = np.array(
             [
                 -self.length / 2,

@@ -46,7 +46,8 @@ class BaseLocalPlanner(ABC):
         self.pm = pm
 
 
-        self.global_trajectory = Trajectory(global_path, global_velocity)
+        self.global_trajectory = Trajectory()
+        self.global_trajectory.initialize_trajectory(global_path, global_velocity)
 
         self.ref_left_boundary_d = ref_left_boundary_d
         self.ref_right_boundary_d = ref_right_boundary_d
@@ -202,25 +203,3 @@ class BaseLocalPlanner(ABC):
             return 0
         return 1 + self.__plan_len(edge=edge.selected_next_local_plan)
 
-    # For serializaztion
-    def get_copy(self):
-        return copy.deepcopy(self)
-    def get_serializable_local_plan(self) -> tuple[list[tuple[float, float]],list[float]]:
-        tj = self.get_local_plan()
-        path = tj.reference_xy_path
-        velocity = tj.velocity
-        return path, velocity
-    def get_location_xy(self) -> tuple[float, float]:
-        return self.location_xy
-    def get_location_sd(self) -> tuple[float, float]:
-        return self.location_sd
-    def set_replan_dt(self, dt: float):
-        self.__replan_dt = dt
-    def get_replan_dt(self) -> float:
-        return self.__replan_dt
-   ##### 
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)  # Remove abstract from the call
-        BaseLocalPlanner.registry[cls.__name__] = cls
-        logging.debug(f"Registered {cls.__name__} in BaseLocalPlanner.registry")
