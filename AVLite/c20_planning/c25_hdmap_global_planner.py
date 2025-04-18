@@ -38,9 +38,31 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
     def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
         pass
 
-def generate_lane_graph(self):
-    self.graph = nx.DiGraph()
-    raise NotImplementedError("Lane graph generation not implemented yet.")
+    def __generate_lane_graph(self):
+        self.graph = nx.DiGraph()
+        raise NotImplementedError("Lane graph generation not implemented yet.")
+
+    def __plan_global_path(source, destination):
+        # 1. Road-level planning
+        road_path = find_shortest_road_path(source, destination)
+        
+        # 2. Lane-level planning
+        lane_path = []
+        for i in range(len(road_path) - 1):
+            current_road = road_path[i]
+            next_road = road_path[i+1]
+            
+            # Find valid lanes for current road segment
+            valid_lanes = get_valid_driving_lanes(current_road)
+            
+            # Find lanes that connect to the next road
+            connecting_lanes = filter_connecting_lanes(valid_lanes, current_road, next_road)
+            
+            # Choose optimal lane based on minimizing lane changes
+            optimal_lane = select_optimal_lane(connecting_lanes, lane_path[-1] if lane_path else None)
+            lane_path.append(optimal_lane)
+        
+        return lane_path
 
 
 def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', attributes=None, n_pts=50):

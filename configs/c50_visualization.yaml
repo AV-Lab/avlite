@@ -18,7 +18,7 @@ local_plan_view: false
 local_planner_type: RNDPlanner
 log_level: DEBUG
 perception_status_text: Click on the plot.
-replan_dt: 0.01
+replan_dt: 0.5
 shortcut_mode: false
 show_control_logs: false
 show_execute_logs: true
