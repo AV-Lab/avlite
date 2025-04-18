@@ -20,8 +20,8 @@ class BaseGlobalPlanner(ABC):
     
     def set_start_goal(self, start_point: tuple[float, float], goal_point: tuple[float, float]) -> None:
         """Set start and goal points for the planner."""
-        self.global_plan.start_point = start_point
-        self.global_plan.goal_point = goal_point
+        self.global_plan.start = start_point
+        self.global_plan.goal = goal_point
         
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)
