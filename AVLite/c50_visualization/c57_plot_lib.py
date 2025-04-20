@@ -232,7 +232,7 @@ class GlobalHDMapPlot(GlobalPlot):
             self.ax.plot(road_x, road_y, color=color, linewidth=1, alpha=0.5)
             
             # Plot lanes for this road
-            self.plot_road_lanes(road, road_x, road_y)
+            self.get_road_lanes(road, road_x, road_y)
         
         # Set view limits
         pad = 10
@@ -242,7 +242,7 @@ class GlobalHDMapPlot(GlobalPlot):
         log.debug(f"Plotting HD Map Global Plot at location: {exec.ego_state.x}, {exec.ego_state.y}")
         self.fig.canvas.draw()
 
-    def plot_road_lanes(self, road, road_x, road_y):
+    def get_road_lanes(self, road, road_x, road_y):
         """Plot lanes for a given road"""
         lanes_sections = road.findall('lanes/laneSection')
         if not lanes_sections:
@@ -271,7 +271,7 @@ class GlobalHDMapPlot(GlobalPlot):
                     width = float(width_element.get('a', '0'))
                     cumulative_offset += width
                     # if lane_type == "driving":
-                    self.plot_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'left')
+                    self.get_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'left')
             
             # Process right lanes (negative IDs)
             right_lanes = lane_section.findall('right/lane')
@@ -287,9 +287,9 @@ class GlobalHDMapPlot(GlobalPlot):
                     width = float(width_element.get('a', '0'))
                     cumulative_offset -= width  # Negative because it's on the right side
                     # if lane_type == "driving":
-                    self.plot_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'right')
+                    self.get_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'right')
 
-    def plot_lane_boundary(self, road_x, road_y, offset, lane_type, side):
+    def get_lane_boundary(self, road_x, road_y, offset, lane_type, side):
         """Plot a lane boundary at the specified offset from the road centerline"""
         if not road_x or len(road_x) < 2:
             return
