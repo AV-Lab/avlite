@@ -1,9 +1,10 @@
-import math
 import xml.etree.ElementTree as ET
+from scipy.spatial import KDTree
 import numpy as np
 import networkx as nx
 from scipy.interpolate import CubicSpline
 import logging
+from dataclasses import dataclass, field
 
 from c20_planning.c22_base_global_planner import BaseGlobalPlanner
 from c20_planning.c21_planning_model import GlobalPlan
@@ -63,6 +64,79 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
             lane_path.append(optimal_lane)
         
         return lane_path
+
+
+@dataclass
+class HDMap:
+    """Compact HD map representation for global planning"""
+    
+    @dataclass
+    class Lane:
+        id: str
+        center_line: np.ndarray      # Nx2 array of (x,y) coordinates
+        left_d: list[float]          # Left boundary distances for each centerline point
+        right_d: list[float]         # Right boundary distances for each centerline point
+        road_id: str
+        predecessors: list['HDMap.Lane'] = field(default_factory=list)
+        successors: list['HDMap.Lane'] = field(default_factory=list)
+        
+        def __post_init__(self):
+            # Ensure left_d and right_d have same length as center_line
+            if len(self.left_d) != len(self.center_line) or len(self.right_d) != len(self.center_line):
+                raise ValueError("left_d and right_d must have same length as center_line")
+
+
+    @dataclass
+    class Road:
+        id: str
+        center_line: np.ndarray      # Nx2 array of (x,y) coordinates
+        lanes: list['HDMap.Lane'] = field(default_factory=list)
+        predecessors: list['HDMap.Road'] = field(default_factory=list)
+        successors: list['HDMap.Road'] = field(default_factory=list)
+    
+    roads: dict[str, Road] = field(default_factory=dict)
+    lanes: dict[str, Lane] = field(default_factory=dict)
+
+    _kdtree: Optional[KDTree] = None
+    _point_to_lane: list[tuple[str, int]] = field(default_factory=list)
+    
+    def connect_lanes(self, from_lane_id: str, to_lane_id: str) -> None:
+        """Connect two lanes as predecessor/successor"""
+        if from_lane_id in self.lanes and to_lane_id in self.lanes:
+            self.lanes[from_lane_id].successors.append(self.lanes[to_lane_id])
+            self.lanes[to_lane_id].predecessors.append(self.lanes[from_lane_id])
+    
+    def connect_roads(self, from_road_id: str, to_road_id: str) -> None:
+        """Connect two roads as predecessor/successor"""
+        if from_road_id in self.roads and to_road_id in self.roads:
+            self.roads[from_road_id].successors.append(self.roads[to_road_id])
+            self.roads[to_road_id].predecessors.append(self.roads[from_road_id])
+    
+    def build_spatial_index(self) -> None:
+        """Build KDTree for efficient position queries"""
+        points = []
+        self._point_to_lane = []
+        
+        for lane_id, lane in self.lanes.items():
+            for i, point in enumerate(lane.center_line):
+                points.append(point)
+                self._point_to_lane.append((lane_id, i))
+                
+        self._kdtree = KDTree(np.array(points))
+    
+    def find_nearest_lane(self, position: Tuple[float, float], k: int = 5) -> Lane:
+        """Find lane closest to position"""
+        if self._kdtree is None:
+            self.build_spatial_index()
+            
+        _, indices = self._kdtree.query(position, k=k)
+        nearby_lanes = {self._point_to_lane[i][0] for i in indices}
+        
+        return min(
+            [self.lanes[lane_id] for lane_id in nearby_lanes],
+            key=lambda l: np.min(np.linalg.norm(l.center_line - np.array(position), axis=1))
+        )
+
 
 
 def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', attributes=None, n_pts=50):
