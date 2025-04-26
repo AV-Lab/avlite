@@ -1,6 +1,6 @@
 from c10_perception.c11_perception_model import EgoState
 from c20_planning.c28_trajectory import Trajectory
-from c30_control.c32_base_controller import BaseController, ControlComand
+from c30_control.c32_control_strategy import ControlStrategy, ControlComand
 import numpy as np
 import copy
 
@@ -9,7 +9,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class PIDController(BaseController):
+class PIDController(ControlStrategy):
     def __init__(self, tj:Trajectory=None, alpha=0.1, beta=0.001, gamma=0.6, valpha=0.8, vbeta=0.01, vgamma=0.3):
         super().__init__(tj)
         self.alpha, self.beta, self.gamma = alpha, beta, gamma

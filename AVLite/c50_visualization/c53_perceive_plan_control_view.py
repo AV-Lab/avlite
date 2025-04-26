@@ -5,10 +5,10 @@ import time
 import logging
 
 from typing import TYPE_CHECKING
-from c30_control.c32_base_controller import ControlComand
+from c30_control.c32_control_strategy import ControlComand
 from c50_visualization.c58_ui_lib import ValueGauge
-from c20_planning.c22_base_global_planner import BaseGlobalPlanner
-from c20_planning.c23_base_local_planner import BaseLocalPlanner
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
@@ -59,7 +59,7 @@ class PerceivePlanControlView(ttk.Frame):
         ).pack(side=tk.LEFT)
         global_planner_dropdown_menu = ttk.Combobox(
             global_frame, textvariable=self.root.setting.global_planner_type, width=10)
-        global_planner_dropdown_menu["values"] = tuple(BaseGlobalPlanner.registry.keys())
+        global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
         global_planner_dropdown_menu.state(["readonly"])
         global_planner_dropdown_menu.pack(side=tk.LEFT)
         global_planner_dropdown_menu.bind("<<ComboboxSelected>>",
@@ -80,7 +80,7 @@ class PerceivePlanControlView(ttk.Frame):
 
         local_planner_dropdown_menu = ttk.Combobox(
             wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
-        local_planner_dropdown_menu["values"] = tuple(BaseLocalPlanner.registry.keys())
+        local_planner_dropdown_menu["values"] = tuple(LocalPlannerStrategy.registry.keys())
         local_planner_dropdown_menu.state(["readonly"])
         local_planner_dropdown_menu.pack(side=tk.LEFT)
         local_planner_dropdown_menu.bind("<<ComboboxSelected>>",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import tkinter as tk
-from c20_planning.c22_base_global_planner import BaseGlobalPlanner
-from c20_planning.c23_base_local_planner import BaseLocalPlanner
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 
 
 class VisualizationSettings:
@@ -28,16 +28,16 @@ class VisualizationSettings:
 
         # Perc Plan Control
         self.global_planner_type = tk.StringVar(
-            value=list(BaseGlobalPlanner.registry.keys())[0]
-                   if BaseGlobalPlanner.registry else None)
+            value=list(GlobalPlannerStrategy.registry.keys())[0]
+                   if GlobalPlannerStrategy.registry else None)
 
         self.enable_joystick = tk.BooleanVar(value=True)
         self.global_plan_view = tk.BooleanVar(value=False)
         self.local_plan_view = tk.BooleanVar(value=False)
         
         self.local_planner_type = tk.StringVar(
-            value=(list(BaseLocalPlanner.registry.keys())[0] 
-                   if BaseLocalPlanner.registry else None))
+            value=(list(LocalPlannerStrategy.registry.keys())[0] 
+                   if LocalPlannerStrategy.registry else None))
 
         # Exec Options
         self.async_exec = tk.BooleanVar(value=False)

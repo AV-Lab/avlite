@@ -1,6 +1,6 @@
-from c40_execution.c41_base_executer import WorldInterface
+from c40_execution.c42_sync_executer import WorldInterface
 from c10_perception.c11_perception_model import EgoState, AgentState
-from c30_control.c32_base_controller import ControlComand
+from c30_control.c32_control_strategy import ControlComand
 from typing import Union
 import carla
 import math

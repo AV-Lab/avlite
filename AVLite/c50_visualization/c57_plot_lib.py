@@ -1,12 +1,14 @@
-from c10_perception.c12_base_perception import PerceptionModel
-from c20_planning.c23_base_local_planner import BaseLocalPlanner
+from c10_perception.c12_perception_strategy import PerceptionModel
+from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c20_planning.c25_hdmap_global_planner import sample_OpenDrive_geometry
 from c20_planning.c27_lattice import Edge
 from c20_planning.c28_trajectory import Trajectory
-from c40_execution.c41_base_executer import BaseExecuter
+from c40_execution.c42_sync_executer import SyncExecuter
 from c10_perception.c11_perception_model import EgoState
+from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
 
 
+from typing import cast
 from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
@@ -37,7 +39,7 @@ class GlobalPlot(ABC):
         self.fig.legend(loc="upper right", fontsize=8, framealpha=0.3)
 
 
-    def plot(self,exec:BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         start_x, start_y = exec.global_planner.global_plan.start
         goal_x, goal_y = exec.global_planner.global_plan.goal
         
@@ -108,7 +110,7 @@ class GlobalRacePlot(GlobalPlot):
         self.vehicle_location.set_color("red")
         
         
-    def plot(self, exec: BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Update the plot with current data"""
         super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
 
@@ -169,7 +171,7 @@ class GlobalHDMapPlot(GlobalPlot):
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         super().set_plot_theme(bg_color, fg_color)
         
-    def plot(self, exec:BaseExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         """Implement the abstract method from GlobalPlot"""
         super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
         vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
@@ -183,7 +185,10 @@ class GlobalHDMapPlot(GlobalPlot):
             log.warning("Global planner does not have xodr_root attribute. Cannot visualize HD Map.")
             return
 
-        root = exec.global_planner.xodr_root
+        global_planner = exec.global_planner
+        global_planner = cast(HDMapGlobalPlanner,global_planner)
+
+        root = global_planner.xodr_root
         roads = root.findall('road')
         log.debug(f"Number of roads in HD Map: {len(roads)}")
         
@@ -504,7 +509,7 @@ class LocalPlot:
 
     def plot(
         self,
-        exec: BaseExecuter,
+        exec: SyncExecuter,
         aspect_ratio=4.0,
         frenet_zoom=15,
         xy_zoom=30,
@@ -570,7 +575,7 @@ class LocalPlot:
         self.fig.canvas.blit(self.ax1.bbox)
         self.fig.canvas.blit(self.ax2.bbox)
 
-    def update_global_plan_plots(self, pl: BaseLocalPlanner, show_plot=True):
+    def update_global_plan_plots(self, pl: LocalPlannerStrategy, show_plot=True):
         if not hasattr(self, "initialized"):
             self.initialized = False
         if not hasattr(self, "toggle_plot"):
@@ -617,7 +622,7 @@ class LocalPlot:
                 [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]],
             )
 
-    def update_lattice_graph_plots(self, pl: BaseLocalPlanner, show_plot=True):
+    def update_lattice_graph_plots(self, pl: LocalPlannerStrategy, show_plot=True):
         if not show_plot or len(pl.lattice.edges) == 0:
             for line in (
                 self.lattice_graph_plots_ax1
@@ -656,7 +661,7 @@ class LocalPlot:
                     f"Lattice graph size exceeded: attempting to plot edge {edge_index+1} out of {self.MAX_LATTICE_SIZE}"
                 )
 
-    def update_local_plan_plots(self, pl: BaseLocalPlanner, show_plot=True):
+    def update_local_plan_plots(self, pl: LocalPlannerStrategy, show_plot=True):
         if not show_plot or pl.selected_local_plan is None:
             self.__clear_local_plan_plots()
             self.current_wp_plot_ax1.set_data([], [])

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from c10_perception.c12_base_perception import PerceptionModel
-from c20_planning.c23_base_local_planner import BaseLocalPlanner
+from c10_perception.c12_perception_strategy import PerceptionModel
+from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c20_planning.c27_lattice import Lattice
 import numpy as np
 import logging
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-class RNDPlanner(BaseLocalPlanner):
+class RNDPlanner(LocalPlannerStrategy):
     def __init__(
         self,
         global_path: list[tuple[float, float]],

@@ -1,8 +1,8 @@
 from __future__ import annotations
-from c10_perception.c12_base_perception import PerceptionModel
-from c20_planning.c23_base_local_planner import BaseLocalPlanner
-from c30_control.c32_base_controller import BaseController
-from c40_execution.c41_base_executer import BaseExecuter, WorldInterface
+from c10_perception.c12_perception_strategy import PerceptionModel
+from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from c30_control.c32_control_strategy import ControlStrategy
+from c40_execution.c42_sync_executer import SyncExecuter, WorldInterface
 
 import multiprocessing as mp
 from multiprocessing.managers import BaseManager
@@ -16,12 +16,12 @@ from logging.handlers import QueueHandler, QueueListener
 log = logging.getLogger(__name__)
 
 
-class AsyncExecuter(BaseExecuter):
+class AsyncExecuter(SyncExecuter):
     def __init__(
         self,
         pm: PerceptionModel,
-        pl: BaseLocalPlanner,
-        cn: BaseController,
+        pl: LocalPlannerStrategy,
+        cn: ControlStrategy,
         world: WorldInterface,
         call_replan=True,
         call_control=True,

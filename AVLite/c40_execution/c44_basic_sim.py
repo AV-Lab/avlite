@@ -4,8 +4,8 @@ from typing import Optional
 
 from c10_perception.c11_perception_model import AgentState
 from c10_perception.c11_perception_model import EgoState
-from c30_control.c32_base_controller import ControlComand
-from c40_execution.c41_base_executer import WorldInterface
+from c30_control.c32_control_strategy import ControlComand
+from c40_execution.c42_sync_executer import WorldInterface
 
 import logging
 log = logging.getLogger(__name__)

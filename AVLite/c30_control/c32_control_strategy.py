@@ -11,7 +11,7 @@ import copy
 
 log = logging.getLogger(__name__)
 
-class BaseController(ABC):
+class ControlStrategy(ABC):
     tj: Optional[Trajectory]
     cmd: ControlComand
     cte_steer: float
