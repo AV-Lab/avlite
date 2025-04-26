@@ -1,15 +1,14 @@
 from __future__ import annotations
-
-from c20_planning.c24_race_global_planner import RaceGlobalPlanner
-from c20_planning.c25_hdmap_global_planner import GlobalHDMapPlanner
-from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
-from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
-
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
 import logging
+
+from c20_planning.c24_race_global_planner import RaceGlobalPlanner
+from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
+from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
+
 log = logging.getLogger(__name__)
 
 from typing import TYPE_CHECKING
@@ -23,8 +22,11 @@ class GlobalPlanPlotView(ttk.Frame):
 
         if self.root.setting.global_planner_type.get() == RaceGlobalPlanner.__name__:
             self.global_plot = GlobalRacePlot()
-        elif self.root.setting.global_planner_type.get() == GlobalHDMapPlanner.__name__:
+        elif self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
             self.global_plot = GlobalHDMapPlot()
+
+        if not hasattr(self, "global_plot"):
+            log.error("Global Plot type not set. Please check the global planner type.")
 
         self.__config_canvas()
         self.bind("<Configure>",lambda x: self.plot())

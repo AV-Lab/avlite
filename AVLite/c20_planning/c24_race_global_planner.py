@@ -1,11 +1,11 @@
 import json
 import logging
-from c20_planning.c22_base_global_planner import BaseGlobalPlanner, GlobalPlan
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy, GlobalPlan
 
 log = logging.getLogger(__name__)
 
 
-class RaceGlobalPlanner(BaseGlobalPlanner):
+class RaceGlobalPlanner(GlobalPlannerStrategy):
     def __init__(self):
         super().__init__()
 

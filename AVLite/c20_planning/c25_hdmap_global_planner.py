@@ -3,15 +3,16 @@ from scipy.spatial import KDTree
 import numpy as np
 import networkx as nx
 from scipy.interpolate import CubicSpline
+from typing import Optional
 import logging
 from dataclasses import dataclass, field
 
-from c20_planning.c22_base_global_planner import BaseGlobalPlanner
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c21_planning_model import GlobalPlan
 
 log = logging.getLogger(__name__)
 
-class GlobalHDMapPlanner(BaseGlobalPlanner):
+class HDMapGlobalPlanner(GlobalPlannerStrategy):
     """
     A global planner that:
       1. Parses a simplified OpenDRIVE (.xodr) file.
@@ -28,6 +29,7 @@ class GlobalHDMapPlanner(BaseGlobalPlanner):
         super().__init__()
         self.xodr_file = xodr_file
         self.sampling_resolution = sampling_resolution
+        self.root = None
         try:
             tree = ET.parse(self.xodr_file)
             self.xodr_root = tree.getroot()
@@ -85,7 +87,6 @@ class HDMap:
             if len(self.left_d) != len(self.center_line) or len(self.right_d) != len(self.center_line):
                 raise ValueError("left_d and right_d must have same length as center_line")
 
-
     @dataclass
     class Road:
         id: str
@@ -124,7 +125,8 @@ class HDMap:
                 
         self._kdtree = KDTree(np.array(points))
     
-    def find_nearest_lane(self, position: Tuple[float, float], k: int = 5) -> Lane:
+    #TODO 
+    def find_nearest_lane(self, position: tuple[float, float], k: int = 5) -> Lane:
         """Find lane closest to position"""
         if self._kdtree is None:
             self.build_spatial_index()
@@ -137,6 +139,56 @@ class HDMap:
             key=lambda l: np.min(np.linalg.norm(l.center_line - np.array(position), axis=1))
         )
 
+    def parse_HDMap(self, xodr_file: str) -> None:
+        try:
+            tree = ET.parse(xodr_file)
+            self.xodr_root = tree.getroot()
+        except ET.ParseError as e:
+            log.error(f"Error parsing OpenDRIVE file: {e}")
+
+        root = self.xodr_root
+        roads = root.findall('road')
+        log.debug(f"Number of roads in HD Map: {len(roads)}")
+        
+        # Store all road coordinates to calculate plot limits
+        
+        for road in roads:
+            plan_view = road.find('planView')
+            if plan_view is None:
+                continue
+                
+            # Process road geometry to get centerline
+            road_x, road_y = [], []
+            
+            # Extract all geometry segments first
+            for geometry in plan_view.findall('geometry'):
+                x0 = float(geometry.get('x', '0'))
+                y0 = float(geometry.get('y', '0'))
+                hdg = float(geometry.get('hdg', '0'))
+                length = float(geometry.get('length', '0'))
+                gtype = 'line'  # Default to line if no specific geometry type is found
+                attrib = {}
+                
+                # Check for all possible geometry types in OpenDRIVE
+                for child in geometry:
+                    if child.tag in ['line', 'arc', 'spiral', 'poly3', 'paramPoly3']:
+                        gtype = child.tag
+                        attrib = child.attrib
+                        break
+                
+                x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
+                # if road_x:  # add gap between consecutive segments
+                #     road_x.append(np.nan)
+                #     road_y.append(np.nan)
+                road_x.extend(x_vals)
+                road_y.extend(y_vals)
+                
+                
+                # Add coordinates for boundary calculation
+                all_x_coords.extend([x for x in x_vals if not np.isnan(x)])
+                all_y_coords.extend([y for y in y_vals if not np.isnan(y)])
+            
+            self.get_road_lanes(road, road_x, road_y)
 
 
 def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', attributes=None, n_pts=50):

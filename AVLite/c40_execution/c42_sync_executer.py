@@ -1,86 +1,32 @@
-from dataclasses import dataclass
 import logging
 import time
-from abc import ABC, abstractmethod
 from typing import Optional, Union
 
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from c20_planning.c22_base_global_planner import BaseGlobalPlanner
-from c20_planning.c23_base_local_planner import BaseLocalPlanner
-from c20_planning.c25_hdmap_global_planner import GlobalHDMapPlanner
-from c20_planning.c24_race_global_planner import RaceGlobalPlanner
-from c30_control.c31_control_model import  ControlComand
-from c30_control.c32_base_controller import BaseController
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from c30_control.c32_control_strategy import ControlStrategy
+from c40_execution.c41_world_interface import WorldInterface
 
 log = logging.getLogger(__name__)
 
-@dataclass
-class WorldInterface(ABC):
-    """
-    Abstract class for the world interface. This class is used to control the ego vehicle and spawn agents in the world.
-    It provides an interface for the simulator or ROS bridge to implement its own world logic.
-    """
-    
-    ego_state: EgoState
-    perception_model: Optional[PerceptionModel] = None # Simulators can provide their own perception model
 
-    @abstractmethod
-    def control_ego_state(self, cmd: ControlComand, dt=0.01):
-        """
-        Update the ego state.
-
-        Parameters
-        state (EgoState): A mutable object representing the ego state.
-        cmd (ControlCommand): The control command containing acceleration and steering angle.
-        dt (float): Time delta for the update. Default is 0.01.
-        """
-        pass
-
-    def get_ego_state(self) -> EgoState:
-        return self.ego_state
-
-    def get_perception_model(self) -> PerceptionModel:
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
-
-    @abstractmethod
-    def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
-        """
-        Teleport the ego vehicle to a new position and orientation.
-
-        Parameters
-        x (float): The new x-coordinate.
-        y (float): The new y-coordinate.
-        theta (float): The new orientation in radians.
-        """
-        pass
-
-    @abstractmethod
-    def spawn_agent(self, agent_state: AgentState):
-        """
-        Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that.
-
-        """
-        pass
-
-    def reset(self):
-        pass
-
-class BaseExecuter:
+class SyncExecuter:
     def __init__(
         self,
         pm: PerceptionModel,
-        glob_pl: Union[RaceGlobalPlanner, GlobalHDMapPlanner],
-        pl: BaseLocalPlanner,
-        cn: BaseController,
+        glob_pl: GlobalPlannerStrategy,
+        pl: LocalPlannerStrategy,
+        cn: ControlStrategy,
         world: WorldInterface,
         replan_dt=0.5,
         control_dt=0.01,
     ):
         self.pm: PerceptionModel = pm
         self.ego_state: EgoState = pm.ego_vehicle
-        self.global_planner:Union[RaceGlobalPlanner, GlobalHDMapPlanner] = glob_pl
-        self.local_planner: BaseLocalPlanner = pl
-        self.controller: BaseController = cn
+        self.global_planner: GlobalPlannerStrategy = glob_pl
+        self.local_planner: LocalPlannerStrategy = pl
+        self.controller: ControlStrategy = cn
         self.world: WorldInterface = world
         self.planner_fps: float = 0.0
         self.control_fps: float = 0.0

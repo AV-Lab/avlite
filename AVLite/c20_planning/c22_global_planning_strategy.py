@@ -5,7 +5,7 @@ import networkx as nx
 from c20_planning.c21_planning_model import GlobalPlan
 
 
-class BaseGlobalPlanner(ABC):
+class GlobalPlannerStrategy(ABC):
     registry = {}
 
     def __init__(self):
@@ -26,7 +26,7 @@ class BaseGlobalPlanner(ABC):
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)
         if not abstract:  # only register non-abstract subclasses
-            BaseGlobalPlanner.registry[cls.__name__] = cls
+            GlobalPlannerStrategy.registry[cls.__name__] = cls
 
 
 

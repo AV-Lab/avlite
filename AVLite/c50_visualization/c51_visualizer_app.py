@@ -1,4 +1,4 @@
-from c40_execution.c41_base_executer import BaseExecuter
+from c40_execution.c42_sync_executer import SyncExecuter
 from c50_visualization.c52_plot_view import LocalPlanPlotView, GlobalPlanPlotView
 from c50_visualization.c53_perceive_plan_control_view import PerceivePlanControlView
 from c50_visualization.c54_exec_visualize_view import ExecVisualizeView
@@ -17,9 +17,9 @@ log = logging.getLogger(__name__)
 
 
 class VisualizerApp(tk.Tk):
-    exec: BaseExecuter
+    exec: SyncExecuter
 
-    def __init__(self, executer: BaseExecuter, code_reload_function=None):
+    def __init__(self, executer: SyncExecuter, code_reload_function=None):
         super().__init__()
         # self.set_dark_mode()
         self.set_dark_mode_themed()
