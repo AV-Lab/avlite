@@ -167,6 +167,7 @@ class GlobalHDMapPlot(GlobalPlot):
         # Create plot elements with empty data - they'll be updated later
         self.vehicle_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
         self.vehicle_location.set_color("red")
+        self.map_plotted = False
         
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         super().set_plot_theme(bg_color, fg_color)
@@ -179,72 +180,73 @@ class GlobalHDMapPlot(GlobalPlot):
         
         if not show_legend:
              self.ax.get_legend().remove() if self.ax.get_legend() else None
-        
-        # Check if the global planner has an XODR root
-        if not hasattr(exec.global_planner, 'xodr_root'):
-            log.warning("Global planner does not have xodr_root attribute. Cannot visualize HD Map.")
-            return
 
-        global_planner = exec.global_planner
-        global_planner = cast(HDMapGlobalPlanner,global_planner)
+        if not self.map_plotted:
+            # Check if the global planner has an XODR root
+            if not hasattr(exec.global_planner, 'xodr_root'):
+                log.warning("Global planner does not have xodr_root attribute. Cannot visualize HD Map.")
+                return
 
-        root = global_planner.xodr_root
-        roads = root.findall('road')
-        log.debug(f"Number of roads in HD Map: {len(roads)}")
-        
-        # Store all road coordinates to calculate plot limits
-        all_x_coords = [vehicle_x]
-        all_y_coords = [vehicle_y]
-        
-        for road in roads:
-            plan_view = road.find('planView')
-            if plan_view is None:
-                continue
-                
-            # Process road geometry to get centerline
-            road_x, road_y = [], []
+            global_planner = exec.global_planner
+            global_planner = cast(HDMapGlobalPlanner,global_planner)
+
+            root = global_planner.xodr_root
+            roads = root.findall('road')
+            log.debug(f"Number of roads in HD Map: {len(roads)}")
             
-            # Extract all geometry segments first
-            for geometry in plan_view.findall('geometry'):
-                x0 = float(geometry.get('x', '0'))
-                y0 = float(geometry.get('y', '0'))
-                hdg = float(geometry.get('hdg', '0'))
-                length = float(geometry.get('length', '0'))
-                gtype = 'line'  # Default to line if no specific geometry type is found
-                attrib = {}
-                
-                # Check for all possible geometry types in OpenDRIVE
-                for child in geometry:
-                    if child.tag in ['line', 'arc', 'spiral', 'poly3', 'paramPoly3']:
-                        gtype = child.tag
-                        attrib = child.attrib
-                        break
-                
-                x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
-                # if road_x:  # add gap between consecutive segments
-                #     road_x.append(np.nan)
-                #     road_y.append(np.nan)
-                road_x.extend(x_vals)
-                road_y.extend(y_vals)
-                
-                
-                # Add coordinates for boundary calculation
-                all_x_coords.extend([x for x in x_vals if not np.isnan(x)])
-                all_y_coords.extend([y for y in y_vals if not np.isnan(y)])
+            # Store all road coordinates to calculate plot limits
+            all_x_coords = []
+            all_y_coords = []
             
-            # Plot road centerline
-            color = "white" if int(road.get("junction", -1)) == -1 else "#e8b4b0"
-            self.ax.plot(road_x, road_y, color=color, linewidth=1, alpha=0.5)
+            for road in roads:
+                plan_view = road.find('planView')
+                if plan_view is None:
+                    continue
+                    
+                # Process road geometry to get centerline
+                road_x, road_y = [], []
+                
+                # Extract all geometry segments first
+                for geometry in plan_view.findall('geometry'):
+                    x0 = float(geometry.get('x', '0'))
+                    y0 = float(geometry.get('y', '0'))
+                    hdg = float(geometry.get('hdg', '0'))
+                    length = float(geometry.get('length', '0'))
+                    gtype = 'line'  # Default to line if no specific geometry type is found
+                    attrib = {}
+                    
+                    # Check for all possible geometry types in OpenDRIVE
+                    for child in geometry:
+                        if child.tag in ['line', 'arc', 'spiral', 'poly3', 'paramPoly3']:
+                            gtype = child.tag
+                            attrib = child.attrib
+                            break
+                    
+                    x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
+                    # if road_x:  # add gap between consecutive segments
+                    #     road_x.append(np.nan)
+                    #     road_y.append(np.nan)
+                    road_x.extend(x_vals)
+                    road_y.extend(y_vals)
+                    
+                    
+                    # Add coordinates for boundary calculation
+                    all_x_coords.extend([x for x in x_vals if not np.isnan(x)])
+                    all_y_coords.extend([y for y in y_vals if not np.isnan(y)])
+                
+                # Plot road centerline
+                color = "white" if int(road.get("junction", -1)) == -1 else "#e8b4b0"
+                self.ax.plot(road_x, road_y, color=color, linewidth=1, alpha=0.5)
+                
+                # Plot lanes for this road
+                self.get_road_lanes(road, road_x, road_y)
             
-            # Plot lanes for this road
-            self.get_road_lanes(road, road_x, road_y)
-        
-        # Set view limits
-        pad = 10
-        self.ax.set_xlim(np.min(all_x_coords)-pad, np.max(all_x_coords)+pad)
-        self.ax.set_ylim(np.min(all_y_coords)-pad, np.max(all_y_coords)+pad)
-        
-        log.debug(f"Plotting HD Map Global Plot at location: {exec.ego_state.x}, {exec.ego_state.y}")
+            # Set view limits
+            pad = 10
+            self.ax.set_xlim(np.min(all_x_coords)-pad, np.max(all_x_coords)+pad)
+            self.ax.set_ylim(np.min(all_y_coords)-pad, np.max(all_y_coords)+pad)
+            
+            self.map_plotted = True 
         self.fig.canvas.draw()
 
     def get_road_lanes(self, road, road_x, road_y):
