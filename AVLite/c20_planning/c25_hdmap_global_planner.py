@@ -29,13 +29,10 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         super().__init__()
         self.xodr_file = xodr_file
         self.sampling_resolution = sampling_resolution
-        self.root = None
-        try:
-            tree = ET.parse(self.xodr_file)
-            self.xodr_root = tree.getroot()
-        except ET.ParseError as e:
-            log.error(f"Error parsing OpenDRIVE file: {e}")
 
+        log.debug(f"Loading HDMap from {xodr_file}")
+        self.hdmap = HDMap(xodr_file_name=xodr_file)
+        self.hdmap.parse_HDMap()
 
 
     def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
@@ -78,16 +75,11 @@ class HDMap:
         center_line: np.ndarray      # Nx2 array of (x,y) coordinates
         left_d: list[float]          # Left boundary distances for each centerline point
         right_d: list[float]         # Right boundary distances for each centerline point
-        road_id: str
+        road: Optional["HDMap.Road"] = None
         predecessors: list['HDMap.Lane'] = field(default_factory=list)
         successors: list['HDMap.Lane'] = field(default_factory=list)
         side : str = 'left'  # 'left' or 'right'
         type: str = 'driving'  # 'driving', 'shoulder', etc.
-        
-        # def __post_init__(self):
-        #     # Ensure left_d and right_d have same length as center_line
-        #     if len(self.left_d) != len(self.center_line) or len(self.right_d) != len(self.center_line):
-        #         raise ValueError("left_d and right_d must have same length as center_line")
 
     @dataclass
     class Road:
@@ -95,25 +87,29 @@ class HDMap:
         center_line: np.ndarray      # Nx2 array of (x,y) coordinates
         lanes: list['HDMap.Lane'] = field(default_factory=list)
 
-    road_predecessors: dict[Road, Road] = field(default_factory=dict)
-    road_successors:  dict[Road, Road] = field(default_factory=dict)
-    lane_predecessors: dict[Lane, Lane] = field(default_factory=dict)
-    lane_successors:  dict[Lane, Lane] = field(default_factory=dict)
+    road_predecessors: dict[Road, list[Road]] = field(default_factory=dict)
+    road_successors:  dict[Road, list[Road]] = field(default_factory=dict)
+    lane_predecessors: dict[Lane, list[Lane]] = field(default_factory=dict)
+    lane_successors:  dict[Lane, list[Lane]] = field(default_factory=dict)
+    xodr_file_name: str = ""
 
     roads: list[Road] = field(default_factory=list)
-    lanes: dict[str, Lane] = field(default_factory=dict) # Key is lane type driving, shoulder, etc.
+    lanes: list[Lane] = field(default_factory=list) # Key is lane type driving, shoulder, etc.
 
     _kdtree: Optional[KDTree] = None
     _point_to_lane: list[tuple[str, int]] = field(default_factory=list)
     
+    #TODO
     def __connect_lanes(self, from_lane_id: str, to_lane_id: str) -> None:
         """Connect two lanes as predecessor/successor"""
         pass
     
+    #TODO
     def __connect_roads(self, from_road_id: str, to_road_id: str) -> None:
         """Connect two roads as predecessor/successor"""
         pass
     
+    #TODO
     def __build_spatial_index(self) -> None:
         """Build KDTree for efficient position queries"""
         points = []
@@ -140,9 +136,14 @@ class HDMap:
             key=lambda l: np.min(np.linalg.norm(l.center_line - np.array(position), axis=1))
         )
 
-    def parse_HDMap(self, xodr_file: str) -> None:
+    def parse_HDMap(self) -> None:
+        """Parse OpenDRIVE file and build lane graph"""
+        if self.xodr_file_name == "":
+            log.error("No OpenDRIVE file specified.")
+            return
+
         try:
-            tree = ET.parse(xodr_file)
+            tree = ET.parse(self.xodr_file_name)
             self.xodr_root = tree.getroot()
         except ET.ParseError as e:
             log.error(f"Error parsing OpenDRIVE file: {e}")
@@ -183,11 +184,16 @@ class HDMap:
                 #     road_y.append(np.nan)
                 road_x.extend(x_vals)
                 road_y.extend(y_vals)
+                r = HDMap.Road(
+                    id=road.get('id', '0'),
+                    center_line=np.array([road_x, road_y]),
+                )
+                self.roads.append(r)
                 
             
-            self.__get_road_lanes(road, road_x, road_y)
+            self.__set_road_lanes(road, road_x, road_y)
 
-    def __get_road_lanes(self, road, road_x, road_y):
+    def __set_road_lanes(self, road, road_x, road_y):
         """Plot lanes for a given road"""
         lanes_sections = road.findall('lanes/laneSection')
         if not lanes_sections:
@@ -216,7 +222,7 @@ class HDMap:
                     width = float(width_element.get('a', '0'))
                     cumulative_offset += width
                     # if lane_type == "driving":
-                    self.__get_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'left')
+                    self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type, lane_id,road, 'left')
             
             # Process right lanes (negative IDs)
             right_lanes = lane_section.findall('right/lane')
@@ -232,7 +238,7 @@ class HDMap:
                     width = float(width_element.get('a', '0'))
                     cumulative_offset -= width  # Negative because it's on the right side
                     # if lane_type == "driving":
-                    self.__get_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'right')
+                    self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type,lane_id, road,'right')
     
     def __get_lane_offset_at_s(self, lane_offsets, s):
         """Calculate lane offset at position s using the OpenDRIVE lane offset elements."""
@@ -261,21 +267,10 @@ class HDMap:
         
         return a + b*local_s + c*local_s**2 + d*local_s**3
 
-    def __get_lane_boundary(self, road_x, road_y, offset, lane_type, side):
+    def __set_lane_boundary(self, road_x, road_y, offset, lane_type, lane_id, road, side):
         """Plot a lane boundary at the specified offset from the road centerline"""
         if not road_x or len(road_x) < 2:
             return
-        
-        # Set lane style based on type
-        if lane_type == 'driving':
-            color = 'green' if side == 'left' else 'blue'
-            alpha = 0.7
-        elif lane_type == 'shoulder':
-            color = 'orange'
-            alpha = 0.5
-        else:
-            color = 'gray'
-            alpha = 0.3
         
         # Calculate lane boundary points
         lane_x, lane_y = [], []
@@ -330,7 +325,16 @@ class HDMap:
                 continue
         
         if lane_x and lane_y:
-            self.ax.plot(lane_x, lane_y, color=color, alpha=alpha, linewidth=1.5)
+            self.lanes.append(HDMap.Lane(
+                id=lane_id,
+                center_line=np.array([lane_x, lane_y]),
+                left_d=[0]*len(lane_x),
+                right_d=[0]*len(lane_x),
+                road=road,
+                type=lane_type,
+            ))
+
+            # self.ax.plot(lane_x, lane_y, color=color, alpha=alpha, linewidth=1.5)
 
 
 
