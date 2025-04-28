@@ -46,20 +46,23 @@ class GlobalPlanPlotView(ttk.Frame):
 
     def plot(self):
         t1 = time.time()
-        canvas_widget = self.canvas.get_tk_widget()
-        width = canvas_widget.winfo_width()
-        height = canvas_widget.winfo_height()
-        aspect_ratio = width / height if height > 0 else 4.0
+        try:
+            canvas_widget = self.canvas.get_tk_widget()
+            width = canvas_widget.winfo_width()
+            height = canvas_widget.winfo_height()
+            aspect_ratio = width / height if height > 0 else 4.0
 
-        self.global_plot.plot(
-            exec=self.root.exec,
-            aspect_ratio=aspect_ratio,
-            zoom=self.root.setting.xy_zoom,
-            show_legend=self.root.setting.show_legend.get(),
-            follow_vehicle=self.root.setting.global_view_follow_planner.get()
-        )
+            self.global_plot.plot(
+                exec=self.root.exec,
+                aspect_ratio=aspect_ratio,
+                zoom=self.root.setting.xy_zoom,
+                show_legend=self.root.setting.show_legend.get(),
+                follow_vehicle=self.root.setting.global_view_follow_planner.get()
+            )
+            log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
+        except Exception as e:
+            log.error(f"Error in Global Plot: {e}")
         
-        log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
     
     def update_plot_theme(self):
         self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
@@ -68,15 +71,16 @@ class GlobalPlanPlotView(ttk.Frame):
     def update_plot_type(self):
         """Update the plot type based on the selected global planner"""
 
+        log.debug(f"Updating Global Plot type {self.root.setting.global_planner_type.get()}...")
         self.canvas.get_tk_widget().destroy()  
         if self.root.setting.global_planner_type.get() == "RaceGlobalPlanner":
             self.global_plot = GlobalRacePlot()
-            self.__config_canvas()
             log.debug("Global Plot type changed to Race Plot.")
-        elif self.root.setting.global_planner_type.get() == "GlobalHDMapPlanner":
+        elif self.root.setting.global_planner_type.get() == "HDMapGlobalPlanner":
             self.global_plot = GlobalHDMapPlot()
-            self.__config_canvas()
             log.debug("Global Plot type changed to HD Map Plot.")
+
+        self.__config_canvas()
 
 
     def on_mouse_move(self, event):

@@ -1,10 +1,11 @@
 from c10_perception.c12_perception_strategy import PerceptionModel
+from c10_perception.c11_perception_model import EgoState
+from c20_planning.c25_hdmap_global_planner import HDMap
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c20_planning.c25_hdmap_global_planner import sample_OpenDrive_geometry
 from c20_planning.c27_lattice import Edge
 from c20_planning.c28_trajectory import Trajectory
 from c40_execution.c42_sync_executer import SyncExecuter
-from c10_perception.c11_perception_model import EgoState
 from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
 
 
@@ -182,222 +183,43 @@ class GlobalHDMapPlot(GlobalPlot):
              self.ax.get_legend().remove() if self.ax.get_legend() else None
 
         if not self.map_plotted:
-            # Check if the global planner has an XODR root
-            if not hasattr(exec.global_planner, 'xodr_root'):
-                log.warning("Global planner does not have xodr_root attribute. Cannot visualize HD Map.")
+
+            if not hasattr(exec.global_planner, "hdmap"):
+                log.error("HDMap not found in the global planner.")
                 return
 
             global_planner = exec.global_planner
             global_planner = cast(HDMapGlobalPlanner,global_planner)
+            hdmap = global_planner.hdmap
 
-            root = global_planner.xodr_root
-            roads = root.findall('road')
-            log.debug(f"Number of roads in HD Map: {len(roads)}")
-            
-            # Store all road coordinates to calculate plot limits
+
             all_x_coords = []
             all_y_coords = []
-            
-            for road in roads:
-                plan_view = road.find('planView')
-                if plan_view is None:
-                    continue
-                    
-                # Process road geometry to get centerline
-                road_x, road_y = [], []
+
+            # for r in hdmap.roads:
+            #     self.ax.plot(r.center_line[0], r.center_line[1], color='gray', linewidth=2, alpha=0.5)
+
+            for l in hdmap.lanes:
+                if l.type == "driving":
+                    color = "green"
+                    alpha = 0.7
+                elif l.type == "shoulder":
+                    color = "orange"
+                    alpha = 0.5
+                else:
+                    color = "gray"
+                    alpha = 0.3
                 
-                # Extract all geometry segments first
-                for geometry in plan_view.findall('geometry'):
-                    x0 = float(geometry.get('x', '0'))
-                    y0 = float(geometry.get('y', '0'))
-                    hdg = float(geometry.get('hdg', '0'))
-                    length = float(geometry.get('length', '0'))
-                    gtype = 'line'  # Default to line if no specific geometry type is found
-                    attrib = {}
-                    
-                    # Check for all possible geometry types in OpenDRIVE
-                    for child in geometry:
-                        if child.tag in ['line', 'arc', 'spiral', 'poly3', 'paramPoly3']:
-                            gtype = child.tag
-                            attrib = child.attrib
-                            break
-                    
-                    x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
-                    # if road_x:  # add gap between consecutive segments
-                    #     road_x.append(np.nan)
-                    #     road_y.append(np.nan)
-                    road_x.extend(x_vals)
-                    road_y.extend(y_vals)
-                    
-                    
-                    # Add coordinates for boundary calculation
-                    all_x_coords.extend([x for x in x_vals if not np.isnan(x)])
-                    all_y_coords.extend([y for y in y_vals if not np.isnan(y)])
-                
-                # Plot road centerline
-                color = "white" if int(road.get("junction", -1)) == -1 else "#e8b4b0"
-                self.ax.plot(road_x, road_y, color=color, linewidth=1, alpha=0.5)
-                
-                # Plot lanes for this road
-                self.get_road_lanes(road, road_x, road_y)
-            
+                self.ax.plot(l.center_line[0], l.center_line[1], color=color, linewidth=2, alpha=alpha)
+                all_x_coords.extend(l.center_line[0])
+                all_y_coords.extend(l.center_line[1])
             # Set view limits
             pad = 10
             self.ax.set_xlim(np.min(all_x_coords)-pad, np.max(all_x_coords)+pad)
             self.ax.set_ylim(np.min(all_y_coords)-pad, np.max(all_y_coords)+pad)
-            
             self.map_plotted = True 
         self.fig.canvas.draw()
 
-    def get_road_lanes(self, road, road_x, road_y):
-        """Plot lanes for a given road"""
-        lanes_sections = road.findall('lanes/laneSection')
-        if not lanes_sections:
-            return
-            
-        # Get lane offsets if they exist
-        lane_offsets = road.findall('lanes/laneOffset')
-        road_id = road.get('id', '0')
-            
-        for lane_section in lanes_sections:
-            # Process left lanes (positive IDs)
-            left_lanes = lane_section.findall('left/lane')
-            left_lanes.sort(key=lambda l: int(l.get('id', '0')))  # Sort by increasing lane ID
-            
-            # Apply lane offset at the section s-coordinate
-            s_section = float(lane_section.get('s', '0.0'))
-            offset = self._get_lane_offset_at_s(lane_offsets, s_section)
-            
-            cumulative_offset = offset  # Start with lane offset
-            for lane in left_lanes:
-                lane_id = int(lane.get('id', '0'))
-                lane_type = lane.get('type', 'none')
-                width_element = lane.find('width')
-                
-                if width_element is not None and lane_id > 0:
-                    width = float(width_element.get('a', '0'))
-                    cumulative_offset += width
-                    # if lane_type == "driving":
-                    self.get_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'left')
-            
-            # Process right lanes (negative IDs)
-            right_lanes = lane_section.findall('right/lane')
-            right_lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
-            
-            cumulative_offset = offset  # Reset with base lane offset for right lanes
-            for lane in right_lanes:
-                lane_id = int(lane.get('id', '0'))
-                lane_type = lane.get('type', 'none')
-                width_element = lane.find('width')
-                
-                if width_element is not None and lane_id < 0:
-                    width = float(width_element.get('a', '0'))
-                    cumulative_offset -= width  # Negative because it's on the right side
-                    # if lane_type == "driving":
-                    self.get_lane_boundary(road_x, road_y, cumulative_offset, lane_type, 'right')
-
-    def get_lane_boundary(self, road_x, road_y, offset, lane_type, side):
-        """Plot a lane boundary at the specified offset from the road centerline"""
-        if not road_x or len(road_x) < 2:
-            return
-        
-        # Set lane style based on type
-        if lane_type == 'driving':
-            color = 'green' if side == 'left' else 'blue'
-            alpha = 0.7
-        elif lane_type == 'shoulder':
-            color = 'orange'
-            alpha = 0.5
-        else:
-            color = 'gray'
-            alpha = 0.3
-        
-        # Calculate lane boundary points
-        lane_x, lane_y = [], []
-        valid_indices = [i for i, x in enumerate(road_x) if not np.isnan(x)]
-        
-        if not valid_indices:
-            return
-            
-        for i in valid_indices:
-            try:
-                # Find previous and next valid indices
-                prev_idx = i - 1
-                while prev_idx >= 0 and np.isnan(road_x[prev_idx]):
-                    prev_idx -= 1
-                    
-                next_idx = i + 1
-                while next_idx < len(road_x) and np.isnan(road_x[next_idx]):
-                    next_idx += 1
-                
-                # Calculate direction vector
-                if prev_idx >= 0 and next_idx < len(road_x):
-                    # Use both previous and next points for smoother transitions
-                    dx1 = road_x[i] - road_x[prev_idx]
-                    dy1 = road_y[i] - road_y[prev_idx]
-                    dx2 = road_x[next_idx] - road_x[i]
-                    dy2 = road_y[next_idx] - road_y[i]
-                    dx = (dx1 + dx2) / 2
-                    dy = (dy1 + dy2) / 2
-                elif prev_idx >= 0:
-                    # Only previous point available
-                    dx = road_x[i] - road_x[prev_idx]
-                    dy = road_y[i] - road_y[prev_idx]
-                elif next_idx < len(road_x):
-                    # Only next point available
-                    dx = road_x[next_idx] - road_x[i]
-                    dy = road_y[next_idx] - road_y[i]
-                else:
-                    continue
-                
-                # Calculate unit vector normal to the road direction
-                length = np.sqrt(dx*dx + dy*dy)
-                if length > 0:
-                    # Normal vector pointing outward from the road
-                    nx = -dy / length
-                    ny = dx / length
-                    
-                    # Add offset point to the lane boundary
-                    lane_x.append(road_x[i] + nx * offset)
-                    lane_y.append(road_y[i] + ny * offset)
-                
-            except (IndexError, ValueError) as e:
-                continue
-        
-        if lane_x and lane_y:
-            self.ax.plot(lane_x, lane_y, color=color, alpha=alpha, linewidth=1.5)
-
-    def _get_lane_offset_at_s(self, lane_offsets, s):
-        """Calculate lane offset at position s using the OpenDRIVE lane offset elements."""
-        if not lane_offsets:
-            return 0.0
-            
-        # Find the applicable lane offset element
-        applicable_offset = None
-        for offset in lane_offsets:
-            offset_s = float(offset.get('s', '0.0'))
-            if offset_s <= s:
-                applicable_offset = offset
-            else:
-                break
-                
-        if applicable_offset is None:
-            return 0.0
-            
-        # Calculate offset using polynomial
-        offset_s = float(applicable_offset.get('s', '0.0'))
-        local_s = s - offset_s
-        a = float(applicable_offset.get('a', '0.0'))
-        b = float(applicable_offset.get('b', '0.0'))
-        c = float(applicable_offset.get('c', '0.0'))
-        d = float(applicable_offset.get('d', '0.0'))
-        
-        return a + b*local_s + c*local_s**2 + d*local_s**3
-
-
-        
-
-        
 
 
 class LocalPlot:
