@@ -25,6 +25,7 @@ class VisualizationSettings:
 
         self.xy_zoom = 30
         self.frenet_zoom = 30
+        self.global_zoom = 30
 
         # Perc Plan Control
         self.global_planner_type = tk.StringVar(

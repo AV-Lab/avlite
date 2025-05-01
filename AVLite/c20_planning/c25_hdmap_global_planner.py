@@ -179,9 +179,6 @@ class HDMap:
                         break
                 
                 x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
-                # if road_x:  # add gap between consecutive segments
-                #     road_x.append(np.nan)
-                #     road_y.append(np.nan)
                 road_x.extend(x_vals)
                 road_y.extend(y_vals)
                 r = HDMap.Road(
@@ -229,6 +226,7 @@ class HDMap:
             right_lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
             
             cumulative_offset = offset  # Reset with base lane offset for right lanes
+            center_offset = offset  
             for lane in right_lanes:
                 lane_id = int(lane.get('id', '0'))
                 lane_type = lane.get('type', 'none')
@@ -237,8 +235,10 @@ class HDMap:
                 if width_element is not None and lane_id < 0:
                     width = float(width_element.get('a', '0'))
                     cumulative_offset -= width  # Negative because it's on the right side
-                    # if lane_type == "driving":
                     self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type,lane_id, road,'right')
+                    # lane_center_offset = center_offset - (width/2 )
+                    # self.__set_lane_center(road_x, road_y, lane_center_offset, lane_type, lane_id, road, 'left')
+                    # center_offset -= width
     
     def __get_lane_offset_at_s(self, lane_offsets, s):
         """Calculate lane offset at position s using the OpenDRIVE lane offset elements."""
@@ -266,29 +266,82 @@ class HDMap:
         d = float(applicable_offset.get('d', '0.0'))
         
         return a + b*local_s + c*local_s**2 + d*local_s**3
+    
+    def __set_lane_center(self, road_x, road_y, offset, lane_type, lane_id, road, side):
+        """Calculate and store the lane center at the specified offset from the road centerline"""
+        if not road_x or len(road_x) < 2:
+            return
+        
+        # Calculate lane center points
+        lane_x, lane_y = [], []
+        
+        for i in range(len(road_x)):
+            try:
+                prev_idx = i - 1
+                next_idx = i + 1
+                
+                # Calculate direction vector
+                if prev_idx >= 0 and next_idx < len(road_x):
+                    # Use both previous and next points for smoother transitions
+                    dx1 = road_x[i] - road_x[prev_idx]
+                    dy1 = road_y[i] - road_y[prev_idx]
+                    dx2 = road_x[next_idx] - road_x[i]
+                    dy2 = road_y[next_idx] - road_y[i]
+                    dx = (dx1 + dx2) / 2
+                    dy = (dy1 + dy2) / 2
+                elif prev_idx >= 0:
+                    # Only previous point available
+                    dx = road_x[i] - road_x[prev_idx]
+                    dy = road_y[i] - road_y[prev_idx]
+                elif next_idx < len(road_x):
+                    # Only next point available
+                    dx = road_x[next_idx] - road_x[i]
+                    dy = road_y[next_idx] - road_y[i]
+                else:
+                    continue
+                
+                # Calculate unit vector normal to the road direction
+                length = np.sqrt(dx*dx + dy*dy)
+                if length > 0:
+                    # Normal vector pointing outward from the road
+                    nx = -dy / length
+                    ny = dx / length
+                    
+                    # Add offset point for the lane center
+                    lane_x.append(road_x[i] + nx * offset)
+                    lane_y.append(road_y[i] + ny * offset)
+                
+            except (IndexError, ValueError):
+                continue
+        
+        if lane_x and lane_y:
+            self.lanes.append(HDMap.Lane(
+                id=lane_id,
+                center_line=np.array([lane_x, lane_y]),
+                left_d=[0]*len(lane_x),
+                right_d=[0]*len(lane_x),
+                road=road,
+                type=lane_type,
+                side=side
+            ))
 
     def __set_lane_boundary(self, road_x, road_y, offset, lane_type, lane_id, road, side):
         """Plot a lane boundary at the specified offset from the road centerline"""
+
+        assert len(road_x) == len(road_y), "Road X and Y coordinates must be of the same length."
+        
         if not road_x or len(road_x) < 2:
             return
         
         # Calculate lane boundary points
         lane_x, lane_y = [], []
-        valid_indices = [i for i, x in enumerate(road_x) if not np.isnan(x)]
         
-        if not valid_indices:
-            return
             
-        for i in valid_indices:
+        for i in range(len(road_x)):
             try:
                 # Find previous and next valid indices
                 prev_idx = i - 1
-                while prev_idx >= 0 and np.isnan(road_x[prev_idx]):
-                    prev_idx -= 1
-                    
                 next_idx = i + 1
-                while next_idx < len(road_x) and np.isnan(road_x[next_idx]):
-                    next_idx += 1
                 
                 # Calculate direction vector
                 if prev_idx >= 0 and next_idx < len(road_x):

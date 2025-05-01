@@ -7,12 +7,10 @@ import sys
 import logging
 
 log = logging.getLogger(__name__)
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
-
 
 class LogView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):

@@ -111,7 +111,7 @@ class GlobalRacePlot(GlobalPlot):
         self.vehicle_location.set_color("red")
         
         
-    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=10, show_legend=True, follow_vehicle=True):
         """Update the plot with current data"""
         super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
 
@@ -126,22 +126,27 @@ class GlobalRacePlot(GlobalPlot):
             self.reference_trajectory.set_data(exec.local_planner.global_trajectory.path_x, exec.local_planner.global_trajectory.path_y)
             self.vehicle_location.set_data([vehicle_x], [vehicle_y])
             
+            # self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
+            # self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
+
+            min_x = min(exec.local_planner.ref_left_boundary_x)
+            max_x = max(exec.local_planner.ref_right_boundary_x)
+            min_y = min(exec.local_planner.ref_left_boundary_y)
+            max_y = max(exec.local_planner.ref_right_boundary_y)
+
+                
+
             # Set view limits
-            if zoom is not None and follow_vehicle:
-                self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
-                self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
-            else:
-                # Calculate auto-zoom to fit all data
-                min_x = min(min(exec.local_planner.ref_left_boundary_x), min(exec.local_planner.ref_right_boundary_x), vehicle_x)
-                max_x = max(max(exec.local_planner.ref_left_boundary_x), max(exec.local_planner.ref_right_boundary_x), vehicle_x)
-                min_y = min(min(exec.local_planner.ref_left_boundary_y), min(exec.local_planner.ref_right_boundary_y), vehicle_y)
-                max_y = max(max(exec.local_planner.ref_left_boundary_y), max(exec.local_planner.ref_right_boundary_y), vehicle_y)
+            mi_x = min_x - zoom
+            mi_y = min_y - zoom/aspect_ratio
+            ma_x = max_x + zoom
+            ma_y = max_y + zoom/aspect_ratio
+            if mi_x < ma_x and mi_y < ma_y:
+                self.ax.set_xlim(mi_x, ma_x)
+                self.ax.set_ylim(mi_y, ma_y)
+                self.map_plotted = True 
+                self.fig.canvas.draw()
                 
-                padding_x = (max_x - min_x) * 0.1
-                padding_y = (max_y - min_y) * 0.1
-                
-                self.ax.set_xlim(min_x - padding_x, max_x + padding_x)
-                self.ax.set_ylim(min_y - padding_y, max_y + padding_y)
 
             if not show_legend:
                 self.ax.get_legend().remove() if self.ax.get_legend() else None
@@ -173,7 +178,7 @@ class GlobalHDMapPlot(GlobalPlot):
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         super().set_plot_theme(bg_color, fg_color)
         
-    def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=10, show_legend=True, follow_vehicle=True):
         """Implement the abstract method from GlobalPlot"""
         super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
         vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
@@ -182,8 +187,11 @@ class GlobalHDMapPlot(GlobalPlot):
         if not show_legend:
              self.ax.get_legend().remove() if self.ax.get_legend() else None
 
+        min_x = 0 
+        min_y = 0
+        max_x = 0.5
+        max_y = 0.5
         if not self.map_plotted:
-
             if not hasattr(exec.global_planner, "hdmap"):
                 log.error("HDMap not found in the global planner.")
                 return
@@ -213,12 +221,22 @@ class GlobalHDMapPlot(GlobalPlot):
                 self.ax.plot(l.center_line[0], l.center_line[1], color=color, linewidth=2, alpha=alpha)
                 all_x_coords.extend(l.center_line[0])
                 all_y_coords.extend(l.center_line[1])
-            # Set view limits
-            pad = 10
-            self.ax.set_xlim(np.min(all_x_coords)-pad, np.max(all_x_coords)+pad)
-            self.ax.set_ylim(np.min(all_y_coords)-pad, np.max(all_y_coords)+pad)
+            min_x = min(all_x_coords)  
+            min_y = min(all_y_coords)
+            max_x = max(all_x_coords)
+            max_y = max(all_y_coords)
+                
+
+        # Set view limits
+        mi_x = min_x - zoom
+        mi_y = min_y - zoom/aspect_ratio
+        ma_x = max_x + zoom
+        ma_y = max_y + zoom/aspect_ratio
+        if mi_x < ma_x and mi_y < ma_y:
+            self.ax.set_xlim(mi_x, ma_x)
+            self.ax.set_ylim(mi_y, ma_y)
             self.map_plotted = True 
-        self.fig.canvas.draw()
+            self.fig.canvas.draw()
 
 
 
