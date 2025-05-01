@@ -32,6 +32,7 @@ class GlobalPlanPlotView(ttk.Frame):
         self.bind("<Configure>",lambda x: self.plot())
 
         self.start_point = None
+        self._prev_scroll_time = None  # used to throttle the replot
          
     def __config_canvas(self):  
         self.fig = self.global_plot.fig
@@ -42,6 +43,7 @@ class GlobalPlanPlotView(ttk.Frame):
         self.global_plot.set_plot_theme(self.root.setting.bg_color, self.root.setting.fg_color)
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
         self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
+        self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
         
 
     def plot(self):
@@ -55,7 +57,7 @@ class GlobalPlanPlotView(ttk.Frame):
             self.global_plot.plot(
                 exec=self.root.exec,
                 aspect_ratio=aspect_ratio,
-                zoom=self.root.setting.xy_zoom,
+                zoom=self.root.setting.global_zoom,
                 show_legend=self.root.setting.show_legend.get(),
                 follow_vehicle=self.root.setting.global_view_follow_planner.get()
             )
@@ -107,6 +109,20 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.global_plot.set_start(event.xdata, event.ydata)
                     self.pending_goal_set = True
                     self.start_point = (event.xdata, event.ydata)
+    
+    def on_mouse_scroll(self, event, increment=10):
+        log.debug(f"Scroll Event in global coordinate: {self.root.setting.global_zoom}")
+        if event.button == "up":
+            self.root.setting.global_zoom -= increment #if self.root.setting.global_zoom > increment else 0
+        elif event.button == "down":
+            self.root.setting.global_zoom += increment
+        threshold = 0.01
+        if (
+            self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold
+        ) and not self.root.setting.exec_running:
+            self.root.update_ui()
+
+        self._prev_scroll_time = time.time()
 
 class LocalPlanPlotView(ttk.Frame):
 
