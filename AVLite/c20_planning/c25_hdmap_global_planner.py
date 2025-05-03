@@ -192,9 +192,39 @@ class HDMap:
 
     def __set_road_lanes(self, road, road_x, road_y):
         """Plot lanes for a given road"""
+        def set_side_lanes(side='left', offset=0):
+            lanes = lane_section.findall(f"{side}/lane")
+            if side == 'left':
+                lanes.sort(key=lambda l: int(l.get('id', '0')))  # Sort by increasing lane ID
+            else:
+                lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
+
+            # s_section = float(lane_section.get('s', '0.0'))
+            # offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
+            
+            cumulative_offset = offset  # Start with lane offset
+            center_offset = offset  
+            for lane in lanes:
+                lane_id = int(lane.get('id', '0'))
+                lane_type = lane.get('type', 'none')
+                width_element = lane.find('width')
+                
+                if width_element is not None and lane_id != 0:
+                    width = float(width_element.get('a', '0'))
+                    if side == 'left':
+                        cumulative_offset += width
+                    elif side == 'right':
+                        cumulative_offset -= width
+                    # if lane_type == "driving":
+                    self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type, lane_id,road, side)
+                    lane_center_offset = center_offset - (width/2 )
+                    # self.__set_lane_center(road_x, road_y, lane_center_offset, lane_type, lane_id, road, 'left')
+                    # center_offset -= width
+
         lanes_sections = road.findall('lanes/laneSection')
         if not lanes_sections:
             return
+
             
         # Get lane offsets if they exist
         lane_offsets = road.findall('lanes/laneOffset')
@@ -202,24 +232,30 @@ class HDMap:
             
         for lane_section in lanes_sections:
             # Process left lanes (positive IDs)
-            left_lanes = lane_section.findall('left/lane')
-            left_lanes.sort(key=lambda l: int(l.get('id', '0')))  # Sort by increasing lane ID
             
-            # Apply lane offset at the section s-coordinate
             s_section = float(lane_section.get('s', '0.0'))
             offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
-            
-            cumulative_offset = offset  # Start with lane offset
-            for lane in left_lanes:
-                lane_id = int(lane.get('id', '0'))
-                lane_type = lane.get('type', 'none')
-                width_element = lane.find('width')
-                
-                if width_element is not None and lane_id > 0:
-                    width = float(width_element.get('a', '0'))
-                    cumulative_offset += width
-                    # if lane_type == "driving":
-                    self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type, lane_id,road, 'left')
+
+            set_side_lanes('left', offset=offset) 
+            set_side_lanes('right', offset=offset)  
+            return
+            # left_lanes = lane_section.findall('left/lane')
+            # left_lanes.sort(key=lambda l: int(l.get('id', '0')))  # Sort by increasing lane ID
+            # 
+            # s_section = float(lane_section.get('s', '0.0'))
+            # offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
+            #
+            # cumulative_offset = offset  # Start with lane offset
+            # for lane in left_lanes:
+            #     lane_id = int(lane.get('id', '0'))
+            #     lane_type = lane.get('type', 'none')
+            #     width_element = lane.find('width')
+            #     
+            #     if width_element is not None and lane_id > 0:
+            #         width = float(width_element.get('a', '0'))
+            #         cumulative_offset += width
+            #         # if lane_type == "driving":
+            #         self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type, lane_id,road, 'left')
             
             # Process right lanes (negative IDs)
             right_lanes = lane_section.findall('right/lane')
