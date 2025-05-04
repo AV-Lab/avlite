@@ -13,8 +13,8 @@ class Trajectory:
     A class to represent a trajectory (path + velocity with aligned resolution).
     """
     path: list[tuple[float,float]] = field(default_factory=list)
-    path_x: np.ndarray = np.ndarray(0)
-    path_y: np.ndarray = np.ndarray(0)
+    path_x: np.ndarray = field(default=np.ndarray)
+    path_y: np.ndarray =  field(default=np.ndarray)
     path_s: list[float] = field(default_factory=list) # progress along the path
     path_d: list[float] = field(default_factory=list) # always zero, for debugging
     velocity: list[float] = field(default_factory=list)
