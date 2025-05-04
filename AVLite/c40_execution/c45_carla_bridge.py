@@ -242,8 +242,8 @@ class CarlaBridge(WorldInterface):
         velocity = self.vehicle.get_velocity()
         
         # Log the raw transform data for debugging
-        log.debug(f"Vehicle Transform: Location({transform.location.x}, {transform.location.y}, {transform.location.z}), "
-                  f"Rotation({transform.rotation.pitch}, {transform.rotation.yaw}, {transform.rotation.roll})")
+        # log.debug(f"Vehicle Transform: Location({transform.location.x}, {transform.location.y}, {transform.location.z}), "
+                  # f"Rotation({transform.rotation.pitch}, {transform.rotation.yaw}, {transform.rotation.roll})")
         
         self.ego_state.x = transform.location.x
         self.ego_state.y = -1*transform.location.y

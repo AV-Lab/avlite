@@ -1,8 +1,6 @@
 from c10_perception.c12_perception_strategy import PerceptionModel
 from c10_perception.c11_perception_model import EgoState
-from c20_planning.c25_hdmap_global_planner import HDMap
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
-from c20_planning.c25_hdmap_global_planner import sample_OpenDrive_geometry
 from c20_planning.c27_lattice import Edge
 from c20_planning.c28_trajectory import Trajectory
 from c40_execution.c42_sync_executer import SyncExecuter
@@ -38,14 +36,54 @@ class GlobalPlot(ABC):
         self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=10, label="Planner Location")
 
         self.fig.legend(loc="upper right", fontsize=8, framealpha=0.3)
+        
+        self.map_min_x = None
+        self.map_min_y = None
+        self.map_max_x = None
+        self.map_max_y = None
+        self.map_plotted = False
 
 
     def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         start_x, start_y = exec.global_planner.global_plan.start
         goal_x, goal_y = exec.global_planner.global_plan.goal
-        
+        self.vehicle_x, self.vehicle_y = exec.ego_state.x, exec.ego_state.y
+        self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y])
         self.start.set_data([start_x], [start_y])
         self.goal.set_data([goal_x], [goal_y])
+
+        if not self.map_plotted:
+            self.plot_map(exec)
+        
+        self.adjust_zoom(zoom, aspect_ratio)
+
+        if not show_legend:
+            self.ax.get_legend().remove() if self.ax.get_legend() else None
+
+        # self.ax.set_aspect(aspect_ratio)
+        self.fig.canvas.draw()
+
+    @abstractmethod
+    def plot_map(self, exec:SyncExecuter):
+        pass
+    
+    def adjust_zoom(self, zoom, aspect_ratio):
+        """Adjust the zoom level and aspect ratio of the plot"""
+        if self.map_min_x is not None and self.map_min_y is not None and self.map_max_x is not None and self.map_max_y is not None:
+            # Set view limits
+            mi_x = self.map_min_x - zoom
+            mi_y = self.map_min_y - zoom/aspect_ratio
+            ma_x = self.map_max_x + zoom
+            ma_y = self.map_max_y + zoom/aspect_ratio
+            if mi_x < ma_x and mi_y < ma_y:
+                if self.map_min_x < self.vehicle_x < self.map_max_x and self.map_min_y < self.vehicle_y < self.map_max_y \
+                     and zoom < self.map_max_x - self.map_min_x and zoom/aspect_ratio < self.map_max_y - self.map_min_y:
+
+                    self.ax.set_xlim(self.vehicle_x - zoom, self.vehicle_x + zoom)
+                    self.ax.set_ylim(self.vehicle_y - zoom/aspect_ratio, self.vehicle_y + zoom/aspect_ratio)
+                else:
+                    self.ax.set_xlim(self.map_min_x-20, self.map_max_x+20)
+                    self.ax.set_ylim(self.map_min_y-20/aspect_ratio, self.map_max_y + 20/aspect_ratio)
 
     def set_start(self, x, y):
         """Set the start point"""
@@ -86,6 +124,9 @@ class GlobalPlot(ABC):
         self.fig.canvas.draw()
         
         log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
+    def reset(self):
+        self.map_plotted = False
+
 
 class GlobalRacePlot(GlobalPlot):
     def __init__(self, figsize=(8, 10)):
@@ -111,57 +152,22 @@ class GlobalRacePlot(GlobalPlot):
         self.vehicle_location.set_color("red")
         
         
-    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=10, show_legend=True, follow_vehicle=True):
+    def plot_map(self, exec: SyncExecuter):
         """Update the plot with current data"""
-        super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
 
         log.debug("Plotting Race Global Plot")
-        try:
-            # Get vehicle location
-            vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
-            
-            # Update boundary and trajectory data
-            self.left_boundary.set_data(exec.local_planner.ref_left_boundary_x, exec.local_planner.ref_left_boundary_y)
-            self.right_boundary.set_data(exec.local_planner.ref_right_boundary_x, exec.local_planner.ref_right_boundary_y)
-            self.reference_trajectory.set_data(exec.local_planner.global_trajectory.path_x, exec.local_planner.global_trajectory.path_y)
-            self.vehicle_location.set_data([vehicle_x], [vehicle_y])
-            
-            # self.ax.set_xlim(vehicle_x - zoom, vehicle_x + zoom)
-            # self.ax.set_ylim(vehicle_y - zoom/aspect_ratio, vehicle_y + zoom/aspect_ratio)
-
-            min_x = min(exec.local_planner.ref_left_boundary_x)
-            max_x = max(exec.local_planner.ref_right_boundary_x)
-            min_y = min(exec.local_planner.ref_left_boundary_y)
-            max_y = max(exec.local_planner.ref_right_boundary_y)
-
-                
-
-            # Set view limits
-            mi_x = min_x - zoom
-            mi_y = min_y - zoom/aspect_ratio
-            ma_x = max_x + zoom
-            ma_y = max_y + zoom/aspect_ratio
-            if mi_x < ma_x and mi_y < ma_y:
-                self.ax.set_xlim(mi_x, ma_x)
-                self.ax.set_ylim(mi_y, ma_y)
-                self.map_plotted = True 
-                self.fig.canvas.draw()
-                
-
-            if not show_legend:
-                self.ax.get_legend().remove() if self.ax.get_legend() else None
+        self.left_boundary.set_data(exec.local_planner.ref_left_boundary_x, exec.local_planner.ref_left_boundary_y)
+        self.right_boundary.set_data(exec.local_planner.ref_right_boundary_x, exec.local_planner.ref_right_boundary_y)
+        self.reference_trajectory.set_data(exec.local_planner.global_trajectory.path_x, exec.local_planner.global_trajectory.path_y)
         
-
-            # self.ax.set_aspect(aspect_ratio)
-
-            self.fig.canvas.draw()
-
-
+        self.map_min_x = min(exec.local_planner.ref_left_boundary_x)
+        self.map_max_x = max(exec.local_planner.ref_right_boundary_x)
+        self.map_min_y = min(exec.local_planner.ref_left_boundary_y)
+        self.map_max_y = max(exec.local_planner.ref_right_boundary_y)
+        self.map_plotted = True
             
-        except Exception as e:
-            log.error(f"Error in GlobalPlot.plot: {e}")
-            import traceback
-            log.error(traceback.format_exc())
+
+
 
 
 class GlobalHDMapPlot(GlobalPlot):
@@ -173,73 +179,51 @@ class GlobalHDMapPlot(GlobalPlot):
         # Create plot elements with empty data - they'll be updated later
         self.vehicle_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
         self.vehicle_location.set_color("red")
-        self.map_plotted = False
         
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         super().set_plot_theme(bg_color, fg_color)
         
-    def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=10, show_legend=True, follow_vehicle=True):
+    def plot_map(self, exec:SyncExecuter):
         """Implement the abstract method from GlobalPlot"""
-        super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
-        vehicle_x, vehicle_y = exec.ego_state.x, exec.ego_state.y
-        self.vehicle_location.set_data([vehicle_x], [vehicle_y])
         
-        if not show_legend:
-             self.ax.get_legend().remove() if self.ax.get_legend() else None
 
-        min_x = 0 
-        min_y = 0
-        max_x = 0.5
-        max_y = 0.5
-        if not self.map_plotted:
-            if not hasattr(exec.global_planner, "hdmap"):
-                log.error("HDMap not found in the global planner.")
-                return
+        if not hasattr(exec.global_planner, "hdmap"):
+            log.error("HDMap not found in the global planner.")
+            return
 
-            global_planner = exec.global_planner
-            global_planner = cast(HDMapGlobalPlanner,global_planner)
-            hdmap = global_planner.hdmap
+        global_planner = exec.global_planner
+        global_planner = cast(HDMapGlobalPlanner,global_planner)
+        hdmap = global_planner.hdmap
 
 
-            all_x_coords = []
-            all_y_coords = []
+        all_x_coords = []
+        all_y_coords = []
 
-            # for r in hdmap.roads:
-            #     self.ax.plot(r.center_line[0], r.center_line[1], color='gray', linewidth=2, alpha=0.5)
+        # for r in hdmap.roads:
+        #     self.ax.plot(r.center_line[0], r.center_line[1], color='gray', linewidth=2, alpha=0.5)
 
-            for l in hdmap.lanes:
-                if l.type == "driving":
-                    color = "green"
-                    alpha = 0.7
-                elif l.type == "shoulder":
-                    color = "orange"
-                    alpha = 0.5
-                else:
-                    color = "gray"
-                    alpha = 0.3
-                
-                self.ax.plot(l.center_line[0], l.center_line[1], color=color, linewidth=2, alpha=alpha)
-                all_x_coords.extend(l.center_line[0])
-                all_y_coords.extend(l.center_line[1])
-            min_x = min(all_x_coords)  
-            min_y = min(all_y_coords)
-            max_x = max(all_x_coords)
-            max_y = max(all_y_coords)
-                
+        for l in hdmap.lanes:
+            if l.type == "driving":
+                color = "green"
+                alpha = 0.7
+            elif l.type == "shoulder":
+                color = "orange"
+                alpha = 0.5
+            else:
+                color = "gray"
+                alpha = 0.3
+            
+            self.ax.plot(l.center_line[0], l.center_line[1], color=color, linewidth=2, alpha=alpha)
+            all_x_coords.extend(l.center_line[0])
+            all_y_coords.extend(l.center_line[1])
 
-        # Set view limits
-        mi_x = min_x - zoom
-        mi_y = min_y - zoom/aspect_ratio
-        ma_x = max_x + zoom
-        ma_y = max_y + zoom/aspect_ratio
-        if mi_x < ma_x and mi_y < ma_y:
-            self.ax.set_xlim(mi_x, ma_x)
-            self.ax.set_ylim(mi_y, ma_y)
-            self.map_plotted = True 
-            self.fig.canvas.draw()
-
-
-
+        self.map_min_x = min(all_x_coords)  
+        self.map_min_y = min(all_y_coords)
+        self.map_max_x = max(all_x_coords)
+        self.map_max_y = max(all_y_coords)
+        log.debug(f"HDMap plotted with min_x: {self.map_min_x}, min_y: {self.map_min_y}, max_x: {self.map_max_x}, max_y: {self.map_max_y}")
+        self.map_plotted = True
+            
 class LocalPlot:
     def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12):
         self.MAX_LATTICE_SIZE = max_lattice_size
