@@ -104,7 +104,7 @@ class EgoState(AgentState):
 class PerceptionModel:
     static_obstacles: list[State] = field(default_factory=list)
     agent_vehicles: list[AgentState] = field(default_factory=list)
-    ego_vehicle: EgoState = EgoState()
+    ego_vehicle: EgoState = field(default_factory=EgoState)
     max_agent_vehicles:int = 12
     agent_predictions: list[tuple[AgentState,float]] = field(default_factory=list) # a list of agent state and the time of prediction, where t = 0 is the current time
 

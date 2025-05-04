@@ -118,15 +118,15 @@ class HDMap:
         
         # Store all road coordinates to calculate plot limits
         
-        for road in roads:
-            plan_view = road.find('planView')
+        for road_element in roads:
+            plan_view = road_element.find('planView')
             if plan_view is None:
                 continue
                 
             # Process road geometry to get centerline
             road_x, road_y = [], []
             
-            # Extract all geometry segments first
+            # Extract all geometry segments first of the reference line
             for geometry in plan_view.findall('geometry'):
                 x0 = float(geometry.get('x', '0'))
                 y0 = float(geometry.get('y', '0'))
@@ -145,14 +145,13 @@ class HDMap:
                 x_vals, y_vals = self.sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
                 road_x.extend(x_vals)
                 road_y.extend(y_vals)
-                r = HDMap.Road(
-                    id=road.get('id', '0'),
-                    center_line=np.array([road_x, road_y]),
-                )
-                self.roads.append(r)
-                
-            
-            self.__process_roads(road, road_x, road_y)
+
+            r = HDMap.Road(
+                id=road_element.get('id', '0'),
+                center_line=np.array([road_x, road_y]),
+            )
+            self.roads.append(r)
+            self.__process_roads(road_element, road_x, road_y)
 
     def __process_roads(self, road, road_x, road_y):
         """Plot lanes for a given road"""
