@@ -5,6 +5,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
 import logging
 
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c24_race_global_planner import RaceGlobalPlanner
 from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
 from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
@@ -75,12 +76,17 @@ class GlobalPlanPlotView(ttk.Frame):
 
         log.debug(f"Updating Global Plot type {self.root.setting.global_planner_type.get()}...")
         self.canvas.get_tk_widget().destroy()  
-        if self.root.setting.global_planner_type.get() == "RaceGlobalPlanner":
+        assert self.root.setting.global_planner_type.get() in GlobalPlannerStrategy.registry.keys(), \
+                f"Global planner type {self.root.setting.global_planner_type.get()} not found in registry."
+
+        if self.root.setting.global_planner_type.get() == RaceGlobalPlanner.__name__:
             self.global_plot = GlobalRacePlot()
             log.debug("Global Plot type changed to Race Plot.")
-        elif self.root.setting.global_planner_type.get() == "HDMapGlobalPlanner":
+        elif self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
             self.global_plot = GlobalHDMapPlot()
             log.debug("Global Plot type changed to HD Map Plot.")
+        else:
+            raise ValueError(f"Global planner type {self.root.setting.global_planner_type.get()} not found in registry.")
 
         self.__config_canvas()
 
@@ -111,9 +117,9 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.start_point = (event.xdata, event.ydata)
     
     def on_mouse_scroll(self, event, increment=10):
-        log.debug(f"Scroll Event in global coordinate: {self.root.setting.global_zoom}")
+        log.debug(f"Scroll Event in global coordinate. Zoom: {self.root.setting.global_zoom}")
         if event.button == "up":
-            self.root.setting.global_zoom -= increment #if self.root.setting.global_zoom > increment else 0
+            self.root.setting.global_zoom -= increment if self.root.setting.global_zoom > increment else 0
         elif event.button == "down":
             self.root.setting.global_zoom += increment
         threshold = 0.01

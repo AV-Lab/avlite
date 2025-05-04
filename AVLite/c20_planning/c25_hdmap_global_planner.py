@@ -21,7 +21,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
       4. Returns a smooth path and a simple velocity profile.
     """
 
-    def __init__(self, xodr_file, sampling_resolution=1.0):
+    def __init__(self, xodr_file:str, sampling_resolution=1.0):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
@@ -99,42 +99,6 @@ class HDMap:
     _kdtree: Optional[KDTree] = None
     _point_to_lane: list[tuple[str, int]] = field(default_factory=list)
     
-    #TODO
-    def __connect_lanes(self, from_lane_id: str, to_lane_id: str) -> None:
-        """Connect two lanes as predecessor/successor"""
-        pass
-    
-    #TODO
-    def __connect_roads(self, from_road_id: str, to_road_id: str) -> None:
-        """Connect two roads as predecessor/successor"""
-        pass
-    
-    #TODO
-    def __build_spatial_index(self) -> None:
-        """Build KDTree for efficient position queries"""
-        points = []
-        self._point_to_lane = []
-        
-        for lane_id, lane in self.lanes.items():
-            for i, point in enumerate(lane.center_line):
-                points.append(point)
-                self._point_to_lane.append((lane_id, i))
-                
-        self._kdtree = KDTree(np.array(points))
-    
-    #TODO 
-    def find_nearest_lane(self, position: tuple[float, float], k: int = 5) -> Lane:
-        """Find lane closest to position"""
-        if self._kdtree is None:
-            self.__build_spatial_index()
-            
-        _, indices = self._kdtree.query(position, k=k)
-        nearby_lanes = {self._point_to_lane[i][0] for i in indices}
-        
-        return min(
-            [self.lanes[lane_id] for lane_id in nearby_lanes],
-            key=lambda l: np.min(np.linalg.norm(l.center_line - np.array(position), axis=1))
-        )
 
     def parse_HDMap(self) -> None:
         """Parse OpenDRIVE file and build lane graph"""
@@ -178,7 +142,7 @@ class HDMap:
                         attrib = child.attrib
                         break
                 
-                x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
+                x_vals, y_vals = self.sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
                 road_x.extend(x_vals)
                 road_y.extend(y_vals)
                 r = HDMap.Road(
@@ -188,39 +152,10 @@ class HDMap:
                 self.roads.append(r)
                 
             
-            self.__set_road_lanes(road, road_x, road_y)
+            self.__process_roads(road, road_x, road_y)
 
-    def __set_road_lanes(self, road, road_x, road_y):
+    def __process_roads(self, road, road_x, road_y):
         """Plot lanes for a given road"""
-        def set_side_lanes(side='left', offset=0):
-            lanes = lane_section.findall(f"{side}/lane")
-            if side == 'left':
-                lanes.sort(key=lambda l: int(l.get('id', '0')))  # Sort by increasing lane ID
-            else:
-                lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
-
-            # s_section = float(lane_section.get('s', '0.0'))
-            # offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
-            
-            cumulative_offset = offset  # Start with lane offset
-            center_offset = offset  
-            for lane in lanes:
-                lane_id = int(lane.get('id', '0'))
-                lane_type = lane.get('type', 'none')
-                width_element = lane.find('width')
-                
-                if width_element is not None and lane_id != 0:
-                    width = float(width_element.get('a', '0'))
-                    if side == 'left':
-                        cumulative_offset += width
-                    elif side == 'right':
-                        cumulative_offset -= width
-                    # if lane_type == "driving":
-                    self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type, lane_id,road, side)
-                    lane_center_offset = center_offset - (width/2 )
-                    # self.__set_lane_center(road_x, road_y, lane_center_offset, lane_type, lane_id, road, 'left')
-                    # center_offset -= width
-
         lanes_sections = road.findall('lanes/laneSection')
         if not lanes_sections:
             return
@@ -236,45 +171,31 @@ class HDMap:
             s_section = float(lane_section.get('s', '0.0'))
             offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
 
-            set_side_lanes('left', offset=offset) 
-            set_side_lanes('right', offset=offset)  
-            return
-            # left_lanes = lane_section.findall('left/lane')
-            # left_lanes.sort(key=lambda l: int(l.get('id', '0')))  # Sort by increasing lane ID
-            # 
-            # s_section = float(lane_section.get('s', '0.0'))
-            # offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
-            #
-            # cumulative_offset = offset  # Start with lane offset
-            # for lane in left_lanes:
-            #     lane_id = int(lane.get('id', '0'))
-            #     lane_type = lane.get('type', 'none')
-            #     width_element = lane.find('width')
-            #     
-            #     if width_element is not None and lane_id > 0:
-            #         width = float(width_element.get('a', '0'))
-            #         cumulative_offset += width
-            #         # if lane_type == "driving":
-            #         self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type, lane_id,road, 'left')
-            
-            # Process right lanes (negative IDs)
-            right_lanes = lane_section.findall('right/lane')
-            right_lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
-            
-            cumulative_offset = offset  # Reset with base lane offset for right lanes
-            center_offset = offset  
-            for lane in right_lanes:
-                lane_id = int(lane.get('id', '0'))
-                lane_type = lane.get('type', 'none')
-                width_element = lane.find('width')
-                
-                if width_element is not None and lane_id < 0:
-                    width = float(width_element.get('a', '0'))
-                    cumulative_offset -= width  # Negative because it's on the right side
-                    self.__set_lane_boundary(road_x, road_y, cumulative_offset, lane_type,lane_id, road,'right')
-                    # lane_center_offset = center_offset - (width/2 )
-                    # self.__set_lane_center(road_x, road_y, lane_center_offset, lane_type, lane_id, road, 'left')
-                    # center_offset -= width
+            # set_side_lanes('left', offset=offset) 
+            # set_side_lanes('right', offset=offset)  
+
+            for side in ['left', 'right']:
+                lanes = lane_section.findall(f"{side}/lane")
+                if side == 'left':
+                    lanes.sort(key=lambda l: int(l.get('id', '0')))  
+                else:
+                    lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
+
+                cumulative_offset = offset  # Start with lane offset
+                center_offset = offset  
+                for lane in lanes:
+                    lane_id = int(lane.get('id', '0'))
+                    lane_type = lane.get('type', 'none')
+                    width_element = lane.find('width')
+                    
+                    if width_element is not None and lane_id != 0:
+                        width = float(width_element.get('a', '0'))
+                        cumulative_offset += width/2 if side == 'left' else -width/2
+                        
+                        self.__set_lane(road_x, road_y, cumulative_offset, lane_type, lane_id,road, side)
+                        
+                        cumulative_offset += width/2 if side == 'left' else -width/2
+
     
     def __get_lane_offset_at_s(self, lane_offsets, s):
         """Calculate lane offset at position s using the OpenDRIVE lane offset elements."""
@@ -302,66 +223,10 @@ class HDMap:
         d = float(applicable_offset.get('d', '0.0'))
         
         return a + b*local_s + c*local_s**2 + d*local_s**3
-    
-    def __set_lane_center(self, road_x, road_y, offset, lane_type, lane_id, road, side):
-        """Calculate and store the lane center at the specified offset from the road centerline"""
-        if not road_x or len(road_x) < 2:
-            return
-        
-        # Calculate lane center points
-        lane_x, lane_y = [], []
-        
-        for i in range(len(road_x)):
-            try:
-                prev_idx = i - 1
-                next_idx = i + 1
-                
-                # Calculate direction vector
-                if prev_idx >= 0 and next_idx < len(road_x):
-                    # Use both previous and next points for smoother transitions
-                    dx1 = road_x[i] - road_x[prev_idx]
-                    dy1 = road_y[i] - road_y[prev_idx]
-                    dx2 = road_x[next_idx] - road_x[i]
-                    dy2 = road_y[next_idx] - road_y[i]
-                    dx = (dx1 + dx2) / 2
-                    dy = (dy1 + dy2) / 2
-                elif prev_idx >= 0:
-                    # Only previous point available
-                    dx = road_x[i] - road_x[prev_idx]
-                    dy = road_y[i] - road_y[prev_idx]
-                elif next_idx < len(road_x):
-                    # Only next point available
-                    dx = road_x[next_idx] - road_x[i]
-                    dy = road_y[next_idx] - road_y[i]
-                else:
-                    continue
-                
-                # Calculate unit vector normal to the road direction
-                length = np.sqrt(dx*dx + dy*dy)
-                if length > 0:
-                    # Normal vector pointing outward from the road
-                    nx = -dy / length
-                    ny = dx / length
-                    
-                    # Add offset point for the lane center
-                    lane_x.append(road_x[i] + nx * offset)
-                    lane_y.append(road_y[i] + ny * offset)
-                
-            except (IndexError, ValueError):
-                continue
-        
-        if lane_x and lane_y:
-            self.lanes.append(HDMap.Lane(
-                id=lane_id,
-                center_line=np.array([lane_x, lane_y]),
-                left_d=[0]*len(lane_x),
-                right_d=[0]*len(lane_x),
-                road=road,
-                type=lane_type,
-                side=side
-            ))
 
-    def __set_lane_boundary(self, road_x, road_y, offset, lane_type, lane_id, road, side):
+    
+
+    def __set_lane(self, road_x, road_y, offset, lane_type, lane_id, road, side):
         """Plot a lane boundary at the specified offset from the road centerline"""
 
         assert len(road_x) == len(road_y), "Road X and Y coordinates must be of the same length."
@@ -424,112 +289,149 @@ class HDMap:
             ))
 
             # self.ax.plot(lane_x, lane_y, color=color, alpha=alpha, linewidth=1.5)
-
-
-
-def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type='line', attributes=None, n_pts=50):
-        """
-        Returns (x_vals, y_vals) for various geometry types in OpenDRIVE.
-        Supports line, arc, and basic handling for other types.
-        """
-        x_vals, y_vals = [], []
-        s_array = np.linspace(0, length, n_pts)
-
-        ### Arc case
-        if geom_type == 'arc' and attributes is not None:
-            curvature = float(attributes.get('curvature', 0))
-            if curvature != 0:
-                radius = abs(1.0 / curvature)  # Use absolute value for radius
-                # Determine arc direction based on curvature sign
-                arc_direction = np.sign(curvature)
-                
-                # Calculate center of the arc
-                # For positive curvature (left turn), center is to the left of heading
-                # For negative curvature (right turn), center is to the right of heading
-                center_x = x0 - np.sin(hdg) * radius * arc_direction
-                center_y = y0 + np.cos(hdg) * radius * arc_direction
-                
-                # Calculate start angle (from center to start point)
-                start_angle = np.arctan2(y0 - center_y, x0 - center_x)
-                
-                # Calculate angle change over the arc length
-                dtheta = length / radius * arc_direction
-                
-                # Generate points along the arc
-                angles = np.linspace(start_angle, start_angle + dtheta, n_pts)
-                for angle in angles:
-                    x_vals.append(center_x + radius * np.cos(angle))
-                    y_vals.append(center_y + radius * np.sin(angle))
-                return x_vals, y_vals
+    #TODO 
+    def find_nearest_lane(self, position: tuple[float, float], k: int = 5) -> Lane:
+        """Find lane closest to position"""
+        if self._kdtree is None:
+            self.__build_spatial_index()
+            
+        _, indices = self._kdtree.query(position, k=k)
+        nearby_lanes = {self._point_to_lane[i][0] for i in indices}
         
-        ### Spiral case
-        elif geom_type == 'spiral' and attributes is not None:
-            # Basic approximation for spirals - treat as a series of arcs with changing curvature
-            # This is a simplified approach - for accurate spirals, use the Fresnel integrals
-            curvStart = float(attributes.get('curvStart', 0))
-            curvEnd = float(attributes.get('curvEnd', 0))
-            
-            # If both curvatures are 0, treat as a line
-            if abs(curvStart) < 1e-10 and abs(curvEnd) < 1e-10:
-                for s in s_array:
-                    x = x0 + s * np.cos(hdg)
-                    y = y0 + s * np.sin(hdg)
-                    x_vals.append(x)
-                    y_vals.append(y)
-                return x_vals, y_vals
-            
-            # Approximate spiral as a series of arcs with gradually changing curvature
-            current_x, current_y = x0, y0
-            current_hdg = hdg
-            
-            for i in range(n_pts - 1):
-                s_start = s_array[i]
-                s_end = s_array[i+1]
-                s_mid = (s_start + s_end) / 2
-                segment_length = s_end - s_start
+        return min(
+            [self.lanes[lane_id] for lane_id in nearby_lanes],
+            key=lambda l: np.min(np.linalg.norm(l.center_line - np.array(position), axis=1))
+        )
+
+    #TODO
+    def __connect_lanes(self, from_lane_id: str, to_lane_id: str) -> None:
+        """Connect two lanes as predecessor/successor"""
+        pass
+    
+    #TODO
+    def __connect_roads(self, from_road_id: str, to_road_id: str) -> None:
+        """Connect two roads as predecessor/successor"""
+        pass
+    
+    #TODO
+    def __build_spatial_index(self) -> None:
+        """Build KDTree for efficient position queries"""
+        points = []
+        self._point_to_lane = []
+        
+        for lane_id, lane in self.lanes.items():
+            for i, point in enumerate(lane.center_line):
+                points.append(point)
+                self._point_to_lane.append((lane_id, i))
                 
-                # Calculate curvature at this point along the spiral
-                t = s_mid / length  # Normalized position along spiral (0 to 1)
-                current_curv = curvStart + t * (curvEnd - curvStart)
+        self._kdtree = KDTree(np.array(points))
+    
+
+
+
+    def sample_OpenDrive_geometry(self, x0, y0, hdg, length, geom_type='line', attributes=None, n_pts=50):
+            """
+            Returns (x_vals, y_vals) for various geometry types in OpenDRIVE.
+            Supports line, arc, and basic handling for other types.
+            """
+            x_vals, y_vals = [], []
+            s_array = np.linspace(0, length, n_pts)
+
+            ### Arc case
+            if geom_type == 'arc' and attributes is not None:
+                curvature = float(attributes.get('curvature', 0))
+                if curvature != 0:
+                    radius = abs(1.0 / curvature)  # Use absolute value for radius
+                    # Determine arc direction based on curvature sign
+                    arc_direction = np.sign(curvature)
+                    
+                    # Calculate center of the arc
+                    # For positive curvature (left turn), center is to the left of heading
+                    # For negative curvature (right turn), center is to the right of heading
+                    center_x = x0 - np.sin(hdg) * radius * arc_direction
+                    center_y = y0 + np.cos(hdg) * radius * arc_direction
+                    
+                    # Calculate start angle (from center to start point)
+                    start_angle = np.arctan2(y0 - center_y, x0 - center_x)
+                    
+                    # Calculate angle change over the arc length
+                    dtheta = length / radius * arc_direction
+                    
+                    # Generate points along the arc
+                    angles = np.linspace(start_angle, start_angle + dtheta, n_pts)
+                    for angle in angles:
+                        x_vals.append(center_x + radius * np.cos(angle))
+                        y_vals.append(center_y + radius * np.sin(angle))
+                    return x_vals, y_vals
+            
+            ### Spiral case
+            elif geom_type == 'spiral' and attributes is not None:
+                # Basic approximation for spirals - treat as a series of arcs with changing curvature
+                # This is a simplified approach - for accurate spirals, use the Fresnel integrals
+                curvStart = float(attributes.get('curvStart', 0))
+                curvEnd = float(attributes.get('curvEnd', 0))
                 
-                if abs(current_curv) < 1e-10:
-                    # Nearly straight segment
-                    next_x = current_x + segment_length * np.cos(current_hdg)
-                    next_y = current_y + segment_length * np.sin(current_hdg)
-                else:
-                    # Arc segment
-                    radius = abs(1.0 / current_curv)
-                    arc_direction = np.sign(current_curv)
-                    dtheta = segment_length / radius * arc_direction
-                    
-                    # Update heading
-                    next_hdg = current_hdg + dtheta
-                    
-                    # Calculate next point
-                    next_x = current_x + segment_length * np.cos((current_hdg + next_hdg) / 2)
-                    next_y = current_y + segment_length * np.sin((current_hdg + next_hdg) / 2)
-                    
-                    current_hdg = next_hdg
+                # If both curvatures are 0, treat as a line
+                if abs(curvStart) < 1e-10 and abs(curvEnd) < 1e-10:
+                    for s in s_array:
+                        x = x0 + s * np.cos(hdg)
+                        y = y0 + s * np.sin(hdg)
+                        x_vals.append(x)
+                        y_vals.append(y)
+                    return x_vals, y_vals
                 
+                # Approximate spiral as a series of arcs with gradually changing curvature
+                current_x, current_y = x0, y0
+                current_hdg = hdg
+                
+                for i in range(n_pts - 1):
+                    s_start = s_array[i]
+                    s_end = s_array[i+1]
+                    s_mid = (s_start + s_end) / 2
+                    segment_length = s_end - s_start
+                    
+                    # Calculate curvature at this point along the spiral
+                    t = s_mid / length  # Normalized position along spiral (0 to 1)
+                    current_curv = curvStart + t * (curvEnd - curvStart)
+                    
+                    if abs(current_curv) < 1e-10:
+                        # Nearly straight segment
+                        next_x = current_x + segment_length * np.cos(current_hdg)
+                        next_y = current_y + segment_length * np.sin(current_hdg)
+                    else:
+                        # Arc segment
+                        radius = abs(1.0 / current_curv)
+                        arc_direction = np.sign(current_curv)
+                        dtheta = segment_length / radius * arc_direction
+                        
+                        # Update heading
+                        next_hdg = current_hdg + dtheta
+                        
+                        # Calculate next point
+                        next_x = current_x + segment_length * np.cos((current_hdg + next_hdg) / 2)
+                        next_y = current_y + segment_length * np.sin((current_hdg + next_hdg) / 2)
+                        
+                        current_hdg = next_hdg
+                    
+                    x_vals.append(current_x)
+                    y_vals.append(current_y)
+                    
+                    current_x, current_y = next_x, next_y
+                
+                # Add the final point
                 x_vals.append(current_x)
                 y_vals.append(current_y)
                 
-                current_x, current_y = next_x, next_y
+                return x_vals, y_vals
             
-            # Add the final point
-            x_vals.append(current_x)
-            y_vals.append(current_y)
-            
-            return x_vals, y_vals
-        
-        ### Poly3 case
-        elif geom_type in ['poly3', 'paramPoly3'] and attributes is not None:
-            log.error(f"Unsupported geometry type: {geom_type}. Will use default line approximation.")
+            ### Poly3 case
+            elif geom_type in ['poly3', 'paramPoly3'] and attributes is not None:
+                log.error(f"Unsupported geometry type: {geom_type}. Will use default line approximation.")
 
-        ### Line case (default)
-        for s in s_array:
-            x = x0 + s * np.cos(hdg)
-            y = y0 + s * np.sin(hdg)
-            x_vals.append(x)
-            y_vals.append(y)
-        return x_vals, y_vals
+            ### Line case (default)
+            for s in s_array:
+                x = x0 + s * np.cos(hdg)
+                y = y0 + s * np.sin(hdg)
+                x_vals.append(x)
+                y_vals.append(y)
+            return x_vals, y_vals

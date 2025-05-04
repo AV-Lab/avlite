@@ -6,7 +6,7 @@ from c20_planning.c27_lattice import Edge
 class GlobalPlan:
     start: tuple[float, float] = (0.0, 0.0)
     goal: tuple[float, float] = (0.0, 0.0)
-    trajectory: Trajectory = Trajectory()
+    trajectory: Trajectory = field(default_factory=Trajectory)
     left_boundary_d: list[float] = field(default_factory=list)
     right_boundary_d: list[float] = field(default_factory=list)
     left_boundary_path: list[tuple[float, float]] = field(default_factory=list)
@@ -17,7 +17,7 @@ class GlobalPlan:
 @dataclass 
 class LocalPlan:
     horizon: int = 1
-    trajectory: Trajectory = Trajectory()
+    trajectory: Trajectory = field(default_factory=Trajectory)
 
     
 

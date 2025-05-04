@@ -231,7 +231,8 @@ class ExecVisualizeView(ttk.Frame):
             self.stop_exec()
             return
         self.root.setting.exec_running = True
-        self.start_exec_button.config(state=tk.DISABLED)
+        # self.start_exec_button.config(state=tk.DISABLED)
+        self.start_exec_button.state(['disabled'])
         self.root.update_ui()
         self._exec_loop()
 
@@ -264,7 +265,8 @@ class ExecVisualizeView(ttk.Frame):
             log.info(f"Stopping Async Exec in 0.1 sec.")
             # self.root.after(100, self.root.exec.stop())
             self.root.exec.stop()
-        self.start_exec_button.config(state=tk.NORMAL)
+        # self.start_exec_button.config(state=tk.NORMAL)
+        self.start_exec_button.state(['!disabled'])
         self.root.update_ui()
         self.root.setting.exec_running = False
 

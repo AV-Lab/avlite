@@ -18,6 +18,7 @@ class LocalPlannerStrategy(ABC):
     ref_left_boundary_y: list[float]
     ref_right_boundary_x: list[float]
     ref_right_boundary_y: list[float]
+
     traversed_x: list[float]
     traversed_y: list[float]
     traversed_d: list[float]
