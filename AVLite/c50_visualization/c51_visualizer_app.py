@@ -219,6 +219,7 @@ class VisualizerApp(tk.Tk):
             self.is_loading = True
             self.disable_frame(self.exec_visualize_view.execution_frame)
             
+        self.global_plan_plot_view.reset()
 
     def __reload_stack_async(self):
         try:

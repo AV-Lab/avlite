@@ -2,7 +2,6 @@ import xml.etree.ElementTree as ET
 from scipy.spatial import KDTree
 import numpy as np
 import networkx as nx
-from scipy.interpolate import CubicSpline
 from typing import Optional
 import logging
 from dataclasses import dataclass, field
@@ -21,7 +20,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
       4. Returns a smooth path and a simple velocity profile.
     """
 
-    def __init__(self, xodr_file:str, sampling_resolution=1.0):
+    def __init__(self, xodr_file:str, sampling_resolution=0.5):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
@@ -31,7 +30,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         self.sampling_resolution = sampling_resolution
 
         log.debug(f"Loading HDMap from {xodr_file}")
-        self.hdmap = HDMap(xodr_file_name=xodr_file)
+        self.hdmap = HDMap(xodr_file_name=xodr_file, sampling_resolution=sampling_resolution)
         self.hdmap.parse_HDMap()
 
 
@@ -72,29 +71,37 @@ class HDMap:
     @dataclass
     class Lane:
         id: str
-        center_line: np.ndarray      # Nx2 array of (x,y) coordinates
-        left_d: list[float]          # Left boundary distances for each centerline point
-        right_d: list[float]         # Right boundary distances for each centerline point
+        center_line: np.ndarray = field(default_factory=lambda: np.array([]))      # Nx2 array of (x,y) coordinates
+        left_d: list[float] = field(default_factory=list)         # Left boundary distances for each centerline point
+        right_d: list[float] = field(default_factory=list)        # Right boundary distances for each centerline point
         road: Optional["HDMap.Road"] = None
-        predecessors: list['HDMap.Lane'] = field(default_factory=list)
-        successors: list['HDMap.Lane'] = field(default_factory=list)
+        predecessor: Optional['HDMap.Lane'] = None
+        successor: Optional['HDMap.Lane'] = None
+        pred_id: str = "-1"  # ID of predecessor lane 
+        succ_id: str = "-1"
         side : str = 'left'  # 'left' or 'right'
         type: str = 'driving'  # 'driving', 'shoulder', etc.
+        road_id: str = "-1"  # ID of the road this lane belongs to
 
     @dataclass
     class Road:
         id: str
-        center_line: np.ndarray      # Nx2 array of (x,y) coordinates
+        pred_id: str = "-1"  
+        succ_id: str = "-1"
+        length: float = 0.0
+        center_line: np.ndarray = field(default_factory=lambda: np.array([]))      
         lanes: list['HDMap.Lane'] = field(default_factory=list)
-
-    road_predecessors: dict[Road, list[Road]] = field(default_factory=dict)
-    road_successors:  dict[Road, list[Road]] = field(default_factory=dict)
-    lane_predecessors: dict[Lane, list[Lane]] = field(default_factory=dict)
-    lane_successors:  dict[Lane, list[Lane]] = field(default_factory=dict)
-    xodr_file_name: str = ""
-
+        predecessor: Optional['HDMap.Road'] = None
+        successor: Optional['HDMap.Road'] = None
+    sampling_resolution: float = 1.0
+    road_ids: dict[str, Road] = field(default_factory=dict)
+    lane_ids: dict[str, Lane] = field(default_factory=dict)
+    junction_ids: dict[str, list[Road]] = field(default_factory=dict)
     roads: list[Road] = field(default_factory=list)
     lanes: list[Lane] = field(default_factory=list) # Key is lane type driving, shoulder, etc.
+
+    xodr_file_name: str = ""
+
 
     _kdtree: Optional[KDTree] = None
     _point_to_lane: list[tuple[str, int]] = field(default_factory=list)
@@ -108,11 +115,11 @@ class HDMap:
 
         try:
             tree = ET.parse(self.xodr_file_name)
-            self.xodr_root = tree.getroot()
+            root = tree.getroot()
         except ET.ParseError as e:
             log.error(f"Error parsing OpenDRIVE file: {e}")
+            return
 
-        root = self.xodr_root
         roads = root.findall('road')
         log.debug(f"Number of roads in HD Map: {len(roads)}")
         
@@ -142,18 +149,23 @@ class HDMap:
                         attrib = child.attrib
                         break
                 
-                x_vals, y_vals = self.sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib)
+                # log.debug(f"n_pts: {int(length//self.sampling_resolution+1)}")
+                x_vals, y_vals = self.sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib, n_pts=int(length//self.sampling_resolution+1))
                 road_x.extend(x_vals)
                 road_y.extend(y_vals)
 
             r = HDMap.Road(
                 id=road_element.get('id', '0'),
                 center_line=np.array([road_x, road_y]),
+                pred_id=road_element.get('predecessor', '-1'),
+                succ_id=road_element.get('successor', '-1'),
+                length=float(road_element.get('length', '0')),
             )
+            self.road_ids[r.id] = r
             self.roads.append(r)
-            self.__process_roads(road_element, road_x, road_y)
+            self.__process_road_lanes(road_element, road_x, road_y)
 
-    def __process_roads(self, road, road_x, road_y):
+    def __process_road_lanes(self, road, road_x, road_y):
         """Plot lanes for a given road"""
         lanes_sections = road.findall('lanes/laneSection')
         if not lanes_sections:
@@ -162,16 +174,10 @@ class HDMap:
             
         # Get lane offsets if they exist
         lane_offsets = road.findall('lanes/laneOffset')
-        road_id = road.get('id', '0')
             
         for lane_section in lanes_sections:
-            # Process left lanes (positive IDs)
-            
             s_section = float(lane_section.get('s', '0.0'))
             offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
-
-            # set_side_lanes('left', offset=offset) 
-            # set_side_lanes('right', offset=offset)  
 
             for side in ['left', 'right']:
                 lanes = lane_section.findall(f"{side}/lane")
@@ -181,7 +187,6 @@ class HDMap:
                     lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
 
                 cumulative_offset = offset  # Start with lane offset
-                center_offset = offset  
                 for lane in lanes:
                     lane_id = int(lane.get('id', '0'))
                     lane_type = lane.get('type', 'none')
@@ -191,41 +196,13 @@ class HDMap:
                         width = float(width_element.get('a', '0'))
                         cumulative_offset += width/2 if side == 'left' else -width/2
                         
-                        self.__set_lane(road_x, road_y, cumulative_offset, lane_type, lane_id,road, side)
+                        self.__set_lane(road_x, road_y, cumulative_offset, lane, road)
                         
                         cumulative_offset += width/2 if side == 'left' else -width/2
 
     
-    def __get_lane_offset_at_s(self, lane_offsets, s):
-        """Calculate lane offset at position s using the OpenDRIVE lane offset elements."""
-        if not lane_offsets:
-            return 0.0
-            
-        # Find the applicable lane offset element
-        applicable_offset = None
-        for offset in lane_offsets:
-            offset_s = float(offset.get('s', '0.0'))
-            if offset_s <= s:
-                applicable_offset = offset
-            else:
-                break
-                
-        if applicable_offset is None:
-            return 0.0
-            
-        # Calculate offset using polynomial
-        offset_s = float(applicable_offset.get('s', '0.0'))
-        local_s = s - offset_s
-        a = float(applicable_offset.get('a', '0.0'))
-        b = float(applicable_offset.get('b', '0.0'))
-        c = float(applicable_offset.get('c', '0.0'))
-        d = float(applicable_offset.get('d', '0.0'))
-        
-        return a + b*local_s + c*local_s**2 + d*local_s**3
 
-    
-
-    def __set_lane(self, road_x, road_y, offset, lane_type, lane_id, road, side):
+    def __set_lane(self, road_x, road_y, offset, lane, road):
         """Plot a lane boundary at the specified offset from the road centerline"""
 
         assert len(road_x) == len(road_y), "Road X and Y coordinates must be of the same length."
@@ -275,19 +252,49 @@ class HDMap:
                     lane_y.append(road_y[i] + ny * offset)
                 
             except (IndexError, ValueError) as e:
+                log.error(f"Error processing lane boundary: {e}")
                 continue
         
         if lane_x and lane_y:
             self.lanes.append(HDMap.Lane(
-                id=lane_id,
+                id=lane.get('id', '0'),
                 center_line=np.array([lane_x, lane_y]),
-                left_d=[0]*len(lane_x),
-                right_d=[0]*len(lane_x),
-                road=road,
-                type=lane_type,
+                side=lane.get('side', 'left'),
+                type=lane.get('type', 'driving'),
+                pred_id=lane.get('predecessor', '-1'),
+                succ_id=lane.get('successor', '-1'),
+                road_id = road.get('id', '0'),
             ))
 
-            # self.ax.plot(lane_x, lane_y, color=color, alpha=alpha, linewidth=1.5)
+    
+    def __get_lane_offset_at_s(self, lane_offsets, s):
+        """Calculate lane offset at position s using the OpenDRIVE lane offset elements."""
+        if not lane_offsets:
+            return 0.0
+            
+        # Find the applicable lane offset element
+        applicable_offset = None
+        for offset in lane_offsets:
+            offset_s = float(offset.get('s', '0.0'))
+            if offset_s <= s:
+                applicable_offset = offset
+            else:
+                break
+                
+        if applicable_offset is None:
+            return 0.0
+            
+        # Calculate offset using polynomial
+        offset_s = float(applicable_offset.get('s', '0.0'))
+        local_s = s - offset_s
+        a = float(applicable_offset.get('a', '0.0'))
+        b = float(applicable_offset.get('b', '0.0'))
+        c = float(applicable_offset.get('c', '0.0'))
+        d = float(applicable_offset.get('d', '0.0'))
+        
+        return a + b*local_s + c*local_s**2 + d*local_s**3
+
+    
     #TODO 
     def find_nearest_lane(self, position: tuple[float, float], k: int = 5) -> Lane:
         """Find lane closest to position"""
@@ -318,7 +325,7 @@ class HDMap:
         points = []
         self._point_to_lane = []
         
-        for lane_id, lane in self.lanes.items():
+        for lane_id, lane in self.lanes:
             for i, point in enumerate(lane.center_line):
                 points.append(point)
                 self._point_to_lane.append((lane_id, i))
