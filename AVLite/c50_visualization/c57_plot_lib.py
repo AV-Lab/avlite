@@ -124,8 +124,6 @@ class GlobalPlot(ABC):
         self.fig.canvas.draw()
         
         log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
-    def reset(self):
-        self.map_plotted = False
 
 
 class GlobalRacePlot(GlobalPlot):
@@ -221,7 +219,6 @@ class GlobalHDMapPlot(GlobalPlot):
         self.map_min_y = min(all_y_coords)
         self.map_max_x = max(all_x_coords)
         self.map_max_y = max(all_y_coords)
-        log.debug(f"HDMap plotted with min_x: {self.map_min_x}, min_y: {self.map_min_y}, max_x: {self.map_max_x}, max_y: {self.map_max_y}")
         self.map_plotted = True
             
 class LocalPlot:

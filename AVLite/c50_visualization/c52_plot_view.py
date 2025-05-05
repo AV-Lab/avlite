@@ -130,6 +130,9 @@ class GlobalPlanPlotView(ttk.Frame):
 
         self._prev_scroll_time = time.time()
 
+    def reset(self):
+        self.update_plot_type()
+
 class LocalPlanPlotView(ttk.Frame):
 
     def __init__(self, root: VisualizerApp):
