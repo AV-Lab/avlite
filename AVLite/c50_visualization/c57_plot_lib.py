@@ -88,16 +88,15 @@ class GlobalPlot(ABC):
     def set_start(self, x, y):
         """Set the start point"""
         self.start.set_data([x], [y])
-        self.ax.draw_artist(self.start)
-        self.fig.canvas.blit(self.ax.bbox)
-
+        # self.ax.draw_artist(self.start)
+        # self.fig.canvas.blit(self.ax.bbox)
         self.fig.canvas.draw()
 
     def set_goal(self, x, y):
         """Set the goal point"""
         self.goal.set_data([x], [y])
-        self.ax.draw_artist(self.goal)
-        self.fig.canvas.blit(self.ax.bbox)
+        # self.ax.draw_artist(self.goal)
+        # self.fig.canvas.blit(self.ax.bbox)
         
         self.fig.canvas.draw()
 
@@ -172,19 +171,17 @@ class GlobalHDMapPlot(GlobalPlot):
     def __init__(self, figsize=(10, 10)):
         super().__init__(figsize, name="HD Map Road Network")
         
-        # self.fig.canvas.restore_region(self.background)
-        
         # Create plot elements with empty data - they'll be updated later
         self.vehicle_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
         self.vehicle_location.set_color("red")
+
+    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+        super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
         
-    def set_plot_theme(self, bg_color="white", fg_color="black"):
-        super().set_plot_theme(bg_color, fg_color)
         
     def plot_map(self, exec:SyncExecuter):
         """Implement the abstract method from GlobalPlot"""
         
-
         if not hasattr(exec.global_planner, "hdmap"):
             log.error("HDMap not found in the global planner.")
             return
@@ -198,7 +195,7 @@ class GlobalHDMapPlot(GlobalPlot):
         all_y_coords = []
 
         # for r in hdmap.roads:
-        #     self.ax.plot(r.center_line[0], r.center_line[1], color='gray', linewidth=2, alpha=0.5)
+            # self.ax.plot(r.center_line[0], r.center_line[1], color='red', linewidth=2, alpha=0.5)
 
         for l in hdmap.lanes:
             if l.type == "driving":
@@ -237,10 +234,6 @@ class LocalPlot:
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
         # self.ax1.set_position([0, 0.5, 0.99, .5])  # [left, bottom, width, height]
         # self.ax2.set_position([0, 0.0, 0.99, .5])  # [left, bottom, width, height]
-
-
-
-
 
         self.lattice_graph_plots_ax1 = []
         self.lattice_graph_plots_ax2 = []

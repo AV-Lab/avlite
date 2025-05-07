@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class State:
+    id:str = "-1"
     x: float = 0.0
     y: float = 0.0
     theta: float = -np.pi / 4
@@ -106,7 +107,7 @@ class PerceptionModel:
     agent_vehicles: list[AgentState] = field(default_factory=list)
     ego_vehicle: EgoState = field(default_factory=EgoState)
     max_agent_vehicles:int = 12
-    agent_predictions: list[tuple[AgentState,float]] = field(default_factory=list) # a list of agent state and the time of prediction, where t = 0 is the current time
+    agent_history: dict[str, list[AgentState]] = field(default_factory=dict) # agent_id -> list of states
 
     def add_agent_vehicle(self, agent: AgentState):
         if len(self.agent_vehicles) == self.max_agent_vehicles:
