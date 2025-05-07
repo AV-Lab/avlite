@@ -117,7 +117,7 @@ class SyncExecuter:
     def spawn_agent(self, x=None, y=None, s=None, d=None, theta=None):
         if x is not None and y is not None:
             t = self.ego_state.theta if theta is None else theta
-            agent = AgentState(x=x, y=y, theta=t, speed=0)
+            agent = AgentState(x=x, y=y, theta=t, velocity=0)
             self.world.spawn_agent(agent)
         elif s is not None and d is not None:
             # Convert (s, d) to (x, y) using some transformation logic
