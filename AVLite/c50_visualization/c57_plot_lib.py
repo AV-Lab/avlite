@@ -4,7 +4,7 @@ from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c20_planning.c27_lattice import Edge
 from c20_planning.c28_trajectory import Trajectory
 from c40_execution.c42_sync_executer import SyncExecuter
-from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
+from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner, HDMap
 
 
 from typing import cast
@@ -45,15 +45,16 @@ class GlobalPlot(ABC):
 
 
     def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
-        start_x, start_y = exec.global_planner.global_plan.start
-        goal_x, goal_y = exec.global_planner.global_plan.goal
+        if not self.map_plotted:
+            self.plot_map(exec)
+
+        start_x, start_y = exec.global_planner.global_plan.start_point
+        goal_x, goal_y = exec.global_planner.global_plan.goal_point
         self.vehicle_x, self.vehicle_y = exec.ego_state.x, exec.ego_state.y
         self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y])
         self.start.set_data([start_x], [start_y])
         self.goal.set_data([goal_x], [goal_y])
 
-        if not self.map_plotted:
-            self.plot_map(exec)
         
         self.adjust_zoom(zoom, aspect_ratio)
 
@@ -168,16 +169,40 @@ class GlobalRacePlot(GlobalPlot):
 
 
 class GlobalHDMapPlot(GlobalPlot):
-    def __init__(self, figsize=(10, 10)):
+    def __init__(self, figsize=(10, 10), MAX_ROAD_PATH=20):
         super().__init__(figsize, name="HD Map Road Network")
-        
-        # Create plot elements with empty data - they'll be updated later
-        self.vehicle_location, = self.ax.plot([], [], 'ko', markersize=8, label="Ego Location")
-        self.vehicle_location.set_color("red")
 
-    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
-        super().plot(exec, aspect_ratio, zoom, show_legend, follow_vehicle)
+        self.closest_lane, *_ = self.ax.plot([], [], 'ro', markersize=5, label="Closest Lane", zorder=3)
+        self.closest_road, *_ = self.ax.plot([], [], 'ro', markersize=5, alpha=.1,  label="Closest Road", zorder=3)
+
+        self.road_path_plots = []
+        for i in range(MAX_ROAD_PATH):
+           pl , *_ = self.ax.plot([], [], 'r-', linewidth=2, alpha=0.5, label="Road Path", zorder=3)
+           self.road_path_plots.append(pl)
         
+
+    def show_closest_road_lane(self,  x:int, y:int, map:HDMap):
+        """Show the closest road and lane to the given coordinates"""
+        r = map.find_nearest_road(x,y)
+        # l = map.point_to_lane.get((x, y))
+
+        if r is not None:
+            self.closest_road.set_data(r.center_line[0], r.center_line[1])
+            self.fig.canvas.draw()
+
+    def plot_road_path(self, road_path: list[HDMap.Road]):
+        """Plot the road path"""
+        log.debug("Plotting Road Path: length = %d", len(road_path))
+        self.__clear_road_path_plots()
+        for i,r in enumerate(road_path):
+            self.road_path_plots[i].set_data(r.center_line[0], r.center_line[1])
+                
+        self.fig.canvas.draw()
+
+    def __clear_road_path_plots(self):
+        """Clear the road path plots"""
+        for i in range(len(self.road_path_plots)):
+            self.road_path_plots[i].set_data([], [])
         
     def plot_map(self, exec:SyncExecuter):
         """Implement the abstract method from GlobalPlot"""
@@ -218,6 +243,7 @@ class GlobalHDMapPlot(GlobalPlot):
         self.map_max_y = max(all_y_coords)
         self.map_plotted = True
             
+
 class LocalPlot:
     def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12):
         self.MAX_LATTICE_SIZE = max_lattice_size

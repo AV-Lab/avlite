@@ -96,6 +96,12 @@ class GlobalPlanPlotView(ttk.Frame):
             x, y = event.xdata, event.ydata
             if event.inaxes == self.ax:
                 self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
+
+                if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
+                    r  = self.root.exec.global_planner.hdmap.find_nearest_road(x=x, y=y)
+                    if r is not None:
+                        self.global_plot.show_closest_road_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
+                        log.debug(f"road id: {r.id:4s} | pred_id: {r.pred_id:4s} ({r.pred_type}) | succ_id: {r.succ_id:4s} ({r.succ_type})")
         else:
             self.root.setting.perception_status_text.set("Click on the plot.")
 
@@ -106,10 +112,16 @@ class GlobalPlanPlotView(ttk.Frame):
                 self.root.exec.world.teleport_ego(x=x, y=y)
                 self.root.update_ui()
             elif event.button == 3: # Right click
-                log.debug("Right click on the plot.")
                 if self.start_point:
                     self.global_plot.set_goal(event.xdata, event.ydata)
                     self.root.exec.global_planner.set_start_goal(start_point=self.start_point, goal_point=(event.xdata, event.ydata))
+                    log.info(f"Set start: {self.start_point}, goal: {(event.xdata, event.ydata)}")
+                    self.root.exec.global_planner.plan()
+
+                    if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
+                        self.global_plot.plot_road_path(self.root.exec.global_planner.road_path)
+
+
                     self.start_point = None
                 else:
                     self.global_plot.set_start(event.xdata, event.ydata)
