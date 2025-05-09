@@ -14,6 +14,7 @@ frenet_zoom: 20
 global_plan_view: true
 global_planner_type: HDMapGlobalPlanner
 global_view_follow_planner: false
+global_zoom: 30
 local_plan_view: false
 local_planner_type: RNDPlanner
 log_level: DEBUG
@@ -28,9 +29,9 @@ show_local_lattice: true
 show_local_plan: true
 show_past_locations: true
 show_perceive_logs: false
-show_plan_logs: false
+show_plan_logs: true
 show_state: true
 show_tools_logs: true
 show_vis_logs: true
 sim_dt: 0.01
-xy_zoom: 1590
+xy_zoom: 60
