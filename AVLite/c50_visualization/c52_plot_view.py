@@ -36,6 +36,8 @@ class GlobalPlanPlotView(ttk.Frame):
         self._prev_scroll_time = None  # used to throttle the replot
 
         self.initialized = False
+        
+        self.current_highlighted_road_id = "-1" # used to track the current road id
          
     def __config_canvas(self):  
         self.fig = self.global_plot.fig
@@ -102,13 +104,17 @@ class GlobalPlanPlotView(ttk.Frame):
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                         r  = self.root.exec.global_planner.hdmap.find_nearest_road(x=x, y=y)
-                        if r is not None:
-                            self.global_plot.show_closest_road_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
-                            log.debug(f"road id: {r.id:4s} | pred_id: {r.pred_id:4s} ({r.pred_type}) | succ_id: {r.succ_id:4s} ({r.succ_type})")
+                        l = self.root.exec.global_planner.hdmap.find_nearest_lane(x=x, y=y)
+                        if r is not None: # and r.id != self.current_highlighted_road_id:
+                            self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
+                            log.debug(f"road id: {r.id:4s}             | pred_id: {r.pred_id:4s} ({r.pred_type:^5.5}) | succ_id: {r.succ_id:4s} ({r.succ_type:.5})")
+                            log.debug(f"lane id: {l.id:4s} (road {l.road_id:4s}) | pred_id: {l.pred_id:4s}         | succ_id: {l.succ_id:4s} | lane_type: {l.type:.5}")
+                            self.current_highlighted_road_id = r.id
             else:
                 self.root.setting.perception_status_text.set("Click on the plot.")
         except Exception as e:
-            log.error(f"Error in mouse move event: {e}")
+            log.error(f"Error in mouse move event: {e}", exc_info=True)
+
 
     def on_mouse_click(self, event):
         if event.inaxes == self.ax:
