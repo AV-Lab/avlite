@@ -258,7 +258,7 @@ class HDMap:
                 if connecting_road and self.__road_has_driving_lanes(c_road_element):
                     successor_roads.append(connecting_road)
 
-        log.debug(f"Junction {junction_id} connects road {road_id} to successors: {successor_roads}")
+        # log.debug(f"Junction {junction_id} connects road {road_id} to successors: {successor_roads}")
         return successor_roads
 
 
