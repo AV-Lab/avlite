@@ -176,7 +176,7 @@ class GlobalHDMapPlot(GlobalPlot):
     def __init__(self, figsize=(10, 10), MAX_ROAD_PATH=20):
         super().__init__(figsize, name="HD Map Road Network")
 
-        self.closest_lane, *_ = self.ax.plot([], [], 'ro', markersize=5, label="Closest Lane", zorder=3)
+        self.closest_lane, *_ = self.ax.plot([], [], 'o', color='yellow', markersize=3, alpha=.1, label="Closest Lane", zorder=3)
         self.closest_road, *_ = self.ax.plot([], [], 'ro', markersize=5, alpha=.1,  label="Closest Road", zorder=3)
 
         self.road_path_plots = []
@@ -185,14 +185,17 @@ class GlobalHDMapPlot(GlobalPlot):
            self.road_path_plots.append(pl)
         
 
-    def show_closest_road_lane(self,  x:int, y:int, map:HDMap):
+    def show_closest_road_and_lane(self,  x:int, y:int, map:HDMap):
         """Show the closest road and lane to the given coordinates"""
         r = map.find_nearest_road(x,y)
-        # l = map.point_to_lane.get((x, y))
+        l = map.find_nearest_lane(x,y)
 
         if r is not None:
             self.closest_road.set_data(r.center_line[0], r.center_line[1])
-            self.fig.canvas.draw()
+        if l is not None:
+            self.closest_lane.set_data(l.center_line[0], l.center_line[1])
+        
+        self.fig.canvas.draw()
 
     def plot_road_path(self, road_path: list[HDMap.Road]):
         """Plot the road path"""
@@ -208,7 +211,9 @@ class GlobalHDMapPlot(GlobalPlot):
         for i in range(len(self.road_path_plots)):
             self.road_path_plots[i].set_data([], [])
         
-    def plot_map(self, exec:SyncExecuter):
+        self.closest_road.set_data([],[])
+        
+    def plot_map(self, exec:SyncExecuter, show_road_points=False, show_lane_points=False):
         """Implement the abstract method from GlobalPlot"""
         
         if not hasattr(exec.global_planner, "hdmap"):
@@ -219,6 +224,18 @@ class GlobalHDMapPlot(GlobalPlot):
         global_planner = cast(HDMapGlobalPlanner,global_planner)
         hdmap = global_planner.hdmap
 
+        #TODO: remove this later if not needed
+        if show_road_points:
+            map = exec.global_planner.hdmap
+            p = np.array(list(map.point_to_road.keys())).T
+            log.debug(f"road points length {len(p)}")
+            self.ax.scatter(p[0], p[1], color='blue', s=10, alpha=0.5)
+        if show_lane_points:
+            map = exec.global_planner.hdmap
+            p = np.array(list(map.point_to_lane.keys())).T
+            log.debug(f"lane points length {len(p)}")
+            self.ax.scatter(p[0], p[1], color='blue', s=10, alpha=0.5)
+
 
         all_x_coords = []
         all_y_coords = []
@@ -228,11 +245,11 @@ class GlobalHDMapPlot(GlobalPlot):
 
         for l in hdmap.lanes:
             if l.type == "driving":
-                color = "green"
+                color = "#427b58" 
                 alpha = 0.7
             elif l.type == "shoulder":
-                color = "orange"
-                alpha = 0.5
+                color = "#af3a03"
+                alpha = 0.4
             else:
                 color = "gray"
                 alpha = 0.3
