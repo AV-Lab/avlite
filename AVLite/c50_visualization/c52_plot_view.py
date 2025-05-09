@@ -34,6 +34,8 @@ class GlobalPlanPlotView(ttk.Frame):
 
         self.start_point = None
         self._prev_scroll_time = None  # used to throttle the replot
+
+        self.initialized = False
          
     def __config_canvas(self):  
         self.fig = self.global_plot.fig
@@ -92,18 +94,21 @@ class GlobalPlanPlotView(ttk.Frame):
 
 
     def on_mouse_move(self, event):
-        if event.inaxes:
-            x, y = event.xdata, event.ydata
-            if event.inaxes == self.ax:
-                self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
+        try:
+            if event.inaxes:
+                x, y = event.xdata, event.ydata
+                if event.inaxes == self.ax:
+                    self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
 
-                if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
-                    r  = self.root.exec.global_planner.hdmap.find_nearest_road(x=x, y=y)
-                    if r is not None:
-                        self.global_plot.show_closest_road_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
-                        log.debug(f"road id: {r.id:4s} | pred_id: {r.pred_id:4s} ({r.pred_type}) | succ_id: {r.succ_id:4s} ({r.succ_type})")
-        else:
-            self.root.setting.perception_status_text.set("Click on the plot.")
+                    if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
+                        r  = self.root.exec.global_planner.hdmap.find_nearest_road(x=x, y=y)
+                        if r is not None:
+                            self.global_plot.show_closest_road_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
+                            log.debug(f"road id: {r.id:4s} | pred_id: {r.pred_id:4s} ({r.pred_type}) | succ_id: {r.succ_id:4s} ({r.succ_type})")
+            else:
+                self.root.setting.perception_status_text.set("Click on the plot.")
+        except Exception as e:
+            log.error(f"Error in mouse move event: {e}")
 
     def on_mouse_click(self, event):
         if event.inaxes == self.ax:

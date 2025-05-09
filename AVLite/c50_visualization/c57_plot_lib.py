@@ -31,9 +31,12 @@ class GlobalPlot(ABC):
         # Disable the 'l' shortcut for toggling log scale
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-        self.start, = self.ax.plot([], [], 'bo', markersize=10, label="Start", zorder = 3)
-        self.goal, = self.ax.plot([], [], 'go', markersize=10, label="Goal", zorder = 3)    
-        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=10, label="Planner Location")
+        self.start, = self.ax.plot([], [], 'bo', markersize=14, label="Start", zorder = 3)
+        self.start_text = self.ax.text(1000, 1000, 'S', fontsize=12, color='white', zorder=4, ha='center', va='center')
+        self.goal, = self.ax.plot([], [], 'go', markersize=14, label="Goal", zorder = 3)    
+        self.goal_text = self.ax.text(1000, 1000 , 'G', fontsize=12, color='white', zorder=4, ha='center', va='center')
+        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=3)
+        self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=4, ha='center', va='center')
 
         self.fig.legend(loc="upper right", fontsize=8, framealpha=0.3)
         
@@ -51,9 +54,8 @@ class GlobalPlot(ABC):
         start_x, start_y = exec.global_planner.global_plan.start_point
         goal_x, goal_y = exec.global_planner.global_plan.goal_point
         self.vehicle_x, self.vehicle_y = exec.ego_state.x, exec.ego_state.y
-        self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y])
-        self.start.set_data([start_x], [start_y])
-        self.goal.set_data([goal_x], [goal_y])
+        self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y ])
+        self.vehicle_location_text.set_position((self.vehicle_x, self.vehicle_y))
 
         
         self.adjust_zoom(zoom, aspect_ratio)
@@ -91,11 +93,13 @@ class GlobalPlot(ABC):
         self.start.set_data([x], [y])
         # self.ax.draw_artist(self.start)
         # self.fig.canvas.blit(self.ax.bbox)
+        self.start_text.set_position((x, y))
         self.fig.canvas.draw()
 
     def set_goal(self, x, y):
         """Set the goal point"""
         self.goal.set_data([x], [y])
+        self.goal_text.set_position((x, y))
         # self.ax.draw_artist(self.goal)
         # self.fig.canvas.blit(self.ax.bbox)
         
