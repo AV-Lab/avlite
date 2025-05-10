@@ -51,8 +51,6 @@ class GlobalPlot(ABC):
         if not self.map_plotted:
             self.plot_map(exec)
 
-        start_x, start_y = exec.global_planner.global_plan.start_point
-        goal_x, goal_y = exec.global_planner.global_plan.goal_point
         self.vehicle_x, self.vehicle_y = exec.ego_state.x, exec.ego_state.y
         self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y ])
         self.vehicle_location_text.set_position((self.vehicle_x, self.vehicle_y))
@@ -94,12 +92,14 @@ class GlobalPlot(ABC):
         # self.ax.draw_artist(self.start)
         # self.fig.canvas.blit(self.ax.bbox)
         self.start_text.set_position((x, y))
+        self.start_text.set_text("S")
         self.fig.canvas.draw()
 
     def set_goal(self, x, y):
         """Set the goal point"""
         self.goal.set_data([x], [y])
         self.goal_text.set_position((x, y))
+        self.goal_text.set_text("G")
         # self.ax.draw_artist(self.goal)
         # self.fig.canvas.blit(self.ax.bbox)
         
@@ -176,8 +176,16 @@ class GlobalHDMapPlot(GlobalPlot):
     def __init__(self, figsize=(10, 10), MAX_ROAD_PATH=20):
         super().__init__(figsize, name="HD Map Road Network")
 
-        self.closest_lane, *_ = self.ax.plot([], [], 'o', color='yellow', markersize=3, alpha=.1, label="Closest Lane", zorder=3)
-        self.closest_road, *_ = self.ax.plot([], [], 'ro', markersize=5, alpha=.1,  label="Closest Road", zorder=3)
+        self.closest_lane, *_ = self.ax.plot([], [], 'o-', color='yellow', markersize=3, alpha=.2, label="Closest Lane", zorder=3)
+        self.closest_road, *_ = self.ax.plot([], [], 'o-', color='red', markersize=5, alpha=.1,  label="Closest Road", zorder=3)
+        self.road_id_text = self.ax.text(0, 0, '', fontsize=12, color='red', zorder=4, ha='center', va='center')
+        self.road_succ_id_text = self.ax.text(0, 0, '', fontsize=10, color='red', alpha=0.8, zorder=4, ha='center', va='center')
+        self.road_pred_id_text = self.ax.text(0, 0, '', fontsize=10, color='red', alpha=0.8, zorder=4, ha='center', va='center')
+        self.lane_id_text = self.ax.text(0, 0, '', fontsize=12, color='#8ec07c', zorder=4, ha='center', va='center')
+        self.junct_id_text = self.ax.text(0, 0, '', fontsize=10, color='#fb4934', alpha=0.8, zorder=4, ha='center', va='center')
+        
+        self.lane_succ_id_text = self.ax.text(0, 0, '', fontsize=8, color='#8ec07c', alpha=0.8, zorder=4, ha='center', va='center')
+        self.lane_pred_id_text = self.ax.text(0, 0, '', fontsize=8, color='#8ec07c', alpha=0.8, zorder=4, ha='center', va='center')
 
         self.road_path_plots = []
         for i in range(MAX_ROAD_PATH):
@@ -191,27 +199,64 @@ class GlobalHDMapPlot(GlobalPlot):
         l = map.find_nearest_lane(x,y)
 
         if r is not None:
+            log.debug(f"Road Has Driving lanes: {map.road_has_driving_lanes(r)}, Is Bidrectional: {map.road_is_bidirectional(r)}")
             self.closest_road.set_data(r.center_line[0], r.center_line[1])
+            center_idx = int(len(r.center_line[0]) / 2)
+            self.road_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]))
+            self.road_id_text.set_text(r.id)
+            self.junct_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]-5))
+            self.junct_id_text.set_text(f"J: {r.junction_id}") if r.junction_id != "-1" else self.junct_id_text.set_text("")
+            self.road_pred_id_text.set_position((r.center_line[0][0], r.center_line[1][0]))
+            p_txt = f"P: {r.pred_id}" if r.pred_type == "road" else f"P: {r.pred_id}J"
+            self.road_pred_id_text.set_text(p_txt)
+            self.road_succ_id_text.set_position((r.center_line[0][-1], r.center_line[1][-1]))
+            s_txt = f"S: {r.succ_id}" if r.succ_type == "road" else f"S: {r.succ_id}J"
+            self.road_succ_id_text.set_text(s_txt)
         if l is not None:
             self.closest_lane.set_data(l.center_line[0], l.center_line[1])
+            center_idx = int(len(l.center_line[0]) / 2.5)
+            self.lane_id_text.set_position((l.center_line[0][center_idx], l.center_line[1][center_idx]-5))
+            self.lane_id_text.set_text(f"{l.id}")
+            self.lane_pred_id_text.set_position((l.center_line[0][0], l.center_line[1][0]-5))
+            self.lane_pred_id_text.set_text(f"P: {l.pred_id}")
+
+            self.lane_succ_id_text.set_position((l.center_line[0][-1], l.center_line[1][-1]-5))
+            self.lane_succ_id_text.set_text(f"S: {l.succ_id}")
+            log.debug(f"lane: {l.center_line}")
         
         self.fig.canvas.draw()
 
     def plot_road_path(self, road_path: list[HDMap.Road]):
         """Plot the road path"""
         log.debug("Plotting Road Path: length = %d", len(road_path))
-        self.__clear_road_path_plots()
+        self.clear_road_path_plots()
         for i,r in enumerate(road_path):
             self.road_path_plots[i].set_data(r.center_line[0], r.center_line[1])
                 
         self.fig.canvas.draw()
 
-    def __clear_road_path_plots(self):
+    def clear_road_path_plots(self):
         """Clear the road path plots"""
         for i in range(len(self.road_path_plots)):
             self.road_path_plots[i].set_data([], [])
-        
         self.closest_road.set_data([],[])
+    def clear_closest_road_and_lane(self):
+        """Clear the closest road and lane plots"""
+        self.closest_road.set_data([], [])
+        self.closest_lane.set_data([], [])
+        self.road_id_text.set_text("")
+        self.junct_id_text.set_text("")
+        self.road_pred_id_text.set_text("")
+        self.road_succ_id_text.set_text("")
+        self.lane_id_text.set_text("")
+        self.lane_pred_id_text.set_text("")
+        self.lane_succ_id_text.set_text("")
+        self.fig.canvas.draw()
+    def clear_goal(self):
+        """Clear the goal plot"""
+        self.goal.set_data([], [])
+        self.goal_text.set_text("")
+        self.fig.canvas.draw()
         
     def plot_map(self, exec:SyncExecuter, show_road_points=False, show_lane_points=False):
         """Implement the abstract method from GlobalPlot"""

@@ -107,11 +107,12 @@ class GlobalPlanPlotView(ttk.Frame):
                         l = self.root.exec.global_planner.hdmap.find_nearest_lane(x=x, y=y)
                         if r is not None: # and r.id != self.current_highlighted_road_id:
                             self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
-                            log.debug(f"road id: {r.id:4s}             | pred_id: {r.pred_id:4s} ({r.pred_type:^5.5}) | succ_id: {r.succ_id:4s} ({r.succ_type:.5})")
-                            log.debug(f"lane id: {l.id:4s} (road {l.road_id:4s}) | pred_id: {l.pred_id:4s}         | succ_id: {l.succ_id:4s} | lane_type: {l.type:.5}")
+                            # log.debug(f"road id: {r.id:4s}             | pred_id: {r.pred_id:4s} ({r.pred_type:^5.5}) | succ_id: {r.succ_id:4s} ({r.succ_type:.5})")
+                            # log.debug(f"lane id: {l.id:4s} (road {l.road_id:4s}) | pred_id: {l.pred_id:4s}         | succ_id: {l.succ_id:4s} | lane_type: {l.type:.5}")
                             self.current_highlighted_road_id = r.id
             else:
                 self.root.setting.perception_status_text.set("Click on the plot.")
+                self.global_plot.clear_closest_road_and_lane()
         except Exception as e:
             log.error(f"Error in mouse move event: {e}", exc_info=True)
 
@@ -132,10 +133,11 @@ class GlobalPlanPlotView(ttk.Frame):
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                         self.global_plot.plot_road_path(self.root.exec.global_planner.road_path)
 
-
                     self.start_point = None
                 else:
                     self.global_plot.set_start(event.xdata, event.ydata)
+                    self.global_plot.clear_goal()
+                    self.global_plot.clear_road_path_plots()
                     self.pending_goal_set = True
                     self.start_point = (event.xdata, event.ydata)
     
