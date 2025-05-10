@@ -102,6 +102,7 @@ class HDMap:
         pred_type: str = "road"  # 'road' or 'junction'
         succ_type: str = "road"
         length: float = 0.0
+        junction_id: str = "-1"  # ID of the junction this road belongs to
         center_line: np.ndarray = field(default_factory=lambda: np.array([]))      
         lanes: list['HDMap.Lane'] = field(default_factory=list)
 
@@ -123,8 +124,8 @@ class HDMap:
     __road_kdtree: Optional[KDTree] = None
     __lane_kdtree: Optional[KDTree] = None
 
-    road_network: Optional[nx.DiGraph] = None
-    lane_network: Optional[nx.DiGraph] = None
+    road_network: nx.DiGraph = field(default_factory=nx.DiGraph)
+    lane_network: nx.DiGraph = field(default_factory=nx.DiGraph)
     
 
     def parse_HDMap(self) -> None:
@@ -143,8 +144,6 @@ class HDMap:
         roads = root.findall('road')
         log.debug(f"Number of roads in HD Map: {len(roads)}")
         
-        self.road_network = nx.DiGraph()
-        self.lane_network = nx.DiGraph()
         
         # Store all road coordinates to calculate plot limits
         
@@ -205,28 +204,40 @@ class HDMap:
                 center_line=np.array([road_x, road_y]),
                 pred_id=p_id,
                 succ_id=s_id,
-                length=float(road_element.get('length', '0')),
-                pred_type=predecessor.get('elementType', 'road'),
-                succ_type=successor.get('elementType', 'road'),
+                length=float(road_element.get('length', '')),
+                pred_type=predecessor.get('elementType', ''),
+                succ_type=successor.get('elementType', ''),
+                junction_id=road_element.get('junction', ''),
             )
 
             #########################
             # Creating networkx graph
             #########################
-            self.road_network.add_node(r.id, road=r, weight=r.length)
             # Add edges to the road networkx
-            if r.pred_id != "-1" and r.pred_type == "road":
-                self.road_network.add_edge(r.pred_id, r.id)
-            if r.succ_id != "-1" and r.succ_type == "road":
-                self.road_network.add_edge(r.id, r.succ_id)
+            if self.road_has_driving_lanes(r):
+                if r.pred_id != "-1" and r.pred_type == "road":
+                    self.road_network.add_edge(r.pred_id, r.id)
 
-            # adding juction roads
-            for succ in s_ids:
-                self.road_network.add_edge(r.id, succ)
-            for pred in p_ids:
-                self.road_network.add_edge(pred, r.id)
+                    if self.road_is_bidirectional(r):
+                        self.road_network.add_edge(r.id, r.pred_id, weight= r.length)
 
+                if r.succ_id != "-1" and r.succ_type == "road":
+                    self.road_network.add_edge(r.id, r.succ_id, weight= r.length)
+                    if self.road_is_bidirectional(r):
+                        self.road_network.add_edge(r.succ_id, r.id)
+
+                # adding juction roads
+                for succ in s_ids:
+                    self.road_network.add_edge(r.id, succ, weight= r.length)
+                    if self.road_is_bidirectional(r):
+                        self.road_network.add_edge(succ, r.id)
+                for pred in p_ids:
+                    self.road_network.add_edge(pred, r.id) # let that road add the weight
+                    if self.road_is_bidirectional(r):
+                        self.road_network.add_edge(r.id, pred, weight= r.length)
             #########################
+            #########################
+
             for x, y in zip(road_x, road_y):
                 self.point_to_road[(x, y)] = r
                 self._all_road_points.append((x, y))
@@ -263,10 +274,11 @@ class HDMap:
         return successor_roads
 
 
-    def __road_has_driving_lanes(self, road_element) -> bool:
+    def road_has_driving_lanes(self, road: Road) -> bool:
         """
         Check if a road element has at least one driving lane.
         """
+        road_element = road.road_element
         lane_sections = road_element.findall(".//laneSection")
         
         for section in lane_sections:
@@ -275,7 +287,26 @@ class HDMap:
                 lane_type = lane.get("type")
                 if lane_type == "driving":
                     return True
+        return False
+    def  road_is_bidirectional(self, road: Road) -> bool:
+        """
+        Check if a road element is bidirectional.
+        """
+        road_element = road.road_element
+        lane_sections = road_element.findall(".//laneSection")
         
+        right = False
+        left = False
+        for section in lane_sections:
+            lanes = section.findall(".//lane")
+            for lane in lanes:
+                lane_type = lane.get("type")
+                if lane_type == "driving" and int(lane.get("id", "0")) < 0:
+                    right = True
+                if lane_type == "driving" and int(lane.get("id", "0")) > 0:
+                    left = True
+                if right and left:
+                    return True
         return False
 
     def __process_road_lanes(self, r:Road, road_x: list[float], road_y:list[float]):
@@ -339,16 +370,35 @@ class HDMap:
                     dy1 = road_y[i] - road_y[prev_idx]
                     dx2 = road_x[next_idx] - road_x[i]
                     dy2 = road_y[next_idx] - road_y[i]
+                    # Weight the average to reduce sharp transitions
                     dx = (dx1 + dx2) / 2
                     dy = (dy1 + dy2) / 2
                 elif prev_idx >= 0:
-                    # Only previous point available
-                    dx = road_x[i] - road_x[prev_idx]
-                    dy = road_y[i] - road_y[prev_idx]
+                    # Last point - use previous two points if available
+                    if prev_idx > 0:
+                        dx1 = road_x[prev_idx] - road_x[prev_idx-1]
+                        dy1 = road_y[prev_idx] - road_y[prev_idx-1]
+                        dx2 = road_x[i] - road_x[prev_idx]
+                        dy2 = road_y[i] - road_y[prev_idx]
+                        dx = (dx1 + dx2) / 2
+                        dy = (dy1 + dy2) / 2
+                    else:
+                        # Only previous point available
+                        dx = road_x[i] - road_x[prev_idx]
+                        dy = road_y[i] - road_y[prev_idx]
                 elif next_idx < len(road_x):
-                    # Only next point available
-                    dx = road_x[next_idx] - road_x[i]
-                    dy = road_y[next_idx] - road_y[i]
+                    # First point - use next two points if available
+                    if next_idx + 1 < len(road_x):
+                        dx1 = road_x[next_idx] - road_x[i]
+                        dy1 = road_y[next_idx] - road_y[i]
+                        dx2 = road_x[next_idx+1] - road_x[next_idx]
+                        dy2 = road_y[next_idx+1] - road_y[next_idx]
+                        dx = (dx1 + dx2) / 2
+                        dy = (dy1 + dy2) / 2
+                    else:
+                        # Only next point available
+                        dx = road_x[next_idx] - road_x[i]
+                        dy = road_y[next_idx] - road_y[i]
                 else:
                     continue
                 
