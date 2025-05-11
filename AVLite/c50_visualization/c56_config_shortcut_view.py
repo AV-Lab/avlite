@@ -42,8 +42,10 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("h", lambda e: self.root.perceive_plan_control_view.step_control())
         self.root.bind("g", lambda e: self.root.perceive_plan_control_view.align_control())
 
-        self.root.bind("a", lambda e: self.root.perceive_plan_control_view.step_steer_left())
-        self.root.bind("d", lambda e: self.root.perceive_plan_control_view.step_steer_right())
+        self.root.bind("<KeyPress-a>", lambda e: self.root.perceive_plan_control_view.step_steer_left())
+        self.root.bind("<KeyPress-d>", lambda e: self.root.perceive_plan_control_view.step_steer_right())
+        self.root.bind("<KeyRelease-a>", lambda e: self.root.perceive_plan_control_view.reset_steer())
+        self.root.bind("<KeyRelease-d>", lambda e: self.root.perceive_plan_control_view.reset_steer())
         self.root.bind("w", lambda e: self.root.perceive_plan_control_view.step_acc())
         self.root.bind("s", lambda e: self.root.perceive_plan_control_view.step_dec())
 

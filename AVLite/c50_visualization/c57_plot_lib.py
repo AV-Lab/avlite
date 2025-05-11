@@ -221,6 +221,7 @@ class GlobalHDMapPlot(GlobalPlot):
 
         if l is not None:
             # log.debug(f"Lane ID: {l.id}, Road: {l.road_id} Lane Type: {l.type}")
+            log.debug(f"Lane ID: {l.id}, Reversed: {map.lane_reversed(l)}")
             self.clear_closest_road_and_lane()
             self.closest_lane.set_data(l.center_line[0], l.center_line[1])
             center_idx = int(len(l.center_line[0]) / 2.5)
@@ -237,8 +238,10 @@ class GlobalHDMapPlot(GlobalPlot):
                 self.closest_lane_preds[i].set_data(p.center_line[0], p.center_line[1])
 
             if l.type == "driving":
-                neighbors = map.lane_network.neighbors(l.uid)
-                log.debug(f"NX Lane preds: {[p for p in neighbors]}")
+                # neighbors = map.lane_network.neighbors(l.uid)
+                nx_succ = map.lane_network.successors(l.uid)
+                nx_preds = map.lane_network.predecessors(l.uid)
+                log.debug(f"NX Lane preds: {[p for p in nx_preds]}, succs: {[s for s in nx_succ]}")
                 log.debug(f"   Lane preds: {[p.uid for p in l.predecessors]}, succs: {[s.uid for s in l.successors]}")
 
 
