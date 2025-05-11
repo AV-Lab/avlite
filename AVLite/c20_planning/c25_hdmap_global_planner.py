@@ -55,10 +55,10 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
 
         # Plan global path
-        path = self.__plan_global_path(start_road.id, goal_road.id)
-        # path = self.__plan_global_path(start_lane.uid, goal_lane.uid)
-        # self.road_path = [self.hdmap.lane_uids[lane_id] for lane_id in path]
-        self.road_path = [self.hdmap.road_ids[road_id] for road_id in path]
+        # path = self.__plan_global_path(start_road.id, goal_road.id)
+        # self.road_path = [self.hdmap.road_ids[road_id] for road_id in path]
+        path = self.__plan_global_path(start_lane.uid, goal_lane.uid)
+        self.road_path = [self.hdmap.lane_uids[lane_uid] for lane_uid in path]
         log.debug(f"Global path planned: {path}")
 
 
@@ -69,11 +69,18 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         Plan a path between two road IDs using Dijkstra or A* algorithm.
         """
         try:
-            path = nx.shortest_path(self.hdmap.road_network, source=source_id, target=destination_id)
+            # Debug: print node info and types
+            log.debug(f"All lane_network nodes: {list(self.hdmap.lane_network.nodes())[:20]} ...")
+            log.debug(f"Source_id: {repr(source_id)}, type: {type(source_id)}")
+            log.debug(f"Destination_id: {repr(destination_id)}, type: {type(destination_id)}")
+            if source_id not in self.hdmap.lane_network or destination_id not in self.hdmap.lane_network:
+                log.error(f"Source {source_id} or destination {destination_id} not in lane network.")
+                return []
+            path = nx.shortest_path(self.hdmap.lane_network, source=source_id, target=destination_id)
             log.debug(f"Path found from {source_id} to {destination_id}: {path}")
             return path
-        except nx.NetworkXNoPath:
-            log.error(f"No path found between {source_id} and {destination_id}.")
+        except Exception as e: 
+            log.error(f"No path found between {source_id} and {destination_id}. Error: {e}")
             return []
 
 
@@ -124,15 +131,16 @@ class HDMap:
     road_ids: dict[str, Road] = field(default_factory=dict)
     lane_uids: dict[str, Lane] = field(default_factory=dict)
     junction_ids: dict[str, list[Road]] = field(default_factory=dict)
-    road_network: nx.Graph = field(default_factory=nx.DiGraph)
-    lane_network: nx.Graph = field(default_factory=nx.DiGraph)
+    road_network: nx.Graph = field(default_factory=nx.Graph)
+    lane_network: nx.Graph = field(default_factory=nx.Graph)
 
     __point_to_road: dict[tuple[int, int], Road] = field(default_factory=dict)
-    __point_to_lane: dict[tuple[int, int], Lane] = field(default_factory=dict)
+    __point_to_drivable_lane: dict[tuple[int, int], Lane] = field(default_factory=dict)
     __road_kdtree: Optional[KDTree] = None
-    __lane_kdtree: Optional[KDTree] = None
+    __lane_kdtree_drivable: Optional[KDTree] = None
+
     __all_road_points: list[tuple[float, float]] = field(default_factory=list)
-    __all_lane_points: list[tuple[float, float]] = field(default_factory=list)
+    __all_drivable_lane_points: list[tuple[float, float]] = field(default_factory=list)
 
 
     def __post_init__(self):
@@ -142,7 +150,8 @@ class HDMap:
         
         self.root = self.parse_HDMap()
         self.__road_kdtree = KDTree(self.__all_road_points)
-        self.__lane_kdtree = KDTree(self.__all_lane_points)
+        # self.__lane_kdtree = KDTree(self.__all_lane_points)
+        self.__lane_kdtree_drivable = KDTree(self.__all_drivable_lane_points)
         self.__connect_roads()
         self.__connect_lanes()
 
@@ -302,8 +311,14 @@ class HDMap:
                         if lane_x and lane_y:
                             l.center_line = np.array([lane_x, lane_y])
                             for x, y in zip(lane_x, lane_y):
-                                self.__point_to_lane[(x, y)] = l
-                                self.__all_lane_points.append((x, y))
+                                x = float(x)
+                                y = float(y)
+                                # self.__point_to_lane[(x, y)] = l
+                                # self.__all_lane_points.append((x, y))
+                                if l.type == 'driving':
+                                    self.__point_to_drivable_lane[(x, y)] = l
+                                    self.__all_drivable_lane_points.append((x, y))
+
                         #########
 
                         cumulative_offset += width/2 if side == 'left' else -width/2
@@ -435,6 +450,7 @@ class HDMap:
     def __connect_lanes(self) -> None:
         """Connect all lanes based on their links and junction definitions, only adding reachable lanes to the graph."""
         lane_by_id = {f"{l.road_id}_{l.id}": l for l in self.lanes if l.type == "driving"}
+        self.lane_uids = lane_by_id
 
         # Build connections
         for lane in self.lanes:
@@ -695,15 +711,15 @@ class HDMap:
     
     def find_nearest_lane(self, x:float, y:float) -> Lane|None:
         """Find lane closest to position"""
-        if self.__lane_kdtree is not None:
-            _, index = self.__lane_kdtree.query((x, y))
-            if 0 <= index < len(self.__all_lane_points):
-                x,y = self.__all_lane_points[index]
-                p = self.__point_to_lane.get((x, y), None)
+        if self.__lane_kdtree_drivable is not None:
+            _, index = self.__lane_kdtree_drivable.query((x, y))
+            if 0 <= index < len(self.__all_drivable_lane_points):
+                x,y = self.__all_drivable_lane_points[index]
+                p = self.__point_to_drivable_lane.get((x, y), None)
                 if p is None:
                     log.error(f"Point not found in point_to_lane mapping: {(x, y)}")
 
-                return self.__point_to_lane.get((x, y), None)
+                return self.__point_to_drivable_lane.get((x, y), None)
     
     def road_has_driving_lanes(self, road: Road) -> bool:
         """
