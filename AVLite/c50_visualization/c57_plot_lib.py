@@ -1,3 +1,4 @@
+from networkx.classes import neighbors
 from c10_perception.c12_perception_strategy import PerceptionModel
 from c10_perception.c11_perception_model import EgoState
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
@@ -235,6 +236,12 @@ class GlobalHDMapPlot(GlobalPlot):
             for i,p in enumerate(l.predecessors):
                 self.closest_lane_preds[i].set_data(p.center_line[0], p.center_line[1])
 
+            if l.type == "driving":
+                neighbors = map.lane_network.neighbors(l.uid)
+                log.debug(f"NX Lane preds: {[p for p in neighbors]}")
+                log.debug(f"   Lane preds: {[p.uid for p in l.predecessors]}, succs: {[s.uid for s in l.successors]}")
+
+
             r:HDMap.Road|None = map.road_ids.get(l.road_id)
             if r is not None:
                 self.closest_road.set_data(r.center_line[0], r.center_line[1])
@@ -254,8 +261,7 @@ class GlobalHDMapPlot(GlobalPlot):
                 for i,p in enumerate(r.predecessors):
                     self.closest_road_preds[i].set_data(p.center_line[0], p.center_line[1])
                 # log.debug(f"getting connecting roads: {[p for p in map._get_connecting_roads_from_junction(map.root, r.road_element, r.pred_id )]}")
-                log.debug(f"Road preds: {[p.id for p in r.predecessors]}, succs: {[s.id for s in r.successors]}")
-                log.debug(f"Lane preds: {[p.uid for p in l.predecessors]}, succs: {[s.uid for s in l.successors]}")
+                # log.debug(f"Road preds: {[p.id for p in r.predecessors]}, succs: {[s.id for s in r.successors]}")
                 # log.debug(f"Road ID: {r.id}, lane sections: {[l[0].id for s,l in r.lane_sections.items()]}")
         
         
