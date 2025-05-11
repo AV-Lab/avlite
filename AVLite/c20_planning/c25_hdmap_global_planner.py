@@ -99,11 +99,13 @@ class HDMap:
         road: Optional["HDMap.Road"] = None
         pred_id: str = ""  # ID of predecessor lane 
         succ_id: str = ""
+        pred_type: str = "lane"  # 'lane' or 'junction'
+        succ_type: str = "lane"  # 'lane' or 'junction'
         side : str = 'left'  # 'left' or 'right'
         type: str = 'driving'  # 'driving', 'shoulder', etc.
         road_id: str = ""  # ID of the road this lane belongs to
         width: float = 0.0  
-        lane_section: str = ""  # Lane section s 
+        lane_section_idx: int = 0  # Lane section s 
         predecessors: list['HDMap.Lane'] = field(default_factory=list)
         successors: list['HDMap.Lane'] = field(default_factory=list)
 
@@ -121,7 +123,8 @@ class HDMap:
         center_line: np.ndarray = field(default_factory=lambda: np.array([]))      
         predecessors: list['HDMap.Road'] = field(default_factory=list)
         successors: list['HDMap.Road'] = field(default_factory=list)
-        lane_sections: dict[str, list['HDMap.Lane']] = field(default_factory=dict) # key: s, value: list of lanes
+        lane_sections: list[list['HDMap.Lane']] = field(default_factory=list) 
+        lane_section_s_vals: list[float] = field(default_factory=list)  # List of lane section s values
 
     xodr_file_name: str 
     sampling_resolution: float = 1.0
@@ -131,8 +134,8 @@ class HDMap:
     road_ids: dict[str, Road] = field(default_factory=dict)
     lane_uids: dict[str, Lane] = field(default_factory=dict)
     junction_ids: dict[str, list[Road]] = field(default_factory=dict)
-    road_network: nx.Graph = field(default_factory=nx.Graph)
-    lane_network: nx.Graph = field(default_factory=nx.Graph)
+    road_network: nx.DiGraph = field(default_factory=nx.DiGraph)
+    lane_network: nx.DiGraph = field(default_factory=nx.DiGraph)
 
     __point_to_road: dict[tuple[int, int], Road] = field(default_factory=dict)
     __point_to_drivable_lane: dict[tuple[int, int], Lane] = field(default_factory=dict)
@@ -263,9 +266,10 @@ class HDMap:
             
         lane_offsets = road.findall('lanes/laneOffset')
             
-        for lane_section in lanes_sections:
-            r.lane_sections[lane_section.get('s','0.0')] = []
+        for i,lane_section in enumerate(lanes_sections):
+            r.lane_sections.append([])
             s_section = float(lane_section.get('s', '0.0'))
+            r.lane_section_s_vals.append(s_section)
             offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
 
             for side in ['left', 'right']:
@@ -300,11 +304,11 @@ class HDMap:
                             pred_id=pred_id,
                             succ_id=succ_id,
                             road_id = r.id,
-                            lane_section = lane_section.get('s', '0.0'),
+                            lane_section_idx = i,
                             road = r,
                         )
                         self.lanes.append(l)
-                        r.lane_sections[lane_section.get('s', '0.0')].append(l)
+                        r.lane_sections[i].append(l)
 
 
                         lane_x, lane_y = self.__get_lane_xy(road_x, road_y, cumulative_offset, l=l, road=r)
@@ -426,6 +430,18 @@ class HDMap:
         
         return a + b*local_s + c*local_s**2 + d*local_s**3
 
+    def lane_reversed(self, lane:Lane) -> bool:
+        """
+        Determine if lane is reversed by checking if when moving to successor,
+        there are no lanes on the left-hand side.
+        """
+        for successor in lane.successors:
+            succ_brothers = successor.road.lane_sections[successor.lane_section_idx]
+            if successor.road and succ_brothers:
+                if not any(lane.side == 'left' for lane in succ_brothers):
+                    return True
+        
+        return False
     def _get_connecting_roads_from_junction(self, root, road_element, junction_id):
         """
         Extract all successor road IDs connected to a junction for a given road.
@@ -449,8 +465,8 @@ class HDMap:
     
     def __connect_lanes(self) -> None:
         """Connect all lanes based on their links and junction definitions, only adding reachable lanes to the graph."""
-        lane_by_id = {f"{l.road_id}_{l.id}": l for l in self.lanes if l.type == "driving"}
-        self.lane_uids = lane_by_id
+        lane_by_uid = {f"{l.road_id}_{l.id}": l for l in self.lanes if l.type == "driving"}
+        self.lane_uids = lane_by_uid
 
         # Build connections
         for lane in self.lanes:
@@ -459,49 +475,40 @@ class HDMap:
 
             lane_uid = f"{lane.road_id}_{lane.id}"
             # TODO: Remove this 
-            self.lane_network.add_node(lane_uid)
+            # self.lane_network.add_node(lane_uid)
 
             # Predecessors
-            if lane.pred_id:
+            if lane.pred_id and lane.pred_type == "lane":
                 for pred_road in lane.road.predecessors:
                     pred_uid = f"{pred_road.id}_{lane.pred_id}"
-                    pred_lane = lane_by_id.get(pred_uid)
+                    pred_lane = lane_by_uid.get(pred_uid)
                     if pred_lane and lane not in pred_lane.successors:
                         lane.predecessors.append(pred_lane)
-                        pred_lane.successors.append(lane)
-                        self.lane_network.add_edge(pred_uid, lane_uid, weight=lane.road.length)
-                pred_uid = f"{lane.road_id}_{lane.pred_id}"
-                pred_lane = lane_by_id.get(pred_uid)
-                if (
-                    pred_lane and
-                    pred_lane != lane and
-                    lane not in pred_lane.successors and
-                    pred_lane.lane_section != lane.lane_section
-                ):
-                    lane.predecessors.append(pred_lane)
-                    pred_lane.successors.append(lane)
-                    self.lane_network.add_edge(pred_uid, lane_uid, weight=lane.road.length)
-
+                        is_reversed = int(lane.id) * int(pred_lane.id) < 0
+                        if is_reversed:
+                            self.lane_network.add_edge(lane_uid, pred_uid, weight=lane.road.length)
+                            if lane not in pred_lane.predecessors:
+                                pred_lane.predecessors.append(lane)
+                        else:
+                            self.lane_network.add_edge(pred_uid, lane_uid, weight=pred_lane.road.length)
+                            if lane not in pred_lane.successors:
+                                pred_lane.successors.append(lane)
             # Successors
-            if lane.succ_id:
+            if lane.succ_id and lane.succ_type == "lane":
                 for succ_road in lane.road.successors:
                     succ_uid = f"{succ_road.id}_{lane.succ_id}"
-                    succ_lane = lane_by_id.get(succ_uid)
+                    succ_lane = lane_by_uid.get(succ_uid)
                     if succ_lane and succ_lane not in lane.successors:
                         lane.successors.append(succ_lane)
-                        succ_lane.predecessors.append(lane)
-                        self.lane_network.add_edge(lane_uid, succ_uid, weight=lane.road.length)
-                succ_uid = f"{lane.road_id}_{lane.succ_id}"
-                succ_lane = lane_by_id.get(succ_uid)
-                if (
-                    succ_lane and
-                    succ_lane != lane and
-                    succ_lane not in lane.successors and
-                    succ_lane.lane_section != lane.lane_section
-                ):
-                    lane.successors.append(succ_lane)
-                    succ_lane.predecessors.append(lane)
-                    self.lane_network.add_edge(lane_uid, succ_uid, weight=lane.road.length)
+                        is_reversed = int(lane.id) * int(pred_lane.id) < 0
+                        if is_reversed:
+                            self.lane_network.add_edge(succ_uid, lane_uid, weight=succ_lane.road.length)
+                            if lane not in succ_lane.successors:
+                                succ_lane.successors.append(lane)
+                        else:
+                            if lane not in succ_lane.predecessors:
+                                succ_lane.predecessors.append(lane)
+                            self.lane_network.add_edge(lane_uid, succ_uid, weight=lane.road.length)
 
         # Junction connections
         for junction in self.root.findall(".//junction"):
@@ -514,18 +521,39 @@ class HDMap:
                     to_id = lane_link.get("to")
                     from_uid = f"{incoming_road_id}_{from_id}"
                     to_uid = f"{connecting_road_id}_{to_id}"
-                    from_lane = lane_by_id.get(from_uid)
-                    to_lane = lane_by_id.get(to_uid)
+                    from_lane = lane_by_uid.get(from_uid)
+                    to_lane = lane_by_uid.get(to_uid)
                     if from_lane and to_lane and to_lane not in from_lane.successors:
-                        from_lane.successors.append(to_lane)
-                        to_lane.predecessors.append(from_lane)
-                        self.lane_network.add_edge(from_uid, to_uid, junction=junction_id)
+                        is_reversed = int(from_lane.id) * int(to_lane.id) < 0
+                        if is_reversed:
+                            self.lane_network.add_edge(to_uid, from_uid, weight=to_lane.road.length)
+                            if from_lane not in to_lane.predecessors:
+                                from_lane.predecessors.append(to_lane)
+                            if to_lane not in from_lane.successors:
+                                to_lane.successors.append(from_lane)
+                        else:
+                            self.lane_network.add_edge(from_uid, to_uid, weight=from_lane.road.length)
+                            if to_lane not in from_lane.successors:
+                                to_lane.successors.append(from_lane)
+                            if from_lane not in to_lane.predecessors:
+                                from_lane.predecessors.append(to_lane)
 
         # Remove isolated nodes (not connected to any other lane)
-        isolated = [n for n in self.lane_network.nodes if self.lane_network.degree(n) == 0]
-        self.lane_network.remove_nodes_from(isolated)
+        # isolated = [n for n in self.lane_network.nodes if self.lane_network.degree(n) == 0]
+        # self.lane_network.remove_nodes_from(isolated)
 
         log.debug(f"Lane network: {len(self.lane_network.nodes())} nodes, {len(self.lane_network.edges())} edges")
+
+        # add edges between lanes of the same sign for each road
+        for road in self.roads:
+            for lane_section in road.lane_sections:
+                for lane in lane_section:
+                    if lane.type == "driving":
+                        for other_lane in lane_section:
+                            if other_lane.type == "driving" and lane != other_lane and int(lane.id) * int(other_lane.id) > 0:
+                                # Add edges between lanes of the same sign
+                                self.lane_network.add_edge(lane.uid, other_lane.uid, weight=0.0)
+                                self.lane_network.add_edge(other_lane.uid, lane.uid, weight=0.0)
 
 
     

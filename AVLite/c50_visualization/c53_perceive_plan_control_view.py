@@ -167,24 +167,27 @@ class PerceivePlanControlView(ttk.Frame):
         ttk.Button(self.control_frame, text="Dec.", width=4,
                    command=self.step_dec).pack(side=tk.LEFT)
 
-        # Joystick
-        if self.root.setting.enable_joystick:
-            import pygame
+        try:
+            # Joystick
+            if self.root.setting.enable_joystick:
+                import pygame
 
-            pygame.init()
-            pygame.joystick.init()
+                pygame.init()
+                pygame.joystick.init()
 
-            # Check for joystick
-            if pygame.joystick.get_count() == 0:
-                log.warning("No joystick connected")
-                return
+                # Check for joystick
+                if pygame.joystick.get_count() == 0:
+                    log.warning("No joystick connected")
+                    return
 
-            # Initialize the first joystick
-            self.joystick = pygame.joystick.Joystick(0)
-            self.joystick.init()
+                # Initialize the first joystick
+                self.joystick = pygame.joystick.Joystick(0)
+                self.joystick.init()
 
-            self._controller_check_id = None
-            self.start_controller_polling()
+                self._controller_check_id = None
+                self.start_controller_polling()
+        except Exception as e:
+            log.error(f"Error initializing joystick: {e}")
 
     # --------------------------------------------------------------------------------------------
     # -Plan---------------------------------------------------------------------------------------
@@ -241,13 +244,21 @@ class PerceivePlanControlView(ttk.Frame):
         self.root.update_ui()
 
     def step_steer_left(self):
+        log.debug("Steer right")
         self.root.exec.world.control_ego_state(cmd=ControlComand(
             steer=0.7), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_steer_right(self):
+        log.debug("Steer right")
         self.root.exec.world.control_ego_state(cmd=ControlComand(
             steer=-0.7), dt=self.root.setting.sim_dt.get())
+        self.root.update_ui()
+
+    def reset_steer(self):
+        log.debug("Reset steer")
+        self.root.exec.world.control_ego_state(cmd=ControlComand(
+            steer=0), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_acc(self):
