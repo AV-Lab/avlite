@@ -192,8 +192,9 @@ class LogView(ttk.LabelFrame):
 
             self.text_widget.configure(state="normal")
             if record.levelno >= logging.ERROR:
-                self.text_widget.tag_configure("error", foreground="red")
                 self.text_widget.insert(tk.END, msg + "\n", "error")
+            elif record.levelno >= logging.WARNING:
+                self.text_widget.insert(tk.END, msg + "\n", "warn")
             else:
                 self.text_widget.insert(tk.END, msg + "\n")
             self.text_widget.configure(state="disabled")

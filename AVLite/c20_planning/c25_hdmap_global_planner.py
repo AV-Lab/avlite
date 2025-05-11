@@ -1,5 +1,5 @@
+from sys import exc_info
 import xml.etree.ElementTree as ET
-from botocore.utils import conditionally_enable_crc32
 from scipy.spatial import KDTree
 import numpy as np
 import networkx as nx
@@ -27,8 +27,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         self.sampling_resolution = sampling_resolution
 
         self.hdmap:HDMap = HDMap(xodr_file_name=xodr_file, sampling_resolution=sampling_resolution)
-        self.hdmap.parse_HDMap()
-        self.road_path = []
+        self.path = []
         self.lane_path = []
         
         log.debug(f"Loading HDMap from {xodr_file}")
@@ -41,22 +40,28 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         start_road = self.hdmap.find_nearest_road(*self.global_plan.start_point)
         goal_road = self.hdmap.find_nearest_road(*self.global_plan.goal_point)
-
         if not start_road or not goal_road:
             log.error("Start or goal road not found.")
             return
 
 
+        start_lane = self.hdmap.find_nearest_lane(*self.global_plan.start_point)
+        goal_lane = self.hdmap.find_nearest_lane(*self.global_plan.goal_point)
+        log.info(f"Start lane: {start_lane.uid}, Goal lane: {goal_lane.uid}")
+
+        if not start_lane or not goal_lane:
+            log.error("Start or goal lane not found.")
+            return
+
+
         # Plan global path
         path = self.__plan_global_path(start_road.id, goal_road.id)
-        log.debug(f"Global path planned: {path}")
+        # path = self.__plan_global_path(start_lane.uid, goal_lane.uid)
+        # self.road_path = [self.hdmap.lane_uids[lane_id] for lane_id in path]
         self.road_path = [self.hdmap.road_ids[road_id] for road_id in path]
+        log.debug(f"Global path planned: {path}")
 
 
-        
-    def __generate_lane_graph(self):
-        self.graph = nx.DiGraph()
-        raise NotImplementedError("Lane graph generation not implemented yet.")
 
     # TODO:  
     def __plan_global_path(self, source_id:str, destination_id:str) -> list[str]:
@@ -79,56 +84,73 @@ class HDMap:
     @dataclass
     class Lane:
         id: str
+        uid: str # Unique ID for the lane 
         lane_element: ET.Element
-        center_line: np.ndarray = field(default_factory=lambda: np.array([]))      # Nx2 array of (x,y) coordinates
+        center_line: np.ndarray = field(default_factory=lambda: np.array([]))      # 2xN array of (x,y) coordinates
         left_d: list[float] = field(default_factory=list)         # Left boundary distances for each centerline point
         right_d: list[float] = field(default_factory=list)        # Right boundary distances for each centerline point
         road: Optional["HDMap.Road"] = None
-        predecessor: Optional['HDMap.Lane'] = None
-        successor: Optional['HDMap.Lane'] = None
-        pred_id: str = "-1"  # ID of predecessor lane 
-        succ_id: str = "-1"
+        pred_id: str = ""  # ID of predecessor lane 
+        succ_id: str = ""
         side : str = 'left'  # 'left' or 'right'
         type: str = 'driving'  # 'driving', 'shoulder', etc.
-        road_id: str = "-1"  # ID of the road this lane belongs to
+        road_id: str = ""  # ID of the road this lane belongs to
+        width: float = 0.0  
+        lane_section: str = ""  # Lane section s 
+        predecessors: list['HDMap.Lane'] = field(default_factory=list)
+        successors: list['HDMap.Lane'] = field(default_factory=list)
 
     @dataclass
     class Road:
         """Compact road representation for global planning"""
         id: str
         road_element:ET.Element
-        pred_id: str = "-1"  
-        succ_id: str = "-1"
+        pred_id: str = ""  
+        succ_id: str = ""
         pred_type: str = "road"  # 'road' or 'junction'
         succ_type: str = "road"
         length: float = 0.0
-        junction_id: str = "-1"  # ID of the junction this road belongs to
+        junction_id: str = ""  
         center_line: np.ndarray = field(default_factory=lambda: np.array([]))      
-        lanes: list['HDMap.Lane'] = field(default_factory=list)
+        predecessors: list['HDMap.Road'] = field(default_factory=list)
+        successors: list['HDMap.Road'] = field(default_factory=list)
+        lane_sections: dict[str, list['HDMap.Lane']] = field(default_factory=dict) # key: s, value: list of lanes
 
+    xodr_file_name: str 
     sampling_resolution: float = 1.0
-    road_ids: dict[str, Road] = field(default_factory=dict)
-    lane_ids: dict[str, Lane] = field(default_factory=dict)
-    junction_ids: dict[str, list[Road]] = field(default_factory=dict)
     roads: list[Road] = field(default_factory=list)
     lanes: list[Lane] = field(default_factory=list) 
-
     
-    point_to_road: dict[tuple[int, int], Road] = field(default_factory=dict)
-    point_to_lane: dict[tuple[int, int], Lane] = field(default_factory=dict)
+    road_ids: dict[str, Road] = field(default_factory=dict)
+    lane_uids: dict[str, Lane] = field(default_factory=dict)
+    junction_ids: dict[str, list[Road]] = field(default_factory=dict)
+    road_network: nx.Graph = field(default_factory=nx.DiGraph)
+    lane_network: nx.Graph = field(default_factory=nx.DiGraph)
 
-    xodr_file_name: str = ""
-
-    _all_road_points: list[tuple[float, float]] = field(default_factory=list)
-    _all_lane_points: list[tuple[float, float]] = field(default_factory=list)
+    __point_to_road: dict[tuple[int, int], Road] = field(default_factory=dict)
+    __point_to_lane: dict[tuple[int, int], Lane] = field(default_factory=dict)
     __road_kdtree: Optional[KDTree] = None
     __lane_kdtree: Optional[KDTree] = None
+    __all_road_points: list[tuple[float, float]] = field(default_factory=list)
+    __all_lane_points: list[tuple[float, float]] = field(default_factory=list)
 
-    road_network: nx.DiGraph = field(default_factory=nx.DiGraph)
-    lane_network: nx.DiGraph = field(default_factory=nx.DiGraph)
+
+    def __post_init__(self):
+        if self.xodr_file_name == "":
+            log.error("No OpenDRIVE file specified.")
+            return
+        
+        self.root = self.parse_HDMap()
+        self.__road_kdtree = KDTree(self.__all_road_points)
+        self.__lane_kdtree = KDTree(self.__all_lane_points)
+        self.__connect_roads()
+        self.__connect_lanes()
+
+        log.debug(f"Number of roads in HD Map: {len(self.roads)} vs nodes in graph {len(self.road_network.nodes())}")
+        log.debug(f"Number of lanes in HD Map: {len(self.lanes)} vs nodes in graph {len(self.lane_network.nodes())}")
     
 
-    def parse_HDMap(self) -> None:
+    def parse_HDMap(self):
         """Parse OpenDRIVE file and build lane graph"""
         if self.xodr_file_name == "":
             log.error("No OpenDRIVE file specified.")
@@ -142,7 +164,6 @@ class HDMap:
             return
 
         roads = root.findall('road')
-        log.debug(f"Number of roads in HD Map: {len(roads)}")
         
         
         # Store all road coordinates to calculate plot limits
@@ -177,139 +198,53 @@ class HDMap:
                 road_y.extend(y_vals)
 
             p_id, s_id = "-1", "-1"
-            p_ids, s_ids = [], []
             predecessor = road_element.find("link/predecessor")
             if predecessor is not None:
                 if predecessor.get('elementType') == 'road':
-                    p_id = predecessor.get('elementId', '-1')
+                    p_id = predecessor.get('elementId', '')
                 elif predecessor.get('elementType') == 'junction':
                     # Extract all roads connected to the junction
-                    junction_id = predecessor.get('elementId', '-1')
+                    junction_id = predecessor.get('elementId', '')
                     p_id = junction_id
-                    p_ids = self.__get_road_successors_from_junction(root, road_element, junction_id)
 
             successor = road_element.find("link/successor")
             if successor is not None:
                 if successor.get('elementType') == 'road':
-                    s_id = successor.get('elementId', '-1')
+                    s_id = successor.get('elementId', '')
                 elif successor.get('elementType') == 'junction':
                     # Extract all roads connected to the junction
-                    junction_id = successor.get('elementId', '-1')
+                    junction_id = successor.get('elementId', '')
                     s_id = junction_id
-                    s_ids = self.__get_road_successors_from_junction(root,road_element, junction_id)
 
             r = HDMap.Road(
-                id=road_element.get('id', '-1'),
+                id=road_element.get('id', ''),
                 road_element=road_element,
                 center_line=np.array([road_x, road_y]),
                 pred_id=p_id,
                 succ_id=s_id,
                 length=float(road_element.get('length', '')),
-                pred_type=predecessor.get('elementType', ''),
-                succ_type=successor.get('elementType', ''),
+                pred_type=predecessor.get('elementType', '') if predecessor is not None else '',
+                succ_type=successor.get('elementType', '') if successor is not None else '',
                 junction_id=road_element.get('junction', ''),
             )
 
-            #########################
-            # Creating networkx graph
-            #########################
-            # Add edges to the road networkx
-            if self.road_has_driving_lanes(r):
-                if r.pred_id != "-1" and r.pred_type == "road":
-                    self.road_network.add_edge(r.pred_id, r.id)
-
-                    if self.road_is_bidirectional(r):
-                        self.road_network.add_edge(r.id, r.pred_id, weight= r.length)
-
-                if r.succ_id != "-1" and r.succ_type == "road":
-                    self.road_network.add_edge(r.id, r.succ_id, weight= r.length)
-                    if self.road_is_bidirectional(r):
-                        self.road_network.add_edge(r.succ_id, r.id)
-
-                # adding juction roads
-                for succ in s_ids:
-                    self.road_network.add_edge(r.id, succ, weight= r.length)
-                    if self.road_is_bidirectional(r):
-                        self.road_network.add_edge(succ, r.id)
-                for pred in p_ids:
-                    self.road_network.add_edge(pred, r.id) # let that road add the weight
-                    if self.road_is_bidirectional(r):
-                        self.road_network.add_edge(r.id, pred, weight= r.length)
-            #########################
-            #########################
 
             for x, y in zip(road_x, road_y):
-                self.point_to_road[(x, y)] = r
-                self._all_road_points.append((x, y))
+                self.__point_to_road[(x, y)] = r
+                self.__all_road_points.append((x, y))
 
+            if self.road_ids.get(r.id) is not None:
+                log.error(f"Adding Road ID {r.id}, but it already exists in road_ids.")
             self.road_ids[r.id] = r
             self.roads.append(r)
-            self.__process_road_lanes(r, road_x, road_y)
+            self.__process_lane_sections(r, road_x, road_y)
 
-        # Build KDTree for spatial queries
-        self.__road_kdtree = KDTree(self._all_road_points)
-        self.__lane_kdtree = KDTree(self._all_lane_points)
+        return root
+
     
-    def __get_road_successors_from_junction(self, root, road_element, junction_id):
-        """
-        Extract all successor road IDs connected to a junction for a given road.
-        """
-        junction = root.find(f".//junction[@id='{junction_id}']")
-        if junction is None:
-            log.warning(f"Junction with ID {junction_id} not found.")
-            return []
-
-        successor_roads = []
-        road_id = road_element.get('id', '-1')
-
-        for connection in junction.findall("connection"):
-            incoming_road = connection.get("incomingRoad")
-            if incoming_road == road_id:
-                connecting_road = connection.get("connectingRoad")
-                # c_road_element = root.find(f".//road[@id='{connecting_road}']")
-                if connecting_road: # and self.__road_has_driving_lanes(c_road_element):
-                    successor_roads.append(connecting_road)
-
-        # log.debug(f"Junction {junction_id} connects road {road_id} to successors: {successor_roads}")
-        return successor_roads
 
 
-    def road_has_driving_lanes(self, road: Road) -> bool:
-        """
-        Check if a road element has at least one driving lane.
-        """
-        road_element = road.road_element
-        lane_sections = road_element.findall(".//laneSection")
-        
-        for section in lane_sections:
-            lanes = section.findall(".//lane")
-            for lane in lanes:
-                lane_type = lane.get("type")
-                if lane_type == "driving":
-                    return True
-        return False
-    def  road_is_bidirectional(self, road: Road) -> bool:
-        """
-        Check if a road element is bidirectional.
-        """
-        road_element = road.road_element
-        lane_sections = road_element.findall(".//laneSection")
-        
-        right = False
-        left = False
-        for section in lane_sections:
-            lanes = section.findall(".//lane")
-            for lane in lanes:
-                lane_type = lane.get("type")
-                if lane_type == "driving" and int(lane.get("id", "0")) < 0:
-                    right = True
-                if lane_type == "driving" and int(lane.get("id", "0")) > 0:
-                    left = True
-                if right and left:
-                    return True
-        return False
-
-    def __process_road_lanes(self, r:Road, road_x: list[float], road_y:list[float]):
+    def __process_lane_sections(self, r:Road, road_x: list[float], road_y:list[float]):
         """Plot lanes for a given road"""
 
         road = r.road_element
@@ -320,6 +255,7 @@ class HDMap:
         lane_offsets = road.findall('lanes/laneOffset')
             
         for lane_section in lanes_sections:
+            r.lane_sections[lane_section.get('s','0.0')] = []
             s_section = float(lane_section.get('s', '0.0'))
             offset = self.__get_lane_offset_at_s(lane_offsets, s_section)
 
@@ -331,21 +267,50 @@ class HDMap:
                     lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
 
                 cumulative_offset = offset  # Start with lane offset
-                for lane in lanes:
-                    lane_id = int(lane.get('id', '0'))
-                    width_element = lane.find('width')
+                for lane_element in lanes:
+                    lane_id = int(lane_element.get('id', '0'))
+                    width_element = lane_element.find('width')
                     
                     if width_element is not None and lane_id != 0:
-                        width = float(width_element.get('a', '0'))
+                        width = float(width_element.get('a', '0.0'))
+                        if float(width_element.get('b')) != 0.0 and lane_element.get('type') == 'driving':
+                            log.warning(f"Lanes with variable width are not supported yet. We assume fixed width of \
+                                   {width:.2f} Lane ID: {lane_id}, type: {lane_element.get('type')}, Road ID: {r.id}")
+
                         cumulative_offset += width/2 if side == 'left' else -width/2
                         
-                        self.__set_lane(road_x, road_y, cumulative_offset, lane_element=lane, road=r)
-                        
+                        #########
+                        pred_id = lane_element.find('link/predecessor').get('id', '') if lane_element.find('link/predecessor') is not None else ''
+                        succ_id = lane_element.find('link/successor').get('id', '') if lane_element.find('link/successor') is not None else ''
+                        l = HDMap.Lane(
+                            id=lane_element.get('id', ''),
+                            uid=f"{r.id}_{lane_element.get('id', '')}",
+                            lane_element=lane_element,
+                            side=lane_element.get('side', ''),
+                            type=lane_element.get('type', ''),
+                            pred_id=pred_id,
+                            succ_id=succ_id,
+                            road_id = r.id,
+                            lane_section = lane_section.get('s', '0.0'),
+                            road = r,
+                        )
+                        self.lanes.append(l)
+                        r.lane_sections[lane_section.get('s', '0.0')].append(l)
+
+
+                        lane_x, lane_y = self.__get_lane_xy(road_x, road_y, cumulative_offset, l=l, road=r)
+                        if lane_x and lane_y:
+                            l.center_line = np.array([lane_x, lane_y])
+                            for x, y in zip(lane_x, lane_y):
+                                self.__point_to_lane[(x, y)] = l
+                                self.__all_lane_points.append((x, y))
+                        #########
+
                         cumulative_offset += width/2 if side == 'left' else -width/2
 
     
 
-    def __set_lane(self, road_x, road_y, offset, lane_element, road: Road):
+    def __get_lane_xy(self, road_x, road_y, offset, l:Lane, road: Road) -> tuple[list[float], list[float]]:
         """Plot a lane boundary at the specified offset from the road centerline"""
 
         assert len(road_x) == len(road_y), "Road X and Y coordinates must be of the same length."
@@ -353,9 +318,7 @@ class HDMap:
         if not road_x or len(road_x) < 2:
             return
         
-        # Calculate lane boundary points
-        lane_x, lane_y = [], []
-        
+        lane_x, lane_y = [], [] # center line points of the lane
             
         for i in range(len(road_x)):
             try:
@@ -416,25 +379,9 @@ class HDMap:
             except (IndexError, ValueError) as e:
                 log.error(f"Error processing lane boundary: {e}")
                 continue
+
+        return lane_x, lane_y
         
-        if lane_x and lane_y:
-            pred_id = lane_element.find('link/predecessor').get('id', '') if lane_element.find('link/predecessor') is not None else ''
-            succ_id = lane_element.find('link/successor').get('id', '') if lane_element.find('link/successor') is not None else ''
-            l = HDMap.Lane(
-                id=lane_element.get('id', ''),
-                lane_element=lane_element,
-                center_line=np.array([lane_x, lane_y]),
-                side=lane_element.get('side', ''),
-                type=lane_element.get('type', ''),
-                pred_id=pred_id,
-                succ_id=succ_id,
-                road_id = road.id,
-                road = road,
-            )
-            self.lanes.append(l)
-            for x, y in zip(lane_x, lane_y):
-                self.point_to_lane[(x, y)] = l
-                self._all_lane_points.append((x, y))
 
     
     def __get_lane_offset_at_s(self, lane_offsets, s):
@@ -464,42 +411,160 @@ class HDMap:
         
         return a + b*local_s + c*local_s**2 + d*local_s**3
 
+    def _get_connecting_roads_from_junction(self, root, road_element, junction_id):
+        """
+        Extract all successor road IDs connected to a junction for a given road.
+        """
+        junction = root.find(f".//junction[@id='{junction_id}']")
+        if junction is None:
+            log.error(f"Junction with ID {junction_id} not found. road_id: {road_element.get('id')}")
+            return []
 
-    def find_nearest_road(self, x:float, y:float) -> Road|None:
-        """Find the nearest road to the given coordinates"""
-        if self.__road_kdtree is not None:
-            _, index = self.__road_kdtree.query((x, y))
-            if index >= 0 and index < len(self._all_road_points):
-                x,y = self._all_road_points[index]
-                p = self.point_to_road.get((x, y), None)
-                if p is None:
-                    log.error(f"Point not found in point_to_road mapping: {(x, y)}")
+        successor_roads = []
+        road_id = road_element.get('id', '')
 
-                return self.point_to_road.get((x, y), None)
-        
+        for connection in junction.findall("connection"):
+            incoming_road = connection.get("incomingRoad")
+            if incoming_road == road_id:
+                connecting_road = connection.get("connectingRoad")
+                if connecting_road: # and self.__road_has_driving_lanes(c_road_element):
+                    successor_roads.append(connecting_road)
+
+        return successor_roads
     
-    #TODO 
-    def find_nearest_lane(self, x:float, y:float) -> Lane|None:
-        """Find lane closest to position"""
-        if self.__lane_kdtree is not None:
-            _, index = self.__lane_kdtree.query((x, y))
-            if 0 <= index < len(self._all_lane_points):
-                x,y = self._all_lane_points[index]
-                p = self.point_to_lane.get((x, y), None)
-                if p is None:
-                    log.error(f"Point not found in point_to_lane mapping: {(x, y)}")
+    def __connect_lanes(self) -> None:
+        """Connect all lanes based on their links and junction definitions, only adding reachable lanes to the graph."""
+        lane_by_id = {f"{l.road_id}_{l.id}": l for l in self.lanes if l.type == "driving"}
 
-                return self.point_to_lane.get((x, y), None)
+        # Build connections
+        for lane in self.lanes:
+            if lane.type != "driving":
+                continue
 
-    #TODO
-    def __connect_lanes(self, from_lane_id: str, to_lane_id: str) -> None:
-        """Connect two lanes as predecessor/successor"""
-        pass
+            lane_uid = f"{lane.road_id}_{lane.id}"
+            # TODO: Remove this 
+            self.lane_network.add_node(lane_uid)
+
+            # Predecessors
+            if lane.pred_id:
+                for pred_road in lane.road.predecessors:
+                    pred_uid = f"{pred_road.id}_{lane.pred_id}"
+                    pred_lane = lane_by_id.get(pred_uid)
+                    if pred_lane and lane not in pred_lane.successors:
+                        lane.predecessors.append(pred_lane)
+                        pred_lane.successors.append(lane)
+                        self.lane_network.add_edge(pred_uid, lane_uid, weight=lane.road.length)
+                pred_uid = f"{lane.road_id}_{lane.pred_id}"
+                pred_lane = lane_by_id.get(pred_uid)
+                if (
+                    pred_lane and
+                    pred_lane != lane and
+                    lane not in pred_lane.successors and
+                    pred_lane.lane_section != lane.lane_section
+                ):
+                    lane.predecessors.append(pred_lane)
+                    pred_lane.successors.append(lane)
+                    self.lane_network.add_edge(pred_uid, lane_uid, weight=lane.road.length)
+
+            # Successors
+            if lane.succ_id:
+                for succ_road in lane.road.successors:
+                    succ_uid = f"{succ_road.id}_{lane.succ_id}"
+                    succ_lane = lane_by_id.get(succ_uid)
+                    if succ_lane and succ_lane not in lane.successors:
+                        lane.successors.append(succ_lane)
+                        succ_lane.predecessors.append(lane)
+                        self.lane_network.add_edge(lane_uid, succ_uid, weight=lane.road.length)
+                succ_uid = f"{lane.road_id}_{lane.succ_id}"
+                succ_lane = lane_by_id.get(succ_uid)
+                if (
+                    succ_lane and
+                    succ_lane != lane and
+                    succ_lane not in lane.successors and
+                    succ_lane.lane_section != lane.lane_section
+                ):
+                    lane.successors.append(succ_lane)
+                    succ_lane.predecessors.append(lane)
+                    self.lane_network.add_edge(lane_uid, succ_uid, weight=lane.road.length)
+
+        # Junction connections
+        for junction in self.root.findall(".//junction"):
+            junction_id = junction.get("id")
+            for connection in junction.findall("connection"):
+                incoming_road_id = connection.get("incomingRoad")
+                connecting_road_id = connection.get("connectingRoad")
+                for lane_link in connection.findall("laneLink"):
+                    from_id = lane_link.get("from")
+                    to_id = lane_link.get("to")
+                    from_uid = f"{incoming_road_id}_{from_id}"
+                    to_uid = f"{connecting_road_id}_{to_id}"
+                    from_lane = lane_by_id.get(from_uid)
+                    to_lane = lane_by_id.get(to_uid)
+                    if from_lane and to_lane and to_lane not in from_lane.successors:
+                        from_lane.successors.append(to_lane)
+                        to_lane.predecessors.append(from_lane)
+                        self.lane_network.add_edge(from_uid, to_uid, junction=junction_id)
+
+        # Remove isolated nodes (not connected to any other lane)
+        isolated = [n for n in self.lane_network.nodes if self.lane_network.degree(n) == 0]
+        self.lane_network.remove_nodes_from(isolated)
+
+        log.debug(f"Lane network: {len(self.lane_network.nodes())} nodes, {len(self.lane_network.edges())} edges")
+
+
     
-    #TODO
-    def __connect_roads(self, from_road_id: str, to_road_id: str) -> None:
+    def __connect_roads(self) -> None:
         """Connect two roads as predecessor/successor"""
-        pass
+        for r in self.roads:
+            # Connect predecessor and successor roads
+            if r.pred_id != "" and r.pred_type == "road":
+                pred_road = self.road_ids.get(r.pred_id, None)
+                if pred_road:
+                    r.predecessors.append(pred_road)
+                    # self.road_network.add_edge(r.pred_id, r.id, weight= pred_road.length)
+
+            if r.succ_id != "" and r.succ_type == "road":
+                succ_road = self.road_ids.get(r.succ_id, None)
+                if succ_road:
+                    r.successors.append(succ_road)
+                    self.road_network.add_edge(r.id, r.succ_id, weight= r.length)
+            
+            #########################
+            # Dealing with junctions
+            #########################
+            
+            if self.road_has_driving_lanes(r):
+                p_ids, s_ids = [], []
+                successor = r.road_element.find("link/successor")
+                if successor is not None and successor.get('elementType') == 'junction':
+                    junction_id = successor.get('elementId', '')
+                    s_ids = self._get_connecting_roads_from_junction(self.root, r.road_element, junction_id)
+
+                predecessor = r.road_element.find("link/predecessor")
+                if predecessor is not None and predecessor.get('elementType') == 'junction':
+                    junction_id = predecessor.get('elementId', '')
+                    p_ids = self._get_connecting_roads_from_junction(self.root, r.road_element, junction_id)
+
+                # adding juction roads
+                for succ in s_ids:
+                    s_road = self.road_ids.get(succ, None)
+                    assert s_road is not None, f"Road ID {succ} not found in road_ids."
+
+                    if self.road_has_driving_lanes(s_road):
+                        self.road_network.add_edge(r.id, succ, weight= r.length)
+                        r.successors.append(self.road_ids[succ])
+
+
+                for pred in p_ids:
+                    p_road = self.road_ids.get(pred, None)
+                    assert p_road is not None, f"Road ID {pred} not found in road_ids."
+
+
+                    if self.road_has_driving_lanes(p_road):
+                        self.road_network.add_edge(pred, r.id, weight= r.length)
+                        r.predecessors.append(self.road_ids[pred])
+            #########################
+            #########################
     
     
 
@@ -612,3 +677,65 @@ class HDMap:
                 x_vals.append(x)
                 y_vals.append(y)
             return x_vals, y_vals
+    
+
+
+    def find_nearest_road(self, x:float, y:float) -> Road|None:
+        """Find the nearest road to the given coordinates"""
+        if self.__road_kdtree is not None:
+            _, index = self.__road_kdtree.query((x, y))
+            if index >= 0 and index < len(self.__all_road_points):
+                x,y = self.__all_road_points[index]
+                p = self.__point_to_road.get((x, y), None)
+                if p is None:
+                    log.error(f"Point not found in point_to_road mapping: {(x, y)}")
+
+                return self.__point_to_road.get((x, y), None)
+        
+    
+    def find_nearest_lane(self, x:float, y:float) -> Lane|None:
+        """Find lane closest to position"""
+        if self.__lane_kdtree is not None:
+            _, index = self.__lane_kdtree.query((x, y))
+            if 0 <= index < len(self.__all_lane_points):
+                x,y = self.__all_lane_points[index]
+                p = self.__point_to_lane.get((x, y), None)
+                if p is None:
+                    log.error(f"Point not found in point_to_lane mapping: {(x, y)}")
+
+                return self.__point_to_lane.get((x, y), None)
+    
+    def road_has_driving_lanes(self, road: Road) -> bool:
+        """
+        Check if a road element has at least one driving lane.
+        """
+        road_element = road.road_element
+        lane_sections = road_element.findall(".//laneSection")
+        
+        for section in lane_sections:
+            lanes = section.findall(".//lane")
+            for lane in lanes:
+                lane_type = lane.get("type")
+                if lane_type == "driving":
+                    return True
+        return False
+    def  road_is_bidirectional(self, road: Road) -> bool:
+        """
+        Check if a road element is bidirectional.
+        """
+        road_element = road.road_element
+        lane_sections = road_element.findall(".//laneSection")
+        
+        right = False
+        left = False
+        for section in lane_sections:
+            lanes = section.findall(".//lane")
+            for lane in lanes:
+                lane_type = lane.get("type")
+                if lane_type == "driving" and int(lane.get("id", "0")) < 0:
+                    right = True
+                if lane_type == "driving" and int(lane.get("id", "0")) > 0:
+                    left = True
+                if right and left:
+                    return True
+        return False
