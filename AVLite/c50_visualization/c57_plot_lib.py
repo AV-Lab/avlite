@@ -51,11 +51,7 @@ class GlobalPlot(ABC):
         if not self.map_plotted:
             self.plot_map(exec)
 
-        self.vehicle_x, self.vehicle_y = exec.ego_state.x, exec.ego_state.y
-        self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y ])
-        self.vehicle_location_text.set_position((self.vehicle_x, self.vehicle_y))
-
-        
+        self.plot_vehicle(exec.ego_state) 
         self.adjust_zoom(zoom, aspect_ratio)
 
         if not show_legend:
@@ -63,6 +59,13 @@ class GlobalPlot(ABC):
 
         # self.ax.set_aspect(aspect_ratio)
         self.fig.canvas.draw()
+
+    def plot_vehicle(self, ego:EgoState):
+        """Plot the vehicle location"""
+        self.vehicle_x, self.vehicle_y = ego.x, ego.y
+        self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y ])
+        self.vehicle_location_text.set_position((self.vehicle_x, self.vehicle_y))
+
 
     @abstractmethod
     def plot_map(self, exec:SyncExecuter):
@@ -170,22 +173,40 @@ class GlobalRacePlot(GlobalPlot):
             
 
 
-
-
 class GlobalHDMapPlot(GlobalPlot):
-    def __init__(self, figsize=(10, 10), MAX_ROAD_PATH=20):
+    def __init__(self, figsize=(10, 10), MAX_ROAD_PATH=20, MAX_SUCCS=10, MAX_PREDS=10):
         super().__init__(figsize, name="HD Map Road Network")
 
-        self.closest_lane, *_ = self.ax.plot([], [], 'o-', color='yellow', markersize=3, alpha=.2, label="Closest Lane", zorder=3)
-        self.closest_road, *_ = self.ax.plot([], [], 'o-', color='red', markersize=5, alpha=.1,  label="Closest Road", zorder=3)
+        self.closest_lane, *_ = self.ax.plot([], [], 'o-', color='yellow',  alpha=.2, label="Closest Lane", zorder=3)
+        self.closest_road, *_ = self.ax.plot([], [], 'o-', color='red', alpha=.1,  label="Closest Road", zorder=3)
+        self.closest_road_preds = []
+        self.closest_road_succs = []
+        for i in range(MAX_PREDS):
+            p, *_ = self.ax.plot([], [], 'o-', color='#d65d0e',  alpha=.1, label="Closest Road Pred", zorder=3)
+            self.closest_road_preds.append(p)
+        for i in range(MAX_SUCCS):
+            s, *_ = self.ax.plot([], [], 'o-', color='#83a598', alpha=.1, label="Closest Road Succ", zorder=3)
+            self.closest_road_succs.append(s)
+
+        self.closest_lane_preds = []
+        self.closest_lane_succs = []
+        for i in range(MAX_PREDS):
+            p, *_ = self.ax.plot([], [], 'o-', color='#d65d0e',  alpha=.1, label="Closest Lane Pred", zorder=3)
+            self.closest_lane_preds.append(p)
+        for i in range(MAX_SUCCS):
+            s, *_ = self.ax.plot([], [], 'o-', color='#83a598',  alpha=.1, label="Closest Lane Pred", zorder=3)
+            self.closest_lane_succs.append(s)
+
         self.road_id_text = self.ax.text(0, 0, '', fontsize=12, color='red', zorder=4, ha='center', va='center')
-        self.road_succ_id_text = self.ax.text(0, 0, '', fontsize=10, color='red', alpha=0.8, zorder=4, ha='center', va='center')
-        self.road_pred_id_text = self.ax.text(0, 0, '', fontsize=10, color='red', alpha=0.8, zorder=4, ha='center', va='center')
+        self.road_succ_id_text = self.ax.text(0, 0, '', fontsize=10, color='#83a598', alpha=0.8, zorder=4, ha='center', va='center')
+        self.road_pred_id_text = self.ax.text(0, 0, '', fontsize=10, color='#d65d0e', alpha=0.8, zorder=4, ha='center', va='center')
         self.lane_id_text = self.ax.text(0, 0, '', fontsize=12, color='#8ec07c', zorder=4, ha='center', va='center')
         self.junct_id_text = self.ax.text(0, 0, '', fontsize=10, color='#fb4934', alpha=0.8, zorder=4, ha='center', va='center')
         
         self.lane_succ_id_text = self.ax.text(0, 0, '', fontsize=8, color='#8ec07c', alpha=0.8, zorder=4, ha='center', va='center')
         self.lane_pred_id_text = self.ax.text(0, 0, '', fontsize=8, color='#8ec07c', alpha=0.8, zorder=4, ha='center', va='center')
+
+        self.__tmp_road, *_ = self.ax.plot([], [], 'o-', color='blue', markersize=5, alpha=.1, label="Closest Road", zorder=3)
 
         self.road_path_plots = []
         for i in range(MAX_ROAD_PATH):
@@ -195,24 +216,11 @@ class GlobalHDMapPlot(GlobalPlot):
 
     def show_closest_road_and_lane(self,  x:int, y:int, map:HDMap):
         """Show the closest road and lane to the given coordinates"""
-        r = map.find_nearest_road(x,y)
         l = map.find_nearest_lane(x,y)
 
-        if r is not None:
-            log.debug(f"Road Has Driving lanes: {map.road_has_driving_lanes(r)}, Is Bidrectional: {map.road_is_bidirectional(r)}")
-            self.closest_road.set_data(r.center_line[0], r.center_line[1])
-            center_idx = int(len(r.center_line[0]) / 2)
-            self.road_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]))
-            self.road_id_text.set_text(r.id)
-            self.junct_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]-5))
-            self.junct_id_text.set_text(f"J: {r.junction_id}") if r.junction_id != "-1" else self.junct_id_text.set_text("")
-            self.road_pred_id_text.set_position((r.center_line[0][0], r.center_line[1][0]))
-            p_txt = f"P: {r.pred_id}" if r.pred_type == "road" else f"P: {r.pred_id}J"
-            self.road_pred_id_text.set_text(p_txt)
-            self.road_succ_id_text.set_position((r.center_line[0][-1], r.center_line[1][-1]))
-            s_txt = f"S: {r.succ_id}" if r.succ_type == "road" else f"S: {r.succ_id}J"
-            self.road_succ_id_text.set_text(s_txt)
         if l is not None:
+            # log.debug(f"Lane ID: {l.id}, Road: {l.road_id} Lane Type: {l.type}")
+            self.clear_closest_road_and_lane()
             self.closest_lane.set_data(l.center_line[0], l.center_line[1])
             center_idx = int(len(l.center_line[0]) / 2.5)
             self.lane_id_text.set_position((l.center_line[0][center_idx], l.center_line[1][center_idx]-5))
@@ -222,7 +230,34 @@ class GlobalHDMapPlot(GlobalPlot):
 
             self.lane_succ_id_text.set_position((l.center_line[0][-1], l.center_line[1][-1]-5))
             self.lane_succ_id_text.set_text(f"S: {l.succ_id}")
-            log.debug(f"lane: {l.center_line}")
+            for i,s in enumerate(l.successors):
+                self.closest_lane_succs[i].set_data(s.center_line[0], s.center_line[1])
+            for i,p in enumerate(l.predecessors):
+                self.closest_lane_preds[i].set_data(p.center_line[0], p.center_line[1])
+
+            r:HDMap.Road|None = map.road_ids.get(l.road_id)
+            if r is not None:
+                self.closest_road.set_data(r.center_line[0], r.center_line[1])
+                center_idx = int(len(r.center_line[0]) / 2)
+                self.road_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]))
+                self.road_id_text.set_text(r.id)
+                self.junct_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]-5))
+                self.junct_id_text.set_text(f"{r.junction_id}+") if r.junction_id != "-1" else self.junct_id_text.set_text("")
+                self.road_pred_id_text.set_position((r.center_line[0][0], r.center_line[1][0]))
+                p_txt = f"P: {r.pred_id}" if r.pred_type == "road" else f"P: {r.pred_id}+"
+                self.road_pred_id_text.set_text(p_txt)
+                self.road_succ_id_text.set_position((r.center_line[0][-1], r.center_line[1][-1]))
+                s_txt = f"S: {r.succ_id}" if r.succ_type == "road" else f"S: {r.succ_id}+"
+                self.road_succ_id_text.set_text(s_txt)
+                for i,s in enumerate(r.successors):
+                    self.closest_road_succs[i].set_data(s.center_line[0], s.center_line[1])
+                for i,p in enumerate(r.predecessors):
+                    self.closest_road_preds[i].set_data(p.center_line[0], p.center_line[1])
+                # log.debug(f"getting connecting roads: {[p for p in map._get_connecting_roads_from_junction(map.root, r.road_element, r.pred_id )]}")
+                log.debug(f"Road preds: {[p.id for p in r.predecessors]}, succs: {[s.id for s in r.successors]}")
+                log.debug(f"Lane preds: {[p.uid for p in l.predecessors]}, succs: {[s.uid for s in l.successors]}")
+                # log.debug(f"Road ID: {r.id}, lane sections: {[l[0].id for s,l in r.lane_sections.items()]}")
+        
         
         self.fig.canvas.draw()
 
@@ -239,7 +274,9 @@ class GlobalHDMapPlot(GlobalPlot):
         """Clear the road path plots"""
         for i in range(len(self.road_path_plots)):
             self.road_path_plots[i].set_data([], [])
-        self.closest_road.set_data([],[])
+        self.clear_closest_road_and_lane()
+
+
     def clear_closest_road_and_lane(self):
         """Clear the closest road and lane plots"""
         self.closest_road.set_data([], [])
@@ -251,7 +288,17 @@ class GlobalHDMapPlot(GlobalPlot):
         self.lane_id_text.set_text("")
         self.lane_pred_id_text.set_text("")
         self.lane_succ_id_text.set_text("")
+        
+        for pr in self.closest_road_preds:
+            pr.set_data([],[])
+        for sr in self.closest_road_succs:
+            sr.set_data([],[])
+        for pl in self.closest_lane_preds:
+            pl.set_data([],[])
+        for sl in self.closest_lane_succs:
+            sl.set_data([],[])
         self.fig.canvas.draw()
+
     def clear_goal(self):
         """Clear the goal plot"""
         self.goal.set_data([], [])
@@ -262,7 +309,7 @@ class GlobalHDMapPlot(GlobalPlot):
         """Implement the abstract method from GlobalPlot"""
         
         if not hasattr(exec.global_planner, "hdmap"):
-            log.error("HDMap not found in the global planner.")
+            log.warning("HDMap not found in the global planner.")
             return
 
         global_planner = exec.global_planner

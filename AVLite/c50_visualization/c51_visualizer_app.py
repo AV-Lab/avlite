@@ -67,6 +67,7 @@ class VisualizerApp(tk.Tk):
         
         
 
+        log.info("Reloading stack to ensure configuration is applied.")
         self.reload_stack()
         # Bind to window resize to maintain ratio
         self.toggle_shortcut_mode()
