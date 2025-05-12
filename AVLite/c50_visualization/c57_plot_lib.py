@@ -1,11 +1,12 @@
 from networkx.classes import neighbors
-from c10_perception.c12_perception_strategy import PerceptionModel
 from c10_perception.c11_perception_model import EgoState
+from c10_perception.c12_perception_strategy import PerceptionModel
+from c10_perception.c18_hdmap import HDMap
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c20_planning.c27_lattice import Edge
 from c20_planning.c28_trajectory import Trajectory
 from c40_execution.c42_sync_executer import SyncExecuter
-from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner, HDMap
+from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
 
 
 from typing import cast
@@ -177,42 +178,66 @@ class GlobalRacePlot(GlobalPlot):
 class GlobalHDMapPlot(GlobalPlot):
     def __init__(self, figsize=(10, 10), MAX_ROAD_PATH=20, MAX_SUCCS=10, MAX_PREDS=10):
         super().__init__(figsize, name="HD Map Road Network")
+        
+        # Gruvbox colors
+        orange = "#d65d0e"
+        light_orange = "#fe8019"
+        light_aqua = "#8ec07c"
+        aqua = "#689d6a"
+        blue = "#076678"
+        yellow = "yellow"
+        red = 'red'
+        purple='#b16286'
+        txt_bg = '#1d2021'
 
-        self.closest_lane, *_ = self.ax.plot([], [], 'o-', color='yellow',  alpha=.2, label="Closest Lane", zorder=3)
-        self.closest_road, *_ = self.ax.plot([], [], 'o-', color='red', alpha=.1,  label="Closest Road", zorder=3)
+        self.yellow = yellow; self.red = red; self.blue = blue
+
+        self.closest_lane, *_ = self.ax.plot([], [], 'o-', color=yellow,  alpha=.2, label="Closest Lane", zorder=3)
+        self.closest_road, *_ = self.ax.plot([], [], 'o-', color=red, alpha=.1,  label="Closest Road", zorder=3)
         self.closest_road_preds = []
         self.closest_road_succs = []
         for i in range(MAX_PREDS):
-            p, *_ = self.ax.plot([], [], 'o-', color='#d65d0e',  alpha=.1, label="Closest Road Pred", zorder=3)
+            p, *_ = self.ax.plot([], [], 'o-', color=orange,  alpha=.1, label="Closest Road Pred", zorder=3)
             self.closest_road_preds.append(p)
         for i in range(MAX_SUCCS):
-            s, *_ = self.ax.plot([], [], 'o-', color='#83a598', alpha=.1, label="Closest Road Succ", zorder=3)
+            s, *_ = self.ax.plot([], [], 'o-', color=aqua, alpha=.1, label="Closest Road Succ", zorder=3)
             self.closest_road_succs.append(s)
 
         self.closest_lane_preds = []
-        self.closest_lane_succs = []
+        self.closest_lane_neighbors = []
         for i in range(MAX_PREDS):
-            p, *_ = self.ax.plot([], [], 'o-', color='#d65d0e',  alpha=.1, label="Closest Lane Pred", zorder=3)
+            p, *_ = self.ax.plot([], [], 'o-', color=light_orange,  alpha=.1, label="Closest Lane Pred", zorder=3)
             self.closest_lane_preds.append(p)
         for i in range(MAX_SUCCS):
-            s, *_ = self.ax.plot([], [], 'o-', color='#83a598',  alpha=.1, label="Closest Lane Pred", zorder=3)
-            self.closest_lane_succs.append(s)
+            s, *_ = self.ax.plot([], [], 'o-', color=light_aqua,  alpha=.1, label="Closest Lane Pred", zorder=3)
+            self.closest_lane_neighbors.append(s)
 
-        self.road_id_text = self.ax.text(0, 0, '', fontsize=12, color='red', zorder=4, ha='center', va='center')
-        self.road_succ_id_text = self.ax.text(0, 0, '', fontsize=10, color='#83a598', alpha=0.8, zorder=4, ha='center', va='center')
-        self.road_pred_id_text = self.ax.text(0, 0, '', fontsize=10, color='#d65d0e', alpha=0.8, zorder=4, ha='center', va='center')
-        self.lane_id_text = self.ax.text(0, 0, '', fontsize=12, color='#8ec07c', zorder=4, ha='center', va='center')
-        self.junct_id_text = self.ax.text(0, 0, '', fontsize=10, color='#fb4934', alpha=0.8, zorder=4, ha='center', va='center')
+        #################
+        # Texts
+        self.road_id_text = self.ax.text(0, 0, '', fontsize=12, color=red, zorder=4, ha='center', va='center',
+                                              bbox=dict(facecolor=txt_bg, alpha=0.4, pad=1, edgecolor='none', boxstyle='round, pad=0.1'))
+        self.road_succ_id_text = self.ax.text(0, 0, '', fontsize=10, color=aqua, alpha=0.8, zorder=4, ha='center', va='center')
+        self.road_pred_id_text = self.ax.text(0, 0, '', fontsize=10, color=orange, alpha=0.8, zorder=4, ha='center', va='center')
+        self.lane_id_text = self.ax.text(0, 0, '', fontsize=12, color=yellow, zorder=4, ha='center', va='center',
+                                              bbox=dict(facecolor=txt_bg, alpha=0.4, pad=1, edgecolor='none', boxstyle='round, pad=0.1'))
+        self.junct_id_text = self.ax.text(0, 0, '', fontsize=10, color=red, alpha=0.8, zorder=4, ha='center', va='center')
         
-        self.lane_succ_id_text = self.ax.text(0, 0, '', fontsize=8, color='#8ec07c', alpha=0.8, zorder=4, ha='center', va='center')
-        self.lane_pred_id_text = self.ax.text(0, 0, '', fontsize=8, color='#8ec07c', alpha=0.8, zorder=4, ha='center', va='center')
+        self.lane_succ_id_text = self.ax.text(0, 0, '', fontsize=8, color=light_aqua, alpha=0.8, zorder=4, ha='center', va='center',
+                                              bbox=dict(facecolor=txt_bg, alpha=0.4, pad=1, edgecolor='none', boxstyle='round, pad=0.1'))
+        self.lane_pred_id_text = self.ax.text(0, 0, '', fontsize=8, color=orange, alpha=0.8, zorder=4, ha='center', va='center',
+                                              bbox=dict(facecolor=txt_bg, alpha=0.4, pad=1, edgecolor='none', boxstyle='round, pad=0.1'))
+        #################
 
         self.__tmp_road, *_ = self.ax.plot([], [], 'o-', color='blue', markersize=5, alpha=.1, label="Closest Road", zorder=3)
 
         self.road_path_plots = []
         for i in range(MAX_ROAD_PATH):
-           pl , *_ = self.ax.plot([], [], 'r-', linewidth=2, alpha=0.5, label="Road Path", zorder=3)
+           pl , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
            self.road_path_plots.append(pl)
+
+
+        self.road_arrow = None # for the road direction arrow
+        self.lane_arrow = None # for the lane direction arrow
         
 
     def show_closest_road_and_lane(self,  x:int, y:int, map:HDMap):
@@ -221,9 +246,19 @@ class GlobalHDMapPlot(GlobalPlot):
 
         if l is not None:
             # log.debug(f"Lane ID: {l.id}, Road: {l.road_id} Lane Type: {l.type}")
-            log.debug(f"Lane ID: {l.id}, Reversed: {map.lane_reversed(l)}")
             self.clear_closest_road_and_lane()
             self.closest_lane.set_data(l.center_line[0], l.center_line[1])
+            line_xs = l.center_line[0]
+            line_ys = l.center_line[1]
+            if int(l.id) < 0: 
+                lx1, lx2 = line_xs[-2], line_xs[-1]
+                ly1, ly2 = line_ys[-2], line_ys[-1]
+            else:
+                lx1, lx2 = line_xs[1], line_xs[0]
+                ly1, ly2 = line_ys[1], line_ys[0]
+            self.lane_arrow = self.ax.annotate('', xy=(lx2, ly2), xytext=(lx1, ly1), arrowprops=dict(arrowstyle='->',
+                                                     mutation_scale=20, color=self.yellow, lw=2), zorder=5)
+            # log.debug(f"lane p1: ({lx1}, {ly1}), p2: ({lx2}, {ly2})")
             center_idx = int(len(l.center_line[0]) / 2.5)
             self.lane_id_text.set_position((l.center_line[0][center_idx], l.center_line[1][center_idx]-5))
             self.lane_id_text.set_text(f"{l.id}")
@@ -232,31 +267,36 @@ class GlobalHDMapPlot(GlobalPlot):
 
             self.lane_succ_id_text.set_position((l.center_line[0][-1], l.center_line[1][-1]-5))
             self.lane_succ_id_text.set_text(f"S: {l.succ_id}")
-            for i,s in enumerate(l.successors):
-                self.closest_lane_succs[i].set_data(s.center_line[0], s.center_line[1])
-            for i,p in enumerate(l.predecessors):
-                self.closest_lane_preds[i].set_data(p.center_line[0], p.center_line[1])
+            for i,s in enumerate(l.neighbors):
+                self.closest_lane_neighbors[i].set_data(s.center_line[0], s.center_line[1])
 
             if l.type == "driving":
                 # neighbors = map.lane_network.neighbors(l.uid)
-                nx_succ = map.lane_network.successors(l.uid)
-                nx_preds = map.lane_network.predecessors(l.uid)
-                log.debug(f"NX Lane preds: {[p for p in nx_preds]}, succs: {[s for s in nx_succ]}")
-                log.debug(f"   Lane preds: {[p.uid for p in l.predecessors]}, succs: {[s.uid for s in l.successors]}")
+                # nx_succ = map.lane_network.successors(l.uid)
+                # nx_preds = map.lane_network.predecessors(l.uid)
+                # log.debug(f"NX Lane preds: {[p for p in nx_preds]}, succs: {[s for s in nx_succ]}")
+                log.debug(f" neighbors: {[n.uid for n in l.neighbors]}")
+                for n in l.neighbors:
+                    log.debug(f" can go to {n.uid}: {map.can_laneA_access_laneB(l,n)}")
 
 
-            r:HDMap.Road|None = map.road_ids.get(l.road_id)
+            r:HDMap.Road|None = map.road_by_id.get(l.road_id)
             if r is not None:
                 self.closest_road.set_data(r.center_line[0], r.center_line[1])
+                x1, x2 = r.center_line[0][-2], r.center_line[0][-1]
+                y1, y2 = r.center_line[1][-2], r.center_line[1][-1]
+                self.road_arrow = self.ax.annotate('', xy=(x2, y2), xytext=(x1, y1), arrowprops=dict(arrowstyle='->',
+                                                     mutation_scale=20, color=self.red, lw=2), zorder=5)
+
                 center_idx = int(len(r.center_line[0]) / 2)
                 self.road_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]))
                 self.road_id_text.set_text(r.id)
                 self.junct_id_text.set_position((r.center_line[0][center_idx], r.center_line[1][center_idx]-5))
                 self.junct_id_text.set_text(f"{r.junction_id}+") if r.junction_id != "-1" else self.junct_id_text.set_text("")
-                self.road_pred_id_text.set_position((r.center_line[0][0], r.center_line[1][0]))
+                self.road_pred_id_text.set_position((r.center_line[0][0]-3, r.center_line[1][0]))
                 p_txt = f"P: {r.pred_id}" if r.pred_type == "road" else f"P: {r.pred_id}+"
                 self.road_pred_id_text.set_text(p_txt)
-                self.road_succ_id_text.set_position((r.center_line[0][-1], r.center_line[1][-1]))
+                self.road_succ_id_text.set_position((r.center_line[0][-1]+3, r.center_line[1][-1]))
                 s_txt = f"S: {r.succ_id}" if r.succ_type == "road" else f"S: {r.succ_id}+"
                 self.road_succ_id_text.set_text(s_txt)
                 for i,s in enumerate(r.successors):
@@ -274,9 +314,17 @@ class GlobalHDMapPlot(GlobalPlot):
         """Plot the road path"""
         log.debug("Plotting Road Path: length = %d", len(road_path))
         self.clear_road_path_plots()
-        for i,r in enumerate(road_path):
-            self.road_path_plots[i].set_data(r.center_line[0], r.center_line[1])
-                
+        try:
+            for i,r in enumerate(road_path):
+                self.road_path_plots[i].set_data(r.center_line[0], r.center_line[1])
+        except IndexError:
+            log.warning(f"Road path length exceeds the maximum number of road path plots. {len(road_path)} > {len(self.road_path_plots)}")
+            log.debug(f"adding {len(road_path)-len(self.road_path_plots)} more road path plots")
+            for i in range(len(self.road_path_plots), len(road_path)):
+                pl , *_ = self.ax.plot([], [], 'o-', color=self.blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
+                self.road_path_plots.append(pl)
+                self.road_path_plots[i].set_data(road_path[i].center_line[0], road_path[i].center_line[1])
+
         self.fig.canvas.draw()
 
     def clear_road_path_plots(self):
@@ -304,8 +352,16 @@ class GlobalHDMapPlot(GlobalPlot):
             sr.set_data([],[])
         for pl in self.closest_lane_preds:
             pl.set_data([],[])
-        for sl in self.closest_lane_succs:
+        for sl in self.closest_lane_neighbors:
             sl.set_data([],[])
+
+        if self.road_arrow is not None:
+            self.road_arrow.remove()
+            self.road_arrow = None
+        if self.lane_arrow is not None:
+            self.lane_arrow.remove()
+            self.lane_arrow = None
+
         self.fig.canvas.draw()
 
     def clear_goal(self):
