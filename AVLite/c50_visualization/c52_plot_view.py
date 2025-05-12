@@ -112,7 +112,7 @@ class GlobalPlanPlotView(ttk.Frame):
                             self.current_highlighted_road_id = r.id
             else:
                 self.root.setting.perception_status_text.set("Click on the plot.")
-                self.global_plot.clear_closest_road_and_lane()
+                self.global_plot.clear_tmp_plots()
         except Exception as e:
             log.error(f"Error in mouse move event: {e}", exc_info=True)
 

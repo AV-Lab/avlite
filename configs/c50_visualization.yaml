@@ -28,7 +28,7 @@ show_legend: false
 show_local_lattice: true
 show_local_plan: true
 show_past_locations: true
-show_perceive_logs: false
+show_perceive_logs: true
 show_plan_logs: true
 show_state: true
 show_tools_logs: true
