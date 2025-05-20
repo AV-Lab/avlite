@@ -1,3 +1,4 @@
+from os import wait
 import xml.etree.ElementTree as ET
 from scipy.spatial import KDTree
 import numpy as np
@@ -69,18 +70,17 @@ class HDMap:
     road_network: nx.DiGraph = field(default_factory=nx.DiGraph)
     lane_network: nx.DiGraph = field(default_factory=nx.DiGraph)
 
-    __point_to_road: dict[tuple[int, int], Road] = field(default_factory=dict)
-    __point_to_drivable_lane: dict[tuple[int, int], Lane] = field(default_factory=dict)
-    __road_kdtree: Optional[KDTree] = None
-    __lane_kdtree_drivable: Optional[KDTree] = None
-
-    __all_road_points: list[tuple[float, float]] = field(default_factory=list)
-    __all_drivable_lane_points: list[tuple[float, float]] = field(default_factory=list)
 
     def __post_init__(self):
         if self.xodr_file_name == "":
             log.error("No OpenDRIVE file specified.")
             return
+        self.__point_to_road: dict[tuple[int, int], Road] = {}
+        self.__point_to_drivable_lane: dict[tuple[int, int], Lane] = {}
+        self.__road_kdtree: Optional[KDTree] = None
+        self.__lane_kdtree_drivable: Optional[KDTree] = None
+        self.__all_road_points: list[tuple[float, float]] = []
+        self.__all_drivable_lane_points: list[tuple[float, float]] = []
         
         self.root = self.parse_HDMap()
         self.__road_kdtree = KDTree(self.__all_road_points)
@@ -543,6 +543,7 @@ class HDMap:
 
     def find_nearest_road(self, x:float, y:float) -> Road|None:
         """Find the nearest road to the given coordinates"""
+        
         if self.__road_kdtree is not None:
             _, index = self.__road_kdtree.query((x, y))
             if index >= 0 and index < len(self.__all_road_points):
@@ -556,6 +557,7 @@ class HDMap:
     
     def find_nearest_lane(self, x:float, y:float) -> Lane|None:
         """Find lane closest to position"""
+
         if self.__lane_kdtree_drivable is not None:
             _, index = self.__lane_kdtree_drivable.query((x, y))
             if 0 <= index < len(self.__all_drivable_lane_points):
@@ -580,6 +582,7 @@ class HDMap:
                 if lane_type == "driving":
                     return True
         return False
+
     def  road_is_bidirectional(self, road: Road) -> bool:
         """
         Check if a road element is bidirectional.

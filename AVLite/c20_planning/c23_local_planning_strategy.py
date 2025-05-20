@@ -26,6 +26,7 @@ class LocalPlannerStrategy(ABC):
     location_xy: tuple[float, float]
     location_sd: tuple[float, float]
     lattice: Lattice
+
     selected_local_plan: Optional[Edge]
     planning_horizon: int
     num_of_edge_points: int

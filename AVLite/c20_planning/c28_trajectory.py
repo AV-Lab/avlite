@@ -24,8 +24,8 @@ class Trajectory:
     name: str = "Global Trajectory"
     is_initialized:bool = False
     
-
-    poly_d:Optional[Polynomial] = None # for sub trajectory (used by local planner)
+    # for sub trajectory (used by local planner)
+    poly_d: Optional[Polynomial] = None 
     poly_x: Optional[Polynomial] = None
     poly_y: Optional[Polynomial] = None
     parent_trajectory: Optional["Trajectory"] = None
@@ -55,6 +55,13 @@ class Trajectory:
 
         # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
+    
+    def __precompute_cumulative_distances(self):
+        reference_path = np.array(self.__reference_path)
+        cumulative_distances = [0]
+        for i in range(1, len(reference_path)):
+            cumulative_distances.append(cumulative_distances[i - 1] + np.linalg.norm(reference_path[i] - reference_path[i - 1]))
+        return cumulative_distances
 
 
     
@@ -99,20 +106,6 @@ class Trajectory:
     def update_waypoint_by_xy(self, x_current: float, y_current: float) -> None:
         """
         Updates the current and next waypoints based on the current x and y coordinates.
-
-        This method calculates the differences between the current position (x_current, y_current)
-        and all points in the reference path, and identifies the closest waypoint. It then updates
-        the current and next waypoints accordingly.
-
-        Parameters:
-        x_current (float): The current x-coordinate.
-        y_current (float): The current y-coordinate.
-
-        Returns:
-        None
-
-        Note:
-        This method modifies the instance variables `self.current_wp` and `self.next_wp`.
         """
         # not efficient
         diffs = self.__reference_path - np.array((x_current, y_current))
@@ -603,12 +596,6 @@ class Trajectory:
 
         return x_values, y_values
 
-    def __precompute_cumulative_distances(self):
-        reference_path = np.array(self.__reference_path)
-        cumulative_distances = [0]
-        for i in range(1, len(reference_path)):
-            cumulative_distances.append(cumulative_distances[i - 1] + np.linalg.norm(reference_path[i] - reference_path[i - 1]))
-        return cumulative_distances
 
     # TODO: this inefficient! need to look into a window only not the whole track
     def get_closest_waypoint_frm_xy(self, x, y):

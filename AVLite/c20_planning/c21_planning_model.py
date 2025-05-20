@@ -18,9 +18,11 @@ class GlobalPlan:
     left_boundary_path: list[tuple[float, float]] = field(default_factory=list)
     right_boundary_path: list[tuple[float, float]] = field(default_factory=list)
 
-    # these are used for HDmap planning
-    road_path: Optional[list['HDMap.Road']] = None
-    lane_path: Optional[list['HDMap.Lane']] = None
+
+@dataclass
+class GlobalHDPlan:
+    start_point: tuple[float, float] = (0.0, 0.0)
+    goal_point: tuple[float, float] = (0.0, 0.0)
 
 
 #TODO still

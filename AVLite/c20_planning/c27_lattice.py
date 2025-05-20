@@ -3,10 +3,9 @@ from c20_planning.c28_trajectory import Trajectory
 from c10_perception.c11_perception_model import State
 from typing import Dict
 from dataclasses import dataclass, field
-from typing import Iterator, Optional
+from typing import Optional
 import logging
 
-import math
 import numpy as np
 from collections import defaultdict
 
@@ -26,24 +25,8 @@ class Node:
     d_1st_derv: float = 0
     d_2nd_derv: float = 0
 
-    def __eq__(self, other):
-        tol = 1e-9
-        return (
-            math.isclose(self.s, other.s, abs_tol=tol)
-            and math.isclose(self.d, other.d, abs_tol=tol)
-            and math.isclose(self.x, other.x, abs_tol=tol)
-            and math.isclose(self.y, other.y, abs_tol=tol)
-            and math.isclose(self.x_1st_derv, other.x_1st_derv, abs_tol=tol)
-            and math.isclose(self.y_1st_derv, other.y_1st_derv, abs_tol=tol)
-            and math.isclose(self.x_2nd_derv, other.x_2nd_derv, abs_tol=tol)
-            and math.isclose(self.y_2nd_derv, other.y_2nd_derv, abs_tol=tol)
-            and math.isclose(self.d_1st_derv, other.d_1st_derv, abs_tol=tol)
-            and math.isclose(self.d_2nd_derv, other.d_2nd_derv, abs_tol=tol)
-        )
-
     def __hash__(self):
         return hash((self.s, self.d, self.x, self.y, self.x_1st_derv, self.y_1st_derv, self.x_2nd_derv, self.y_2nd_derv, self.d_1st_derv, self.d_2nd_derv,))
-
 @dataclass
 class Edge:
     start: Node
