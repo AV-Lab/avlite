@@ -1,4 +1,4 @@
-from networkx.classes import neighbors
+from AVLite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c10_perception.c11_perception_model import EgoState
 from c10_perception.c12_perception_strategy import PerceptionModel
 from c10_perception.c18_hdmap import HDMap
@@ -14,7 +14,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
-import networkx as nx
 
 import logging
 
@@ -52,7 +51,7 @@ class GlobalPlot(ABC):
 
     def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
         if not self.map_plotted:
-            self.plot_map(exec)
+            self.plot_map(exec.global_planner)
 
         self.plot_vehicle(exec.ego_state) 
         self.adjust_zoom(zoom, aspect_ratio)
@@ -163,18 +162,18 @@ class GlobalRacePlot(GlobalPlot):
         self.vehicle_location.set_color("red")
         
         
-    def plot_map(self, exec: SyncExecuter):
+    def plot_map(self, global_planner: GlobalPlannerStrategy):
         """Update the plot with current data"""
 
         log.debug("Plotting Race Global Plot")
-        self.left_boundary.set_data(exec.local_planner.ref_left_boundary_x, exec.local_planner.ref_left_boundary_y)
-        self.right_boundary.set_data(exec.local_planner.ref_right_boundary_x, exec.local_planner.ref_right_boundary_y)
-        self.reference_trajectory.set_data(exec.local_planner.global_trajectory.path_x, exec.local_planner.global_trajectory.path_y)
+        self.left_boundary.set_data(global_planner.global_plan.left_boundary_x, global_planner.global_plan.left_boundary_y)
+        self.right_boundary.set_data(global_planner.global_plan.right_boundary_x, global_planner.global_plan.right_boundary_y)
+        self.reference_trajectory.set_data(global_planner.global_plan.trajectory.path_x, global_planner.global_plan.trajectory.path_y)
         
-        self.map_min_x = min(exec.local_planner.ref_left_boundary_x)
-        self.map_max_x = max(exec.local_planner.ref_right_boundary_x)
-        self.map_min_y = min(exec.local_planner.ref_left_boundary_y)
-        self.map_max_y = max(exec.local_planner.ref_right_boundary_y)
+        self.map_min_x = min(global_planner.global_plan.left_boundary_x)
+        self.map_max_x = max(global_planner.global_plan.right_boundary_x)
+        self.map_min_y = min(global_planner.global_plan.left_boundary_y)
+        self.map_max_y = max(global_planner.global_plan.right_boundary_y)
         self.map_plotted = True
             
 
@@ -234,10 +233,10 @@ class GlobalHDMapPlot(GlobalPlot):
 
         self.__tmp_road, *_ = self.ax.plot([], [], 'o-', color='blue', markersize=5, alpha=.1, label="Closest Road", zorder=3)
 
-        self.road_path_plots = []
+        self.lane_path_plots = []
         for i in range(MAX_ROAD_PATH):
            pl , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
-           self.road_path_plots.append(pl)
+           self.lane_path_plots.append(pl)
 
 
         self.road_arrow = None # for the road direction arrow
@@ -274,10 +273,10 @@ class GlobalHDMapPlot(GlobalPlot):
             for i,s in enumerate(l.neighbors):
                 self.closest_lane_neighbors[i].set_data(s.center_line[0], s.center_line[1])
 
-            if l.type == "driving":
-                log.debug(f"Neighbors({l.uid}): {[n.uid for n in l.neighbors]}")
-                for n in l.neighbors:
-                    log.debug(f" Can I go to {n.uid}? {map.can_laneA_access_laneB(l,n)}")
+            # if l.type == "driving":
+            #     log.debug(f"Neighbors({l.uid}): {[n.uid for n in l.neighbors]}")
+            #     for n in l.neighbors:
+            #         log.debug(f" Can I go to {n.uid}? {map.can_laneA_access_laneB(l,n)}")
 
 
             r:HDMap.Road|None = map.road_by_id.get(l.road_id)
@@ -310,27 +309,27 @@ class GlobalHDMapPlot(GlobalPlot):
         
         self.fig.canvas.draw()
 
-    def plot_road_path(self, road_path: list[HDMap.Road]):
+    def plot_lane_path(self, lane_path: list[HDMap.Lane]):
         """Plot the road path"""
-        log.debug("Plotting Road Path: length = %d", len(road_path))
+        log.debug("Plotting Road Path: length = %d", len(lane_path))
         self.clear_road_path_plots()
         try:
-            for i,r in enumerate(road_path):
-                self.road_path_plots[i].set_data(r.center_line[0], r.center_line[1])
+            for i,r in enumerate(lane_path):
+                self.lane_path_plots[i].set_data(r.center_line[0], r.center_line[1])
         except IndexError:
-            log.warning(f"Road path length exceeds the maximum number of road path plots. {len(road_path)} > {len(self.road_path_plots)}")
-            log.debug(f"adding {len(road_path)-len(self.road_path_plots)} more road path plots")
-            for i in range(len(self.road_path_plots), len(road_path)):
+            log.warning(f"Road path length exceeds the maximum number of road path plots. {len(lane_path)} > {len(self.lane_path_plots)}")
+            log.debug(f"adding {len(lane_path)-len(self.lane_path_plots)} more road path plots")
+            for i in range(len(self.lane_path_plots), len(lane_path)):
                 pl , *_ = self.ax.plot([], [], 'o-', color=self.blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
-                self.road_path_plots.append(pl)
-                self.road_path_plots[i].set_data(road_path[i].center_line[0], road_path[i].center_line[1])
+                self.lane_path_plots.append(pl)
+                self.lane_path_plots[i].set_data(lane_path[i].center_line[0], lane_path[i].center_line[1])
 
         self.fig.canvas.draw()
 
     def clear_road_path_plots(self):
         """Clear the road path plots"""
-        for i in range(len(self.road_path_plots)):
-            self.road_path_plots[i].set_data([], [])
+        for i in range(len(self.lane_path_plots)):
+            self.lane_path_plots[i].set_data([], [])
         self.__clear_closest_road_and_lane()
 
     
@@ -373,25 +372,24 @@ class GlobalHDMapPlot(GlobalPlot):
         self.goal_text.set_text("")
         self.fig.canvas.draw()
         
-    def plot_map(self, exec:SyncExecuter, show_road_points=False, show_lane_points=False):
+    def plot_map(self, global_planner:GlobalPlannerStrategy, show_road_points=False, show_lane_points=False):
         """Implement the abstract method from GlobalPlot"""
         
-        if not hasattr(exec.global_planner, "hdmap"):
+        if not hasattr(global_planner, "hdmap"):
             log.warning("HDMap not found in the global planner.")
             return
 
-        global_planner = exec.global_planner
         global_planner = cast(HDMapGlobalPlanner,global_planner)
         hdmap = global_planner.hdmap
 
         #TODO: remove this later if not needed
         if show_road_points:
-            map = exec.global_planner.hdmap
+            map = global_planner.hdmap
             p = np.array(list(map.point_to_road.keys())).T
             log.debug(f"road points length {len(p)}")
             self.ax.scatter(p[0], p[1], color='blue', s=10, alpha=0.5)
         if show_lane_points:
-            map = exec.global_planner.hdmap
+            map = global_planner.hdmap
             p = np.array(list(map.point_to_lane.keys())).T
             log.debug(f"lane points length {len(p)}")
             self.ax.scatter(p[0], p[1], color='blue', s=10, alpha=0.5)
@@ -605,10 +603,10 @@ class LocalPlot:
             self.toggle_plot = False
 
         if not self.initialized:
-            self.left_boundry_x1.set_data(pl.ref_left_boundary_x, pl.ref_left_boundary_y)
-            self.right_boundry_x1.set_data(pl.ref_right_boundary_x, pl.ref_right_boundary_y)
-            self.left_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_left_boundary_d])
-            self.right_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.ref_right_boundary_d])
+            self.left_boundry_x1.set_data(pl.global_plan.left_boundary_x, pl.global_plan.left_boundary_y)
+            self.right_boundry_x1.set_data(pl.global_plan.right_boundary_x, pl.global_plan.right_boundary_y)
+            self.left_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_plan.left_boundary_d])
+            self.right_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_plan.right_boundary_d])
             self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
             self.reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d])
             self.initialized = True

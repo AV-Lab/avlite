@@ -18,18 +18,15 @@ log = logging.getLogger(__name__)
 class AsyncThreadedExecuter(SyncExecuter):
     def __init__(
         self,
-        pm: PerceptionModel,
-        glob_pl: GlobalPlannerStrategy,
-        pl: LocalPlannerStrategy,
-        cn: ControlStrategy,
+        perception_model: PerceptionModel,
+        global_planner: GlobalPlannerStrategy,
+        local_planner: LocalPlannerStrategy,
+        controller: ControlStrategy,
         world: WorldInterface,
-        call_replan=True,
-        call_control=True,
-        call_perceive=False,
         replan_dt=0.5,
         control_dt=0.05,
     ):
-        super().__init__(pm, glob_pl, pl, cn, world, replan_dt=replan_dt, control_dt=control_dt)
+        super().__init__(perception_model, global_planner, local_planner, controller, world, replan_dt=replan_dt, control_dt=control_dt)
 
         # Thread-specific attributes - no need for shared Values
         self.__planner_last_step_time = time.time()
@@ -43,9 +40,9 @@ class AsyncThreadedExecuter(SyncExecuter):
         self.lock_controller = threading.Lock()
         self.lock_world = threading.Lock()
 
-        self.call_replan = call_replan
-        self.call_control = call_control
-        self.call_perceive = call_perceive
+        self.call_replan = True
+        self.call_control = True
+        self.call_perceive = True
 
         self.__log_queue = Queue()
         self.__queue_listener = QueueListener(self.__log_queue, logging.getLogger().handlers[0])

@@ -1,7 +1,9 @@
+from ast import Global
 import logging
 import time
 from typing import Optional, Union
 
+from AVLite.c20_planning.c21_planning_model import GlobalPlan
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
@@ -15,18 +17,21 @@ class SyncExecuter:
     def __init__(
         self,
         pm: PerceptionModel,
-        glob_pl: GlobalPlannerStrategy,
-        pl: LocalPlannerStrategy,
-        cn: ControlStrategy,
+        global_planner: GlobalPlannerStrategy,
+        local_planner: LocalPlannerStrategy,
+        controller: ControlStrategy,
         world: WorldInterface,
         replan_dt=0.5,
         control_dt=0.01,
     ):
+        """
+        Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
+        """
         self.pm: PerceptionModel = pm
         self.ego_state: EgoState = pm.ego_vehicle
-        self.global_planner: GlobalPlannerStrategy = glob_pl
-        self.local_planner: LocalPlannerStrategy = pl
-        self.controller: ControlStrategy = cn
+        self.global_planner: GlobalPlannerStrategy = global_planner
+        self.local_planner: LocalPlannerStrategy = local_planner
+        self.controller: ControlStrategy = controller
         self.world: WorldInterface = world
         self.planner_fps: float = 0.0
         self.control_fps: float = 0.0

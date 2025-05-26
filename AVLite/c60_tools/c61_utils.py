@@ -17,37 +17,25 @@ log = logging.getLogger(__name__)
 class Config:
     pass
 
-def load_config(config_path, source_run=True):
+def load_config(config_path):
     if os.path.isabs(config_path):
         raise ValueError("config_path should be relative to the project directory")
 
-    # pkg_config = pkg_resources.resource_filename("AVLite", "config.yaml")
-    if source_run:
-        current_file_name = os.path.realpath(__file__) if sys.argv[0] == "" else sys.argv[0]
-    else:
-        current_file_name = pkg_config if sys.argv[0] == "" else sys.argv[0]
-
-    log.info(f"current_file_name: {current_file_name}")
-    if source_run:
-        project_dir = Path(current_file_name).parent.parent
-    else:
-        project_dir = Path(current_file_name).parent.parent / "share/AVLite"
-
-    config_file = project_dir / config_path
+    config_file = get_absolute_path(config_path)
 
     with open(config_file, "r") as f:
         config_data = yaml.safe_load(f)
-        path_to_track = project_dir / config_data["global_trajectory"]
 
-    # loading race trajectory data
-    with open(path_to_track, "r") as f:
-        track_data = json.load(f)
-        reference_path = [point[:2] for point in track_data["ReferenceLine"]]  # ignoring z
-        reference_velocity = track_data["ReferenceSpeed"]
-        ref_left_boundary_d = track_data["LeftBound"]
-        ref_right_boundary_d = track_data["RightBound"]
-    logging.info(f"Track data loaded from {path_to_track}")
-    return reference_path, reference_velocity, ref_left_boundary_d, ref_right_boundary_d, config_data
+    return config_data
+
+def get_absolute_path(relative_path: str) -> str:
+    """Convert a relative path to an absolute path based on the current file location."""
+    if os.path.isabs(relative_path):
+        return relative_path
+    current_file = os.path.realpath(__file__) if sys.argv[0] == "" else sys.argv[0]
+    project_dir = Path(current_file).parent.parent
+    return str(project_dir / relative_path)
+
 
 
 def reload_lib():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from c10_perception.c12_perception_strategy import PerceptionModel
+from c20_planning.c21_planning_model import GlobalPlan
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c20_planning.c27_lattice import Lattice
 import numpy as np
@@ -13,28 +14,10 @@ log = logging.getLogger(__name__)
 
 
 class RNDPlanner(LocalPlannerStrategy):
-    def __init__(
-        self,
-        global_path: list[tuple[float, float]],
-        global_velocity: list[float],
-        ref_left_boundary_d: list[float],
-        ref_right_boundary_d: list[float],
-        env: PerceptionModel,
-        num_of_edge_points=10,
-        planning_horizon=3,
-        maneuver_distance=35,
-        boundary_clearance=1,
-        sample_size=3, # number of nodes to sample in each level
+    def __init__( self, global_plan: GlobalPlan, env: PerceptionModel, num_of_edge_points=10, planning_horizon=3,
+        maneuver_distance=35, boundary_clearance=1, sample_size=3, # number of nodes to sample in each level
     ):
-        super().__init__(
-            global_path,
-            global_velocity, 
-            ref_left_boundary_d,
-            ref_right_boundary_d,
-            pm=env,
-            num_of_edge_points=num_of_edge_points,
-            planning_horizon=planning_horizon,
-        )
+        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=num_of_edge_points, planning_horizon=planning_horizon,)
         self.maneuver_distance: float = maneuver_distance
         self.boundary_clearance: int = boundary_clearance
         self.sample_size: int = sample_size

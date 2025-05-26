@@ -53,7 +53,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         # path = self.__plan_global_path(start_road.id, goal_road.id)
         # self.road_path = [self.hdmap.road_ids[road_id] for road_id in path]
         path = self.__plan_global_path(start_lane.uid, goal_lane.uid)
-        self.road_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path]
+        self.lane_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path]
 
 
 

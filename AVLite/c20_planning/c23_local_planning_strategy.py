@@ -2,68 +2,38 @@ from c10_perception.c12_perception_strategy import PerceptionModel
 from c10_perception.c11_perception_model import EgoState
 from c20_planning.c27_lattice import Edge, Lattice
 from typing import Optional
-from c20_planning.c28_trajectory import Trajectory
+from c20_planning.c28_trajectory import Trajectory, convert_sd_path_to_xy_path
+from c20_planning.c21_planning_model import GlobalPlan
 from abc import ABC, abstractmethod
-import copy
 
 import logging
 log = logging.getLogger(__name__)
 
 
 class LocalPlannerStrategy(ABC):
-    global_trajectory: Trajectory
-    ref_left_boundary_d: list[float]
-    ref_right_boundary_d: list[float]
-    ref_left_boundary_x: list[float]
-    ref_left_boundary_y: list[float]
-    ref_right_boundary_x: list[float]
-    ref_right_boundary_y: list[float]
 
-    traversed_x: list[float]
-    traversed_y: list[float]
-    traversed_d: list[float]
-    traversed_s: list[float]
-    location_xy: tuple[float, float]
-    location_sd: tuple[float, float]
-    lattice: Lattice
-
-    selected_local_plan: Optional[Edge]
-    planning_horizon: int
-    num_of_edge_points: int
-    __replan_dt:float=0 # used during execution
 
     registry = {}
-    def __init__(
-        self,
-        global_path: list[tuple[float, float]],
-        global_velocity: list[float],
-        ref_left_boundary_d: list[float],
-        ref_right_boundary_d: list[float],
-        pm: PerceptionModel,
-        planning_horizon=3,
-        num_of_edge_points=10,
-    ):
-        self.lap: int = 0 
-        
-        self.pm = pm
+    def __init__( self, global_plan: GlobalPlan, pm: PerceptionModel, planning_horizon=3, num_of_edge_points=10):
+        """Initialize the local planner with a global plan and perception model."""
+        self.global_plan: GlobalPlan = global_plan
+        self.pm: PerceptionModel = pm
+        self.global_trajectory: Trajectory = global_plan.trajectory
+        self.traversed_x: list[float]
+        self.traversed_y: list[float]
+        self.traversed_d: list[float]
+        self.traversed_s: list[float]
+        self.location_xy: tuple[float, float]
+        self.location_sd: tuple[float, float]
+        self.lattice: Lattice
 
-
-        self.global_trajectory = Trajectory()
-        self.global_trajectory.initialize_trajectory(global_path, global_velocity)
-
-        self.ref_left_boundary_d = ref_left_boundary_d
-        self.ref_right_boundary_d = ref_right_boundary_d
-
-        self.ref_left_boundary_x, self.ref_left_boundary_y = self.global_trajectory.convert_sd_path_to_xy_path(
-            self.global_trajectory.path_s, self.ref_left_boundary_d
-        )
-        self.ref_right_boundary_x, self.ref_right_boundary_y = self.global_trajectory.convert_sd_path_to_xy_path(
-            self.global_trajectory.path_s, self.ref_right_boundary_d
-        )
+        self.selected_local_plan: Optional[Edge]
+        self.planning_horizon: int
+        self.num_of_edge_points: int
 
         # these are localization data
-        self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[0]], [self.global_trajectory.path_y[0]]
-        self.traversed_d, self.traversed_s = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
+        self.traversed_x, self.traversed_y = [global_plan.start_point[0]], [global_plan.start_point[1]]
+        self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
         
@@ -71,14 +41,9 @@ class LocalPlannerStrategy(ABC):
         
         self.planning_horizon: int = planning_horizon
         self.num_of_edge_points: int = num_of_edge_points
-        self.lattice = Lattice(
-            self.global_trajectory,
-            self.ref_left_boundary_d,
-            self.ref_right_boundary_d,
-            planning_horizon=self.planning_horizon,
-            num_of_points=self.num_of_edge_points,
-        )
-
+        self.lattice: Lattice = Lattice( self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
+            planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
+        self.lap: int = 0 
 
 
     def reset(self, wp:int=0):
@@ -95,17 +60,11 @@ class LocalPlannerStrategy(ABC):
         pass
 
     def get_local_plan(self) -> Trajectory:
-        if self.selected_local_plan is not None:
-            # log.info(f"Selected Edge: ({self.selected_edge.start_s:.2f},{self.selected_edge.start_d:.2f}) -> ({self.selected_edge.end_s:.2f},{self.selected_edge.end_d:.2f})")
-            return self.selected_local_plan.local_trajectory
-        return self.global_trajectory
+        return self.selected_local_plan.local_trajectory if self.selected_local_plan is not None else self.global_trajectory
 
     def step_wp(self):
         """
         Advances the planner to the next waypoint and updates the traversed path.
-
-        Returns:
-            The current x and y coordinates after stepping to the next waypoint.
         """
         log.info(f"Step: {self.global_trajectory.current_wp}")
         # next edge selected, but not finished
@@ -158,7 +117,6 @@ class LocalPlannerStrategy(ABC):
         self.location_xy = (self.traversed_x[-1], self.traversed_y[-1])
         self.location_sd = (self.traversed_s[-1], self.traversed_d[-1])
 
-        return x_new, y_new
 
     def step(self, state: EgoState):
         """

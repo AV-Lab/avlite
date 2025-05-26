@@ -564,37 +564,6 @@ class Trajectory:
 
         return frenet_coords
 
-    def convert_sd_path_to_xy_path(self, s_values, d_values):
-        # return [self.getXY(s, d) for s, d in zip(s_values, d_values)]
-        x_values = []
-        y_values = []
-
-        for prev_wp in range(len(s_values) - 2):  # just reading s and d for next_wp of given trajectory
-            next_wp = prev_wp + 1
-            s = s_values[next_wp]
-            d = d_values[next_wp]
-            # Calculate the heading of the track at the previous waypoint
-            heading = math.atan2(
-                self.path_y[next_wp] - self.path_y[prev_wp],
-                self.path_x[next_wp] - self.path_x[prev_wp],
-            )
-
-            # Calculate the x and y coordinates on the reference path
-            if 0 <= prev_wp < len(self.path_x) and 0 <= self.path_s[prev_wp] <= s:
-                x = self.path_x[prev_wp] + (s - self.path_s[prev_wp]) * math.cos(heading)
-                y = self.path_y[prev_wp] + (s - self.path_s[prev_wp]) * math.sin(heading)
-
-            # Calculate the perpendicular heading
-            perp_heading = heading - math.pi / 2
-
-            # Calculate the final x and y coordinates
-            x_final = x - d * math.cos(perp_heading)  # negative seems make sense
-            y_final = y - d * math.sin(perp_heading)
-
-            x_values.append(x_final)
-            y_values.append(y_final)
-
-        return x_values, y_values
 
 
     # TODO: this inefficient! need to look into a window only not the whole track
@@ -614,3 +583,34 @@ class Trajectory:
     def __str__(self):
         return f"Trajectory: {self.name}"
 
+def convert_sd_path_to_xy_path(tj: Trajectory, s_values, d_values):
+    # return [tj.getXY(s, d) for s, d in zip(s_values, d_values)]
+    x_values = []
+    y_values = []
+
+    for prev_wp in range(len(s_values) - 2):  # just reading s and d for next_wp of given trajectory
+        next_wp = prev_wp + 1
+        s = s_values[next_wp]
+        d = d_values[next_wp]
+        # Calculate the heading of the track at the previous waypoint
+        heading = math.atan2(
+            tj.path_y[next_wp] - tj.path_y[prev_wp],
+            tj.path_x[next_wp] - tj.path_x[prev_wp],
+        )
+
+        # Calculate the x and y coordinates on the reference path
+        if 0 <= prev_wp < len(tj.path_x) and 0 <= tj.path_s[prev_wp] <= s:
+            x = tj.path_x[prev_wp] + (s - tj.path_s[prev_wp]) * math.cos(heading)
+            y = tj.path_y[prev_wp] + (s - tj.path_s[prev_wp]) * math.sin(heading)
+
+        # Calculate the perpendicular heading
+        perp_heading = heading - math.pi / 2
+
+        # Calculate the final x and y coordinates
+        x_final = x - d * math.cos(perp_heading)  # negative seems make sense
+        y_final = y - d * math.sin(perp_heading)
+
+        x_values.append(x_final)
+        y_values.append(y_final)
+
+    return x_values, y_values

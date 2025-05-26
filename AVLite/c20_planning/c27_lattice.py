@@ -109,7 +109,7 @@ class Lattice:
             for node in self.lattice_nodes_by_level[l]:
                 for next_node in self.lattice_nodes_by_level[l + 1]:
                     assert node != next_node
-                    edge = Edge(start=node, end=next_node, global_tj = self.global_trajectory)
+                    edge = Edge(start=node, end=next_node, global_tj = self.global_trajectory, num_of_points=self.num_of_points)
                     if pm is not None:
                         edge.collision = not check_collision(pm, edge.local_trajectory)
                     self.edges.append(edge)
