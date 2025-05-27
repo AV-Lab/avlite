@@ -241,6 +241,7 @@ class PerceivePlanControlView(ttk.Frame):
 
     def align_control(self):
         self.root.exec.ego_state.x, self.root.exec.ego_state.y = self.root.exec.local_planner.location_xy
+        self.root.exec.controller.reset()
         self.root.update_ui()
 
     def step_steer_left(self):

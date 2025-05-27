@@ -132,7 +132,11 @@ class GlobalPlanPlotView(ttk.Frame):
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                         self.global_plot.plot_global_plan(self.root.exec.global_planner.global_plan)
-                        # self.root.exec.local_planner.set_global_plan(self.root.exec.global_planner.global_plan)
+                        self.root.exec.local_planner.set_global_plan(self.root.exec.global_planner.global_plan)
+                        self.root.exec.controller.reset()
+                        self.root.local_plan_plot_view.reset()
+                        self.root.update_ui()
+                        self.root.exec.controller.reset()
 
                     self.start_point = None
                 else:
@@ -182,6 +186,10 @@ class LocalPlanPlotView(ttk.Frame):
         self._prev_scroll_time = None  # used to throttle the replot
         
         self.bind("<Configure>",lambda x: self.plot())
+
+    def reset(self):
+        self.local_plot.reset()
+
 
     def on_mouse_move(self, event):
         if event.inaxes:

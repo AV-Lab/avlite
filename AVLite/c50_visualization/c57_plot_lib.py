@@ -563,20 +563,14 @@ class LocalPlot:
                 center_xy[1] + xy_zoom / aspect_ratio / 2,
             )
         if frenet_zoom is not None:
-            self.ax2.set_xlim(
-                center_sd[0] - frenet_zoom / 2, center_sd[0] + 1.5 * frenet_zoom
-            )
+            self.ax2.set_xlim( center_sd[0] - frenet_zoom / 2, center_sd[0] + 1.5 * frenet_zoom)
             self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
 
         if plot_last_pts and num_plot_last_pts > 0:
-            self.last_locs_ax1.set_data(
-                exec.local_planner.traversed_x[-num_plot_last_pts:], exec.local_planner.traversed_y[-num_plot_last_pts:]
-            )
+            self.last_locs_ax1.set_data( exec.local_planner.traversed_x[-num_plot_last_pts:], exec.local_planner.traversed_y[-num_plot_last_pts:])
             self.planner_loc_ax1.set_data([exec.local_planner.location_xy[0]], [exec.local_planner.location_xy[1]])
 
-            self.last_locs_ax2.set_data(
-                exec.local_planner.traversed_s[-num_plot_last_pts:], exec.local_planner.traversed_d[-num_plot_last_pts:]
-            )
+            self.last_locs_ax2.set_data( exec.local_planner.traversed_s[-num_plot_last_pts:], exec.local_planner.traversed_d[-num_plot_last_pts:])
             self.planner_loc_ax2.set_data([exec.local_planner.location_sd[0]], [exec.local_planner.location_sd[1]])
         else:
             self.last_locs_ax1.set_data([], [])
@@ -793,3 +787,6 @@ class LocalPlot:
 
         log.debug(f"Plot theme set to {bg_color} background and {fg_color} foreground.")
         self.redraw_plots()
+
+    def reset(self):
+        self.initialized = False

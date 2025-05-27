@@ -1,3 +1,4 @@
+from os import wait
 import networkx as nx
 import numpy as np
 import logging
@@ -14,7 +15,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
     A global planner that uses OpenDRIVE HD maps for path planning.
     """
 
-    def __init__(self, xodr_file:str, sampling_resolution=0.5, velocity=30):
+    def __init__(self, xodr_file:str, sampling_resolution=0.5, velocity=2):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
@@ -71,32 +72,43 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         self.global_plan = GlobalPlan()
 
         # Populating global_plan path
-        # TODO: handle points that are added backwards
-        for i, uid in enumerate(path2):
-            lane = self.hdmap.lane_by_uid[uid]
-            # if i == 0:
-            #     log.debug(f"Start lane: {lane.uid}, point IDX: {s_idx}")
-            #     for point in self.__chop_path(lane, s_idx, start=True):
-            #         self.global_plan.path.append(point)
-            #         self.global_plan.left_boundary_d.append(lane.width/2)
-            #         self.global_plan.right_boundary_d.append(-lane.width/2)
-            #         self.global_plan.velocity.append(self.velocity)
-            # elif i == len(path2) - 1:
-            #     log.debug(f"Goal lane: {lane.uid}, point IDX: {g_idx}")
-            #     for point in self.__chop_path(lane, g_idx, start=False):
-            #         self.global_plan.path.append(point)
-            #         self.global_plan.left_boundary_d.append(lane.width/2)
-            #         self.global_plan.right_boundary_d.append(-lane.width/2)
-            #         self.global_plan.velocity.append(self.velocity)
-            # else:
-            for point in zip(lane.center_line[0], lane.center_line[1]):
+        if len(path2) == 1:
+            lane = self.hdmap.lane_by_uid[path2[0]]
+            chopped_path = chop_path_from_two_sides(lane.center_line.T, lane.id, s_idx, g_idx)
+            for point in chopped_path:
                 self.global_plan.path.append(point)
                 self.global_plan.left_boundary_d.append(lane.width/2)
                 self.global_plan.right_boundary_d.append(-lane.width/2)
                 self.global_plan.velocity.append(self.velocity)
+        else:
+            for i, uid in enumerate(path2):
+                lane = self.hdmap.lane_by_uid[uid]
 
+                if i == 0:
+                    log.debug(f"Start lane: {lane.uid}, point IDX: {s_idx}")
+                    for point in chop_path(lane.center_line.T, lane.id, s_idx, start=True):
+                        self.global_plan.path.append(point)
+                        self.global_plan.left_boundary_d.append(lane.width/2)
+                        self.global_plan.right_boundary_d.append(-lane.width/2)
+                        self.global_plan.velocity.append(self.velocity)
+                elif i == len(path2) - 1:
+                    log.debug(f"Goal lane: {lane.uid}, point IDX: {g_idx}")
+                    for point in chop_path(lane.center_line.T, lane.id, g_idx, start=False):
+                        self.global_plan.path.append(point)
+                        self.global_plan.left_boundary_d.append(lane.width/2)
+                        self.global_plan.right_boundary_d.append(-lane.width/2)
+                        self.global_plan.velocity.append(self.velocity)
+                else:
+                    lane_path = lane.center_line.T if int(lane.id) < 0 else lane.center_line.T[::-1]
+                    for point in lane_path:
+                        self.global_plan.path.append(point)
+                        self.global_plan.left_boundary_d.append(lane.width/2)
+                        self.global_plan.right_boundary_d.append(-lane.width/2)
+                        self.global_plan.velocity.append(self.velocity)
+        
+        self.global_plan = remove_dublicate_points(self.global_plan)
         self.global_plan.lane_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path2]
-        # self.global_plan.trajectory = Trajectory(path=path2, velocity=self.global_plan.velocity)
+        self.global_plan.trajectory = Trajectory(path=self.global_plan.path, velocity=self.global_plan.velocity)
 
         return self.global_plan
 
@@ -123,24 +135,54 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
             log.error(f"No path found between {source_id} and {destination_id}. Error: {e}")
             return []
 
-def __chop_path(lane, idx, start=True):
+def chop_path(path, lane_id, idx, start=True):
     """
     Chops the path at a given index, either from the start or end.
     """
+    is_neg = int(lane_id) < 0
+    log.debug(f"Chopping path at index {idx} for lane {lane_id} (start={start}, is_neg={is_neg})")
+    if start and is_neg:
+        path = path[idx:]
+    elif start and not is_neg:
+        path = path[:idx+1]
+    elif not start and is_neg:
+        path = path[:idx+1] 
+    elif not start and not is_neg:
+        path = path[idx:]
 
-    path = lane.center_line.T
-    # find if the path is getting closer to the idx or farther away
-    idx_point = path[idx]
-    s_point = np.array(path[0])
-    sn_point = np.array(path[1])
-    e_point = np.array(path[-1])
-    en_point = np.array(path[-2])
+    path = path if int(lane_id) < 0 else path[::-1]
+    return path
 
-    getting_closer_from_start = np.linalg.norm(s_point - idx_point) > np.linalg.norm(sn_point - idx_point)
-    getting_closer_backward_from_end = np.linalg.norm(e_point - idx_point) > np.linalg.norm(en_point - idx_point)
-            
-    if start and lane.side=="right":
-        return path[idx:] if getting_closer_from_start or getting_closer_backward_from_end else path[:idx+1]
+
+
+
+def chop_path_from_two_sides(path, lane_id, s_idx,g_idx):
+    is_neg = int(lane_id) < 0
+    log.debug(f"Chopping path from two sides for lane {lane_id} (s_idx={s_idx}, g_idx={g_idx}, is_neg={is_neg})")
+    if is_neg:
+        path = path[s_idx:g_idx+1]
     else:
-        return path[:idx+1] if getting_closer_from_start or getting_closer_backward_from_end else path[idx:]
+        path = path[g_idx:s_idx+1]
 
+    path = path if int(lane_id) < 0 else path[::-1]
+    return path
+
+def remove_dublicate_points(plan: GlobalPlan):
+    """
+    removes duplicate points from the global plan path.
+    """
+    # Build lists of indices to keep (avoiding deletion issues)
+    indices_to_keep = []
+    for i in range(1,len(plan.path)):
+        # if points are reasonably different, but not too fa
+        if not np.array_equal(plan.path[i], plan.path[i-1]):
+            indices_to_keep.append(i)
+        else:
+            log.warning(f"Removed duplicate point {plan.path[i]} from global plan path.")
+    
+    plan.path = [plan.path[i] for i in indices_to_keep]
+    plan.velocity = [plan.velocity[i] for i in indices_to_keep]
+    plan.left_boundary_d = [plan.left_boundary_d[i] for i in indices_to_keep]
+    plan.right_boundary_d = [plan.right_boundary_d[i] for i in indices_to_keep]
+    
+    return plan

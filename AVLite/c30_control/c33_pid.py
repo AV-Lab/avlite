@@ -25,7 +25,7 @@ class PIDController(ControlStrategy):
             self.tj = tj
         elif tj is None and self.tj is None:
             log.warning("Trajectory is not provided")
-            return ControlComand(steer=0, acc=0)
+            return ControlComand(steer=0, acceleration=0)
 
         # to deal with fast replanning, need to have a lookahead to the next trajectory
         if self.tj.parent_trajectory is not None:  

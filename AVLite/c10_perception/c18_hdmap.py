@@ -239,14 +239,15 @@ class HDMap:
                             id=lane_element.get('id', ''),
                             uid=f"{r.id}_{lane_element.get('id', '')}",
                             lane_element=lane_element,
-                            side=lane_element.get('side', ''),
                             type=lane_element.get('type', ''),
                             pred_id=pred_id,
                             succ_id=succ_id,
                             road_id = r.id,
                             lane_section_idx = i,
                             road = r,
+                            width= width
                         )
+                        l.side = 'right' if int(l.id) < 0 else 'left'
                         self.lanes.append(l)
                         r.lane_sections[i].append(l)
 
