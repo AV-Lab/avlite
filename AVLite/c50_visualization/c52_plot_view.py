@@ -131,7 +131,8 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.root.exec.global_planner.plan()
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
-                        self.global_plot.plot_lane_path(self.root.exec.global_planner.lane_path)
+                        self.global_plot.plot_global_plan(self.root.exec.global_planner.global_plan)
+                        # self.root.exec.local_planner.set_global_plan(self.root.exec.global_planner.global_plan)
 
                     self.start_point = None
                 else:

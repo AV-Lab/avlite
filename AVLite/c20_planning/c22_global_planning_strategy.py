@@ -11,9 +11,11 @@ class GlobalPlannerStrategy(ABC):
 
     def __init__(self):
         self.global_plan: GlobalPlan = GlobalPlan()
+        self.start_point = None
+        self.goal_point = None
 
     @abstractmethod
-    def plan(self) -> None:
+    def plan(self) -> GlobalPlan:
         """Plan a path from start to goal."""
         pass
 
@@ -22,6 +24,8 @@ class GlobalPlannerStrategy(ABC):
         """Set start and goal points for the planner."""
         self.global_plan.start_point = start_point
         self.global_plan.goal_point = goal_point
+        self.start_point = start_point
+        self.goal_point = goal_point
         
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

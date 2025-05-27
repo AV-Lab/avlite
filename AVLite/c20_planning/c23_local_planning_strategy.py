@@ -46,6 +46,23 @@ class LocalPlannerStrategy(ABC):
         self.lap: int = 0 
 
 
+    def set_global_plan(self, global_plan: GlobalPlan) -> None:
+        """
+        Set the global plan for the local planner and initialize the trajectory.
+        """
+        self.global_plan = global_plan
+        self.global_trajectory = global_plan.trajectory
+        self.traversed_x, self.traversed_y = [global_plan.start_point[0]], [global_plan.start_point[1]]
+        self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
+        self.location_xy = (self.traversed_x[0], self.traversed_y[0])
+        self.location_sd = (self.traversed_s[0], self.traversed_d[0])
+
+        self.lattice: Lattice = Lattice( self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
+            planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
+
+        log.info("Global Plan set and Local Planner reset.")
+
+
     def reset(self, wp:int=0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
         self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[wp]], [self.global_trajectory.path_d[wp]]

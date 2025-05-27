@@ -21,8 +21,12 @@ class GlobalPlan:
     right_boundary_x: list[float] = field(default_factory=list)
     right_boundary_y: list[float] = field(default_factory=list)
 
+    race_mode: bool = True
     trajectory: Optional[Trajectory] = None
+
+    # Optional HDMap and lane path for global planning
     hdmap: Optional[HDMap] = None  
+    lane_path: Optional[list[HDMap.Lane]] = None
     
     @classmethod
     def from_file(cls, path_to_track: str) -> "GlobalPlan":

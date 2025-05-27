@@ -1,4 +1,3 @@
-from os import wait
 import xml.etree.ElementTree as ET
 from scipy.spatial import KDTree
 import numpy as np
@@ -16,7 +15,7 @@ class HDMap:
     @dataclass
     class Lane:
         id: str
-        uid: str # Unique ID for the lane 
+        uid: str # Unique ID for the lane Format: <road_id>_<lane_id>
         lane_element: ET.Element
         center_line: np.ndarray = field(default_factory=lambda: np.array([]))      # 2xN array of (x,y) coordinates
         left_d: list[float] = field(default_factory=list)         # Left boundary distances for each centerline point
@@ -34,8 +33,9 @@ class HDMap:
         predecessors: list['HDMap.Lane'] = field(default_factory=list)
         successors: list['HDMap.Lane'] = field(default_factory=list)
 
+
         neighbors: set['HDMap.Lane'] = field(default_factory=set) # Lanes that are in the same lane section
-        drivable_successors: set['HDMap.Lane'] = field(default_factory=set) # Lanes that follow the same direction
+        drivable_neighbors: set['HDMap.Lane'] = field(default_factory=set) # Lanes that follow the same direction
 
         def __hash__(self):
            return hash(self.uid)
@@ -84,7 +84,6 @@ class HDMap:
         
         self.root = self.parse_HDMap()
         self.__road_kdtree = KDTree(self.__all_road_points)
-        # self.__lane_kdtree = KDTree(self.__all_lane_points)
         self.__lane_kdtree_drivable = KDTree(self.__all_drivable_lane_points)
         self.__connect_roads()
         self.__connect_lanes()
@@ -159,6 +158,7 @@ class HDMap:
                     junction_id = successor.get('elementId', '')
                     s_id = junction_id
             
+            ### Remove duplicate points at the end and start of the road (due to numerical errors)
             it = 1
             while road_x[-1] == road_x[-2] and road_y[-1] == road_y[-2]:
                 log.warning(f"{it} x Road ID: {road_element.get('id')} - last two points are the same, removing ({road_x[-1]}, {road_y[-1]})")
@@ -195,6 +195,7 @@ class HDMap:
 
         return root
 
+    # TODO: Lane width should be handled properly, currently we assume fixed width
     def __process_lane_sections(self, r:Road, road_x: list[float], road_y:list[float]):
         """Plot lanes for a given road"""
 
@@ -214,9 +215,9 @@ class HDMap:
             for side in ['left', 'right']:
                 lanes = lane_section.findall(f"{side}/lane")
                 if side == 'left':
-                    lanes.sort(key=lambda l: int(l.get('id', '0')))  
+                    lanes.sort(key=lambda l: int(l.get('id', '0'))) # Sort so that we process closer road to center first 
                 else:
-                    lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID
+                    lanes.sort(key=lambda l: int(l.get('id', '0')), reverse=True)  # Sort by decreasing lane ID for right lane
 
                 cumulative_offset = offset  # Start with lane offset
                 for lane_element in lanes:
@@ -342,7 +343,7 @@ class HDMap:
         
 
     
-    def __get_lane_offset_at_s(self, lane_offsets, s):
+    def __get_lane_offset_at_s(self, lane_offsets, s) -> float:
         """Calculate lane offset at position s using the OpenDRIVE lane offset elements."""
         if not lane_offsets:
             return 0.0
@@ -424,8 +425,8 @@ class HDMap:
         for la in self.lanes:
             for lb in la.neighbors:
                 if self.can_laneA_access_laneB(la, lb):
-                    la.drivable_successors.add(lb)
-                    self.lane_network.add_edge(la.uid, lb.uid, weight=la.road.length)
+                    la.drivable_neighbors.add(lb)
+                    self.lane_network.add_edge(la.uid, lb.uid, weight=la.road.length, lane_change=False)
 
         # add edges between lanes of the same sign for each road
         for road in self.roads:
@@ -435,8 +436,8 @@ class HDMap:
                         for other_lane in lane_section:
                             if other_lane.type == "driving" and lane != other_lane and int(lane.id) * int(other_lane.id) > 0:
                                 # Add edges between lanes of the same sign
-                                self.lane_network.add_edge(lane.uid, other_lane.uid, weight=0.0)
-                                self.lane_network.add_edge(other_lane.uid, lane.uid, weight=0.0)
+                                self.lane_network.add_edge(lane.uid, other_lane.uid, weight=0.0, lane_change=True)
+                                self.lane_network.add_edge(other_lane.uid, lane.uid, weight=0.0, lane_change=True)
 
         
     def can_laneA_access_laneB(self, lane_a:Lane, lane_b:Lane) -> bool:
@@ -561,12 +562,25 @@ class HDMap:
         if self.__lane_kdtree_drivable is not None:
             _, index = self.__lane_kdtree_drivable.query((x, y))
             if 0 <= index < len(self.__all_drivable_lane_points):
-                x,y = self.__all_drivable_lane_points[index]
-                p = self.__point_to_drivable_lane.get((x, y), None)
+                lx,ly = self.__all_drivable_lane_points[index]
+                p = self.__point_to_drivable_lane.get((lx, ly), None)
                 if p is None:
                     log.error(f"Point not found in point_to_lane mapping: {(x, y)}")
 
-                return self.__point_to_drivable_lane.get((x, y), None)
+                return self.__point_to_drivable_lane.get((lx, ly), None)
+
+    def find_nearest_lane_and_idx(self, x:float, y:float) -> tuple[Lane|None, int]:
+        """ Find lane closest to position and return the index of the closest point on the lane centerline.
+        """
+        lane = self.find_nearest_lane(x, y)
+        if lane is None or lane.center_line.size == 0:
+            return None, -1
+        
+        # Find the closest point on the lane centerline
+        dists = np.linalg.norm(lane.center_line - np.array([[x], [y]]), axis=0)
+        idx = np.argmin(dists)
+        
+        return lane, idx
     
     def road_has_driving_lanes(self, road: Road) -> bool:
         """

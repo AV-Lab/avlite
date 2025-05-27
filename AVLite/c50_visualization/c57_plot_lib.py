@@ -1,3 +1,4 @@
+from AVLite.c20_planning.c21_planning_model import GlobalPlan
 from AVLite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c10_perception.c11_perception_model import EgoState
 from c10_perception.c12_perception_strategy import PerceptionModel
@@ -235,9 +236,10 @@ class GlobalHDMapPlot(GlobalPlot):
 
         self.lane_path_plots = []
         for i in range(MAX_ROAD_PATH):
-           pl , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
+           pl , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Lane Path", zorder=2)
            self.lane_path_plots.append(pl)
 
+        self.global_plan_path , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Global Path", zorder=2)
 
         self.road_arrow = None # for the road direction arrow
         self.lane_arrow = None # for the lane direction arrow
@@ -309,20 +311,24 @@ class GlobalHDMapPlot(GlobalPlot):
         
         self.fig.canvas.draw()
 
-    def plot_lane_path(self, lane_path: list[HDMap.Lane]):
+    def plot_global_plan(self, global_plan: GlobalPlan):
         """Plot the road path"""
+        lane_path = global_plan.lane_path
         log.debug("Plotting Road Path: length = %d", len(lane_path))
         self.clear_road_path_plots()
-        try:
-            for i,r in enumerate(lane_path):
-                self.lane_path_plots[i].set_data(r.center_line[0], r.center_line[1])
-        except IndexError:
-            log.warning(f"Road path length exceeds the maximum number of road path plots. {len(lane_path)} > {len(self.lane_path_plots)}")
-            log.debug(f"adding {len(lane_path)-len(self.lane_path_plots)} more road path plots")
-            for i in range(len(self.lane_path_plots), len(lane_path)):
-                pl , *_ = self.ax.plot([], [], 'o-', color=self.blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
-                self.lane_path_plots.append(pl)
-                self.lane_path_plots[i].set_data(lane_path[i].center_line[0], lane_path[i].center_line[1])
+        path = np.array(global_plan.path).T
+        self.global_plan_path.set_data(path[0], path[1])
+
+        # try:
+        #     for i,r in enumerate(lane_path):
+        #         self.lane_path_plots[i].set_data(r.center_line[0], r.center_line[1])
+        # except IndexError:
+        #     log.warning(f"Road path length exceeds the maximum number of road path plots. {len(lane_path)} > {len(self.lane_path_plots)}")
+        #     log.debug(f"adding {len(lane_path)-len(self.lane_path_plots)} more road path plots")
+        #     for i in range(len(self.lane_path_plots), len(lane_path)):
+        #         pl , *_ = self.ax.plot([], [], 'o-', color=self.blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
+        #         self.lane_path_plots.append(pl)
+        #         self.lane_path_plots[i].set_data(lane_path[i].center_line[0], lane_path[i].center_line[1])
 
         self.fig.canvas.draw()
 
@@ -330,6 +336,7 @@ class GlobalHDMapPlot(GlobalPlot):
         """Clear the road path plots"""
         for i in range(len(self.lane_path_plots)):
             self.lane_path_plots[i].set_data([], [])
+        self.global_plan_path.set_data([], [])
         self.__clear_closest_road_and_lane()
 
     
