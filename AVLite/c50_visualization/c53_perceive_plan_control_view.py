@@ -1,6 +1,6 @@
 from __future__ import annotations
 import tkinter as tk
-from tkinter import Variable, ttk
+from tkinter import ttk
 import time
 import logging
 
@@ -37,8 +37,7 @@ class PerceivePlanControlView(ttk.Frame):
         vehicle_state_label.pack(
             side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
-        self.coordinates_label = ttk.Label(
-            self.perceive_frame, textvariable=self.root.setting.perception_status_text, width=30)
+        self.coordinates_label = ttk.Label( self.perceive_frame, textvariable=self.root.setting.perception_status_text, width=30)
         self.coordinates_label.pack(side=tk.LEFT, padx=5, pady=5)
         # ----------------------------------------------------------------------
 
@@ -51,19 +50,13 @@ class PerceivePlanControlView(ttk.Frame):
         # - Global -----
         global_frame = ttk.Frame(self.plan_frame)
         global_frame.pack(fill=tk.X)
-        ttk.Checkbutton(
-            global_frame,
-            text="Show Global Plan",
-            command=self.root.toggle_plan_view,
-            variable=self.root.setting.global_plan_view,
+        ttk.Checkbutton( global_frame, text="Show Global Plan", command=self.root.toggle_plan_view, variable=self.root.setting.global_plan_view,
         ).pack(side=tk.LEFT)
-        global_planner_dropdown_menu = ttk.Combobox(
-            global_frame, textvariable=self.root.setting.global_planner_type, width=10)
+        global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
         global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
         global_planner_dropdown_menu.state(["readonly"])
         global_planner_dropdown_menu.pack(side=tk.LEFT)
-        global_planner_dropdown_menu.bind("<<ComboboxSelected>>",
-                                self.__on_dropdown_change)
+        global_planner_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
 
         ttk.Button(global_frame, text="Global Replan").pack(
             side=tk.LEFT, fill=tk.X, expand=True)
@@ -71,10 +64,7 @@ class PerceivePlanControlView(ttk.Frame):
         # - Local -----
         wp_frame = ttk.Frame(self.plan_frame)
         wp_frame.pack(fill=tk.X)
-        ttk.Checkbutton(
-            wp_frame,
-            text="Show Local Plan  ",
-            command=self.root.toggle_plan_view,
+        ttk.Checkbutton( wp_frame, text="Show Local Plan  ", command=self.root.toggle_plan_view,
             variable=self.root.setting.local_plan_view,
         ).pack(side=tk.LEFT)
 
@@ -86,10 +76,8 @@ class PerceivePlanControlView(ttk.Frame):
         local_planner_dropdown_menu.bind("<<ComboboxSelected>>",
                                 self.__on_dropdown_change)
 
-        ttk.Button(wp_frame, text="Set Waypoint",
-                   command=self.set_waypoint).pack(side=tk.LEFT)
-        global_tj_wp_entry = ttk.Entry(
-            wp_frame, width=6, textvariable=self.root.setting.current_wp)
+        ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
+        global_tj_wp_entry = ttk.Entry( wp_frame, width=6, textvariable=self.root.setting.current_wp)
         global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
         global_tj_wp_entry.bind("<Return>", self.text_on_enter)
         ttk.Label(wp_frame, text=f"{len(self.root.exec.local_planner.global_trajectory.path_x)-1}").pack(
@@ -99,10 +87,9 @@ class PerceivePlanControlView(ttk.Frame):
         ttk.Label(self.plan_frame, font=self.root.small_font,
                   textvariable=self.root.setting.lap).pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(self.plan_frame, text="Step", command=self.step_plan).pack(
-            side=tk.LEFT)
-        ttk.Button(self.plan_frame, text="Local Replan",
-                   command=self.replan).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(self.plan_frame, text="◀️", command=self.step_waypoint_back, width=2).pack(side=tk.LEFT)
+        ttk.Button(self.plan_frame, text="▶", command=self.step_plan, width=2).pack(side=tk.LEFT)
+        ttk.Button(self.plan_frame, text="Local Replan", command=self.replan).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # ----------------------------------------------------------------------
         # Control Frame
@@ -196,6 +183,11 @@ class PerceivePlanControlView(ttk.Frame):
     def set_waypoint(self):
         self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
         self.root.update_ui()
+    def step_waypoint_back(self):
+        """ Step back to the previous waypoint in the local planner."""
+        self.root.setting.current_wp.set(str(int(self.root.setting.current_wp.get()) - 1))
+        self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
+        self.root.update_ui()
     
     def text_on_enter(self, event):
         widget = event.widget  # Get the widget that triggered the event
@@ -220,6 +212,8 @@ class PerceivePlanControlView(ttk.Frame):
         log.info(f"Plan Step Time: {(time.time()-t1)*1000:.2f} ms")
         self.root.setting.current_wp.set(str(self.root.exec.local_planner.global_trajectory.next_wp - 1))
         self.root.update_ui()
+
+
 
     def __on_dropdown_change(self, event):
         log.debug(

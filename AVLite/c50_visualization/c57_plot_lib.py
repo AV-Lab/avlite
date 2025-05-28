@@ -86,14 +86,30 @@ class GlobalPlot(ABC):
             ma_x = self.map_max_x + zoom
             ma_y = self.map_max_y + zoom/aspect_ratio
             if mi_x < ma_x and mi_y < ma_y:
-                if self.map_min_x < self.vehicle_x < self.map_max_x and self.map_min_y < self.vehicle_y < self.map_max_y \
+                pad = 50
+                if self.map_min_x - 50 < self.vehicle_x < self.map_max_x + pad and self.map_min_y - pad < self.vehicle_y < self.map_max_y + pad \
                      and zoom < self.map_max_x - self.map_min_x and zoom/aspect_ratio < self.map_max_y - self.map_min_y:
 
                     self.ax.set_xlim(self.vehicle_x - zoom, self.vehicle_x + zoom)
                     self.ax.set_ylim(self.vehicle_y - zoom/aspect_ratio, self.vehicle_y + zoom/aspect_ratio)
                 else:
-                    self.ax.set_xlim(self.map_min_x-20, self.map_max_x+20)
-                    self.ax.set_ylim(self.map_min_y-20/aspect_ratio, self.map_max_y + 20/aspect_ratio)
+                    map_width = self.map_max_x - self.map_min_x
+                    map_height = self.map_max_y - self.map_min_y
+                    
+                    target_width = map_height * aspect_ratio  
+                    target_height = map_width / aspect_ratio
+                    
+                    if target_width > map_width:
+                        # Need to expand width
+                        x_pad = (target_width - map_width) / 2
+                        y_pad = 0
+                    else:
+                        # Need to expand height  
+                        x_pad = 0
+                        y_pad = (target_height - map_height) / 2
+                    
+                    self.ax.set_xlim(self.map_min_x - x_pad, self.map_max_x + x_pad)
+                    self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
 
     def set_start(self, x, y):
         """Set the start point"""

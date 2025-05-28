@@ -63,7 +63,6 @@ class VisualizerApp(tk.Tk):
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.update_idletasks()
         
-        self.bind("<Configure>", self.__update_grid_column_sizes)
         
         
 
@@ -76,10 +75,13 @@ class VisualizerApp(tk.Tk):
 
         # self.after(10, self.toggle_plan_view)
 
+        self.bind("<Configure>", self.__update_grid_column_sizes)
+        self.last_resize_time = time.time()
 
 
-    def __update_grid_column_sizes(self,event=None, update_plot=False):
+    def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
+
         if event and event.widget == self:
             width = event.width
             if width > 10:  # Avoid division by zero or tiny windows
@@ -88,11 +90,12 @@ class VisualizerApp(tk.Tk):
                 self.grid_columnconfigure(0, minsize=local_width)
                 self.grid_columnconfigure(1, minsize=global_width)
 
-        if update_plot:
-            if self.setting.global_plan_view.get():
-                self.global_plan_plot_view.plot()
-            if self.setting.local_plan_view.get():
-                self.local_plan_plot_view.plot()
+        if time.time() - self.last_resize_time > 1:
+
+            log.debug(f"Updating UI after resize in 500 ms")
+            self.after(500, self.update_ui)
+            # self.update_ui()
+            self.last_resize_time = time.time()
     
 
     def _update_two_plots_layout(self):
@@ -114,11 +117,13 @@ class VisualizerApp(tk.Tk):
     def toggle_plan_view(self):
         if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
             self._update_two_plots_layout()
-            self.global_plan_plot_view.plot()
-            self.local_plan_plot_view.plot()
+            # self.global_plan_plot_view.plot()
+            # self.local_plan_plot_view.plot()
         else:
             self._update_one_plot_layout()
-            self.local_plan_plot_view.plot()
+            # self.local_plan_plot_view.plot()
+
+        self.after(500, self.update_ui)  
 
     def toggle_shortcut_mode(self):
         if self.setting.shortcut_mode.get():
@@ -185,25 +190,6 @@ class VisualizerApp(tk.Tk):
             self.setting.control_fps.set(f"{self.exec.control_fps:6.1f}")
             self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
 
-        # if self.setting.async_exec.get():
-        #     if self.setting.control_dt.get() < 0.1 or self.setting.replan_dt.get() < 0.1:
-        #         if not self.setting.disable_log.get():
-        #             self.setting.disable_log.set(True)
-        #             log.warning(
-        #                 f"Logs removed due to low control_dt: {self.setting.control_dt} or replan_dt: {self.setting.replan_dt}."
-        #             )
-        #             self.setting.log_level.set("STDOUT")
-        #             self.log_view.update_log_level()
-        #     else:
-        #         if self.setting.disable_log.get():
-        #             self.setting.disable_log.set(False)
-        #             self.setting.log_level.set("INFO")
-        #             self.log_view.update_log_level()
-        # else:
-        #     if self.setting.disable_log.get():
-        #         self.setting.disable_log.set(False)
-        #         self.setting.log_level.set("INFO")
-        #         self.log_view.update_log_level()
 
         log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
     
@@ -220,7 +206,7 @@ class VisualizerApp(tk.Tk):
             self.is_loading = True
             self.disable_frame(self.exec_visualize_view.execution_frame)
             
-        self.global_plan_plot_view.reset()
+        # self.global_plan_plot_view.reset()
 
     def __reload_stack_async(self):
         try:
@@ -243,6 +229,7 @@ class VisualizerApp(tk.Tk):
         finally:
             self.is_loading = False
             self.enable_frame(self.exec_visualize_view.execution_frame)
+            self.initialized = True
 
     def set_dark_mode(self):
         # self.local_plan_plot_view.update_plot_theme()

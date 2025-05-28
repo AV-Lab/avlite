@@ -6,7 +6,7 @@ import logging
 from c10_perception.c18_hdmap import HDMap
 from c20_planning.c21_planning_model import GlobalPlan
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from c20_planning.c28_trajectory import Trajectory
+from c20_planning.c28_trajectory import Trajectory, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
 
@@ -15,17 +15,18 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
     A global planner that uses OpenDRIVE HD maps for path planning.
     """
 
-    def __init__(self, xodr_file:str, sampling_resolution=0.5, velocity=2):
+    def __init__(self, xodr_file:str, sampling_resolution=0.5, max_velocity=20):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
+        :param max_velocity: maximum velocity for the path.
         """
         super().__init__()
         self.xodr_file = xodr_file
         self.sampling_resolution = sampling_resolution
 
         self.hdmap:HDMap = HDMap(xodr_file_name=xodr_file, sampling_resolution=sampling_resolution)
-        self.velocity = velocity
+        self.max_velocity = max_velocity
         
         log.debug(f"Loading HDMap from {xodr_file}")
 
@@ -79,7 +80,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                 self.global_plan.path.append(point)
                 self.global_plan.left_boundary_d.append(lane.width/2)
                 self.global_plan.right_boundary_d.append(-lane.width/2)
-                self.global_plan.velocity.append(self.velocity)
+                self.global_plan.velocity.append(self.max_velocity)
         else:
             for i, uid in enumerate(path2):
                 lane = self.hdmap.lane_by_uid[uid]
@@ -90,25 +91,31 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                         self.global_plan.path.append(point)
                         self.global_plan.left_boundary_d.append(lane.width/2)
                         self.global_plan.right_boundary_d.append(-lane.width/2)
-                        self.global_plan.velocity.append(self.velocity)
+                        self.global_plan.velocity.append(self.max_velocity)
                 elif i == len(path2) - 1:
                     log.debug(f"Goal lane: {lane.uid}, point IDX: {g_idx}")
                     for point in chop_path(lane.center_line.T, lane.id, g_idx, start=False):
                         self.global_plan.path.append(point)
                         self.global_plan.left_boundary_d.append(lane.width/2)
                         self.global_plan.right_boundary_d.append(-lane.width/2)
-                        self.global_plan.velocity.append(self.velocity)
+                        self.global_plan.velocity.append(self.max_velocity)
                 else:
                     lane_path = lane.center_line.T if int(lane.id) < 0 else lane.center_line.T[::-1]
                     for point in lane_path:
                         self.global_plan.path.append(point)
                         self.global_plan.left_boundary_d.append(lane.width/2)
                         self.global_plan.right_boundary_d.append(-lane.width/2)
-                        self.global_plan.velocity.append(self.velocity)
+                        self.global_plan.velocity.append(self.max_velocity)
         
         self.global_plan = remove_dublicate_points(self.global_plan)
         self.global_plan.lane_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path2]
         self.global_plan.trajectory = Trajectory(path=self.global_plan.path, velocity=self.global_plan.velocity)
+        self.global_plan.left_boundary_x,self.global_plan.left_boundary_y = convert_sd_path_to_xy_path(
+                self.global_plan.trajectory,
+                self.global_plan.trajectory.path_s,
+                self.global_plan.left_boundary_d)
+        self.global_plan.right_boundary_x, self.global_plan.right_boundary_y = convert_sd_path_to_xy_path(
+                self.global_plan.trajectory, self.global_plan.trajectory.path_s, self.global_plan.right_boundary_d)
 
         return self.global_plan
 
