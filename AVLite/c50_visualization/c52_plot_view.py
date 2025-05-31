@@ -97,8 +97,8 @@ class GlobalPlanPlotView(ttk.Frame):
     def on_mouse_move(self, event):
         try:
             if event.inaxes:
-                x, y = event.xdata, event.ydata
                 if event.inaxes == self.ax:
+                    x, y = event.xdata, event.ydata
                     self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:

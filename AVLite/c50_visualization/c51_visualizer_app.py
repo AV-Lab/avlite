@@ -21,17 +21,28 @@ class VisualizerApp(tk.Tk):
 
     def __init__(self, executer: SyncExecuter, code_reload_function=None):
         super().__init__()
-        # self.set_dark_mode()
-        self.set_dark_mode_themed()
-
         self.exec = executer
         self.code_reload_function = code_reload_function
-        self.is_loading = False    
+        self.loading_overlay = None
+        self.stack_is_loading = False    
+        self.ui_is_initialized = False
+        self.last_reload_time = time.time()
+        self.show_loading_overlay()
+        self.update_idletasks()  # Force GUI to update and show the overlay
+        self.update()            # Process all pending events
+        self.after(0, self.__initialize_ui)  
+
+
+
+    def __initialize_ui(self):
+        self.set_dark_mode_themed()
+
 
         self.title("AVlite Visualizer")
         # self.geometry("1200x1100")
         self.small_font = ("Courier", 10)
 
+        # self.set_dark_mode()
         # ----------------------------------------------------------------------
         # Variables
         # ----------------------------------------------------------------------
@@ -48,10 +59,10 @@ class VisualizerApp(tk.Tk):
         self.log_view = LogView(self)
         # ----------------------------------------------------------------------
        
-        if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
-            self._update_two_plots_layout()
-        else:
-            self._update_one_plot_layout()
+        # if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
+        #     self._update_two_plots_layout()
+        # else:
+        #     self._update_one_plot_layout()
 
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
@@ -59,7 +70,7 @@ class VisualizerApp(tk.Tk):
         self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
         # Configure grid weights for the 3:1 ratio
         self.grid_rowconfigure(0, weight=1)  # make the plot views expand
-        self.grid_columnconfigure(0, weight=1)  # local view gets 3x weight
+        self.grid_columnconfigure(0, weight=1)  # local view gets xx weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.update_idletasks()
         
@@ -71,13 +82,10 @@ class VisualizerApp(tk.Tk):
         # Bind to window resize to maintain ratio
         self.toggle_shortcut_mode()
         self.config_shortcut_view.toggle_dark_mode()  
-        # self.after(0, self.config_shortcut_view.toggle_dark_mode)
-
-        # self.after(10, self.toggle_plan_view)
 
         self.bind("<Configure>", self.__update_grid_column_sizes)
         self.last_resize_time = time.time()
-
+        self.ui_is_initialized = True
 
     def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
@@ -173,11 +181,8 @@ class VisualizerApp(tk.Tk):
             self.local_plan_plot_view.plot()
 
         if not self.setting.shortcut_mode.get():
-            self.setting.vehicle_state.set(
-                f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}"
-            )
+            self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}")
             self.setting.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
-
 
             self.perceive_plan_control_view.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
             self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
@@ -196,17 +201,30 @@ class VisualizerApp(tk.Tk):
 
 
     def reload_stack(self):
-        # self.__reload_stack_async()
-        self.exec_visualize_view.stop_exec()
-        if not self.is_loading:
+        time_since_last_reload = time.time() - self.last_reload_time
+        if  not self.ui_is_initialized  or (not self.stack_is_loading and time_since_last_reload  > 2):
+            self.stack_is_loading = True
+            self.show_loading_overlay("Reloading stack...")
+            self.exec_visualize_view.stop_exec()
             log.info(f"Reloading the code with async_mode: {self.setting.async_exec.get()}")
+            # self.show_loading_overlay("Loading...")
             thread = threading.Thread(target=self.__reload_stack_async)
             thread.daemon = True
             thread.start()
-            self.is_loading = True
-            self.disable_frame(self.exec_visualize_view.execution_frame)
+            self.disable_frame(self)
+            self.local_plan_plot_view.grid_forget()
+            self.global_plan_plot_view.grid_forget()
+        else:
+            log.warning(f"Reloading stack is already in progress or too soon. Last reload was {time_since_last_reload:.2f} seconds ago.")
+            if hasattr(self, 'pending_reload_request') and self.pending_reload_request:
+                log.warning("Pending reload request already exists, skipping this reload.")
+                return
+            reload_time = int(max(0, 2 - time_since_last_reload)* 1000)
+            log.debug(f"Next reload will happen in {reload_time:.2f} ms")
+            self.after(reload_time, self.reload_stack)
+            self.pending_reload_request = True
+            return
             
-        # self.global_plan_plot_view.reset()
 
     def __reload_stack_async(self):
         try:
@@ -220,16 +238,78 @@ class VisualizerApp(tk.Tk):
                     control_dt=self.setting.control_dt.get(),
                 )
 
-                self.update_ui()
             else:
                 log.warning("No code reload function provided.")
         except Exception as e:
             log.error(f"Error reloading stack: {e}", exc_info=True)
 
         finally:
-            self.is_loading = False
-            self.enable_frame(self.exec_visualize_view.execution_frame)
-            self.initialized = True
+            self.toggle_plan_view()
+            self.update_ui()
+            self.enable_frame(self)
+            self.hide_loading_overlay()
+            self.stack_is_loading = False
+            self.last_reload_time = time.time()
+            self.pending_reload_request = False if hasattr(self, 'pending_reload_request') and self.pending_reload_request else False
+    
+
+    def show_loading_overlay(self, message="Loading..."):
+        if hasattr(self, 'loading_window') and self.loading_window is not None:
+            return
+        
+        # Create a separate window for loading
+        self.loading_window = tk.Toplevel(self)
+        self.loading_window.overrideredirect(True)  # No window decorations
+        self.loading_window.attributes("-topmost", True)  # Keep on top
+    
+        width = 450
+        height = 350
+        try:
+            import subprocess
+            output = subprocess.check_output(['xrandr']).decode('utf-8')
+            import re
+            current = re.search(r'(\d+)x(\d+)\+(\d+)\+(\d+)', output)
+            if current:
+                mon_w, mon_h, mon_x, mon_y = map(int, current.groups())
+                x = mon_x + (mon_w - width) // 2
+                y = mon_y + (mon_h - height) // 2
+            else:
+                raise Exception("Couldn't parse xrandr output")
+        except Exception:
+            x = (self.winfo_screenwidth() - width) // 2
+            y = (self.winfo_screenheight() - height) // 2
+        
+        self.loading_window.geometry(f"{width}x{height}+{x}+{y}")
+        
+        
+        # Black background
+        frame = tk.Frame(self.loading_window, bg="#000707", bd=1)
+        frame.place(relwidth=1, relheight=1)
+        
+        # Try to load and display logo
+        try:
+            from PIL import Image, ImageTk
+            logo_img = Image.open("data/imgs/logo.png")
+            logo_img = logo_img.resize((256, 256), Image.LANCZOS)
+            self.logo_photo = ImageTk.PhotoImage(logo_img)
+            logo_label = tk.Label(frame, image=self.logo_photo, bg="black")
+            logo_label.pack(pady=(15, 5))
+        except Exception:
+            log.error("Failed to load logo image.")
+            
+        # Add loading message
+        tk.Label(frame, text=message, fg="#10bfe8", bg="black", font=("Arial", 12)).pack(pady=10)
+        
+        # Update the window to make it visible
+        self.loading_window.update_idletasks()
+
+
+    def hide_loading_overlay(self):
+        if hasattr(self, 'loading_window') and self.loading_window is not None:
+            self.loading_window.destroy()
+            self.loading_window = None
+            if hasattr(self, 'logo_photo'):
+                del self.logo_photo
 
     def set_dark_mode(self):
         # self.local_plan_plot_view.update_plot_theme()

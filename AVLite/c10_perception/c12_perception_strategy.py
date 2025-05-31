@@ -7,16 +7,16 @@ from dataclasses import dataclass, field
 log = logging.getLogger(__name__)
 
 
-class BasePerception:
-    pm: PerceptionModel
+class PerceptionStrategy:
 
     def __init__(self):
+        self.pm: PerceptionModel
         pass
 
     def calibrate(self):
         pass
         
-    def perceive(self, rgb_img = None, depth_img = None, lidar_data = None):
+    def detect(self, rgb_img = None, depth_img = None, lidar_data = None):
         pass
 
     def predict(self):

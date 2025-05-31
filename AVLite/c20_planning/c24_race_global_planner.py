@@ -14,5 +14,3 @@ class RaceGlobalPlanner(GlobalPlannerStrategy):
         pass
 
 
-    def save_race_line(self):
-        pass

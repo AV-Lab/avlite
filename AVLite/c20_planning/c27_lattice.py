@@ -131,7 +131,7 @@ class Lattice:
 
 
 
-def check_collision(pm:PerceptionModel, trajectory: Trajectory = None, sample_size=5)-> bool:
+def check_collision(pm:PerceptionModel, trajectory: Trajectory, sample_size=5)-> bool:
     ego = pm.ego_vehicle
     if trajectory is not None:
         path_x = trajectory.path_x
