@@ -53,6 +53,10 @@ class LocalPlannerStrategy(ABC):
         if global_plan.trajectory is None:
             log.error("Global plan trajectory is None. Cannot set global plan.")
             return
+        if len(self.global_plan.trajectory.path_s) == 0:
+            log.error("Global plan trajectory is empty. Cannot set global plan.")
+            return
+
         self.global_plan = global_plan
         self.global_trajectory = global_plan.trajectory
         self.traversed_x, self.traversed_y = [global_plan.start_point[0]], [global_plan.start_point[1]]

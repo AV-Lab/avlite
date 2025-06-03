@@ -145,14 +145,10 @@ class PerceivePlanControlView(ttk.Frame):
         )
         ttk.Button(self.control_frame, text="Align", width=4,
                    command=self.align_control).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="L", width=2,
-                   command=self.step_steer_left).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="R", width=2,
-                   command=self.step_steer_right).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="Accel.", width=4,
-                   command=self.step_acc).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="Dec.", width=4,
-                   command=self.step_dec).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="◀️ ", width=2, command=self.step_steer_left).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="▶", width=2, command=self.step_steer_right).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="▲", width=2, command=self.step_acc).pack(side=tk.LEFT)
+        ttk.Button(self.control_frame, text="▼", width=2, command=self.step_dec).pack(side=tk.LEFT)
 
         try:
             # Joystick
@@ -216,10 +212,8 @@ class PerceivePlanControlView(ttk.Frame):
 
 
     def __on_dropdown_change(self, event):
-        log.debug(
-            f"Dropdown changed to: {self.root.setting.global_planner_type.get()}")
+        log.debug(f"Dropdown changed to: {self.root.setting.global_planner_type.get()}")
         self.root.reload_stack()
-        self.root.global_plan_plot_view.update_plot_type()
 
     # --------------------------------------------------------------------------------------------
     # -Control------------------------------------------------------------------------------------

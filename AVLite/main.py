@@ -99,4 +99,7 @@ if __name__ == "__main__":
             ctypes.windll.user32.SetProcessDPIAware()
         os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
 
-    run(source_run)
+    try:
+        run(source_run)
+    except Exception as e:
+        log.error(f"An error occurred: {e}")

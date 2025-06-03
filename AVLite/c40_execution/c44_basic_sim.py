@@ -1,5 +1,4 @@
 import math
-import copy
 from typing import Optional
 
 from c10_perception.c11_perception_model import AgentState

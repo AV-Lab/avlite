@@ -1,4 +1,4 @@
-from AVLite.c20_plan.c21_base_planner import BasePlanner
+from c20_plan.c21_base_planner import BasePlanner
 import rclpy
 from rclpy.node import Node
 from a2rl_bs_msgs.msg import Localization, EgoState

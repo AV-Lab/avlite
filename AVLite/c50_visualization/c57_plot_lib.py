@@ -1,5 +1,5 @@
-from AVLite.c20_planning.c21_planning_model import GlobalPlan
-from AVLite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from c20_planning.c21_planning_model import GlobalPlan
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c10_perception.c11_perception_model import EgoState
 from c10_perception.c12_perception_strategy import PerceptionModel
 from c10_perception.c18_hdmap import HDMap
@@ -40,6 +40,9 @@ class GlobalPlot(ABC):
         self.goal_text = self.ax.text(1000, 1000 , 'G', fontsize=12, color='white', zorder=4, ha='center', va='center')
         self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=3)
         self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=4, ha='center', va='center')
+
+        self.vehicle_orientation, = self.ax.plot([], [], 'r-', linewidth=2, alpha=0.5, label="Vehicle Orientation", zorder=3)
+        self.orientation_arrow = None  # For the vehicle orientation arrow
 
         # self.fig.legend(loc="upper right", fontsize=8, framealpha=0.3)
         
@@ -129,6 +132,23 @@ class GlobalPlot(ABC):
         # self.fig.canvas.blit(self.ax.bbox)
         
         self.fig.canvas.draw()
+    def show_vehicle_orientation(self, x, y, theta):
+        """Show the vehicle orientation on the plot"""
+        log.debug(f"Showing vehicle orientation at ({x}, {y}) with theta={theta}")
+
+        length = 20
+        self.vehicle_orientation.set_data([x, x + length*np.cos(theta)], [y, y + length*np.sin(theta)])
+        x2 = x + length * np.cos(theta)
+        y2 = y + length * np.sin(theta)
+        if self.orientation_arrow:
+            self.orientation_arrow.remove()
+        self.orientation_arrow = self.ax.annotate('', xy=(x2, y2), xytext=(x,y), arrowprops=dict(arrowstyle='->',
+                                                     mutation_scale=20, color="red", lw=2), zorder=5)
+        
+    def clear_tmp_plots(self):
+        self.vehicle_orientation.set_data([], [])
+        self.orientation_arrow.remove() if self.orientation_arrow else None
+        self.orientation_arrow = None
 
 
     def set_plot_theme(self, bg_color="white", fg_color="black"):
@@ -146,13 +166,17 @@ class GlobalPlot(ABC):
         self.ax.yaxis.label.set_color(fg_color)
         
         # Set grid color with proper alpha for visibility
-        self.ax.grid(False, color=fg_color, alpha=0.3)
+        self.ax.grid(False)
         self.ax.set_title(label=self.name, color=fg_color)
         
         # Apply redraw
         self.fig.canvas.draw()
         
         log.debug(f"Global plot theme set to {bg_color} background and {fg_color} foreground.")
+        
+
+    def reset(self):
+        self.map_plotted = False
 
 
 class GlobalRacePlot(GlobalPlot):
@@ -329,24 +353,17 @@ class GlobalHDMapPlot(GlobalPlot):
 
     def plot_global_plan(self, global_plan: GlobalPlan):
         """Plot the road path"""
-        lane_path = global_plan.lane_path
-        log.debug("Plotting Road Path: length = %d", len(lane_path))
-        self.clear_road_path_plots()
-        path = np.array(global_plan.path).T
-        self.global_plan_path.set_data(path[0], path[1])
+        try:
+            lane_path = global_plan.lane_path
+            log.debug("Plotting Road Path: length = %d", len(lane_path))
+            self.clear_road_path_plots()
+            path = np.array(global_plan.path).T
+            self.global_plan_path.set_data(path[0], path[1])
+            self.fig.canvas.draw()
+        except Exception as e:
+            log.error(f"Error plotting global plan: {e}")
+            self.global_plan_path.set_data([], [])
 
-        # try:
-        #     for i,r in enumerate(lane_path):
-        #         self.lane_path_plots[i].set_data(r.center_line[0], r.center_line[1])
-        # except IndexError:
-        #     log.warning(f"Road path length exceeds the maximum number of road path plots. {len(lane_path)} > {len(self.lane_path_plots)}")
-        #     log.debug(f"adding {len(lane_path)-len(self.lane_path_plots)} more road path plots")
-        #     for i in range(len(self.lane_path_plots), len(lane_path)):
-        #         pl , *_ = self.ax.plot([], [], 'o-', color=self.blue, linewidth=2, alpha=0.5, label="Road Path", zorder=2)
-        #         self.lane_path_plots.append(pl)
-        #         self.lane_path_plots[i].set_data(lane_path[i].center_line[0], lane_path[i].center_line[1])
-
-        self.fig.canvas.draw()
 
     def clear_road_path_plots(self):
         """Clear the road path plots"""
@@ -357,6 +374,7 @@ class GlobalHDMapPlot(GlobalPlot):
 
     
     def clear_tmp_plots(self):
+        super().clear_tmp_plots()
         self.__clear_closest_road_and_lane()
 
     def __clear_closest_road_and_lane(self):

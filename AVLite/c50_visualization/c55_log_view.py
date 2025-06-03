@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter.scrolledtext import ScrolledText
 import sys
+import queue
 
 import logging
 
@@ -16,6 +17,10 @@ class LogView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root, text="Log")
         self.root = root
+        self.max_log_lines = 1000  # Maximum number of log lines to keep
+        # self.log_queue = queue.Queue()
+        # self.after(50, self.process_log_queue)
+
         self.log_blacklist = set()  # used to filter 'excute', 'plan', 'control' subpackage logs
 
         self.controls_frame = ttk.Frame(self)
@@ -174,6 +179,27 @@ class LogView(ttk.LabelFrame):
         else:
             sys.stdout = sys.__stdout__
         print("Log setting updated: showing only CRITICAL and STDOUT messages.")
+    
+
+    def process_log_queue(self):
+        processed = 0
+        self.log_area.configure(state="normal")
+        try:
+            while processed < 50:
+                msg, tag = self.log_queue.get_nowait()
+                self.log_area.insert(tk.END, msg + "\n", tag if tag else "")
+                processed += 1
+        except queue.Empty:
+            pass
+
+        # Trim log if too long
+        line_count = float(self.log_area.index('end-1c').split('.')[0])
+        if line_count > self.max_log_lines:
+            self.log_area.delete('1.0', f'{int(line_count - self.max_log_lines)}.0')
+
+        self.log_area.configure(state="disabled")
+        self.log_area.yview(tk.END)
+        self.after(50, self.process_log_queue)
 
     class LogTextHandler(logging.Handler):
         def __init__(self, text_widget, log_view: LogView):
@@ -181,9 +207,12 @@ class LogView(ttk.LabelFrame):
             self.text_widget = text_widget
             self.log_view = log_view
             self.text_widget.tag_configure("error", foreground="red")
-            # self.text_widget.tag_configure("warning", foreground="yellow")
             self.text_widget.tag_configure("warn", foreground="#FFFF00")  # bright yellow
-
+            
+            # self.message_buffer = []
+            # self.buffer_size = 20  # Process messages in batches
+            # self.after_id = None
+        #
         def emit(self, record):
             for bl in self.log_view.log_blacklist:
                 if bl + "." in record.name:
@@ -199,6 +228,54 @@ class LogView(ttk.LabelFrame):
                 self.text_widget.insert(tk.END, msg + "\n")
             self.text_widget.configure(state="disabled")
             self.text_widget.yview(tk.END)
+        # 
+        # def emit(self, record):
+        #     for bl in self.log_view.log_blacklist:
+        #         if bl + "." in record.name:
+        #             return
+        #             
+        #     msg = self.format(record)
+        #     tag = None
+        #     if record.levelno >= logging.ERROR:
+        #         tag = "error"
+        #     elif record.levelno >= logging.WARNING:
+        #         tag = "warn"
+        #         
+        #     # self.message_buffer.append((msg, tag))
+        #     
+        #     # Schedule an update if not already scheduled
+        #     # if self.after_id is None:
+        #         # self.after_id = self.text_widget.after(50, self.process_buffer)
+        #     self.process_buffer()
+        #
+        #     # self.log_view.log_queue.put((msg, tag))
+    
+        
+        # def process_buffer(self):
+        #     # self.after_id = None
+        #     # if not self.message_buffer:
+        #         # return
+        #         
+        #     self.text_widget.configure(state="normal")
+        #     
+        #     # Process the buffer
+        #     for msg, tag in self.message_buffer[:self.buffer_size]:
+        #         self.text_widget.insert(tk.END, msg + "\n", tag if tag else "")
+        #     
+        #     # Clear the processed messages
+        #     self.message_buffer = self.message_buffer[self.buffer_size:] if len(self.message_buffer) > self.buffer_size else []
+        #     
+        #     # Trim log if too long
+        #     line_count = float(self.text_widget.index('end-1c').split('.')[0])
+        #     if line_count > self.log_view.max_log_lines:
+        #         self.text_widget.delete('1.0', f'{int(line_count - self.log_view.max_log_lines)}.0')
+        #         
+        #     self.text_widget.configure(state="disabled")
+        #     self.text_widget.yview(tk.END)
+        #     
+        #     # If there are more messages to process, schedule another update
+        #     if self.message_buffer:
+        #         self.after_id = self.text_widget.after(50, self.process_buffer)
 
     class TextRedirector:
         def __init__(self, widget):

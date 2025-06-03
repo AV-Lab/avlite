@@ -37,6 +37,7 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("t", lambda e: self.root.exec_visualize_view.reset_exec())
 
         self.root.bind("n", lambda e: self.root.perceive_plan_control_view.step_plan())
+        self.root.bind("b", lambda e: self.root.perceive_plan_control_view.step_waypoint_back())
         self.root.bind("r", lambda e: self.root.perceive_plan_control_view.replan())
 
         self.root.bind("h", lambda e: self.root.perceive_plan_control_view.step_control())
@@ -78,7 +79,7 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=7)
         key_binding_info = """
 Perceive: 
-Plan:     n - Step plan        r - Replan            
+Plan:     n - Step plan        b - Step Back                r - Replan            
 Control:  h - Control Step     g - Re-align control         w - Accelerate 
           a - Steer left       d - Steer right              s - Deccelerate
 Visalize: Q - Quit             S - Toggle shortcut          D - Toggle Dark Mode        R - Reload imports     

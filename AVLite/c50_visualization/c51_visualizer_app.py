@@ -14,6 +14,7 @@ from tkinter import ttk
 import logging
 
 log = logging.getLogger(__name__)
+logging.getLogger("PIL").setLevel(logging.WARNING)
 
 
 class VisualizerApp(tk.Tk):
@@ -25,7 +26,7 @@ class VisualizerApp(tk.Tk):
         self.code_reload_function = code_reload_function
         self.loading_overlay = None
         self.stack_is_loading = False    
-        self.ui_is_initialized = False
+        self.ui_initialized = False
         self.last_reload_time = time.time()
         self.show_loading_overlay()
         self.update_idletasks()  # Force GUI to update and show the overlay
@@ -85,7 +86,7 @@ class VisualizerApp(tk.Tk):
 
         self.bind("<Configure>", self.__update_grid_column_sizes)
         self.last_resize_time = time.time()
-        self.ui_is_initialized = True
+        self.ui_initialized = True
 
     def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
@@ -202,9 +203,12 @@ class VisualizerApp(tk.Tk):
 
     def reload_stack(self):
         time_since_last_reload = time.time() - self.last_reload_time
-        if  not self.ui_is_initialized  or (not self.stack_is_loading and time_since_last_reload  > 2):
-            self.stack_is_loading = True
+        if  not self.ui_initialized  or (not self.stack_is_loading and time_since_last_reload  > 2):
             self.show_loading_overlay("Reloading stack...")
+            self.local_plan_plot_view.reset()
+            self.global_plan_plot_view.reset()
+            self.global_plan_plot_view.update_plot_type()
+            self.stack_is_loading = True
             self.exec_visualize_view.stop_exec()
             log.info(f"Reloading the code with async_mode: {self.setting.async_exec.get()}")
             # self.show_loading_overlay("Loading...")
@@ -250,7 +254,7 @@ class VisualizerApp(tk.Tk):
             self.hide_loading_overlay()
             self.stack_is_loading = False
             self.last_reload_time = time.time()
-            self.pending_reload_request = False if hasattr(self, 'pending_reload_request') and self.pending_reload_request else False
+            self.pending_reload_request = False if hasattr(self, 'pending_reload_request') and self.pending_reload_request else True
     
 
     def show_loading_overlay(self, message="Loading..."):

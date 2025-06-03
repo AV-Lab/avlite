@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Optional, Union
 
-from AVLite.c20_planning.c21_planning_model import GlobalPlan
+from c20_planning.c21_planning_model import GlobalPlan
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy

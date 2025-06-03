@@ -4,6 +4,7 @@ from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
 import logging
+import numpy as np
 
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c24_race_global_planner import RaceGlobalPlanner
@@ -34,10 +35,13 @@ class GlobalPlanPlotView(ttk.Frame):
         self.start_point = None
         self._prev_scroll_time = None  # used to throttle the replot
 
-        self.initialized = False
+        self.left_mouse_button_pressed = False  
+        self.teleport_x = 0.0
+        self.teleport_y = 0.0
+        self.teleport_orientation = 0.0  
         
         # self.current_highlighted_road_id = "-1" # used to track the current road id
-         
+
     def __config_canvas(self):  
         self.fig = self.global_plot.fig
         self.ax = self.global_plot.ax   
@@ -48,6 +52,7 @@ class GlobalPlanPlotView(ttk.Frame):
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
         self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
+        self.canvas.mpl_connect("button_release_event", self.on_mouse_release)
         
 
     def plot(self):
@@ -96,14 +101,16 @@ class GlobalPlanPlotView(ttk.Frame):
 
     def on_mouse_move(self, event):
         try:
-            if event.inaxes:
-                if event.inaxes == self.ax:
-                    x, y = event.xdata, event.ydata
-                    self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
-
-                    if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
-                        self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
-                        self.root.exec.controller.reset()
+            if event.inaxes == self.ax:
+                x, y = event.xdata, event.ydata
+                self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
+                if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
+                    self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
+                if self.left_mouse_button_pressed:
+                    self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
+                    self.global_plot.show_vehicle_orientation(self.teleport_x, self.teleport_y, self.teleport_orientation) 
+                    self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
+                    self.root.update_ui()
             else:
                 self.root.setting.perception_status_text.set("Click on the plot.")
                 self.global_plot.clear_tmp_plots()
@@ -116,6 +123,10 @@ class GlobalPlanPlotView(ttk.Frame):
             if event.button == 1:  # Left click
                 x, y = event.xdata, event.ydata
                 self.root.exec.world.teleport_ego(x=x, y=y)
+                self.left_mouse_button_pressed = True
+                self.teleport_x = x
+                self.teleport_y = y
+                self.global_plot.clear_tmp_plots()
                 self.root.update_ui()
             elif event.button == 3: # Right click
                 if self.start_point:
@@ -123,6 +134,9 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.root.exec.global_planner.set_start_goal(start_point=self.start_point, goal_point=(event.xdata, event.ydata))
                     log.info(f"Set start: {self.start_point}, goal: {(event.xdata, event.ydata)}")
                     self.root.exec.global_planner.plan()
+                    if len(self.root.exec.global_planner.global_plan.path) == 0:
+                        log.warning("Global plan is empty. Cannot set global plan.")
+                        return
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                         self.global_plot.plot_global_plan(self.root.exec.global_planner.global_plan)
@@ -139,6 +153,13 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.global_plot.clear_road_path_plots()
                     self.pending_goal_set = True
                     self.start_point = (event.xdata, event.ydata)
+    def on_mouse_release(self, event):
+        if event.inaxes == self.ax:
+            if event.button == 1:
+                self.left_mouse_button_pressed = False
+                self.root.exec.controller.reset()
+                self.root.update_ui()
+                log.debug(f"Teleport Ego to X: {self.teleport_x:.2f}, Y: {self.teleport_y:.2f}, Orientation: {self.teleport_orientation:.2f}")
     
     def on_mouse_scroll(self, event, increment=10):
         log.debug(f"Scroll Event in global coordinate. Zoom: {self.root.setting.global_zoom}")
