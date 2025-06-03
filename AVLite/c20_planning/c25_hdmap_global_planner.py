@@ -2,6 +2,7 @@ from os import wait
 import networkx as nx
 import numpy as np
 import logging
+from scipy.signal import savgol_filter
 
 from c10_perception.c18_hdmap import HDMap
 from c20_planning.c21_planning_model import GlobalPlan
@@ -15,7 +16,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
     A global planner that uses OpenDRIVE HD maps for path planning.
     """
 
-    def __init__(self, xodr_file:str, sampling_resolution=0.5, max_velocity=20):
+    def __init__(self, xodr_file:str, sampling_resolution=1, max_velocity=10):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
@@ -107,7 +108,10 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                         self.global_plan.right_boundary_d.append(-lane.width/2)
                         self.global_plan.velocity.append(self.max_velocity)
         
-        self.global_plan = remove_dublicate_points(self.global_plan)
+        # self.global_plan = remove_dublicate_points(self.global_plan)
+        # self.global_plan = smoothen_path_savgol(self.global_plan, min_spacing=0.5, window_length=7, polyorder=3)
+        self.global_plan = smoothen_path_splprep(self.global_plan, min_spacing=0.5, smoothing=20)
+        
         self.global_plan.lane_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path2]
         self.global_plan.trajectory = Trajectory(path=self.global_plan.path, velocity=self.global_plan.velocity)
         self.global_plan.left_boundary_x,self.global_plan.left_boundary_y = convert_sd_path_to_xy_path(
@@ -141,6 +145,8 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         except Exception as e: 
             log.error(f"No path found between {source_id} and {destination_id}. Error: {e}")
             return []
+
+
 
 def chop_path(path, lane_id, idx, start=True):
     """
@@ -193,3 +199,82 @@ def remove_dublicate_points(plan: GlobalPlan):
     plan.right_boundary_d = [plan.right_boundary_d[i] for i in indices_to_keep]
     
     return plan
+from scipy.signal import savgol_filter
+import numpy as np
+
+def smoothen_path_savgol(plan: GlobalPlan, min_spacing=0.5, window_length=7, polyorder=3):
+    """
+    Removes near-duplicate points from the global plan path and applies smoothing.
+    """
+    if len(plan.path) < 2:
+        return plan
+
+    cleaned_path = [plan.path[0]]
+    cleaned_velocity = [plan.velocity[0]]
+    cleaned_left_d = [plan.left_boundary_d[0]]
+    cleaned_right_d = [plan.right_boundary_d[0]]
+    for i in range(1, len(plan.path)):
+        if np.linalg.norm(np.array(plan.path[i]) - np.array(cleaned_path[-1])) > min_spacing:
+            cleaned_path.append(plan.path[i])
+            cleaned_velocity.append(plan.velocity[i])
+            cleaned_left_d.append(plan.left_boundary_d[i])
+            cleaned_right_d.append(plan.right_boundary_d[i])
+        else:
+            log.warning(f"Removed near-duplicate point {plan.path[i]} at index {i} from global plan path.")
+
+    n = len(cleaned_path)
+    if n >= 3:
+        if window_length >= n:
+            window_length = n // 2 * 2 + 1  # Make it a valid odd number
+        path_np = np.array(cleaned_path)
+        x_smooth = savgol_filter(path_np[:, 0], window_length, polyorder, mode="interp")
+        y_smooth = savgol_filter(path_np[:, 1], window_length, polyorder, mode="interp")
+        cleaned_path = list(zip(x_smooth, y_smooth))
+
+    plan.path = cleaned_path
+    plan.velocity = cleaned_velocity
+    plan.left_boundary_d = cleaned_left_d
+    plan.right_boundary_d = cleaned_right_d
+
+    return plan
+
+from scipy.interpolate import splprep, splev
+import numpy as np
+
+def smoothen_path_splprep(plan: GlobalPlan, min_spacing=0.5, smoothing=0.5):
+    """
+    Removes near-duplicate points from the global plan path and applies B-spline smoothing.
+    """
+    if len(plan.path) < 2:
+        return plan
+
+    cleaned_path = [plan.path[0]]
+    cleaned_velocity = [plan.velocity[0]]
+    cleaned_left_d = [plan.left_boundary_d[0]]
+    cleaned_right_d = [plan.right_boundary_d[0]]
+    for i in range(1, len(plan.path)):
+        if np.linalg.norm(np.array(plan.path[i]) - np.array(cleaned_path[-1])) >= min_spacing:
+            cleaned_path.append(plan.path[i])
+            cleaned_velocity.append(plan.velocity[i])
+            cleaned_left_d.append(plan.left_boundary_d[i])
+            cleaned_right_d.append(plan.right_boundary_d[i])
+        else:
+            log.debug(f"Removed near-duplicate point {plan.path[i]} from global plan path.")
+
+    # Apply B-spline smoothing to path coordinates
+    cleaned_path_np = np.array(cleaned_path)
+    if len(cleaned_path_np) >= 4:  # B-spline requires at least 4 points for cubic smoothing
+        # Fit spline to x and y separately, using arc-length as parameter
+        tck, _ = splprep([cleaned_path_np[:, 0], cleaned_path_np[:, 1]], s=smoothing)
+        u_new = np.linspace(0, 1, len(cleaned_path_np))
+        x_smooth, y_smooth = splev(u_new, tck)
+        cleaned_path = list(zip(x_smooth, y_smooth))
+
+    # Step 3: Update plan fields
+    plan.path = cleaned_path
+    plan.velocity = cleaned_velocity
+    plan.left_boundary_d = cleaned_left_d
+    plan.right_boundary_d = cleaned_right_d
+
+    return plan
+

@@ -41,7 +41,6 @@ class GlobalPlot(ABC):
         self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=3)
         self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=4, ha='center', va='center')
 
-        self.vehicle_orientation, = self.ax.plot([], [], 'r-', linewidth=2, alpha=0.5, label="Vehicle Orientation", zorder=3)
         self.orientation_arrow = None  # For the vehicle orientation arrow
 
         # self.fig.legend(loc="upper right", fontsize=8, framealpha=0.3)
@@ -137,16 +136,14 @@ class GlobalPlot(ABC):
         log.debug(f"Showing vehicle orientation at ({x}, {y}) with theta={theta}")
 
         length = 20
-        self.vehicle_orientation.set_data([x, x + length*np.cos(theta)], [y, y + length*np.sin(theta)])
         x2 = x + length * np.cos(theta)
         y2 = y + length * np.sin(theta)
         if self.orientation_arrow:
             self.orientation_arrow.remove()
         self.orientation_arrow = self.ax.annotate('', xy=(x2, y2), xytext=(x,y), arrowprops=dict(arrowstyle='->',
-                                                     mutation_scale=20, color="red", lw=2), zorder=5)
+                                                     mutation_scale=20, color="red", lw=5), zorder=5)
         
     def clear_tmp_plots(self):
-        self.vehicle_orientation.set_data([], [])
         self.orientation_arrow.remove() if self.orientation_arrow else None
         self.orientation_arrow = None
 

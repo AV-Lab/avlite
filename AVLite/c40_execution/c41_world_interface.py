@@ -46,11 +46,12 @@ class WorldInterface(ABC):
 
     @abstractmethod
     def spawn_agent(self, agent_state: AgentState):
-        """
-        Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that.
-
-        """
+        """ Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that. """
         pass
+
+    def safety_stop(self):
+        """ Stop the ego vehicle safely. This method should be implemented by the simulator or ROS bridge. """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     def reset(self):
         pass

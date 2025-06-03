@@ -105,7 +105,9 @@ class GlobalPlanPlotView(ttk.Frame):
                 x, y = event.xdata, event.ydata
                 self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
                 if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
-                    self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
+                    if not self.left_mouse_button_pressed:
+                        self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
+
                 if self.left_mouse_button_pressed:
                     self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
                     self.global_plot.show_vehicle_orientation(self.teleport_x, self.teleport_y, self.teleport_orientation) 

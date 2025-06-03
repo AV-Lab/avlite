@@ -56,6 +56,8 @@ class Trajectory:
 
         # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
+
+        # log.debug(f"Trajectory initialized with {len(self.path)} waypoints: {self.__reference_sd_path}")
     
     def __precompute_cumulative_distances(self):
         reference_path = np.array(self.__reference_path)
@@ -452,7 +454,7 @@ class Trajectory:
 
         return _s, _d
 
-    # s,d need to be current
+    # # # s,d need to be current
     def convert_sd_to_xy(self, s: float, d: float) -> tuple[float, float]:
         closest_wp = self.get_closest_waypoint_frm_sd(s, d)
 
@@ -463,6 +465,9 @@ class Trajectory:
             next_wp = closest_wp
             prev_wp = next_wp - 1
 
+        if self.path_x[next_wp] == self.path_x[prev_wp] or self.path_y[next_wp] == self.path_y[prev_wp]:
+            log.warning("The next and previous waypoints are the same, returning the previous waypoint coordinates.")
+
         # Calculate the heading of the track at the previous waypoint
         heading = math.atan2(
             self.path_y[next_wp] - self.path_y[prev_wp],
@@ -470,8 +475,19 @@ class Trajectory:
         )
         # Calculate the x and y coordinates on the reference path
         if 0 <= prev_wp < len(self.path_x) and 0 <= self.path_s[prev_wp] <= s:
-            x = self.path_x[prev_wp] + (s - self.path_s[prev_wp]) * math.cos(heading)
-            y = self.path_y[prev_wp] + (s - self.path_s[prev_wp]) * math.sin(heading)
+            # x = self.path_x[prev_wp] + (s - self.path_s[prev_wp]) * math.cos(heading)
+            # y = self.path_y[prev_wp] + (s - self.path_s[prev_wp]) * math.sin(heading)
+            # Ratio of progress between prev and next
+            s0 = self.path_s[prev_wp]
+            s1 = self.path_s[next_wp]
+            if s1 == s0:
+                ratio = 0
+            else:
+                ratio = (s - s0) / (s1 - s0)
+
+            # Linear interpolation between path_x and path_y
+            x = self.path_x[prev_wp] + ratio * (self.path_x[next_wp] - self.path_x[prev_wp])
+            y = self.path_y[prev_wp] + ratio * (self.path_y[next_wp] - self.path_y[prev_wp])
 
         # Calculate the perpendicular heading
         perp_heading = heading - math.pi / 2
@@ -517,11 +533,17 @@ class Trajectory:
             s = cumulative_distances[prev_wp] + np.sqrt(proj_x**2 + proj_y**2)
             # Compute the Frenet d coordinate based on the lateral distance from the reference path
             # The sign of the d coordinate is determined by the cross product of the vectors to the point and along the reference path
-            d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt((x_x - proj_x) ** 2 + (x_y - proj_y) ** 2)
+            # d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt((x_x - proj_x) ** 2 + (x_y - proj_y) ** 2)
+
+            normal = np.array([-n_y, n_x])  # Rotate tangent vector by 90 degrees (left-hand normal)
+            vec_to_point = np.array([x_x - proj_x, x_y - proj_y])
+            d = np.dot(vec_to_point, normal) / np.linalg.norm(normal)
 
             frenet_coords.append((s, d))
 
         return zip(*frenet_coords)
+
+
 
     # A numpy version of the above function
     def convert_xy_path_to_sd_path_np(self, points):
@@ -555,11 +577,14 @@ class Trajectory:
                 proj_x = proj_norm * n_x
                 proj_y = proj_norm * n_y
 
-            # Compute the Frenet s coordinate based on the longitudinal position along the reference path
+
             s = cumulative_distances[prev_wp] + np.sqrt(proj_x**2 + proj_y**2)
-            # Compute the Frenet d coordinate based on the lateral distance from the reference path
+
             # The sign of the d coordinate is determined by the cross product of the vectors to the point and along the reference path
-            d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt((x_x - proj_x) ** 2 + (x_y - proj_y) ** 2)
+            # d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt((x_x - proj_x) ** 2 + (x_y - proj_y) ** 2)
+            normal = np.array([-n_y, n_x])  # Left-hand normal
+            vec_to_point = np.array([x_x - proj_x, x_y - proj_y])
+            d = np.dot(vec_to_point, normal) / np.linalg.norm(normal)
 
             frenet_coords = np.vstack((frenet_coords, (s, d)))
 
@@ -585,32 +610,15 @@ class Trajectory:
         return f"Trajectory: {self.name}"
 
 def convert_sd_path_to_xy_path(tj: Trajectory, s_values, d_values):
-    # return [tj.getXY(s, d) for s, d in zip(s_values, d_values)]
     x_values = []
     y_values = []
 
-    for prev_wp in range(len(s_values) - 2):  # just reading s and d for next_wp of given trajectory
-        next_wp = prev_wp + 1
-        s = s_values[next_wp]
-        d = d_values[next_wp]
-        # Calculate the heading of the track at the previous waypoint
-        heading = math.atan2(
-            tj.path_y[next_wp] - tj.path_y[prev_wp],
-            tj.path_x[next_wp] - tj.path_x[prev_wp],
-        )
-
-        # Calculate the x and y coordinates on the reference path
-        if 0 <= prev_wp < len(tj.path_x) and 0 <= tj.path_s[prev_wp] <= s:
-            x = tj.path_x[prev_wp] + (s - tj.path_s[prev_wp]) * math.cos(heading)
-            y = tj.path_y[prev_wp] + (s - tj.path_s[prev_wp]) * math.sin(heading)
-
-        # Calculate the perpendicular heading
-        perp_heading = heading - math.pi / 2
-
-        # Calculate the final x and y coordinates
-        x_final = x - d * math.cos(perp_heading)  # negative seems make sense
-        y_final = y - d * math.sin(perp_heading)
-
+    for i in range(len(s_values)):
+        s = s_values[i]
+        d = d_values[i]
+        
+        # Use the consistent convert_sd_to_xy method
+        x_final, y_final = tj.convert_sd_to_xy(s, d)
         x_values.append(x_final)
         y_values.append(y_final)
 

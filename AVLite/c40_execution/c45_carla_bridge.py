@@ -219,7 +219,7 @@ class CarlaBridge(WorldInterface):
         self.ego_state.x = x
         self.ego_state.y = y
         if theta is not None:
-            self.ego_state.theta = theta
+            self.ego_state.theta = -theta # theta is inversed in Carla and UE
 
         if self.vehicle:
             # Convert theta from radians to degrees for Carla
