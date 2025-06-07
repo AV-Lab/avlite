@@ -38,8 +38,8 @@ class GlobalPlot(ABC):
         self.start_text = self.ax.text(1000, 1000, 'S', fontsize=12, color='white', zorder=4, ha='center', va='center')
         self.goal, = self.ax.plot([], [], 'go', markersize=14, label="Goal", zorder = 3)    
         self.goal_text = self.ax.text(1000, 1000 , 'G', fontsize=12, color='white', zorder=4, ha='center', va='center')
-        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=3)
-        self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=4, ha='center', va='center')
+        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=5)
+        self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=6, ha='center', va='center')
 
         self.orientation_arrow = None  # For the vehicle orientation arrow
 

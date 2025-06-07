@@ -38,7 +38,6 @@ class VisualizerApp(tk.Tk):
     def __initialize_ui(self):
         self.set_dark_mode_themed()
 
-
         self.title("AVlite Visualizer")
         # self.geometry("1200x1100")
         self.small_font = ("Courier", 10)
@@ -75,9 +74,6 @@ class VisualizerApp(tk.Tk):
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.update_idletasks()
         
-        
-        
-
         log.info("Reloading stack to ensure configuration is applied.")
         self.reload_stack()
         # Bind to window resize to maintain ratio
@@ -171,8 +167,6 @@ class VisualizerApp(tk.Tk):
         except ValueError:
             log.error("Please enter a valid float number")
             return False
-
-
     
     def update_ui(self):
         t1 = time.time()
@@ -203,21 +197,23 @@ class VisualizerApp(tk.Tk):
 
     def reload_stack(self):
         time_since_last_reload = time.time() - self.last_reload_time
-        if  not self.ui_initialized  or (not self.stack_is_loading and time_since_last_reload  > 2):
+        if  not self.ui_initialized  or (not self.stack_is_loading): # and time_since_last_reload  > 2):
             self.show_loading_overlay("Reloading stack...")
             self.local_plan_plot_view.reset()
             self.global_plan_plot_view.reset()
-            self.global_plan_plot_view.update_plot_type()
             self.stack_is_loading = True
             self.exec_visualize_view.stop_exec()
             log.info(f"Reloading the code with async_mode: {self.setting.async_exec.get()}")
-            # self.show_loading_overlay("Loading...")
-            thread = threading.Thread(target=self.__reload_stack_async)
-            thread.daemon = True
-            thread.start()
             self.disable_frame(self)
             self.local_plan_plot_view.grid_forget()
             self.global_plan_plot_view.grid_forget()
+
+            self.__reload_stack_async()
+            self.global_plan_plot_view.update_plot_type()
+            # self.show_loading_overlay("Loading...")
+            # thread = threading.Thread(target=self.__reload_stack_async)
+            # thread.daemon = True
+            # thread.start()
         else:
             log.warning(f"Reloading stack is already in progress or too soon. Last reload was {time_since_last_reload:.2f} seconds ago.")
             if hasattr(self, 'pending_reload_request') and self.pending_reload_request:
