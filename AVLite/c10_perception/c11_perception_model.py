@@ -108,6 +108,7 @@ class PerceptionModel:
     ego_vehicle: EgoState = field(default_factory=EgoState)
     max_agent_vehicles:int = 12
     agent_history: dict[str, list[AgentState]] = field(default_factory=dict) # agent_id -> list of states
+    agent_occupancy_flow: dict[str, list[np.ndarray]] = field(default_factory=dict) # agent_id -> list of occupancy flow polygons
 
     def add_agent_vehicle(self, agent: AgentState):
         if len(self.agent_vehicles) == self.max_agent_vehicles:

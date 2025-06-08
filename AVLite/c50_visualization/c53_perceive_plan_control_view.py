@@ -5,7 +5,7 @@ import time
 import logging
 
 from typing import TYPE_CHECKING
-from c30_control.c32_control_strategy import ControlComand
+from c30_control.c32_control_strategy import ControlComand, ControlStrategy
 from c50_visualization.c58_ui_lib import ValueGauge
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
@@ -89,6 +89,7 @@ class PerceivePlanControlView(ttk.Frame):
 
         ttk.Button(self.plan_frame, text="◀️", command=self.step_waypoint_back, width=2).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="▶", command=self.step_plan, width=2).pack(side=tk.LEFT)
+        ttk.Button(self.plan_frame, text="Align", command=self.align_plan, width=4).pack(side=tk.LEFT)
         ttk.Button(self.plan_frame, text="Local Replan", command=self.replan).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # ----------------------------------------------------------------------
@@ -123,16 +124,14 @@ class PerceivePlanControlView(ttk.Frame):
         ttk.Label(self.progress_label_frame, text="Steer",
                   font=self.root.small_font).pack(side=tk.TOP)
 
-        self.gauge_acc = ValueGauge(
-            self.progress_frame,
+        self.gauge_acc = ValueGauge( self.progress_frame,
             min_value=self.root.exec.ego_state.min_acceleration,
             max_value=self.root.exec.ego_state.max_acceleration,
         )
         self.gauge_acc.pack(side=tk.TOP, fill=tk.X, expand=True)
         # self.progressbar_acc.set_marker(0)
 
-        self.gauge_steer = ValueGauge(
-            self.progress_frame,
+        self.gauge_steer = ValueGauge( self.progress_frame,
             min_value=self.root.exec.ego_state.min_steering,
             max_value=self.root.exec.ego_state.max_steering,
         )
@@ -140,11 +139,14 @@ class PerceivePlanControlView(ttk.Frame):
         self.gauge_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
         # ----
 
-        ttk.Button(self.control_frame, text="Step", command=self.step_control).pack(
-            side=tk.LEFT, fill=tk.X, expand=True
-        )
-        ttk.Button(self.control_frame, text="Align", width=4,
-                   command=self.align_control).pack(side=tk.LEFT)
+        controller_dropdown_menu = ttk.Combobox(self.control_frame, textvariable=self.root.setting.controller_type, width=10)
+        controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
+        controller_dropdown_menu.state(["readonly"])
+        controller_dropdown_menu.pack(side=tk.LEFT)
+        controller_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+
+        ttk.Button(self.control_frame, text="Step", command=self.step_control).pack( side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(self.control_frame, text="Align", width=4, command=self.align_control).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="◀️ ", width=2, command=self.step_steer_left).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="▶", width=2, command=self.step_steer_right).pack(side=tk.LEFT)
         ttk.Button(self.control_frame, text="▲", width=2, command=self.step_acc).pack(side=tk.LEFT)
@@ -199,6 +201,11 @@ class PerceivePlanControlView(ttk.Frame):
         self.root.exec.local_planner.replan()
         t2 = time.time()
         log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
+        self.root.update_ui()
+
+    def align_plan(self):
+        log.debug("Aligning plan with current ego state")
+        self.root.exec.local_planner.step(self.root.exec.world.get_ego_state())
         self.root.update_ui()
 
     def step_plan(self):

@@ -7,8 +7,8 @@ import logging
 import numpy as np
 
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from c20_planning.c24_race_global_planner import RaceGlobalPlanner
-from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
+from c20_planning.c24_global_planners import RaceGlobalPlanner
+from c20_planning.c24_global_planners import HDMapGlobalPlanner
 from c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 
 log = logging.getLogger(__name__)
@@ -112,6 +112,7 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
                     self.global_plot.show_vehicle_orientation(self.teleport_x, self.teleport_y, self.teleport_orientation) 
                     self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
+                    self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
                     self.root.update_ui()
             else:
                 self.root.setting.perception_status_text.set("Click on the plot.")
@@ -135,9 +136,10 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.global_plot.set_goal(event.xdata, event.ydata)
                     self.root.exec.global_planner.set_start_goal(start_point=self.start_point, goal_point=(event.xdata, event.ydata))
                     log.info(f"Set start: {self.start_point}, goal: {(event.xdata, event.ydata)}")
+
                     self.root.exec.global_planner.plan()
                     if len(self.root.exec.global_planner.global_plan.path) == 0:
-                        log.warning("Global plan is empty. Cannot set global plan.")
+                        log.warning("No global plan found. Please check the start and goal points.")
                         return
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
@@ -159,6 +161,7 @@ class GlobalPlanPlotView(ttk.Frame):
         if event.inaxes == self.ax:
             if event.button == 1:
                 self.left_mouse_button_pressed = False
+                self.global_plot.clear_tmp_plots()
                 self.root.exec.controller.reset()
                 self.root.update_ui()
                 log.debug(f"Teleport Ego to X: {self.teleport_x:.2f}, Y: {self.teleport_y:.2f}, Orientation: {self.teleport_orientation:.2f}")
@@ -198,7 +201,15 @@ class LocalPlanPlotView(ttk.Frame):
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
         self.canvas.mpl_connect("button_press_event", self.on_mouse_click)
+        self.canvas.mpl_connect("button_release_event", self.on_mouse_release)
         self._prev_scroll_time = None  # used to throttle the replot
+
+        self.left_mouse_button_pressed = False
+        self.teleport_x = 0.0
+        self.teleport_y = 0.0
+        self.teleport_s = 0.0
+        self.teleport_d = 0.0
+        self.teleport_orientation = 0.0  
         
 
     def reset(self):
@@ -210,13 +221,26 @@ class LocalPlanPlotView(ttk.Frame):
             x, y = event.xdata, event.ydata
             if event.inaxes == self.ax1:
                 self.root.setting.perception_status_text.set(f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
+                if self.left_mouse_button_pressed:
+                    self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
+                    self.local_plot.show_vehicle_orientation_ax1(self.teleport_x, self.teleport_y, self.teleport_orientation) 
+                    self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
+                    self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
+                    self.root.update_ui()
             elif event.inaxes == self.ax2:
+                if self.left_mouse_button_pressed:
+                    teleport_orientation = np.arctan2(y - self.teleport_d, x - self.teleport_s)
+                    self.local_plot.show_vehicle_orientation_ax2(s=self.teleport_s, d=self.teleport_d, theta=teleport_orientation) 
+                    x_,y_, theta = self.root.exec.local_planner.global_plan.trajectory.convert_sd_orientation_to_xy_orientation(x,y,teleport_orientation)
+                    self.root.exec.world.teleport_ego(self.teleport_x, self.teleport_y,theta)
+                    self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
+                    self.root.update_ui()
                 self.root.setting.perception_status_text.set(f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
         else:
             self.root.setting.perception_status_text.set("Click on the plot.")
 
     def on_mouse_click(self, event):
-        if event.button == 1:
+        if event.button == 3:
             if event.inaxes == self.ax1:
                 x, y = event.xdata, event.ydata
                 self.root.exec.spawn_agent(x=x, y=y)
@@ -225,6 +249,36 @@ class LocalPlanPlotView(ttk.Frame):
                 s, d = event.xdata, event.ydata
                 self.root.exec.spawn_agent(d=d, s=s)
                 self.root.update_ui()
+
+        elif event.button == 1:
+            if event.inaxes == self.ax1:
+                x, y = event.xdata, event.ydata
+                self.root.exec.world.teleport_ego(x=x, y=y)
+                self.left_mouse_button_pressed = True
+                self.teleport_x = x
+                self.teleport_y = y
+            elif event.inaxes == self.ax2:
+                s, d = event.xdata, event.ydata
+                x,y = self.root.exec.local_planner.global_plan.trajectory.convert_sd_to_xy(s,d)
+                self.root.exec.world.teleport_ego(x,y)
+                self.left_mouse_button_pressed = True
+                self.teleport_s = s
+                self.teleport_d = d
+                self.teleport_x = x
+                self.teleport_y = y
+
+            self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
+            self.root.update_ui()
+    
+    def on_mouse_release(self, event):
+        # if event.inaxes == self.ax1:
+        if event.button == 1:
+            self.left_mouse_button_pressed = False
+            self.local_plot.clear_tmp_plots()
+            self.root.exec.controller.reset()
+            self.root.update_ui()
+            log.debug(f"Teleport Ego to X: {self.teleport_x:.2f}, Y: {self.teleport_y:.2f}, Orientation: {self.teleport_orientation:.2f}")
+
 
     def on_mouse_scroll(self, event, increment=10):
         if event.inaxes == self.ax1:

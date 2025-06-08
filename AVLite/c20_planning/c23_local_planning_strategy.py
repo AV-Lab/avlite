@@ -11,9 +11,8 @@ log = logging.getLogger(__name__)
 
 
 class LocalPlannerStrategy(ABC):
-
-
     registry = {}
+
     def __init__( self, global_plan: GlobalPlan, pm: PerceptionModel, planning_horizon=3, num_of_edge_points=10):
         """Initialize the local planner with a global plan and perception model."""
         self.global_plan: GlobalPlan = global_plan
@@ -123,6 +122,8 @@ class LocalPlannerStrategy(ABC):
 
         self.traversed_x.append(x_new)
         self.traversed_y.append(y_new)
+        current_orientation = self.global_trajectory.get_current_heading()
+        log.debug(f"global tj current orientation: {current_orientation}")
 
         # TODO some error check might be needed
         self.global_trajectory.update_waypoint_by_xy(x_new, y_new)
@@ -187,3 +188,7 @@ class LocalPlannerStrategy(ABC):
             return 0
         return 1 + self.__plan_len(edge=edge.selected_next_local_plan)
 
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:  
+            LocalPlannerStrategy.registry[cls.__name__] = cls

@@ -1,17 +1,22 @@
+import threading
+import numpy as np
+import time
+import tkinter as tk
+from tkinter import ttk
+import logging
+
+from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from c40_execution.c41_execution_model import Executer
 from c40_execution.c42_sync_executer import SyncExecuter
+from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
 from c50_visualization.c52_plot_view import LocalPlanPlotView, GlobalPlanPlotView
 from c50_visualization.c53_perceive_plan_control_view import PerceivePlanControlView
 from c50_visualization.c54_exec_visualize_view import ExecVisualizeView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
 from c50_visualization.c56_config_shortcut_view import ConfigShortcutView
-from c60_tools.c61_utils import load_setting
+from c60_tools.c61_utils import load_setting, load_config, reload_lib, get_absolute_path
     
-import threading
-import time
-import tkinter as tk
-from tkinter import ttk
-import logging
 
 log = logging.getLogger(__name__)
 logging.getLogger("PIL").setLevel(logging.WARNING)
@@ -20,10 +25,9 @@ logging.getLogger("PIL").setLevel(logging.WARNING)
 class VisualizerApp(tk.Tk):
     exec: SyncExecuter
 
-    def __init__(self, executer: SyncExecuter, code_reload_function=None):
+    def __init__(self):
         super().__init__()
-        self.exec = executer
-        self.code_reload_function = code_reload_function
+        self.exec = Executer.executor_factory()
         self.loading_overlay = None
         self.stack_is_loading = False    
         self.ui_initialized = False
@@ -229,17 +233,16 @@ class VisualizerApp(tk.Tk):
     def __reload_stack_async(self):
         try:
             self.exec_visualize_view.stop_exec()
-            if self.code_reload_function is not None:
-                self.exec = self.code_reload_function(
-                    async_mode=self.setting.async_exec.get(),
-                    bridge=self.setting.execution_bridge.get(),
-                    global_planner=self.setting.global_planner_type.get(),
-                    replan_dt=self.setting.replan_dt.get(),
-                    control_dt=self.setting.control_dt.get(),
-                )
+            self.exec = Executer.executor_factory(
+                async_mode=self.setting.async_exec.get(),
+                bridge=self.setting.execution_bridge.get(),
+                global_planner=self.setting.global_planner_type.get(),
+                local_planner=self.setting.local_planner_type.get(),
+                controller=self.setting.controller_type.get(),
+                replan_dt=self.setting.replan_dt.get(),
+                control_dt=self.setting.control_dt.get(),
+            )
 
-            else:
-                log.warning("No code reload function provided.")
         except Exception as e:
             log.error(f"Error reloading stack: {e}", exc_info=True)
 
@@ -442,3 +445,4 @@ class VisualizerApp(tk.Tk):
         
         style = ttk.Style(self)
         style.theme_use('default')  # Reset to default theme
+

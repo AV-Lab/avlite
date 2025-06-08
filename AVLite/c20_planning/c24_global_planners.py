@@ -11,12 +11,20 @@ from c20_planning.c28_trajectory import Trajectory, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
 
+class RaceGlobalPlanner(GlobalPlannerStrategy):
+    def __init__(self):
+        super().__init__()
+
+
+    def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
+        pass
+
 class HDMapGlobalPlanner(GlobalPlannerStrategy):
     """
     A global planner that uses OpenDRIVE HD maps for path planning.
     """
 
-    def __init__(self, xodr_file:str, sampling_resolution=1, max_velocity=10):
+    def __init__(self, xodr_file:str, sampling_resolution=.5, max_velocity=10, wp_to_full_velocity=20):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
@@ -28,6 +36,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         self.hdmap:HDMap = HDMap(xodr_file_name=xodr_file, sampling_resolution=sampling_resolution)
         self.max_velocity = max_velocity
+        self.wp_to_full_velocity = wp_to_full_velocity
         
         log.debug(f"Loading HDMap from {xodr_file}")
 
@@ -55,6 +64,10 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         # Plan global path
         path = self.__plan_global_path(start_lane.uid, goal_lane.uid)
+        if len(path) == 0:
+            log.warning(f"No path found from {start_lane.uid} to {goal_lane.uid}.")
+            return
+
         # removing lane changes by keeping only the final lane in that road. This will utilize lane_change attribute in the edge
         # Notice that nodes and lanes, and edges are the changes
         # TODO: Lane sections are not handled properly
@@ -92,22 +105,30 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                         self.global_plan.path.append(point)
                         self.global_plan.left_boundary_d.append(lane.width/2)
                         self.global_plan.right_boundary_d.append(-lane.width/2)
-                        self.global_plan.velocity.append(self.max_velocity)
+                        # self.global_plan.velocity.append(self.max_velocity)
                 elif i == len(path2) - 1:
                     log.debug(f"Goal lane: {lane.uid}, point IDX: {g_idx}")
                     for point in chop_path(lane.center_line.T, lane.id, g_idx, start=False):
                         self.global_plan.path.append(point)
                         self.global_plan.left_boundary_d.append(lane.width/2)
                         self.global_plan.right_boundary_d.append(-lane.width/2)
-                        self.global_plan.velocity.append(self.max_velocity)
+                        # self.global_plan.velocity.append(self.max_velocity)
                 else:
                     lane_path = lane.center_line.T if int(lane.id) < 0 else lane.center_line.T[::-1]
                     for point in lane_path:
                         self.global_plan.path.append(point)
                         self.global_plan.left_boundary_d.append(lane.width/2)
                         self.global_plan.right_boundary_d.append(-lane.width/2)
-                        self.global_plan.velocity.append(self.max_velocity)
-        
+                        # self.global_plan.velocity.append(self.max_velocity)
+       
+        # setting velocity. It should start with zero to max vel for the first 20 points, then at max, then reduce to zero last 20 points
+        n = len(self.global_plan.path)
+        if n < self.wp_to_full_velocity * 2:
+            self.global_plan.velocity = [self.max_velocity] * n
+        else:
+            self.global_plan.velocity = list(np.linspace(0, self.max_velocity, self.wp_to_full_velocity)) + [self.max_velocity] * (n - 40) + \
+                list(np.linspace(self.max_velocity, 0, self.wp_to_full_velocity))
+
         # self.global_plan = remove_dublicate_points(self.global_plan)
         # self.global_plan = smoothen_path_savgol(self.global_plan, min_spacing=0.5, window_length=7, polyorder=3)
         self.global_plan = smoothen_path_splprep(self.global_plan, min_spacing=0.5, smoothing=20)

@@ -3,6 +3,7 @@ from c10_perception.c12_perception_strategy import PerceptionModel
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
+from c40_execution.c41_execution_model import Executer
 from c40_execution.c42_sync_executer import SyncExecuter, WorldInterface
 
 from logging.handlers import QueueHandler, QueueListener
@@ -14,8 +15,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-
-class AsyncThreadedExecuter(SyncExecuter):
+class AsyncThreadedExecuter(Executer):
     def __init__(
         self,
         perception_model: PerceptionModel,
@@ -139,7 +139,7 @@ class AsyncThreadedExecuter(SyncExecuter):
 
                     with self.lock_world:
                         state = self.world.ego_state
-                        cmd = self.controller.control(state)
+                        cmd = self.controller.control(state, control_dt=self.sim_dt)
                         self.world.control_ego_state(cmd, dt=self.sim_dt)
                     self.control_fps = 1.0 / dt
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 import tkinter as tk
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from c30_control.c32_control_strategy import ControlStrategy
 
 
 class VisualizationSettings:
@@ -28,17 +29,14 @@ class VisualizationSettings:
         self.global_zoom = 30
 
         # Perc Plan Control
-        self.global_planner_type = tk.StringVar(
-            value=list(GlobalPlannerStrategy.registry.keys())[0]
-                   if GlobalPlannerStrategy.registry else None)
+        self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
 
         self.enable_joystick = tk.BooleanVar(value=True)
         self.global_plan_view = tk.BooleanVar(value=False)
         self.local_plan_view = tk.BooleanVar(value=False)
         
-        self.local_planner_type = tk.StringVar(
-            value=(list(LocalPlannerStrategy.registry.keys())[0] 
-                   if LocalPlannerStrategy.registry else None))
+        self.local_planner_type = tk.StringVar(value=(list(LocalPlannerStrategy.registry.keys())[0] if LocalPlannerStrategy.registry else None))
+        self.controller_type = tk.StringVar(value=(list(ControlStrategy.registry.keys())[0] if ControlStrategy.registry else None))
 
         # Exec Options
         self.async_exec = tk.BooleanVar(value=False)

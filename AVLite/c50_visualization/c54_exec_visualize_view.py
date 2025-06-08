@@ -161,7 +161,7 @@ class ExecVisualizeView(ttk.Frame):
         ## UI Elements for Visualize - Buttons
         zoom_global_frame = ttk.Frame(self.visualize_frame)
         zoom_global_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_global_frame, text="Global Coordinate 🔍").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Label(zoom_global_frame, text="Global 🔍").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.local_plan_plot_view.zoom_in).pack(
             side=tk.LEFT
         )
@@ -187,7 +187,7 @@ class ExecVisualizeView(ttk.Frame):
 
         zoom_frenet_frame = ttk.Frame(self.visualize_frame)
         zoom_frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_frenet_frame, text="Frenet Coordinate 🔍").pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Label(zoom_frenet_frame, text="Frenet 🔍").pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(
             zoom_frenet_frame,
             text="➕",

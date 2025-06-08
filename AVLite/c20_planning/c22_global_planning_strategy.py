@@ -29,7 +29,7 @@ class GlobalPlannerStrategy(ABC):
         
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)
-        if not abstract:  # only register non-abstract subclasses
+        if not abstract:  
             GlobalPlannerStrategy.registry[cls.__name__] = cls
 
 

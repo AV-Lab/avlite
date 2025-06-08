@@ -8,15 +8,16 @@ from c10_perception.c11_perception_model import PerceptionModel, EgoState, Agent
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
-from c40_execution.c41_world_interface import WorldInterface
+from c40_execution.c41_execution_model import Executer
+from c40_execution.c41_execution_model import WorldInterface
 
 log = logging.getLogger(__name__)
 
 
-class SyncExecuter:
+class SyncExecuter(Executer):
     def __init__(
         self,
-        pm: PerceptionModel,
+        perception_model: PerceptionModel,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
@@ -27,17 +28,7 @@ class SyncExecuter:
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
-        self.pm: PerceptionModel = pm
-        self.ego_state: EgoState = pm.ego_vehicle
-        self.global_planner: GlobalPlannerStrategy = global_planner
-        self.local_planner: LocalPlannerStrategy = local_planner
-        self.controller: ControlStrategy = controller
-        self.world: WorldInterface = world
-        self.planner_fps: float = 0.0
-        self.control_fps: float = 0.0
-
-        self.replan_dt: float = replan_dt
-        self.control_dt: float = control_dt
+        super().__init__(perception_model, global_planner, local_planner, controller, world, replan_dt=replan_dt, control_dt=control_dt)
 
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
@@ -47,15 +38,7 @@ class SyncExecuter:
         self.__controller_last_time = 0.0
 
 
-    def step(
-        self,
-        control_dt=0.01,
-        replan_dt=0.01,
-        sim_dt=0.01,
-        call_replan=True,
-        call_control=True,
-        call_perceive=True,
-        ) -> None:
+    def step(self, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True,) -> None:
 
         pln_time_txt, cn_time_txt, sim_time_txt = "", "", ""
         t0 = time.time()
@@ -77,7 +60,7 @@ class SyncExecuter:
                 self.__controller_last_time = self.elapsed_sim_time
                 self.control_fps = 1.0 / dt_c
                 local_tj = self.local_planner.get_local_plan()
-                cmd = self.controller.control(self.ego_state, local_tj)
+                cmd = self.controller.control(self.ego_state, local_tj, control_dt=sim_dt)
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
 
                 self.world.control_ego_state(cmd, dt=sim_dt)
@@ -109,31 +92,8 @@ class SyncExecuter:
         pass
 
     def reset(self):
-        self.pm.reset()
-        self.ego_state.reset()
-        self.local_planner.reset()
-        self.controller.reset()
-        self.world.reset
+        super().reset()
         self.__prev_exec_time = None
         self.__time_since_last_replan = 0
-        self.elapsed_real_time = 0
-        self.elapsed_sim_time = 0
 
-    def spawn_agent(self, x=None, y=None, s=None, d=None, theta=None):
-        if x is not None and y is not None:
-            t = self.ego_state.theta if theta is None else theta
-            agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.world.spawn_agent(agent)
-        elif s is not None and d is not None:
-            # Convert (s, d) to (x, y) using some transformation logic
-            x, y = self.local_planner.global_trajectory.convert_sd_to_xy(s, d)
-            log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
-            log.info(f"Ego State: {self.ego_state}")
-            t = self.ego_state.theta if theta is None else theta
-            agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.world.spawn_agent(agent)
-        else:
-            raise ValueError("Either (x, y) or (s, d) must be provided")
-
-        self.pm.add_agent_vehicle(agent)
 

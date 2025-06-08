@@ -1,0 +1,4 @@
+global_trajectory: "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
+# global_trajectory: "data/san_campus.json"
+hd_map: "data/Town10HD_Opt.xodr"
+# hd_map: "data/Mine_01.xodr"

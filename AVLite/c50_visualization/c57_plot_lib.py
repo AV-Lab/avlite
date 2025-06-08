@@ -7,7 +7,7 @@ from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c20_planning.c27_lattice import Edge
 from c20_planning.c28_trajectory import Trajectory
 from c40_execution.c42_sync_executer import SyncExecuter
-from c20_planning.c25_hdmap_global_planner import HDMapGlobalPlanner
+from c20_planning.c24_global_planners import HDMapGlobalPlanner
 
 
 from typing import cast
@@ -49,6 +49,8 @@ class GlobalPlot(ABC):
         self.map_min_y = None
         self.map_max_x = None
         self.map_max_y = None
+        self.view_width = None
+        self.view_height = None
         self.map_plotted = False
 
 
@@ -94,6 +96,8 @@ class GlobalPlot(ABC):
 
                     self.ax.set_xlim(self.vehicle_x - zoom, self.vehicle_x + zoom)
                     self.ax.set_ylim(self.vehicle_y - zoom/aspect_ratio, self.vehicle_y + zoom/aspect_ratio)
+                    self.view_width = zoom * 2
+                    self.view_height = zoom / aspect_ratio * 2
                 else:
                     map_width = self.map_max_x - self.map_min_x
                     map_height = self.map_max_y - self.map_min_y
@@ -112,6 +116,8 @@ class GlobalPlot(ABC):
                     
                     self.ax.set_xlim(self.map_min_x - x_pad, self.map_max_x + x_pad)
                     self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
+                    self.view_width = map_width + x_pad * 2
+                    self.view_height = map_height + y_pad * 2
 
     def set_start(self, x, y):
         """Set the start point"""
@@ -131,11 +137,16 @@ class GlobalPlot(ABC):
         # self.fig.canvas.blit(self.ax.bbox)
         
         self.fig.canvas.draw()
+
     def show_vehicle_orientation(self, x, y, theta):
         """Show the vehicle orientation on the plot"""
         log.debug(f"Showing vehicle orientation at ({x}, {y}) with theta={theta}")
 
-        length = 20
+        if self.view_width is not None:
+            length = min(self.view_width, self.view_height) * .15
+        else:
+            length = np.abs(self.map_max_x - self.map_min_x) * .2
+
         x2 = x + length * np.cos(theta)
         y2 = y + length * np.sin(theta)
         if self.orientation_arrow:
@@ -484,6 +495,13 @@ class LocalPlot:
         self.lattice_graph_endpoints_ax2 = []
         self.local_plan_plots_ax1 = []
         self.local_plan_plots_ax2 = []
+        self.view_width_ax1 = None
+        self.view_height_ax1 = None
+        self.view_width_ax2 = None
+        self.view_height_ax2 = None
+        
+        self.orientation_arrow = None  # For the vehicle orientation arrow
+        
 
         for _ in range(self.MAX_LATTICE_SIZE):
             (line_ax1,) = self.ax1.plot([], [], "b--", color="lightskyblue", alpha=0.6)
@@ -589,13 +607,14 @@ class LocalPlot:
         center_sd = exec.local_planner.location_sd if frenet_follow_planner else exec.local_planner.global_trajectory.convert_xy_to_sd(*center_xy)
         if xy_zoom is not None:
             self.ax1.set_xlim(center_xy[0] - xy_zoom, center_xy[0] + xy_zoom)
-            self.ax1.set_ylim(
-                center_xy[1] - xy_zoom / aspect_ratio / 2,
-                center_xy[1] + xy_zoom / aspect_ratio / 2,
-            )
+            self.ax1.set_ylim( center_xy[1] - xy_zoom / aspect_ratio / 2, center_xy[1] + xy_zoom / aspect_ratio / 2,)
+            self.view_width_ax1 = xy_zoom * 2
+            self.view_height_ax1 = xy_zoom / aspect_ratio * 2
         if frenet_zoom is not None:
             self.ax2.set_xlim( center_sd[0] - frenet_zoom / 2, center_sd[0] + 1.5 * frenet_zoom)
             self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
+            self.view_width_ax2 = frenet_zoom * 2
+            self.view_height_ax2 = frenet_zoom / aspect_ratio * 2
 
         if plot_last_pts and num_plot_last_pts > 0:
             self.last_locs_ax1.set_data( exec.local_planner.traversed_x[-num_plot_last_pts:], exec.local_planner.traversed_y[-num_plot_last_pts:])
@@ -818,6 +837,37 @@ class LocalPlot:
 
         log.debug(f"Plot theme set to {bg_color} background and {fg_color} foreground.")
         self.redraw_plots()
+    
+    def show_vehicle_orientation_ax1(self, x, y, theta):
+        """Show the vehicle orientation on the plot"""
+        log.debug(f"Showing vehicle orientation at ({x}, {y}) with theta={theta}")
+
+        length = .15 * min(self.view_width_ax1, self.view_height_ax1) if self.view_height_ax1 is not None or self.view_width_ax1 is None else 20
+
+        x2 = x + length * np.cos(theta)
+        y2 = y + length * np.sin(theta)
+        if self.orientation_arrow:
+            self.orientation_arrow.remove()
+        self.orientation_arrow = self.ax1.annotate('', xy=(x2, y2), xytext=(x,y), arrowprops=dict(arrowstyle='->',
+                                                     mutation_scale=20, color="red", lw=5), zorder=5)
+
+    def show_vehicle_orientation_ax2(self, s, d, theta):
+        """Show the vehicle orientation on the plot"""
+        log.debug(f"Showing vehicle orientation at ({s}, {d}) with theta={theta}")
+
+        length = .15 * min(self.view_width_ax2, self.view_height_ax2) if self.view_height_ax2 is not None or self.view_width_ax2 is None else 20
+             
+
+        s2 = s + length * np.cos(theta)
+        d2 = d + length * np.sin(theta)
+        if self.orientation_arrow:
+            self.orientation_arrow.remove()
+        self.orientation_arrow = self.ax2.annotate('', xy=(s2, d2), xytext=(s,d), arrowprops=dict(arrowstyle='->',
+                                                     mutation_scale=20, color="red", lw=5), zorder=5)
+
+    def clear_tmp_plots(self):
+        self.orientation_arrow.remove() if self.orientation_arrow else None
+        self.orientation_arrow = None
 
     def reset(self):
         self.initialized = False

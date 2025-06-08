@@ -12,33 +12,38 @@ import copy
 log = logging.getLogger(__name__)
 
 class ControlStrategy(ABC):
-    tj: Optional[Trajectory]
-    cmd: ControlComand
-    cte_steer: float
-    cte_velocity: float
+    registry = {}
 
-    def __init__(self, tj: Trajectory = None):
-        self.tj = tj
-        self.cmd = ControlComand()
-        self.cte_steer = 0
-        self.cte_velocity = 0
+    def __init__(self, tj: Optional[Trajectory] = None):
+        self.tj: Optional[Trajectory] = tj
+        self.cmd: ControlComand = ControlComand()
+        self.cte_steer: float = 0
+        self.cte_velocity: float = 0
         self.__control_dt:float=0
 
-    @abstractmethod
-    def control(self, ego: EgoState, tj: Trajectory=None) -> ControlComand:
-        pass
-    
 
     def update_trajectory(self, tj: Trajectory):
         log.debug("Controller Trajectory updated")
         self.tj = tj
 
+    @abstractmethod
+    def control(self, ego: EgoState, tj: Optional[Trajectory]=None, control_dt=None) -> ControlComand:
+        pass
 
 
     @abstractmethod
     def reset(self):
         pass
     
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:  
+            ControlStrategy.registry[cls.__name__] = cls
+    
+
+
+
     # methods used for multiprocessing
     def get_copy(self):
         return copy.deepcopy(self)

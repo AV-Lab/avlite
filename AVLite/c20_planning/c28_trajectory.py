@@ -16,6 +16,7 @@ class Trajectory:
     path: list[tuple[float,float]] = field(default_factory=list)
     path_x: np.ndarray = field(default=np.ndarray)
     path_y: np.ndarray =  field(default=np.ndarray)
+    path_heading: np.ndarray = field(default=np.ndarray)  # orientation of the path
     path_s: list[float] = field(default_factory=list) # progress along the path
     path_d: list[float] = field(default_factory=list) # always zero, for debugging
     velocity: list[float] = field(default_factory=list)
@@ -49,15 +50,46 @@ class Trajectory:
         self.path_x = self.__reference_path[:, 0]
         self.path_y = self.__reference_path[:, 1]
         self.__cumulative_distances = self.__precompute_cumulative_distances()
-        self.path_s, self.path_d = self.convert_xy_path_to_sd_path(
-            self.__reference_path
-        )  
+        self.path_s, self.path_d = self.convert_xy_path_to_sd_path( self.__reference_path)  
 
 
         # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
+        self.path_heading = self.__precompute_path_orientation()
 
         # log.debug(f"Trajectory initialized with {len(self.path)} waypoints: {self.__reference_sd_path}")
+
+    def __precompute_path_orientation(self):
+        """
+        Precomputes the orientation of the path at each waypoint.
+        Uses angle unwrapping to ensure continuous orientation changes.
+        """
+        n = len(self.path_x)
+        if n < 2:
+            return np.array([0.0])
+            
+        # First calculate raw orientations
+        raw_orientations = []
+        for i in range(n - 1):
+            dx = self.path_x[i + 1] - self.path_x[i]
+            dy = self.path_y[i + 1] - self.path_y[i]
+            
+            # Handle very small movements to avoid numerical issues
+            if abs(dx) < 1e-8 and abs(dy) < 1e-8:
+                # If points are nearly identical, use previous orientation or default to 0
+                orientation = raw_orientations[-1] if raw_orientations else 0.0
+            else:
+                orientation = math.atan2(dy, dx)
+                
+            raw_orientations.append(orientation)
+        
+        # Last point orientation matches the final segment
+        raw_orientations.append(raw_orientations[-1])
+        
+        # Now unwrap the angles to ensure continuity
+        orientations = np.unwrap(raw_orientations)
+        
+        return orientations
     
     def __precompute_cumulative_distances(self):
         reference_path = np.array(self.__reference_path)
@@ -82,6 +114,39 @@ class Trajectory:
             raise ValueError("Trajectory not initialized")
 
         return self.path_s[self.current_wp], self.path_d[self.current_wp]
+    
+    # def get_current_heading(self) -> float:
+    #     """
+    #     Returns the current heading angle in radians.
+    #     """
+    #     if not self.is_initialized:
+    #         raise ValueError("Trajectory not initialized")
+    #     
+    #     
+    #     if 2<= self.current_wp <= len(self.path_x) - 1:
+    #         return math.atan2(
+    #             self.path_y[self.current_wp] - self.path_y[self.current_wp - 2],
+    #             self.path_x[self.current_wp] - self.path_x[self.current_wp - 2],
+    #         )
+    #     elif 1<= self.current_wp <= len(self.path_x) - 1:
+    #         return math.atan2(
+    #             self.path_y[self.current_wp] - self.path_y[self.current_wp - 1],
+    #             self.path_x[self.current_wp] - self.path_x[self.current_wp - 1],
+    #         )
+    #     else:
+    #         return math.atan2(
+    #             self.path_y[self.current_wp + 1] - self.path_y[self.current_wp],
+    #             self.path_x[self.current_wp + 1] - self.path_x[self.current_wp],
+    #         )
+
+    def get_current_heading(self) -> float:
+        """
+        Returns the current heading angle in radians.
+        """
+        if not self.is_initialized:
+            raise ValueError("Trajectory not initialized")
+        
+        return self.path_heading[self.current_wp]
 
     def get_xy_by_waypoint(self, wp: int) -> tuple[float, float]:
         """
@@ -488,6 +553,10 @@ class Trajectory:
             # Linear interpolation between path_x and path_y
             x = self.path_x[prev_wp] + ratio * (self.path_x[next_wp] - self.path_x[prev_wp])
             y = self.path_y[prev_wp] + ratio * (self.path_y[next_wp] - self.path_y[prev_wp])
+        else:
+            log.warning(f"Waypoint index {prev_wp} is out of bounds for path_x and path_y.")
+            x = self.path_x[prev_wp]
+            y = self.path_y[prev_wp]
 
         # Calculate the perpendicular heading
         perp_heading = heading - math.pi / 2
@@ -498,6 +567,20 @@ class Trajectory:
 
         # TODO: need to fix the issue when prev is the last point in the track and we come back to the biginning
         return x_final, y_final
+    
+    def convert_sd_orientation_to_xy_orientation(self, s: float, d: float, theta:float) -> tuple[float,float,float]:
+        """
+        Convert Frenet coordinates (s, d) and orientation theta to Cartesian coordinates (x, y) and orientation.
+        :param s: Frenet s coordinate
+        :param d: Frenet d coordinate
+        :param theta: Orientation in radians
+        :return: Tuple of (x, y, orientation)
+        """
+        x, y = self.convert_sd_to_xy(s, d)
+        theta = theta + math.atan2(self.path_y[self.next_wp] - self.path_y[self.current_wp],
+            self.path_x[self.next_wp] - self.path_x[self.current_wp],)
+
+        return x, y, theta
 
     def convert_xy_path_to_sd_path(self, points):
 

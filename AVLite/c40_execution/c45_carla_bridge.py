@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 class CarlaBridge(WorldInterface):
     def __init__(
-        self, ego_state: EgoState, host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0
+        self, ego_state: Optional[EgoState], host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0
     ):
         log.info(f"Connecting to Carla at {host}:{port}")
         self.client = None
