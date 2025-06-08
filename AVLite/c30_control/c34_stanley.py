@@ -6,11 +6,15 @@ from c10_perception.c11_perception_model import EgoState
 from c20_planning.c28_trajectory import Trajectory
 from c30_control.c31_control_model import ControlComand
 from c30_control.c32_control_strategy import ControlStrategy
+from c30_control.c39_settings import ControlSettings
 
 log = logging.getLogger(__name__)
 
 class StanleyController(ControlStrategy):
-    def __init__(self, tj:Optional[Trajectory]=None, k=5, k_soft = 0.01, lookahead=4, valpha=0.8, vbeta=0.01, vgamma=0.3,):
+    def __init__(self, tj:Optional[Trajectory]=None, k=ControlSettings.k, k_soft = ControlSettings.k_soft,
+                 lookahead=ControlSettings.lookahead, valpha=ControlSettings.valpha, vbeta=ControlSettings.vbeta,
+                 vgamma=ControlSettings.vgamma, slow_down_cte=ControlSettings.slow_down_cte, 
+                 slow_down_vel_threshold=ControlSettings.slow_down_vel_threshold):
         """
         Stanley Controller for trajectory following. The controller also slows down the vehicle if steer CTE is > 0.5
         :param tj: Trajectory to follow.
@@ -18,12 +22,16 @@ class StanleyController(ControlStrategy):
         :param k_soft: Softening factor for steering control (at low speed).
         :param lookahead: Lookahead distance for trajectory following.
         :param valpha, vbeta, vgamma: Parameters for velocity control (not used in this implementation).
+        :param slow_down_cte: Threshold for slowing down based on steering CTE.
+        :param slow_down_vel_threshold: Threshold for slowing down based on steering CTE.
         """
         super().__init__(tj)
         self.lookahead = lookahead
         self.k = k
         self.k_soft = k_soft
         self.cte_steer = 0
+        self.slow_down_cte = slow_down_cte  # threshold for slowing down based on steering CTE
+        self.slow_down_vel_threshold = slow_down_vel_threshold # threshold for slowing down based on steering CTE
         
         self.valpha, self.vbeta, self.vgamma = valpha, vbeta, vgamma
         self.cte_v_sum = 0
@@ -56,14 +64,6 @@ class StanleyController(ControlStrategy):
         ##################################
         # Compute the steering: Stanley
         ##################################
-        # if self.previous_heading is None:
-        #     self.previous_heading = ego.theta
-        #     theta = ego.theta
-        # elif np.abs(ego.theta - self.previous_heading) > np.pi - 0.5:
-        #     log.warning(f"Heading change is too large: {ego.theta:+6.2f} vs {self.previous_heading:+6.2f}. Resetting previous heading to current.")
-        #     theta = self.previous_heading
-        # else:
-        #     theta = ego.theta
             
         heading_error = normalize_angle(self.tj.get_current_heading() - ego.theta)
         log.debug(f"heading error: {heading_error:+6.2f} [tj: {self.tj.get_current_heading():+6.2f}, ego: {ego.theta:+6.2f}]")
@@ -92,7 +92,7 @@ class StanleyController(ControlStrategy):
         acc = np.clip(acc, ego.min_acceleration, ego.max_acceleration)
 
         # lower the speed if abs(steer) > 0.5
-        if np.abs(self.cte_steer) > 0.5 and ego.velocity > 2:
+        if np.abs(self.cte_steer) > self.slow_down_cte and ego.velocity > self.slow_down_vel_threshold:
             acc2 = acc - 3 * np.e**np.abs(self.cte_steer)  # reduce acceleration based on steering error
             acc2 = np.clip(acc2, ego.min_acceleration, ego.max_acceleration)
             log.info(f"Steering error {self.cte_steer:+6.2f} is large, reducing acceleration from {acc:.2f} to {acc2:.2f}")

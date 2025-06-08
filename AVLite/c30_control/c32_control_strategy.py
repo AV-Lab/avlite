@@ -27,7 +27,7 @@ class ControlStrategy(ABC):
         self.tj = tj
 
     @abstractmethod
-    def control(self, ego: EgoState, tj: Optional[Trajectory]=None, control_dt=None) -> ControlComand:
+    def control(self, ego: EgoState, tj: Optional[Trajectory]=None, control_dt:float=None) -> ControlComand:
         pass
 
 
@@ -44,19 +44,19 @@ class ControlStrategy(ABC):
 
 
 
-    # methods used for multiprocessing
-    def get_copy(self):
-        return copy.deepcopy(self)
-    def update_serializable_trajectory(self, path: list[tuple[float, float]], velocity_list: list[float]):
-        self.tj = Trajectory(path, velocity_list)
-        log.info("Controller Trajectory updated")
-    def get_control_dt(self)->float:
-        return self.__control_dt
-    def set_control_dt(self, dt:float):
-        self.__control_dt = dt
-    def get_cte_steer(self)->float:
-        return self.cte_steer
-    def get_cte_velocity(self)->float:
-        return self.cte_velocity
-    def get_cmd(self)->ControlComand:
-        return self.cmd
+    # # methods used for multiprocessing
+    # def get_copy(self):
+    #     return copy.deepcopy(self)
+    # def update_serializable_trajectory(self, path: list[tuple[float, float]], velocity_list: list[float]):
+    #     self.tj = Trajectory(path, velocity_list)
+    #     log.info("Controller Trajectory updated")
+    # def get_control_dt(self)->float:
+    #     return self.__control_dt
+    # def set_control_dt(self, dt:float):
+    #     self.__control_dt = dt
+    # def get_cte_steer(self)->float:
+    #     return self.cte_steer
+    # def get_cte_velocity(self)->float:
+    #     return self.cte_velocity
+    # def get_cmd(self)->ControlComand:
+    #     return self.cmd

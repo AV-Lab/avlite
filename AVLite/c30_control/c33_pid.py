@@ -6,16 +6,18 @@ from typing import Optional
 from c10_perception.c11_perception_model import EgoState
 from c20_planning.c28_trajectory import Trajectory
 from c30_control.c32_control_strategy import ControlStrategy, ControlComand
+from c30_control.c39_settings import ControlSettings
 
 log = logging.getLogger(__name__)
 
 class PIDController(ControlStrategy):
-    def __init__(self, tj:Trajectory=None, alpha=0.1, beta=0.001, gamma=0.6, valpha=0.8, vbeta=0.01, vgamma=0.3, lookahead=2):
+    def __init__(self, tj:Optional[Trajectory]=None, alpha=ControlSettings.alpha, beta=ControlSettings.beta, gamma=ControlSettings.gamma,
+                 valpha=ControlSettings.pid_valpha, vbeta=ControlSettings.pid_vbeta, vgamma=ControlSettings.pid_vgamma, pid_lookahead=ControlSettings.pid_lookahead):
         super().__init__(tj)
         self.alpha, self.beta, self.gamma = alpha, beta, gamma
 
         self.valpha, self.vbeta, self.vgamma = valpha, vbeta, vgamma
-        self.lookahead = lookahead
+        self.lookahead = pid_lookahead
         
         self.cte_steer = 0
 
@@ -23,7 +25,7 @@ class PIDController(ControlStrategy):
         self.cte_v_sum = 0
 
 
-    def control(self, ego: EgoState, tj: Optional[Trajectory]=None) -> ControlComand:
+    def control(self, ego: EgoState, tj: Optional[Trajectory]=None, control_dt=None) -> ControlComand:
         if tj is not None:
             self.tj = tj
         elif tj is None and self.tj is None:

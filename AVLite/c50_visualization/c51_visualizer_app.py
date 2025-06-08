@@ -62,11 +62,16 @@ class VisualizerApp(tk.Tk):
         self.exec_visualize_view = ExecVisualizeView(self)
         self.log_view = LogView(self)
         # ----------------------------------------------------------------------
+        # Menu 
+        # ----------------------------------------------------------------------
+
+        self.menubar = tk.Menu(self)
+        self.config(menu=self.menubar)
+        file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Settings", command=self.open_settings_window)
+        self.menus = [file_menu]
        
-        # if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
-        #     self._update_two_plots_layout()
-        # else:
-        #     self._update_one_plot_layout()
 
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
@@ -107,14 +112,14 @@ class VisualizerApp(tk.Tk):
             self.last_resize_time = time.time()
     
 
-    def _update_two_plots_layout(self):
+    def __update_two_plots_layout(self):
         log.debug(f"Updating two plots layout: global_plan_view: {self.setting.global_plan_view.get()}, local_plan_view: {self.setting.local_plan_view.get()}")
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
         self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
         self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
 
-    def _update_one_plot_layout(self):
+    def __update_one_plot_layout(self):
         log.debug(f"Updating one plot layout: global_plan_view: {self.setting.global_plan_view.get()}, local_plan_view: {self.setting.local_plan_view.get()}")
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
@@ -122,14 +127,55 @@ class VisualizerApp(tk.Tk):
             self.global_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
         elif self.setting.local_plan_view.get() and not self.setting.global_plan_view.get():
             self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
+
+
+    def open_settings_window(self):
+        # Create a new window
+        settings_window = tk.Toplevel(self)
+        settings_window.title("Settings")
+        settings_window.geometry("400x300")
+        
+
+        data = {'name': 'Alice', 'age': 30, 'city': 'Wonderland'}
+        tree = ttk.Treeview(settings_window, columns=('Value',), show='headings')
+        tree.heading('Value', text='Value')
+        tree['show'] = 'headings'
+        tree['columns'] = ('Key', 'Value')
+        tree.heading('Key', text='Key')
+        tree.heading('Value', text='Value')
+
+        for k, v in data.items():
+            tree.insert('', 'end', values=(k, v))
+
+        def on_double_click(event):
+            item_id = tree.identify_row(event.y)
+            column = tree.identify_column(event.x)
+            if column == '#2' and item_id:  # Only allow editing the Value column
+                x, y, width, height = tree.bbox(item_id, column)
+                value = tree.set(item_id, 'Value')
+                entry = tk.Entry(tree)
+                entry.place(x=x, y=y, width=width, height=height)
+                entry.insert(0, value)
+                entry.focus()
+
+                def save_edit(event):
+                    tree.set(item_id, 'Value', entry.get())
+                    entry.destroy()
+
+                entry.bind('<Return>', save_edit)
+                entry.bind('<FocusOut>', lambda e: entry.destroy())
+
+        tree.bind('<Double-1>', on_double_click)
+
+        tree.pack(fill='both', expand=True)
     
     def toggle_plan_view(self):
         if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
-            self._update_two_plots_layout()
+            self.__update_two_plots_layout()
             # self.global_plan_plot_view.plot()
             # self.local_plan_plot_view.plot()
         else:
-            self._update_one_plot_layout()
+            self.__update_one_plot_layout()
             # self.local_plan_plot_view.plot()
 
         self.after(500, self.update_ui)  
@@ -265,6 +311,7 @@ class VisualizerApp(tk.Tk):
         self.loading_window.overrideredirect(True)  # No window decorations
         self.loading_window.attributes("-topmost", True)  # Keep on top
     
+        # Center the loading window on the screen using xrandr output
         width = 450
         height = 350
         try:
@@ -285,7 +332,7 @@ class VisualizerApp(tk.Tk):
         self.loading_window.geometry(f"{width}x{height}+{x}+{y}")
         
         
-        # Black background
+        # Black background that matches the logo
         frame = tk.Frame(self.loading_window, bg="#000707", bd=1)
         frame.place(relwidth=1, relheight=1)
         
@@ -314,47 +361,6 @@ class VisualizerApp(tk.Tk):
             if hasattr(self, 'logo_photo'):
                 del self.logo_photo
 
-    def set_dark_mode(self):
-        # self.local_plan_plot_view.update_plot_theme()
-        # self.global_plan_plot_view.toggle_plot_theme()
-        # self.configure(bg="gray14")
-        # self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
-        # self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-
-        # self.setting.bg_color = "#333333"
-        # self.setting.fg_color = "white"
-
-        try:
-            from ttkbootstrap import Style
-
-            # style = Style("darkly")  # Or "cyborg", etc.
-            style = Style()
-            style.load_user_themes("data/avlite-theme.json")
-            style.theme_use("avlitetheme")
-            style.configure("TButton",borderwidth=5, bordercolor="black", padding=(5,2))
-
-            style.master = self
-            gruvbox_green = "#b8bb26"
-            gruvbox_light_green = "#fe8019"
-            gruvbox_red = "#9d0006"
-            gruvbox_orange = "#d65d0e"
-            
-            style.configure(
-                "Start.TButton",
-                background=gruvbox_orange,
-                foreground="white",
-            )
-            style.configure(
-                "Stop.TButton",
-                background=gruvbox_red,
-                foreground="white",
-            )
-
-        except ImportError: 
-            log.error("Please install ttkbootstrap to use dark mode.")
-            self.set_set_light_mode_darker()
-
-
     def set_dark_mode_themed(self):
 
         self.configure(bg="gray14")
@@ -369,6 +375,12 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "log_view") and hasattr(self, "config_shortcut_view"):
             self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
             self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+    
+        if hasattr(self, 'menubar'):
+            bg = "#333333"; fg = "white"; activebg = "#555555"; activefg = "white"
+            self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
+            for menu in getattr(self, "menus", []):
+                menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
         try:
             from ttkthemes import ThemedStyle
@@ -429,6 +441,12 @@ class VisualizerApp(tk.Tk):
         self.setting.fg_color = "black"
         self.local_plan_plot_view.update_plot_theme()
         self.global_plan_plot_view.update_plot_theme()
+        if hasattr(self, 'menubar'):
+            bg = "white"; fg = "black"; activebg = "#ececec"; activefg = "black"
+            self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
+            for menu in getattr(self, "menus", []):
+                menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
+
         log.info("Light mode enabled.")
         style = ttk.Style(self)
         style.theme_use('default')  # Reset to default theme

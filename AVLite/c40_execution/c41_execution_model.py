@@ -9,6 +9,7 @@ from c10_perception.c11_perception_model import PerceptionModel, EgoState, Agent
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
+from c40_execution.c49_settings import ExecutionSettings
 from c60_tools.c61_utils import reload_lib, load_config, get_absolute_path
 
 log = logging.getLogger(__name__)
@@ -144,15 +145,15 @@ class Executer(ABC):
 
     @classmethod
     def executor_factory(cls,
-        config_path="configs/c20_planning.yaml",
-        async_mode=False,
-        bridge="Basic",
-        global_planner=None,
-        local_planner=None,
-        controller=None,
-        replan_dt=0.5,
-        control_dt=0.05,
-        source_run=True,
+        config_path = ExecutionSettings.filepath,
+        async_mode = ExecutionSettings.async_mode,
+        bridge = ExecutionSettings.bridge,
+        global_planner = ExecutionSettings.global_planner,
+        local_planner = ExecutionSettings.local_planner,
+        controller = ExecutionSettings.controller,
+        replan_dt = ExecutionSettings.replan_dt,
+        control_dt = ExecutionSettings.control_dt,
+        source_run = True,
     ) -> "Executer":
         """
         Factory method to create an instance of the Executer class based on the provided configuration.
@@ -172,7 +173,8 @@ class Executer(ABC):
         from c40_execution.c44_basic_sim import BasicSim
         
         config_data = load_config(config_path=config_path)
-        global_plan_path =  get_absolute_path(config_data["global_trajectory"])
+        default_config = config_data["default"]
+        global_plan_path =  get_absolute_path(default_config["global_trajectory"])
 
         
         #################
@@ -191,7 +193,7 @@ class Executer(ABC):
             gp.global_plan = default_global_plan
             log.debug("RaceGlobalPlanner loaded")
         elif global_planner == HDMapGlobalPlanner.__name__:
-            gp = HDMapGlobalPlanner(xodr_file=config_data["hd_map"])
+            gp = HDMapGlobalPlanner(xodr_file=default_config["hd_map"])
             log.debug("GlobalHDMapPlanner loaded")
 
         ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1], velocity=20, theta=-np.pi / 4)

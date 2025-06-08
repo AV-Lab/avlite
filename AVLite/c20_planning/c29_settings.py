@@ -1,12 +1,12 @@
-from dataclasses import dataclass
 
 
-@dataclass
 class PlanningSettings:
     exclude = []
-    filepath: str="configs/c29_planning.yaml"
+    filepath: str="configs/c20_planning.yaml"
     
-    global_trajectory:str = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
-    hd_map:str = "data/Town10HD_Opt.xodr"
-    
-
+    # Race Planner Setting
+    num_of_edge_points=10
+    planning_horizon=3
+    maneuver_distance=35
+    boundary_clearance=1
+    sample_size=3 # number of nodes to sample in each level

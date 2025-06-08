@@ -14,8 +14,6 @@ import tkinter as tk
 
 log = logging.getLogger(__name__)
 
-class Config:
-    pass
 
 def load_config(config_path):
     if os.path.isabs(config_path):
