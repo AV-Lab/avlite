@@ -96,33 +96,49 @@ class PerceivePlanControlView(ttk.Frame):
         # Control Frame
         # ----------------------------------------------------------------------
         self.control_frame = ttk.LabelFrame(self, text="Control")
-        self.control_frame.pack(fill=tk.X, expand=True, side=tk.LEFT)
+        self.control_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
+        
+
+        # buttons
+        control_button_frame = ttk.Frame(self.control_frame)
+        control_button_frame.pack(fill=tk.X, expand=True)
+        controller_dropdown_menu = ttk.Combobox(control_button_frame, textvariable=self.root.setting.controller_type, width=10)
+        controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
+        controller_dropdown_menu.state(["readonly"])
+        controller_dropdown_menu.pack(side=tk.LEFT)
+        controller_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+
+        ttk.Button(control_button_frame, text="Step", command=self.step_control).pack( side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(control_button_frame, text="Align", width=4, command=self.align_control).pack(side=tk.LEFT)
+        ttk.Button(control_button_frame, text="◀️ ", width=2, command=self.step_steer_left).pack(side=tk.LEFT)
+        ttk.Button(control_button_frame, text="▶", width=2, command=self.step_steer_right).pack(side=tk.LEFT)
+        ttk.Button(control_button_frame, text="▲", width=2, command=self.step_acc).pack(side=tk.LEFT)
+        ttk.Button(control_button_frame, text="▼", width=2, command=self.step_dec).pack(side=tk.LEFT)
+
+
+
+        #################
         # Progress bars
+        #################
         self.cte_frame = ttk.Frame(self.control_frame)
         self.cte_frame.pack(fill=tk.X)
 
         self.cte_gauge_frame = ttk.Frame(self.cte_frame)
         self.cte_gauge_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Label(self.cte_gauge_frame, text="Vel CTE",
-                  font=self.root.small_font).pack(side=tk.TOP)
-        ttk.Label(self.cte_gauge_frame, text="Pos CTE",
-                  font=self.root.small_font).pack(side=tk.TOP)
-        self.gauge_cte_vel = ValueGauge(
-            self.cte_frame, min_value=-20, max_value=20)
+        ttk.Label(self.cte_gauge_frame, text="Vel CTE", font=self.root.small_font).pack(side=tk.TOP)
+        ttk.Label(self.cte_gauge_frame, text="Pos CTE", font=self.root.small_font).pack(side=tk.TOP)
+        self.gauge_cte_vel = ValueGauge( self.cte_frame, min_value=-20, max_value=20)
         self.gauge_cte_vel.pack(side=tk.TOP, fill=tk.X, expand=True)
 
-        self.gauge_cte_steer = ValueGauge(
-            self.cte_frame, min_value=-20, max_value=20)
+        self.gauge_cte_steer = ValueGauge( self.cte_frame, min_value=-20, max_value=20)
         self.gauge_cte_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
         self.progress_frame = ttk.Frame(self.control_frame)
         self.progress_frame.pack(fill=tk.X)
 
         self.progress_label_frame = ttk.Frame(self.progress_frame)
         self.progress_label_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Label(self.progress_label_frame, text="Accel",
-                  font=self.root.small_font).pack(side=tk.TOP)
-        ttk.Label(self.progress_label_frame, text="Steer",
-                  font=self.root.small_font).pack(side=tk.TOP)
+        ttk.Label(self.progress_label_frame, text="Accel", font=self.root.small_font).pack(side=tk.TOP)
+        ttk.Label(self.progress_label_frame, text="Steer", font=self.root.small_font).pack(side=tk.TOP)
 
         self.gauge_acc = ValueGauge( self.progress_frame,
             min_value=self.root.exec.ego_state.min_acceleration,
@@ -139,19 +155,11 @@ class PerceivePlanControlView(ttk.Frame):
         self.gauge_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
         # ----
 
-        controller_dropdown_menu = ttk.Combobox(self.control_frame, textvariable=self.root.setting.controller_type, width=10)
-        controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
-        controller_dropdown_menu.state(["readonly"])
-        controller_dropdown_menu.pack(side=tk.LEFT)
-        controller_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
 
-        ttk.Button(self.control_frame, text="Step", command=self.step_control).pack( side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(self.control_frame, text="Align", width=4, command=self.align_control).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="◀️ ", width=2, command=self.step_steer_left).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="▶", width=2, command=self.step_steer_right).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="▲", width=2, command=self.step_acc).pack(side=tk.LEFT)
-        ttk.Button(self.control_frame, text="▼", width=2, command=self.step_dec).pack(side=tk.LEFT)
+        self.setup_joystick()
 
+
+    def setup_joystick(self):
         try:
             # Joystick
             if self.root.setting.enable_joystick:
@@ -169,10 +177,11 @@ class PerceivePlanControlView(ttk.Frame):
                 self.joystick = pygame.joystick.Joystick(0)
                 self.joystick.init()
 
-                self._controller_check_id = None
+                self.__controller_check_id = None
                 self.start_controller_polling()
         except Exception as e:
             log.error(f"Error initializing joystick: {e}")
+
 
     # --------------------------------------------------------------------------------------------
     # -Plan---------------------------------------------------------------------------------------
@@ -273,14 +282,13 @@ class PerceivePlanControlView(ttk.Frame):
         """Start regular polling of the controller"""
         self.process_controller_input()
         # Schedule next check (every 50ms = 20fps)
-        self._controller_check_id = self.after(
-            50, self.start_controller_polling)
+        self.__controller_check_id = self.after(50, self.start_controller_polling)
 
     def stop_controller_polling(self):
         """Stop controller polling"""
-        if self._controller_check_id:
-            self.after_cancel(self._controller_check_id)
-            self._controller_check_id = None
+        if self.__controller_check_id:
+            self.after_cancel(self.__controller_check_id)
+            self.__controller_check_id = None
 
     def process_controller_input(self):
         """Process Xbox controller input for steering and acceleration"""

@@ -10,6 +10,8 @@ from c40_execution.c42_sync_executer import SyncExecuter
 from c20_planning.c24_global_planners import HDMapGlobalPlanner
 
 
+
+
 from typing import cast
 from abc import ABC, abstractmethod
 import numpy as np
@@ -25,7 +27,6 @@ class GlobalPlot(ABC):
     def __init__(self, figsize=(8, 10), name="Global Plot"):
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self.name = name
-        self.ax.set_title(self.name)
         self.ax.grid(True)
         self.ax.set_aspect('equal') 
         
@@ -175,7 +176,7 @@ class GlobalPlot(ABC):
         
         # Set grid color with proper alpha for visibility
         self.ax.grid(False)
-        self.ax.set_title(label=self.name, color=fg_color)
+        self.ax.set_title(label=self.name, color=fg_color, y=-0.05)
         
         # Apply redraw
         self.fig.canvas.draw()
@@ -504,8 +505,8 @@ class LocalPlot:
         
 
         for _ in range(self.MAX_LATTICE_SIZE):
-            (line_ax1,) = self.ax1.plot([], [], "b--", color="lightskyblue", alpha=0.6)
-            (line_ax2,) = self.ax2.plot([], [], "b--", color="lightskyblue", alpha=0.6)
+            (line_ax1,) = self.ax1.plot([], [], "--", color="lightskyblue", alpha=0.6)
+            (line_ax2,) = self.ax2.plot([], [], "--", color="lightskyblue", alpha=0.6)
             (endpoint_ax1,) = self.ax1.plot([], [], "bo", alpha=0.6)
             (endpoint_ax2,) = self.ax2.plot([], [], "bo", alpha=0.6)
             self.lattice_graph_plots_ax1.append(line_ax1)
@@ -554,10 +555,8 @@ class LocalPlot:
         (self.next_wp_plot_ax1,) = self.ax1.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
         (self.next_wp_plot_ax2,) = self.ax2.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
 
-        (self.car_heading_plot,) = self.ax1.plot([], [], "k-", color="darkslategray", label="Car Heading")
-        (self.car_location_plot,) = self.ax1.plot(
-            [], [], "ko", markersize=7, label="Car Location"
-        )
+        (self.car_heading_plot,) = self.ax1.plot([], [], "-", color="darkslategray", label="Car Heading")
+        (self.car_location_plot,) = self.ax1.plot([], [], "ko", markersize=7, label="Car Location")
 
         self.ego_vehicle_ax1 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
         self.ego_vehicle_ax2 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)

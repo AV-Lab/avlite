@@ -2,55 +2,63 @@ from tkinter import ttk
 import tkinter as tk
 
 class ValueGauge(ttk.Frame):
-    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=12, **kwargs):
+    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=18, **kwargs):
         super().__init__(parent, **kwargs)
         self.min_value = min_value
         self.max_value = max_value
         self.current_value = 0
         self.marker_value = 0
         self.variable = variable
-        self.config(height=height)
         self.pack_propagate(False)
         self.font = ("Helvetica", 7, "bold")
         self._old_value = 0 # used to not draw if value is same
 
         if name != "":
             tk.Label(self, text=name, font=self.font).pack(side=tk.LEFT, padx=0)
+
         min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font)
         min_label.pack(side=tk.LEFT, padx=0)
         
         max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font)
         max_label.pack(side=tk.RIGHT, padx=0)
 
+
+
         self.canvas = tk.Canvas(self, height=height, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
         # self.bind("<Configure>", lambda e: self.after_idle(self._draw))
+        
+        label_height = min_label.winfo_reqheight()
+        canvas_height = self.canvas.winfo_reqheight()
+        total_height = canvas_height
+        self.config(height=total_height)
 
-        self.bind("<Configure>", lambda e: self._draw())
+        self.bind("<Configure>", lambda e: self.__draw())
 
         if self.variable is not None:
-            self.variable.trace_add("write", self._variable_changed)
+            self.variable.trace_add("write", self.__variable_changed)
 
         
         # Schedule a delayed draw to ensure widget dimensions are set
-        self.after(100, self._draw)
+        self.after(100, self.__draw)
     
-    def _variable_changed(self, *args):
+    def __variable_changed(self, *args):
         self.set_value(self.variable.get())
 
     def set_value(self, value):
         if value == self.current_value:
             return  # Skip if no change
         self.current_value = value
-        self.after_idle(self._draw)  # Schedule redraw for next idle time
+        self.after_idle(self.__draw)  # Schedule redraw for next idle time
 
     def set_marker(self, value):
         if value == self.marker_value:
             return  # Skip if no change
         self.marker_value = value
-        self.after_idle(self._draw)  # Schedule redraw for next idle time
-        self._draw()
-    def _draw(self):
+        self.after_idle(self.__draw)  # Schedule redraw for next idle time
+        # self.__draw()
+
+    def __draw(self):
         # Avoid unnecessary redraws
         if not self.winfo_ismapped():
             return
@@ -58,7 +66,6 @@ class ValueGauge(ttk.Frame):
         width = self.canvas.winfo_width()
         height = self.canvas.winfo_height()
         
-        # Skip drawing if dimensions are too small
         if width <= 1 or height <= 1:
             return
             
@@ -82,6 +89,7 @@ class ValueGauge(ttk.Frame):
         # Create rectangle first (will be behind text)
         text_id = self.canvas.create_text(x, y, text=text, fill="white", font=self.font, anchor="center", tags="value")
         bbox = self.canvas.bbox(text_id)
+        self.canvas.coords(text_id, x, y + 2)  # Move text down within the box
         self.canvas.create_rectangle(bbox, fill="black", tags="bg")
         self.canvas.tag_raise("value")
         self.canvas.tag_raise(text_id)

@@ -258,7 +258,7 @@ class VisualizerApp(tk.Tk):
             self.local_plan_plot_view.grid_forget()
             self.global_plan_plot_view.grid_forget()
 
-            self.__reload_stack_async()
+            self.__reload_stack_call()
             self.global_plan_plot_view.update_plot_type()
             # self.show_loading_overlay("Loading...")
             # thread = threading.Thread(target=self.__reload_stack_async)
@@ -276,7 +276,7 @@ class VisualizerApp(tk.Tk):
             return
             
 
-    def __reload_stack_async(self):
+    def __reload_stack_call(self):
         try:
             self.exec_visualize_view.stop_exec()
             self.exec = Executer.executor_factory(
@@ -306,10 +306,13 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, 'loading_window') and self.loading_window is not None:
             return
         
-        # Create a separate window for loading
-        self.loading_window = tk.Toplevel(self)
-        self.loading_window.overrideredirect(True)  # No window decorations
-        self.loading_window.attributes("-topmost", True)  # Keep on top
+        try:
+            self.loading_window = tk.Toplevel(self)
+            self.loading_window.overrideredirect(True)  # No window decorations
+            self.loading_window.attributes("-topmost", True)  # Keep on top
+        except Exception as e:
+            log.error(f"Error in creating loading overlay {e}")
+
     
         # Center the loading window on the screen using xrandr output
         width = 450
@@ -329,7 +332,11 @@ class VisualizerApp(tk.Tk):
             x = (self.winfo_screenwidth() - width) // 2
             y = (self.winfo_screenheight() - height) // 2
         
-        self.loading_window.geometry(f"{width}x{height}+{x}+{y}")
+        
+        try:
+            self.loading_window.geometry(f"{width}x{height}+{x}+{y}")
+        except Exception as e:
+            log.error(f"unable to set window geometry {e}")
         
         
         # Black background that matches the logo
