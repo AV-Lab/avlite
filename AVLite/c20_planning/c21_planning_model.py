@@ -20,6 +20,13 @@ class GlobalPlan:
     right_boundary_d: list[float] = field(default_factory=list)
     right_boundary_x: list[float] = field(default_factory=list)
     right_boundary_y: list[float] = field(default_factory=list)
+    
+    lane_left_boundary_d: list[float] = field(default_factory=list)
+    lane_left_boundary_x: list[float] = field(default_factory=list)
+    lane_left_boundary_y: list[float] = field(default_factory=list)
+    lane_right_boundary_d: list[float] = field(default_factory=list)
+    lane_right_boundary_x: list[float] = field(default_factory=list)
+    lane_right_boundary_y: list[float] = field(default_factory=list)
 
     race_mode: bool = True
     trajectory: Optional[Trajectory] = None

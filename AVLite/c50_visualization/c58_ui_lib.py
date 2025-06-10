@@ -2,7 +2,7 @@ from tkinter import ttk
 import tkinter as tk
 
 class ValueGauge(ttk.Frame):
-    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=18, **kwargs):
+    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=12, **kwargs):
         super().__init__(parent, **kwargs)
         self.min_value = min_value
         self.max_value = max_value
@@ -23,14 +23,13 @@ class ValueGauge(ttk.Frame):
         max_label.pack(side=tk.RIGHT, padx=0)
 
 
-
         self.canvas = tk.Canvas(self, height=height, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
         # self.bind("<Configure>", lambda e: self.after_idle(self._draw))
         
-        label_height = min_label.winfo_reqheight()
-        canvas_height = self.canvas.winfo_reqheight()
-        total_height = canvas_height
+        # label_height = min_label.winfo_reqheight()
+        # canvas_height = self.canvas.winfo_reqheight()
+        total_height = height
         self.config(height=total_height)
 
         self.bind("<Configure>", lambda e: self.__draw())
@@ -89,7 +88,7 @@ class ValueGauge(ttk.Frame):
         # Create rectangle first (will be behind text)
         text_id = self.canvas.create_text(x, y, text=text, fill="white", font=self.font, anchor="center", tags="value")
         bbox = self.canvas.bbox(text_id)
-        self.canvas.coords(text_id, x, y + 2)  # Move text down within the box
+        # self.canvas.coords(text_id, x, y + 2)  # Move text down within the box
         self.canvas.create_rectangle(bbox, fill="black", tags="bg")
         self.canvas.tag_raise("value")
         self.canvas.tag_raise(text_id)

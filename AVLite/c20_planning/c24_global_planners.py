@@ -19,6 +19,9 @@ class RaceGlobalPlanner(GlobalPlannerStrategy):
     def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
         pass
 
+# Assumtpions
+# TODO: Lane sections are not handled properly
+# TODO: Assumptions: lanes of the same road are assumed to have the same size
 class HDMapGlobalPlanner(GlobalPlannerStrategy):
     """
     A global planner that uses OpenDRIVE HD maps for path planning.
@@ -71,6 +74,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         # removing lane changes by keeping only the final lane in that road. This will utilize lane_change attribute in the edge
         # Notice that nodes and lanes, and edges are the changes
         # TODO: Lane sections are not handled properly
+        # TODO: Assumptions: lanes of the same road are assumed to have the same size
         path2 = [path[0]]
         for i in range(1,len(path)):
             lane = self.hdmap.lane_by_uid[path[i]]
@@ -98,28 +102,45 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         else:
             for i, uid in enumerate(path2):
                 lane = self.hdmap.lane_by_uid[uid]
+                neighbor_lanes = [self.hdmap.lane_by_uid[uid] for uid in self.hdmap.lane_network.neighbors(lane.uid)]
+                same_road_lanes = [l for l in neighbor_lanes if l.road_id == lane.road_id]
+                if int(lane.id) < 0:
+                    lane_count_to_right = sum(1 for l in same_road_lanes if int(l.id) < int(lane.id))
+                    lane_count_to_left = sum(1 for l in same_road_lanes if int(l.id) > int(lane.id))
+                else:
+                    lane_count_to_right = sum(1 for l in same_road_lanes if int(l.id) > int(lane.id))
+                    lane_count_to_left = sum(1 for l in same_road_lanes if int(l.id) < int(lane.id))
+                
+                log.debug(f"Lane {lane.uid} has neighbors: {[l.uid for l in same_road_lanes]}, with {lane_count_to_left} lanes to the left and {lane_count_to_right} lanes to the right.")
+
 
                 if i == 0:
                     log.debug(f"Start lane: {lane.uid}, point IDX: {s_idx}")
                     for point in chop_path(lane.center_line.T, lane.id, s_idx, start=True):
                         self.global_plan.path.append(point)
-                        self.global_plan.left_boundary_d.append(lane.width/2)
-                        self.global_plan.right_boundary_d.append(-lane.width/2)
-                        # self.global_plan.velocity.append(self.max_velocity)
+                        self.global_plan.left_boundary_d.append(lane.width/2 * lane_count_to_left +  lane.width/2)
+                        self.global_plan.right_boundary_d.append(-lane.width/2 - lane.width/2 * lane_count_to_right)
+                        
+                        self.global_plan.lane_left_boundary_d.append(lane.width/2)
+                        self.global_plan.lane_right_boundary_d.append(-lane.width/2)
                 elif i == len(path2) - 1:
                     log.debug(f"Goal lane: {lane.uid}, point IDX: {g_idx}")
                     for point in chop_path(lane.center_line.T, lane.id, g_idx, start=False):
                         self.global_plan.path.append(point)
-                        self.global_plan.left_boundary_d.append(lane.width/2)
-                        self.global_plan.right_boundary_d.append(-lane.width/2)
-                        # self.global_plan.velocity.append(self.max_velocity)
+                        self.global_plan.left_boundary_d.append(lane.width/2 * lane_count_to_left +  lane.width/2)
+                        self.global_plan.right_boundary_d.append(-lane.width/2 - lane.width/2 * lane_count_to_right)
+                        
+                        self.global_plan.lane_left_boundary_d.append(lane.width/2)
+                        self.global_plan.lane_right_boundary_d.append(-lane.width/2)
                 else:
                     lane_path = lane.center_line.T if int(lane.id) < 0 else lane.center_line.T[::-1]
                     for point in lane_path:
                         self.global_plan.path.append(point)
-                        self.global_plan.left_boundary_d.append(lane.width/2)
-                        self.global_plan.right_boundary_d.append(-lane.width/2)
-                        # self.global_plan.velocity.append(self.max_velocity)
+                        self.global_plan.left_boundary_d.append(lane.width/2 * lane_count_to_left +  lane.width/2)
+                        self.global_plan.right_boundary_d.append(-lane.width/2 - lane.width/2 * lane_count_to_right)
+
+                        self.global_plan.lane_left_boundary_d.append(lane.width/2)
+                        self.global_plan.lane_right_boundary_d.append(-lane.width/2)
        
         # setting velocity. It should start with zero to max vel for the first 20 points, then at max, then reduce to zero last 20 points
         n = len(self.global_plan.path)

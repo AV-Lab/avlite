@@ -18,13 +18,15 @@ class RNDPlanner(LocalPlannerStrategy):
     def __init__( self, global_plan: GlobalPlan, env: PerceptionModel, num_of_edge_points=PlanningSettings.num_of_edge_points,
                  planning_horizon= PlanningSettings.planning_horizon, maneuver_distance=PlanningSettings.maneuver_distance,
                  boundary_clearance=PlanningSettings.boundary_clearance, sample_size=PlanningSettings.sample_size, 
+                 match_speed_wp_buffer=PlanningSettings.match_speed_wp_buffer
     ):
         super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=num_of_edge_points, planning_horizon=planning_horizon,)
         self.maneuver_distance: float = maneuver_distance
         self.boundary_clearance: int = boundary_clearance
         self.sample_size: int = sample_size
+        self.match_speed_wp_buffer: int = match_speed_wp_buffer
         # TODO: 
-        self.lattice.targetted_num_edges = 3 * 3**(self.planning_horizon - 1)
+        self.lattice.targetted_num_edges = sample_size * sample_size**(self.planning_horizon - 1)
 
     def replan(self, back_to_ref_horizon=10):
         if len(self.traversed_s) == 0:
@@ -71,5 +73,17 @@ class RNDPlanner(LocalPlannerStrategy):
             log.debug(
                 f"Sampled Lattice has {len(self.lattice.edges)} edges and {len(self.lattice.nodes)} nodes"
             )
+        elif len(self.lattice.level0_edges) != 0:
+            self.selected_local_plan = self.lattice.level0_edges[0]
+            vel = self.selected_local_plan.collision_agent_velocity
+            idx = self.selected_local_plan.collision_idx
+            log.warning(f"No feasible edges found in the lattice. Matching agent speed at idx {idx} with velocity {vel:.2f} m/s. Reverting to previous plan.")
+            tj = self.selected_local_plan.local_trajectory
+            current_vel = tj.velocity[0]
+            tj.velocity = np.linspace(current_vel, 0, max(0,idx - self.match_speed_wp_buffer))
+            tj.velocity = np.concatenate((tj.velocity, np.zeros(len(tj.path) - idx + self.match_speed_wp_buffer)))  # pad with zeros
+
+            log.warning(f"local velocity profile {self.selected_local_plan.local_trajectory.velocity} of length {len(self.selected_local_plan.local_trajectory.velocity)} vs {len(tj.path)}.")
+
 
 

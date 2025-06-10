@@ -14,6 +14,7 @@ class StanleyController(ControlStrategy):
     def __init__(self, tj:Optional[Trajectory]=None, k=ControlSettings.k, k_soft = ControlSettings.k_soft,
                  lookahead=ControlSettings.lookahead, valpha=ControlSettings.valpha, vbeta=ControlSettings.vbeta,
                  vgamma=ControlSettings.vgamma, slow_down_cte=ControlSettings.slow_down_cte, 
+                 slow_down_heading_cte = ControlSettings.slow_down_heading_cte,
                  slow_down_vel_threshold=ControlSettings.slow_down_vel_threshold):
         """
         Stanley Controller for trajectory following. The controller also slows down the vehicle if steer CTE is > 0.5
@@ -31,6 +32,7 @@ class StanleyController(ControlStrategy):
         self.k_soft = k_soft
         self.cte_steer = 0
         self.slow_down_cte = slow_down_cte  # threshold for slowing down based on steering CTE
+        self.slow_down_heading_cte = slow_down_heading_cte
         self.slow_down_vel_threshold = slow_down_vel_threshold # threshold for slowing down based on steering CTE
         
         self.valpha, self.vbeta, self.vgamma = valpha, vbeta, vgamma
@@ -92,10 +94,11 @@ class StanleyController(ControlStrategy):
         acc = np.clip(acc, ego.min_acceleration, ego.max_acceleration)
 
         # lower the speed if abs(steer) > 0.5
-        if np.abs(self.cte_steer) > self.slow_down_cte and ego.velocity > self.slow_down_vel_threshold:
+        if (np.abs(self.cte_steer) > self.slow_down_cte or np.abs(heading_error) > self.slow_down_heading_cte) \
+            and ego.velocity > self.slow_down_vel_threshold:
             acc2 = acc - 3 * np.e**np.abs(self.cte_steer)  # reduce acceleration based on steering error
             acc2 = np.clip(acc2, ego.min_acceleration, ego.max_acceleration)
-            log.info(f"Steering error {self.cte_steer:+6.2f} is large, reducing acceleration from {acc:.2f} to {acc2:.2f}")
+            log.debug(f"Steering error {self.cte_steer:+6.2f} is large, reducing acceleration from {acc:.2f} to {acc2:.2f}")
             acc = acc2
 
         log.debug(f"Acc  : {acc:+6.2f} [P={vP:+.3f}, I={vI:+.3f}, D={vD:+.3f}] based on CTE: {self.cte_velocity:+.2f} ({ego.velocity:.2f} vs target: {target_velocity:.2f})")

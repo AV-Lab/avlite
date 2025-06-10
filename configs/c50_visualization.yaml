@@ -18,7 +18,7 @@ global_view_follow_planner: false
 global_zoom: 850
 local_plan_view: true
 local_planner_type: RNDPlanner
-log_level: INFO
+log_level: DEBUG
 perception_status_text: Click on the plot.
 replan_dt: 500000.0
 shortcut_mode: false

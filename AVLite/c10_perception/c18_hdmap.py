@@ -14,7 +14,7 @@ class HDMap:
     
     @dataclass
     class Lane:
-        id: str
+        id: int
         uid: str # Unique ID for the lane Format: <road_id>_<lane_id>
         lane_element: ET.Element
         center_line: np.ndarray = field(default_factory=lambda: np.array([]))      # 2xN array of (x,y) coordinates
@@ -236,7 +236,7 @@ class HDMap:
                         pred_id = lane_element.find('link/predecessor').get('id', '') if lane_element.find('link/predecessor') is not None else ''
                         succ_id = lane_element.find('link/successor').get('id', '') if lane_element.find('link/successor') is not None else ''
                         l = HDMap.Lane(
-                            id=lane_element.get('id', ''),
+                            id=int(lane_element.get('id', '')),
                             uid=f"{r.id}_{lane_element.get('id', '')}",
                             lane_element=lane_element,
                             type=lane_element.get('type', ''),

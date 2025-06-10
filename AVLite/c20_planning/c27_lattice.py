@@ -37,6 +37,8 @@ class Edge:
     selected_next_local_plan: Optional[Trajectory] = None
     next_edges: list["Edge"] = field(default_factory=list)
     collision: bool = False
+    collision_agent_velocity: float = 0.0
+    collision_idx: int = -1 # Index of the collision point in the local trajectory
     cost: float = 0
     risk: float = 0
     
@@ -111,7 +113,7 @@ class Lattice:
                     assert node != next_node
                     edge = Edge(start=node, end=next_node, global_tj = self.global_trajectory, num_of_points=self.num_of_points)
                     if pm is not None:
-                        edge.collision = not check_collision(pm, edge.local_trajectory)
+                        edge.collision, edge.collision_idx, edge.collision_agent_velocity=  check_collision(pm, edge.local_trajectory)
                     self.edges.append(edge)
                     self.incoming_edges[next_node].append(edge)
                     self.outgoing_edges[node].append(edge)
@@ -131,12 +133,13 @@ class Lattice:
 
 
 
-def check_collision(pm:PerceptionModel, trajectory: Trajectory, sample_size=5)-> bool:
+def check_collision(pm:PerceptionModel, trajectory: Trajectory, sample_size=5)-> tuple[bool,int,float]: # colision, idx, speed
     ego = pm.ego_vehicle
     if trajectory is not None:
         path_x = trajectory.path_x
         path_y = trajectory.path_y
         indices = np.linspace(1, len(trajectory.path_x) - 1, sample_size, dtype=int)
+        log.debug(f"checking collision at trajectory indices: {indices}, sample size: {sample_size}")
         for i in indices:
             dx = path_x[i] - path_x[i - 1]
             dy = path_y[i] - path_y[i - 1]
@@ -149,11 +152,13 @@ def check_collision(pm:PerceptionModel, trajectory: Trajectory, sample_size=5)->
 
             for agent in pm.agent_vehicles:
                 if ego.get_bb_polygon().intersects(agent.get_bb_polygon()):
-                    log.debug(f"Collision at {ego.x}, {ego.y}")
-                    return False
+                    log.debug(f" └─ Collision at {ego.x}, {ego.y}, index: {i}, agent velocity: {agent.velocity}")
+                    return True,i,agent.velocity
     else:
         for agent in pm.agent_vehicles:
             if ego.get_bb_polygon().intersects(agent.get_bb_polygon()):
-                log.info(f"Collision at {ego.x}, {ego.y}")
-                return False
-    return True
+                log.info(f"Collision at current position {ego.x}, {ego.y}")
+                return True, 0, agent.velocity
+
+    log.debug(f" └─ ✅ No Collision")
+    return False, -1, -1 # No collision detected
