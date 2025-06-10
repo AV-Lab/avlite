@@ -1,5 +1,6 @@
 from c40_execution.c42_sync_executer import WorldInterface
 from c10_perception.c11_perception_model import EgoState, AgentState
+from c10_perception.c11_perception_model import PerceptionModel
 from c30_control.c32_control_strategy import ControlComand
 from typing import Union
 import carla
@@ -31,6 +32,8 @@ class CarlaBridge(WorldInterface):
         self.spawn_points = []  
         self.scene_name = scene_name  
 
+        self.support_ground_truth_perception = True  # Carla provides ground truth state
+
         try:
             self.client = carla.Client(host, port)
             self.client.set_timeout(timeout)
@@ -47,9 +50,11 @@ class CarlaBridge(WorldInterface):
             self.spawn_points = self.world.get_map().get_spawn_points()
             log.info(f"Found {len(self.spawn_points)} spawn points in the map")
 
+            spawn_npc_vehicles(self.world, num_vehicles=10)  
             # Initialize vehicle blueprint
             self.__initialize_vehicle_blueprint()
             self.start_bg_camera_and_state_update()
+
         except Exception as e:
             log.error(f"Failed to connect to Carla: {e}")
             log.error("Make sure the Carla simulator is running on the specified host and port.")
@@ -203,7 +208,7 @@ class CarlaBridge(WorldInterface):
         if throttle == 0.0 and brake == 0.0 and abs(cmd.steer) > 0.01:
             throttle = 0.05  # Small throttle value to maintain momentum during steering
 
-        log.info(f"Velocity: {current_velocity}, Throttle: {throttle}, Brake: {brake}, Reverse: {is_reverse}")
+        log.debug(f"Velocity: {current_velocity}, Throttle: {throttle}, Brake: {brake}, Reverse: {is_reverse}")
 
         # Ensure all parameters are of the correct type for the Carla API
         control = carla.VehicleControl(throttle=throttle, steer=steer, brake=brake, reverse=bool(is_reverse))
@@ -262,6 +267,37 @@ class CarlaBridge(WorldInterface):
         It uses the agent's state to determine the spawn point and vehicle type.
         """
         self.__spawn_vehicle(agent_state)
+
+    def get_ground_truth_perception_model(self) -> PerceptionModel:
+        agents: list[AgentState] = []
+        # log.info("Collecting ground truth perception model from Carla...")
+
+        agents = []
+        
+        if self.world:
+            # log.info(f"world actors are {self.world.get_actors().filter('vehicle.*')}")
+            for actor in self.world.get_actors().filter('vehicle.*'):
+                if self.vehicle and actor.id == self.vehicle.id:
+                    continue
+                    
+                # Get vehicle data
+                transform = actor.get_transform()
+                velocity = actor.get_velocity()
+                bbox = actor.bounding_box
+                
+                # Create agent state with coordinate conversion (Carla to AVLite)
+                agent = AgentState(
+                    x=transform.location.x,
+                    y=-transform.location.y,  # Y-axis inversion
+                    theta=-math.radians(transform.rotation.yaw),
+                    velocity=math.sqrt(velocity.x**2 + velocity.y**2),
+                    agent_id=int(actor.id),
+                    length=bbox.extent.x * 2,
+                    width=bbox.extent.y * 2
+                )
+                agents.append(agent)
+        
+        return PerceptionModel(ego_vehicle=self.ego_state, agent_vehicles=agents)
 
     def reset(self):
         """Reset the simulator and state.
@@ -324,3 +360,17 @@ class CarlaBridge(WorldInterface):
                 log.error(f"Error resetting world: {e}")
 
         log.info("Reset complete")
+
+
+def spawn_npc_vehicles(world, num_vehicles=10):
+    blueprint_library = world.get_blueprint_library()
+    vehicle_blueprints = blueprint_library.filter('vehicle.*')
+    spawn_points = world.get_map().get_spawn_points()
+    import random
+
+    for i in range(min(num_vehicles, len(spawn_points))):
+        bp = random.choice(vehicle_blueprints)
+        transform = spawn_points[i]
+        vehicle = world.try_spawn_actor(bp, transform)
+        if vehicle:
+            vehicle.set_autopilot(True)

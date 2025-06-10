@@ -23,6 +23,7 @@ class WorldInterface(ABC):
     
     ego_state: EgoState
     perception_model: Optional[PerceptionModel] = None # Simulators can provide ground truth perception model
+    support_ground_truth_perception: bool = False  # Whether the world supports ground truth perception model
 
     @abstractmethod
     def control_ego_state(self, cmd: ControlComand, dt:Optional[float]=0.01):
@@ -37,9 +38,6 @@ class WorldInterface(ABC):
 
     def get_ego_state(self) -> EgoState:
         return self.ego_state
-
-    def get_perception_model(self) -> PerceptionModel:
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     @abstractmethod
     def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
@@ -60,6 +58,10 @@ class WorldInterface(ABC):
 
     def safety_stop(self):
         """ Stop the ego vehicle safely. This method should be implemented by the simulator or ROS bridge. """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+
+    def get_ground_truth_perception_model(self) -> PerceptionModel:
+        """ Returns the perception model of the world. This method should be implemented by simulators  """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     def reset(self):

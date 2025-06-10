@@ -57,9 +57,7 @@ class AsyncThreadedExecuter(Executer):
 
         self.create_threads()
 
-    def step(
-        self, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=False
-    ):
+    def step( self, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
         self.control_dt = control_dt
         self.replan_dt = replan_dt
         self.sim_dt = sim_dt
@@ -141,6 +139,9 @@ class AsyncThreadedExecuter(Executer):
                         state = self.world.ego_state
                         cmd = self.controller.control(state, control_dt=self.sim_dt)
                         self.world.control_ego_state(cmd, dt=self.sim_dt)
+                        if self.world.support_ground_truth_perception:
+                            self.pm = self.world.get_ground_truth_perception_model()
+
                     self.control_fps = 1.0 / dt
 
                 t2 = time.time()

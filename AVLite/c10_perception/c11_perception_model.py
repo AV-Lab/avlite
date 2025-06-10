@@ -75,6 +75,7 @@ class State:
 @dataclass
 class AgentState(State):
     velocity: float = 0.0
+    agent_id: int = -1
 
     def __post_init__(self):
         super().__post_init__()

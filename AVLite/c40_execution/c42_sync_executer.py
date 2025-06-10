@@ -65,6 +65,8 @@ class SyncExecuter(Executer):
 
                 self.world.control_ego_state(cmd, dt=sim_dt)
         self.ego_state = self.world.get_ego_state()
+        if self.world.support_ground_truth_perception:
+            self.pm = self.world.get_ground_truth_perception_model()
 
         self.elapsed_sim_time += control_dt
         delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
