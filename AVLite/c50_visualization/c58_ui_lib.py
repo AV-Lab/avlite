@@ -92,3 +92,42 @@ class ValueGauge(ttk.Frame):
         self.canvas.create_rectangle(bbox, fill="black", tags="bg")
         self.canvas.tag_raise("value")
         self.canvas.tag_raise(text_id)
+
+class ThemedInputDialog:
+    def __init__(self, parent, title, prompt):
+        self.result = None
+        
+        # Create the dialog
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.transient(parent)
+        self.dialog.geometry("300x100")
+        
+        frame = ttk.Frame(self.dialog)
+        frame.pack(expand=True, fill=tk.BOTH)
+
+        top_frame = ttk.Frame(frame)
+        top_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
+
+        # Add prompt and entry field
+        ttk.Label(top_frame, text=prompt).pack(side=tk.LEFT, padx=10)
+        self.entry = ttk.Entry(top_frame)
+        self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10, pady=5)
+        
+        # Add button frame
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT , padx=5)
+        
+        # Make dialog modal
+        self.dialog.grab_set()
+        self.dialog.wait_window()
+    
+    def on_ok(self):
+        self.result = self.entry.get()
+        self.dialog.destroy()
+    
+    def on_cancel(self):
+        self.dialog.destroy()

@@ -1,9 +1,11 @@
 import numpy as np
+from numpy.matlib import ndarray
 from shapely.geometry import Polygon
 import copy
 from dataclasses import dataclass, field
-
 import logging
+
+from c10_perception.c19_settings import PerceptionSettings
 
 
 log = logging.getLogger(__name__)
@@ -94,12 +96,12 @@ class AgentState(State):
 
 @dataclass
 class EgoState(AgentState):
-    max_valocity: float = 30
-    max_acceleration: float = 10    
-    min_acceleration: float = -20
-    max_steering: float = 0.7  # in radians
-    min_steering: float = -0.7
-    L_f: float = 2.5  # Distance from center of mass to front axle
+    max_valocity: float = PerceptionSettings.max_valocity
+    max_acceleration: float = PerceptionSettings.max_acceleration
+    min_acceleration: float = PerceptionSettings.min_acceleration
+    max_steering: float = PerceptionSettings.max_steering  # in radians
+    min_steering: float = PerceptionSettings.min_steering
+    L_f: float = PerceptionSettings.L_f  # Distance from center of mass to front axle
 
 
 @dataclass
@@ -107,9 +109,11 @@ class PerceptionModel:
     static_obstacles: list[State] = field(default_factory=list)
     agent_vehicles: list[AgentState] = field(default_factory=list)
     ego_vehicle: EgoState = field(default_factory=EgoState)
-    max_agent_vehicles:int = 12
-    agent_history: dict[str, list[AgentState]] = field(default_factory=dict) # agent_id -> list of states
-    agent_occupancy_flow: dict[str, list[np.ndarray]] = field(default_factory=dict) # agent_id -> list of occupancy flow polygons
+    max_agent_vehicles:int = PerceptionSettings.max_agent_vehicles
+    # agent_history: dict[str, list[AgentState]] = field(default_factory=dict) # agent_id -> list of states
+    agent_occupancy_flow: np.ndarray = field(default_factory=lambda: np.array([]))
+    # agent_occupancy_flow: np.ndarray = field(default_factory=np.ndarray)
+    agent_occupancy_flow: dict[int, list[np.ndarray]] = field(default_factory=dict) # agent_id -> list of occupancy flow polygons
 
     def add_agent_vehicle(self, agent: AgentState):
         if len(self.agent_vehicles) == self.max_agent_vehicles:

@@ -1,11 +1,13 @@
 from __future__ import annotations
+from os import wait
 from typing import TYPE_CHECKING
 from c60_tools.c61_utils import save_config, load_setting
+from c50_visualization.c58_ui_lib import ThemedInputDialog
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
 import tkinter as tk
 from tkinter import ttk
-from tkinter import TclError
+from tkinter import simpledialog
 
 
 import logging
@@ -27,6 +29,8 @@ class ConfigShortcutView(ttk.LabelFrame):
         # ----------------------------------------------------------------------
         # Key Bindings --------------------------------------------------------
         # ----------------------------------------------------------------------
+        self.root.bind("T", lambda e: self.root.open_settings_window())
+
         self.root.bind("Q", lambda e: self.root.quit())
         self.root.bind("R", lambda e: self.root.reload_stack())
         self.root.bind("D", lambda e: self.toggle_dark_mode_shortcut())
@@ -107,3 +111,126 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         save_config(self.root.setting)
     def load_config(self):
         load_setting(self.root.setting)
+
+class SettingView:
+    """
+    A view to display and edit settings.
+    """
+    def __init__(self, root: VisualizerApp):
+        self.root = root
+        self.setting = root.setting
+        settings_window = tk.Toplevel(root)
+        # settings_window.title("Settings")
+        settings_window.geometry("400x300")
+        # self.root.bind("Q", lambda e: settings_window.destroy())
+
+        self.frame = ttk.Frame(settings_window)
+        self.frame.pack(fill=tk.BOTH, expand=True)
+
+        
+        ##########
+        # Profiles
+        ##########
+        profile_frame = ttk.Frame(self.frame)
+        profile_frame.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
+
+        ttk.Label(profile_frame, text="Load Profile:").grid(row=0, column=0, padx=5, pady=5)
+        self.global_planner_dropdown_menu = ttk.Combobox(profile_frame, width=10)
+        self.global_planner_dropdown_menu["values"] = ("default", "profile1")
+        self.global_planner_dropdown_menu.state(["readonly"])
+        self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>", self.load_profile)
+
+        self.global_planner_dropdown_menu.grid(row=0, column=1, columnspan=2, padx=5, pady=5)
+
+        ttk.Button(profile_frame, text="New", width=5, command=lambda: self.create_profile()).grid(row=1, column=0, padx=5, pady=5)
+        
+        ttk.Button(profile_frame, text="Delete",width=5, command=lambda: self.delete_profile(
+            self.global_planner_dropdown_menu.get())).grid(row=1, column=1, padx=5, pady=5)
+        
+        ttk.Button(profile_frame, text="Save",width=5, command=lambda: self.delete_profile(
+            self.global_planner_dropdown_menu.get())).grid(row=1, column=2, padx=5, pady=5)
+
+        ##########
+        # settings
+        ##########
+        settings_container = ttk.Frame(self.frame)
+        settings_container.grid(row=0, column=2, rowspan=3, sticky="nsew", padx=10, pady=10)
+        settings_container.columnconfigure(0, weight=1)
+        settings_container.rowconfigure(0, weight=1)
+
+        self.settings_frame= ttk.Frame(self.frame)
+        self.settings_frame.grid(row=0, column=2, rowspan=3, sticky="nswe", padx=10, pady=10)
+        from c10_perception.c19_settings import PerceptionSettings
+        self.create_widgets(PerceptionSettings, "Perception Settings")
+        from c20_planning.c29_settings import PlanningSettings
+        self.create_widgets(PlanningSettings, "Planning Settings")
+        from c30_control.c39_settings import ControlSettings
+        self.create_widgets(ControlSettings, "Control Settings")
+        from c40_execution.c49_settings import ExecutionSettings
+        self.create_widgets(ExecutionSettings, "Execution Settings")
+        
+
+
+
+    def create_profile(self):
+        """
+        Load a profile from the settings.
+        """
+        
+        # text = simpledialog.askstring("Profile", "Enter profile Name")
+        dialog = ThemedInputDialog(self.root, "Profile", "Name")
+        text =  dialog.result
+        log.info(f"Creating profile: {text}")
+
+
+    def delete_profile(self, profile_name: str):
+        """
+        Delete a profile from the settings.
+        """
+        log.info(f"Deleting profile: {profile_name}")
+
+    def save_profile(self, profile_name: str):
+        pass
+
+    def load_profile(self, event):
+        """
+        Load a profile from the settings.
+        """
+        log.info(f"loading profile: {event.widget.get()}")
+
+    
+    def create_widgets(self, setting, setting_name="Settings"):
+        """
+        Create widgets for the settings view.
+        """
+
+        frame = ttk.Labelframe(self.settings_frame, text=setting_name)
+        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.entries = {}
+        row = 0
+        for field in dir(setting):
+            if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
+                continue
+            value = getattr(setting, field)
+            if isinstance(value, (str, int, float)):
+                ttk.Label(frame, text=field).grid(row=row, column=0, sticky="w", padx=5, pady=2)
+                entry = ttk.Entry(frame)
+                entry.insert(0, str(value))
+                entry.grid(row=row, column=1, padx=5, pady=2)
+                self.entries[field] = entry
+                row += 1
+        def save():
+            for field, entry in self.entries.items():
+                val = entry.get()
+                orig = getattr(setting, field)
+                if isinstance(orig, int):
+                    setattr(setting, field, int(val))
+                elif isinstance(orig, float):
+                    setattr(setting, field, float(val))
+                else:
+                    setattr(setting, field, val)
+
+
+
+

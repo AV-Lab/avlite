@@ -9,12 +9,12 @@ from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c40_execution.c41_execution_model import Executer
 from c40_execution.c42_sync_executer import SyncExecuter
 from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
-from c50_visualization.c52_plot_view import LocalPlanPlotView, GlobalPlanPlotView
-from c50_visualization.c53_perceive_plan_control_view import PerceivePlanControlView
-from c50_visualization.c54_exec_visualize_view import ExecVisualizeView
+from c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
+from c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
+from c50_visualization.c54_exec_views import ExecVisualizeView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
-from c50_visualization.c56_config_shortcut_view import ConfigShortcutView
+from c50_visualization.c56_settings_config_shortcut_views import ConfigShortcutView, SettingView
 from c60_tools.c61_utils import load_setting, load_config, reload_lib, get_absolute_path
     
 
@@ -32,7 +32,7 @@ class VisualizerApp(tk.Tk):
         self.stack_is_loading = False    
         self.ui_initialized = False
         self.last_reload_time = time.time()
-        self.show_loading_overlay()
+        # self.show_loading_overlay()
         self.update_idletasks()  # Force GUI to update and show the overlay
         self.update()            # Process all pending events
         self.after(0, self.__initialize_ui)  
@@ -131,43 +131,8 @@ class VisualizerApp(tk.Tk):
 
     def open_settings_window(self):
         # Create a new window
-        settings_window = tk.Toplevel(self)
-        settings_window.title("Settings")
-        settings_window.geometry("400x300")
+        self.setting_window = SettingView(self)
         
-
-        data = {'name': 'Alice', 'age': 30, 'city': 'Wonderland'}
-        tree = ttk.Treeview(settings_window, columns=('Value',), show='headings')
-        tree.heading('Value', text='Value')
-        tree['show'] = 'headings'
-        tree['columns'] = ('Key', 'Value')
-        tree.heading('Key', text='Key')
-        tree.heading('Value', text='Value')
-
-        for k, v in data.items():
-            tree.insert('', 'end', values=(k, v))
-
-        def on_double_click(event):
-            item_id = tree.identify_row(event.y)
-            column = tree.identify_column(event.x)
-            if column == '#2' and item_id:  # Only allow editing the Value column
-                x, y, width, height = tree.bbox(item_id, column)
-                value = tree.set(item_id, 'Value')
-                entry = tk.Entry(tree)
-                entry.place(x=x, y=y, width=width, height=height)
-                entry.insert(0, value)
-                entry.focus()
-
-                def save_edit(event):
-                    tree.set(item_id, 'Value', entry.get())
-                    entry.destroy()
-
-                entry.bind('<Return>', save_edit)
-                entry.bind('<FocusOut>', lambda e: entry.destroy())
-
-        tree.bind('<Double-1>', on_double_click)
-
-        tree.pack(fill='both', expand=True)
     
     def toggle_plan_view(self):
         if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():

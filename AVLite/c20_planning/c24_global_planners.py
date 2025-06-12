@@ -1,4 +1,4 @@
-from os import wait
+# from os import wait
 import networkx as nx
 import numpy as np
 import logging
@@ -162,6 +162,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                 self.global_plan.left_boundary_d)
         self.global_plan.right_boundary_x, self.global_plan.right_boundary_y = convert_sd_path_to_xy_path(
                 self.global_plan.trajectory, self.global_plan.trajectory.path_s, self.global_plan.right_boundary_d)
+        self.global_plan.race_mode = False
 
         return self.global_plan
 

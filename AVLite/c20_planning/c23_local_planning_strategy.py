@@ -135,7 +135,7 @@ class LocalPlannerStrategy(ABC):
         self.traversed_d.append(d_)
         self.traversed_s.append(s_)
 
-        if self.global_trajectory.is_traversed():
+        if self.global_trajectory.is_traversed() and self.global_plan.race_mode:
             self.lap += 1
             log.info(f"Lap {self.lap} Done")
         
