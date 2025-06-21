@@ -1,0 +1,16 @@
+default:
+  profile_name: "default" 
+  device: "cpu"
+  detector: "None"
+  tracker: "None"
+  predictor: "None"
+  prediction_mode: "single"  # single multi GMM or grid
+
+profile1:
+  profile_name: "profile1"
+  device: "cuda:0" #cuda:0
+  detector: "ground_truth"
+  tracker: "None"
+  predictor:  "AttentionGMM"
+  prediction_mode: "grid"  # single multi GMM or grid
+  pred_horizon: 3 # this is property of predictor -> how many secs in the future it predicts

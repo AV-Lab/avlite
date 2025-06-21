@@ -42,7 +42,7 @@ def reload_lib():
 
     # Get the base package name (AVLite) and all submodules
     project_modules = []
-    base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils",]
+    base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils","c70_extension"]
 
     # Find all loaded modules that belong to our project
     for module_name in list(sys.modules.keys()):

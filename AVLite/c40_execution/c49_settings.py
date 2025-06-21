@@ -16,3 +16,9 @@ class ExecutionSettings:
     replan_dt=0.5 
     control_dt=0.05
 
+
+class PerceptionSettings:
+    exclude = []
+    filepath: str="configs/c10_perception.yaml"
+    profile_name = "profile1"
+

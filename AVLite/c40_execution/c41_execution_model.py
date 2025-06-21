@@ -4,10 +4,13 @@ from abc import ABC, abstractmethod
 import logging 
 import numpy as np
 
-from c30_control.c31_control_model import  ControlComand
+
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
+from c10_perception.c13_perception import Perception
+from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from c30_control.c31_control_model import  ControlComand
 from c30_control.c32_control_strategy import ControlStrategy
 from c40_execution.c49_settings import ExecutionSettings
 from c60_tools.c61_utils import reload_lib, load_config, get_absolute_path
@@ -75,6 +78,7 @@ class Executer(ABC):
     def __init__(
         self,
         perception_model: PerceptionModel,
+        perception: Perception,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
@@ -86,6 +90,7 @@ class Executer(ABC):
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         self.pm: PerceptionModel = perception_model
+        self.perception: Perception = perception  
         self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: GlobalPlannerStrategy = global_planner
         self.local_planner: LocalPlannerStrategy = local_planner
@@ -114,6 +119,7 @@ class Executer(ABC):
     def reset(self):
         self.pm.reset()
         self.ego_state.reset()
+        self.perception_strategy.reset()
         self.local_planner.reset()
         self.controller.reset()
         self.world.reset()
@@ -163,6 +169,7 @@ class Executer(ABC):
 
         reload_lib()
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
+        from c10_perception.c12_perception_strategy import PerceptionStrategy
         from c20_planning.c21_planning_model import GlobalPlan
         from c20_planning.c24_global_planners import HDMapGlobalPlanner
         from c20_planning.c24_global_planners import RaceGlobalPlanner
@@ -178,10 +185,18 @@ class Executer(ABC):
         default_config = config_data["default"]
         global_plan_path =  get_absolute_path(default_config["global_trajectory"])
 
-        
+
+        ############################
+        # Loading perception strategy
+        ##############################
+        perception_config = load_config(config_path=PerceptionSettings.filepath)
+        profile_config = perception_config[PerceptionSettings.profile_name]
+        perception = Perception(profile_config)
+        log.info("Perception Module Loaded!")
+
         #################
         # Loading default
-        # global plan
+        # global planner
         #################
         default_global_plan = GlobalPlan.from_file(global_plan_path)
         
@@ -239,9 +254,9 @@ class Executer(ABC):
         # Creating Executer
         #################
         executer = (
-            SyncExecuter(perception_model=pm, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
+            SyncExecuter(perception_model=pm,perception=perception, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
             if not async_mode
-            else AsyncThreadedExecuter(perception_model=pm, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
+            else AsyncThreadedExecuter(perception_model=pm,perception=perception, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
         )
 
         return executer

@@ -31,6 +31,14 @@ class CarlaBridge(WorldInterface):
         self.follow_camera = True 
         self.spawn_points = []  
         self.scene_name = scene_name  
+        self.use_static_objects = False  # Use static objects in perception model
+        self.static_vehicle_labels = (
+        carla.CityObjectLabel.Car,
+        carla.CityObjectLabel.Truck,
+        carla.CityObjectLabel.Bus,
+        carla.CityObjectLabel.Motorcycle,
+        carla.CityObjectLabel.Bicycle
+        )
 
         self.support_ground_truth_perception = True  # Carla provides ground truth state
 
@@ -100,6 +108,7 @@ class CarlaBridge(WorldInterface):
 
         camera_transform = carla.Transform(camera_location, camera_rotation)
         self.spectator.set_transform(camera_transform)
+
 
     def __initialize_vehicle_blueprint(self):
         """Initialize the vehicle blueprint to be used for spawning"""
@@ -276,6 +285,7 @@ class CarlaBridge(WorldInterface):
         
         if self.world:
             # log.info(f"world actors are {self.world.get_actors().filter('vehicle.*')}")
+
             for actor in self.world.get_actors().filter('vehicle.*'):
                 if self.vehicle and actor.id == self.vehicle.id:
                     continue
@@ -296,9 +306,33 @@ class CarlaBridge(WorldInterface):
                     width=bbox.extent.y * 2
                 )
                 agents.append(agent)
-        
+
+                if self.use_static_objects:
+                    static_agents = self.get_static_objects()
+                    agents.extend(static_agents)
         return PerceptionModel(ego_vehicle=self.ego_state, agent_vehicles=agents)
 
+    def get_static_objects(self):
+        agents: list[AgentState] = []
+        static_obj_bboxes = []
+        for label in self.static_vehicle_labels:
+                static_obj_bboxes.extend(self.world.get_level_bbs(label))
+
+        for bbox in static_obj_bboxes:
+                # Convert static bounding box to AgentState
+                static_agent = AgentState(
+                    x=bbox.location.x,
+                    y=-bbox.location.y,  # Y-axis inversion
+                    theta=-math.radians(bbox.rotation.yaw),
+                    velocity=0.0,  # Static objects have no velocity
+                    agent_id=-1,  # Use -1 for static objects
+                    length=bbox.extent.x * 2,
+                    width=bbox.extent.y * 2
+                )
+                agents.append(static_agent)
+
+        return agents
+    
     def reset(self):
         """Reset the simulator and state.
         This method destroys the current vehicle, resets the simulation,
@@ -374,3 +408,49 @@ def spawn_npc_vehicles(world, num_vehicles=10):
         vehicle = world.try_spawn_actor(bp, transform)
         if vehicle:
             vehicle.set_autopilot(True)
+
+
+
+
+def draw_actor_bbox(world,static_car_bboxes, color=carla.Color(255, 0, 0), life_time=0.05, thickness=0.05):
+    """
+    Draw bounding boxes around all vehicles in the CARLA world.
+    
+    Args:
+        world: CARLA world instance
+        static_car_bboxes: List of static vehicle bounding boxes
+        color: Color for dynamic vehicles (default: red)
+        life_time: Duration boxes remain visible in seconds (default: 0.05)
+        thickness: Line thickness of bounding box edges (default: 0.05)
+    
+    Note: Dynamic vehicles are drawn in the specified color (default red), static vehicles in blue.
+    """
+
+    # spawned actors
+    for actor in world.get_actors().filter('vehicle.*'):
+        # Get the bounding box and transform
+        bbox = actor.bounding_box
+        transform = actor.get_transform()
+        
+        # Transform bounding box to world coordinates
+        bbox.location = transform.transform(bbox.location)
+        bbox.rotation = transform.rotation
+        
+        # Draw the bounding box
+        world.debug.draw_box(
+            box=bbox,
+            rotation=transform.rotation,
+            thickness=thickness,
+            color=color,
+            life_time=life_time
+        )
+    
+    # static actors 
+    for bbox in static_car_bboxes:
+            world.debug.draw_box(
+                box=bbox,
+                rotation=bbox.rotation,
+                thickness=thickness,
+                color=carla.Color(0, 0, 255),
+                life_time=life_time
+            )

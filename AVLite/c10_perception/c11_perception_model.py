@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.matlib import ndarray
 from shapely.geometry import Polygon
+from typing import Optional, Dict, Any
 import copy
 from dataclasses import dataclass, field
 import logging
@@ -111,9 +112,13 @@ class PerceptionModel:
     ego_vehicle: EgoState = field(default_factory=EgoState)
     max_agent_vehicles:int = PerceptionSettings.max_agent_vehicles
     # agent_history: dict[str, list[AgentState]] = field(default_factory=dict) # agent_id -> list of states
-    agent_occupancy_flow: np.ndarray = field(default_factory=lambda: np.array([]))
-    # agent_occupancy_flow: np.ndarray = field(default_factory=np.ndarray)
-    agent_occupancy_flow: dict[int, list[np.ndarray]] = field(default_factory=dict) # agent_id -> list of occupancy flow polygons
+
+    # Occupancy grid fields (NumPy arrays)
+    occupancy_grid: Optional[np.ndarray] = field(default=None)
+    grid_bounds: Optional[Dict[str, float]] = field(default=None)
+
+    trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
+
 
     def add_agent_vehicle(self, agent: AgentState):
         if len(self.agent_vehicles) == self.max_agent_vehicles:

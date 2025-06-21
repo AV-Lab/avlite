@@ -4,7 +4,8 @@ from dataclasses import dataclass
 @dataclass
 class PerceptionSettings:
     exclude = []
-    filepath: str="configs/c19_perception.yaml"
+    filepath: str="configs/c10_perception.yaml"
+    profile_name = "profile1"
 
 
     # Ego
@@ -18,3 +19,6 @@ class PerceptionSettings:
 
     # Perception Model
     max_agent_vehicles = 12
+
+
+
