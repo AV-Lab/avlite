@@ -9,6 +9,7 @@ default:
 profile1:
   profile_name: "profile1"
   device: "cuda:0" #cuda:0
+  max_agent_distance: 100.0 # max distance (memters) of agents to be considered in the prediction 
   detector: "ground_truth"
   tracker: "None"
   predictor:  "AttentionGMM"

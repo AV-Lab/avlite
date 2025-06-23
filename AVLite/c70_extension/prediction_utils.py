@@ -1,9 +1,11 @@
 import torch
 import numpy as np
-import torch
 import matplotlib.animation as animation
 from matplotlib.widgets import Button, Slider
 import matplotlib.pyplot as plt
+import tkinter as tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 import datetime
 from c10_perception.c11_perception_model import PerceptionModel
 import logging
@@ -140,7 +142,7 @@ def calculate_fde(predictions, targets,per_sample: bool = False):
             raise ValueError("Unsupported tensor shape for predictions/targets.")
 
 
-def visualize_occupancy_grid_animation(self, occupancy_grid, grid_bounds, mue=None, 
+def visualize_occupancy_grid_animation(occupancy_grid, grid_bounds, mue=None, 
                                         title="Occupancy Grid Animation", figsize=(12, 8), 
                                         show_grid_cells=True, interval=500):
         """
@@ -438,6 +440,355 @@ def visualize_occupancy_grid_animation(self, occupancy_grid, grid_bounds, mue=No
         
         return state
 
+
+
+def visualize_occupancy_grid_tkinter(parent_window, occupancy_grid, grid_bounds, mue=None, 
+                                   title="Occupancy Grid Animation", figsize=(10, 8), 
+                                   show_grid_cells=True, interval=500):
+    """
+    Tkinter-integrated occupancy grid animation.
+    
+    Args:
+        parent_window: Parent Tkinter window (can be None for standalone)
+        occupancy_grid: Shape (num_timesteps, grid_steps, grid_steps)
+        grid_bounds: Dictionary with min_x, max_x, min_y, max_y
+        mue: Mean vectors for overlay (optional)
+        title: Animation title
+        figsize: Figure size
+        show_grid_cells: Whether to show grid cell boundaries
+        interval: Animation interval in milliseconds
+    """
+    if isinstance(occupancy_grid, torch.Tensor):
+        grid_data = occupancy_grid.cpu().numpy()
+    else:
+        grid_data = occupancy_grid
+    
+    if mue is not None and isinstance(mue, torch.Tensor):
+        means_data = mue.cpu().numpy()
+    else:
+        means_data = mue
+    
+    num_timesteps, grid_steps, _ = grid_data.shape
+    
+    # Create new Tkinter window
+    if parent_window is None:
+        window = tk.Tk()
+    else:
+        window = tk.Toplevel(parent_window)
+    
+    window.title(title)
+    window.geometry("1000x700")
+    
+    # Create matplotlib figure (no plt.figure()!)
+    fig = Figure(figsize=figsize, dpi=100)
+    ax_main = fig.add_subplot(111)
+    
+    # Initialize the main plot
+    im = ax_main.imshow(grid_data[0], 
+                    origin='lower',
+                    extent=[grid_bounds['min_x'], grid_bounds['max_x'], 
+                            grid_bounds['min_y'], grid_bounds['max_y']],
+                    cmap='hot',
+                    vmin=0, vmax=1,
+                    aspect='equal')
+    
+    # Add grid lines if requested
+    if show_grid_cells:
+        x_edges = np.linspace(grid_bounds['min_x'], grid_bounds['max_x'], grid_steps + 1)
+        y_edges = np.linspace(grid_bounds['min_y'], grid_bounds['max_y'], grid_steps + 1)
+        
+        for x in x_edges:
+            ax_main.axvline(x=x, color='white', linewidth=0.3, alpha=0.5)
+        for y in y_edges:
+            ax_main.axhline(y=y, color='white', linewidth=0.3, alpha=0.5)
+    
+    # Initialize scatter plots for means (if provided)
+    scatter_plots = []
+    if means_data is not None:
+        colors = ['blue', 'green', 'cyan', 'magenta', 'yellow', 'orange', 'purple', 'brown']
+        markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p']
+        
+        num_objects, _, num_components, _ = means_data.shape
+        
+        for obj_idx in range(num_objects):
+            color = colors[obj_idx % len(colors)]
+            marker = markers[obj_idx % len(markers)]
+            
+            obj_means = means_data[obj_idx, 0, :, :]
+            scatter = ax_main.scatter(obj_means[:, 0], obj_means[:, 1], 
+                                    c=color, s=60, marker=marker, 
+                                    label=f'Object {obj_idx+1}', 
+                                    edgecolors='white', linewidth=1, alpha=0.9, zorder=5)
+            scatter_plots.append(scatter)
+    
+    # Set up the plot
+    fig.colorbar(im, ax=ax_main, label='Occupancy Probability')
+    ax_main.set_xlabel('X Position')
+    ax_main.set_ylabel('Y Position')
+    title_text = ax_main.set_title(f'{title} - Timestep 0/{num_timesteps-1}')
+    
+    if means_data is not None:
+        ax_main.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+    
+    fig.tight_layout()
+    
+    # Embed matplotlib in Tkinter
+    canvas = FigureCanvasTkAgg(fig, window)
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
+    
+    # Animation state
+    class AnimationState:
+        def __init__(self):
+            self.current_frame = 0
+            self.is_playing = False
+            self.anim = None
+    
+    state = AnimationState()
+    
+    # Animation function
+    def animate_display(frame):
+        state.current_frame = frame
+        
+        im.set_array(grid_data[frame])
+        
+        if means_data is not None:
+            for obj_idx, scatter in enumerate(scatter_plots):
+                obj_means = means_data[obj_idx, frame, :, :]
+                scatter.set_offsets(obj_means)
+        
+        title_text.set_text(f'{title} - Timestep {frame}/{num_timesteps-1}')
+        
+        # Update slider without triggering callback
+        if hasattr(animate_display, 'slider_var'):
+            animate_display.slider_var.set(frame)
+        
+        canvas.draw_idle()  # More efficient than canvas.draw()
+        return [im, title_text] + scatter_plots
+    
+    # Control functions
+    def start_animation():
+        if state.anim is None or not state.is_playing:
+            state.anim = animation.FuncAnimation(fig, animate_display, frames=num_timesteps,
+                                            interval=interval, blit=False, repeat=True)
+            state.is_playing = True
+            btn_play.config(state='disabled')
+            btn_pause.config(state='normal')
+    
+    def stop_animation():
+        if state.anim is not None:
+            state.anim.pause()
+            state.is_playing = False
+            btn_play.config(state='normal')
+            btn_pause.config(state='disabled')
+    
+    def save_animation():
+        print("Creating clean animation for saving...")
+        
+        # Create clean figure for saving
+        save_fig = Figure(figsize=(8, 8), dpi=150)
+        save_ax = save_fig.add_subplot(111)
+        
+        # Initialize clean plot
+        save_im = save_ax.imshow(grid_data[0], 
+                            origin='lower',
+                            extent=[grid_bounds['min_x'], grid_bounds['max_x'], 
+                                    grid_bounds['min_y'], grid_bounds['max_y']],
+                            cmap='hot',
+                            vmin=0, vmax=1,
+                            aspect='equal')
+        
+        # Add grid lines if requested
+        if show_grid_cells:
+            x_edges = np.linspace(grid_bounds['min_x'], grid_bounds['max_x'], grid_steps + 1)
+            y_edges = np.linspace(grid_bounds['min_y'], grid_bounds['max_y'], grid_steps + 1)
+            
+            for x in x_edges:
+                save_ax.axvline(x=x, color='white', linewidth=0.2, alpha=0.3)
+            for y in y_edges:
+                save_ax.axhline(y=y, color='white', linewidth=0.2, alpha=0.3)
+        
+        # Initialize means for clean animation
+        save_scatter_plots = []
+        if means_data is not None:
+            colors = ['blue', 'green', 'cyan', 'magenta', 'yellow', 'orange', 'purple', 'brown']
+            markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p']
+            
+            for obj_idx in range(num_objects):
+                color = colors[obj_idx % len(colors)]
+                marker = markers[obj_idx % len(markers)]
+                
+                obj_means = means_data[obj_idx, 0, :, :]
+                scatter = save_ax.scatter(obj_means[:, 0], obj_means[:, 1], 
+                                        c=color, s=80, marker=marker, 
+                                        edgecolors='white', linewidth=2, alpha=0.9, zorder=5)
+                save_scatter_plots.append(scatter)
+        
+        save_fig.colorbar(save_im, ax=save_ax, label='Occupancy Probability')
+        save_ax.set_xlabel('X Position', fontsize=12)
+        save_ax.set_ylabel('Y Position', fontsize=12)
+        save_title = save_ax.set_title(f'{title} - Timestep 0', fontsize=14, pad=20)
+        
+        save_fig.tight_layout()
+        
+        # Animation function for clean save
+        def animate_clean(frame):
+            save_im.set_array(grid_data[frame])
+            save_title.set_text(f'{title} - Timestep {frame}')
+            
+            if means_data is not None:
+                for obj_idx, scatter in enumerate(save_scatter_plots):
+                    obj_means = means_data[obj_idx, frame, :, :]
+                    scatter.set_offsets(obj_means)
+            
+            return [save_im, save_title] + save_scatter_plots
+        
+        # Create and save animation
+        clean_anim = animation.FuncAnimation(save_fig, animate_clean, frames=num_timesteps,
+                                        interval=interval, blit=False, repeat=False)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_name = f"occupancy_grid_{timestamp}"
+        
+        saved_files = []
+        
+        # Update status
+        status_label.config(text="Saving animation...")
+        window.update()
+        
+        # Save as GIF
+        gif_path = f"{base_name}.gif"
+        try:
+            print(f"Saving GIF: {gif_path}")
+            writer = animation.PillowWriter(fps=max(1, 1000//interval), 
+                                        metadata=dict(artist='OccupancyGrid'))
+            clean_anim.save(gif_path, writer=writer, dpi=150)
+            saved_files.append(gif_path)
+            print(f"✅ GIF saved: {gif_path}")
+        except Exception as e:
+            print(f"❌ GIF save failed: {e}")
+        
+        # Save as MP4 (if available)
+        mp4_path = f"{base_name}.mp4"
+        try:
+            print(f"Saving MP4: {mp4_path}")
+            writer = animation.FFMpegWriter(fps=max(1, 1000//interval),
+                                        metadata=dict(artist='OccupancyGrid'),
+                                        bitrate=2000, extra_args=['-vcodec', 'libx264'])
+            clean_anim.save(mp4_path, writer=writer, dpi=150)
+            saved_files.append(mp4_path)
+            print(f"✅ MP4 saved: {mp4_path}")
+        except Exception as e:
+            print(f"⚠️ MP4 save failed (ffmpeg may not be available): {e}")
+        
+        if saved_files:
+            status_label.config(text=f"Saved: {', '.join(saved_files)}")
+            print(f"✅ Clean grid animation(s) saved: {', '.join(saved_files)}")
+        else:
+            status_label.config(text="Save failed!")
+            print("❌ No files were saved")
+    
+    # Manual timestep control
+    def update_timestep(*args):
+        frame = int(slider_var.get())
+        if frame != state.current_frame:
+            animate_display(frame)
+    
+    # Create control frame
+    control_frame = tk.Frame(window)
+    control_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+    
+    # Create controls row 1
+    controls1 = tk.Frame(control_frame)
+    controls1.pack(fill=tk.X, pady=5)
+    
+    # Playback controls
+    btn_play = tk.Button(controls1, text="▶ Play", command=start_animation, 
+                        bg='lightgreen', width=8)
+    btn_play.pack(side=tk.LEFT, padx=5)
+    
+    btn_pause = tk.Button(controls1, text="⏸ Pause", command=stop_animation, 
+                         bg='lightcoral', state='disabled', width=8)
+    btn_pause.pack(side=tk.LEFT, padx=5)
+    
+    btn_save = tk.Button(controls1, text="💾 Save", command=save_animation, 
+                        bg='lightblue', width=8)
+    btn_save.pack(side=tk.LEFT, padx=5)
+    
+    # Step controls
+    def step_backward():
+        new_frame = max(0, state.current_frame - 1)
+        slider_var.set(new_frame)
+    
+    def step_forward():
+        new_frame = min(num_timesteps - 1, state.current_frame + 1)
+        slider_var.set(new_frame)
+    
+    btn_back = tk.Button(controls1, text="◀", command=step_backward, width=3)
+    btn_back.pack(side=tk.LEFT, padx=5)
+    
+    btn_forward = tk.Button(controls1, text="▶", command=step_forward, width=3)
+    btn_forward.pack(side=tk.LEFT, padx=5)
+    
+    # Status label
+    status_label = tk.Label(controls1, text="Ready", relief=tk.SUNKEN, width=20)
+    status_label.pack(side=tk.RIGHT, padx=5)
+    
+    # Create controls row 2 - Slider
+    controls2 = tk.Frame(control_frame)
+    controls2.pack(fill=tk.X, pady=5)
+    
+    tk.Label(controls2, text="Timestep:").pack(side=tk.LEFT, padx=5)
+    
+    slider_var = tk.IntVar()
+    slider_var.set(0)
+    slider_var.trace('w', update_timestep)
+    animate_display.slider_var = slider_var
+    
+    slider = tk.Scale(controls2, from_=0, to=num_timesteps-1, 
+                     orient=tk.HORIZONTAL, variable=slider_var,
+                     length=400)
+    slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+    
+    # Add instructions
+    instructions = tk.Label(control_frame, 
+                           text="Controls: Play/Pause buttons | ◀/▶ for single steps | Drag slider | Space=Play/Pause | S=Save",
+                           font=('Arial', 9), fg='gray')
+    instructions.pack(pady=5)
+    
+    # Keyboard shortcuts
+    def on_key_press(event):
+        if event.keysym == 'space':
+            if state.is_playing:
+                stop_animation()
+            else:
+                start_animation()
+        elif event.keysym == 's':
+            save_animation()
+        elif event.keysym == 'Left':
+            step_backward()
+        elif event.keysym == 'Right':
+            step_forward()
+        elif event.keysym == 'Escape':
+            stop_animation()
+    
+    # Bind keyboard events to window
+    window.bind('<KeyPress>', on_key_press)
+    window.focus_set()  # Make sure window can receive key events
+    
+    # Start with first frame
+    animate_display(0)
+    
+    # Handle window closing
+    def on_closing():
+        if state.anim is not None:
+            state.anim.pause()
+        window.destroy()
+    
+    window.protocol("WM_DELETE_WINDOW", on_closing)
+    
+    return window, state
 def visualize_multiple_timesteps(self,occupancy_grid, grid_bounds, timesteps=None, 
                                 cols=3, figsize=(15, 10)):
         """

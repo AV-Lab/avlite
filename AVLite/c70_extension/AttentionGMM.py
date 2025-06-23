@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 
 from typing import Tuple, Dict, Optional, List, Union,Any
 from dataclasses import dataclass, asdict
-from c70_extension.prediction_utils import TrajectoryHandler,calculate_ade,calculate_fde
+from c70_extension.prediction_utils import TrajectoryHandler,calculate_ade,calculate_fde,visualize_occupancy_grid_tkinter
 from tqdm import tqdm
 import os
 import logging
@@ -1396,21 +1396,23 @@ class AttentionGMM(nn.Module):
                         # Current shape: sigma[128, 30, 6, 2],  Need shape:    [128, 6, 30, 2] Pie shape  [128, 30,6]
                         # Current shape: denormalized_mue [128, 6, 30, 2] ,  Need shape:    [128, 30, 6, 2]
                         permuted_mue = denormalized_mue.transpose(0, 2, 1, 3)
-                        # Generate occupancy grid predictions
-                        occupancy_grid, grid_bounds, grid_points = self.occupancy_grid_prediction(
-                           permuted_mue, sigmas, pie, ego_location, grid_steps, padding_factor)
 
                         # Generate occupancy grid predictions
                         occupancy_grid, grid_bounds, grid_points = self.occupancy_grid_prediction(
                             permuted_mue, sigmas, pie, ego_location, grid_steps, padding_factor)
-                        torch.cuda.synchronize()
-                        t4 = time.time()
                         
-                        print(f'Time taken to update trajectory handler: {t1 - t0:.4f} seconds')
-                        print(f'Time taken for model forward pass: {t3 - t2:.4f} seconds')
-                        print(f"Time taken to generate occupancy grid: {t4 - t3:.4f} seconds")
-                        print(f"Total time taken for prediction: {t4 - t0:.4f} seconds")
-                        print(f"Occupancy grid shape: {occupancy_grid.shape}, Grid bounds: {grid_bounds}")
+                        # visualize_occupancy_grid_tkinter(
+                        #     None,occupancy_grid, grid_bounds
+                        # )
+
+                        # torch.cuda.synchronize()
+                        # t4 = time.time()
+                        
+                        # print(f'Time taken to update trajectory handler: {t1 - t0:.4f} seconds')
+                        # print(f'Time taken for model forward pass: {t3 - t2:.4f} seconds')
+                        # print(f"Time taken to generate occupancy grid: {t4 - t3:.4f} seconds")
+                        # print(f"Total time taken for prediction: {t4 - t0:.4f} seconds")
+                        # print(f"Occupancy grid shape: {occupancy_grid.shape}, Grid bounds: {grid_bounds}")
 
                         return occupancy_grid, grid_bounds
                     

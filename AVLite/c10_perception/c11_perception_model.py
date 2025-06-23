@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any
 import copy
 from dataclasses import dataclass, field
 import logging
+import inspect
 
 from c10_perception.c19_settings import PerceptionSettings
 
@@ -126,6 +127,45 @@ class PerceptionModel:
             self.agent_vehicles = []
         self.agent_vehicles.append(agent)
         log.info(f"Total agent vehicles {len(self.agent_vehicles)}")
+
+    
+    def filter_agent_vehicles(self, distance_threshold: float = 100.0):
+
+        """ Filter agent vehicles based on distance from the ego vehicle. -vectorized"""
+
+        method_name = inspect.currentframe().f_code.co_name
+
+        if not self.ego_vehicle:
+            log.warning("Ego vehicle is not set. Cannot filter agent vehicles.")
+            return
+        
+        if len(self.agent_vehicles) == 0:
+            log.info("No agent vehicles to filter.")
+            return
+        
+        ego_position = np.array([self.ego_vehicle.x, self.ego_vehicle.y])
+        
+        # Get agent positions as a 2D array
+        agent_positions = np.array([[agent.x, agent.y] for agent in self.agent_vehicles])
+       
+        # Vectorized distance calculation
+        distances = np.linalg.norm(agent_positions - ego_position, axis=1)
+
+        # Boolean mask
+        mask = distances < distance_threshold
+
+        filtered_count = np.sum(mask)
+        
+        if filtered_count == 0:
+            log.info(f"[{method_name}] No agents within {distance_threshold}m threshold. All agents filtered out.")
+            self.agent_vehicles = []
+        else:
+            # Filter using boolean indexing
+            agents_array = np.array(self.agent_vehicles, dtype=object)  
+            self.agent_vehicles = list(agents_array[mask])
+            
+            log.info(f"[{method_name}] Filtered agents: {filtered_count} kept")
+        
 
 
     def reset(self):

@@ -16,6 +16,7 @@ class Perception(PerceptionStrategy):
         self.tracker_model = None
         self.predictor_model = None
         self.output_mode = perception_config['prediction_mode']
+        self.max_agent_distance = float(perception_config['max_agent_distance'])
         self.grid = None
         self.bounds = None
         
@@ -77,12 +78,27 @@ class Perception(PerceptionStrategy):
         pass
 
     def predict(self):
+        
+        if self.pm is None or self.pm.ego_vehicle is None:
+            log.debug("Prediction cancelled: Perception model or ego vehicle not initialized")
+            return
+
+        self.pm.filter_agent_vehicles(self.max_agent_distance)
+        filtered_count = len(self.pm.agent_vehicles)
+        log.debug(f"Filtered agent vehicles (≤{self.max_agent_distance}m): {filtered_count}")
+
+        # Handle no available agents
+        if not self.pm.agent_vehicles:
+            log.debug("No agents available for prediction after filtering")
+            self.prediction_output = []
+            self.grid = None
+            self.bounds = None
+            return
         if self.output_mode == 'grid':
-            grid_steps=100 # grid steps on x and y directions
+            grid_steps=100  # grid steps on x and y directions
             ego_location = [self.pm.ego_vehicle.x, self.pm.ego_vehicle.y]
-            # self.perception_model.occupancy_grid,  self.perception_model.grid_bounds
-            #self.perception_model.occupancy_grid, self.perception_model.grid_bounds 
-            self.grid, self.bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,ego_location=ego_location,grid_steps=grid_steps)
+            self.pm.occupancy_grid ,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,ego_location=ego_location,grid_steps=grid_steps)
+        
         else:
             self.prediction_output = self.predictor_model.predict(self.pm,output_mode=self.output_mode)
     
@@ -96,7 +112,7 @@ class Perception(PerceptionStrategy):
 
         if perception_model is not None and self.detector == 'ground_truth':
             self.pm = perception_model
-            log.debug(f"Using ground truth perception model number of agents: {len(self.pm.agent_vehicles)}")
+            # log.debug(f"Using ground truth perception model number of agents: {len(self.pm.agent_vehicles)}")
         elif self.detector is not None:
             self.pm = self.detect(rgb_img, depth_img, lidar_data)
 

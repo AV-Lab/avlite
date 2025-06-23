@@ -8,7 +8,7 @@ enable_joystick: true
 exec_control: true
 exec_perceive: false
 exec_plan: true
-execution_bridge: Basic
+execution_bridge: Carla
 fg_color: white
 frenet_view_follow_planner: false
 frenet_zoom: 10
