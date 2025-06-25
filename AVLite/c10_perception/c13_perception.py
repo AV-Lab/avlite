@@ -86,6 +86,7 @@ class Perception(PerceptionStrategy):
         self.pm.filter_agent_vehicles(self.max_agent_distance)
         filtered_count = len(self.pm.agent_vehicles)
         log.debug(f"Filtered agent vehicles (≤{self.max_agent_distance}m): {filtered_count}")
+        print(f"Filtered agent vehicles (≤{self.max_agent_distance}m): {filtered_count}")
 
         # Handle no available agents
         if not self.pm.agent_vehicles:

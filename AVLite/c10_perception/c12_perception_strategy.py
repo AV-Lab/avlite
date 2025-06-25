@@ -22,7 +22,6 @@ class PerceptionStrategy(ABC):
         self.device = self._get_config_value(perception_config, 'device') or 'cpu'
         
         
-
     def _get_config_value(self, config, key):
         """Get config value, treating string 'None' as actual None."""
         if not config or key not in config:
