@@ -8,6 +8,7 @@ Created on Mon Feb 17
 import torch 
 from torch import Tensor
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 import numpy as np
 import math
@@ -1397,12 +1398,12 @@ class AttentionGMM(nn.Module):
                         # Current shape: denormalized_mue [128, 6, 30, 2] ,  Need shape:    [128, 30, 6, 2]
                         permuted_mue = denormalized_mue.transpose(0, 2, 1, 3)
 
-                        sizes = np.array([[2.0, 1.5]] * permuted_mue.shape[0])  # size of objects (l, w)
+                        sizes = np.array([[4.0, 1.5]] * permuted_mue.shape[0])  # size of objects (l, w)
                         sizes = torch.tensor(sizes, dtype=torch.float32, device=self.device)
 
                         # Generate occupancy grid predictions
                         occupancy_grid, grid_bounds, grid_points = self.occupancy_grid_prediction(
-                            permuted_mue, sigmas, pie, ego_location,sizes, grid_steps, padding_factor)
+                            permuted_mue, sigmas, pie, ego_location,sizes,sizes,grid_steps, padding_factor)
                     
 
                         return occupancy_grid, grid_bounds
@@ -1488,32 +1489,32 @@ class AttentionGMM(nn.Module):
 
         # calulate yaw inorder to create a footprint of the object on the grid
         yaw = self.compute_orientations(mue,pi)
+        
         # Repeat sizes over timesteps
         sizes_expanded = sizes.unsqueeze(1).repeat(1, yaw.shape[1], 1)  # (num_objects, num_timesteps, lw)
+        
         # Combine sizes and computed yaw
         object_footprints = torch.cat([sizes_expanded, yaw.unsqueeze(2)], dim=2)  # (num_objects, num_timesteps , lwθ)
 
-        
-        # 3. Reshape to combine objects and timesteps for vectorized processing
-        mue_reshaped = mue.reshape(num_objects * num_timesteps, num_components, 2)
-        sigma_reshaped = sigma.reshape(num_objects * num_timesteps, num_components, 2)
-        pi_reshaped = pi.reshape(num_objects * num_timesteps, num_components)
 
         all_occupancies = self.calculate_pdf_daiagonal_gaussian(grid_points, mue, sigma, pi, grid_resolution, conservative=False) # (num_objects , num_timesteps, grid_points.shape[0])
         
-        # # Apply soft elliptical footprint to all occupancies - ON GPU
-        # all_occupancies = self.apply_soft_footprint_to_occupancy(
-        #     all_occupancies, object_footprints, grid_points
-        # )
+        # Reshape all_occupancies to 4D grid format
+        all_occupancies_grid = all_occupancies.reshape(num_objects * num_timesteps, 1, grid_steps, grid_steps)
         
-        # # Reshape back to separate objects and timesteps
-        # all_occupancies = all_occupancies.reshape(num_objects, num_timesteps, -1)
+        # 4. Generate rotated kernels for all objects and timesteps
+        rotated_kernels = self.generate_rotated_kernels(object_footprints, grid_resolution)
         
-        # # Combine objects for each timestep using vectorized operations - ON GPU
-        # combined_occupancies = self.combine_objects_vectorized_gpu(all_occupancies)
+        # Apply convolution
+        convolved_occupancies = F.conv2d(all_occupancies_grid, rotated_kernels, 
+                                groups=num_objects * num_timesteps, padding="same")
+
         
-        # # Reshape to grid format
-        # occupancy_grid = combined_occupancies.reshape(num_timesteps, grid_steps, grid_steps)
+        # Combine objects for each timestep using vectorized operations - ON GPU
+        combined_occupancies = self.combine_objects_vectorized_gpu(convolved_occupancies)
+        
+        # Reshape to grid format
+        occupancy_grid = combined_occupancies.reshape(num_timesteps, grid_steps, grid_steps)
         
         grid_bounds = {
             'min_x': min_x, 'max_x': max_x,
@@ -1527,8 +1528,73 @@ class AttentionGMM(nn.Module):
         
         return occupancy_grid_np, grid_bounds, grid_points_np
     
-    
+    def generate_rotated_kernels(self,object_footprints, grid_resolution):
+        """
+        Generates rotated binary kernels (footprints) for multiple objects and timesteps in a vectorized way.
 
+        Each object footprint is defined by its length, width (in meters), and yaw angle (theta in radians).
+        The kernels are centered and rotated to reflect the object's shape and orientation at each timestep.
+
+        Args:
+            object_footprints (Tensor): shape (N, T, 3), where each element is [length, width, theta]
+                                        N: number of objects, T: number of timesteps
+            grid_resolution (Tensor): shape (2,), [res_x, res_y] in meters per grid cell
+
+        Returns:
+            rotated_kernels (Tensor): shape (N, T, 1, H_max, W_max), binary masks of rotated object shapes
+        """
+        N, T, _ = object_footprints.shape
+        B = N * T  # Total batch size
+        res_x, res_y = grid_resolution[0].item(), grid_resolution[1].item()
+
+        # Extract and flatten length, width, theta
+        lengths = object_footprints[..., 0].reshape(-1)  # (B,)
+        widths  = object_footprints[..., 1].reshape(-1)
+        thetas  = object_footprints[..., 2].reshape(-1)
+
+        # Convert size to grid units and ensure odd dimensions for center alignment
+        kernel_h = torch.round(lengths / res_x).int()
+        kernel_w = torch.round(widths  / res_y).int()
+        kernel_h += (kernel_h % 2 == 0).int()
+        kernel_w += (kernel_w % 2 == 0).int()
+
+        H_max = kernel_h.max().item()
+        W_max = kernel_w.max().item()
+
+        H_max,W_max = max(H_max, W_max), max(W_max, H_max)  # Since we can rotate, we want square kernels with max size
+
+        # Generate grid indices for H_max x W_max mask
+        ys = torch.arange(H_max).view(1, H_max, 1).expand(B, H_max, W_max)
+        xs = torch.arange(W_max).view(1, 1, W_max).expand(B, H_max, W_max)
+
+        # Compute per-instance bounding box center offsets
+        y0 = ((H_max - kernel_h) // 2).view(B, 1, 1)
+        y1 = y0 + kernel_h.view(B, 1, 1)
+        x0 = ((W_max - kernel_w) // 2).view(B, 1, 1)
+        x1 = x0 + kernel_w.view(B, 1, 1)
+
+        # Vectorized rectangular mask (B, H, W)
+        base_masks = ((ys >= y0) & (ys < y1) & (xs >= x0) & (xs < x1)).float().unsqueeze(1)  # (B, 1, H, W)
+
+        # Create affine matrices for batched rotation (B, 2, 3)
+        cos = torch.cos(thetas)
+        sin = torch.sin(thetas)
+        zeros = torch.zeros_like(cos)
+        affine_matrices = torch.stack([
+            torch.stack([ cos, -sin, zeros], dim=1),
+            torch.stack([ sin,  cos, zeros], dim=1)
+        ], dim=1)  # (B, 2, 3)
+
+        # Apply rotation using grid_sample
+        grid = F.affine_grid(affine_matrices, size=base_masks.size(), align_corners=False)
+        rotated = F.grid_sample(base_masks, grid, mode='bilinear', padding_mode='zeros', align_corners=False)
+        rotated_kernels = (rotated > 0.5).float()  # Binarize result (B, 1, H, W) 
+
+        # Reshape back to (N, T, 1, H, W)
+        # rotated_kernels = rotated_kernels.view(N, T, 1, H_max, W_max)
+
+        return rotated_kernels
+    
     def calculate_pdf_daiagonal_gaussian(self,grid_points, mue_all, sigma_all, pi_all, grid_resolution, conservative=False):
         """
         Fully vectorized GMM evaluation over objects & timesteps.
