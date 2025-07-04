@@ -14,8 +14,8 @@ from c50_visualization.c53_perceive_plan_control_views import PerceivePlanContro
 from c50_visualization.c54_exec_views import ExecVisualizeView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
-from c50_visualization.c56_settings_config_shortcut_views import ConfigShortcutView, SettingView
-from c60_tools.c61_utils import load_setting, load_config, reload_lib, get_absolute_path
+from c50_visualization.c56_settings_config_shortcut_views import ConfigShortcutView
+from c60_tools.c61_utils import load_setting, list_profiles
     
 
 log = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ class VisualizerApp(tk.Tk):
         self.update_idletasks()  # Force GUI to update and show the overlay
         self.update()            # Process all pending events
         self.after(0, self.__initialize_ui)  
+        
 
 
 
@@ -52,6 +53,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         load_setting(self.setting)
+        self.setting.profile_list = list_profiles(self.setting)
         # ----------------------------------------------------------------------
         # UI Views
         # ---------------------------------------------------------------------
@@ -61,16 +63,16 @@ class VisualizerApp(tk.Tk):
         self.perceive_plan_control_view = PerceivePlanControlView(self)
         self.exec_visualize_view = ExecVisualizeView(self)
         self.log_view = LogView(self)
+
         # ----------------------------------------------------------------------
         # Menu 
         # ----------------------------------------------------------------------
-
-        self.menubar = tk.Menu(self)
-        self.config(menu=self.menubar)
-        file_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Settings", command=self.open_settings_window)
-        self.menus = [file_menu]
+        # self.menubar = tk.Menu(self)
+        # self.config(menu=self.menubar)
+        # file_menu = tk.Menu(self.menubar, tearoff=0)
+        # self.menubar.add_cascade(label="File", menu=file_menu)
+        # file_menu.add_command(label="Settings", command=self.open_settings_window)
+        # self.menus = [file_menu]
        
 
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
@@ -92,6 +94,8 @@ class VisualizerApp(tk.Tk):
         self.bind("<Configure>", self.__update_grid_column_sizes)
         self.last_resize_time = time.time()
         self.ui_initialized = True
+        
+        log.info(f"Available profiles: {self.setting.profile_list}")
 
     def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
@@ -129,9 +133,6 @@ class VisualizerApp(tk.Tk):
             self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
 
 
-    def open_settings_window(self):
-        # Create a new window
-        self.setting_window = SettingView(self)
         
     
     def toggle_plan_view(self):

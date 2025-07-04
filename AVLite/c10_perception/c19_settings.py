@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class PerceptionSettings:
     exclude = []
-    filepath: str="configs/c19_perception.yaml"
+    filepath: str="configs/c10_perception.yaml"
 
 
     # Ego

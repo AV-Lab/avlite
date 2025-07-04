@@ -176,7 +176,7 @@ class GlobalPlot(ABC):
         
         # Set grid color with proper alpha for visibility
         self.ax.grid(False)
-        self.ax.set_title(label=self.name, color=fg_color, y=-0.05)
+        # self.ax.set_title(label=self.name, color=fg_color, y=-0.05)
         
         # Apply redraw
         self.fig.canvas.draw()

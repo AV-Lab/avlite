@@ -6,13 +6,15 @@ class ExecutionSettings:
     exclude = []
     filepath: str="configs/c40_execution.yaml"
 
-    # default settings
-    profile_name = "default"
-    async_mode=False
+    async_mode:bool = False
     bridge="Basic" 
     global_planner = RaceGlobalPlanner.__name__
     local_planner = RNDPlanner.__name__
     controller = StanleyController.__name__
     replan_dt=0.5 
     control_dt=0.05
+    sim_dt=0.01
+
+    global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
+    hd_map = "data/Town10HD_Opt.xodr"
 

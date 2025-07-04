@@ -10,6 +10,7 @@ from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
 from c40_execution.c41_execution_model import Executer
 from c40_execution.c41_execution_model import WorldInterface
+from c40_execution.c49_settings import ExecutionSettings
 
 log = logging.getLogger(__name__)
 
@@ -22,8 +23,8 @@ class SyncExecuter(Executer):
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
         world: WorldInterface,
-        replan_dt=0.5,
-        control_dt=0.01,
+        replan_dt=ExecutionSettings.replan_dt,
+        control_dt=ExecutionSettings.control_dt,
     ):
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.

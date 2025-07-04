@@ -2,7 +2,7 @@ import numpy as np
 
 class ControlSettings:
     exclude = []
-    filepath: str="configs/c39_control.yaml"
+    filepath: str="configs/c30_control.yaml"
 
     # PID controller settings
     alpha=0.01

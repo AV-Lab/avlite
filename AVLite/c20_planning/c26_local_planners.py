@@ -83,7 +83,7 @@ class RNDPlanner(LocalPlannerStrategy):
             tj.velocity = np.linspace(current_vel, 0, max(0,idx - self.match_speed_wp_buffer))
             tj.velocity = np.concatenate((tj.velocity, np.zeros(len(tj.path) - idx + self.match_speed_wp_buffer)))  # pad with zeros
 
-            log.warning(f"local velocity profile {self.selected_local_plan.local_trajectory.velocity} of length {len(self.selected_local_plan.local_trajectory.velocity)} vs {len(tj.path)}.")
+            # log.warning(f"local velocity profile {self.selected_local_plan.local_trajectory.velocity} of length {len(self.selected_local_plan.local_trajectory.velocity)} vs {len(tj.path)}.")
 
 
 

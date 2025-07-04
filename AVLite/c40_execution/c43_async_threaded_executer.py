@@ -76,15 +76,9 @@ class AsyncThreadedExecuter(Executer):
             self.start_threads()
             return
         elif any(t.is_alive() for t in self.threads) and not all(t.is_alive() for t in self.threads):
-            log.error(
-                f"Some Async Executer Threads are dead! Planner status: {self.planner_thread.is_alive() if self.planner_thread else 'None'}, Controller status: {self.controller_thread.is_alive() if self.controller_thread else 'None'} . Call stop() to terminate all threads."
-            )
+            log.error( f"Some Async Executer Threads are dead! Planner status: {self.planner_thread.is_alive() if self.planner_thread else 'None'}, Controller status: {self.controller_thread.is_alive() if self.controller_thread else 'None'} . Call stop() to terminate all threads.")
             return
 
-
-
-
-        
         # delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         # self.__prev_exec_time = time.time()
         # self.elapsed_real_time += delta_t_exec
