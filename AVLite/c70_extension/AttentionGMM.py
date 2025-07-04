@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 
 from typing import Tuple, Dict, Optional, List, Union,Any
 from dataclasses import dataclass, asdict
-from c70_extension.prediction_utils import TrajectoryHandler,calculate_ade,calculate_fde,visualize_occupancy_grid_tkinter
+from c70_extension.prediction_utils import TrajectoryHandler,calculate_ade,calculate_fde
 from tqdm import tqdm
 import os
 import logging
@@ -1315,12 +1315,12 @@ class AttentionGMM(nn.Module):
         """
         if detection_msg is None:
             raise Warning("No detection_msg provided!")
-        torch.cuda.synchronize()
-        t0 = time.time()
+        # torch.cuda.synchronize()
+        # t0 = time.time()
         self.traj_handler.update(detection_msg)
         
-        torch.cuda.synchronize()
-        t1 = time.time()
+        # torch.cuda.synchronize()
+        # t1 = time.time()
 
         # print(f"Time taken to update trajectory handler: {t1 - t0:.4f} seconds")
         try:
@@ -1346,10 +1346,10 @@ class AttentionGMM(nn.Module):
                         dim_src=input_norm.shape[1],
                         mask_type="tgt"
                     ).to(self.device)
-                    t2 = time.time()
+                    # t2 = time.time()
                     pie, sigma_x, sigma_y, mu_x, mu_y,rho = self(input_norm, tgt_zeros, tgt_mask=tgt_mask)
 
-                    t3 = time.time()
+                    # t3 = time.time()
                 
                     mus = torch.stack((mu_x, mu_y), dim=-1)
                     sigmas = torch.stack((sigma_x, sigma_y), dim=-1)
@@ -1363,8 +1363,8 @@ class AttentionGMM(nn.Module):
                     # Return different outputs based on output_mode
                     if output_mode == 'single':
                         denormalized_pred,_,_ =  self.denormalize_to_absolute(highest_prob_pred,pred_obs_last_pos)
-                        t3 = time.time()
-                        print(f"Time taken to denormalize: {t3 - t2:.4f} seconds")
+                        # t3 = time.time()
+                        # print(f"Time taken to denormalize: {t3 - t2:.4f} seconds")
                         return denormalized_pred, observed_traj
                     
                     elif output_mode == 'multi':
@@ -1397,22 +1397,13 @@ class AttentionGMM(nn.Module):
                         # Current shape: denormalized_mue [128, 6, 30, 2] ,  Need shape:    [128, 30, 6, 2]
                         permuted_mue = denormalized_mue.transpose(0, 2, 1, 3)
 
+                        sizes = np.array([[2.0, 1.5]] * permuted_mue.shape[0])  # size of objects (l, w)
+                        sizes = torch.tensor(sizes, dtype=torch.float32, device=self.device)
+
                         # Generate occupancy grid predictions
                         occupancy_grid, grid_bounds, grid_points = self.occupancy_grid_prediction(
-                            permuted_mue, sigmas, pie, ego_location, grid_steps, padding_factor)
-                        
-                        # visualize_occupancy_grid_tkinter(
-                        #     None,occupancy_grid, grid_bounds
-                        # )
-
-                        # torch.cuda.synchronize()
-                        # t4 = time.time()
-                        
-                        # print(f'Time taken to update trajectory handler: {t1 - t0:.4f} seconds')
-                        # print(f'Time taken for model forward pass: {t3 - t2:.4f} seconds')
-                        # print(f"Time taken to generate occupancy grid: {t4 - t3:.4f} seconds")
-                        # print(f"Total time taken for prediction: {t4 - t0:.4f} seconds")
-                        # print(f"Occupancy grid shape: {occupancy_grid.shape}, Grid bounds: {grid_bounds}")
+                            permuted_mue, sigmas, pie, ego_location,sizes, grid_steps, padding_factor)
+                    
 
                         return occupancy_grid, grid_bounds
                     
@@ -1427,16 +1418,19 @@ class AttentionGMM(nn.Module):
             raise
     
      
-    def occupancy_grid_prediction(self, mue, sigma, pi, ego_location, grid_steps=100, padding_factor=2.0):
+    def occupancy_grid_prediction(self, mue, sigma, pi, ego_location,sizes, grid_steps=100, padding_factor=2.0):
         """
         GPU-optimized occupancy grid prediction expecting tensors.
         
         Args:
-            mue: Mean vectors, shape (num_objects, num_timesteps, num_components, 2) - 
+            mue: Mean vectors, shape (num_objects, num_timesteps, num_components, 2) 
             sigma: Diagonal variances, shape (num_objects, num_timesteps, num_components, 2) 
             pi: Mixture weights, shape (num_objects, num_timesteps, num_components)
+            ego_location: Ego vehicle location, shape (2,) or (x, y)
+            sizes: Sizes of objects, shape (num_objects, 2) l,w
             grid_steps: Number of grid cells per dimension
             padding_factor: How many standard deviations to extend beyond means
+            
         
         Returns:
             occupancy_grid: Shape (num_timesteps, grid_steps, grid_steps)
@@ -1487,25 +1481,39 @@ class AttentionGMM(nn.Module):
         grid_y = torch.linspace(min_y, max_y, steps=grid_steps, device=self.device)
         grid_x, grid_y = torch.meshgrid(grid_x, grid_y, indexing='ij')
         grid_points = torch.stack((grid_x, grid_y), dim=-1).reshape(-1, 2)
+
+        grid_resolution_x = (max_x - min_x) / (grid_steps - 1)
+        grid_resolution_y = (max_y - min_y) / (grid_steps - 1)
+        grid_resolution = torch.tensor([grid_resolution_x, grid_resolution_y], device=self.device)
+
+        # calulate yaw inorder to create a footprint of the object on the grid
+        yaw = self.compute_orientations(mue,pi)
+        # Repeat sizes over timesteps
+        sizes_expanded = sizes.unsqueeze(1).repeat(1, yaw.shape[1], 1)  # (num_objects, num_timesteps, lw)
+        # Combine sizes and computed yaw
+        object_footprints = torch.cat([sizes_expanded, yaw.unsqueeze(2)], dim=2)  # (num_objects, num_timesteps , lwθ)
+
         
         # 3. Reshape to combine objects and timesteps for vectorized processing
         mue_reshaped = mue.reshape(num_objects * num_timesteps, num_components, 2)
         sigma_reshaped = sigma.reshape(num_objects * num_timesteps, num_components, 2)
         pi_reshaped = pi.reshape(num_objects * num_timesteps, num_components)
+
+        all_occupancies = self.calculate_pdf_daiagonal_gaussian(grid_points, mue, sigma, pi, grid_resolution, conservative=False) # (num_objects , num_timesteps, grid_points.shape[0])
         
-        # Get combined occupancy for all object-timestep combinations - ON GPU
-        all_occupancies = self.evaluate_all_gmms_vectorized_gpu(
-            grid_points, mue_reshaped, sigma_reshaped, pi_reshaped, num_objects, num_timesteps
-        )
+        # # Apply soft elliptical footprint to all occupancies - ON GPU
+        # all_occupancies = self.apply_soft_footprint_to_occupancy(
+        #     all_occupancies, object_footprints, grid_points
+        # )
         
-        # Reshape back to separate objects and timesteps
-        all_occupancies = all_occupancies.reshape(num_objects, num_timesteps, -1)
+        # # Reshape back to separate objects and timesteps
+        # all_occupancies = all_occupancies.reshape(num_objects, num_timesteps, -1)
         
-        # Combine objects for each timestep using vectorized operations - ON GPU
-        combined_occupancies = self.combine_objects_vectorized_gpu(all_occupancies)
+        # # Combine objects for each timestep using vectorized operations - ON GPU
+        # combined_occupancies = self.combine_objects_vectorized_gpu(all_occupancies)
         
-        # Reshape to grid format
-        occupancy_grid = combined_occupancies.reshape(num_timesteps, grid_steps, grid_steps)
+        # # Reshape to grid format
+        # occupancy_grid = combined_occupancies.reshape(num_timesteps, grid_steps, grid_steps)
         
         grid_bounds = {
             'min_x': min_x, 'max_x': max_x,
@@ -1518,7 +1526,136 @@ class AttentionGMM(nn.Module):
         grid_points_np = grid_points.detach().cpu().numpy()
         
         return occupancy_grid_np, grid_bounds, grid_points_np
+    
+    
 
+    def calculate_pdf_daiagonal_gaussian(self,grid_points, mue_all, sigma_all, pi_all, grid_resolution, conservative=False):
+        """
+        Fully vectorized GMM evaluation over objects & timesteps.
+        
+        Args:
+            grid_points: (n_points, 2)
+            mue_all:     (num_objects, num_timesteps, num_components, 2)
+            sigma_all:   (num_objects, num_timesteps, num_components, 2)
+            pi_all:      (num_objects, num_timesteps, num_components)
+            grid_resolution: float
+            conservative: if True, use closest-point-in-cell (clipped mean). Otherwise, use grid center. (usually very conservative)
+
+        Returns:
+            gmm_probabilities: (num_objects, num_timesteps, n_points)
+        """
+
+        # --- Preprocess shapes ---
+        grid_points = grid_points.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, n_points, 2)
+        mue_all = mue_all.unsqueeze(3)        # (num_obj, num_ts, num_comp, 1, 2)
+        sigma_all = sigma_all.unsqueeze(3)    # (num_obj, num_ts, num_comp, 1, 2)
+        pi_all = pi_all.unsqueeze(3)          # (num_obj, num_ts, num_comp, 1)
+
+        if conservative:
+            grid_points = self.compute_clipped_points(grid_points, mue_all, grid_resolution)  # (..., n_points, 2)
+
+        # --- Mahalanobis distance ---
+        diff = grid_points - mue_all
+        mahal_dist = (diff ** 2 / (sigma_all + 1e-6)).sum(dim=-1)
+
+        # --- Normalized Gaussian weight ---
+        norm_const = 1 / (2 * np.pi * torch.sqrt(sigma_all.prod(dim=-1) + 1e-12))  # (..., 1)
+        weighted_pdfs = pi_all * norm_const * torch.exp(-0.5 * mahal_dist)
+
+        # --- Sum over GMM components ---
+        gmm_density = weighted_pdfs.sum(dim=2)  # (num_obj, num_ts, n_points)
+        gmm_probabilities = gmm_density * grid_resolution.prod()
+
+        return gmm_probabilities
+
+
+    def compute_clipped_points(self,grid_points, mue_all, grid_resolution):
+        """
+        Clips the mean to the closest point inside each rectangular grid cell.
+
+        Args:
+            grid_points: (1, 1, 1, n_points, 2)
+            mue_all:     (num_obj, num_ts, num_comp, 1, 2)
+            grid_resolution: Tensor of shape (2,) → [res_x, res_y]
+
+        Returns:
+            clipped_points: (num_obj, num_ts, num_comp, n_points, 2)
+        """
+        # Separate x and y resolutions
+        half_res_x = grid_resolution[0] / 2.0
+        half_res_y = grid_resolution[1] / 2.0
+
+        # Compute per-cell bounds from grid center
+        x_min = grid_points[..., 0] - half_res_x
+        x_max = grid_points[..., 0] + half_res_x
+        y_min = grid_points[..., 1] - half_res_y
+        y_max = grid_points[..., 1] + half_res_y
+
+        # Extract mean components
+        mu_x = mue_all[..., 0]
+        mu_y = mue_all[..., 1]
+
+        # Clip each mean to the bounds of each cell
+        x_clipped = torch.clip(mu_x, min=x_min, max=x_max)
+        y_clipped = torch.clip(mu_y, min=y_min, max=y_max)
+
+        # Stack back into (x, y) coordinates
+        clipped_points = torch.stack([x_clipped, y_clipped], dim=-1)
+
+        return clipped_points
+
+
+    def apply_soft_footprint_to_occupancy(self,
+            all_occupancies: torch.Tensor,         # (num_objects, num_timesteps, grid) 
+            footprints: torch.Tensor,              # (num_objects, num_timesteps, 3): l (m), w (m), theta (rad)
+            grid_points: torch.Tensor              # (G, 2) in meters
+        ) -> torch.Tensor:
+        """
+        Applies a soft elliptical footprint (in meters) to each object's occupancy map.
+
+        Returns:
+            updated_occupancy: (O, T, G)-(num_objects, num_timesteps, grid) 
+        """
+        O, T, G = all_occupancies.shape
+        device = all_occupancies.device
+
+        # Extract footprint parameters (meters)
+        l = footprints[..., 0].unsqueeze(-1)   # (O, T, 1)
+        w = footprints[..., 1].unsqueeze(-1)
+        theta = footprints[..., 2].unsqueeze(-1)  # (O, T, 1)
+
+        # Compute expected centers from occupancy (weights sum to 1)
+        occupancy_soft = all_occupancies / (all_occupancies.sum(dim=2, keepdim=True) + 1e-6)
+        expected_means = torch.einsum('otg,gd->otd', occupancy_soft, grid_points)  # (O, T, 2)
+
+        # Compute relative positions (meters)
+        grid = grid_points.to(device).unsqueeze(0).unsqueeze(0)  # (1, 1, G, 2)
+        center = expected_means.unsqueeze(2)                     # (O, T, 1, 2)
+        rel = grid - center                                       # (O, T, G, 2)
+
+        # Rotation matrices for each theta
+        cos_t = torch.cos(theta)
+        sin_t = torch.sin(theta)
+        rot = torch.stack([
+            torch.stack([cos_t, -sin_t], dim=-1),
+            torch.stack([sin_t,  cos_t], dim=-1)
+        ], dim=-2)  # (O, T, 1, 2, 2)
+
+        # Rotate relative coordinates into object frame (meters)
+        rel_obj = torch.matmul(rot, rel.unsqueeze(-1)).squeeze(-1)  # (O, T, G, 2)
+
+        # Normalize relative coords by half-length and half-width (meters)
+        scale = torch.stack([l / 2, w / 2], dim=-1)  # (O, T, 1, 2)
+        normed = rel_obj / (scale + 1e-6)             # (O, T, G, 2)
+        sq_dist = (normed ** 2).sum(dim=-1)           # (O, T, G)
+
+        # Gaussian kernel with standard ellipse shape
+        kernel = torch.exp(-0.5 * sq_dist)            # (O, T, G)
+
+        # Multiply original occupancy by footprint kernel (soft convolution)
+        updated_occupancy = all_occupancies * kernel
+
+        return updated_occupancy
 
     def evaluate_all_gmms_vectorized_gpu(self, grid_points, mue_all, sigma_all, pi_all, num_objects, num_timesteps):
         """
@@ -1677,7 +1814,24 @@ class AttentionGMM(nn.Module):
         combined_occupancy = 1 - prob_not_occupied_any
         
         return combined_occupancy
-           
+
+
+    
+    def compute_orientations(self,mue, pi):
+        """
+        mue: tensor (num_objects, num_timesteps, num_components, 2)
+        pi: tensor (num_objects, num_timesteps, num_components)
+        
+        Returns:
+            theta: tensor (num_objects, num_timesteps) in radians
+        """
+        expected_means = (pi.unsqueeze(-1) * mue).sum(dim=2)  # (num_objects, num_timesteps, 2)
+        diff = expected_means[:, 1:, :] - expected_means[:, :-1, :]  # (num_objects, num_timesteps-1, 2)
+        theta_partial = torch.atan2(diff[:, :, 1], diff[:, :, 0])  # (num_objects, num_timesteps-1)
+        last_theta = theta_partial[:, -1:].clone()  # (num_objects, 1)
+        theta = torch.cat([theta_partial, last_theta], dim=1)  # (num_objects, num_timesteps)
+        return theta 
+        
     def _process_trajectory_clusters(self, means, weights, variances, weight_threshold=0.01, prediction_length=10):
         """
         Process trajectories from input data.
