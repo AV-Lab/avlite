@@ -98,8 +98,11 @@ class Perception(PerceptionStrategy):
         if self.output_mode == 'grid':
             grid_steps=100  # grid steps on x and y directions
             ego_location = [self.pm.ego_vehicle.x, self.pm.ego_vehicle.y]
-            self.pm.occupancy_grid ,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,ego_location=ego_location,grid_steps=grid_steps)
-        
+            self.pm.occupancy_grid ,self.pm.ocupancy_grid_per_object,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,ego_location=ego_location,grid_steps=grid_steps)
+
+            print(f"Occupancy grid shape: {self.pm.occupancy_grid.shape}")
+            print(f"Occupancy grid per object shape: {self.pm.ocupancy_grid_per_object.shape}")
+            print(f"Grid bounds: {self.pm.grid_bounds}")
         else:
             self.prediction_output = self.predictor_model.predict(self.pm,output_mode=self.output_mode)
     

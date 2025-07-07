@@ -1402,11 +1402,11 @@ class AttentionGMM(nn.Module):
                         sizes = torch.tensor(sizes, dtype=torch.float32, device=self.device)
 
                         # Generate occupancy grid predictions
-                        occupancy_grid, grid_bounds, grid_points = self.occupancy_grid_prediction(
-                            permuted_mue, sigmas, pie, ego_location,sizes,sizes,grid_steps, padding_factor)
+                        occupancy_grid,per_object_occupancy_grid_np, grid_bounds, grid_points = self.occupancy_grid_prediction(
+                            permuted_mue, sigmas, pie, ego_location,sizes,grid_steps, padding_factor)
                     
 
-                        return occupancy_grid, grid_bounds
+                        return occupancy_grid,per_object_occupancy_grid_np, grid_bounds
                     
          
                     else:
@@ -1500,15 +1500,17 @@ class AttentionGMM(nn.Module):
         all_occupancies = self.calculate_pdf_daiagonal_gaussian(grid_points, mue, sigma, pi, grid_resolution, conservative=False) # (num_objects , num_timesteps, grid_points.shape[0])
         
         # Reshape all_occupancies to 4D grid format
-        all_occupancies_grid = all_occupancies.reshape(num_objects * num_timesteps, 1, grid_steps, grid_steps)
-        
+        all_occupancies_grid = all_occupancies.reshape(1,num_objects*num_timesteps, grid_steps, grid_steps)
+
         # 4. Generate rotated kernels for all objects and timesteps
         rotated_kernels = self.generate_rotated_kernels(object_footprints, grid_resolution)
-        
+       
         # Apply convolution
         convolved_occupancies = F.conv2d(all_occupancies_grid, rotated_kernels, 
                                 groups=num_objects * num_timesteps, padding="same")
-
+        
+        # Reshape back to (N, T, H, W) to preserve object and timestep dimensions
+        convolved_occupancies = convolved_occupancies.view(num_objects, num_timesteps, grid_steps, grid_steps)
         
         # Combine objects for each timestep using vectorized operations - ON GPU
         combined_occupancies = self.combine_objects_vectorized_gpu(convolved_occupancies)
@@ -1524,11 +1526,12 @@ class AttentionGMM(nn.Module):
         
         # move to CPU/NumPy 
         occupancy_grid_np = occupancy_grid.detach().cpu().numpy()
+        per_object_occupancy_grid_np = convolved_occupancies.detach().cpu().numpy()
         grid_points_np = grid_points.detach().cpu().numpy()
         
-        return occupancy_grid_np, grid_bounds, grid_points_np
+        return occupancy_grid_np,per_object_occupancy_grid_np, grid_bounds, grid_points_np
     
-    def generate_rotated_kernels(self,object_footprints, grid_resolution):
+    def generate_rotated_kernels(self, object_footprints, grid_resolution):
         """
         Generates rotated binary kernels (footprints) for multiple objects and timesteps in a vectorized way.
 
@@ -1561,11 +1564,11 @@ class AttentionGMM(nn.Module):
         H_max = kernel_h.max().item()
         W_max = kernel_w.max().item()
 
-        H_max,W_max = max(H_max, W_max), max(W_max, H_max)  # Since we can rotate, we want square kernels with max size
+        H_max, W_max = max(H_max, W_max), max(W_max, H_max)  # Since we can rotate, we want square kernels with max size
 
-        # Generate grid indices for H_max x W_max mask
-        ys = torch.arange(H_max).view(1, H_max, 1).expand(B, H_max, W_max)
-        xs = torch.arange(W_max).view(1, 1, W_max).expand(B, H_max, W_max)
+        # Generate grid indices for H_max x W_max mask - CREATE ON SAME DEVICE
+        ys = torch.arange(H_max, device=self.device).view(1, H_max, 1).expand(B, H_max, W_max)
+        xs = torch.arange(W_max, device=self.device).view(1, 1, W_max).expand(B, H_max, W_max)
 
         # Compute per-instance bounding box center offsets
         y0 = ((H_max - kernel_h) // 2).view(B, 1, 1)
@@ -1576,7 +1579,7 @@ class AttentionGMM(nn.Module):
         # Vectorized rectangular mask (B, H, W)
         base_masks = ((ys >= y0) & (ys < y1) & (xs >= x0) & (xs < x1)).float().unsqueeze(1)  # (B, 1, H, W)
 
-        # Create affine matrices for batched rotation (B, 2, 3)
+        # Create affine matrices for batched rotation (B, 2, 3) - CREATE ON SAME DEVICE
         cos = torch.cos(thetas)
         sin = torch.sin(thetas)
         zeros = torch.zeros_like(cos)
@@ -1591,7 +1594,7 @@ class AttentionGMM(nn.Module):
         rotated_kernels = (rotated > 0.5).float()  # Binarize result (B, 1, H, W) 
 
         # Reshape back to (N, T, 1, H, W)
-        # rotated_kernels = rotated_kernels.view(N, T, 1, H_max, W_max)
+        rotated_kernels = rotated_kernels.view(N*T, 1, H_max, W_max)
 
         return rotated_kernels
     

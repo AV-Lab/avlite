@@ -114,8 +114,12 @@ class PerceptionModel:
     max_agent_vehicles:int = PerceptionSettings.max_agent_vehicles
     # agent_history: dict[str, list[AgentState]] = field(default_factory=dict) # agent_id -> list of states
 
-    # Occupancy grid fields (NumPy arrays)
+    # Occupancy grid fields (NumPy arrays) - (timesteps, grid)
     occupancy_grid: Optional[np.ndarray] = field(default=None)
+
+    # Occupancy grid fields (NumPy arrays) - per object (objects,timesteps, grid)
+    ocupancy_grid_per_object:  Optional[np.ndarray] = field(default=None) 
+    
     grid_bounds: Optional[Dict[str, float]] = field(default=None)
 
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
@@ -157,14 +161,14 @@ class PerceptionModel:
         filtered_count = np.sum(mask)
         
         if filtered_count == 0:
-            log.info(f"[{method_name}] No agents within {distance_threshold}m threshold. All agents filtered out.")
+            # log.warning(f"[{method_name}] No agents within {distance_threshold}m threshold. All agents filtered out.")
             self.agent_vehicles = []
         else:
             # Filter using boolean indexing
             agents_array = np.array(self.agent_vehicles, dtype=object)  
             self.agent_vehicles = list(agents_array[mask])
             
-            log.info(f"[{method_name}] Filtered agents: {filtered_count} kept")
+            # log.info(f"[{method_name}] Filtered agents: {filtered_count} kept")
         
 
 
