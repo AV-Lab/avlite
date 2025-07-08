@@ -1295,7 +1295,7 @@ class AttentionGMM(nn.Module):
 
         return combined_pred,combined_targets,combined_obs,combined_all_preds,combined_weights,combined_variances,combined_means_mue,combined_variance_sigma,combined_mixture_weights
 
-    def predict(self, detection_msg, output_mode='grid',ego_location=(0,0),grid_steps=100, padding_factor=3.0):
+    def predict(self, detection_msg, output_mode='grid',sizes=None,ego_location=(0,0),grid_steps=100, padding_factor=3.0):
         """
         Evaluate the model on live detections and generate predictions.
 
@@ -1306,6 +1306,10 @@ class AttentionGMM(nn.Module):
                 - 'multi': Returns multiple trajectories with their probabilities
                 - 'gmm': Returns GMM parameters along with trajectories
                 - 'grid': Returns occupancy grid predictions
+            sizes (torch.Tensor): Sizes of objects for occupancy grid prediction [l,w]
+            ego_location (tuple): Location of the ego vehicle in the world frame
+            grid_steps (int): Number of steps for occupancy grid prediction
+            padding_factor (float): Padding factor for occupancy grid prediction
 
         Returns:
             Based on output_mode:
@@ -1397,9 +1401,8 @@ class AttentionGMM(nn.Module):
                         # Current shape: sigma[128, 30, 6, 2],  Need shape:    [128, 6, 30, 2] Pie shape  [128, 30,6]
                         # Current shape: denormalized_mue [128, 6, 30, 2] ,  Need shape:    [128, 30, 6, 2]
                         permuted_mue = denormalized_mue.transpose(0, 2, 1, 3)
-
-                        sizes = np.array([[4.0, 1.5]] * permuted_mue.shape[0])  # size of objects (l, w)
-                        sizes = torch.tensor(sizes, dtype=torch.float32, device=self.device)
+                    
+                        sizes = torch.tensor(sizes, dtype=torch.float32, device=self.device) if sizes is not None else torch.tensor((np.array([[4.0, 1.5]] * permuted_mue.shape[0])), dtype=torch.float32, device=self.device)
 
                         # Generate occupancy grid predictions
                         occupancy_grid,per_object_occupancy_grid_np, grid_bounds, grid_points = self.occupancy_grid_prediction(
@@ -1419,26 +1422,39 @@ class AttentionGMM(nn.Module):
             raise
     
      
-    def occupancy_grid_prediction(self, mue, sigma, pi, ego_location,sizes, grid_steps=100, padding_factor=2.0):
+    def occupancy_grid_prediction(self, mue, sigma, pi, ego_location, sizes, grid_steps=100, padding_factor=2.0, conservative=False):
         """
-        GPU-optimized occupancy grid prediction expecting tensors.
-        
+        Compute the occupancy probability grid based on Gaussian mixture predictions.
+
+        This function computes an occupancy grid from the predicted Gaussian mixture model of object positions.
+
         Args:
-            mue: Mean vectors, shape (num_objects, num_timesteps, num_components, 2) 
-            sigma: Diagonal variances, shape (num_objects, num_timesteps, num_components, 2) 
-            pi: Mixture weights, shape (num_objects, num_timesteps, num_components)
-            ego_location: Ego vehicle location, shape (2,) or (x, y)
-            sizes: Sizes of objects, shape (num_objects, 2) l,w
-            grid_steps: Number of grid cells per dimension
-            padding_factor: How many standard deviations to extend beyond means
-            
-        
+            mue (Tensor): Mean positions of the predicted Gaussians.
+                Shape: (num_objects, num_timesteps, num_components, 2)
+            sigma (Tensor): Diagonal variances (standard deviation squared) for each component.
+                Shape: (num_objects, num_timesteps, num_components, 2)
+            pi (Tensor): Mixture weights for the GMM.
+                Shape: (num_objects, num_timesteps, num_components)
+            ego_location (Tensor): Ego vehicle location in (x, y) format.
+                Shape: (2,)
+            sizes (Tensor): Object sizes (length, width).
+                Shape: (num_objects, 2)
+            grid_steps (int): Number of cells along each grid axis. Default is 100.
+            padding_factor (float): Number of standard deviations to extend the grid 
+                beyond the object means. Default is 2.0.
+            conservative (bool): 
+                - If True, computes the PDF at the grid point closest to the mean (object center).
+                - If False, computes the PDF at the center of each grid cell.
+
         Returns:
-            occupancy_grid: Shape (num_timesteps, grid_steps, grid_steps)
-            grid_bounds: Dictionary with grid coordinate bounds
-            grid_points: All grid coordinates, shape (grid_steps^2, 2)
+            occupancy_grid (Tensor): Occupancy probabilities per cell.
+                Shape: (num_timesteps, grid_steps, grid_steps)
+            grid_bounds (dict): Coordinate bounds of the grid. 
+                Contains keys: 'xmin', 'xmax', 'ymin', 'ymax'
+            grid_points (Tensor): Coordinates of each grid cell center.
+                Shape: (grid_steps * grid_steps, 2)
         """
-        
+
         # Convert NumPy arrays to PyTorch tensors and move to GPU immediately
         if isinstance(mue, np.ndarray):
             mue = torch.from_numpy(mue).float().to(self.device)
@@ -1673,199 +1689,6 @@ class AttentionGMM(nn.Module):
 
         return clipped_points
 
-
-    def apply_soft_footprint_to_occupancy(self,
-            all_occupancies: torch.Tensor,         # (num_objects, num_timesteps, grid) 
-            footprints: torch.Tensor,              # (num_objects, num_timesteps, 3): l (m), w (m), theta (rad)
-            grid_points: torch.Tensor              # (G, 2) in meters
-        ) -> torch.Tensor:
-        """
-        Applies a soft elliptical footprint (in meters) to each object's occupancy map.
-
-        Returns:
-            updated_occupancy: (O, T, G)-(num_objects, num_timesteps, grid) 
-        """
-        O, T, G = all_occupancies.shape
-        device = all_occupancies.device
-
-        # Extract footprint parameters (meters)
-        l = footprints[..., 0].unsqueeze(-1)   # (O, T, 1)
-        w = footprints[..., 1].unsqueeze(-1)
-        theta = footprints[..., 2].unsqueeze(-1)  # (O, T, 1)
-
-        # Compute expected centers from occupancy (weights sum to 1)
-        occupancy_soft = all_occupancies / (all_occupancies.sum(dim=2, keepdim=True) + 1e-6)
-        expected_means = torch.einsum('otg,gd->otd', occupancy_soft, grid_points)  # (O, T, 2)
-
-        # Compute relative positions (meters)
-        grid = grid_points.to(device).unsqueeze(0).unsqueeze(0)  # (1, 1, G, 2)
-        center = expected_means.unsqueeze(2)                     # (O, T, 1, 2)
-        rel = grid - center                                       # (O, T, G, 2)
-
-        # Rotation matrices for each theta
-        cos_t = torch.cos(theta)
-        sin_t = torch.sin(theta)
-        rot = torch.stack([
-            torch.stack([cos_t, -sin_t], dim=-1),
-            torch.stack([sin_t,  cos_t], dim=-1)
-        ], dim=-2)  # (O, T, 1, 2, 2)
-
-        # Rotate relative coordinates into object frame (meters)
-        rel_obj = torch.matmul(rot, rel.unsqueeze(-1)).squeeze(-1)  # (O, T, G, 2)
-
-        # Normalize relative coords by half-length and half-width (meters)
-        scale = torch.stack([l / 2, w / 2], dim=-1)  # (O, T, 1, 2)
-        normed = rel_obj / (scale + 1e-6)             # (O, T, G, 2)
-        sq_dist = (normed ** 2).sum(dim=-1)           # (O, T, G)
-
-        # Gaussian kernel with standard ellipse shape
-        kernel = torch.exp(-0.5 * sq_dist)            # (O, T, G)
-
-        # Multiply original occupancy by footprint kernel (soft convolution)
-        updated_occupancy = all_occupancies * kernel
-
-        return updated_occupancy
-
-    def evaluate_all_gmms_vectorized_gpu(self, grid_points, mue_all, sigma_all, pi_all, num_objects, num_timesteps):
-        """
-        GPU-optimized vectorized evaluation of multiple GMMs with per-object normalization.
-        
-        Args:
-            grid_points: Grid coordinates, shape (n_points, 2) - ON GPU
-            mue_all: Means, shape (num_gmms, num_components, 2) - ON GPU
-            sigma_all: Variances, shape (num_gmms, num_components, 2) - ON GPU
-            pi_all: Weights, shape (num_gmms, num_components) - ON GPU
-            num_objects: Number of objects 
-            num_timesteps: Number of timesteps
-        
-        Returns:
-            occupancies: Shape (num_gmms, n_points) - ON GPU
-        """
-        num_gmms, num_components, _ = mue_all.shape
-        n_points = grid_points.shape[0]
-        
-        # Initialize output tensor on GPU
-        all_densities = torch.zeros(num_gmms, n_points, device=self.device)
-        
-        # Process all GMMs and components simultaneously
-        for comp_idx in range(num_components):
-            means = mue_all[:, comp_idx, :]  # (num_gmms, 2)
-            variances = sigma_all[:, comp_idx, :]  # (num_gmms, 2)
-            weights = pi_all[:, comp_idx]  # (num_gmms,)
-            
-            # Skip components with negligible weights
-            valid_mask = weights >= 1e-6
-            if not valid_mask.any():
-                continue
-                
-            valid_means = means[valid_mask]
-            valid_variances = variances[valid_mask]
-            valid_weights = weights[valid_mask]
-            
-            # GPU-vectorized PDF computation
-            densities = self.diagonal_gaussian_pdf_batch_gpu(
-                grid_points, valid_means, valid_variances
-            )
-            
-            # Weight the densities
-            weighted_densities = valid_weights.unsqueeze(1) * densities
-            
-            # Add to the corresponding GMMs
-            valid_indices = torch.where(valid_mask)[0]
-            all_densities[valid_indices] += weighted_densities
-        
-        # UPDATED: Convert densities to occupancies with PER-OBJECT normalization
-        return self.density_to_occupancy_per_object_gpu(all_densities, num_objects, num_timesteps)
-
-
-    def density_to_occupancy_per_object_gpu(self, densities, num_objects, num_timesteps, method='normalized'):
-        """
-        GPU-optimized per-object normalization of densities to occupancies.
-        
-        Args:
-            densities: Shape (num_gmms, n_points) where num_gmms = num_objects * num_timesteps
-            num_objects: Number of objects
-            num_timesteps: Number of timesteps
-            method: Normalization method ('normalized', 'sigmoid_per_object', 'linear_per_object')
-        
-        Returns:
-            occupancies: Shape (num_gmms, n_points) - normalized per object
-        """
-        num_gmms, n_points = densities.shape
-        
-        # Reshape to separate objects and timesteps: (num_objects, num_timesteps, n_points)
-        densities_reshaped = densities.reshape(num_objects, num_timesteps, n_points)
-        
-        if method == 'normalized':
-            # Find max density per object across all timesteps and points
-            # Shape: (num_objects, 1, 1) for broadcasting
-            max_densities_per_object = densities_reshaped.max(dim=2, keepdim=True)[0].max(dim=1, keepdim=True)[0]
-            
-            # Normalize each object by its own maximum density
-            occupancies_reshaped = torch.where(
-                max_densities_per_object > 1e-10,  # Avoid division by zero
-                densities_reshaped / max_densities_per_object,
-                torch.zeros_like(densities_reshaped)
-            )
-            
-        elif method == 'sigmoid':
-            # Scale factor adapted per object based on its density range
-            std_per_object = densities_reshaped.std(dim=(1,2), keepdim=True)
-            scale_factor = 1.0 / (std_per_object + 1e-6)  # Adaptive scaling
-            occupancies_reshaped = torch.sigmoid(scale_factor * densities_reshaped)
-            
-        elif method == 'linear':
-            # Linear scaling per object to [0,1] range
-            min_per_object = densities_reshaped.min(dim=2, keepdim=True)[0].min(dim=1, keepdim=True)[0]
-            max_per_object = densities_reshaped.max(dim=2, keepdim=True)[0].max(dim=1, keepdim=True)[0]
-            range_per_object = max_per_object - min_per_object
-            
-            occupancies_reshaped = torch.where(
-                range_per_object > 1e-10,
-                (densities_reshaped - min_per_object) / range_per_object,
-                torch.zeros_like(densities_reshaped)
-            )
-        else:
-            raise ValueError(f"Unknown method: {method}")
-        
-        # Reshape back to (num_gmms, n_points)
-        occupancies = occupancies_reshaped.reshape(num_gmms, n_points)
-        
-        return occupancies
-
-
-    def diagonal_gaussian_pdf_batch_gpu(self, points, means, variances):
-        """
-        GPU-optimized batch computation of diagonal Gaussian PDFs.
-        
-        Args:
-            points: Shape (n_points, 2) - ON GPU
-            means: Shape (num_gaussians, 2) - ON GPU
-            variances: Shape (num_gaussians, 2) - ON GPU
-        
-        Returns:
-            pdf_values: Shape (num_gaussians, n_points) - ON GPU
-        """
-        # Add regularization
-        reg_variances = variances + 1e-6
-        
-        # Compute differences using GPU broadcasting
-        # (n_points, 2) -> (1, n_points, 2) and (num_gaussians, 2) -> (num_gaussians, 1, 2)
-        diff = points.unsqueeze(0) - means.unsqueeze(1)  # (num_gaussians, n_points, 2)
-        
-        # Mahalanobis distance for diagonal case - all on GPU
-        mahal_dist = ((diff ** 2) / reg_variances.unsqueeze(1)).sum(dim=2)
-        
-        # Determinant of diagonal matrix
-        det = reg_variances.prod(dim=1, keepdim=True)  # (num_gaussians, 1)
-        
-        # PDF computation - all GPU operations
-        normalization = 1.0 / (2 * torch.pi * torch.sqrt(det))
-        pdf = normalization * torch.exp(-0.5 * mahal_dist)
-        
-        return pdf
-
-
     def combine_objects_vectorized_gpu(self, all_occupancies):
         """
         GPU-optimized vectorized combination of object occupancies.
@@ -1884,8 +1707,6 @@ class AttentionGMM(nn.Module):
         
         return combined_occupancy
 
-
-    
     def compute_orientations(self,mue, pi):
         """
         mue: tensor (num_objects, num_timesteps, num_components, 2)

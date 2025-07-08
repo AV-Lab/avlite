@@ -18,7 +18,8 @@ class PerceptionSettings:
 
 
     # Perception Model
-    max_agent_vehicles = 12
+    max_agent_vehicles: int = 12
+    grid_size: int = 100  # Size of the occupancy grid -> 100x100
 
 
 

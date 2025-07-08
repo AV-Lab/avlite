@@ -86,7 +86,7 @@ class Perception(PerceptionStrategy):
         self.pm.filter_agent_vehicles(self.max_agent_distance)
         filtered_count = len(self.pm.agent_vehicles)
         log.debug(f"Filtered agent vehicles (≤{self.max_agent_distance}m): {filtered_count}")
-        print(f"Filtered agent vehicles (≤{self.max_agent_distance}m): {filtered_count}")
+
 
         # Handle no available agents
         if not self.pm.agent_vehicles:
@@ -96,17 +96,15 @@ class Perception(PerceptionStrategy):
             self.bounds = None
             return
         if self.output_mode == 'grid':
-            grid_steps=100  # grid steps on x and y directions
             ego_location = [self.pm.ego_vehicle.x, self.pm.ego_vehicle.y]
-            self.pm.occupancy_grid ,self.pm.ocupancy_grid_per_object,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,ego_location=ego_location,grid_steps=grid_steps)
-
-            print(f"Occupancy grid shape: {self.pm.occupancy_grid.shape}")
-            print(f"Occupancy grid per object shape: {self.pm.ocupancy_grid_per_object.shape}")
-            print(f"Grid bounds: {self.pm.grid_bounds}")
+            objects_sizes = self.pm.agents_sizes()
+            log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location} grid size: {self.pm.grid_size}x{self.pm.grid_size}")
+            self.pm.occupancy_grid ,self.pm.ocupancy_grid_per_object,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,sizes=objects_sizes,ego_location=ego_location,grid_steps=self.pm.grid_size)
+            log.debug(f"Occupancy grid shape: {self.pm.occupancy_grid.shape}\nOccupancy grid per object shape: {self.pm.ocupancy_grid_per_object.shape}\nGrid bounds: {self.pm.grid_bounds}")
         else:
-            self.prediction_output = self.predictor_model.predict(self.pm,output_mode=self.output_mode)
-    
-            log.debug(f"prediction_output agents: {len(self.prediction_output)}")
+            log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location}")
+            self.pm.trajectories = self.predictor_model.predict(self.pm,output_mode=self.output_mode)
+            log.debug(f"Predicted Trajectories:{len(self.pm.trajectories)}")
 
 
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None) :
