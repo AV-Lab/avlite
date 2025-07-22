@@ -8,6 +8,13 @@ default:
   max_valocity: 30
   min_acceleration: -20
   min_steering: -0.7
+  device: "cuda:0" #cpu
+  max_agent_distance: 50.0 # max distance (memters) of agents to be considered in the prediction 
+  detector: "ground_truth"
+  tracker: "None"
+  predictor:  "AttentionGMM"
+  prediction_mode: "grid"  # single multi GMM or grid
+  pred_horizon: 3 # this is property of predictor -> how many secs in the future it predicts
 xx:
   L_f: 2.5
   exclude: []
@@ -18,3 +25,10 @@ xx:
   max_valocity: 30
   min_acceleration: -20
   min_steering: -0.7
+  device: "cuda:0" #cpu
+  max_agent_distance: 50.0 # max distance (memters) of agents to be considered in the prediction 
+  detector: "ground_truth"
+  tracker: "None"
+  predictor:  "AttentionGMM"
+  prediction_mode: "grid"  # single multi GMM or grid
+  pred_horizon: 3 # this is property of predictor -> how many secs in the future it predicts

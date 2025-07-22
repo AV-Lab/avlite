@@ -6,6 +6,7 @@ import time
 import logging
 import numpy as np
 
+from c10_perception.c11_perception_model import AgentState
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c24_global_planners import RaceGlobalPlanner
 from c20_planning.c24_global_planners import HDMapGlobalPlanner
@@ -243,11 +244,11 @@ class LocalPlanPlotView(ttk.Frame):
         if event.button == 3:
             if event.inaxes == self.ax1:
                 x, y = event.xdata, event.ydata
-                self.root.exec.spawn_agent(x=x, y=y)
+                self.__spawn_agent(x=x, y=y)
                 self.root.update_ui()
             elif event.inaxes == self.ax2:
                 s, d = event.xdata, event.ydata
-                self.root.exec.spawn_agent(d=d, s=s)
+                self.__spawn_agent(d=d, s=s)
                 self.root.update_ui()
 
         elif event.button == 1:
@@ -269,6 +270,24 @@ class LocalPlanPlotView(ttk.Frame):
 
             self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
             self.root.update_ui()
+    
+    def __spawn_agent(self, x=None, y=None, s=None, d=None, theta=None):
+        if x is not None and y is not None:
+            t = self.root.exec.ego_state.theta if theta is None else theta
+            agent = AgentState(x=x, y=y, theta=t, velocity=0)
+            self.root.exec.world.spawn_agent(agent)
+        elif s is not None and d is not None:
+            # Convert (s, d) to (x, y) using some transformation logic
+            x, y = self.root.exec.local_planner.global_trajectory.convert_sd_to_xy(s, d)
+            log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
+            log.info(f"Ego State: {self.root.exec.ego_state}")
+            t = self.root.exec.ego_state.theta if theta is None else theta
+            agent = AgentState(x=x, y=y, theta=t, velocity=0)
+            self.root.exec.world.spawn_agent(agent)
+        else:
+            raise ValueError("Either (x, y) or (s, d) must be provided")
+
+        # self.pm.add_agent_vehicle(agent)
     
     def on_mouse_release(self, event):
         # if event.inaxes == self.ax1:

@@ -18,3 +18,4 @@ class ExecutionSettings:
     global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
     hd_map = "data/Town10HD_Opt.xodr"
 
+

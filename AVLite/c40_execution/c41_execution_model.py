@@ -4,10 +4,13 @@ from abc import ABC, abstractmethod
 import logging 
 import numpy as np
 
-from c30_control.c31_control_model import  ControlComand
+
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
+from c10_perception.c13_perception import Perception
+from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from c30_control.c31_control_model import  ControlComand
 from c30_control.c32_control_strategy import ControlStrategy
 from c40_execution.c49_settings import ExecutionSettings
 from c40_execution.c49_settings import ExecutionSettings
@@ -76,6 +79,7 @@ class Executer(ABC):
     def __init__(
         self,
         perception_model: PerceptionModel,
+        perception: Perception,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
@@ -87,6 +91,7 @@ class Executer(ABC):
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         self.pm: PerceptionModel = perception_model
+        self.perception: Perception = perception  
         self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: GlobalPlannerStrategy = global_planner
         self.local_planner: LocalPlannerStrategy = local_planner
@@ -110,11 +115,12 @@ class Executer(ABC):
         raise NotImplementedError("This method should be implemented by the specific executer class.")
 
     def stop(self):
-        pass
+        raise NotImplementedError("This method should be implemented by the specific executer class.")
 
     def reset(self):
         self.pm.reset()
         self.ego_state.reset()
+        self.perception_strategy.reset()
         self.local_planner.reset()
         self.controller.reset()
         self.world.reset()
@@ -137,7 +143,7 @@ class Executer(ABC):
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")
 
-        self.pm.add_agent_vehicle(agent)
+        # self.pm.add_agent_vehicle(agent)
     
 
     def __init_subclass__(cls, abstract=False, **kwargs):
@@ -165,6 +171,7 @@ class Executer(ABC):
 
         reload_lib()
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
+        from c10_perception.c12_perception_strategy import PerceptionStrategy
         from c20_planning.c21_planning_model import GlobalPlan
         from c20_planning.c24_global_planners import HDMapGlobalPlanner
         from c20_planning.c24_global_planners import RaceGlobalPlanner
@@ -175,13 +182,14 @@ class Executer(ABC):
         from c40_execution.c44_async_mproc_executer import AsyncExecuter
         from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
         from c40_execution.c44_basic_sim import BasicSim
+
+
+        #################
         
         global_plan_path =  get_absolute_path(global_trajectory)
 
-        
-        ################
         # Loading default
-        # global plan
+        # global planner
         #################
         default_global_plan = GlobalPlan.from_file(global_plan_path)
         
@@ -201,6 +209,12 @@ class Executer(ABC):
         ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1], velocity=20, theta=-np.pi / 4)
         pm = PerceptionModel(ego_vehicle=ego_state)
 
+        ############################
+        # Loading perception strategy
+        ##############################
+        perception = Perception(perception_model=pm)
+        log.info("Perception Module Loaded!")
+
         #################
         # Loading world
         #################
@@ -211,7 +225,7 @@ class Executer(ABC):
         elif bridge == "ROS":
             raise NotImplementedError("ROS bridge not implemented")
         else:
-            world = BasicSim(ego_state=ego_state)
+            world = BasicSim(ego_state=ego_state, pm = pm)
 
 
         #################
@@ -239,9 +253,9 @@ class Executer(ABC):
         # Creating Executer
         #################
         executer = (
-            SyncExecuter(perception_model=pm, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
+            SyncExecuter(perception_model=pm,perception=perception, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
             if not async_mode
-            else AsyncThreadedExecuter(perception_model=pm, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
+            else AsyncThreadedExecuter(perception_model=pm,perception=perception, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
         )
 
         return executer
