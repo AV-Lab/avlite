@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from c10_perception.c12_perception_strategy import PerceptionModel
-from c10_perception.c13_perception import Perception
+from c10_perception.c13_perception import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
@@ -22,7 +22,7 @@ class AsyncThreadedExecuter(Executer):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        perception: Perception,
+        perception: PerceptionStrategy,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,

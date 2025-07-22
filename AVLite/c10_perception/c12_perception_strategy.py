@@ -12,17 +12,14 @@ class PerceptionStrategy(ABC):
     This class defines the interface for perception strategies, including methods for detection, tracking, prediction, and perception.
     """
 
-    def __init__(self,
-                 perception_model: PerceptionModel,
-                 detector = PerceptionSettings.detector,
-                 tracker = PerceptionSettings.tracker,
-                 predictor = PerceptionSettings.predictor,
-                 device = PerceptionSettings.device):
+    def __init__(self, perception_model: PerceptionModel):
         self.perception_model = perception_model
-        self.detector = detector
-        self.tracker = tracker
-        self.predictor = predictor
-        self.device = device
+        self.detector = PerceptionSettings.detector
+        self.tracker = PerceptionSettings.tracker
+        self.predictor = PerceptionSettings.predictor
+        self.device = PerceptionSettings.device
+
+        log.info(f"Initializing PerceptionStrategy with detector: {self.detector}, tracker: {self.tracker}, predictor: {self.predictor}, device: {self.device}")
         
         
     def _get_config_value(self, config, key):
@@ -35,7 +32,7 @@ class PerceptionStrategy(ABC):
     #TODO: Fix this 
     def import_models(self, module: str) -> type:
         """
-        Dynamically import a model class from the c70_extension package.
+        Dynamically import a model class from the extension package.
         
         Args:
             module: Name of the module/class to import
@@ -48,7 +45,7 @@ class PerceptionStrategy(ABC):
         """
         
         try:
-            module_name = f"c70_extension.{module}"
+            module_name = f"extensions.{module}"
             imported_module = importlib.import_module(module_name)
             ModelClass = getattr(imported_module, module)
             return ModelClass

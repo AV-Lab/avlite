@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 
 from typing import Tuple, Dict, Optional, List, Union,Any
 from dataclasses import dataclass, asdict
-from c70_extension.prediction_utils import TrajectoryHandler,calculate_ade,calculate_fde
+from extensions.prediction_utils import TrajectoryHandler,calculate_ade,calculate_fde
 from tqdm import tqdm
 import os
 import logging

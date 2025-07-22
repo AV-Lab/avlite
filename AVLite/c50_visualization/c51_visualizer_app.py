@@ -253,6 +253,7 @@ class VisualizerApp(tk.Tk):
                 controller=self.setting.controller_type.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
+                reload_code= True
             )
 
         except Exception as e:
@@ -266,7 +267,25 @@ class VisualizerApp(tk.Tk):
             self.stack_is_loading = False
             self.last_reload_time = time.time()
             self.pending_reload_request = False if hasattr(self, 'pending_reload_request') and self.pending_reload_request else True
-    
+
+    def reinitialize_stack(self): 
+        try:
+            self.exec_visualize_view.stop_exec()
+            self.exec = Executer.executor_factory(
+                async_mode=self.setting.async_exec.get(),
+                bridge=self.setting.execution_bridge.get(),
+                global_planner=self.setting.global_planner_type.get(),
+                local_planner=self.setting.local_planner_type.get(),
+                controller=self.setting.controller_type.get(),
+                replan_dt=self.setting.replan_dt.get(),
+                control_dt=self.setting.control_dt.get(),
+                reload_code= False
+            )
+
+        except Exception as e:
+            log.error(f"Error reloading stack: {e}", exc_info=True)
+        finally:
+            self.update_ui()
 
     def show_loading_overlay(self, message="Loading..."):
         if hasattr(self, 'loading_window') and self.loading_window is not None:

@@ -6,7 +6,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-
 class Perception(PerceptionStrategy):
 
     def __init__(self, perception_model: PerceptionModel,):
@@ -19,6 +18,8 @@ class Perception(PerceptionStrategy):
         self.max_agent_distance = PerceptionSettings.max_agent_distance 
         self.grid = None
         self.bounds = None
+            
+        self.prediction_output = []
         
         self.initialize_models()
 

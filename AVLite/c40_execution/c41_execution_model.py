@@ -6,7 +6,7 @@ import numpy as np
 
 
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from c10_perception.c13_perception import Perception
+from c10_perception.c13_perception import PerceptionStrategy
 from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
@@ -79,7 +79,7 @@ class Executer(ABC):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        perception: Perception,
+        perception: PerceptionStrategy,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
@@ -91,7 +91,7 @@ class Executer(ABC):
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         self.pm: PerceptionModel = perception_model
-        self.perception: Perception = perception  
+        self.perception: PerceptionStrategy = perception  
         self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: GlobalPlannerStrategy = global_planner
         self.local_planner: LocalPlannerStrategy = local_planner
@@ -154,7 +154,6 @@ class Executer(ABC):
 
     @classmethod
     def executor_factory(cls,
-        config_path = ExecutionSettings.filepath,
         async_mode = ExecutionSettings.async_mode,
         bridge = ExecutionSettings.bridge,
         global_planner = ExecutionSettings.global_planner,
@@ -164,14 +163,17 @@ class Executer(ABC):
         control_dt = ExecutionSettings.control_dt,
         global_trajectory = ExecutionSettings.global_trajectory,
         hd_map = ExecutionSettings.hd_map,
+        reload_code = True
     ) -> "Executer":
         """
         Factory method to create an instance of the Executer class based on the provided configuration.
         """
 
-        reload_lib()
+        if reload_code:
+            reload_lib()
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
         from c10_perception.c12_perception_strategy import PerceptionStrategy
+        from c10_perception.c13_perception import Perception
         from c20_planning.c21_planning_model import GlobalPlan
         from c20_planning.c24_global_planners import HDMapGlobalPlanner
         from c20_planning.c24_global_planners import RaceGlobalPlanner
