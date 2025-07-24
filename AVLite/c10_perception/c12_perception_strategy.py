@@ -1,8 +1,6 @@
-from c10_perception.c11_perception_model import State, AgentState, EgoState, PerceptionModel
-from c20_planning.c28_trajectory import Trajectory
-import numpy as np
+from c10_perception.c11_perception_model import PerceptionModel
+from c10_perception.c19_settings import PerceptionSettings
 import logging
-from dataclasses import dataclass, field
 import importlib
 from abc import ABC, abstractmethod
 
@@ -14,12 +12,14 @@ class PerceptionStrategy(ABC):
     This class defines the interface for perception strategies, including methods for detection, tracking, prediction, and perception.
     """
 
-    def __init__(self, perception_config):
-        self.perception_model: PerceptionModel
-        self.detector = self._get_config_value(perception_config, 'detector')
-        self.tracker = self._get_config_value(perception_config, 'tracker')
-        self.predictor = self._get_config_value(perception_config, 'predictor')
-        self.device = self._get_config_value(perception_config, 'device') or 'cpu'
+    def __init__(self, perception_model: PerceptionModel):
+        self.perception_model = perception_model
+        self.detector = PerceptionSettings.detector
+        self.tracker = PerceptionSettings.tracker
+        self.predictor = PerceptionSettings.predictor
+        self.device = PerceptionSettings.device
+
+        log.info(f"Initializing PerceptionStrategy with detector: {self.detector}, tracker: {self.tracker}, predictor: {self.predictor}, device: {self.device}")
         
         
     def _get_config_value(self, config, key):
@@ -29,9 +29,10 @@ class PerceptionStrategy(ABC):
         value = config[key]
         return None if isinstance(value, str) and value.lower() == 'none' else value
     
+    #TODO: Fix this 
     def import_models(self, module: str) -> type:
         """
-        Dynamically import a model class from the c70_extension package.
+        Dynamically import a model class from the extension package.
         
         Args:
             module: Name of the module/class to import
@@ -44,7 +45,7 @@ class PerceptionStrategy(ABC):
         """
         
         try:
-            module_name = f"c70_extension.{module}"
+            module_name = f"extensions.{module}"
             imported_module = importlib.import_module(module_name)
             ModelClass = getattr(imported_module, module)
             return ModelClass

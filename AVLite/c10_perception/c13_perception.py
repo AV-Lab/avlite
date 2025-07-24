@@ -1,24 +1,25 @@
 from c10_perception.c11_perception_model import PerceptionModel
+from c10_perception.c19_settings import PerceptionSettings
 from c10_perception.c12_perception_strategy import PerceptionStrategy
 import logging
-import time
 
 log = logging.getLogger(__name__)
 
 
-
 class Perception(PerceptionStrategy):
 
-    def __init__(self, perception_config=None):
-        super().__init__(perception_config=perception_config)
-        self.pm = PerceptionModel
+    def __init__(self, perception_model: PerceptionModel,):
+        super().__init__(perception_model)
+        self.pm = perception_model
         self.detector_model = None
         self.tracker_model = None
         self.predictor_model = None
-        self.output_mode = perception_config['prediction_mode']
-        self.max_agent_distance = float(perception_config['max_agent_distance'])
+        self.output_mode = PerceptionSettings.prediction_mode 
+        self.max_agent_distance = PerceptionSettings.max_agent_distance 
         self.grid = None
         self.bounds = None
+            
+        self.prediction_output = []
         
         self.initialize_models()
 

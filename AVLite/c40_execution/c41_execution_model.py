@@ -6,14 +6,15 @@ import numpy as np
 
 
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from c10_perception.c13_perception import Perception
+from c10_perception.c13_perception import PerceptionStrategy
 from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c31_control_model import  ControlComand
 from c30_control.c32_control_strategy import ControlStrategy
 from c40_execution.c49_settings import ExecutionSettings
-from c60_tools.c61_utils import reload_lib, load_config, get_absolute_path
+from c40_execution.c49_settings import ExecutionSettings
+from c60_tools.c61_utils import reload_lib, get_absolute_path
 
 log = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ class Executer(ABC):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        perception: Perception,
+        perception: PerceptionStrategy,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
@@ -90,7 +91,7 @@ class Executer(ABC):
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         self.pm: PerceptionModel = perception_model
-        self.perception: Perception = perception  
+        self.perception: PerceptionStrategy = perception  
         self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: GlobalPlannerStrategy = global_planner
         self.local_planner: LocalPlannerStrategy = local_planner
@@ -114,7 +115,7 @@ class Executer(ABC):
         raise NotImplementedError("This method should be implemented by the specific executer class.")
 
     def stop(self):
-        pass
+        raise NotImplementedError("This method should be implemented by the specific executer class.")
 
     def reset(self):
         self.pm.reset()
@@ -142,7 +143,7 @@ class Executer(ABC):
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")
 
-        self.pm.add_agent_vehicle(agent)
+        # self.pm.add_agent_vehicle(agent)
     
 
     def __init_subclass__(cls, abstract=False, **kwargs):
@@ -153,7 +154,6 @@ class Executer(ABC):
 
     @classmethod
     def executor_factory(cls,
-        config_path = ExecutionSettings.filepath,
         async_mode = ExecutionSettings.async_mode,
         bridge = ExecutionSettings.bridge,
         global_planner = ExecutionSettings.global_planner,
@@ -161,15 +161,19 @@ class Executer(ABC):
         controller = ExecutionSettings.controller,
         replan_dt = ExecutionSettings.replan_dt,
         control_dt = ExecutionSettings.control_dt,
-        source_run = True,
+        global_trajectory = ExecutionSettings.global_trajectory,
+        hd_map = ExecutionSettings.hd_map,
+        reload_code = True
     ) -> "Executer":
         """
         Factory method to create an instance of the Executer class based on the provided configuration.
         """
 
-        reload_lib()
+        if reload_code:
+            reload_lib()
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
         from c10_perception.c12_perception_strategy import PerceptionStrategy
+        from c10_perception.c13_perception import Perception
         from c20_planning.c21_planning_model import GlobalPlan
         from c20_planning.c24_global_planners import HDMapGlobalPlanner
         from c20_planning.c24_global_planners import RaceGlobalPlanner
@@ -180,21 +184,12 @@ class Executer(ABC):
         from c40_execution.c44_async_mproc_executer import AsyncExecuter
         from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
         from c40_execution.c44_basic_sim import BasicSim
-        
-        config_data = load_config(config_path=config_path)
-        default_config = config_data["default"]
-        global_plan_path =  get_absolute_path(default_config["global_trajectory"])
 
-
-        ############################
-        # Loading perception strategy
-        ##############################
-        perception_config = load_config(config_path=PerceptionSettings.filepath)
-        profile_config = perception_config[PerceptionSettings.profile_name]
-        perception = Perception(profile_config)
-        log.info("Perception Module Loaded!")
 
         #################
+        
+        global_plan_path =  get_absolute_path(global_trajectory)
+
         # Loading default
         # global planner
         #################
@@ -210,11 +205,17 @@ class Executer(ABC):
             gp.global_plan = default_global_plan
             log.debug("RaceGlobalPlanner loaded")
         elif global_planner == HDMapGlobalPlanner.__name__:
-            gp = HDMapGlobalPlanner(xodr_file=default_config["hd_map"])
+            gp = HDMapGlobalPlanner(xodr_file=hd_map)
             log.debug("GlobalHDMapPlanner loaded")
 
         ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1], velocity=20, theta=-np.pi / 4)
         pm = PerceptionModel(ego_vehicle=ego_state)
+
+        ############################
+        # Loading perception strategy
+        ##############################
+        perception = Perception(perception_model=pm)
+        log.info("Perception Module Loaded!")
 
         #################
         # Loading world
@@ -226,7 +227,7 @@ class Executer(ABC):
         elif bridge == "ROS":
             raise NotImplementedError("ROS bridge not implemented")
         else:
-            world = BasicSim(ego_state=ego_state)
+            world = BasicSim(ego_state=ego_state, pm = pm)
 
 
         #################

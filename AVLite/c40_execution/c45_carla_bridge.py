@@ -33,12 +33,12 @@ class CarlaBridge(WorldInterface):
         self.scene_name = scene_name  
         self.use_static_objects = False  # Use static objects in perception model
         self.static_vehicle_labels = (
-        carla.CityObjectLabel.Car,
-        carla.CityObjectLabel.Truck,
-        carla.CityObjectLabel.Bus,
-        carla.CityObjectLabel.Motorcycle,
-        carla.CityObjectLabel.Bicycle
-        )
+                carla.CityObjectLabel.Car,
+                carla.CityObjectLabel.Truck,
+                carla.CityObjectLabel.Bus,
+                carla.CityObjectLabel.Motorcycle,
+                carla.CityObjectLabel.Bicycle
+                )
 
         self.support_ground_truth_perception = True  # Carla provides ground truth state
 

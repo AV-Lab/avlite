@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from c10_perception.c12_perception_strategy import PerceptionModel
-from c10_perception.c13_perception import Perception
+from c10_perception.c13_perception import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
@@ -17,11 +17,12 @@ import logging
 
 log = logging.getLogger(__name__)
 
+# TODO: Perception to be moved to a separate thread
 class AsyncThreadedExecuter(Executer):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        perception: Perception,
+        perception: PerceptionStrategy,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
@@ -79,15 +80,9 @@ class AsyncThreadedExecuter(Executer):
             self.start_threads()
             return
         elif any(t.is_alive() for t in self.threads) and not all(t.is_alive() for t in self.threads):
-            log.error(
-                f"Some Async Executer Threads are dead! Planner status: {self.planner_thread.is_alive() if self.planner_thread else 'None'}, Controller status: {self.controller_thread.is_alive() if self.controller_thread else 'None'} . Call stop() to terminate all threads."
-            )
+            log.error( f"Some Async Executer Threads are dead! Planner status: {self.planner_thread.is_alive() if self.planner_thread else 'None'}, Controller status: {self.controller_thread.is_alive() if self.controller_thread else 'None'} . Call stop() to terminate all threads.")
             return
 
-
-
-
-        
         # delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         # self.__prev_exec_time = time.time()
         # self.elapsed_real_time += delta_t_exec
@@ -142,20 +137,22 @@ class AsyncThreadedExecuter(Executer):
                         state = self.world.ego_state
                         cmd = self.controller.control(state, control_dt=self.sim_dt)
                         self.world.control_ego_state(cmd, dt=self.sim_dt)
-                        # if self.world.support_ground_truth_perception:
-                        #     self.pm = self.world.get_ground_truth_perception_model()
 
-                        if self.perception.detector == 'ground_truth':
-                            self.pm = self.world.get_ground_truth_perception_model()
-                            perception_output = self.perception.perceive(perception_model=self.pm)
-                        elif self.perception.detector is not None:
-                            perception_output = self.perception.perceive(
-                                rgb_img=self.world.get_rgb_image(),
-                                depth_img=self.world.get_depth_image(),
-                                lidar_data=self.world.get_lidar_data()
-                            )
-                        log.debug(f"self.perception_strategy.detector {self.perception.detector}")
-                        log.info(f"Perception output: {perception_output}")
+                        if self.call_perceive:
+                            # if self.world.support_ground_truth_perception:
+                            #     self.pm = self.world.get_ground_truth_perception_model()
+
+                            if self.perception.detector == 'ground_truth':
+                                self.pm = self.world.get_ground_truth_perception_model()
+                                perception_output = self.perception.perceive(perception_model=self.pm)
+                            elif self.perception.detector is not None:
+                                perception_output = self.perception.perceive(
+                                    rgb_img=self.world.get_rgb_image(),
+                                    depth_img=self.world.get_depth_image(),
+                                    lidar_data=self.world.get_lidar_data()
+                                )
+                            log.debug(f"self.perception_strategy.detector {self.perception.detector}")
+                            log.info(f"Perception output: {perception_output}")
 
                     self.control_fps = 1.0 / dt
 

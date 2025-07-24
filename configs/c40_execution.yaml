@@ -1,9 +1,26 @@
 default:
-  profile_name: "default"
-  global_trajectory: "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
-  hd_map: "data/Town10HD_Opt.xodr"
-
-profile1:
-  profile_name: "profile1"
-  global_trajectory: "data/san_campus.json"
-  hd_map: "data/Mine_01.xodr"
+  async_mode: false
+  bridge: Basic
+  control_dt: 0.05
+  controller: StanleyController
+  exclude: []
+  filepath: configs/c40_execution.yaml
+  global_planner: RaceGlobalPlanner
+  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  hd_map: data/Town10HD_Opt.xodr
+  local_planner: RNDPlanner
+  replan_dt: 0.5
+  sim_dt: 0.01
+xx:
+  async_mode: true
+  bridge: Basic
+  control_dt: 0.01
+  controller: StanleyController
+  exclude: []
+  filepath: configs/c40_execution.yaml
+  global_planner: RaceGlobalPlanner
+  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  hd_map: data/Town10HD_Opt.xodr
+  local_planner: RNDPlanner
+  replan_dt: 0.5
+  sim_dt: 0.011

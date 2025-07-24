@@ -14,8 +14,8 @@ from c50_visualization.c53_perceive_plan_control_views import PerceivePlanContro
 from c50_visualization.c54_exec_views import ExecVisualizeView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
-from c50_visualization.c56_settings_config_shortcut_views import ConfigShortcutView, SettingView
-from c60_tools.c61_utils import load_setting, load_config, reload_lib, get_absolute_path
+from c50_visualization.c56_settings_config_shortcut_views import ConfigShortcutView
+from c60_tools.c61_utils import load_setting, list_profiles
     
 
 log = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ class VisualizerApp(tk.Tk):
         self.update_idletasks()  # Force GUI to update and show the overlay
         self.update()            # Process all pending events
         self.after(0, self.__initialize_ui)  
+        
 
 
 
@@ -52,6 +53,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         load_setting(self.setting)
+        self.setting.profile_list = list_profiles(self.setting)
         # ----------------------------------------------------------------------
         # UI Views
         # ---------------------------------------------------------------------
@@ -61,16 +63,16 @@ class VisualizerApp(tk.Tk):
         self.perceive_plan_control_view = PerceivePlanControlView(self)
         self.exec_visualize_view = ExecVisualizeView(self)
         self.log_view = LogView(self)
+
         # ----------------------------------------------------------------------
         # Menu 
         # ----------------------------------------------------------------------
-
-        self.menubar = tk.Menu(self)
-        self.config(menu=self.menubar)
-        file_menu = tk.Menu(self.menubar, tearoff=0)
-        self.menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Settings", command=self.open_settings_window)
-        self.menus = [file_menu]
+        # self.menubar = tk.Menu(self)
+        # self.config(menu=self.menubar)
+        # file_menu = tk.Menu(self.menubar, tearoff=0)
+        # self.menubar.add_cascade(label="File", menu=file_menu)
+        # file_menu.add_command(label="Settings", command=self.open_settings_window)
+        # self.menus = [file_menu]
        
 
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
@@ -92,6 +94,8 @@ class VisualizerApp(tk.Tk):
         self.bind("<Configure>", self.__update_grid_column_sizes)
         self.last_resize_time = time.time()
         self.ui_initialized = True
+        
+        log.info(f"Available profiles: {self.setting.profile_list}")
 
     def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
@@ -129,9 +133,6 @@ class VisualizerApp(tk.Tk):
             self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
 
 
-    def open_settings_window(self):
-        # Create a new window
-        self.setting_window = SettingView(self)
         
     
     def toggle_plan_view(self):
@@ -252,6 +253,7 @@ class VisualizerApp(tk.Tk):
                 controller=self.setting.controller_type.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
+                reload_code= True
             )
 
         except Exception as e:
@@ -265,7 +267,25 @@ class VisualizerApp(tk.Tk):
             self.stack_is_loading = False
             self.last_reload_time = time.time()
             self.pending_reload_request = False if hasattr(self, 'pending_reload_request') and self.pending_reload_request else True
-    
+
+    def reinitialize_stack(self): 
+        try:
+            self.exec_visualize_view.stop_exec()
+            self.exec = Executer.executor_factory(
+                async_mode=self.setting.async_exec.get(),
+                bridge=self.setting.execution_bridge.get(),
+                global_planner=self.setting.global_planner_type.get(),
+                local_planner=self.setting.local_planner_type.get(),
+                controller=self.setting.controller_type.get(),
+                replan_dt=self.setting.replan_dt.get(),
+                control_dt=self.setting.control_dt.get(),
+                reload_code= False
+            )
+
+        except Exception as e:
+            log.error(f"Error reloading stack: {e}", exc_info=True)
+        finally:
+            self.update_ui()
 
     def show_loading_overlay(self, message="Loading..."):
         if hasattr(self, 'loading_window') and self.loading_window is not None:

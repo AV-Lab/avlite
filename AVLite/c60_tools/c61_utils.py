@@ -15,16 +15,16 @@ import tkinter as tk
 log = logging.getLogger(__name__)
 
 
-def load_config(config_path):
-    if os.path.isabs(config_path):
-        raise ValueError("config_path should be relative to the project directory")
-
-    config_file = get_absolute_path(config_path)
-
-    with open(config_file, "r") as f:
-        config_data = yaml.safe_load(f)
-
-    return config_data
+# def load_config(config_path):
+#     if os.path.isabs(config_path):
+#         raise ValueError("config_path should be relative to the project directory")
+#
+#     config_file = get_absolute_path(config_path)
+#
+#     with open(config_file, "r") as f:
+#         config_data = yaml.safe_load(f)
+#
+#     return config_data
 
 def get_absolute_path(relative_path: str) -> str:
     """Convert a relative path to an absolute path based on the current file location."""
@@ -42,7 +42,7 @@ def reload_lib():
 
     # Get the base package name (AVLite) and all submodules
     project_modules = []
-    base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils","c70_extension"]
+    base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils","extensions"]
 
     # Find all loaded modules that belong to our project
     for module_name in list(sys.modules.keys()):
@@ -66,15 +66,16 @@ def reload_lib():
 
 
 
-def save_config(setting) -> None:
-    """Save current visualization configuration to a YAML file.
-
-    Args:
-        data: The VisualizerData instance
-        filepath: Path where to save the configuration
-    """
+def save_setting(setting, profile="default") -> None:
+    """Save current visualization configuration to a YAML file. """
     filepath=setting.filepath
-    config = {}
+    # first load the current configuration if it exists
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            config = yaml.safe_load(f) or {}
+        config[profile] = {}
+    else:
+        config = {profile: {}}
 
     # Extract all attributes from the data
     for attr_name, attr_value in vars(setting).items():
@@ -84,10 +85,10 @@ def save_config(setting) -> None:
         # Handle tkinter variables
         if isinstance(attr_value, tk.Variable):
             # Extract the actual value
-            config[attr_name] = attr_value.get()
+            config[profile][attr_name] = attr_value.get()
         # Handle regular Python values (non-tkinter)
         else:
-            config[attr_name] = attr_value
+            config[profile][attr_name] = attr_value
 
     # Create directory if it doesn't exist
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -95,16 +96,11 @@ def save_config(setting) -> None:
     # Save to YAML file
     with open(filepath, 'w') as f:
         yaml.dump(config, f, default_flow_style=False)
-    log.info(f"Visualization configuration saved to {filepath}")
+    log.info(f"Visualization configuration saved to {filepath} for profile '{profile}'")
 
 
-def load_setting(setting) -> None:
-    """Load visualization configuration from a YAML file.
-
-    Args:
-        data: The VisualizerData instance
-        filepath: Path from where to load the configuration
-    """
+def load_setting(setting, profile="default") -> None:
+    """Load visualization configuration from a YAML file. """
     filepath=setting.filepath
     try:
         with open(filepath, 'r') as f:
@@ -114,14 +110,17 @@ def load_setting(setting) -> None:
             log.warning(f"Empty or invalid configuration file: {filepath}")
             return
 
-        # Load all settings
-        for attr_name, value in config.items():
-            # Check if attribute exists in the data class
+        profile_dict = config.get(profile,"")
+        if not profile_dict:
+            log.warning(f"Profile '{profile}' not found in {filepath}")
+            return
+
+        for attr_name, value in profile_dict.items():
             if not hasattr(setting, attr_name):  # Changed from app.data to data
                 log.warning(f"Skipping unknown attribute: {attr_name}")
                 continue
 
-            attr_value = getattr(setting, attr_name)  # Changed from app.data to data
+            attr_value = getattr(setting, attr_name)  
 
             # Handle tkinter variables
             if isinstance(attr_value, tk.Variable):
@@ -133,7 +132,49 @@ def load_setting(setting) -> None:
             elif not callable(attr_value):
                 setattr(setting, attr_name, value)
         
-        log.info(f"Configuration loaded from {filepath}")
+        log.info(f"Configuration loaded from {filepath} for profile '{profile}'")
     except Exception as e:
         log.error(f"Failed to load configuration: {e}")
 
+def delete_profile(setting, profile) -> bool:
+    """Delete a profile from the configuration file."""
+    filepath = setting.filepath
+    if profile == "default":
+        log.warning("Cannot delete the 'default' profile.")
+        return False
+
+    try:
+        with open(filepath, 'r') as f:
+            config = yaml.safe_load(f) or {}
+
+        if profile not in config:
+            log.warning(f"Profile '{profile}' does not exist in {filepath}")
+            return False
+
+        del config[profile]
+
+        with open(filepath, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+
+        log.info(f"Profile '{profile}' deleted from {filepath}")
+        return True
+    except Exception as e:
+        log.error(f"Failed to delete profile: {e}")
+        return False
+
+def list_profiles(setting) -> list:
+    """List all profiles in the configuration file."""
+    filepath = setting.filepath
+    try:
+        with open(filepath, 'r') as f:
+            config = yaml.safe_load(f)
+        if not config:
+            log.warning(f"Empty or invalid configuration file: {filepath}")
+            return []
+
+        profiles = list(config.keys())
+        log.info(f"Available profiles: {profiles}")
+        return profiles
+    except Exception as e:
+        log.error(f"Failed to list profiles: {e}")
+        return []

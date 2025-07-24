@@ -5,12 +5,13 @@ from typing import Optional, Union
 
 from c20_planning.c21_planning_model import GlobalPlan
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from c10_perception.c13_perception import Perception
+from c10_perception.c13_perception import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
 from c40_execution.c41_execution_model import Executer
 from c40_execution.c41_execution_model import WorldInterface
+from c40_execution.c49_settings import ExecutionSettings
 
 log = logging.getLogger(__name__)
 
@@ -19,13 +20,13 @@ class SyncExecuter(Executer):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        perception:Perception,
+        perception:PerceptionStrategy,
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
         world: WorldInterface,
-        replan_dt=0.5,
-        control_dt=0.01,
+        replan_dt=ExecutionSettings.replan_dt,
+        control_dt=ExecutionSettings.control_dt,
     ):
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
@@ -67,18 +68,21 @@ class SyncExecuter(Executer):
 
                 self.world.control_ego_state(cmd, dt=sim_dt)
         self.ego_state = self.world.get_ego_state()
-        # if self.world.support_ground_truth_perception:
-        #     self.pm = self.world.get_ground_truth_perception_model()
 
-        if self.perception.detector == 'ground_truth':
-            self.pm = self.world.get_ground_truth_perception_model()
-            perception_output = self.perception.perceive(perception_model=self.pm)
-        elif self.perception.detector is not None:
-            perception_output = self.perception.perceive(
-                rgb_img=self.world.get_rgb_image(),
-                depth_img=self.world.get_depth_image(),
-                lidar_data=self.world.get_lidar_data()
-            )
+
+        if call_perceive:
+            # if self.world.support_ground_truth_perception:
+            #     self.pm = self.world.get_ground_truth_perception_model()
+
+            if self.perception.detector == 'ground_truth':
+                self.pm = self.world.get_ground_truth_perception_model()
+                perception_output = self.perception.perceive(perception_model=self.pm)
+            elif self.perception.detector is not None:
+                perception_output = self.perception.perceive(
+                    rgb_img=self.world.get_rgb_image(),
+                    depth_img=self.world.get_depth_image(),
+                    lidar_data=self.world.get_lidar_data()
+                )
 
 
         self.elapsed_sim_time += control_dt

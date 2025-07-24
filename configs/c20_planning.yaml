@@ -1,1 +1,18 @@
-
+default:
+  boundary_clearance: 0.5
+  exclude: []
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 2
+  num_of_edge_points: 10
+  planning_horizon: 3
+  sample_size: 3
+xx:
+  boundary_clearance: 0.5
+  exclude: []
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 2
+  num_of_edge_points: 10
+  planning_horizon: 3
+  sample_size: 3
