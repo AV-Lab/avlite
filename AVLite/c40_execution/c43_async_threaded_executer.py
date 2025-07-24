@@ -145,10 +145,11 @@ class AsyncThreadedExecuter(Executer):
                             if self.perception.detector == 'ground_truth':
                                 self.pm = self.world.get_ground_truth_perception_model()
                                 perception_output = self.perception.perceive(perception_model=self.pm)
+                                print(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
                             elif self.perception.detector is not None:
                                 perception_output = self.perception.perceive(
                                     rgb_img=self.world.get_rgb_image(),
-                                    depth_img=self.world.get_depth_image(),
+                                    depth_img=self.world.get_depth_image(), 
                                     lidar_data=self.world.get_lidar_data()
                                 )
                             log.debug(f"self.perception_strategy.detector {self.perception.detector}")
