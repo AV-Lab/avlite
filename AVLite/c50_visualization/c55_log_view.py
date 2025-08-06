@@ -67,6 +67,13 @@ class LogView(ttk.LabelFrame):
             variable=self.root.setting.show_tools_logs,
             command=self.update_log_filter,
         ).pack(side=tk.LEFT)
+        
+        ttk.Checkbutton(
+            self.controls_frame,
+            text="Extensions",
+            variable=self.root.setting.show_extensions_logs,
+            command=self.update_log_filter,
+        ).pack(side=tk.LEFT)
 
         self.rb_db_stdout = ttk.Radiobutton(
             self.controls_frame,
@@ -159,6 +166,11 @@ class LogView(ttk.LabelFrame):
             self.log_blacklist.discard("c60_tools")
             if self.root.setting.show_tools_logs.get()
             else self.log_blacklist.add("c60_tools")
+        )
+        (
+            self.log_blacklist.discard("extensions")
+            if self.root.setting.show_tools_logs.get()
+            else self.log_blacklist.add("extensions")
         )
 
     def update_log_level(self):

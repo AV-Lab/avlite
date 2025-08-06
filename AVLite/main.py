@@ -4,11 +4,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def run(source_run=True):
-    # executer = get_executer(config_path="configs/c20_planning.yaml", source_run=source_run)
-    app = VisualizerApp()
-    app.mainloop()
-
 if __name__ == "__main__":
     source_run = True
 
@@ -26,7 +21,5 @@ if __name__ == "__main__":
             ctypes.windll.user32.SetProcessDPIAware()
         os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
 
-    try:
-        run(source_run)
-    except Exception as e:
-        log.error(f"An error occurred: {e}")
+    app = VisualizerApp()
+    app.mainloop()

@@ -1,9 +1,11 @@
 import numpy as np
 from numpy.matlib import ndarray
 from shapely.geometry import Polygon
+from typing import Optional, Dict, Any
 import copy
 from dataclasses import dataclass, field
 import logging
+import inspect
 
 from c10_perception.c19_settings import PerceptionSettings
 
@@ -109,11 +111,20 @@ class PerceptionModel:
     static_obstacles: list[State] = field(default_factory=list)
     agent_vehicles: list[AgentState] = field(default_factory=list)
     ego_vehicle: EgoState = field(default_factory=EgoState)
-    max_agent_vehicles:int = PerceptionSettings.max_agent_vehicles
-    # agent_history: dict[str, list[AgentState]] = field(default_factory=dict) # agent_id -> list of states
-    agent_occupancy_flow: np.ndarray = field(default_factory=lambda: np.array([]))
-    # agent_occupancy_flow: np.ndarray = field(default_factory=np.ndarray)
-    agent_occupancy_flow: dict[int, list[np.ndarray]] = field(default_factory=dict) # agent_id -> list of occupancy flow polygons
+    max_agent_vehicles: int = PerceptionSettings.max_agent_vehicles
+    grid_size: int = PerceptionSettings.grid_size  # Size of the occupancy grid -> 100x100
+   
+
+    # Occupancy grid fields (NumPy arrays) - (timesteps, grid)
+    occupancy_grid: Optional[np.ndarray] = field(default=None)
+
+    # Occupancy grid fields (NumPy arrays) - per object (objects,timesteps, grid)
+    ocupancy_grid_per_object:  Optional[np.ndarray] = field(default=None) 
+
+    grid_bounds: Optional[Dict[str, float]] = field(default=None)
+
+    trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
+
 
     def add_agent_vehicle(self, agent: AgentState):
         if len(self.agent_vehicles) == self.max_agent_vehicles:
@@ -122,6 +133,47 @@ class PerceptionModel:
         self.agent_vehicles.append(agent)
         log.info(f"Total agent vehicles {len(self.agent_vehicles)}")
 
+    
+    def filter_agent_vehicles(self, distance_threshold: float = 100.0):
+
+        """ Filter agent vehicles based on distance from the ego vehicle. -vectorized"""
+
+        method_name = inspect.currentframe().f_code.co_name
+
+        if not self.ego_vehicle:
+            log.warning("Ego vehicle is not set. Cannot filter agent vehicles.")
+            return
+        
+        if len(self.agent_vehicles) == 0:
+            log.info("No agent vehicles to filter.")
+            return
+        
+        ego_position = np.array([self.ego_vehicle.x, self.ego_vehicle.y])
+        
+        # Get agent positions as a 2D array
+        agent_positions = np.array([[agent.x, agent.y] for agent in self.agent_vehicles])
+       
+        # Vectorized distance calculation
+        distances = np.linalg.norm(agent_positions - ego_position, axis=1)
+
+        # Boolean mask
+        mask = distances < distance_threshold
+
+        filtered_count = np.sum(mask)
+        
+        if filtered_count == 0:
+            # log.warning(f"[{method_name}] No agents within {distance_threshold}m threshold. All agents filtered out.")
+            self.agent_vehicles = []
+        else:
+            # Filter using boolean indexing
+            agents_array = np.array(self.agent_vehicles, dtype=object)  
+            self.agent_vehicles = list(agents_array[mask])
+            
+            # log.info(f"[{method_name}] Filtered agents: {filtered_count} kept")
+        
+    def agents_sizes(self) -> np.ndarray:
+        """Get the sizes of all agent vehicles."""
+        return np.array([[agent.length,agent.width] for agent in self.agent_vehicles])
 
     def reset(self):
         self.static_obstacles = []

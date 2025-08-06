@@ -107,6 +107,8 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
     def __on_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
         self.load_config()
+        self.root.reinitialize_stack()
+
 
     def toggle_dark_mode(self):
         self.root.set_dark_mode_themed() if self.root.setting.dark_mode.get() else self.root.set_light_mode()
@@ -124,7 +126,12 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
 
     def load_config(self):
-        load_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
+        profile = self.root.setting.selected_profile.get()
+        load_setting(self.root.setting, profile=profile)
+        load_setting(PerceptionSettings, profile=profile)
+        load_setting(PlanningSettings, profile=profile)
+        load_setting(ControlSettings, profile=profile)
+        load_setting(ExecutionSettings, profile=profile)
     
     def open_settings_window(self):
         self.setting_window = SettingView(self.root)
@@ -282,6 +289,8 @@ class SettingView:
         load_setting(ControlSettings, profile=profile)
         load_setting(ExecutionSettings, profile=profile)
         load_setting(self.root.setting, profile=profile)
+
+
 
         # delete previous widgets in settings_frame
         # for widget in self.settings_frame.winfo_children():
