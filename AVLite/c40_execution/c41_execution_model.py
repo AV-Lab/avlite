@@ -208,6 +208,10 @@ class Executer(ABC):
             print("Loading Carla bridge...")
             from c40_execution.c45_carla_bridge import CarlaBridge
             world = CarlaBridge(ego_state=ego_state)
+        elif bridge == "Gazebo":
+            print("Loading Gazebo bridge...")
+            from c40_execution.c47_gazebo_bridge import GazeboIgnitionBridge
+            world = GazeboIgnitionBridge(ego_state=ego_state)
         elif bridge == "ROS":
             raise NotImplementedError("ROS bridge not implemented")
         else:
