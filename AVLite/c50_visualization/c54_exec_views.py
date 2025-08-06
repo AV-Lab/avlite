@@ -107,6 +107,13 @@ class ExecVisualizeView(ttk.Frame):
             value="Carla",
             command=self.root.reload_stack,
         ).pack(side=tk.LEFT)
+        ttk.Radiobutton(
+            exec_third_frame,
+            text="Gazebo",
+            variable=self.root.setting.execution_bridge,
+            value="Gazebo",
+            command=self.root.reload_stack,
+        ).pack(side=tk.LEFT)
 
         ttk.Checkbutton(exec_third_frame, text="Control", variable=self.root.setting.exec_control).pack(side=tk.RIGHT)
         ttk.Checkbutton(exec_third_frame, text="Plan", variable=self.root.setting.exec_plan).pack(side=tk.RIGHT)
