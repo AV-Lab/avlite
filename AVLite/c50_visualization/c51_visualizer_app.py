@@ -1,17 +1,20 @@
-import threading
-import numpy as np
 import time
 import tkinter as tk
 from tkinter import ttk
 import logging
 
+from AVLite.extensions.multi_object_prediction.e10_perception import perception
+from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from c20_planning.c29_settings import PlanningSettings
+from c30_control.c39_settings import ControlSettings
 from c40_execution.c41_execution_model import Executer
 from c40_execution.c42_sync_executer import SyncExecuter
 from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
+from c40_execution.c49_settings import ExecutionSettings
 from c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
-from c50_visualization.c54_exec_views import ExecVisualizeView
+from c50_visualization.c54_exec_views import ExecView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
 from c50_visualization.c56_settings_config_shortcut_views import ConfigShortcutView
@@ -32,13 +35,12 @@ class VisualizerApp(tk.Tk):
         self.stack_is_loading = False    
         self.ui_initialized = False
         self.last_reload_time = time.time()
-        # self.show_loading_overlay()
+        self.show_loading_overlay()
         self.update_idletasks()  # Force GUI to update and show the overlay
         self.update()            # Process all pending events
-        self.after(0, self.__initialize_ui)  
+        # self.after(0, self.__initialize_ui)  
+        self.__initialize_ui()
         
-
-
 
     def __initialize_ui(self):
         self.set_dark_mode_themed()
@@ -61,19 +63,8 @@ class VisualizerApp(tk.Tk):
         self.global_plan_plot_view = GlobalPlanPlotView(self)
         self.config_shortcut_view = ConfigShortcutView(self)
         self.perceive_plan_control_view = PerceivePlanControlView(self)
-        self.exec_visualize_view = ExecVisualizeView(self)
+        self.exec_visualize_view = ExecView(self)
         self.log_view = LogView(self)
-
-        # ----------------------------------------------------------------------
-        # Menu 
-        # ----------------------------------------------------------------------
-        # self.menubar = tk.Menu(self)
-        # self.config(menu=self.menubar)
-        # file_menu = tk.Menu(self.menubar, tearoff=0)
-        # self.menubar.add_cascade(label="File", menu=file_menu)
-        # file_menu.add_command(label="Settings", command=self.open_settings_window)
-        # self.menus = [file_menu]
-       
 
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
@@ -85,6 +76,7 @@ class VisualizerApp(tk.Tk):
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.update_idletasks()
         
+        self.load_config()
         log.info("Reloading stack to ensure configuration is applied.")
         self.reload_stack()
         # Bind to window resize to maintain ratio
@@ -210,21 +202,31 @@ class VisualizerApp(tk.Tk):
         log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
     
 
+    def load_config(self):
+        profile = self.setting.selected_profile.get()
+        load_setting(self.setting, profile=profile)
+        load_setting(PerceptionSettings, profile=profile)
+        load_setting(PlanningSettings, profile=profile)
+        load_setting(ControlSettings, profile=profile)
+        load_setting(ExecutionSettings, profile=profile)
 
-    def reload_stack(self):
+    def reload_stack(self, reload_code:bool = True):
         time_since_last_reload = time.time() - self.last_reload_time
         if  not self.ui_initialized  or (not self.stack_is_loading): # and time_since_last_reload  > 2):
-            self.show_loading_overlay("Reloading stack...")
+            if reload_code:
+                self.show_loading_overlay("Reloading stack...")
+            else:
+                self.show_loading_overlay("Reinitializing stack...")
+
             self.local_plan_plot_view.reset()
             self.global_plan_plot_view.reset()
             self.stack_is_loading = True
             self.exec_visualize_view.stop_exec()
-            log.info(f"Reloading the code with async_mode: {self.setting.async_exec.get()}")
             self.disable_frame(self)
             self.local_plan_plot_view.grid_forget()
             self.global_plan_plot_view.grid_forget()
 
-            self.__reload_stack_call()
+            self.__reload_stack_call(reload_code=reload_code)
             self.global_plan_plot_view.update_plot_type()
             # self.show_loading_overlay("Loading...")
             # thread = threading.Thread(target=self.__reload_stack_async)
@@ -242,18 +244,20 @@ class VisualizerApp(tk.Tk):
             return
             
 
-    def __reload_stack_call(self):
+    def __reload_stack_call(self, reload_code:bool = True):
         try:
             self.exec_visualize_view.stop_exec()
             self.exec = Executer.executor_factory(
                 async_mode=self.setting.async_exec.get(),
                 bridge=self.setting.execution_bridge.get(),
+                perception=self.setting.perception_type.get(),
                 global_planner=self.setting.global_planner_type.get(),
                 local_planner=self.setting.local_planner_type.get(),
                 controller=self.setting.controller_type.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
-                reload_code= True
+                hd_map=ExecutionSettings.hd_map,
+                reload_code=reload_code
             )
 
         except Exception as e:
@@ -268,24 +272,6 @@ class VisualizerApp(tk.Tk):
             self.last_reload_time = time.time()
             self.pending_reload_request = False if hasattr(self, 'pending_reload_request') and self.pending_reload_request else True
 
-    def reinitialize_stack(self): 
-        try:
-            self.exec_visualize_view.stop_exec()
-            self.exec = Executer.executor_factory(
-                async_mode=self.setting.async_exec.get(),
-                bridge=self.setting.execution_bridge.get(),
-                global_planner=self.setting.global_planner_type.get(),
-                local_planner=self.setting.local_planner_type.get(),
-                controller=self.setting.controller_type.get(),
-                replan_dt=self.setting.replan_dt.get(),
-                control_dt=self.setting.control_dt.get(),
-                reload_code= False
-            )
-
-        except Exception as e:
-            log.error(f"Error reloading stack: {e}", exc_info=True)
-        finally:
-            self.update_ui()
 
     def show_loading_overlay(self, message="Loading..."):
         if hasattr(self, 'loading_window') and self.loading_window is not None:
@@ -397,11 +383,7 @@ class VisualizerApp(tk.Tk):
                 ]})]
             )
             
-            style.configure(
-                "Start.TButton",
-                background=gruvbox_orange,
-                foreground="white",
-            )
+            style.configure( "Start.TButton", background=gruvbox_orange, foreground="white",)
             style.configure(
                 "Stop.TButton",
                 background=gruvbox_red,
@@ -417,6 +399,13 @@ class VisualizerApp(tk.Tk):
                 background=[("active", "#ff4444")],  # Lighter red on click/hover
                 foreground=[("active", "white")],
             )
+            self.option_add('*Listbox.background', '#222222')
+            self.option_add('*Listbox.foreground', '#ffffff')
+            self.option_add('*Listbox.selectBackground', '#444444')
+            self.option_add('*Listbox.selectForeground', '#dddddd')
+            self.option_add('*Listbox.highlightBackground', '#1a1a1a')
+            self.option_add('*Listbox.highlightColor', '#333333')
+            self.option_add('*Listbox.borderWidth', 1)
 
         except ImportError:
             log.error("Please install ttkthemes to use dark mode.")
@@ -442,6 +431,13 @@ class VisualizerApp(tk.Tk):
         log.info("Light mode enabled.")
         style = ttk.Style(self)
         style.theme_use('default')  # Reset to default theme
+        self.option_add('*Listbox.background', 'white')
+        self.option_add('*Listbox.foreground', 'black')
+        self.option_add('*Listbox.selectBackground', '#0078d7')  # Or 'lightblue' for a more neutral color
+        self.option_add('*Listbox.selectForeground', 'white')
+        self.option_add('*Listbox.highlightBackground', 'white')
+        self.option_add('*Listbox.highlightColor', '#0078d7')  # Or 'black' for a simple border
+        self.option_add('*Listbox.borderWidth', 2)
 
     def set_set_light_mode_darker(self):
         self.configure(bg="gray14")

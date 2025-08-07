@@ -8,6 +8,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import datetime
 from c10_perception.c11_perception_model import PerceptionModel
+
 import logging
 log = logging.getLogger("c10_perception.c12_perception_strategy")
 def calculate_ade(predictions, targets,per_sample: bool = False):

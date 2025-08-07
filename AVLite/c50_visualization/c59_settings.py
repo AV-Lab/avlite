@@ -2,6 +2,8 @@ from __future__ import annotations
 import tkinter as tk
 import logging
 
+from AVLite.c10_perception.c19_settings import PerceptionSettings
+from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
@@ -11,13 +13,17 @@ log = logging.getLogger(__name__)
 
 class VisualizationSettings:
     exclude = ["vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
-                         "control_fps", "current_wp", "exec_running", "profile_list", "perception_status_text"]
+                         "control_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "extension_list"]
     filepath: str="configs/c50_visualization.yaml"
 
     def __init__(self):
+        # Config
         self.shortcut_mode = tk.BooleanVar()
         self.dark_mode = tk.BooleanVar(value=True)
         self.selected_profile = tk.StringVar(value="default")
+        self.load_extensions = tk.BooleanVar(value=True)  # Load extensions on startup
+        self.extension_list = []
+
         # Plot options
         self.show_legend = tk.BooleanVar(value=False)  # causes slow
         self.show_past_locations = tk.BooleanVar(value=True)
@@ -33,14 +39,32 @@ class VisualizationSettings:
         self.global_zoom = 30
 
         # Perc Plan Control
+        self.perception_type = tk.StringVar(value=list(PerceptionStrategy.registry.keys())[0] if PerceptionStrategy.registry else None)
+        def _on_perception_change(*args):
+            ExecutionSettings.perception = self.perception_type.get()
+        self.perception_type.trace_add("write", _on_perception_change)
+
         self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
+        def _on_global_plan_change(*args):
+            ExecutionSettings.global_planner = self.global_planner_type.get()
+        self.global_planner_type.trace_add("write", _on_global_plan_change)
+
+        self.local_planner_type = tk.StringVar(value=(list(LocalPlannerStrategy.registry.keys())[0] if LocalPlannerStrategy.registry else None))
+        def _on_local_plan_change(*args):
+            ExecutionSettings.local_planner = self.local_planner_type.get()
+        self.local_planner_type.trace_add("write", _on_local_plan_change)
+
+            
+        self.controller_type = tk.StringVar(value=(list(ControlStrategy.registry.keys())[0] if ControlStrategy.registry else None))
+        def _on_controller_change(*args):
+            ExecutionSettings.controller = self.controller_type.get()
+        self.controller_type.trace_add("write", _on_controller_change)
+
 
         self.enable_joystick = tk.BooleanVar(value=True)
         self.global_plan_view = tk.BooleanVar(value=False)
         self.local_plan_view = tk.BooleanVar(value=False)
         
-        self.local_planner_type = tk.StringVar(value=(list(LocalPlannerStrategy.registry.keys())[0] if LocalPlannerStrategy.registry else None))
-        self.controller_type = tk.StringVar(value=(list(ControlStrategy.registry.keys())[0] if ControlStrategy.registry else None))
 
         # Exec Options
         self.async_exec = tk.BooleanVar(value=False)
@@ -69,7 +93,7 @@ class VisualizationSettings:
             ExecutionSettings.sim_dt = float(self.sim_dt.get())
         self.sim_dt.trace_add("write", _on_sim_dt_change)
 
-        self.execution_bridge = tk.StringVar(value="Basic")
+        self.execution_bridge = tk.StringVar(value="Basicim")
         def _on_execution_bridge_change(*args):
             ExecutionSettings.bridge = self.execution_bridge.get()
         self.execution_bridge.trace_add("write", _on_execution_bridge_change)
@@ -95,10 +119,9 @@ class VisualizationSettings:
         self.elapsed_real_time = tk.StringVar(value="0")
         self.elapsed_sim_time = tk.StringVar(value="0")
 
-        self.vehicle_state = tk.StringVar(
-            value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
+        self.vehicle_state = tk.StringVar( value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         
-        self.perception_status_text = tk.StringVar(value="Spawn Agent: Click on the plot.")
+        self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
 
         self.current_wp = tk.StringVar(value="0")
 

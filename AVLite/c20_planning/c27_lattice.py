@@ -1,6 +1,5 @@
 from c10_perception.c11_perception_model import PerceptionModel, EgoState
 from c20_planning.c28_trajectory import Trajectory
-from c10_perception.c11_perception_model import State
 from typing import Dict
 from dataclasses import dataclass, field
 from typing import Optional

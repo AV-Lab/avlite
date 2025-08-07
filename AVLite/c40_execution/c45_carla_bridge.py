@@ -40,7 +40,7 @@ class CarlaBridge(WorldInterface):
                 carla.CityObjectLabel.Bicycle
                 )
 
-        self.support_ground_truth_perception = True  # Carla provides ground truth state
+        self.supports_ground_truth_perception = True  # Carla provides ground truth state
 
         try:
             self.client = carla.Client(host, port)

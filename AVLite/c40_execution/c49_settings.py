@@ -7,7 +7,8 @@ class ExecutionSettings:
     filepath: str="configs/c40_execution.yaml"
 
     async_mode:bool = False
-    bridge="Basic" # Options: Basic, Carla, Gazebo, ROS
+    bridge="BasicSim" # Options: Basic, Carla, Gazebo, ROS
+    perception = ""
     global_planner = RaceGlobalPlanner.__name__
     local_planner = RNDPlanner.__name__
     controller = StanleyController.__name__
@@ -16,6 +17,6 @@ class ExecutionSettings:
     sim_dt=0.01
 
     global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
-    hd_map = "data/san_campus.xodr" # "data/san_campus.xodr" for san campus
+    hd_map = "data/san_campus.xodr"
 
 

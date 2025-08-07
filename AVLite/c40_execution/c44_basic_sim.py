@@ -13,6 +13,7 @@ class BasicSim(WorldInterface):
     def __init__(self,ego_state:EgoState, pm:PerceptionModel = None,):
         self.ego_state = ego_state
         self.pm = pm
+        self.supports_ground_truth_perception = True
     
 
     def control_ego_state(self, cmd:ControlComand, dt=0.01):

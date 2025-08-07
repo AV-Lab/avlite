@@ -134,7 +134,6 @@ class LogView(ttk.LabelFrame):
         log.info("Log initialized.")
 
     def update_log_filter(self):
-        log.warning(f"show_perceive_logs: {self.root.setting.show_perceive_logs.get()}")
         log.info("Log filter updated.")
         # based on blacklist, LogTextHandler will filter out the logs
         (

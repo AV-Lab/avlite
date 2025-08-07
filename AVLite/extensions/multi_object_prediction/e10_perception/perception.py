@@ -1,28 +1,69 @@
+import logging
+import importlib
+
 from c10_perception.c11_perception_model import PerceptionModel
 from c10_perception.c19_settings import PerceptionSettings
+from extensions.multi_object_prediction.setting import ExtensionSettings
 from c10_perception.c12_perception_strategy import PerceptionStrategy
-import logging
 
 log = logging.getLogger(__name__)
 
 
-class Perception(PerceptionStrategy):
+class MultiObjectPredictor(PerceptionStrategy):
 
     def __init__(self, perception_model: PerceptionModel,):
         super().__init__(perception_model)
+        self.supports_prediction = True
+
+        self.detector = ExtensionSettings.detector
+        self.tracker = ExtensionSettings.tracker
+        self.predictor = ExtensionSettings.predictor
+        self.device = ExtensionSettings.device
+        self.output_mode = ExtensionSettings.prediction_mode 
+        self.max_agent_distance = ExtensionSettings.max_agent_distance 
         self.pm = perception_model
         self.detector_model = None
         self.tracker_model = None
         self.predictor_model = None
-        self.output_mode = PerceptionSettings.prediction_mode 
-        self.max_agent_distance = PerceptionSettings.max_agent_distance 
         self.grid = None
         self.bounds = None
             
         self.prediction_output = []
         
+        log.info(f"Initializing PerceptionStrategy with detector: {self.detector}, tracker: {self.tracker}, predictor: {self.predictor}, device: {self.device}")
         self.initialize_models()
 
+    # def _get_config_value(self, config, key):
+    #     """Get config value, treating string 'None' as actual None."""
+    #     if not config or key not in config:
+    #         return None
+    #     value = config[key]
+    #     return None if isinstance(value, str) and value.lower() == 'none' else value
+    
+    def import_models(self, module: str) -> type:
+        """
+        Dynamically import a model class from the extension package.
+        
+        Args:
+            module: Name of the module/class to import
+            
+        Returns:
+            The imported model class
+            
+        Raises:
+            ImportError: If the module or class cannot be imported
+        """
+        
+        try:
+            module_name = f"extensions.multi_object_prediction.e10_perception.{module}"
+            imported_module = importlib.import_module(module_name)
+            ModelClass = getattr(imported_module, module)
+            return ModelClass
+        except (ImportError, AttributeError) as e:
+            log.error(f"Failed to import {module} from {module_name}: {e}")
+            raise ImportError(f"Could not import {module} from {module_name}: {e}")
+    
+    
 
     def initialize_models(self):
         """
@@ -71,6 +112,7 @@ class Perception(PerceptionStrategy):
             except Exception as e:
                 log.error(f"Failed to initialize predictor {self.predictor}: {e}")
                 self.predictor_model = None
+    
 
     def detect(self, rgb_img = None, depth_img = None, lidar_data = None):
         pass

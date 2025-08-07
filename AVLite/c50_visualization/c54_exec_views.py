@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING
 import tkinter as tk
 from tkinter import ttk
 import time
+from c40_execution.c44_basic_sim import BasicSim
+from c40_execution.c45_carla_bridge import CarlaBridge
+
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
@@ -12,7 +15,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class ExecVisualizeView(ttk.Frame):
+class ExecView(ttk.Frame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root)
 
@@ -88,30 +91,23 @@ class ExecVisualizeView(ttk.Frame):
         ttk.Label(exec_third_frame, text="Bridge:").pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
-            text="Basic",
+            text="Basic Sim",
             variable=self.root.setting.execution_bridge,
-            value="Basic",
-            command=self.root.reload_stack,
-        ).pack(side=tk.LEFT)
-        ttk.Radiobutton(
-            exec_third_frame,
-            text="ROS",
-            variable=self.root.setting.execution_bridge,
-            value="ROS",
+            value=BasicSim.__name__,
             command=self.root.reload_stack,
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
             text="Carla",
             variable=self.root.setting.execution_bridge,
-            value="Carla",
+            value=CarlaBridge,
             command=self.root.reload_stack,
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
-            text="Gazebo",
+            text="Gazebo Ign",
             variable=self.root.setting.execution_bridge,
-            value="Gazebo",
+            value="GazeboIgnitionBridge",
             command=self.root.reload_stack,
         ).pack(side=tk.LEFT)
 

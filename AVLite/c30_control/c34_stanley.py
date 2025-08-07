@@ -11,11 +11,11 @@ from c30_control.c39_settings import ControlSettings
 log = logging.getLogger(__name__)
 
 class StanleyController(ControlStrategy):
-    def __init__(self, tj:Optional[Trajectory]=None, k=ControlSettings.k, k_soft = ControlSettings.k_soft,
-                 lookahead=ControlSettings.lookahead, valpha=ControlSettings.valpha, vbeta=ControlSettings.vbeta,
-                 vgamma=ControlSettings.vgamma, slow_down_cte=ControlSettings.slow_down_cte, 
-                 slow_down_heading_cte = ControlSettings.slow_down_heading_cte,
-                 slow_down_vel_threshold=ControlSettings.slow_down_vel_threshold):
+    def __init__(self, tj:Optional[Trajectory]=None, k=ControlSettings.stanley_k, k_soft = ControlSettings.stanley_k_soft,
+                 lookahead=ControlSettings.stanley_lookahead, valpha=ControlSettings.stanley_valpha, vbeta=ControlSettings.stanley_vbeta,
+                 vgamma=ControlSettings.stanley_vgamma, slow_down_cte=ControlSettings.stanley_slow_down_cte, 
+                 slow_down_heading_cte = ControlSettings.stanley_slow_down_heading_cte,
+                 slow_down_vel_threshold=ControlSettings.stanley_slow_down_vel_threshold):
         """
         Stanley Controller for trajectory following. The controller also slows down the vehicle if steer CTE is > 0.5
         :param tj: Trajectory to follow.
