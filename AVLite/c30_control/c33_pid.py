@@ -11,7 +11,7 @@ from c30_control.c39_settings import ControlSettings
 log = logging.getLogger(__name__)
 
 class PIDController(ControlStrategy):
-    def __init__(self, tj:Optional[Trajectory]=None, alpha=ControlSettings.alpha, beta=ControlSettings.beta, gamma=ControlSettings.gamma,
+    def __init__(self, tj:Optional[Trajectory]=None, alpha=ControlSettings.pid_alpha, beta=ControlSettings.pid_beta, gamma=ControlSettings.pid_gamma,
                  valpha=ControlSettings.pid_valpha, vbeta=ControlSettings.pid_vbeta, vgamma=ControlSettings.pid_vgamma, pid_lookahead=ControlSettings.pid_lookahead):
         super().__init__(tj)
         self.alpha, self.beta, self.gamma = alpha, beta, gamma

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from c10_perception.c12_perception_strategy import PerceptionModel
-from c10_perception.c13_perception import PerceptionStrategy
+from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
@@ -142,17 +142,18 @@ class AsyncThreadedExecuter(Executer):
                             # if self.world.support_ground_truth_perception:
                             #     self.pm = self.world.get_ground_truth_perception_model()
 
-                            if self.perception.detector == 'ground_truth':
+                            log.info(f"support detection: {self.perception.supports_detection}")
+                            if self.perception.supports_detection == False:
                                 self.pm = self.world.get_ground_truth_perception_model()
                                 perception_output = self.perception.perceive(perception_model=self.pm)
                                 print(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
-                            elif self.perception.detector is not None:
+                            else:
                                 perception_output = self.perception.perceive(
-                                    rgb_img=self.world.get_rgb_image(),
-                                    depth_img=self.world.get_depth_image(), 
-                                    lidar_data=self.world.get_lidar_data()
+                                    rgb_img=self.world.get_rgb_image() if self.world.supports_rgb_image else None,
+                                    depth_img=self.world.get_depth_image() if self.world.supports_depth_image else None, 
+                                    lidar_data=self.world.get_lidar_data() if self.world.supports_lidar_data else None
                                 )
-                            log.debug(f"self.perception_strategy.detector {self.perception.detector}")
+                            log.debug(f"Support detection: {self.perception.supports_detection}")
                             log.info(f"Perception output: {perception_output}")
 
                     self.control_fps = 1.0 / dt

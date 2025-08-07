@@ -6,8 +6,7 @@ import numpy as np
 
 
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from c10_perception.c13_perception import PerceptionStrategy
-from c10_perception.c19_settings import PerceptionSettings
+from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c31_control_model import  ControlComand
@@ -15,6 +14,9 @@ from c30_control.c32_control_strategy import ControlStrategy
 from c40_execution.c49_settings import ExecutionSettings
 from c40_execution.c49_settings import ExecutionSettings
 from c60_tools.c61_utils import reload_lib, get_absolute_path
+
+from c30_control.c33_pid import PIDController
+from c30_control.c34_stanley import StanleyController
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +29,12 @@ class WorldInterface(ABC):
     
     ego_state: EgoState
     perception_model: Optional[PerceptionModel] = None # Simulators can provide ground truth perception model
-    support_ground_truth_perception: bool = False  # Whether the world supports ground truth perception model
+    supports_ground_truth_perception: bool = False  # Whether the world supports ground truth perception model
+    supports_rgb_image: bool = False  # Whether the world supports RGB support_rgb_image
+    supports_depth_image: bool = False  # Whether the world supports depth image 
+    supports_lidar_data: bool = False  # Whether the world supports lidar data  
+
+    registry = {}
 
     @abstractmethod
     def control_ego_state(self, cmd: ControlComand, dt:Optional[float]=0.01):
@@ -43,7 +50,6 @@ class WorldInterface(ABC):
     def get_ego_state(self) -> EgoState:
         return self.ego_state
 
-    @abstractmethod
     def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
         """
         Teleport the ego vehicle to a new position and orientation.
@@ -53,23 +59,35 @@ class WorldInterface(ABC):
         y (float): The new y-coordinate.
         theta (float): The new orientation in radians.
         """
-        pass
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
-    @abstractmethod
     def spawn_agent(self, agent_state: AgentState):
         """ Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that. """
-        pass
-
-    def safety_stop(self):
-        """ Stop the ego vehicle safely. This method should be implemented by the simulator or ROS bridge. """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     def get_ground_truth_perception_model(self) -> PerceptionModel:
         """ Returns the perception model of the world. This method should be implemented by simulators  """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
+    def get_rgb_image(self) -> np.ndarray:
+        """ Returns the RGB image of the world. This method should be implemented by simulators """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+
+    def get_depth_image(self) -> np.ndarray:
+        """ Returns the depth image of the world. This method should be implemented by simulators """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+    
+    def get_lidar_data(self) -> np.ndarray:
+        """ Returns the lidar data of the world. This method should be implemented by simulators """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+
     def reset(self):
         pass
+    
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:  
+            Executer.registry[cls.__name__] = cls
 
 
 
@@ -156,6 +174,7 @@ class Executer(ABC):
     def executor_factory(cls,
         async_mode = ExecutionSettings.async_mode,
         bridge = ExecutionSettings.bridge,
+        perception = ExecutionSettings.perception,
         global_planner = ExecutionSettings.global_planner,
         local_planner = ExecutionSettings.local_planner,
         controller = ExecutionSettings.controller,
@@ -173,7 +192,6 @@ class Executer(ABC):
             reload_lib()
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
         from c10_perception.c12_perception_strategy import PerceptionStrategy
-        from c10_perception.c13_perception import Perception
         from c20_planning.c21_planning_model import GlobalPlan
         from c20_planning.c24_global_planners import HDMapGlobalPlanner
         from c20_planning.c24_global_planners import RaceGlobalPlanner
@@ -186,8 +204,11 @@ class Executer(ABC):
         from c40_execution.c44_basic_sim import BasicSim
 
 
+        #TODO: this should be dynamic loading (fix later with config and profiles, to load only selected extensions
+        from extensions.multi_object_prediction.e10_perception.perception import MultiObjectPredictor
+
+
         #################
-        
         global_plan_path =  get_absolute_path(global_trajectory)
 
         # Loading default
@@ -214,22 +235,25 @@ class Executer(ABC):
         ############################
         # Loading perception strategy
         ##############################
-        perception = Perception(perception_model=pm)
-        log.info("Perception Module Loaded!")
+        pr = None
+        if perception is not None and perception != "" and perception in  PerceptionStrategy.registry:
+            # load the class
+            cls = PerceptionStrategy.registry[perception]
+            pr = cls(perception_model=pm)
+            log.info("Perception Module Loaded!")
+        # perception = MultiObjectPredictor(perception_model=pm)
 
         #################
         # Loading world
         #################
-        if bridge == "Carla":
+        if bridge == "CarlaBridge":
             print("Loading Carla bridge...")
             from c40_execution.c45_carla_bridge import CarlaBridge
             world = CarlaBridge(ego_state=ego_state)
-        elif bridge == "Gazebo":
+        elif bridge == "GazeboIgnitionBridge":
             print("Loading Gazebo bridge...")
             from c40_execution.c47_gazebo_bridge import GazeboIgnitionBridge
             world = GazeboIgnitionBridge(ego_state=ego_state)
-        elif bridge == "ROS":
-            raise NotImplementedError("ROS bridge not implemented")
         else:
             world = BasicSim(ego_state=ego_state, pm = pm)
 
@@ -259,9 +283,9 @@ class Executer(ABC):
         # Creating Executer
         #################
         executer = (
-            SyncExecuter(perception_model=pm,perception=perception, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
+            SyncExecuter(perception_model=pm,perception=pr, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
             if not async_mode
-            else AsyncThreadedExecuter(perception_model=pm,perception=perception, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
+            else AsyncThreadedExecuter(perception_model=pm,perception=pr, global_planner=gp, local_planner=local_planner, controller=controller, world=world, replan_dt=replan_dt, control_dt=control_dt)
         )
 
         return executer

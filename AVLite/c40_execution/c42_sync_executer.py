@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 from c20_planning.c21_planning_model import GlobalPlan
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from c10_perception.c13_perception import PerceptionStrategy
+from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy

@@ -7,11 +7,16 @@ from c40_execution.c42_sync_executer import WorldInterface
 from c10_perception.c11_perception_model import EgoState, AgentState
 from c30_control.c32_control_strategy import ControlComand
 import numpy as np
-import rclpy
-from geometry_msgs.msg import Twist
-from rclpy.node import Node
+
 
 log = logging.getLogger(__name__)
+
+try: 
+    import rclpy
+    from geometry_msgs.msg import Twist
+    from rclpy.node import Node
+except ImportError:
+    log.warning("ROS2 Python packages not found. Make sure ROS2 is installed and sourced.")
 
 
 class GazeboIgnitionBridge(WorldInterface, Node):

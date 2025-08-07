@@ -36,13 +36,33 @@ def get_absolute_path(relative_path: str) -> str:
 
 
 
-def reload_lib():
+#TODO: Delete it later
+def reload_lib(reload_extensions: bool = True, all_extension_dirs=[]) -> None:
     """Dynamically reload all modules in the project."""
     log.info("Reloading imports...")
 
     # Get the base package name (AVLite) and all submodules
     project_modules = []
-    base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils","extensions"]
+    base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils"]
+    
+    if reload_extensions:
+        avlite_dir = Path(__file__).parent.parent  # Go up to AVLite directory
+        default_extensions_dir = avlite_dir / "extensions"
+        all_extension_dirs.append(default_extensions_dir)
+
+        for  extensions_dir in all_extension_dirs:
+            if extensions_dir.exists() and extensions_dir.is_dir():
+                for ext_dir in extensions_dir.iterdir():
+                    if ext_dir.is_dir() and not ext_dir.name.startswith('.'):
+                        module_types = ["e10_perception", "e20_planning", "e30_control", "e40_execution"]
+                        for module_type in module_types:
+                            module_path = f"extensions.{ext_dir.name}.{module_type}"
+                            base_prefixes.append(module_path)
+            else:
+                log.warning(f"Extensions directory not found at: {extensions_dir}")
+
+    base_prefixes = [p.replace("\\", ".").replace("/", ".") for p in base_prefixes]
+
 
     # Find all loaded modules that belong to our project
     for module_name in list(sys.modules.keys()):
@@ -51,6 +71,7 @@ def reload_lib():
 
     # Sort modules to ensure proper reload order (parent modules before child modules)
     project_modules.sort(key=lambda x: x.count('.'))
+    # log.info(f"Found {len(project_modules)} modules to reload: {project_modules}")
 
     # Reload each module
     for module_name in project_modules:
@@ -64,6 +85,25 @@ def reload_lib():
 
     log.info(f"Reloaded {len(project_modules)} modules")
 
+
+def list_extensions(all_extension_dirs=[]) -> list:
+    """List all available extensions in the extensions directory."""
+    avlite_dir = Path(__file__).parent.parent  # Go up to AVLite directory
+    default_extensions_dir = avlite_dir / "extensions"
+    all_extension_dirs.append(default_extensions_dir)
+    extensions = []
+    for extensions_dir in all_extension_dirs:
+        if extensions_dir.exists() and extensions_dir.is_dir():
+            for ext_dir in extensions_dir.iterdir():
+                if ext_dir.is_dir() and not ext_dir.name.startswith('.'):
+                    extensions.append(ext_dir.name)
+        else:
+            log.warning(f"Extensions directory not found at: {extensions_dir}")
+
+    if not extensions:
+        log.warning("No extensions found in the specified directories.")
+
+    return extensions
 
 
 def save_setting(setting, profile="default") -> None:

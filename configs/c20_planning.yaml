@@ -1,4 +1,4 @@
-default:
+SAN:
   boundary_clearance: 0.5
   exclude: []
   filepath: configs/c20_planning.yaml
@@ -7,7 +7,7 @@ default:
   num_of_edge_points: 10
   planning_horizon: 3
   sample_size: 3
-xx:
+default:
   boundary_clearance: 0.5
   exclude: []
   filepath: configs/c20_planning.yaml

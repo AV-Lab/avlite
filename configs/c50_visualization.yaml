@@ -1,4 +1,4 @@
-default:
+SAN:
   async_exec: true
   bg_color: '#333333'
   control_dt: 0.01
@@ -9,7 +9,7 @@ default:
   exec_control: true
   exec_perceive: true
   exec_plan: true
-  execution_bridge: Basic
+  execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
   frenet_zoom: 30
@@ -17,14 +17,17 @@ default:
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
   global_zoom: 70
+  load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
   log_level: INFO
+  perception_type: MultiObjectPredictor
   replan_dt: 0.5
-  selected_profile: default
+  selected_profile: SAN
   shortcut_mode: false
   show_control_logs: true
   show_execute_logs: true
+  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
@@ -37,7 +40,7 @@ default:
   show_vis_logs: true
   sim_dt: 0.01
   xy_zoom: 30
-xx:
+default:
   async_exec: true
   bg_color: '#333333'
   control_dt: 0.01
@@ -48,31 +51,34 @@ xx:
   exec_control: true
   exec_perceive: true
   exec_plan: true
-  execution_bridge: Basic
+  execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
   frenet_zoom: 30
   global_plan_view: true
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 70
+  global_zoom: 110
+  load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
   log_level: INFO
+  perception_type: MultiObjectPredictor
   replan_dt: 0.5
-  selected_profile: xx
+  selected_profile: default
   shortcut_mode: false
-  show_control_logs: true
+  show_control_logs: false
   show_execute_logs: true
+  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
   show_past_locations: true
   show_perceive_logs: true
-  show_plan_logs: true
+  show_plan_logs: false
   show_state: true
   show_tools_logs: true
   show_vis_logs: true
-  sim_dt: 0.011
+  sim_dt: 0.01
   xy_zoom: 30

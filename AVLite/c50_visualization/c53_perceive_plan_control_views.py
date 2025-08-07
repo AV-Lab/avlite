@@ -5,6 +5,7 @@ import time
 import logging
 
 from typing import TYPE_CHECKING
+from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c30_control.c32_control_strategy import ControlComand, ControlStrategy
 from c50_visualization.c58_ui_lib import ValueGauge
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
@@ -25,20 +26,22 @@ class PerceivePlanControlView(ttk.Frame):
         # ----------------------------------------------------------------------
         self.perceive_frame = ttk.LabelFrame(self, text="Perception")
         self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+        
+        top_pframe = ttk.Frame(self.perceive_frame)
+        top_pframe.pack(fill=tk.X, padx=5, pady=5)
+
+        perception_dropdown_menu = ttk.Combobox(top_pframe, textvariable=self.root.setting.perception_type, width=10)
+        perception_dropdown_menu["values"] = tuple(PerceptionStrategy.registry.keys())
+        perception_dropdown_menu.state(["readonly"])
+        perception_dropdown_menu.pack(side=tk.LEFT,fill=tk.X, expand=True)
+        perception_dropdown_menu.bind("<<ComboboxSelected>>",lambda event: self.root.reload_stack(reload_code=False))
+        ttk.Checkbutton(top_pframe, text="Show").pack(side=tk.LEFT)
 
         # ----
-        vehicle_state_label = ttk.Label(
-            self.perceive_frame,
-            font=self.root.small_font,
-            textvariable=self.root.setting.vehicle_state,
-            width=30,
-            wraplength=235,  # Set wrap length in pixels
-        )
-        vehicle_state_label.pack(
-            side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
+        vehicle_state_label = ttk.Label( self.perceive_frame, font=self.root.small_font, textvariable=self.root.setting.vehicle_state,
+            width=30, wraplength=235)
+        vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
-        self.coordinates_label = ttk.Label( self.perceive_frame, textvariable=self.root.setting.perception_status_text, width=30)
-        self.coordinates_label.pack(side=tk.LEFT, padx=5, pady=5)
         # ----------------------------------------------------------------------
 
 
@@ -50,7 +53,8 @@ class PerceivePlanControlView(ttk.Frame):
         # - Global -----
         global_frame = ttk.Frame(self.plan_frame)
         global_frame.pack(fill=tk.X)
-        ttk.Checkbutton( global_frame, text="Show Global Plan", command=self.root.toggle_plan_view, variable=self.root.setting.global_plan_view,
+        ttk.Label(global_frame, text="Global: ").pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton( global_frame, text="Show Global", command=self.root.toggle_plan_view, variable=self.root.setting.global_plan_view,
         ).pack(side=tk.LEFT)
         global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
         global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
@@ -58,18 +62,17 @@ class PerceivePlanControlView(ttk.Frame):
         global_planner_dropdown_menu.pack(side=tk.LEFT)
         global_planner_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
 
-        ttk.Button(global_frame, text="Global Replan").pack(
-            side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(global_frame, text="Global Replan").pack( side=tk.LEFT, fill=tk.X, expand=True)
 
         # - Local -----
         wp_frame = ttk.Frame(self.plan_frame)
         wp_frame.pack(fill=tk.X)
-        ttk.Checkbutton( wp_frame, text="Show Local Plan  ", command=self.root.toggle_plan_view,
-            variable=self.root.setting.local_plan_view,
-        ).pack(side=tk.LEFT)
+        # ttk.Separator(wp_frame, orient='horizontal').pack(side=tk.TOP,fill='x', pady=2)
+        ttk.Label(wp_frame, text="Local:   ").pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton( wp_frame, text="Show Local  ", command=self.root.toggle_plan_view,
+            variable=self.root.setting.local_plan_view).pack(side=tk.LEFT)
 
-        local_planner_dropdown_menu = ttk.Combobox(
-            wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
+        local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
         local_planner_dropdown_menu["values"] = tuple(LocalPlannerStrategy.registry.keys())
         local_planner_dropdown_menu.state(["readonly"])
         local_planner_dropdown_menu.pack(side=tk.LEFT)
@@ -228,7 +231,6 @@ class PerceivePlanControlView(ttk.Frame):
 
 
     def __on_dropdown_change(self, event):
-        log.debug(f"Dropdown changed to: {self.root.setting.global_planner_type.get()}")
         self.root.reload_stack()
 
     # --------------------------------------------------------------------------------------------

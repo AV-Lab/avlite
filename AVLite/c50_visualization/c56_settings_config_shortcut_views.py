@@ -1,19 +1,18 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from numpy import delete
 from c60_tools.c61_utils import save_setting, load_setting, delete_profile 
 from c50_visualization.c58_ui_lib import ThemedInputDialog
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
 import tkinter as tk
 from tkinter import ttk
-from tkinter import simpledialog
 
 from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c29_settings import PlanningSettings
 from c30_control.c39_settings import ControlSettings
 from c40_execution.c49_settings import ExecutionSettings
+from c60_tools.c61_utils import list_extensions
 
 
 import logging
@@ -67,7 +66,7 @@ class ConfigShortcutView(ttk.LabelFrame):
 
         ttk.Button(self, text="⚙" , command=self.open_settings_window, width=2).pack(side=tk.RIGHT)
         ttk.Button(self, text="Reload Stack", command=self.root.reload_stack).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Reset Config", command=self.load_config).pack(side=tk.RIGHT)
+        ttk.Button(self, text="Reset Config", command=self.root.load_config).pack(side=tk.RIGHT)
         ttk.Button(self, text="Save Config", command=self.save_config).pack(side=tk.RIGHT)
         self.global_planner_dropdown_menu = ttk.Combobox(self, width=10, textvariable=self.root.setting.selected_profile, state="readonly",
             justify=tk.CENTER, font=("Arial", 10, "bold"))
@@ -78,11 +77,13 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.global_planner_dropdown_menu.pack(side=tk.RIGHT)    
         
 
-        ttk.Checkbutton( self, text="Shortcut Mode", variable=self.root.setting.shortcut_mode,
+        ttk.Checkbutton(self, text="Shortcut Mode", variable=self.root.setting.shortcut_mode,
             command=self.root.toggle_shortcut_mode,).pack(anchor=tk.W, side=tk.LEFT)
 
-        ttk.Checkbutton( self, text="Dark Mode", variable=self.root.setting.dark_mode, command=self.toggle_dark_mode,
+        ttk.Checkbutton(self, text="Dark Mode", variable=self.root.setting.dark_mode, command=self.toggle_dark_mode,
         ).pack(anchor=tk.W, side=tk.LEFT)
+        
+        ttk.Label(self, textvariable=self.root.setting.perception_status_text, width=30).pack(side=tk.LEFT, padx=(25,5), pady=5)
 
         # ----------------------------------------------------------------------
         # Shortcut frame
@@ -105,8 +106,8 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def __on_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
-        self.load_config()
-        self.root.reinitialize_stack()
+        self.root.load_config()
+        self.root.reload_stack(reload_code=False)
 
 
     def toggle_dark_mode(self):
@@ -124,13 +125,6 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
     def save_config(self):
         save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
 
-    def load_config(self):
-        profile = self.root.setting.selected_profile.get()
-        load_setting(self.root.setting, profile=profile)
-        load_setting(PerceptionSettings, profile=profile)
-        load_setting(PlanningSettings, profile=profile)
-        load_setting(ControlSettings, profile=profile)
-        load_setting(ExecutionSettings, profile=profile)
     
     def open_settings_window(self):
         self.setting_window = SettingView(self.root)
@@ -154,7 +148,7 @@ class SettingView:
         self.frame.rowconfigure(0, weight=1)
         
         ##########
-        # Profiles
+        # Profiles & Extensions
         ##########
         profile_frame = ttk.Frame(self.frame)
         profile_frame.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
@@ -169,10 +163,21 @@ class SettingView:
         self.global_planner_dropdown_menu.grid(row=0, column=1, columnspan=2, padx=5, pady=5)
 
         ttk.Button(profile_frame, text="New", width=5, command=self.create_profile).grid(row=1, column=0, padx=5, pady=5)
-        
         ttk.Button(profile_frame, text="Delete",width=5, command=self.delete_profile).grid(row=1, column=1, padx=5, pady=5)
-        
         ttk.Button(profile_frame, text="Save",width=5, command=self.save_profile).grid(row=1, column=2, padx=5, pady=5)
+
+        extension_frame = ttk.LabelFrame(profile_frame, text="Extensions")
+        extension_frame.grid(row=2, column=0, columnspan=3, sticky="nsew", padx=5, pady=5)
+        ttk.Checkbutton(extension_frame, text="Load Extensions" , variable=self.root.setting.load_extensions
+            ).grid(row=0, column=0, sticky="w", padx=5, pady=5)
+
+        listbox = tk.Listbox(extension_frame, height=5, selectmode=tk.SINGLE, exportselection=False, width=30,)
+        listbox.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        # Convert comma-separated string to list items
+
+        extensions = list_extensions()
+        for ext in extensions:
+            listbox.insert(tk.END, ext)
 
         ##########
         # settings
