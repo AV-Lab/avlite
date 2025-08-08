@@ -38,7 +38,7 @@ class ConfigShortcutView(ttk.LabelFrame):
 
         self.root.bind("Q", lambda e: self.root.quit())
         self.root.bind("R", lambda e: self.root.reload_stack())
-        self.root.bind("D", lambda e: self.toggle_dark_mode_shortcut())
+        self.root.bind("D", lambda e: self.toggle_dark_mode())
         self.root.bind("S", lambda e: self.root.toggle_shortcut_mode())
 
         self.root.bind("x", lambda e: self.root.exec_visualize_view.toggle_exec())
@@ -66,15 +66,17 @@ class ConfigShortcutView(ttk.LabelFrame):
 
         ttk.Button(self, text="⚙" , command=self.open_settings_window, width=2).pack(side=tk.RIGHT)
         ttk.Button(self, text="Reload Stack", command=self.root.reload_stack).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Reset Config", command=self.root.load_config).pack(side=tk.RIGHT)
+        ttk.Button(self, text="Reset Config", command=self.root.load_configs).pack(side=tk.RIGHT)
         ttk.Button(self, text="Save Config", command=self.save_config).pack(side=tk.RIGHT)
-        self.global_planner_dropdown_menu = ttk.Combobox(self, width=10, textvariable=self.root.setting.selected_profile, state="readonly",
+
+
+        dropdown_menu = ttk.Combobox(self, width=10, textvariable=self.root.setting.selected_profile, state="readonly",
             justify=tk.CENTER, font=("Arial", 10, "bold"))
-        self.global_planner_dropdown_menu["values"] = self.root.setting.profile_list
+        dropdown_menu["values"] = self.root.setting.profile_list
         # self.global_planner_dropdown_menu.current(0)  
-        self.global_planner_dropdown_menu.state(["readonly"])
-        self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
-        self.global_planner_dropdown_menu.pack(side=tk.RIGHT)    
+        dropdown_menu.state(["readonly"])
+        dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+        dropdown_menu.pack(side=tk.RIGHT)    
         
 
         ttk.Checkbutton(self, text="Shortcut Mode", variable=self.root.setting.shortcut_mode,
@@ -106,24 +108,24 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def __on_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
-        self.root.load_config()
+        self.root.load_configs()
         self.root.reload_stack(reload_code=False)
 
 
     def toggle_dark_mode(self):
         self.root.set_dark_mode_themed() if self.root.setting.dark_mode.get() else self.root.set_light_mode()
 
-    def toggle_dark_mode_shortcut(self):
+    # def toggle_dark_mode_shortcut(self):
         # if self.root.setting.dark_mode.get():
         #     self.root.setting.dark_mode.set(False)
         # else:
         #     self.root.setting.dark_mode.set(True)
-
-        self.toggle_dark_mode()
+        # self.toggle_dark_mode()
 
 
     def save_config(self):
         save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
+        save_setting(ExecutionSettings, profile=self.root.setting.selected_profile.get())
 
     
     def open_settings_window(self):

@@ -146,7 +146,7 @@ class AsyncThreadedExecuter(Executer):
                             if self.perception.supports_detection == False:
                                 self.pm = self.world.get_ground_truth_perception_model()
                                 perception_output = self.perception.perceive(perception_model=self.pm)
-                                print(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
+                                # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
                             else:
                                 perception_output = self.perception.perceive(
                                     rgb_img=self.world.get_rgb_image() if self.world.supports_rgb_image else None,
@@ -154,7 +154,7 @@ class AsyncThreadedExecuter(Executer):
                                     lidar_data=self.world.get_lidar_data() if self.world.supports_lidar_data else None
                                 )
                             log.debug(f"Support detection: {self.perception.supports_detection}")
-                            log.info(f"Perception output: {perception_output}")
+                            log.debug(f"Perception output: {perception_output}")
 
                     self.control_fps = 1.0 / dt
 

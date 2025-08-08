@@ -3,7 +3,9 @@ import tkinter as tk
 from tkinter import ttk
 import logging
 
-from AVLite.extensions.multi_object_prediction.e10_perception import perception
+from yaml import load_all
+
+from extensions.multi_object_prediction.e10_perception import perception
 from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c29_settings import PlanningSettings
@@ -17,7 +19,7 @@ from c50_visualization.c53_perceive_plan_control_views import PerceivePlanContro
 from c50_visualization.c54_exec_views import ExecView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
-from c50_visualization.c56_settings_config_shortcut_views import ConfigShortcutView
+from c50_visualization.c56_config_views import ConfigShortcutView
 from c60_tools.c61_utils import load_setting, list_profiles
     
 
@@ -32,13 +34,11 @@ class VisualizerApp(tk.Tk):
         super().__init__()
         self.exec = Executer.executor_factory()
         self.loading_overlay = None
-        self.stack_is_loading = False    
         self.ui_initialized = False
-        self.last_reload_time = time.time()
         self.show_loading_overlay()
         self.update_idletasks()  # Force GUI to update and show the overlay
         self.update()            # Process all pending events
-        # self.after(0, self.__initialize_ui)  
+        # self.after(500, self.__initialize_ui)  
         self.__initialize_ui()
         
 
@@ -76,7 +76,7 @@ class VisualizerApp(tk.Tk):
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.update_idletasks()
         
-        self.load_config()
+        self.load_configs()
         log.info("Reloading stack to ensure configuration is applied.")
         self.reload_stack()
         # Bind to window resize to maintain ratio
@@ -84,6 +84,7 @@ class VisualizerApp(tk.Tk):
         self.config_shortcut_view.toggle_dark_mode()  
 
         self.bind("<Configure>", self.__update_grid_column_sizes)
+        self.after(500, self.update_ui)
         self.last_resize_time = time.time()
         self.ui_initialized = True
         
@@ -123,8 +124,6 @@ class VisualizerApp(tk.Tk):
             self.global_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
         elif self.setting.local_plan_view.get() and not self.setting.global_plan_view.get():
             self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
-
-
         
     
     def toggle_plan_view(self):
@@ -202,51 +201,31 @@ class VisualizerApp(tk.Tk):
         log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
     
 
-    def load_config(self):
+    def load_configs(self):
         profile = self.setting.selected_profile.get()
-        load_setting(self.setting, profile=profile)
         load_setting(PerceptionSettings, profile=profile)
         load_setting(PlanningSettings, profile=profile)
         load_setting(ControlSettings, profile=profile)
         load_setting(ExecutionSettings, profile=profile)
+        load_setting(self.setting, profile=profile)
 
     def reload_stack(self, reload_code:bool = True):
-        time_since_last_reload = time.time() - self.last_reload_time
-        if  not self.ui_initialized  or (not self.stack_is_loading): # and time_since_last_reload  > 2):
-            if reload_code:
-                self.show_loading_overlay("Reloading stack...")
-            else:
-                self.show_loading_overlay("Reinitializing stack...")
-
-            self.local_plan_plot_view.reset()
-            self.global_plan_plot_view.reset()
-            self.stack_is_loading = True
-            self.exec_visualize_view.stop_exec()
-            self.disable_frame(self)
-            self.local_plan_plot_view.grid_forget()
-            self.global_plan_plot_view.grid_forget()
-
-            self.__reload_stack_call(reload_code=reload_code)
-            self.global_plan_plot_view.update_plot_type()
-            # self.show_loading_overlay("Loading...")
-            # thread = threading.Thread(target=self.__reload_stack_async)
-            # thread.daemon = True
-            # thread.start()
+        if reload_code:
+            self.show_loading_overlay("Reloading stack...")
         else:
-            log.warning(f"Reloading stack is already in progress or too soon. Last reload was {time_since_last_reload:.2f} seconds ago.")
-            if hasattr(self, 'pending_reload_request') and self.pending_reload_request:
-                log.warning("Pending reload request already exists, skipping this reload.")
-                return
-            reload_time = int(max(0, 2 - time_since_last_reload)* 1000)
-            log.debug(f"Next reload will happen in {reload_time:.2f} ms")
-            self.after(reload_time, self.reload_stack)
-            self.pending_reload_request = True
-            return
-            
+            self.show_loading_overlay("Reinitializing stack...")
 
-    def __reload_stack_call(self, reload_code:bool = True):
+        self.local_plan_plot_view.reset()
+        self.global_plan_plot_view.reset()
+        self.exec_visualize_view.stop_exec()
+        self.disable_frame(self)
+        self.local_plan_plot_view.grid_forget()
+        self.global_plan_plot_view.grid_forget()
+
         try:
-            self.exec_visualize_view.stop_exec()
+            if reload_code:
+                self.load_configs()
+
             self.exec = Executer.executor_factory(
                 async_mode=self.setting.async_exec.get(),
                 bridge=self.setting.execution_bridge.get(),
@@ -257,20 +236,20 @@ class VisualizerApp(tk.Tk):
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.hd_map,
-                reload_code=reload_code
+                reload_code=reload_code,
             )
 
         except Exception as e:
             log.error(f"Error reloading stack: {e}", exc_info=True)
 
-        finally:
-            self.toggle_plan_view()
-            self.update_ui()
-            self.enable_frame(self)
-            self.hide_loading_overlay()
-            self.stack_is_loading = False
-            self.last_reload_time = time.time()
-            self.pending_reload_request = False if hasattr(self, 'pending_reload_request') and self.pending_reload_request else True
+
+        self.toggle_plan_view()
+        self.update_ui()
+        self.enable_frame(self)
+        self.hide_loading_overlay()
+        self.global_plan_plot_view.update_plot_type()
+            
+
 
 
     def show_loading_overlay(self, message="Loading..."):

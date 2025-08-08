@@ -1,6 +1,5 @@
 import yaml
 import logging
-import json
 import os
 from pathlib import Path
 
@@ -9,22 +8,15 @@ import pkg_resources
 import logging
 import importlib
 
+from c10_perception.c19_settings import PerceptionSettings
+from c20_planning.c29_settings import PlanningSettings
+from c30_control.c39_settings import ControlSettings
+from c40_execution.c49_settings import ExecutionSettings
+
 
 import tkinter as tk
 
 log = logging.getLogger(__name__)
-
-
-# def load_config(config_path):
-#     if os.path.isabs(config_path):
-#         raise ValueError("config_path should be relative to the project directory")
-#
-#     config_file = get_absolute_path(config_path)
-#
-#     with open(config_file, "r") as f:
-#         config_data = yaml.safe_load(f)
-#
-#     return config_data
 
 def get_absolute_path(relative_path: str) -> str:
     """Convert a relative path to an absolute path based on the current file location."""

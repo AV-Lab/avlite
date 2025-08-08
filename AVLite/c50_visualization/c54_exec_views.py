@@ -94,21 +94,21 @@ class ExecView(ttk.Frame):
             text="Basic Sim",
             variable=self.root.setting.execution_bridge,
             value=BasicSim.__name__,
-            command=self.root.reload_stack,
+            command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
             text="Carla",
             variable=self.root.setting.execution_bridge,
-            value=CarlaBridge,
-            command=self.root.reload_stack,
+            value=CarlaBridge.__name__,
+            command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
             text="Gazebo Ign",
             variable=self.root.setting.execution_bridge,
             value="GazeboIgnitionBridge",
-            command=self.root.reload_stack,
+            command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
 
         ttk.Checkbutton(exec_third_frame, text="Control", variable=self.root.setting.exec_control).pack(side=tk.RIGHT)

@@ -1,3 +1,45 @@
+Carla_Town10:
+  async_exec: true
+  bg_color: '#333333'
+  control_dt: 0.01
+  controller_type: StanleyController
+  dark_mode: true
+  disable_log: false
+  enable_joystick: true
+  exec_control: true
+  exec_perceive: true
+  exec_plan: true
+  execution_bridge: CarlaBridge
+  fg_color: white
+  frenet_view_follow_planner: false
+  frenet_zoom: 30
+  global_plan_view: true
+  global_planner_type: HDMapGlobalPlanner
+  global_view_follow_planner: false
+  global_zoom: 110
+  load_extensions: true
+  local_plan_view: true
+  local_planner_type: RNDPlanner
+  log_level: DEBUG
+  perception_type: MultiObjectPredictor
+  replan_dt: 5.0
+  selected_profile: Carla_Town10
+  shortcut_mode: false
+  show_control_logs: false
+  show_execute_logs: true
+  show_extensions_logs: true
+  show_global_plan: true
+  show_legend: false
+  show_local_lattice: true
+  show_local_plan: true
+  show_past_locations: true
+  show_perceive_logs: true
+  show_plan_logs: false
+  show_state: true
+  show_tools_logs: true
+  show_vis_logs: true
+  sim_dt: 0.011
+  xy_zoom: 30
 SAN:
   async_exec: true
   bg_color: '#333333'
@@ -58,27 +100,27 @@ default:
   global_plan_view: true
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 110
+  global_zoom: 80
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
-  log_level: INFO
+  log_level: DEBUG
   perception_type: MultiObjectPredictor
-  replan_dt: 0.5
+  replan_dt: 0.55
   selected_profile: default
   shortcut_mode: false
   show_control_logs: false
-  show_execute_logs: true
-  show_extensions_logs: true
+  show_execute_logs: false
+  show_extensions_logs: false
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
   show_past_locations: true
-  show_perceive_logs: true
+  show_perceive_logs: false
   show_plan_logs: false
   show_state: true
-  show_tools_logs: true
+  show_tools_logs: false
   show_vis_logs: true
-  sim_dt: 0.01
+  sim_dt: 0.011
   xy_zoom: 30

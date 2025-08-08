@@ -13,6 +13,8 @@ from c10_perception.c19_settings import PerceptionSettings
 log = logging.getLogger(__name__)
 
 
+# test
+
 @dataclass
 class PerceptionModel:
     static_obstacles: list[State] = field(default_factory=list)

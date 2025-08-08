@@ -182,7 +182,8 @@ class Executer(ABC):
         control_dt = ExecutionSettings.control_dt,
         global_trajectory = ExecutionSettings.global_trajectory,
         hd_map = ExecutionSettings.hd_map,
-        reload_code = True
+        reload_code = True,
+        profile=None
     ) -> "Executer":
         """
         Factory method to create an instance of the Executer class based on the provided configuration.
@@ -190,6 +191,7 @@ class Executer(ABC):
 
         if reload_code:
             reload_lib()
+
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
         from c10_perception.c12_perception_strategy import PerceptionStrategy
         from c20_planning.c21_planning_model import GlobalPlan
@@ -207,6 +209,10 @@ class Executer(ABC):
         #TODO: this should be dynamic loading (fix later with config and profiles, to load only selected extensions
         from extensions.multi_object_prediction.e10_perception.perception import MultiObjectPredictor
 
+        # if reload_code and profile is not None:
+            # load_all_settings(profile)
+
+        log.warning(f"loading hd map from {hd_map}")
 
         #################
         global_plan_path =  get_absolute_path(global_trajectory)

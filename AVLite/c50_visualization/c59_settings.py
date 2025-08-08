@@ -2,8 +2,8 @@ from __future__ import annotations
 import tkinter as tk
 import logging
 
-from AVLite.c10_perception.c19_settings import PerceptionSettings
 from c10_perception.c12_perception_strategy import PerceptionStrategy
+from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
