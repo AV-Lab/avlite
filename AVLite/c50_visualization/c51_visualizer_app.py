@@ -40,6 +40,7 @@ class VisualizerApp(tk.Tk):
         self.update()            # Process all pending events
         # self.after(500, self.__initialize_ui)  
         self.__initialize_ui()
+        self.hide_loading_overlay()
         
 
     def __initialize_ui(self):
@@ -54,8 +55,8 @@ class VisualizerApp(tk.Tk):
         # Variables
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
-        load_setting(self.setting)
         self.setting.profile_list = list_profiles(self.setting)
+        
         # ----------------------------------------------------------------------
         # UI Views
         # ---------------------------------------------------------------------
@@ -76,8 +77,8 @@ class VisualizerApp(tk.Tk):
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.update_idletasks()
         
-        self.load_configs()
         log.info("Reloading stack to ensure configuration is applied.")
+        self.load_configs()
         self.reload_stack()
         # Bind to window resize to maintain ratio
         self.toggle_shortcut_mode()
@@ -198,13 +199,16 @@ class VisualizerApp(tk.Tk):
         log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
     
 
-    def load_configs(self):
+    def load_configs(self, only_stack=False):
         profile = self.setting.selected_profile.get()
         load_setting(PerceptionSettings, profile=profile)
         load_setting(PlanningSettings, profile=profile)
         load_setting(ControlSettings, profile=profile)
         load_setting(ExecutionSettings, profile=profile)
-        load_setting(self.setting, profile=profile)
+        if not only_stack:
+            load_setting(self.setting, profile=profile)
+        log.info(f"Loaded settings from profile: {profile}")
+        log.info(f"map is {ExecutionSettings.hd_map}")
 
     def reload_stack(self, reload_code:bool = True):
         if reload_code:
@@ -218,9 +222,8 @@ class VisualizerApp(tk.Tk):
         self.global_plan_plot_view.grid_forget()
 
         try:
-            if reload_code:
-                self.load_configs()
-
+            # if reload_code:
+                # self.load_configs()
             self.exec = Executer.executor_factory(
                 async_mode=self.setting.async_exec.get(),
                 bridge=self.setting.execution_bridge.get(),
@@ -232,6 +235,7 @@ class VisualizerApp(tk.Tk):
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.hd_map,
                 reload_code=reload_code,
+                exclude_reload_settings=True
             )
 
         except Exception as e:

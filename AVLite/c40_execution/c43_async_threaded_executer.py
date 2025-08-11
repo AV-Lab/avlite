@@ -58,6 +58,7 @@ class AsyncThreadedExecuter(Executer):
 
         self.planner_thread = None
         self.controller_thread = None
+        self.perception_thread = None
 
         self.create_threads()
 
@@ -87,7 +88,7 @@ class AsyncThreadedExecuter(Executer):
         # self.__prev_exec_time = time.time()
         # self.elapsed_real_time += delta_t_exec
 
-    def worker_planner(self):
+    def worker_planning(self):
         log.info(f"Plan Worker Started")
         log.info(f"replan dt: {self.replan_dt}")
 
@@ -119,7 +120,7 @@ class AsyncThreadedExecuter(Executer):
                 log.error(f"Error in planner worker: {e}", exc_info=True)
                 time.sleep(0.1)
 
-    def worker_controller(self):
+    def worker_control(self):
         log.info(f"Controller Worker Started")
         while not self.__kill_flag and self.call_control:
             try:
@@ -138,24 +139,6 @@ class AsyncThreadedExecuter(Executer):
                         cmd = self.controller.control(state, control_dt=self.sim_dt)
                         self.world.control_ego_state(cmd, dt=self.sim_dt)
 
-                        if self.call_perceive:
-                            # if self.world.support_ground_truth_perception:
-                            #     self.pm = self.world.get_ground_truth_perception_model()
-
-                            log.info(f"support detection: {self.perception.supports_detection}")
-                            if self.perception.supports_detection == False:
-                                self.pm = self.world.get_ground_truth_perception_model()
-                                perception_output = self.perception.perceive(perception_model=self.pm)
-                                # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
-                            else:
-                                perception_output = self.perception.perceive(
-                                    rgb_img=self.world.get_rgb_image() if self.world.supports_rgb_image else None,
-                                    depth_img=self.world.get_depth_image() if self.world.supports_depth_image else None, 
-                                    lidar_data=self.world.get_lidar_data() if self.world.supports_lidar_data else None
-                                )
-                            log.debug(f"Support detection: {self.perception.supports_detection}")
-                            log.debug(f"Perception output: {perception_output}")
-
                     self.control_fps = 1.0 / dt
 
                 t2 = time.time()
@@ -166,8 +149,41 @@ class AsyncThreadedExecuter(Executer):
                 log.error(f"Error in controller worker: {e}", exc_info=True)
                 time.sleep(0.1)
 
-    def worker_perceiver(self):
-        raise NotImplementedError
+            if self.call_perceive:
+                # log.info(f"support detection: {self.perception.supports_detection}")
+                if self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
+                    self.pm = self.world.get_ground_truth_perception_model()
+                    perception_output = self.perception.perceive(perception_model=self.pm)
+                    # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
+                else:
+                    perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
+                        if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
+                        if self.world.supports_depth_image else None, lidar_data=self.world.get_lidar_data() 
+                        if self.world.supports_lidar_data else None)
+                # log.debug(f"Support detection: {self.perception.supports_detection}")
+                # log.debug(f"Perception output: {perception_output}")
+
+    def worker_perception(self):
+        while not self.__kill_flag and self.call_perceive:
+            try:
+                # if self.world.support_ground_truth_perception:
+                #     self.pm = self.world.get_ground_truth_perception_model()
+
+                # log.info(f"support detection: {self.perception.supports_detection}")
+                if self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
+                    self.pm = self.world.get_ground_truth_perception_model()
+                    perception_output = self.perception.perceive(perception_model=self.pm)
+                    # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
+                else:
+                    perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
+                        if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
+                        if self.world.supports_depth_image else None, lidar_data=self.world.get_lidar_data() 
+                        if self.world.supports_lidar_data else None)
+                # log.debug(f"Support detection: {self.perception.supports_detection}")
+                # log.debug(f"Perception output: {perception_output}")
+            except Exception as e:
+                log.error(f"Error in perception worker: {e}", exc_info=True)
+                time.sleep(0.1)
 
     def stop(self):
         count = 0
@@ -188,22 +204,23 @@ class AsyncThreadedExecuter(Executer):
         self.threads = []
         self.planner_thread = None
         self.controller_thread = None
+        self.perception_thread = None
         self.threads_started = False
 
     def create_threads(self):
-        self.threads = []
+        log.info(f"Creating threads for Async Executer")
         self.planner_thread = None
         self.controller_thread = None
+        self.perception_thread = None
+        # Make threads daemon so they exit when main thread exits
+        self.planner_thread = threading.Thread( target=self.worker_planning, name="Planner", daemon=True,  )
+        self.controller_thread = threading.Thread(target=self.worker_control, name="Controller", daemon=True)
+        # self.perception_thread = threading.Thread(target=self.worker_perception, name="Perception", daemon=True)
+        # self.threads = [self.planner_thread, self.controller_thread, self.perception_thread]
 
-        self.planner_thread = threading.Thread(
-            target=self.worker_planner,
-            name="Planner",
-            daemon=True,  # Make threads daemon so they exit when main thread exits
-        )
-        self.threads.append(self.planner_thread)
+        self.threads = [self.planner_thread, self.controller_thread]
 
-        self.controller_thread = threading.Thread(target=self.worker_controller, name="Controller", daemon=True)
-        self.threads.append(self.controller_thread)
+        log.info(f"Created {len(self.threads)} threads: {[t.name for t in self.threads]}")
 
     def start_threads(self):
         if self.threads_started:
@@ -224,6 +241,10 @@ class AsyncThreadedExecuter(Executer):
         if self.controller_thread:
             self.controller_thread.start()
 
+        # if self.perception_thread:
+        #     log.info(f"Starting Perception Thread...")
+        #     self.perception_thread.start()
+
         self.threads_started = True
         log.info(f"Threads started in {time.time()-t1:.3f} s")
 
@@ -237,4 +258,3 @@ class AsyncThreadedExecuter(Executer):
         # Add queue handler
         queue_handler = QueueHandler(self.__log_queue)
         root.addHandler(queue_handler)
-        # root.setLevel(logging.INFO)

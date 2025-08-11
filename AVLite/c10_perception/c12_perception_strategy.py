@@ -53,4 +53,10 @@ class PerceptionStrategy(ABC):
         if not abstract:  
             PerceptionStrategy.registry[cls.__name__] = cls
 
+    def reset(self):
+        """
+        Reset the perception strategy to its initial state.
+        """
+        pass
+
 

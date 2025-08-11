@@ -104,13 +104,14 @@ default:
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
-  log_level: DEBUG
+  log_level: WARN
+  mouse_drag_slowdown_factor: 0.5
   perception_type: MultiObjectPredictor
   replan_dt: 0.55
   selected_profile: default
   shortcut_mode: false
   show_control_logs: false
-  show_execute_logs: false
+  show_execute_logs: true
   show_extensions_logs: false
   show_global_plan: true
   show_legend: false

@@ -310,7 +310,6 @@ class LocalPlanPlotView(ttk.Frame):
             # Convert (s, d) to (x, y) using some transformation logic
             x, y = self.root.exec.local_planner.global_trajectory.convert_sd_to_xy(s, d)
             log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
-            log.info(f"Ego State: {self.root.exec.ego_state}")
             t = self.root.exec.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, velocity=0)
             self.root.exec.world.spawn_agent(agent)

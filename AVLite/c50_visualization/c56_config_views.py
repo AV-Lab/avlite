@@ -108,7 +108,9 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def __on_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
+        log.warning(f"Map before reload: {ExecutionSettings.hd_map}")
         self.root.load_configs()
+        log.warning(f"Map after config load: {ExecutionSettings.hd_map}")
         self.root.reload_stack(reload_code=False)
 
 
@@ -129,6 +131,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     
     def open_settings_window(self):
+        self.root.load_configs(only_stack=True)
         self.setting_window = SettingView(self.root)
 
 class SettingView:
@@ -156,13 +159,12 @@ class SettingView:
         profile_frame.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
 
         ttk.Label(profile_frame, text="Load Profile:").grid(row=0, column=0, padx=5, pady=5)
-        self.global_planner_dropdown_menu = ttk.Combobox(profile_frame, width=10, textvariable=self.root.setting.selected_profile, state="readonly",)
-        self.global_planner_dropdown_menu["values"] = self.root.setting.profile_list
+        self.profile_dropdown_menu = ttk.Combobox(profile_frame, width=10, textvariable=self.root.setting.selected_profile, state="readonly",)
+        self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         # self.global_planner_dropdown_menu.current(0)  
-        self.global_planner_dropdown_menu.state(["readonly"])
-        self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
-
-        self.global_planner_dropdown_menu.grid(row=0, column=1, columnspan=2, padx=5, pady=5)
+        self.profile_dropdown_menu.state(["readonly"])
+        self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+        self.profile_dropdown_menu.grid(row=0, column=1, columnspan=2, padx=5, pady=5)
 
         ttk.Button(profile_frame, text="New", width=5, command=self.create_profile).grid(row=1, column=0, padx=5, pady=5)
         ttk.Button(profile_frame, text="Delete",width=5, command=self.delete_profile).grid(row=1, column=1, padx=5, pady=5)
@@ -242,7 +244,7 @@ class SettingView:
         log.info(f"Creating profile: {text}")
         self.root.setting.selected_profile.set(text)
         self.root.setting.profile_list.append(text)
-        self.global_planner_dropdown_menu["values"] = self.root.setting.profile_list
+        self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.root.config_shortcut_view.global_planner_dropdown_menu["values"] = self.root.setting.profile_list
 
 
@@ -259,7 +261,7 @@ class SettingView:
             delete_profile(ExecutionSettings, profile=self.root.setting.selected_profile.get())
             delete_profile(self.root.setting, profile=self.root.setting.selected_profile.get())
             self.root.setting.profile_list.remove(self.root.setting.selected_profile.get())
-            self.global_planner_dropdown_menu["values"] = self.root.setting.profile_list
+            self.profile_dropdown_menu["values"] = self.root.setting.profile_list
             self.root.config_shortcut_view.global_planner_dropdown_menu["values"] = self.root.setting.profile_list
             self.root.setting.selected_profile.set("default")  
             self.load_profile("default")

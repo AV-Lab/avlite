@@ -6,17 +6,16 @@ import numpy as np
 
 
 from c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
+from c30_control.c31_control_model import  ControlComand
+from c40_execution.c49_settings import ExecutionSettings
 from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
-from c30_control.c31_control_model import  ControlComand
 from c30_control.c32_control_strategy import ControlStrategy
-from c40_execution.c49_settings import ExecutionSettings
-from c40_execution.c49_settings import ExecutionSettings
+# from c20_planning.c21_planning_model import GlobalPlan
+# from c20_planning.c24_global_planners import RaceGlobalPlanner
+# from c40_execution.c44_basic_sim import BasicSim
 from c60_tools.c61_utils import reload_lib, get_absolute_path
-
-from c30_control.c33_pid import PIDController
-from c30_control.c34_stanley import StanleyController
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +89,6 @@ class WorldInterface(ABC):
             Executer.registry[cls.__name__] = cls
 
 
-
 class Executer(ABC):
     registry = {}
     
@@ -138,31 +136,13 @@ class Executer(ABC):
     def reset(self):
         self.pm.reset()
         self.ego_state.reset()
-        self.perception_strategy.reset()
+        self.perception.reset()
         self.local_planner.reset()
         self.controller.reset()
         self.world.reset()
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
 
-    def spawn_agent(self, x=None, y=None, s=None, d=None, theta=None):
-        if x is not None and y is not None:
-            t = self.ego_state.theta if theta is None else theta
-            agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.world.spawn_agent(agent)
-        elif s is not None and d is not None:
-            # Convert (s, d) to (x, y) using some transformation logic
-            x, y = self.local_planner.global_trajectory.convert_sd_to_xy(s, d)
-            log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
-            log.info(f"Ego State: {self.ego_state}")
-            t = self.ego_state.theta if theta is None else theta
-            agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.world.spawn_agent(agent)
-        else:
-            raise ValueError("Either (x, y) or (s, d) must be provided")
-
-        # self.pm.add_agent_vehicle(agent)
-    
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -183,6 +163,7 @@ class Executer(ABC):
         global_trajectory = ExecutionSettings.global_trajectory,
         hd_map = ExecutionSettings.hd_map,
         reload_code = True,
+        exclude_reload_settings = False,
         profile=None
     ) -> "Executer":
         """
@@ -190,7 +171,7 @@ class Executer(ABC):
         """
 
         if reload_code:
-            reload_lib()
+            reload_lib(exclude_settings=exclude_reload_settings,)
 
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
         from c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -212,7 +193,6 @@ class Executer(ABC):
         # if reload_code and profile is not None:
             # load_all_settings(profile)
 
-        log.warning(f"loading hd map from {hd_map}")
 
         #################
         global_plan_path =  get_absolute_path(global_trajectory)

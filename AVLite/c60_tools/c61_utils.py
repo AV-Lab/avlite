@@ -27,9 +27,7 @@ def get_absolute_path(relative_path: str) -> str:
     return str(project_dir / relative_path)
 
 
-
-#TODO: Delete it later
-def reload_lib(reload_extensions: bool = True, all_extension_dirs=[]) -> None:
+def reload_lib(reload_extensions: bool = True, all_extension_dirs=[], exclude_settings=False) -> None:
     """Dynamically reload all modules in the project."""
     log.info("Reloading imports...")
 
@@ -63,7 +61,11 @@ def reload_lib(reload_extensions: bool = True, all_extension_dirs=[]) -> None:
 
     # Sort modules to ensure proper reload order (parent modules before child modules)
     project_modules.sort(key=lambda x: x.count('.'))
-    # log.info(f"Found {len(project_modules)} modules to reload: {project_modules}")
+
+    if exclude_settings:
+        excluded_settings = ["c10_perception.c19_settings", "c20_planning.c29_settings", "c30_control.c39_settings",
+                             "c40_execution.c49_settings"]
+        project_modules = [mod for mod in project_modules if mod not in excluded_settings]
 
     # Reload each module
     for module_name in project_modules:

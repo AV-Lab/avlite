@@ -140,16 +140,19 @@ class MultiObjectPredictor(PerceptionStrategy):
             return
         if self.output_mode == 'grid':
             ego_location = [self.pm.ego_vehicle.x, self.pm.ego_vehicle.y]
-            objects_sizes = self.pm.agents_sizes()
+            objects_sizes = self.pm.agents_sizes_as_np()
             log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location} grid size: {self.pm.grid_size}x{self.pm.grid_size}")
-            self.pm.occupancy_grid ,self.pm.ocupancy_grid_per_object,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,sizes=objects_sizes,ego_location=ego_location,grid_steps=self.pm.grid_size)
-            log.debug(f"Occupancy grid shape: {self.pm.occupancy_grid.shape}\nOccupancy grid per object shape: {self.pm.ocupancy_grid_per_object.shape}\nGrid bounds: {self.pm.grid_bounds}")
+            self.pm.occupancy_grid ,self.pm.occupancy_grid_per_object,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,sizes=objects_sizes,ego_location=ego_location,grid_steps=self.pm.grid_size)
+            log.debug(f"Occupancy grid shape: {self.pm.occupancy_grid.shape}\nOccupancy grid per object shape: {self.pm.occupancy_grid_per_object.shape}\nGrid bounds: {self.pm.grid_bounds}")
             self.prediction_output = self.pm.occupancy_grid
         else:
             log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location}")
             self.pm.trajectories = self.predictor_model.predict(self.pm,output_mode=self.output_mode)
             log.debug(f"Predicted Trajectories:{len(self.pm.trajectories)}")
 
+    # def agents_sizes(self) -> np.ndarray:
+    #     """Get the sizes of all agent vehicles."""
+    #     return np.array([[agent.length,agent.width] for agent in self.agent_vehicles])
 
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None) :
         """

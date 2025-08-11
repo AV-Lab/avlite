@@ -23,15 +23,11 @@ class PerceptionModel:
     max_agent_vehicles: int = PerceptionSettings.max_agent_vehicles
     grid_size: int = PerceptionSettings.grid_size  # Size of the occupancy grid -> 100x100
    
-
-    # Occupancy grid fields (NumPy arrays) - (timesteps, grid)
-    occupancy_grid: Optional[np.ndarray] = field(default=None)
-
-    # Occupancy grid fields (NumPy arrays) - per object (objects,timesteps, grid)
-    ocupancy_grid_per_object:  Optional[np.ndarray] = field(default=None) 
-
-    grid_bounds: Optional[Dict[str, float]] = field(default=None)
-
+    # Optional Agent Prediction 
+    # Prediction Occupancy grid fields (NumPy arrays) - (timesteps, grid)
+    occupancy_grid: Optional[np.ndarray] = None
+    occupancy_grid_per_object:  Optional[np.ndarray] = None #(objects,timesteps, grid)
+    grid_bounds: Optional[Dict[str, float]] = None
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
 
 
@@ -44,10 +40,7 @@ class PerceptionModel:
 
     
     def filter_agent_vehicles(self, distance_threshold: float = 100.0):
-
         """ Filter agent vehicles based on distance from the ego vehicle. -vectorized"""
-
-        method_name = inspect.currentframe().f_code.co_name
 
         if not self.ego_vehicle:
             log.warning("Ego vehicle is not set. Cannot filter agent vehicles.")
@@ -80,7 +73,7 @@ class PerceptionModel:
             
             # log.info(f"[{method_name}] Filtered agents: {filtered_count} kept")
         
-    def agents_sizes(self) -> np.ndarray:
+    def agents_sizes_as_np(self) -> np.ndarray:
         """Get the sizes of all agent vehicles."""
         return np.array([[agent.length,agent.width] for agent in self.agent_vehicles])
 

@@ -9,9 +9,10 @@ from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
-from c40_execution.c41_execution_model import Executer
 from c40_execution.c41_execution_model import WorldInterface
 from c40_execution.c49_settings import ExecutionSettings
+
+from c40_execution.c41_execution_model import Executer
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +68,17 @@ class SyncExecuter(Executer):
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
 
                 self.world.control_ego_state(cmd, dt=sim_dt)
+        if call_perceive:
+            if self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
+                self.pm = self.world.get_ground_truth_perception_model()
+                perception_output = self.perception.perceive(perception_model=self.pm)
+                log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
+            else:
+                perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
+                    if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
+                    if self.world.supports_depth_image else None, lidar_data=self.world.get_lidar_data() 
+                    if self.world.supports_lidar_data else None)
+
         self.ego_state = self.world.get_ego_state()
 
 
