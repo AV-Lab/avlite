@@ -59,12 +59,12 @@ class GlobalPlot(ABC):
         self.map_plotted = False
 
 
-    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, center:Optional[tuple[float,float]]=None):
+    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, delta:Optional[tuple[float,float]]=None):
         if not self.map_plotted:
             self.plot_map(exec.global_planner)
 
         self.plot_vehicle(exec.ego_state) 
-        self.adjust_center_and_zoom(zoom, aspect_ratio, center=center)
+        self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
 
         # if not show_legend:
             # self.ax.get_legend().remove() if self.ax.get_legend() else None
@@ -96,6 +96,10 @@ class GlobalPlot(ABC):
             ma_y = self.map_max_y + zoom/aspect_ratio
             
             center_x, center_y = center if center else (self.vehicle_x, self.vehicle_y)
+            if delta:
+                center_x += delta[0]
+                center_y += delta[1]
+
 
             if mi_x < ma_x and mi_y < ma_y:
                 pad = 100

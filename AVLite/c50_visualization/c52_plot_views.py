@@ -35,8 +35,9 @@ class GlobalPlanPlotView(ttk.Frame):
 
         self.start_point = None
         self._prev_scroll_time = None  # used to throttle the replot
-        self._prev_mouse_pos = None # used for drag the global map
+        self._init_drag_mouse_pos = None # used for drag the global map
         self._drag_mode = False  # used to drag the global map
+        self._center_delta = (0, 0)  # used to adjust the center of the global map
 
         self.left_mouse_button_pressed = False  
         self.teleport_x = 0.0
@@ -63,7 +64,7 @@ class GlobalPlanPlotView(ttk.Frame):
         aspect_ratio = width / height if height > 0 else 4.0
         return aspect_ratio
 
-    def plot(self, center=None):
+    def plot(self):
         t1 = time.time()
         try:
             aspect_ratio = self.__get_aspect_ratio()
@@ -74,7 +75,7 @@ class GlobalPlanPlotView(ttk.Frame):
                 zoom=self.root.setting.global_zoom,
                 show_legend=self.root.setting.show_legend.get(),
                 follow_vehicle=self.root.setting.global_view_follow_planner.get(),
-                center=center,
+                delta=self._center_delta,
             )
             log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
         except Exception as e:
@@ -117,13 +118,10 @@ class GlobalPlanPlotView(ttk.Frame):
                         self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
                 
                 if event.key and 'control' in event.key and self._drag_mode:
-                    current_pos = (event.xdata, event.ydata)
-                    dx = current_pos[0] - self._prev_mouse_pos[0]
-                    dy = current_pos[1] - self._prev_mouse_pos[1]
-                    log.debug(f"Dragging Global Map: dx={dx:.2f}, dy={dy:.2f}")
-                    self.global_plot.adjust_center_and_zoom(zoom=self.root.setting.global_zoom,
-                        aspect_ratio=self.__get_aspect_ratio(), delta=(dx, dy))
-                    self._prev_mouse_pos = current_pos
+                    dx =-(x - self._init_drag_mouse_pos[0])*self.root.setting.mouse_drag_slowdown_factor
+                    dy =-(y - self._init_drag_mouse_pos[1])*self.root.setting.mouse_drag_slowdown_factor
+                    self._center_delta = (self._center_delta[0]+dx, self._center_delta[1]+dy)
+                    self.plot()
 
                 if self.left_mouse_button_pressed and not self._drag_mode:
                     self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
@@ -134,6 +132,8 @@ class GlobalPlanPlotView(ttk.Frame):
             else:
                 self.root.setting.perception_status_text.set("Click on the plot.")
                 self.global_plot.clear_tmp_plots()
+                self._drag_mode = False
+                self._init_drag_mouse_pos = None
         except Exception as e:
             log.error(f"Error in mouse move event: {e}", exc_info=True)
 
@@ -143,8 +143,9 @@ class GlobalPlanPlotView(ttk.Frame):
             if event.button == 1:  # Left click
                 self.left_mouse_button_pressed = True
                 if event.key and 'control' in event.key: # for dragging
-                    self._prev_mouse_pos = (event.xdata, event.ydata)
+                    self._init_drag_mouse_pos = (event.xdata, event.ydata)
                     self._drag_mode = True
+                    self.global_plot.clear_tmp_plots()
                 else:
                     x, y = event.xdata, event.ydata
                     self.root.exec.world.teleport_ego(x=x, y=y)
@@ -179,12 +180,13 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.global_plot.clear_road_path_plots()
                     self.pending_goal_set = True
                     self.start_point = (event.xdata, event.ydata)
+
     def on_mouse_release(self, event):
         if event.inaxes == self.ax:
             if event.button == 1:
                 self.left_mouse_button_pressed = False
                 self._drag_mode = False
-                self._prev_mouse_pos = None
+                self._init_drag_mouse_pos = None
                 self.global_plot.clear_tmp_plots()
                 self.root.exec.controller.reset()
                 self.root.update_ui()

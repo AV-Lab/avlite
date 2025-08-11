@@ -23,6 +23,7 @@ class VisualizationSettings:
         self.selected_profile = tk.StringVar(value="default")
         self.load_extensions = tk.BooleanVar(value=True)  # Load extensions on startup
         self.extension_list = []
+        self.mouse_drag_slowdown_factor = 0.5
 
         # Plot options
         self.show_legend = tk.BooleanVar(value=False)  # causes slow

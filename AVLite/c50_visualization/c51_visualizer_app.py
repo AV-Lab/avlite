@@ -129,11 +129,8 @@ class VisualizerApp(tk.Tk):
     def toggle_plan_view(self):
         if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
             self.__update_two_plots_layout()
-            # self.global_plan_plot_view.plot()
-            # self.local_plan_plot_view.plot()
         else:
             self.__update_one_plot_layout()
-            # self.local_plan_plot_view.plot()
 
         self.after(500, self.update_ui)  
 
@@ -215,8 +212,6 @@ class VisualizerApp(tk.Tk):
         else:
             self.show_loading_overlay("Reinitializing stack...")
 
-        self.local_plan_plot_view.reset()
-        self.global_plan_plot_view.reset()
         self.exec_visualize_view.stop_exec()
         self.disable_frame(self)
         self.local_plan_plot_view.grid_forget()
@@ -243,11 +238,12 @@ class VisualizerApp(tk.Tk):
             log.error(f"Error reloading stack: {e}", exc_info=True)
 
 
+        self.local_plan_plot_view.reset()
+        self.global_plan_plot_view.reset()
         self.toggle_plan_view()
         self.update_ui()
         self.enable_frame(self)
         self.hide_loading_overlay()
-        self.global_plan_plot_view.update_plot_type()
             
 
 
