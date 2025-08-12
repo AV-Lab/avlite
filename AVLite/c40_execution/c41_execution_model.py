@@ -223,7 +223,7 @@ class Executer(ABC):
             gp = HDMapGlobalPlanner(xodr_file=hd_map)
             log.debug("GlobalHDMapPlanner loaded")
 
-        ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1], velocity=20, theta=-np.pi / 4)
+        ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
         pm = PerceptionModel(ego_vehicle=ego_state)
 
         ############################

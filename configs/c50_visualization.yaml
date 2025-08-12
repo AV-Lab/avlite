@@ -140,8 +140,8 @@ perception exp:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 30
-  global_plan_view: true
+  frenet_zoom: 50
+  global_plan_view: false
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
   global_zoom: 80
@@ -156,7 +156,7 @@ perception exp:
   shortcut_mode: false
   show_control_logs: false
   show_execute_logs: true
-  show_extensions_logs: false
+  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
@@ -169,4 +169,4 @@ perception exp:
   show_tools_logs: true
   show_vis_logs: false
   sim_dt: 0.011
-  xy_zoom: 30
+  xy_zoom: 60

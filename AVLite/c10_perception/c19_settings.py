@@ -1,10 +1,12 @@
 from dataclasses import dataclass
-
+import numpy as np
 
 @dataclass
 class PerceptionSettings:
     exclude = ["exclude"]
     filepath: str="configs/c10_perception.yaml"
+    # State
+    default_theta = 0 #- np.pi / 4 
     # Ego
     max_valocity: float = 30
     max_acceleration: float = 10    
@@ -12,6 +14,7 @@ class PerceptionSettings:
     max_steering: float = 0.7  # in radians
     min_steering: float = -0.7
     L_f: float = 2.5  # Distance from center of mass to front axle
+
 
 
     # Perception Model

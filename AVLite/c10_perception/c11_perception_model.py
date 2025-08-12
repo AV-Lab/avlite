@@ -26,9 +26,9 @@ class PerceptionModel:
     # Optional Agent Prediction 
     occupancy_flow: Optional[list[np.ndarray]] = None # list of 2D grids. Each list corresponds to a timestep in the prediction
     grid_bounds: Optional[Dict[str, float]] = None # Dictionary with bounds of the grid (min_x, max_x, min_y, max_y, resolution)
-
+    predict_delta_t: float = 0.1
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
-    occupancy_flow_per_object:  Optional[np.ndarray] = None #(objects,timesteps, grid)
+    occupancy_flow_per_object:  Optional[list[tuple[int,list[np.ndarray]]]] = None # list(agent_id, list(2D grid))
 
 
     def add_agent_vehicle(self, agent: AgentState):
@@ -84,10 +84,9 @@ class PerceptionModel:
 
 @dataclass
 class State:
-    id:str = "-1"
     x: float = 0.0
     y: float = 0.0
-    theta: float = -np.pi / 4
+    theta: float = PerceptionSettings.default_theta
     width: float = 2.0
     length: float = 4.5
 
