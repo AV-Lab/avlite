@@ -1,30 +1,22 @@
 import yaml
 import logging
-import json
 import os
 from pathlib import Path
 
 import sys
-import pkg_resources
 import logging
 import importlib
+import importlib.util
+
+from c10_perception.c19_settings import PerceptionSettings
+from c20_planning.c29_settings import PlanningSettings
+from c30_control.c39_settings import ControlSettings
+from c40_execution.c49_settings import ExecutionSettings
 
 
 import tkinter as tk
 
 log = logging.getLogger(__name__)
-
-
-# def load_config(config_path):
-#     if os.path.isabs(config_path):
-#         raise ValueError("config_path should be relative to the project directory")
-#
-#     config_file = get_absolute_path(config_path)
-#
-#     with open(config_file, "r") as f:
-#         config_data = yaml.safe_load(f)
-#
-#     return config_data
 
 def get_absolute_path(relative_path: str) -> str:
     """Convert a relative path to an absolute path based on the current file location."""
@@ -35,9 +27,7 @@ def get_absolute_path(relative_path: str) -> str:
     return str(project_dir / relative_path)
 
 
-
-#TODO: Delete it later
-def reload_lib(reload_extensions: bool = True, all_extension_dirs=[]) -> None:
+def reload_lib(reload_extensions: bool = True, all_extension_dirs=[], exclude_settings=False) -> None:
     """Dynamically reload all modules in the project."""
     log.info("Reloading imports...")
 
@@ -71,7 +61,11 @@ def reload_lib(reload_extensions: bool = True, all_extension_dirs=[]) -> None:
 
     # Sort modules to ensure proper reload order (parent modules before child modules)
     project_modules.sort(key=lambda x: x.count('.'))
-    # log.info(f"Found {len(project_modules)} modules to reload: {project_modules}")
+
+    if exclude_settings:
+        excluded_settings = ["c10_perception.c19_settings", "c20_planning.c29_settings", "c30_control.c39_settings",
+                             "c40_execution.c49_settings"]
+        project_modules = [mod for mod in project_modules if mod not in excluded_settings]
 
     # Reload each module
     for module_name in project_modules:
@@ -218,3 +212,54 @@ def list_profiles(setting) -> list:
     except Exception as e:
         log.error(f"Failed to list profiles: {e}")
         return []
+
+def import_all_modules_from_dir(directory):
+    """Import all Python modules from a directory."""
+    log.debug(f"Importing all modules from directory: {directory}")
+    directory = Path(directory)
+    
+    for py_file in directory.rglob('*.py'):
+        if py_file.name == '__init__.py':
+            continue
+            
+        # Create module name from relative path
+        relative_path = py_file.relative_to(directory)
+        module_name = str(relative_path.with_suffix('')).replace('/', '.')
+        
+        spec = importlib.util.spec_from_file_location(module_name, py_file)
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+            log.debug(f"Loaded module: {module_name} from {py_file}")
+# def import_all_modules_from_dir(directory):
+#     """Import all Python modules from a directory."""
+#     log.debug(f"Importing all modules from directory: {directory}")
+#     directory = Path(directory)
+#     
+#     if not directory.exists():
+#         log.debug(f"Directory does not exist: {directory}")
+#         return
+#     
+#     py_files = list(directory.rglob('*.py'))
+#     log.debug(f"Found {len(py_files)} Python files")
+#     
+#     for py_file in py_files:
+#         if py_file.name == '__init__.py':
+#             log.debug(f"Skipping __init__.py: {py_file}")
+#             continue
+#             
+#         try:
+#             relative_path = py_file.relative_to(directory)
+#             module_name = str(relative_path.with_suffix('')).replace('/', '.').replace('\\', '.')
+#             
+#             spec = importlib.util.spec_from_file_location(module_name, py_file)
+#             if spec and spec.loader:
+#                 module = importlib.util.module_from_spec(spec)
+#                 sys.modules[module_name] = module
+#                 spec.loader.exec_module(module)
+#                 log.debug(f"Successfully loaded module: {module_name} from {py_file}")
+#             else:
+#                 log.debug(f"Failed to create spec for: {py_file}")
+#         except Exception as e:
+#             log.debug(f"Error loading {py_file}: {e}")

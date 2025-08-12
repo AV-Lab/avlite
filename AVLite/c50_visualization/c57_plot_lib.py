@@ -9,10 +9,7 @@ from c20_planning.c28_trajectory import Trajectory
 from c40_execution.c42_sync_executer import SyncExecuter
 from c20_planning.c24_global_planners import HDMapGlobalPlanner
 
-
-
-
-from typing import cast
+from typing import cast, Optional
 from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,6 +40,10 @@ class GlobalPlot(ABC):
         self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=6, ha='center', va='center')
 
         self.orientation_arrow = None  # For the vehicle orientation arrow
+        for tick in self.ax.xaxis.get_major_ticks():
+            tick.label1.set_fontsize(8)
+        for tick in self.ax.yaxis.get_major_ticks():
+            tick.label1.set_fontsize(8)
 
         # self.fig.legend(loc="upper right", fontsize=8, framealpha=0.3)
         
@@ -55,12 +56,12 @@ class GlobalPlot(ABC):
         self.map_plotted = False
 
 
-    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True):
+    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, delta:Optional[tuple[float,float]]=None):
         if not self.map_plotted:
             self.plot_map(exec.global_planner)
 
         self.plot_vehicle(exec.ego_state) 
-        self.adjust_zoom(zoom, aspect_ratio)
+        self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
 
         # if not show_legend:
             # self.ax.get_legend().remove() if self.ax.get_legend() else None
@@ -82,7 +83,7 @@ class GlobalPlot(ABC):
     def plot_map(self, exec:SyncExecuter):
         pass
     
-    def adjust_zoom(self, zoom, aspect_ratio):
+    def adjust_center_and_zoom(self, zoom, aspect_ratio,center:Optional[tuple[float,float]]=None, delta:Optional[tuple[float,float]]=None):
         """Adjust the zoom level and aspect ratio of the plot"""
         if self.map_min_x is not None and self.map_min_y is not None and self.map_max_x is not None and self.map_max_y is not None:
             # Set view limits
@@ -90,13 +91,20 @@ class GlobalPlot(ABC):
             mi_y = self.map_min_y - zoom/aspect_ratio
             ma_x = self.map_max_x + zoom
             ma_y = self.map_max_y + zoom/aspect_ratio
+            
+            center_x, center_y = center if center else (self.vehicle_x, self.vehicle_y)
+            if delta:
+                center_x += delta[0]
+                center_y += delta[1]
+
+
             if mi_x < ma_x and mi_y < ma_y:
-                pad = 50
-                if self.map_min_x - 50 < self.vehicle_x < self.map_max_x + pad and self.map_min_y - pad < self.vehicle_y < self.map_max_y + pad \
+                pad = 100
+                if self.map_min_x - pad < center_x < self.map_max_x + pad and self.map_min_y - pad < center_y < self.map_max_y + pad \
                      and zoom < self.map_max_x - self.map_min_x and zoom/aspect_ratio < self.map_max_y - self.map_min_y:
 
-                    self.ax.set_xlim(self.vehicle_x - zoom, self.vehicle_x + zoom)
-                    self.ax.set_ylim(self.vehicle_y - zoom/aspect_ratio, self.vehicle_y + zoom/aspect_ratio)
+                    self.ax.set_xlim(center_x - zoom, center_x + zoom)
+                    self.ax.set_ylim(center_y - zoom/aspect_ratio, center_y + zoom/aspect_ratio)
                     self.view_width = zoom * 2
                     self.view_height = zoom / aspect_ratio * 2
                 else:
@@ -119,6 +127,7 @@ class GlobalPlot(ABC):
                     self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
                     self.view_width = map_width + x_pad * 2
                     self.view_height = map_height + y_pad * 2
+
 
     def set_start(self, x, y):
         """Set the start point"""
@@ -474,7 +483,7 @@ class GlobalHDMapPlot(GlobalPlot):
             
 
 class LocalPlot:
-    def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12):
+    def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100)):
         self.MAX_LATTICE_SIZE = max_lattice_size
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
@@ -577,10 +586,28 @@ class LocalPlot:
             self.pm_plots_ax1.append(agent_vehicle_ax1)
             self.pm_plots_ax2.append(agent_vehicle_ax2)
 
+        # self.pm_occupancy_flow_ax1 = self.ax1.imshow(
+        #         np.zeros((100, 100)),
+        #         origin='upper',
+        #         extent=[
+        #             pm.grid_bounds.get('min_x', 0),
+        #             pm.grid_bounds.get('max_x', 0) + 100 * pm.grid_bounds.get('resolution', 1), 
+        #             pm.grid_bounds.get('min_y', 0),
+        #             pm.grid_bounds.get('max_y', 0) + 100 * pm.grid_bounds.get('resolution', 1)
+        #         ]
+        #     )
+
         self.legend_ax = self.fig.add_axes([0.0, -0.013, 1, 0.1])
         self.legend_ax.legend(
-            *self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3
-        )
+            *self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3)
+        for tick in self.ax1.xaxis.get_major_ticks():
+            tick.label1.set_fontsize(8)
+        for tick in self.ax1.yaxis.get_major_ticks():
+            tick.label1.set_fontsize(8)
+        for tick in self.ax2.xaxis.get_major_ticks():
+            tick.label1.set_fontsize(8)
+        for tick in self.ax2.yaxis.get_major_ticks():
+            tick.label1.set_fontsize(8)
         self.legend_ax.axis("off")
 
     def plot(
@@ -598,7 +625,8 @@ class LocalPlot:
         plot_perception_model=True,
         num_plot_last_pts=100,
         global_follow_planner = False,
-        frenet_follow_planner = False
+        frenet_follow_planner = False,
+        plot_occupancy_flow = False,
     ):
         self.legend_ax.set_visible(show_legend)
         
@@ -632,6 +660,7 @@ class LocalPlot:
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
         self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model)
+        self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
         self.redraw_plots()
 
     def redraw_plots(self):
@@ -821,6 +850,36 @@ class LocalPlot:
             self.pm_plots_ax1[i].set_xy(agent.get_bb_corners())
             self.pm_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
 
+    def update_pm_occupancy_flow_plots(self, pm: Optional[PerceptionModel]=None, show_plot=True):
+        if not show_plot or pm is None:
+            if hasattr(self, 'pm_occupancy_flow_ax1'):
+                self.pm_occupancy_flow_ax1.set_data(np.zeros((100, 100)))
+                self.pm_occupancy_flow_ax1.set_extent([0, 0, 0, 0])
+            return
+        if pm.occupancy_flow is not None and pm.grid_bounds is not None:
+            extent = [
+                pm.grid_bounds.get('min_x', 0),
+                pm.grid_bounds.get('max_x', 0), 
+                pm.grid_bounds.get('min_y', 0),
+                pm.grid_bounds.get('max_y', 0),
+            ]
+            if not hasattr(self, 'pm_occupancy_flow_ax1'):
+                flow_sum = pm.occupancy_flow[0] #np.sum(pm.occupancy_flow, axis=0)
+                self.pm_occupancy_flow_ax1 = self.ax1.imshow(
+                    flow_sum,
+                    origin='upper',
+                    extent=extent,
+                    cmap='viridis',
+                    vmin=0,
+                    vmax=1
+                )
+                # self.fig.colorbar(self.pm_occupancy_flow_ax1, ax=self.ax1, label='Occupancy')
+            else:
+                self.pm_occupancy_flow_ax1.set_data(pm.occupancy_flow[0])
+                self.pm_occupancy_flow_ax1.set_extent(extent)
+            self.fig.canvas.draw_idle()
+
+
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         self.fig.patch.set_facecolor(bg_color)
         self.ax1.patch.set_facecolor(bg_color)
@@ -870,3 +929,4 @@ class LocalPlot:
 
     def reset(self):
         self.initialized = False
+        self.update_pm_occupancy_flow_plots(None, show_plot=False)

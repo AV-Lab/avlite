@@ -2,7 +2,6 @@ from c10_perception.c11_perception_model import PerceptionModel
 from c10_perception.c19_settings import PerceptionSettings
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 
@@ -52,5 +51,11 @@ class PerceptionStrategy(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:  
             PerceptionStrategy.registry[cls.__name__] = cls
+
+    def reset(self):
+        """
+        Reset the perception strategy to its initial state.
+        """
+        pass
 
 

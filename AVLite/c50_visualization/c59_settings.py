@@ -2,8 +2,8 @@ from __future__ import annotations
 import tkinter as tk
 import logging
 
-from AVLite.c10_perception.c19_settings import PerceptionSettings
 from c10_perception.c12_perception_strategy import PerceptionStrategy
+from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
@@ -12,7 +12,7 @@ from c40_execution.c49_settings import ExecutionSettings
 log = logging.getLogger(__name__)
 
 class VisualizationSettings:
-    exclude = ["vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
+    exclude = ["exclude","vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
                          "control_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "extension_list"]
     filepath: str="configs/c50_visualization.yaml"
 
@@ -23,6 +23,7 @@ class VisualizationSettings:
         self.selected_profile = tk.StringVar(value="default")
         self.load_extensions = tk.BooleanVar(value=True)  # Load extensions on startup
         self.extension_list = []
+        self.mouse_drag_slowdown_factor = 0.5
 
         # Plot options
         self.show_legend = tk.BooleanVar(value=False)  # causes slow
@@ -39,6 +40,8 @@ class VisualizationSettings:
         self.global_zoom = 30
 
         # Perc Plan Control
+        self.show_occupancy_flow = tk.BooleanVar(value=False)
+
         self.perception_type = tk.StringVar(value=list(PerceptionStrategy.registry.keys())[0] if PerceptionStrategy.registry else None)
         def _on_perception_change(*args):
             ExecutionSettings.perception = self.perception_type.get()

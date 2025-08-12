@@ -132,6 +132,9 @@ class LogView(ttk.LabelFrame):
         logger.setLevel(logging.INFO)
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         log.info("Log initialized.")
+    def reset(self):
+        self.update_log_filter()
+        self.update_log_level()
 
     def update_log_filter(self):
         log.info("Log filter updated.")
@@ -168,7 +171,7 @@ class LogView(ttk.LabelFrame):
         )
         (
             self.log_blacklist.discard("extensions")
-            if self.root.setting.show_tools_logs.get()
+            if self.root.setting.show_extensions_logs.get()
             else self.log_blacklist.add("extensions")
         )
 
@@ -220,13 +223,12 @@ class LogView(ttk.LabelFrame):
             self.text_widget.tag_configure("error", foreground="red")
             self.text_widget.tag_configure("warn", foreground="#FFFF00")  # bright yellow
             
-            # self.message_buffer = []
-            # self.buffer_size = 20  # Process messages in batches
-            # self.after_id = None
-        #
         def emit(self, record):
             for bl in self.log_view.log_blacklist:
-                if bl + "." in record.name:
+                if bl == "extensions":
+                    if any(bl  in record.name for bl in ["e10","e20", "e30", "e40"]):
+                        return
+                elif record.name.startswith(bl + "."):
                     return
             msg = self.format(record)
 
@@ -239,54 +241,6 @@ class LogView(ttk.LabelFrame):
                 self.text_widget.insert(tk.END, msg + "\n")
             self.text_widget.configure(state="disabled")
             self.text_widget.yview(tk.END)
-        # 
-        # def emit(self, record):
-        #     for bl in self.log_view.log_blacklist:
-        #         if bl + "." in record.name:
-        #             return
-        #             
-        #     msg = self.format(record)
-        #     tag = None
-        #     if record.levelno >= logging.ERROR:
-        #         tag = "error"
-        #     elif record.levelno >= logging.WARNING:
-        #         tag = "warn"
-        #         
-        #     # self.message_buffer.append((msg, tag))
-        #     
-        #     # Schedule an update if not already scheduled
-        #     # if self.after_id is None:
-        #         # self.after_id = self.text_widget.after(50, self.process_buffer)
-        #     self.process_buffer()
-        #
-        #     # self.log_view.log_queue.put((msg, tag))
-    
-        
-        # def process_buffer(self):
-        #     # self.after_id = None
-        #     # if not self.message_buffer:
-        #         # return
-        #         
-        #     self.text_widget.configure(state="normal")
-        #     
-        #     # Process the buffer
-        #     for msg, tag in self.message_buffer[:self.buffer_size]:
-        #         self.text_widget.insert(tk.END, msg + "\n", tag if tag else "")
-        #     
-        #     # Clear the processed messages
-        #     self.message_buffer = self.message_buffer[self.buffer_size:] if len(self.message_buffer) > self.buffer_size else []
-        #     
-        #     # Trim log if too long
-        #     line_count = float(self.text_widget.index('end-1c').split('.')[0])
-        #     if line_count > self.log_view.max_log_lines:
-        #         self.text_widget.delete('1.0', f'{int(line_count - self.log_view.max_log_lines)}.0')
-        #         
-        #     self.text_widget.configure(state="disabled")
-        #     self.text_widget.yview(tk.END)
-        #     
-        #     # If there are more messages to process, schedule another update
-        #     if self.message_buffer:
-        #         self.after_id = self.text_widget.after(50, self.process_buffer)
 
     class TextRedirector:
         def __init__(self, widget):

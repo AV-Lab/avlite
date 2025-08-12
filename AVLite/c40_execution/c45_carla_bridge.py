@@ -3,15 +3,17 @@ from c10_perception.c11_perception_model import EgoState, AgentState
 from c10_perception.c11_perception_model import PerceptionModel
 from c30_control.c32_control_strategy import ControlComand
 from typing import Union
-import carla
 import math
 import logging
 import numpy as np
 import time
 from typing import Optional
-
 log = logging.getLogger(__name__)
 
+try:
+    import carla
+except ImportError:
+    log.error("Carla module not found. Please ensure you have the Carla Python API installed if you need to integrate with Carla.")
 
 class CarlaBridge(WorldInterface):
     def __init__(
@@ -412,7 +414,7 @@ def spawn_npc_vehicles(world, num_vehicles=10):
 
 
 
-def draw_actor_bbox(world,static_car_bboxes, color=carla.Color(255, 0, 0), life_time=0.05, thickness=0.05):
+def draw_actor_bbox(world,static_car_bboxes, color=None, life_time=0.05, thickness=0.05):
     """
     Draw bounding boxes around all vehicles in the CARLA world.
     
@@ -425,6 +427,8 @@ def draw_actor_bbox(world,static_car_bboxes, color=carla.Color(255, 0, 0), life_
     
     Note: Dynamic vehicles are drawn in the specified color (default red), static vehicles in blue.
     """
+    if color is None: # default value
+        color = carla.Color(255, 0, 0)
 
     # spawned actors
     for actor in world.get_actors().filter('vehicle.*'):

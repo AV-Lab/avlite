@@ -13,6 +13,8 @@ from c10_perception.c19_settings import PerceptionSettings
 log = logging.getLogger(__name__)
 
 
+# test
+
 @dataclass
 class PerceptionModel:
     static_obstacles: list[State] = field(default_factory=list)
@@ -21,16 +23,12 @@ class PerceptionModel:
     max_agent_vehicles: int = PerceptionSettings.max_agent_vehicles
     grid_size: int = PerceptionSettings.grid_size  # Size of the occupancy grid -> 100x100
    
-
-    # Occupancy grid fields (NumPy arrays) - (timesteps, grid)
-    occupancy_grid: Optional[np.ndarray] = field(default=None)
-
-    # Occupancy grid fields (NumPy arrays) - per object (objects,timesteps, grid)
-    ocupancy_grid_per_object:  Optional[np.ndarray] = field(default=None) 
-
-    grid_bounds: Optional[Dict[str, float]] = field(default=None)
+    # Optional Agent Prediction 
+    occupancy_flow: Optional[list[np.ndarray]] = None # list of 2D grids. Each list corresponds to a timestep in the prediction
+    grid_bounds: Optional[Dict[str, float]] = None # Dictionary with bounds of the grid (min_x, max_x, min_y, max_y, resolution)
 
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
+    occupancy_flow_per_object:  Optional[np.ndarray] = None #(objects,timesteps, grid)
 
 
     def add_agent_vehicle(self, agent: AgentState):
@@ -42,10 +40,7 @@ class PerceptionModel:
 
     
     def filter_agent_vehicles(self, distance_threshold: float = 100.0):
-
         """ Filter agent vehicles based on distance from the ego vehicle. -vectorized"""
-
-        method_name = inspect.currentframe().f_code.co_name
 
         if not self.ego_vehicle:
             log.warning("Ego vehicle is not set. Cannot filter agent vehicles.")
@@ -78,7 +73,7 @@ class PerceptionModel:
             
             # log.info(f"[{method_name}] Filtered agents: {filtered_count} kept")
         
-    def agents_sizes(self) -> np.ndarray:
+    def agents_sizes_as_np(self) -> np.ndarray:
         """Get the sizes of all agent vehicles."""
         return np.array([[agent.length,agent.width] for agent in self.agent_vehicles])
 

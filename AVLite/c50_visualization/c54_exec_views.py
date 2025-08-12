@@ -6,6 +6,8 @@ import time
 from c40_execution.c44_basic_sim import BasicSim
 from c40_execution.c45_carla_bridge import CarlaBridge
 
+from c40_execution.c49_settings import ExecutionSettings
+
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
@@ -65,7 +67,7 @@ class ExecView(ttk.Frame):
         self.asyc_exec_cb = ttk.Checkbutton(
             exec_first_frame,
             text="Async Mode",
-            command=self.root.reload_stack,
+            command=self.__on_exec_change,
             variable=self.root.setting.async_exec,
         )
         self.asyc_exec_cb.pack(side=tk.RIGHT)
@@ -94,21 +96,21 @@ class ExecView(ttk.Frame):
             text="Basic Sim",
             variable=self.root.setting.execution_bridge,
             value=BasicSim.__name__,
-            command=self.root.reload_stack,
+            command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
             text="Carla",
             variable=self.root.setting.execution_bridge,
-            value=CarlaBridge,
-            command=self.root.reload_stack,
+            value=CarlaBridge.__name__,
+            command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
         ttk.Radiobutton(
             exec_third_frame,
             text="Gazebo Ign",
             variable=self.root.setting.execution_bridge,
             value="GazeboIgnitionBridge",
-            command=self.root.reload_stack,
+            command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
 
         ttk.Checkbutton(exec_third_frame, text="Control", variable=self.root.setting.exec_control).pack(side=tk.RIGHT)
@@ -222,6 +224,10 @@ class ExecView(ttk.Frame):
     # --------------------------------------------------------------------------------------------
     # -SIM----------------------------------------------------------------------------------------
     # --------------------------------------------------------------------------------------------
+
+    def __on_exec_change(self):
+        self.root.reload_stack(reload_code=False)
+
     def text_on_enter(self, event):
         widget = event.widget  # Get the widget that triggered the event
         text = widget.get()    # Retrieve the text from the widget

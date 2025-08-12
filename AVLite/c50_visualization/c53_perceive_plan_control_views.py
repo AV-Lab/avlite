@@ -5,6 +5,8 @@ import time
 import logging
 
 from typing import TYPE_CHECKING
+
+from torch.autograd import variable
 from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c30_control.c32_control_strategy import ControlComand, ControlStrategy
 from c50_visualization.c58_ui_lib import ValueGauge
@@ -35,7 +37,7 @@ class PerceivePlanControlView(ttk.Frame):
         perception_dropdown_menu.state(["readonly"])
         perception_dropdown_menu.pack(side=tk.LEFT,fill=tk.X, expand=True)
         perception_dropdown_menu.bind("<<ComboboxSelected>>",lambda event: self.root.reload_stack(reload_code=False))
-        ttk.Checkbutton(top_pframe, text="Show").pack(side=tk.LEFT)
+        ttk.Checkbutton(top_pframe, text="Show",variable=self.root.setting.show_occupancy_flow).pack(side=tk.LEFT)
 
         # ----
         vehicle_state_label = ttk.Label( self.perceive_frame, font=self.root.small_font, textvariable=self.root.setting.vehicle_state,
@@ -60,7 +62,7 @@ class PerceivePlanControlView(ttk.Frame):
         global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
         global_planner_dropdown_menu.state(["readonly"])
         global_planner_dropdown_menu.pack(side=tk.LEFT)
-        global_planner_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+        global_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
 
         ttk.Button(global_frame, text="Global Replan").pack( side=tk.LEFT, fill=tk.X, expand=True)
 
@@ -76,8 +78,7 @@ class PerceivePlanControlView(ttk.Frame):
         local_planner_dropdown_menu["values"] = tuple(LocalPlannerStrategy.registry.keys())
         local_planner_dropdown_menu.state(["readonly"])
         local_planner_dropdown_menu.pack(side=tk.LEFT)
-        local_planner_dropdown_menu.bind("<<ComboboxSelected>>",
-                                self.__on_dropdown_change)
+        local_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
 
         ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
         global_tj_wp_entry = ttk.Entry( wp_frame, width=6, textvariable=self.root.setting.current_wp)
@@ -109,7 +110,7 @@ class PerceivePlanControlView(ttk.Frame):
         controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
         controller_dropdown_menu.state(["readonly"])
         controller_dropdown_menu.pack(side=tk.LEFT)
-        controller_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+        controller_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
 
         ttk.Button(control_button_frame, text="Step", command=self.step_control).pack( side=tk.LEFT, fill=tk.X, expand=True)
         ttk.Button(control_button_frame, text="Align", width=4, command=self.align_control).pack(side=tk.LEFT)
@@ -230,8 +231,6 @@ class PerceivePlanControlView(ttk.Frame):
 
 
 
-    def __on_dropdown_change(self, event):
-        self.root.reload_stack()
 
     # --------------------------------------------------------------------------------------------
     # -Control------------------------------------------------------------------------------------

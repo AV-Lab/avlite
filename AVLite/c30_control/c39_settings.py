@@ -1,7 +1,7 @@
 import numpy as np
 
 class ControlSettings:
-    exclude = []
+    exclude = ["exclude"]
     filepath: str="configs/c30_control.yaml"
 
     # PID controller settings

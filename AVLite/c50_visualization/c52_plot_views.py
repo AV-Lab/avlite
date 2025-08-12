@@ -35,13 +35,15 @@ class GlobalPlanPlotView(ttk.Frame):
 
         self.start_point = None
         self._prev_scroll_time = None  # used to throttle the replot
+        self._init_drag_mouse_pos = None # used for drag the global map
+        self._drag_mode = False  # used to drag the global map
+        self._center_delta = (0, 0)  # used to adjust the center of the global map
 
         self.left_mouse_button_pressed = False  
         self.teleport_x = 0.0
         self.teleport_y = 0.0
         self.teleport_orientation = 0.0  
         
-        # self.current_highlighted_road_id = "-1" # used to track the current road id
 
     def __config_canvas(self):  
         self.fig = self.global_plot.fig
@@ -55,21 +57,25 @@ class GlobalPlanPlotView(ttk.Frame):
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
         self.canvas.mpl_connect("button_release_event", self.on_mouse_release)
         
+    def __get_aspect_ratio(self):
+        canvas_widget = self.canvas.get_tk_widget()
+        width = canvas_widget.winfo_width()
+        height = canvas_widget.winfo_height()
+        aspect_ratio = width / height if height > 0 else 4.0
+        return aspect_ratio
 
     def plot(self):
         t1 = time.time()
         try:
-            canvas_widget = self.canvas.get_tk_widget()
-            width = canvas_widget.winfo_width()
-            height = canvas_widget.winfo_height()
-            aspect_ratio = width / height if height > 0 else 4.0
+            aspect_ratio = self.__get_aspect_ratio()
 
             self.global_plot.plot(
                 exec=self.root.exec,
                 aspect_ratio=aspect_ratio,
                 zoom=self.root.setting.global_zoom,
                 show_legend=self.root.setting.show_legend.get(),
-                follow_vehicle=self.root.setting.global_view_follow_planner.get()
+                follow_vehicle=self.root.setting.global_view_follow_planner.get(),
+                delta=self._center_delta,
             )
             log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
         except Exception as e:
@@ -104,12 +110,20 @@ class GlobalPlanPlotView(ttk.Frame):
         try:
             if event.inaxes == self.ax:
                 x, y = event.xdata, event.ydata
+
                 self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
+
                 if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                     if not self.left_mouse_button_pressed:
                         self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
+                
+                if event.key and 'control' in event.key and self._drag_mode:
+                    dx =-(x - self._init_drag_mouse_pos[0])*self.root.setting.mouse_drag_slowdown_factor
+                    dy =-(y - self._init_drag_mouse_pos[1])*self.root.setting.mouse_drag_slowdown_factor
+                    self._center_delta = (self._center_delta[0]+dx, self._center_delta[1]+dy)
+                    self.plot()
 
-                if self.left_mouse_button_pressed:
+                if self.left_mouse_button_pressed and not self._drag_mode:
                     self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
                     self.global_plot.show_vehicle_orientation(self.teleport_x, self.teleport_y, self.teleport_orientation) 
                     self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
@@ -118,6 +132,8 @@ class GlobalPlanPlotView(ttk.Frame):
             else:
                 self.root.setting.perception_status_text.set("Click on the plot.")
                 self.global_plot.clear_tmp_plots()
+                self._drag_mode = False
+                self._init_drag_mouse_pos = None
         except Exception as e:
             log.error(f"Error in mouse move event: {e}", exc_info=True)
 
@@ -125,13 +141,19 @@ class GlobalPlanPlotView(ttk.Frame):
     def on_mouse_click(self, event):
         if event.inaxes == self.ax:
             if event.button == 1:  # Left click
-                x, y = event.xdata, event.ydata
-                self.root.exec.world.teleport_ego(x=x, y=y)
                 self.left_mouse_button_pressed = True
-                self.teleport_x = x
-                self.teleport_y = y
-                self.global_plot.clear_tmp_plots()
-                self.root.update_ui()
+                if event.key and 'control' in event.key: # for dragging
+                    self._init_drag_mouse_pos = (event.xdata, event.ydata)
+                    self._drag_mode = True
+                    self.global_plot.clear_tmp_plots()
+                else:
+                    x, y = event.xdata, event.ydata
+                    self.root.exec.world.teleport_ego(x=x, y=y)
+                    self.teleport_x = x
+                    self.teleport_y = y
+                    self.global_plot.clear_tmp_plots()
+
+                    self.root.update_ui()
             elif event.button == 3: # Right click
                 if self.start_point:
                     self.global_plot.set_goal(event.xdata, event.ydata)
@@ -158,10 +180,13 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.global_plot.clear_road_path_plots()
                     self.pending_goal_set = True
                     self.start_point = (event.xdata, event.ydata)
+
     def on_mouse_release(self, event):
         if event.inaxes == self.ax:
             if event.button == 1:
                 self.left_mouse_button_pressed = False
+                self._drag_mode = False
+                self._init_drag_mouse_pos = None
                 self.global_plot.clear_tmp_plots()
                 self.root.exec.controller.reset()
                 self.root.update_ui()
@@ -175,7 +200,12 @@ class GlobalPlanPlotView(ttk.Frame):
             self.root.setting.global_zoom += increment
         threshold = 0.01
         if (self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold) and not self.root.setting.exec_running:
-            self.root.update_ui()
+            # self.root.update_ui()
+            # center = None
+            # if event.key and 'control' in event.key:
+            #     center = (event.xdata, event.ydata)
+            self.plot()
+
 
         self._prev_scroll_time = time.time()
 
@@ -280,7 +310,6 @@ class LocalPlanPlotView(ttk.Frame):
             # Convert (s, d) to (x, y) using some transformation logic
             x, y = self.root.exec.local_planner.global_trajectory.convert_sd_to_xy(s, d)
             log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
-            log.info(f"Ego State: {self.root.exec.ego_state}")
             t = self.root.exec.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, velocity=0)
             self.root.exec.world.spawn_agent(agent)
@@ -362,6 +391,7 @@ class LocalPlanPlotView(ttk.Frame):
             plot_state=self.root.setting.show_state.get(),
             global_follow_planner=self.root.setting.global_view_follow_planner.get(),
             frenet_follow_planner=self.root.setting.frenet_view_follow_planner.get(),
+            plot_occupancy_flow=self.root.setting.show_occupancy_flow.get(),
         )
         self.canvas.draw()
         log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
