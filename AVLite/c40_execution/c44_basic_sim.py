@@ -4,16 +4,16 @@ from typing import Optional
 from c10_perception.c11_perception_model import AgentState, PerceptionModel
 from c10_perception.c11_perception_model import EgoState
 from c30_control.c32_control_strategy import ControlComand
-from c40_execution.c42_sync_executer import WorldInterface
+from c40_execution.c42_sync_executer import WorldBridge
 
 import logging
 log = logging.getLogger(__name__)
 
-class BasicSim(WorldInterface):
+class BasicSim(WorldBridge):
     def __init__(self,ego_state:EgoState, pm:PerceptionModel = None,):
         self.ego_state = ego_state
         self.pm = pm
-        self.supports_ground_truth_perception = True
+        self.supports_ground_truth_detection = True
     
 
     def control_ego_state(self, cmd:ControlComand, dt=0.01):

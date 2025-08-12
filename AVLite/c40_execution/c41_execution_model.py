@@ -23,7 +23,7 @@ from c60_tools.c61_utils import reload_lib, get_absolute_path, import_all_module
 log = logging.getLogger(__name__)
 
 @dataclass
-class WorldInterface(ABC):
+class WorldBridge(ABC):
     """
     Abstract class for the world interface. This class is used to control the ego vehicle and spawn agents in the world.
     It provides an interface for the simulator or ROS bridge to implement its own world logic.
@@ -31,7 +31,7 @@ class WorldInterface(ABC):
     
     ego_state: EgoState
     perception_model: Optional[PerceptionModel] = None # Simulators can provide ground truth perception model
-    supports_ground_truth_perception: bool = False  # Whether the world supports ground truth perception model
+    supports_ground_truth_detection: bool = False  # Whether the world supports ground truth perception model
     supports_rgb_image: bool = False  # Whether the world supports RGB support_rgb_image
     supports_depth_image: bool = False  # Whether the world supports depth image 
     supports_lidar_data: bool = False  # Whether the world supports lidar data  
@@ -102,7 +102,7 @@ class Executer(ABC):
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
-        world: WorldInterface,
+        world: WorldBridge,
         replan_dt=0.5,
         control_dt=0.01,
     ):
@@ -115,7 +115,7 @@ class Executer(ABC):
         self.global_planner: GlobalPlannerStrategy = global_planner
         self.local_planner: LocalPlannerStrategy = local_planner
         self.controller: ControlStrategy = controller
-        self.world: WorldInterface = world
+        self.world: WorldBridge = world
         self.planner_fps: float = 0.0
         self.control_fps: float = 0.0
 

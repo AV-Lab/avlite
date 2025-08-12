@@ -9,7 +9,7 @@ from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
-from c40_execution.c41_execution_model import WorldInterface
+from c40_execution.c41_execution_model import WorldBridge
 from c40_execution.c49_settings import ExecutionSettings
 
 from c40_execution.c41_execution_model import Executer
@@ -25,7 +25,7 @@ class SyncExecuter(Executer):
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
-        world: WorldInterface,
+        world: WorldBridge,
         replan_dt=ExecutionSettings.replan_dt,
         control_dt=ExecutionSettings.control_dt,
     ):
@@ -78,7 +78,7 @@ class SyncExecuter(Executer):
             if not self.perception:
                 log.error("Perception strategy is not set. Skipping perception step.")
 
-            elif self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
+            elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
                 self.pm = self.world.get_ground_truth_perception_model()
                 perception_output = self.perception.perceive(perception_model=self.pm)
                 log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")

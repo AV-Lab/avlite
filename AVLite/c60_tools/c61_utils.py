@@ -97,6 +97,7 @@ def list_extensions(all_extension_dirs=[]) -> list:
     if not extensions:
         log.warning("No extensions found in the specified directories.")
 
+    extensions = [x for x in extensions if x != "__pycache__"]
     return extensions
 
 
@@ -232,34 +233,3 @@ def import_all_modules_from_dir(directory):
             sys.modules[module_name] = module
             spec.loader.exec_module(module)
             log.debug(f"Loaded module: {module_name} from {py_file}")
-# def import_all_modules_from_dir(directory):
-#     """Import all Python modules from a directory."""
-#     log.debug(f"Importing all modules from directory: {directory}")
-#     directory = Path(directory)
-#     
-#     if not directory.exists():
-#         log.debug(f"Directory does not exist: {directory}")
-#         return
-#     
-#     py_files = list(directory.rglob('*.py'))
-#     log.debug(f"Found {len(py_files)} Python files")
-#     
-#     for py_file in py_files:
-#         if py_file.name == '__init__.py':
-#             log.debug(f"Skipping __init__.py: {py_file}")
-#             continue
-#             
-#         try:
-#             relative_path = py_file.relative_to(directory)
-#             module_name = str(relative_path.with_suffix('')).replace('/', '.').replace('\\', '.')
-#             
-#             spec = importlib.util.spec_from_file_location(module_name, py_file)
-#             if spec and spec.loader:
-#                 module = importlib.util.module_from_spec(spec)
-#                 sys.modules[module_name] = module
-#                 spec.loader.exec_module(module)
-#                 log.debug(f"Successfully loaded module: {module_name} from {py_file}")
-#             else:
-#                 log.debug(f"Failed to create spec for: {py_file}")
-#         except Exception as e:
-#             log.debug(f"Error loading {py_file}: {e}")

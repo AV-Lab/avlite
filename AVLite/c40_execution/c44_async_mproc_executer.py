@@ -2,7 +2,7 @@ from __future__ import annotations
 from c10_perception.c12_perception_strategy import PerceptionModel
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
-from c40_execution.c42_sync_executer import SyncExecuter, WorldInterface
+from c40_execution.c42_sync_executer import SyncExecuter, WorldBridge
 
 import multiprocessing as mp
 from multiprocessing.managers import BaseManager
@@ -22,7 +22,7 @@ class AsyncExecuter(SyncExecuter):
         pm: PerceptionModel,
         pl: LocalPlannerStrategy,
         cn: ControlStrategy,
-        world: WorldInterface,
+        world: WorldBridge,
         call_replan=True,
         call_control=True,
         call_perceive=False,

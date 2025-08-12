@@ -6,7 +6,7 @@ from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from c30_control.c32_control_strategy import ControlStrategy
 from c40_execution.c41_execution_model import Executer
-from c40_execution.c42_sync_executer import SyncExecuter, WorldInterface
+from c40_execution.c42_sync_executer import SyncExecuter, WorldBridge
 
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
@@ -26,7 +26,7 @@ class AsyncThreadedExecuter(Executer):
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
-        world: WorldInterface,
+        world: WorldBridge,
         replan_dt=0.5,
         control_dt=0.05,
     ):
@@ -151,7 +151,7 @@ class AsyncThreadedExecuter(Executer):
 
             if self.call_perceive:
                 # log.info(f"support detection: {self.perception.supports_detection}")
-                if self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
+                if self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
                     self.pm = self.world.get_ground_truth_perception_model()
                     perception_output = self.perception.perceive(perception_model=self.pm)
                     # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
@@ -170,7 +170,7 @@ class AsyncThreadedExecuter(Executer):
                 #     self.pm = self.world.get_ground_truth_perception_model()
 
                 # log.info(f"support detection: {self.perception.supports_detection}")
-                if self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
+                if self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
                     self.pm = self.world.get_ground_truth_perception_model()
                     perception_output = self.perception.perceive(perception_model=self.pm)
                     # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")

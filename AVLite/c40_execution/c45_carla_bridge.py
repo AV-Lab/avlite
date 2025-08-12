@@ -1,4 +1,4 @@
-from c40_execution.c42_sync_executer import WorldInterface
+from c40_execution.c42_sync_executer import WorldBridge
 from c10_perception.c11_perception_model import EgoState, AgentState
 from c10_perception.c11_perception_model import PerceptionModel
 from c30_control.c32_control_strategy import ControlComand
@@ -15,7 +15,7 @@ try:
 except ImportError:
     log.error("Carla module not found. Please ensure you have the Carla Python API installed if you need to integrate with Carla.")
 
-class CarlaBridge(WorldInterface):
+class CarlaBridge(WorldBridge):
     def __init__(
         self, ego_state: Optional[EgoState], host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0
     ):
@@ -42,7 +42,7 @@ class CarlaBridge(WorldInterface):
                 carla.CityObjectLabel.Bicycle
                 )
 
-        self.supports_ground_truth_perception = True  # Carla provides ground truth state
+        self.supports_ground_truth_detection = True  # Carla provides ground truth state
 
         try:
             self.client = carla.Client(host, port)

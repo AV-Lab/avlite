@@ -184,10 +184,11 @@ class VisualizerApp(tk.Tk):
             self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}")
             self.setting.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
 
-            self.perceive_plan_control_view.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
-            self.perceive_plan_control_view.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
-            self.perceive_plan_control_view.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
-            self.perceive_plan_control_view.gauge_steer.set_value(self.exec.controller.cmd.steer)
+            # TODO: need to connect to a tkinter variable instead
+            self.perceive_plan_control_view.control_frame.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
+            self.perceive_plan_control_view.control_frame.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
+            self.perceive_plan_control_view.control_frame.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
+            self.perceive_plan_control_view.control_frame.gauge_steer.set_value(self.exec.controller.cmd.steer)
 
             self.setting.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
             self.setting.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
@@ -323,7 +324,7 @@ class VisualizerApp(tk.Tk):
 
     def set_dark_mode_themed(self):
 
-        self.configure(bg="gray14")
+        # self.configure(bg="gray14")
 
         if hasattr(self, "setting"):
             self.setting.bg_color = "#333333"

@@ -102,6 +102,13 @@ class VisualizationSettings:
         self.execution_bridge.trace_add("write", _on_execution_bridge_change)
 
 
+        ## World Bridge model
+        self.bridge_provide_ground_truth_detection = tk.BooleanVar(value=False)  # Whether the world supports ground truth perception
+        self.bridge_provide_rgb_image = tk.BooleanVar(value=False)  # Whether the world supports RGB image
+        self.bridge_provide_depth_image = tk.BooleanVar(value=False)  # Whether the world supports depth image
+        self.bridge_provide_lidar_data = tk.BooleanVar(value=False)  # Whether the world supports LiDAR data
+
+
         # Logger Options
         self.log_level = tk.StringVar(value="INFO")
         self.show_perceive_logs = tk.BooleanVar(value=True)

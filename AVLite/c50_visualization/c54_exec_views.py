@@ -24,18 +24,33 @@ class ExecView(ttk.Frame):
         self.root = root
 
         # ----------------------------------------------------------------------
-        ## Execute Frame
+        # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
         self.execution_frame = ttk.LabelFrame(self, text="Execution")
-        self.execution_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.execution_frame.grid(row=0,column=0, sticky="nsew", padx=5, pady=5)
 
+        ## Execution Settings Frame
+        exec_setting_frame = ExecSettingFrame(self.root, self)
+        exec_setting_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+        ## Bridge 
+        bridge_frame = BridgeFrame(self.root, self)
+        bridge_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+
+        self.columnconfigure(0, weight=3)  # execution_frame wider
+        self.columnconfigure(1, weight=1)  # exec_setting_frame
+        self.columnconfigure(2, weight=1)  # bridge_frame
+        
+
+        # ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
         exec_first_frame = ttk.Frame(self.execution_frame)
-        exec_first_frame.pack(fill=tk.X)
+        exec_first_frame.grid(row=0, column=0, columnspan=2, sticky="we")
         exec_second_frame = ttk.Frame(self.execution_frame)
-        exec_second_frame.pack(fill=tk.X)
+        exec_second_frame.grid(row=1, column=0, columnspan=2, sticky="we")
         exec_third_frame = ttk.Frame(self.execution_frame)
-        exec_third_frame.pack(fill=tk.X)
-
+        exec_third_frame.grid(row=2, column=0, columnspan=2, sticky="we")
+        
         ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         dt_control_entry = ttk.Entry(
             exec_first_frame,
@@ -117,113 +132,9 @@ class ExecView(ttk.Frame):
         ttk.Checkbutton(exec_third_frame, text="Plan", variable=self.root.setting.exec_plan).pack(side=tk.RIGHT)
         ttk.Checkbutton(exec_third_frame, text="Percieve", variable=self.root.setting.exec_perceive).pack(side=tk.RIGHT)
 
-        # ----------------------------------------------------------------------
-        # Visualize frame setup
-        # ----------------------------------------------------------------------
-        self.visualize_frame = ttk.LabelFrame(self, text="Visualize")
-        self.visualize_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        ## UI Elements for Visualize - Checkboxes
-        checkboxes_frame = ttk.Frame(self.visualize_frame)
-        checkboxes_frame.pack(fill=tk.X)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Legend",
-            variable=self.root.setting.show_legend,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Locations",
-            variable=self.root.setting.show_past_locations,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Global Plan",
-            variable=self.root.setting.show_global_plan,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Local Plan",
-            variable=self.root.setting.show_local_plan,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Local Lattice",
-            variable=self.root.setting.show_local_lattice,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="State",
-            variable=self.root.setting.show_state,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
 
-        ## UI Elements for Visualize - Buttons
-        zoom_global_frame = ttk.Frame(self.visualize_frame)
-        zoom_global_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_global_frame, text="Global 🔍").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.local_plan_plot_view.zoom_in).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(zoom_global_frame, text="➖", width=2, command=self.root.local_plan_plot_view.zoom_out).pack(
-            side=tk.LEFT
-        )
-        ttk.Checkbutton(
-            zoom_global_frame, text="Follow Planner", variable=self.root.setting.global_view_follow_planner
-        ).pack(side=tk.LEFT)
 
-        ttk.Label(zoom_global_frame, text="Real time: ", font=self.root.small_font).pack(
-            anchor=tk.W, side=tk.LEFT, padx=5
-        )
-        ttk.Label(zoom_global_frame, textvariable=self.root.setting.elapsed_real_time, font=self.root.small_font).pack(
-            anchor=tk.W, side=tk.LEFT, padx=10
-        )
-
-        ttk.Label(zoom_global_frame, textvariable=self.root.setting.replan_fps, font=self.root.small_font).pack(
-            anchor=tk.W, side=tk.RIGHT, padx=5
-        )
-
-        ttk.Label(zoom_global_frame, text="Plan FPS: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
-
-        zoom_frenet_frame = ttk.Frame(self.visualize_frame)
-        zoom_frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_frenet_frame, text="Frenet 🔍").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(
-            zoom_frenet_frame,
-            text="➕",
-            width=2,
-            command=self.root.local_plan_plot_view.zoom_in_frenet,
-        ).pack(side=tk.LEFT)
-        ttk.Button(
-            zoom_frenet_frame,
-            text="➖",
-            width=2,
-            command=self.root.local_plan_plot_view.zoom_out_frenet,
-        ).pack(side=tk.LEFT)
-        ttk.Checkbutton(
-            zoom_frenet_frame, text="Follow Planner", variable=self.root.setting.frenet_view_follow_planner
-        ).pack(side=tk.LEFT)
-
-        ttk.Label(zoom_frenet_frame, text="Sim time : ", font=self.root.small_font).pack(
-            anchor=tk.W, side=tk.LEFT, padx=5
-        )
-        ttk.Label(zoom_frenet_frame, textvariable=self.root.setting.elapsed_sim_time, font=self.root.small_font).pack(
-            side=tk.LEFT, padx=10
-        )
-
-        ttk.Label(zoom_frenet_frame, textvariable=self.root.setting.control_fps, font=self.root.small_font).pack(
-            anchor=tk.W, side=tk.RIGHT
-        )
-        ttk.Label(zoom_frenet_frame, text="Con. FPS: ", font=self.root.small_font).pack(anchor=tk.W, side=tk.RIGHT)
-
-    # --------------------------------------------------------------------------------------------
-    # -SIM----------------------------------------------------------------------------------------
-    # --------------------------------------------------------------------------------------------
 
     def __on_exec_change(self):
         self.root.reload_stack(reload_code=False)
@@ -294,3 +205,43 @@ class ExecView(ttk.Frame):
     def reset_exec(self):
         self.root.exec.reset()
         self.root.update_ui()
+
+class ExecSettingFrame(ttk.LabelFrame):
+    def __init__(self, root: VisualizerApp, view):
+        super().__init__(view, text="Execution Stats")
+        self.root = root
+
+        ttk.Label(self, text="Real time", font=self.root.small_font).grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.elapsed_real_time, font=self.root.small_font).grid(row=0, column=1, sticky=tk.W)
+        ttk.Label(self, text="Sim time", font=self.root.small_font).grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.elapsed_sim_time, font=self.root.small_font).grid(row=1, column=1, sticky=tk.W)
+
+        ttk.Label(self, text="Plan FPS", font=self.root.small_font).grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.replan_fps, font=self.root.small_font).grid(row=2, column=1, sticky=tk.W)
+
+        ttk.Label(self, text="Con. FPS", font=self.root.small_font).grid(row=3, column=0, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.control_fps, font=self.root.small_font).grid(row=3, column=1, sticky=tk.W)
+
+
+
+class BridgeFrame(ttk.LabelFrame):
+    def __init__(self, root: VisualizerApp, view):
+        super().__init__(view, text="Bridge Setting")
+        self.root = root
+
+        self.chk_ground_truth = ttk.Checkbutton(self, text="Provide Truth Detection", variable=self.root.setting.bridge_provide_ground_truth_detection)
+        self.chk_ground_truth.grid(row=0, column=0, sticky="w")
+
+        self.chk_rgb_image = ttk.Checkbutton(self, text="Provide RGB Image", variable=self.root.setting.bridge_provide_rgb_image)
+        self.chk_rgb_image.grid(row=1, column=0, sticky="w")
+
+        # self.chk_depth_image = ttk.Checkbutton(self, text="Provide Depth Image", variable=self.root.setting.bridge_provide_depth_image)
+        # self.chk_depth_image.grid(row=2, column=0, sticky="w")
+
+        self.chk_lidar_data = ttk.Checkbutton(self, text="Provide LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
+        self.chk_lidar_data.grid(row=3, column=0, sticky="w")
+
+    def update_bridge_settings(self):
+        pass
+
+

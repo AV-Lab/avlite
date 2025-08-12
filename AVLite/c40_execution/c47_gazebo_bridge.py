@@ -3,7 +3,7 @@ import json
 import logging
 import math
 from typing import Optional
-from c40_execution.c42_sync_executer import WorldInterface
+from c40_execution.c42_sync_executer import WorldBridge
 from c10_perception.c11_perception_model import EgoState, AgentState
 from c30_control.c32_control_strategy import ControlComand
 import numpy as np
@@ -19,7 +19,7 @@ except ImportError:
     log.warning("ROS2 Python packages not found. Make sure ROS2 is installed and sourced.")
 
 
-class GazeboIgnitionBridge(WorldInterface, Node):
+class GazeboIgnitionBridge(WorldBridge, Node):
     def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default"):
         """
         Initialize Gazebo Ignition Bridge

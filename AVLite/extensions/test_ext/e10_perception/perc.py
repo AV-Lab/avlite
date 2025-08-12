@@ -1,4 +1,7 @@
 from c10_perception.c12_perception_strategy import PerceptionStrategy
+import logging
+
+log = logging.getLogger(__name__)
 
 class testClass(PerceptionStrategy):
     def __init__(self, perception_model, setting=None):
@@ -8,4 +11,4 @@ class testClass(PerceptionStrategy):
         self.supports_prediction = True
 
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None):
-        print("Perceiving environment...")
+        log.warning("Perceiving environment...")
