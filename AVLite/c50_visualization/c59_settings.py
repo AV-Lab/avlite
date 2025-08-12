@@ -12,7 +12,7 @@ from c40_execution.c49_settings import ExecutionSettings
 log = logging.getLogger(__name__)
 
 class VisualizationSettings:
-    exclude = ["vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
+    exclude = ["exclude","vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
                          "control_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "extension_list"]
     filepath: str="configs/c50_visualization.yaml"
 

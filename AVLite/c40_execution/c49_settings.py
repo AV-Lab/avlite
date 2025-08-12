@@ -3,7 +3,7 @@ from c20_planning.c26_local_planners import RNDPlanner
 from c30_control.c34_stanley import StanleyController
 
 class ExecutionSettings:
-    exclude = []
+    exclude = ["exclude"]
     filepath: str="configs/c40_execution.yaml"
 
     async_mode:bool = False
@@ -18,5 +18,7 @@ class ExecutionSettings:
 
     global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
     hd_map = "data/san_campus.xodr"
+
+    extension_directories = ["AVLite/extensions"]
 
 

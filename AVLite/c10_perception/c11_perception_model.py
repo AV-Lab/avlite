@@ -25,8 +25,8 @@ class PerceptionModel:
    
     # Optional Agent Prediction 
     # Prediction Occupancy grid fields (NumPy arrays) - (timesteps, grid)
-    occupancy_grid: Optional[np.ndarray] = None
-    occupancy_grid_per_object:  Optional[np.ndarray] = None #(objects,timesteps, grid)
+    occupancy_flow: Optional[np.ndarray] = None
+    occupancy_flow_per_object:  Optional[np.ndarray] = None #(objects,timesteps, grid)
     grid_bounds: Optional[Dict[str, float]] = None
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
 

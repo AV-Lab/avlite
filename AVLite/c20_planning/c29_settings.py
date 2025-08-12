@@ -1,7 +1,7 @@
 
 
 class PlanningSettings:
-    exclude = []
+    exclude = ["exclude"]
     filepath: str="configs/c20_planning.yaml"
     
     # Race Planner Setting

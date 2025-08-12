@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -15,7 +16,9 @@ from c30_control.c32_control_strategy import ControlStrategy
 # from c20_planning.c21_planning_model import GlobalPlan
 # from c20_planning.c24_global_planners import RaceGlobalPlanner
 # from c40_execution.c44_basic_sim import BasicSim
-from c60_tools.c61_utils import reload_lib, get_absolute_path
+from c60_tools.c61_utils import reload_lib, get_absolute_path, import_all_modules_from_dir
+
+
 
 log = logging.getLogger(__name__)
 
@@ -164,7 +167,7 @@ class Executer(ABC):
         hd_map = ExecutionSettings.hd_map,
         reload_code = True,
         exclude_reload_settings = False,
-        profile=None
+        load_extensions=True,
     ) -> "Executer":
         """
         Factory method to create an instance of the Executer class based on the provided configuration.
@@ -187,11 +190,16 @@ class Executer(ABC):
         from c40_execution.c44_basic_sim import BasicSim
 
 
-        #TODO: this should be dynamic loading (fix later with config and profiles, to load only selected extensions
-        from extensions.multi_object_prediction.e10_perception.perception import MultiObjectPredictor
 
-        # if reload_code and profile is not None:
-            # load_all_settings(profile)
+        if load_extensions:
+            log.debug(f"perception registry: {PerceptionStrategy.registry.keys()}")
+            for ext_dir in ExecutionSettings.extension_directories:
+                log.debug(f"Loading extensions from {ext_dir}")
+                import_all_modules_from_dir(ext_dir)
+            log.debug(f"perception registry after: {PerceptionStrategy.registry.keys()}")
+
+            # from extensions.multi_object_prediction.e10_perception.perception import MultiObjectPredictor
+            # from extensions.test_ext.e10_perception.test import testClass
 
 
         #################

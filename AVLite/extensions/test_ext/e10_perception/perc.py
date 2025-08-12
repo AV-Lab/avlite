@@ -1,0 +1,11 @@
+from c10_perception.c12_perception_strategy import PerceptionStrategy
+
+class testClass(PerceptionStrategy):
+    def __init__(self, perception_model, setting=None):
+        super().__init__(perception_model, setting)
+        self.supports_detection = True
+        self.supports_tracking = True
+        self.supports_prediction = True
+
+    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None):
+        print("Perceiving environment...")

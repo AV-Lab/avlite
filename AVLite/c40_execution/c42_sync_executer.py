@@ -44,8 +44,10 @@ class SyncExecuter(Executer):
 
     def step(self, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True,) -> None:
 
-        pln_time_txt, cn_time_txt, sim_time_txt = "", "", ""
+        pln_time_txt, cn_time_txt, pr_time_txt, sim_time_txt = "", "", "", ""
         t0 = time.time()
+
+        self.ego_state = self.world.get_ego_state()
 
         if call_replan:
             dt_p = self.elapsed_sim_time - self.__planner_last_time
@@ -55,6 +57,7 @@ class SyncExecuter(Executer):
                 self.planner_fps = 1.0 / dt_p
                 pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
                 # log.info(f"DT Planner: {dt_p:.4f} sec")
+
         self.local_planner.step(self.ego_state)
 
         t1 = time.time()
@@ -68,44 +71,35 @@ class SyncExecuter(Executer):
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
 
                 self.world.control_ego_state(cmd, dt=sim_dt)
+        self.elapsed_sim_time += control_dt
+        
+        t2 = time.time()
         if call_perceive:
-            if self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
+            if not self.perception:
+                log.error("Perception strategy is not set. Skipping perception step.")
+
+            elif self.perception.supports_detection == False and self.world.supports_ground_truth_perception:
                 self.pm = self.world.get_ground_truth_perception_model()
                 perception_output = self.perception.perceive(perception_model=self.pm)
                 log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
+                log.debug(f"type of perception_output: {type(perception_output)}")
+                log.warning(f"occupancy grid: {perception_output}")
             else:
                 perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
                     if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
                     if self.world.supports_depth_image else None, lidar_data=self.world.get_lidar_data() 
                     if self.world.supports_lidar_data else None)
-
-        self.ego_state = self.world.get_ego_state()
-
-
-        if call_perceive:
-            # if self.world.support_ground_truth_perception:
-            #     self.pm = self.world.get_ground_truth_perception_model()
-
-            if self.perception.detector == 'ground_truth':
-                self.pm = self.world.get_ground_truth_perception_model()
-                perception_output = self.perception.perceive(perception_model=self.pm)
-            elif self.perception.detector is not None:
-                perception_output = self.perception.perceive(
-                    rgb_img=self.world.get_rgb_image(),
-                    depth_img=self.world.get_depth_image(),
-                    lidar_data=self.world.get_lidar_data()
-                )
+            pr_time_txt = f" PR: {(time.time() - t2):.4f} sec,"
 
 
-        self.elapsed_sim_time += control_dt
+
         delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
 
-        log.debug(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {sim_time_txt}")
-        log.debug(
-            f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec"
-        )
+        log.debug(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {pr_time_txt} {sim_time_txt}")
+        log.debug( f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec")
+
 
     def run(self, replan_dt=0.5, control_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
         self.reset()

@@ -2,7 +2,6 @@ from c10_perception.c11_perception_model import PerceptionModel
 from c10_perception.c19_settings import PerceptionSettings
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 

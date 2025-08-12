@@ -5,7 +5,6 @@ import logging
 
 from yaml import load_all
 
-from extensions.multi_object_prediction.e10_perception import perception
 from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from c20_planning.c29_settings import PlanningSettings
@@ -20,7 +19,7 @@ from c50_visualization.c54_exec_views import ExecView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
 from c50_visualization.c56_config_views import ConfigShortcutView
-from c60_tools.c61_utils import load_setting, list_profiles
+from c60_tools.c61_utils import load_setting, list_profiles, list_extensions
     
 
 log = logging.getLogger(__name__)
@@ -56,6 +55,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
+        self.setting.extension_list = list_extensions()
         
         # ----------------------------------------------------------------------
         # UI Views
@@ -210,6 +210,8 @@ class VisualizerApp(tk.Tk):
         log.info(f"Loaded settings from profile: {profile}")
         log.info(f"map is {ExecutionSettings.hd_map}")
 
+        self.log_view.reset()
+
     def reload_stack(self, reload_code:bool = True):
         if reload_code:
             self.show_loading_overlay("Reloading stack...")
@@ -235,7 +237,8 @@ class VisualizerApp(tk.Tk):
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.hd_map,
                 reload_code=reload_code,
-                exclude_reload_settings=True
+                exclude_reload_settings=True,
+                load_extensions=self.setting.load_extensions.get(),
             )
 
         except Exception as e:

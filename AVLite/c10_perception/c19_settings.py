@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class PerceptionSettings:
-    exclude = []
+    exclude = ["exclude"]
     filepath: str="configs/c10_perception.yaml"
     # Ego
     max_valocity: float = 30

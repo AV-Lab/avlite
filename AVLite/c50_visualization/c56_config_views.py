@@ -108,9 +108,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def __on_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
-        log.warning(f"Map before reload: {ExecutionSettings.hd_map}")
         self.root.load_configs()
-        log.warning(f"Map after config load: {ExecutionSettings.hd_map}")
         self.root.reload_stack(reload_code=False)
 
 
@@ -179,8 +177,7 @@ class SettingView:
         listbox.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        extensions = list_extensions()
-        for ext in extensions:
+        for ext in self.root.setting.extension_list:
             listbox.insert(tk.END, ext)
 
         ##########
