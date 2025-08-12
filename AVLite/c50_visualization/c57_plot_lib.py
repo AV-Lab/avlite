@@ -867,7 +867,7 @@ class LocalPlot:
                 flow_sum = pm.occupancy_flow[0] #np.sum(pm.occupancy_flow, axis=0)
                 self.pm_occupancy_flow_ax1 = self.ax1.imshow(
                     flow_sum,
-                    origin='upper',
+                    origin='lower',
                     extent=extent,
                     cmap='viridis',
                     vmin=0,

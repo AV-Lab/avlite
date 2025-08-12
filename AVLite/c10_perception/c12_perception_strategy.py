@@ -21,26 +21,26 @@ class PerceptionStrategy(ABC):
 
         
     
-    def detect(self, rgb_img=None, depth_img=None, lidar_data=None):
+    def detect(self, rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:
         """
         Detect objects in the environment using the specified detection method.
         """
         raise NotImplementedError("Detection method not implemented.")
 
-    def track(self):
+    def track(self) -> PerceptionModel | None:
         """
         Track detected objects over time.
         """
         raise NotImplementedError("Tracking method not implemented.")
 
-    def predict(self):
+    def predict(self)-> PerceptionModel | None:
         """
         Predict future states of tracked objects.
         """
         raise NotImplementedError("Prediction method not implemented.")
 
     @abstractmethod
-    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None):
+    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None)-> PerceptionModel | None:
         """
         Main perception method that combines detection, tracking, and prediction.
         """
