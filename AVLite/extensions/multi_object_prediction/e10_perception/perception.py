@@ -139,12 +139,16 @@ class MultiObjectPredictor(PerceptionStrategy):
             self.bounds = None
             return
         if self.output_mode == 'grid':
-            ego_location = [self.pm.ego_vehicle.x, self.pm.ego_vehicle.y]
-            objects_sizes = self.pm.agents_sizes_as_np()
-            log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location} grid size: {self.pm.grid_size}x{self.pm.grid_size}")
-            self.pm.occupancy_flow ,self.pm.occupancy_flow_per_object,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,sizes=objects_sizes,ego_location=ego_location,grid_steps=self.pm.grid_size)
-            log.debug(f"Occupancy grid shape: {self.pm.occupancy_flow.shape}\nOccupancy grid per object shape: {self.pm.occupancy_flow_per_object.shape}\nGrid bounds: {self.pm.grid_bounds}")
-            self.prediction_output = self.pm.occupancy_flow
+            try:
+                ego_location = [self.pm.ego_vehicle.x, self.pm.ego_vehicle.y]
+                objects_sizes = self.pm.agents_sizes_as_np()
+                log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location} grid size: {self.pm.grid_size}x{self.pm.grid_size}")
+                self.pm.occupancy_flow ,self.pm.occupancy_flow_per_object,self.pm.grid_bounds = self.predictor_model.predict(self.pm,output_mode=self.output_mode,sizes=objects_sizes,ego_location=ego_location,grid_steps=self.pm.grid_size)
+                log.debug(f"Occupancy grid shape: {self.pm.occupancy_flow.shape}\nOccupancy grid per object shape: {self.pm.occupancy_flow_per_object.shape}\nGrid bounds: {self.pm.grid_bounds}")
+                self.prediction_output = self.pm.occupancy_flow
+            except Exception as e:
+                log.error(f"Error during grid prediction: {e}")
+                self.prediction_output = []
         else:
             log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location}")
             self.pm.trajectories = self.predictor_model.predict(self.pm,output_mode=self.output_mode)

@@ -117,6 +117,7 @@ default:
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
+  show_occupancy_flow: false
   show_past_locations: true
   show_perceive_logs: false
   show_plan_logs: false
@@ -160,6 +161,7 @@ perception exp:
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
+  show_occupancy_flow: true
   show_past_locations: true
   show_perceive_logs: false
   show_plan_logs: false

@@ -391,6 +391,7 @@ class LocalPlanPlotView(ttk.Frame):
             plot_state=self.root.setting.show_state.get(),
             global_follow_planner=self.root.setting.global_view_follow_planner.get(),
             frenet_follow_planner=self.root.setting.frenet_view_follow_planner.get(),
+            plot_occupancy_flow=self.root.setting.show_occupancy_flow.get(),
         )
         self.canvas.draw()
         log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")

@@ -5,6 +5,8 @@ import time
 import logging
 
 from typing import TYPE_CHECKING
+
+from torch.autograd import variable
 from c10_perception.c12_perception_strategy import PerceptionStrategy
 from c30_control.c32_control_strategy import ControlComand, ControlStrategy
 from c50_visualization.c58_ui_lib import ValueGauge
@@ -35,7 +37,7 @@ class PerceivePlanControlView(ttk.Frame):
         perception_dropdown_menu.state(["readonly"])
         perception_dropdown_menu.pack(side=tk.LEFT,fill=tk.X, expand=True)
         perception_dropdown_menu.bind("<<ComboboxSelected>>",lambda event: self.root.reload_stack(reload_code=False))
-        ttk.Checkbutton(top_pframe, text="Show").pack(side=tk.LEFT)
+        ttk.Checkbutton(top_pframe, text="Show",variable=self.root.setting.show_occupancy_flow).pack(side=tk.LEFT)
 
         # ----
         vehicle_state_label = ttk.Label( self.perceive_frame, font=self.root.small_font, textvariable=self.root.setting.vehicle_state,

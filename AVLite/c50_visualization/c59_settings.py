@@ -40,6 +40,8 @@ class VisualizationSettings:
         self.global_zoom = 30
 
         # Perc Plan Control
+        self.show_occupancy_flow = tk.BooleanVar(value=False)
+
         self.perception_type = tk.StringVar(value=list(PerceptionStrategy.registry.keys())[0] if PerceptionStrategy.registry else None)
         def _on_perception_change(*args):
             ExecutionSettings.perception = self.perception_type.get()

@@ -9,9 +9,6 @@ from c20_planning.c28_trajectory import Trajectory
 from c40_execution.c42_sync_executer import SyncExecuter
 from c20_planning.c24_global_planners import HDMapGlobalPlanner
 
-
-
-
 from typing import cast, Optional
 from abc import ABC, abstractmethod
 import numpy as np
@@ -486,7 +483,7 @@ class GlobalHDMapPlot(GlobalPlot):
             
 
 class LocalPlot:
-    def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12):
+    def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100)):
         self.MAX_LATTICE_SIZE = max_lattice_size
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
@@ -589,6 +586,17 @@ class LocalPlot:
             self.pm_plots_ax1.append(agent_vehicle_ax1)
             self.pm_plots_ax2.append(agent_vehicle_ax2)
 
+        # self.pm_occupancy_flow_ax1 = self.ax1.imshow(
+        #         np.zeros((100, 100)),
+        #         origin='upper',
+        #         extent=[
+        #             pm.grid_bounds.get('min_x', 0),
+        #             pm.grid_bounds.get('max_x', 0) + 100 * pm.grid_bounds.get('resolution', 1), 
+        #             pm.grid_bounds.get('min_y', 0),
+        #             pm.grid_bounds.get('max_y', 0) + 100 * pm.grid_bounds.get('resolution', 1)
+        #         ]
+        #     )
+
         self.legend_ax = self.fig.add_axes([0.0, -0.013, 1, 0.1])
         self.legend_ax.legend(
             *self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3)
@@ -617,7 +625,8 @@ class LocalPlot:
         plot_perception_model=True,
         num_plot_last_pts=100,
         global_follow_planner = False,
-        frenet_follow_planner = False
+        frenet_follow_planner = False,
+        plot_occupancy_flow = False,
     ):
         self.legend_ax.set_visible(show_legend)
         
@@ -651,6 +660,7 @@ class LocalPlot:
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
         self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model)
+        self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
         self.redraw_plots()
 
     def redraw_plots(self):
@@ -840,6 +850,36 @@ class LocalPlot:
             self.pm_plots_ax1[i].set_xy(agent.get_bb_corners())
             self.pm_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
 
+    def update_pm_occupancy_flow_plots(self, pm: Optional[PerceptionModel]=None, show_plot=True):
+        if not show_plot or pm is None:
+            if hasattr(self, 'pm_occupancy_flow_ax1'):
+                self.pm_occupancy_flow_ax1.set_data(np.zeros((100, 100)))
+                self.pm_occupancy_flow_ax1.set_extent([0, 0, 0, 0])
+            return
+        if pm.occupancy_flow is not None and pm.grid_bounds is not None:
+            extent = [
+                pm.grid_bounds.get('min_x', 0),
+                pm.grid_bounds.get('max_x', 0), 
+                pm.grid_bounds.get('min_y', 0),
+                pm.grid_bounds.get('max_y', 0),
+            ]
+            if not hasattr(self, 'pm_occupancy_flow_ax1'):
+                flow_sum = pm.occupancy_flow[0] #np.sum(pm.occupancy_flow, axis=0)
+                self.pm_occupancy_flow_ax1 = self.ax1.imshow(
+                    flow_sum,
+                    origin='upper',
+                    extent=extent,
+                    cmap='viridis',
+                    vmin=0,
+                    vmax=1
+                )
+                # self.fig.colorbar(self.pm_occupancy_flow_ax1, ax=self.ax1, label='Occupancy')
+            else:
+                self.pm_occupancy_flow_ax1.set_data(pm.occupancy_flow[0])
+                self.pm_occupancy_flow_ax1.set_extent(extent)
+            self.fig.canvas.draw_idle()
+
+
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         self.fig.patch.set_facecolor(bg_color)
         self.ax1.patch.set_facecolor(bg_color)
@@ -889,3 +929,4 @@ class LocalPlot:
 
     def reset(self):
         self.initialized = False
+        self.update_pm_occupancy_flow_plots(None, show_plot=False)

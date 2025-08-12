@@ -24,11 +24,11 @@ class PerceptionModel:
     grid_size: int = PerceptionSettings.grid_size  # Size of the occupancy grid -> 100x100
    
     # Optional Agent Prediction 
-    # Prediction Occupancy grid fields (NumPy arrays) - (timesteps, grid)
-    occupancy_flow: Optional[np.ndarray] = None
-    occupancy_flow_per_object:  Optional[np.ndarray] = None #(objects,timesteps, grid)
-    grid_bounds: Optional[Dict[str, float]] = None
+    occupancy_flow: Optional[list[np.ndarray]] = None # list of 2D grids. Each list corresponds to a timestep in the prediction
+    grid_bounds: Optional[Dict[str, float]] = None # Dictionary with bounds of the grid (min_x, max_x, min_y, max_y, resolution)
+
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
+    occupancy_flow_per_object:  Optional[np.ndarray] = None #(objects,timesteps, grid)
 
 
     def add_agent_vehicle(self, agent: AgentState):

@@ -83,7 +83,9 @@ class SyncExecuter(Executer):
                 perception_output = self.perception.perceive(perception_model=self.pm)
                 log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
                 log.debug(f"type of perception_output: {type(perception_output)}")
-                log.warning(f"occupancy grid: {perception_output}")
+                # log.warning(f"occupancy grid: {self.pm.occupancy_flow}")
+                log.debug(f"occupancy grid sizes: {self.pm.grid_bounds}")
+
             else:
                 perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
                     if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
