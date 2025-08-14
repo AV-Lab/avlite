@@ -1,4 +1,5 @@
 from __future__ import annotations
+from os import wait
 from typing import Optional
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -16,7 +17,7 @@ from c30_control.c32_control_strategy import ControlStrategy
 # from c20_planning.c21_planning_model import GlobalPlan
 # from c20_planning.c24_global_planners import RaceGlobalPlanner
 # from c40_execution.c44_basic_sim import BasicSim
-from c60_tools.c61_utils import reload_lib, get_absolute_path, import_all_modules_from_dir
+from c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules_from_dir
 
 
 

@@ -3,7 +3,7 @@ import importlib
 
 from c10_perception.c11_perception_model import PerceptionModel
 from c10_perception.c19_settings import PerceptionSettings
-from extensions.multi_object_prediction.setting import ExtensionSettings
+from extensions.multi_object_prediction.settings import ExtensionSettings
 from c10_perception.c12_perception_strategy import PerceptionStrategy
 
 log = logging.getLogger(__name__)

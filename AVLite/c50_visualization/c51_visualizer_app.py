@@ -19,7 +19,7 @@ from c50_visualization.c54_exec_views import ExecView
 from c50_visualization.c59_settings import VisualizationSettings
 from c50_visualization.c55_log_view import LogView
 from c50_visualization.c56_config_views import ConfigShortcutView
-from c60_tools.c61_utils import load_setting, list_profiles, list_extensions
+from c60_common.c61_setting_utils import load_setting, list_profiles, list_extensions, load_all_stack_settings
     
 
 log = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
-        self.setting.extension_list = list_extensions()
+        self.setting.extension_list = list_extensions(ExecutionSettings.extension_directories)
         
         # ----------------------------------------------------------------------
         # UI Views
@@ -81,7 +81,7 @@ class VisualizerApp(tk.Tk):
         self.load_configs()
         self.reload_stack()
         # Bind to window resize to maintain ratio
-        self.toggle_shortcut_mode()
+        self.update_shortcut_mode()
         self.config_shortcut_view.toggle_dark_mode()  
 
         self.bind("<Configure>", self.__update_grid_column_sizes)
@@ -135,7 +135,10 @@ class VisualizerApp(tk.Tk):
 
         self.after(500, self.update_ui)  
 
-    def toggle_shortcut_mode(self):
+    def update_shortcut_mode(self, reverse=False):
+        if reverse:
+            self.setting.shortcut_mode.set(not self.setting.shortcut_mode.get())
+
         if self.setting.shortcut_mode.get():
             self.perceive_plan_control_view.grid_forget()
             self.exec_visualize_view.grid_forget()
@@ -147,6 +150,7 @@ class VisualizerApp(tk.Tk):
             self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
             self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
             self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
+
 
 
     def disable_frame(self, frame: ttk.Frame):
@@ -200,16 +204,22 @@ class VisualizerApp(tk.Tk):
         log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
     
 
-    def load_configs(self, only_stack=False):
-        profile = self.setting.selected_profile.get()
+    def load_configs(self, only_stack=False, profile=None):
+        
+        if profile:
+            self.setting.selected_profile.set(profile)
+        else:
+            profile = self.setting.selected_profile.get() 
         load_setting(PerceptionSettings, profile=profile)
         load_setting(PlanningSettings, profile=profile)
         load_setting(ControlSettings, profile=profile)
         load_setting(ExecutionSettings, profile=profile)
+        load_all_stack_settings(profile=profile, load_extensions=self.setting.load_extensions.get())
+                                # all_extension_dirs=ExecutionSettings.extension_directories)
         if not only_stack:
             load_setting(self.setting, profile=profile)
+
         log.info(f"Loaded settings from profile: {profile}")
-        log.info(f"map is {ExecutionSettings.hd_map}")
 
         self.log_view.reset()
 
@@ -347,6 +357,7 @@ class VisualizerApp(tk.Tk):
             from ttkthemes import ThemedStyle
             style = ThemedStyle(self)
             style.set_theme("equilux")
+            style.configure("Big.TLabel", font=("Arial", 16, "bold"))
             gruvbox_red = "#9d0006"
             gruvbox_orange = "#d65d0e"
             style.layout(
@@ -421,6 +432,8 @@ class VisualizerApp(tk.Tk):
         self.option_add('*Listbox.highlightBackground', 'white')
         self.option_add('*Listbox.highlightColor', '#0078d7')  # Or 'black' for a simple border
         self.option_add('*Listbox.borderWidth', 2)
+       
+        style.configure("Big.TLabel", font=("Arial", 16, "bold"))
 
     def set_set_light_mode_darker(self):
         self.configure(bg="gray14")

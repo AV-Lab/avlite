@@ -63,8 +63,8 @@ class LogView(ttk.LabelFrame):
         
         ttk.Checkbutton(
             self.controls_frame,
-            text="Tools",
-            variable=self.root.setting.show_tools_logs,
+            text="Common",
+            variable=self.root.setting.show_common_logs,
             command=self.update_log_filter,
         ).pack(side=tk.LEFT)
         
@@ -165,9 +165,9 @@ class LogView(ttk.LabelFrame):
             else self.log_blacklist.add("c50_visualization")
         )
         (
-            self.log_blacklist.discard("c60_tools")
-            if self.root.setting.show_tools_logs.get()
-            else self.log_blacklist.add("c60_tools")
+            self.log_blacklist.discard("c60_common")
+            if self.root.setting.show_common_logs.get()
+            else self.log_blacklist.add("c60_common")
         )
         (
             self.log_blacklist.discard("extensions")

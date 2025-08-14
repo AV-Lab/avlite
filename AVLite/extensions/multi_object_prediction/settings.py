@@ -1,6 +1,5 @@
-
 class ExtensionSettings:
-    exclude = []
+    exclude = ["exclude", "filepath"] # attributes to exclude from saving/loading
     filepath: str="configs/ext_multi_object_predictor.yaml"
     
     device: str = "cuda:0" #cpu

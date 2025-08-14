@@ -1,3 +1,16 @@
+B:
+  async_mode: false
+  bridge: BasicSim
+  control_dt: 0.05
+  controller: StanleyController
+  filepath: configs/c40_execution.yaml
+  global_planner: RaceGlobalPlanner
+  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  hd_map: data/Town10HD_Opt.xodr
+  local_planner: RNDPlanner
+  perception: ''
+  replan_dt: 0.5
+  sim_dt: 0.01
 Carla_Town10:
   async_mode: true
   bridge: CarlaBridge
@@ -13,7 +26,7 @@ Carla_Town10:
   sim_dt: 0.011
 SAN:
   async_mode: true
-  bridge: Basic
+  bridge: BasicSim
   control_dt: 0.01
   controller: StanleyController
   filepath: configs/c40_execution.yaml
@@ -29,8 +42,6 @@ default:
   bridge: BasicSim
   control_dt: 0.01
   controller: StanleyController
-  extension_directories:
-  - AVLite/extensions
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -44,8 +55,6 @@ perception exp:
   bridge: BasicSim
   control_dt: 0.01
   controller: StanleyController
-  extension_directories:
-  - AVLite/extensions
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json

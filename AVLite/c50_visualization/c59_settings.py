@@ -21,6 +21,7 @@ class VisualizationSettings:
         self.shortcut_mode = tk.BooleanVar()
         self.dark_mode = tk.BooleanVar(value=True)
         self.selected_profile = tk.StringVar(value="default")
+        self.next_profile = tk.StringVar(value="default")
         self.load_extensions = tk.BooleanVar(value=True)  # Load extensions on startup
         self.extension_list = []
         self.mouse_drag_slowdown_factor = 0.5
@@ -116,7 +117,7 @@ class VisualizationSettings:
         self.show_control_logs = tk.BooleanVar(value=True)
         self.show_execute_logs = tk.BooleanVar(value=True)
         self.show_vis_logs = tk.BooleanVar(value=True)
-        self.show_tools_logs = tk.BooleanVar(value=True)
+        self.show_common_logs = tk.BooleanVar(value=True)
         self.show_extensions_logs = tk.BooleanVar(value=True)
         self.disable_log = tk.BooleanVar(value=False)
 

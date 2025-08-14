@@ -27,14 +27,16 @@ def get_absolute_path(relative_path: str) -> str:
     return str(project_dir / relative_path)
 
 
-def reload_lib(reload_extensions: bool = True, all_extension_dirs=[], exclude_settings=False) -> None:
+def reload_lib(reload_extensions: bool = True, all_extension_dirs=[], exclude_settings=False, exclude_stack=False) -> None:
     """Dynamically reload all modules in the project."""
     log.info("Reloading imports...")
 
     # Get the base package name (AVLite) and all submodules
     project_modules = []
     base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils"]
-    
+    stack_settings = ["c10_perception.c19_settings", "c20_planning.c29_settings", "c30_control.c39_settings",
+                             "c40_execution.c49_settings"]
+
     if reload_extensions:
         avlite_dir = Path(__file__).parent.parent  # Go up to AVLite directory
         default_extensions_dir = avlite_dir / "extensions"
@@ -52,20 +54,25 @@ def reload_lib(reload_extensions: bool = True, all_extension_dirs=[], exclude_se
                 log.warning(f"Extensions directory not found at: {extensions_dir}")
 
     base_prefixes = [p.replace("\\", ".").replace("/", ".") for p in base_prefixes]
+    if exclude_stack:
+        project_modules = stack_settings
+    
+    else:
+        # Find all loaded modules that belong to our project
+        for module_name in list(sys.modules.keys()):
+            if any(module_name.startswith(prefix) for prefix in base_prefixes):
+                project_modules.append(module_name)
+
+        # Sort modules to ensure proper reload order (parent modules before child modules)
+        project_modules.sort(key=lambda x: x.count('.'))
+
+        if exclude_settings:
+            project_modules = [mod for mod in project_modules if mod not in stack_settings]
 
 
-    # Find all loaded modules that belong to our project
-    for module_name in list(sys.modules.keys()):
-        if any(module_name.startswith(prefix) for prefix in base_prefixes):
-            project_modules.append(module_name)
-
-    # Sort modules to ensure proper reload order (parent modules before child modules)
-    project_modules.sort(key=lambda x: x.count('.'))
-
-    if exclude_settings:
-        excluded_settings = ["c10_perception.c19_settings", "c20_planning.c29_settings", "c30_control.c39_settings",
-                             "c40_execution.c49_settings"]
-        project_modules = [mod for mod in project_modules if mod not in excluded_settings]
+    #################################################
+    ## Reloading Settings Modules ###################
+    #################################################
 
     # Reload each module
     for module_name in project_modules:
@@ -171,7 +178,7 @@ def load_setting(setting, profile="default") -> None:
     except Exception as e:
         log.error(f"Failed to load configuration: {e}")
 
-def delete_profile(setting, profile) -> bool:
+def delete_setting_profile(setting, profile) -> bool:
     """Delete a profile from the configuration file."""
     filepath = setting.filepath
     if profile == "default":
@@ -233,3 +240,19 @@ def import_all_modules_from_dir(directory):
             sys.modules[module_name] = module
             spec.loader.exec_module(module)
             log.debug(f"Loaded module: {module_name} from {py_file}")
+
+def load_all_stack_settings(profile="default", load_extensions=True, all_extension_dirs=[]): 
+    load_setting(PerceptionSettings, profile=profile)
+    load_setting(PlanningSettings, profile=profile)
+    load_setting(ControlSettings, profile=profile)
+    load_setting(ExecutionSettings, profile=profile)
+
+    print(f"all extension_dirs: {all_extension_dirs}")
+    extensions = list_extensions(all_extension_dirs=all_extension_dirs)
+    for ext in extensions:
+        module = importlib.import_module(f"extensions.{ext}.settings")
+        ExtensionSettings = getattr(module, "ExtensionSettings")
+        load_setting(ExtensionSettings, profile=profile)
+
+
+

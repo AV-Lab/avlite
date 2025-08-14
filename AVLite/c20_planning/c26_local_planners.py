@@ -15,18 +15,18 @@ log = logging.getLogger(__name__)
 
 
 class RNDPlanner(LocalPlannerStrategy):
-    def __init__( self, global_plan: GlobalPlan, env: PerceptionModel, num_of_edge_points=PlanningSettings.num_of_edge_points,
-                 planning_horizon= PlanningSettings.planning_horizon, maneuver_distance=PlanningSettings.maneuver_distance,
-                 boundary_clearance=PlanningSettings.boundary_clearance, sample_size=PlanningSettings.sample_size, 
-                 match_speed_wp_buffer=PlanningSettings.match_speed_wp_buffer
-    ):
-        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=num_of_edge_points, planning_horizon=planning_horizon,)
-        self.maneuver_distance: float = maneuver_distance
-        self.boundary_clearance: int = boundary_clearance
-        self.sample_size: int = sample_size
-        self.match_speed_wp_buffer: int = match_speed_wp_buffer
+    def __init__( self, global_plan: GlobalPlan, env: PerceptionModel, setting: PlanningSettings = PlanningSettings):# num_of_edge_points=PlanningSettings.num_of_edge_points,
+    #              planning_horizon= PlanningSettings.planning_horizon, maneuver_distance=PlanningSettings.maneuver_distance,
+    #              boundary_clearance=PlanningSettings.boundary_clearance, sample_size=PlanningSettings.sample_size, 
+    #              match_speed_wp_buffer=PlanningSettings.match_speed_wp_buffer
+    # ):
+        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.num_of_edge_points, planning_horizon=setting.planning_horizon,)
+        self.maneuver_distance: float = setting.maneuver_distance
+        self.boundary_clearance: float = setting.boundary_clearance
+        self.sample_size: int = setting.sample_size
+        self.match_speed_wp_buffer: int = setting.match_speed_wp_buffer
         # TODO: 
-        self.lattice.targetted_num_edges = sample_size * sample_size**(self.planning_horizon - 1)
+        self.lattice.targetted_num_edges = setting.sample_size * setting.sample_size**(self.planning_horizon - 1)
 
     def replan(self, back_to_ref_horizon=10):
         if len(self.traversed_s) == 0:

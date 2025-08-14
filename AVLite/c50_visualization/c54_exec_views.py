@@ -27,17 +27,18 @@ class ExecView(ttk.Frame):
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
         self.execution_frame = ttk.LabelFrame(self, text="Execution")
-        self.execution_frame.grid(row=0,column=0, sticky="nsew", padx=5, pady=5)
+        self.execution_frame.grid(row=0,column=0, sticky="nsew")
 
-        ## Execution Settings Frame
-        exec_setting_frame = ExecSettingFrame(self.root, self)
-        exec_setting_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
         ## Bridge 
         bridge_frame = BridgeFrame(self.root, self)
-        bridge_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+        bridge_frame.grid(row=0, column=1, sticky="nsew")
+        
+        ## Execution Settings Frame
+        exec_setting_frame = ExecSettingFrame(self.root, self)
+        exec_setting_frame.grid(row=0, column=2, sticky="nsew")
 
-        self.columnconfigure(0, weight=3)  # execution_frame wider
+        self.columnconfigure(0, weight=2)  # execution_frame wider
         self.columnconfigure(1, weight=1)  # exec_setting_frame
         self.columnconfigure(2, weight=1)  # bridge_frame
         
@@ -45,11 +46,12 @@ class ExecView(ttk.Frame):
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
         exec_first_frame = ttk.Frame(self.execution_frame)
-        exec_first_frame.grid(row=0, column=0, columnspan=2, sticky="we")
+        exec_first_frame.grid(row=0, column=0, sticky="we")
         exec_second_frame = ttk.Frame(self.execution_frame)
-        exec_second_frame.grid(row=1, column=0, columnspan=2, sticky="we")
+        exec_second_frame.grid(row=1, column=0, sticky="we")
         exec_third_frame = ttk.Frame(self.execution_frame)
-        exec_third_frame.grid(row=2, column=0, columnspan=2, sticky="we")
+        exec_third_frame.grid(row=2, column=0, sticky="we")
+        self.execution_frame.columnconfigure(0, weight=1)
         
         ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         dt_control_entry = ttk.Entry(

@@ -150,6 +150,9 @@ class AsyncThreadedExecuter(Executer):
                 time.sleep(0.1)
 
             if self.call_perceive:
+                if not self.perception:
+                    log.error("Perception strategy is not set. Skipping perception step.")
+                    continue
                 # log.info(f"support detection: {self.perception.supports_detection}")
                 if self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
                     self.pm = self.world.get_ground_truth_perception_model()
