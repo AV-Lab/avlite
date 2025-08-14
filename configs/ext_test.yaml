@@ -1,4 +1,6 @@
 default:
-  test: test_value RRRR
+  test: 'test_value (updated twice)  '
 perception exp:
-  test: test_value bbb
+  test: test_value (perc)
+source defaults:
+  test: test_value

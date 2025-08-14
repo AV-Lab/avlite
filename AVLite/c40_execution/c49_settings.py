@@ -3,7 +3,7 @@ from c20_planning.c26_local_planners import RNDPlanner
 from c30_control.c34_stanley import StanleyController
 
 class ExecutionSettings:
-    exclude = ["exclude", "extension_directories"]
+    exclude = ["exclude"]
     filepath: str="configs/c40_execution.yaml"
 
     async_mode:bool = False
@@ -20,6 +20,6 @@ class ExecutionSettings:
     hd_map = "data/san_campus.xodr"
 
     # TODO: there is an issue with saving those lists; therefore, currently excluded from config
-    extension_directories = []
+    external_extensions: dict[str,str] = {"delete_me": "/home/mkhonji/Desktop/delete_me"}
 
 

@@ -1,4 +1,5 @@
 from c10_perception.c12_perception_strategy import PerceptionStrategy
+from extensions.test_ext.settings import ExtensionSettings
 import logging
 
 log = logging.getLogger(__name__)
@@ -11,4 +12,4 @@ class testClass(PerceptionStrategy):
         self.supports_prediction = True
 
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None):
-        log.warning("Perceiving environment...")
+        log.warning(f"Perceiving environment...loaded var: {ExtensionSettings.test}")

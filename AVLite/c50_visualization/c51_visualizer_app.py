@@ -3,15 +3,8 @@ import tkinter as tk
 from tkinter import ttk
 import logging
 
-from yaml import load_all
-
-from c10_perception.c19_settings import PerceptionSettings
-from c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from c20_planning.c29_settings import PlanningSettings
-from c30_control.c39_settings import ControlSettings
 from c40_execution.c41_execution_model import Executer
 from c40_execution.c42_sync_executer import SyncExecuter
-from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
 from c40_execution.c49_settings import ExecutionSettings
 from c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
@@ -55,7 +48,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
-        self.setting.extension_list = list_extensions(ExecutionSettings.extension_directories)
+        self.setting.extension_list = list_extensions()
         
         # ----------------------------------------------------------------------
         # UI Views
@@ -72,18 +65,22 @@ class VisualizerApp(tk.Tk):
         self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
         self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
         # Configure grid weights for the 3:1 ratio
-        self.grid_rowconfigure(0, weight=1)  # make the plot views expand
         self.grid_columnconfigure(0, weight=1)  # local view gets xx weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
+        self.grid_rowconfigure(0, weight=1)  # make the plot views expand
         self.update_idletasks()
         
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_configs()
+        log.warning(f"map is {ExecutionSettings.hd_map}")
         self.reload_stack()
+        log.warning(f"map after is {ExecutionSettings.hd_map}")
+
         # Bind to window resize to maintain ratio
         self.update_shortcut_mode()
         self.config_shortcut_view.toggle_dark_mode()  
 
+        self.validate_cmd = (self.register(self.validate_float_input), "%P")
         self.bind("<Configure>", self.__update_grid_column_sizes)
         self.after(500, self.update_ui)
         self.last_resize_time = time.time()
@@ -177,95 +174,6 @@ class VisualizerApp(tk.Tk):
             log.error("Please enter a valid float number")
             return False
     
-    def update_ui(self):
-        t1 = time.time()
-        if self.setting.global_plan_view.get():
-            self.global_plan_plot_view.plot()
-        if self.setting.local_plan_view.get():
-            self.local_plan_plot_view.plot()
-
-        if not self.setting.shortcut_mode.get():
-            self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}")
-            self.setting.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
-
-            # TODO: need to connect to a tkinter variable instead
-            self.perceive_plan_control_view.control_frame.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
-            self.perceive_plan_control_view.control_frame.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
-            self.perceive_plan_control_view.control_frame.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
-            self.perceive_plan_control_view.control_frame.gauge_steer.set_value(self.exec.controller.cmd.steer)
-
-            self.setting.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
-            self.setting.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
-            self.setting.replan_fps.set(f"{self.exec.planner_fps:6.1f}")
-            self.setting.control_fps.set(f"{self.exec.control_fps:6.1f}")
-            self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
-
-
-        log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
-    
-
-    def load_configs(self, only_stack=False, profile=None):
-        
-        if profile:
-            self.setting.selected_profile.set(profile)
-        else:
-            profile = self.setting.selected_profile.get() 
-        load_setting(PerceptionSettings, profile=profile)
-        load_setting(PlanningSettings, profile=profile)
-        load_setting(ControlSettings, profile=profile)
-        load_setting(ExecutionSettings, profile=profile)
-        load_all_stack_settings(profile=profile, load_extensions=self.setting.load_extensions.get())
-                                # all_extension_dirs=ExecutionSettings.extension_directories)
-        if not only_stack:
-            load_setting(self.setting, profile=profile)
-
-        log.info(f"Loaded settings from profile: {profile}")
-
-        self.log_view.reset()
-
-    def reload_stack(self, reload_code:bool = True):
-        if reload_code:
-            self.show_loading_overlay("Reloading stack...")
-        else:
-            self.show_loading_overlay("Reinitializing stack...")
-
-        self.exec_visualize_view.stop_exec()
-        self.disable_frame(self)
-        self.local_plan_plot_view.grid_forget()
-        self.global_plan_plot_view.grid_forget()
-
-        try:
-            # if reload_code:
-                # self.load_configs()
-            self.exec = Executer.executor_factory(
-                async_mode=self.setting.async_exec.get(),
-                bridge=self.setting.execution_bridge.get(),
-                perception=self.setting.perception_type.get(),
-                global_planner=self.setting.global_planner_type.get(),
-                local_planner=self.setting.local_planner_type.get(),
-                controller=self.setting.controller_type.get(),
-                replan_dt=self.setting.replan_dt.get(),
-                control_dt=self.setting.control_dt.get(),
-                hd_map=ExecutionSettings.hd_map,
-                reload_code=reload_code,
-                exclude_reload_settings=True,
-                load_extensions=self.setting.load_extensions.get(),
-            )
-
-        except Exception as e:
-            log.error(f"Error reloading stack: {e}", exc_info=True)
-
-
-        self.local_plan_plot_view.reset()
-        self.global_plan_plot_view.reset()
-        self.toggle_plan_view()
-        self.update_ui()
-        self.enable_frame(self)
-        self.hide_loading_overlay()
-            
-
-
-
     def show_loading_overlay(self, message="Loading..."):
         if hasattr(self, 'loading_window') and self.loading_window is not None:
             return
@@ -448,3 +356,95 @@ class VisualizerApp(tk.Tk):
         style = ttk.Style(self)
         style.theme_use('default')  # Reset to default theme
 
+    
+    def update_ui(self):
+        t1 = time.time()
+        if self.setting.global_plan_view.get():
+            self.global_plan_plot_view.plot()
+        if self.setting.local_plan_view.get():
+            self.local_plan_plot_view.plot()
+
+        if not self.setting.shortcut_mode.get():
+            self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}),\nVel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h),\nθ: {self.exec.ego_state.theta:+5.1f}")
+            self.setting.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
+
+            # TODO: need to connect to a tkinter variable instead
+            self.perceive_plan_control_view.control_frame.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
+            self.perceive_plan_control_view.control_frame.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
+            self.perceive_plan_control_view.control_frame.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
+            self.perceive_plan_control_view.control_frame.gauge_steer.set_value(self.exec.controller.cmd.steer)
+
+            self.setting.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
+            self.setting.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
+            self.setting.replan_fps.set(f"{self.exec.planner_fps:6.1f}")
+            self.setting.control_fps.set(f"{self.exec.control_fps:6.1f}")
+            self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
+
+
+        log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
+    
+
+    def load_configs(self, only_stack=False, profile=None):
+        """ Load settings from a profile or the current settings. Uses c61_setting_utils files plus UI house keeping """
+        
+        if profile:
+            self.setting.selected_profile.set(profile)
+        else:
+            profile = self.setting.selected_profile.get() 
+        # load_setting(PerceptionSettings, profile=profile)
+        # load_setting(PlanningSettings, profile=profile)
+        # load_setting(ControlSettings, profile=profile)
+        # load_setting(ExecutionSettings, profile=profile)
+        load_all_stack_settings(profile=profile, load_extensions=self.setting.load_extensions.get())
+        if not only_stack:
+            load_setting(self.setting, profile=profile)
+        self.config_shortcut_view.update_setting_window()
+        log.info(f"Loaded settings from profile: {profile}")
+
+        self.log_view.reset()
+
+    def reload_stack(self, reload_code:bool = True):
+        if reload_code:
+            self.show_loading_overlay("Reloading stack...")
+        else:
+            self.show_loading_overlay("Reinitializing stack...")
+
+        self.exec_visualize_view.stop_exec()
+        self.disable_frame(self)
+        self.local_plan_plot_view.grid_forget()
+        self.global_plan_plot_view.grid_forget()
+
+        try:
+            # if reload_code:
+                # self.load_configs()
+            self.exec = Executer.executor_factory(
+                async_mode=self.setting.async_exec.get(),
+                bridge=self.setting.execution_bridge.get(),
+                perception=self.setting.perception_type.get(),
+                global_planner=self.setting.global_planner_type.get(),
+                local_planner=self.setting.local_planner_type.get(),
+                controller=self.setting.controller_type.get(),
+                replan_dt=self.setting.replan_dt.get(),
+                control_dt=self.setting.control_dt.get(),
+                hd_map=ExecutionSettings.hd_map,
+                reload_code=reload_code,
+                exclude_reload_settings=True,
+                load_extensions=self.setting.load_extensions.get(),
+            )
+
+        except Exception as e:
+            log.error(f"Error reloading stack: {e}", exc_info=True)
+
+
+        self.local_plan_plot_view.reset()
+        self.global_plan_plot_view.reset()
+        self.toggle_plan_view()
+        self.update_ui()
+        self.enable_frame(self)
+        self.hide_loading_overlay()
+            
+
+    def switch_profile(self):
+        self.load_configs(profile=self.setting.next_profile.get(), only_stack=False)
+        self.toggle_plan_view()
+        self.update_ui()

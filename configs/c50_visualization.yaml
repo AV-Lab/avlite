@@ -115,7 +115,13 @@ default:
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
+  log_font: Courier
+  log_font_size: 11
   log_level: WARN
+  log_view_default_height: 12
+  log_view_expanded: false
+  log_view_expended_height: 35
+  max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception exp
   perception_type: MultiObjectPredictor
@@ -164,7 +170,13 @@ perception exp:
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
+  log_font: Courier
+  log_font_size: 11
   log_level: DEBUG
+  log_view_default_height: 12
+  log_view_expanded: true
+  log_view_expended_height: 35
+  max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: default
   perception_type: MultiObjectPredictor
@@ -173,7 +185,7 @@ perception exp:
   shortcut_mode: true
   show_common_logs: true
   show_control_logs: false
-  show_execute_logs: false
+  show_execute_logs: true
   show_extensions_logs: false
   show_global_plan: true
   show_legend: false
@@ -187,3 +199,52 @@ perception exp:
   show_vis_logs: true
   sim_dt: 0.011
   xy_zoom: 60
+source defaults:
+  async_exec: true
+  bg_color: '#333333'
+  bridge_provide_depth_image: false
+  bridge_provide_ground_truth_detection: false
+  bridge_provide_lidar_data: false
+  bridge_provide_rgb_image: false
+  control_dt: 0.01
+  controller_type: StanleyController
+  dark_mode: true
+  disable_log: false
+  enable_joystick: true
+  exec_control: true
+  exec_perceive: false
+  exec_plan: true
+  execution_bridge: BasicSim
+  fg_color: white
+  frenet_view_follow_planner: false
+  frenet_zoom: 40
+  global_plan_view: true
+  global_planner_type: HDMapGlobalPlanner
+  global_view_follow_planner: false
+  global_zoom: 130
+  load_extensions: true
+  local_plan_view: true
+  local_planner_type: RNDPlanner
+  log_level: WARN
+  mouse_drag_slowdown_factor: 0.5
+  next_profile: perception exp
+  perception_type: MultiObjectPredictor
+  replan_dt: 0.55
+  selected_profile: source defaults
+  shortcut_mode: false
+  show_common_logs: true
+  show_control_logs: false
+  show_execute_logs: false
+  show_extensions_logs: true
+  show_global_plan: true
+  show_legend: false
+  show_local_lattice: true
+  show_local_plan: true
+  show_occupancy_flow: false
+  show_past_locations: true
+  show_perceive_logs: false
+  show_plan_logs: false
+  show_state: true
+  show_vis_logs: true
+  sim_dt: 0.011
+  xy_zoom: 80

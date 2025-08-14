@@ -42,6 +42,8 @@ default:
   bridge: BasicSim
   control_dt: 0.01
   controller: StanleyController
+  external_extensions:
+    delete_me: /home/mkhonji/Desktop/delete_me
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -55,6 +57,8 @@ perception exp:
   bridge: BasicSim
   control_dt: 0.01
   controller: StanleyController
+  external_extensions:
+    delete_me: /home/mkhonji/Desktop/delete_me
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -63,3 +67,16 @@ perception exp:
   perception: MultiObjectPredictor
   replan_dt: 0.55
   sim_dt: 0.011
+source defaults:
+  async_mode: false
+  bridge: BasicSim
+  control_dt: 0.05
+  controller: StanleyController
+  filepath: configs/c40_execution.yaml
+  global_planner: RaceGlobalPlanner
+  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  hd_map: data/san_campus.xodr
+  local_planner: RNDPlanner
+  perception: ''
+  replan_dt: 0.5
+  sim_dt: 0.01

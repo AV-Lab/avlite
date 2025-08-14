@@ -120,6 +120,13 @@ class VisualizationSettings:
         self.show_common_logs = tk.BooleanVar(value=True)
         self.show_extensions_logs = tk.BooleanVar(value=True)
         self.disable_log = tk.BooleanVar(value=False)
+        
+        self.max_log_lines = 1000  # Maximum number of log lines to keep
+        self.log_view_expanded = tk.BooleanVar(value=False)  # Whether the log view is expanded
+        self.log_view_default_height = tk.IntVar(value=12)  # Height of the log view in lines
+        self.log_view_expended_height = tk.IntVar(value=35) # Height of the log view when expanded in lines 
+        self.log_font = tk.StringVar(value="Courier")  # Font for the log view
+        self.log_font_size = tk.IntVar(value=11)
 
         
         # General variables - Not saved

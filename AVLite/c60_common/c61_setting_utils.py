@@ -8,15 +8,11 @@ import logging
 import importlib
 import importlib.util
 
-from c10_perception.c19_settings import PerceptionSettings
-from c20_planning.c29_settings import PlanningSettings
-from c30_control.c39_settings import ControlSettings
-from c40_execution.c49_settings import ExecutionSettings
-
-
 import tkinter as tk
 
 log = logging.getLogger(__name__)
+
+EXTENSIONS_DIR = Path(__file__).parent.parent / "extensions"
 
 def get_absolute_path(relative_path: str) -> str:
     """Convert a relative path to an absolute path based on the current file location."""
@@ -27,41 +23,42 @@ def get_absolute_path(relative_path: str) -> str:
     return str(project_dir / relative_path)
 
 
-def reload_lib(reload_extensions: bool = True, all_extension_dirs=[], exclude_settings=False, exclude_stack=False) -> None:
+def reload_lib(reload_extensions: bool = True, exclude_settings=False, exclude_stack=False) -> None:
     """Dynamically reload all modules in the project."""
     log.info("Reloading imports...")
 
     # Get the base package name (AVLite) and all submodules
     project_modules = []
     base_prefixes = ["c10_perception", "c20_planning", "c30_control", "c40_execution", "c50_visualization", "c60_utils"]
+    extension_base_prefixes = ["e10_perception", "e20_planning", "e30_control", "e40_execution"]
     stack_settings = ["c10_perception.c19_settings", "c20_planning.c29_settings", "c30_control.c39_settings",
                              "c40_execution.c49_settings"]
 
-    if reload_extensions:
-        avlite_dir = Path(__file__).parent.parent  # Go up to AVLite directory
-        default_extensions_dir = avlite_dir / "extensions"
-        all_extension_dirs.append(default_extensions_dir)
 
-        for  extensions_dir in all_extension_dirs:
-            if extensions_dir.exists() and extensions_dir.is_dir():
-                for ext_dir in extensions_dir.iterdir():
-                    if ext_dir.is_dir() and not ext_dir.name.startswith('.'):
-                        module_types = ["e10_perception", "e20_planning", "e30_control", "e40_execution"]
-                        for module_type in module_types:
-                            module_path = f"extensions.{ext_dir.name}.{module_type}"
-                            base_prefixes.append(module_path)
-            else:
-                log.warning(f"Extensions directory not found at: {extensions_dir}")
-
-    base_prefixes = [p.replace("\\", ".").replace("/", ".") for p in base_prefixes]
+    # base_prefixes = [p.replace("\\", ".").replace("/", ".") for p in base_prefixes]
     if exclude_stack:
         project_modules = stack_settings
+        
+        if reload_extensions:
+            log.debug("Reloading extensions...")
+            ext = list_extensions()
+            project_modules += [f"extensions.{ext}.settings" for ext in ext]
     
     else:
         # Find all loaded modules that belong to our project
         for module_name in list(sys.modules.keys()):
             if any(module_name.startswith(prefix) for prefix in base_prefixes):
                 project_modules.append(module_name)
+
+            # ext = list_extensions()
+            # ext.extend([x+"."+p for p in extension_base_prefixes for x in ext])
+            # print(ext)
+            #
+            # # import_all_modules()
+            # if reload_extensions and any(module_name.startswith(name) for name in ext):
+            #     # Check if the module is an extension settings module
+            #     project_modules.append(module_name)
+
 
         # Sort modules to ensure proper reload order (parent modules before child modules)
         project_modules.sort(key=lambda x: x.count('.'))
@@ -87,19 +84,18 @@ def reload_lib(reload_extensions: bool = True, all_extension_dirs=[], exclude_se
     log.info(f"Reloaded {len(project_modules)} modules")
 
 
-def list_extensions(all_extension_dirs=[]) -> list:
+def list_extensions() -> list:
     """List all available extensions in the extensions directory."""
     avlite_dir = Path(__file__).parent.parent  # Go up to AVLite directory
-    default_extensions_dir = avlite_dir / "extensions"
-    all_extension_dirs.append(default_extensions_dir)
+    extensions_dir = avlite_dir / "extensions"
     extensions = []
-    for extensions_dir in all_extension_dirs:
-        if extensions_dir.exists() and extensions_dir.is_dir():
-            for ext_dir in extensions_dir.iterdir():
-                if ext_dir.is_dir() and not ext_dir.name.startswith('.'):
-                    extensions.append(ext_dir.name)
-        else:
-            log.warning(f"Extensions directory not found at: {extensions_dir}")
+
+    if extensions_dir.exists() and extensions_dir.is_dir():
+        for ext_dir in extensions_dir.iterdir():
+            if ext_dir.is_dir() and not ext_dir.name.startswith('.'):
+                extensions.append(ext_dir.name)
+    else:
+        log.warning(f"Extensions directory not found at: {extensions_dir}")
 
     if not extensions:
         log.warning("No extensions found in the specified directories.")
@@ -221,34 +217,51 @@ def list_profiles(setting) -> list:
         log.error(f"Failed to list profiles: {e}")
         return []
 
-def import_all_modules_from_dir(directory):
+def import_all_modules(directory:str = ""):
     """Import all Python modules from a directory."""
+
     log.debug(f"Importing all modules from directory: {directory}")
-    directory = Path(directory)
+
+    if not directory:
+        ext_directory = EXTENSIONS_DIR
+    else: 
+        ext_directory = Path(directory)
+        # sys.path.insert(0, str(directory))
+        sys.path.append(directory)
     
-    for py_file in directory.rglob('*.py'):
+    for py_file in ext_directory.rglob('*.py'):
         if py_file.name == '__init__.py':
             continue
             
         # Create module name from relative path
-        relative_path = py_file.relative_to(directory)
-        module_name = str(relative_path.with_suffix('')).replace('/', '.')
+        relative_path = py_file.relative_to(ext_directory)
+        module_name = str(relative_path.with_suffix('')).replace('/', '.').replace('\\', '.')
         
-        spec = importlib.util.spec_from_file_location(module_name, py_file)
-        if spec and spec.loader:
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
-            log.debug(f"Loaded module: {module_name} from {py_file}")
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, py_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                sys.modules[module_name] = module
+                log.debug(f"Loaded module: {module_name} from {py_file}")
+        except Exception as e:
+            log.error(f"Failed to load module {module_name} from {py_file}: {e}")
+    if module_name not in sys.modules:
+        log.warning(f"Module {module_name} is NOT loaded.")
+
 
 def load_all_stack_settings(profile="default", load_extensions=True, all_extension_dirs=[]): 
+    from c10_perception.c19_settings import PerceptionSettings
+    from c20_planning.c29_settings import PlanningSettings
+    from c30_control.c39_settings import ControlSettings
+    from c40_execution.c49_settings import ExecutionSettings
     load_setting(PerceptionSettings, profile=profile)
     load_setting(PlanningSettings, profile=profile)
     load_setting(ControlSettings, profile=profile)
     load_setting(ExecutionSettings, profile=profile)
 
-    print(f"all extension_dirs: {all_extension_dirs}")
-    extensions = list_extensions(all_extension_dirs=all_extension_dirs)
+    log.debug(f"all extension_dirs: {all_extension_dirs}")
+    extensions = list_extensions()
     for ext in extensions:
         module = importlib.import_module(f"extensions.{ext}.settings")
         ExtensionSettings = getattr(module, "ExtensionSettings")

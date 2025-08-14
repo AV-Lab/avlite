@@ -2,16 +2,16 @@ from __future__ import annotations
 from os import wait
 from typing import TYPE_CHECKING
 import importlib
+import tkinter as tk
+from tkinter import ttk
 
-from pandas.api import extensions
-from sqlalchemy import label
+from networkx import reverse
 
-from c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, reload_lib
+
+from c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, reload_lib, load_all_stack_settings
 from c50_visualization.c58_ui_lib import ThemedInputDialog
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
-import tkinter as tk
-from tkinter import ttk
 
 from c10_perception.c19_settings import PerceptionSettings
 from c20_planning.c29_settings import PlanningSettings
@@ -40,9 +40,9 @@ class ConfigShortcutView(ttk.LabelFrame):
         # ----------------------------------------------------------------------
         self.root.bind("T", lambda e: self.open_settings_window())
 
-        self.root.bind("Q", lambda e: self.root.quit())
-        self.root.bind("R", lambda e: self.root.reload_stack())
-        self.root.bind("F", self.__switch_profile )
+        self.root.bind_all("Q", lambda e: self.root.quit())
+        self.root.bind_all("R", lambda e: self.root.reload_stack())
+        self.root.bind_all("F", lambda e: self.root.switch_profile() )
         self.root.bind("S", lambda e: self.root.update_shortcut_mode(reverse=True))
 
         self.root.bind("x", lambda e: self.root.exec_visualize_view.toggle_exec())
@@ -54,7 +54,7 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("r", lambda e: self.root.perceive_plan_control_view.plan_frame.replan())
 
         self.root.bind("h", lambda e: self.root.perceive_plan_control_view.control_frame.step_control())
-        self.root.bind("g", lambda e: self.root.perceive_plan_control_view.control_frame.align_control())
+        self.root.bind("i", lambda e: self.root.perceive_plan_control_view.control_frame.align_control())
 
         self.root.bind("<KeyPress-a>", lambda e: self.root.perceive_plan_control_view.control_frame.step_steer_left())
         self.root.bind("<KeyPress-d>", lambda e: self.root.perceive_plan_control_view.control_frame.step_steer_right())
@@ -68,6 +68,18 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("<plus>", lambda e: self.root.local_plan_plot_view.zoom_in())
         self.root.bind("<minus>", lambda e: self.root.local_plan_plot_view.zoom_out())
 
+        # scroll log text using vim motion
+        self.root.bind("k", lambda e: self.root.log_view.log_area.yview_scroll(-1, "units")) 
+        self.root.bind("j", lambda e: self.root.log_view.log_area.yview_scroll(1, "units"))
+        self.root.bind("<Control-u>",  lambda e: self.root.log_view.log_area.yview_scroll(-5, "units"))
+        self.root.bind("<Control-d>",  lambda e: self.root.log_view.log_area.yview_scroll(int(0.5*self.root.setting.log_view_default_height.get()), "units"))
+        self.root.bind("G", lambda e: self.root.log_view.log_area.yview_moveto(1.0))
+        self.root.bind("g", lambda e: self.root.log_view.log_area.yview_moveto(0.0))
+
+        self.root.bind("E", lambda e: self.root.log_view.update_log_view_height(reverse=True))  # Toggle log view height
+    
+        # ----------------------------------------------------------------------
+
         ttk.Button(self, text="⚙" , command=self.open_settings_window, width=2).pack(side=tk.RIGHT)
         ttk.Button(self, text="Reload Stack", command=self.root.reload_stack).pack(side=tk.RIGHT)
         ttk.Button(self, text="Reset Config", command=self.root.load_configs).pack(side=tk.RIGHT)
@@ -78,7 +90,7 @@ class ConfigShortcutView(ttk.LabelFrame):
             justify=tk.CENTER, font=("Arial", 10, "bold"))
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.profile_dropdown_menu.state(["readonly"])
-        self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+        self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
         self.profile_dropdown_menu.pack(side=tk.RIGHT)    
         
 
@@ -97,11 +109,11 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.shortcut_frame = ttk.LabelFrame(root, text="Shortcuts")
         self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=7)
         key_binding_info = """
-App:      Q - Quit             S - Toggle shortcut          F - Switch Next Profile     R - Reload imports     
-Perceive: 
+App:      Q - Quit             S - Toggle shortcut          F - Switch to next Profile  R - Reload imports     
+          T - Open Settings    E - Expand/collapse log    vim - use vim motion to scroll log   
 Plan:     n - Step plan        b - Step Back                r - Replan            
           + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out F
-Control:  h - Control Step     g - Re-align control         w - Accelerate 
+Control:  h - Control Step     i - Re-align control         w - Accelerate 
           a - Steer left       d - Steer right              s - Deccelerate
 Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
          """.strip()
@@ -110,12 +122,8 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.help_text.config(state=tk.DISABLED)  # Make the text area read-only
 
 
-    def __switch_profile(self, event):
-        self.root.load_configs(profile=self.root.setting.next_profile.get(), only_stack=False)
-        self.root.toggle_plan_view()
-        self.root.update_ui()
 
-    def __on_dropdown_change(self, event):
+    def __on_profile_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
         self.root.load_configs()
         self.root.reload_stack(reload_code=False)
@@ -137,10 +145,18 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             log.info("Showing existing settings window")
         else:
             self.root.load_configs(only_stack=True)
-            self.setting_view = SettingView(self.root)
+            self.setting_view = SettingWindow(self.root)
             log.info("Creating new settings window")
 
-class SettingView:
+    def update_setting_window(self):
+        """Update the settings window with the latest settings."""
+        if hasattr(self, "setting_view") and hasattr(self.setting_view, "window") and self.setting_view.window.winfo_exists():
+            self.setting_view.update_core_widgets()
+            self.setting_view.update_extensions_widgets()
+            log.info("Updated existing settings window")
+
+
+class SettingWindow:
     """
     A view to display and edit settings.
     """
@@ -155,47 +171,67 @@ class SettingView:
         self.frame = ttk.Frame(self.window)
         self.frame.pack(fill=tk.BOTH, expand=True)
 
-        self.frame.columnconfigure(2, weight=3)  # Give column 2 more weight
-        self.frame.rowconfigure(0, weight=1)
         
+        self.window.bind("<Control-s>", lambda e: self.save_profile())
+        self.window.bind("k", lambda e: self.canvas.yview_scroll(-1, "units")) 
+        self.window.bind("j", lambda e: self.canvas.yview_scroll(1, "units"))
+        self.window.bind("<Control-u>",  lambda e: self.canvas.yview_scroll(-5, "units"))
+        self.window.bind("<Control-d>",  lambda e: self.canvas.yview_scroll(int(0.5*self.root.setting.log_view_default_height.get()), "units"))
+        self.window.bind("G", lambda e: self.canvas.yview_moveto(1.0))
+        self.window.bind("g", lambda e: self.canvas.yview_moveto(0.0))
+        
+        #########
+        # Main Layout
+        #########
+        self.frame.rowconfigure(0, weight=1)
+        self.frame.columnconfigure(1, weight=1)  # Settings frame
+        
+        profile_ext_frame = ttk.Frame(self.frame)
+        profile_ext_frame.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
+
+        settings_frame = ttk.Frame(self.frame)
+        settings_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
+
+        additional_setting_frame = ttk.LabelFrame(self.frame, text="Additional Settings")
+        additional_setting_frame.grid(row=1, column=0, columnspan=2, sticky="sew", padx=5, pady=5)
+
         ##########
         # Profiles & Extensions
         ##########
-        profile_frame = ttk.Frame(self.frame)
-        profile_frame.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
-        profile_frame.rowconfigure(5,weight=1)
+        profile_ext_frame.rowconfigure(5,weight=1)
 
 
-        ttk.Label(profile_frame, text="Execution Profiles",style="Big.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, padx=10, pady=5)
-        ttk.Label(profile_frame, text="Load Profile").grid(row=1, column=0, padx=5, pady=5)
-        self.profile_dropdown_menu = ttk.Combobox(profile_frame, textvariable=self.root.setting.selected_profile, state="readonly",)
+        ttk.Label(profile_ext_frame, text="Execution Profiles",style="Big.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, padx=10, pady=5)
+        ttk.Label(profile_ext_frame, text="Load Profile").grid(row=1, column=0, padx=5, pady=5)
+        self.profile_dropdown_menu = ttk.Combobox(profile_ext_frame, textvariable=self.root.setting.selected_profile, state="readonly",)
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         # self.global_planner_dropdown_menu.current(0)  
         self.profile_dropdown_menu.state(["readonly"])
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
         self.profile_dropdown_menu.grid(row=1, column=1, columnspan=2, padx=5, pady=5, sticky="we")
 
-        ttk.Button(profile_frame, text="New", width=5, command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_frame, text="Delete",width=5, command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_frame, text="Save",width=5, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="New", width=5, command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="Delete",width=5, command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="Save",width=5, underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
         ttk.Button(
-            profile_frame, text="Reset to source code defaults", command=self.reset_to_to_source_stack_values
+            profile_ext_frame, text="Reset to source code defaults", command=self.reset_to_to_source_stack_values
         ).grid(row=3, column=0, columnspan=3, padx=5, pady=5, sticky="we")
         
-        ttk.Label(profile_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
-        next_profile_dropdown_menu = ttk.Combobox(profile_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
+        ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
         next_profile_dropdown_menu["values"] = self.root.setting.profile_list
         next_profile_dropdown_menu.state(["readonly"])
         # next_profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
         next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
 
 
-
+        ##############################################
         ## Extensions
-        extension_frame = ttk.LabelFrame(profile_frame, text="Extensions")
+        ##############################################
+        extension_frame = ttk.LabelFrame(profile_ext_frame, text="Extensions")
         extension_frame.grid(row=5, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
         ttk.Checkbutton(extension_frame, text="Load Extensions" , variable=self.root.setting.load_extensions,
-            command=self.update_ext_widgets).grid(row=0, column=0, sticky="w", padx=5, pady=5)
+            command=self.recreate_extensions_widgets).grid(row=0, column=0, sticky="w", padx=5, pady=5)
 
         listbox = tk.Listbox(extension_frame, height=5, selectmode=tk.SINGLE, exportselection=False, width=30,)
         listbox.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
@@ -206,42 +242,40 @@ class SettingView:
 
 
 
-        ##########
+        #############################################
         # settings
-        ##########
-        settings_container = ttk.Frame(self.frame)
-        settings_container.grid(row=0, column=2, rowspan=2, sticky="nsew", padx=10, pady=10)
-        settings_container.columnconfigure(0, weight=1)
-        settings_container.rowconfigure(0, weight=1)
+        #############################################
+        settings_frame.columnconfigure(0, weight=1)
+        settings_frame.rowconfigure(0, weight=1)
         
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        settings_container.bind_all("<MouseWheel>", _on_mousewheel)  # Windows/macOS
-        settings_container.bind_all("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))  # Linux
-        settings_container.bind_all("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))   # Linux
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        settings_frame.bind_all("<MouseWheel>", _on_mousewheel)  # Windows/macOS
+        settings_frame.bind_all("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))  # Linux
+        settings_frame.bind_all("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))   # Linux
 
         def unbind_mousewheel_events(event=None):
-            settings_container.unbind_all("<MouseWheel>")
-            settings_container.unbind_all("<Button-4>")
-            settings_container.unbind_all("<Button-5>")
-        settings_container.bind("<Destroy>", unbind_mousewheel_events)
+            settings_frame.unbind_all("<MouseWheel>")
+            settings_frame.unbind_all("<Button-4>")
+            settings_frame.unbind_all("<Button-5>")
+        settings_frame.bind("<Destroy>", unbind_mousewheel_events)
 
         style = ttk.Style()
         bg_color = style.lookup("TFrame", "background")
-        canvas = tk.Canvas(settings_container, highlightthickness=0, bd=0, background=bg_color)
-        scrollbar = ttk.Scrollbar(settings_container, orient="vertical", command=canvas.yview)
-        self.settings_frame = ttk.Frame(canvas)
+        self.canvas = tk.Canvas(settings_frame, highlightthickness=0, bd=0, background=bg_color)
+        self.scrollbar = ttk.Scrollbar(settings_frame, orient="vertical", command=self.canvas.yview)
+        self.settings_frame = ttk.Frame(self.canvas)
 
         # Configure scrolling
-        canvas.configure(yscrollcommand=scrollbar.set)
-        self.settings_frame.bind( "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.settings_frame.bind( "<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         
-        # Create window with fixed width that matches canvas
-        canvas.create_window((0, 0), window=self.settings_frame, anchor="nw")
+        # Create window with fixed width that matches self.canvas
+        self.canvas.create_window((0, 0), window=self.settings_frame, anchor="nw")
 
         # Grid layout with proper weights
-        canvas.grid(row=0, column=0, sticky="nsew")
-        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
         
         ########
         ########
@@ -270,73 +304,39 @@ class SettingView:
 
 
         ################
-        # Visualizer Settings
+        # Additional settings
         ################
-        self.visualize_frame = ttk.LabelFrame(self.frame, text="Additional Settings")
-        self.visualize_frame.grid(row=3, column=0, columnspan=3, sticky="nsew", padx=5, pady=5)
 
         ## UI Elements for Visualize - Checkboxes
-        checkboxes_frame = ttk.Frame(self.visualize_frame)
-        ttk.Label(checkboxes_frame, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
-        checkboxes_frame.pack(fill=tk.X)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Legend",
-            variable=self.root.setting.show_legend,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Locations",
-            variable=self.root.setting.show_past_locations,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Global Plan",
-            variable=self.root.setting.show_global_plan,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Local Plan",
-            variable=self.root.setting.show_local_plan,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="Local Lattice",
-            variable=self.root.setting.show_local_lattice,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(
-            checkboxes_frame,
-            text="State",
-            variable=self.root.setting.show_state,
-            command=self.root.update_ui,
-        ).pack(anchor=tk.W, side=tk.LEFT)
+        additional_setting_row_1 = ttk.Frame(additional_setting_frame)
+        ttk.Label(additional_setting_row_1, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        additional_setting_row_1.pack(fill=tk.X)
+        ttk.Checkbutton( additional_setting_row_1, text="Legend", variable=self.root.setting.show_legend, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton( additional_setting_row_1, text="Locations", variable=self.root.setting.show_past_locations, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton( additional_setting_row_1, text="Global Plan", variable=self.root.setting.show_global_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton( additional_setting_row_1, text="Local Plan", variable=self.root.setting.show_local_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton( additional_setting_row_1, text="Local Lattice", variable=self.root.setting.show_local_lattice, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton( additional_setting_row_1, text="State", variable=self.root.setting.show_state, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
 
-        ## UI Elements for Visualize - Buttons
-        zoom_global_frame = ttk.Frame(self.visualize_frame)
-        zoom_global_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_global_frame, text="Global 🔍").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="➕", width=2, command=self.root.local_plan_plot_view.zoom_in).pack( side=tk.LEFT)
-        ttk.Button(zoom_global_frame, text="➖", width=2, command=self.root.local_plan_plot_view.zoom_out).pack( side=tk.LEFT)
+        ttk.Checkbutton( additional_setting_row_1, text="Follow Planner in Global", variable=self.root.setting.global_view_follow_planner).pack(side=tk.LEFT)
+        ttk.Checkbutton( additional_setting_row_1, text="Follow Planner in Frenet", variable=self.root.setting.frenet_view_follow_planner).pack(side=tk.LEFT)
 
-        ttk.Checkbutton( zoom_global_frame, text="Follow Planner", variable=self.root.setting.global_view_follow_planner).pack(side=tk.LEFT)
+        additional_setting_row_2 = ttk.Frame(additional_setting_frame)
+        additional_setting_row_2.pack(fill=tk.X, padx=5)
 
-        zoom_frenet_frame = ttk.Frame(self.visualize_frame)
-        zoom_frenet_frame.pack(fill=tk.X, padx=5)
-        ttk.Label(zoom_frenet_frame, text="Frenet 🔍").pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button( zoom_frenet_frame, text="➕", width=2, command=self.root.local_plan_plot_view.zoom_in_frenet,).pack(side=tk.LEFT)
-        ttk.Button( zoom_frenet_frame, text="➖", width=2, command=self.root.local_plan_plot_view.zoom_out_frenet,).pack(side=tk.LEFT)
-        ttk.Checkbutton( zoom_frenet_frame, text="Follow Planner", variable=self.root.setting.frenet_view_follow_planner).pack(side=tk.LEFT)
+        ttk.Label(additional_setting_row_2, text="Log View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.root.setting.log_view_expanded).pack(side=tk.LEFT)
         
+        ttk.Label(additional_setting_row_2, text="Default Height:").pack(side=tk.LEFT, padx=5)
+        ttk.Entry(additional_setting_row_2, textvariable=self.root.setting.log_view_default_height, width=5,
+                  validatecommand=self.root.validate_cmd).pack(side=tk.LEFT, padx=5)
 
-        profile_frame = ttk.Frame(self.visualize_frame) 
-        profile_frame.pack(fill=tk.X, padx=5, pady=5)
-
+        ttk.Label(additional_setting_row_2, text="Expanded Height").pack(side=tk.LEFT, padx=5)
+        ttk.Entry(additional_setting_row_2, textvariable=self.root.setting.log_view_expended_height, width=5,
+                  validatecommand=self.root.validate_cmd).pack(side=tk.LEFT, padx=5)
         
+        # additional_setting_row_3 = ttk.Frame(additional_setting_frame)
+        # additional_setting_row_3.pack(fill=tk.X, padx=5)
 
     def create_profile(self):
         """ Load a profile from the settings. """
@@ -396,6 +396,7 @@ class SettingView:
         self.save_from_widgets(ExecutionSettings)
         save_setting(ExecutionSettings, profile=self.root.setting.selected_profile.get())
 
+        save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
 
         if self.root.setting.load_extensions.get():
             for ext in self.root.setting.extension_list:
@@ -416,12 +417,14 @@ class SettingView:
         """ Load a profile from the settings. """
 
         log.info(f"loading profile: {profile}")
-        load_setting(PerceptionSettings, profile=profile)
-        load_setting(PlanningSettings, profile=profile)
-        load_setting(ControlSettings, profile=profile)
-        load_setting(ExecutionSettings, profile=profile)
+        load_all_stack_settings(profile=profile, load_extensions=self.root.setting.load_extensions.get(),
+                                all_extension_dirs=ExecutionSettings.extension_directories)
         load_setting(self.root.setting, profile=profile)
 
+        self.update_core_widgets()
+        self.update_extensions_widgets()
+
+    def update_core_widgets(self):
         self.update_widgets(PerceptionSettings)
         self.update_widgets(PlanningSettings)
         self.update_widgets(ControlSettings)
@@ -432,38 +435,65 @@ class SettingView:
                 try:
                     module = importlib.import_module(f"extensions.{ext}.settings")
                     ExtensionSettings = getattr(module, "ExtensionSettings")
-                    load_setting(ExtensionSettings, profile=profile)
+                    load_setting(ExtensionSettings, profile=self.root.setting.selected_profile.get())
                     self.update_widgets(ExtensionSettings, extension_name=ext)
-                    log.debug(f"loaded extension settings for {ext} from profile {profile}")
+                    log.debug(f"loaded extension settings for {ext}")
                 except Exception as e:
                     log.error(f"Failed to save extension settings for {ext}: {e}")
 
+    def update_extensions_widgets(self):
+        """ Update the extension widgets with the current settings. """ 
+
+        if self.root.setting.load_extensions.get():
+            for ext in self.root.setting.extension_list:
+                try:
+                    module = importlib.import_module(f"extensions.{ext}.settings")
+                    ExtensionSettings = getattr(module, "ExtensionSettings")
+                    self.update_widgets(ExtensionSettings, extension_name=ext)
+                except Exception as e:
+                    log.error(f"Failed to save extension settings for {ext}: {e}")
 
     def __on_profile_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
         self.load_profile(event.widget.get())
 
     def reset_to_to_source_stack_values(self):
+        """ Reset the stack settings to the source code defaults, except for the UI as it is using some 
+            some instant variables for tkinter.
+        """
         reload_lib(exclude_stack=True, reload_extensions=True)
         from c10_perception.c19_settings import PerceptionSettings
         from c20_planning.c29_settings import PlanningSettings
         from c30_control.c39_settings import ControlSettings
         from c40_execution.c49_settings import ExecutionSettings
-        # log.warning(f"after: map is {ExecutionSettings.hd_map}")
 
         self.update_widgets(PerceptionSettings)
         self.update_widgets(PlanningSettings)
         self.update_widgets(ControlSettings)
         self.update_widgets(ExecutionSettings)
+
+        self.update_extensions_widgets()
         
+
+    def recreate_extensions_widgets(self):
+        """ Recreate the extension widgets based on the current setting."""
+
         if self.root.setting.load_extensions.get():
+            self.create_ext_widgets()
+        else:
+            # Clear existing extension widgets
             for ext in self.root.setting.extension_list:
-                try:
-                    module = importlib.import_module(f"extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    self.update_widgets(ExtensionSettings, extension_name=ext)
-                except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}")
+                ext_key = f"ExtensionSettings{ext}"
+                if ext_key in self.widget_entries:
+                    entry_dict = self.widget_entries[ext_key]
+                    if entry_dict:
+                        first_widget = next(iter(entry_dict.values()))
+                        parent_frame = first_widget.master
+                        parent_frame.pack_forget()  # or grid_forget() if using grid
+                    del self.widget_entries[ext_key]
+                    log.debug(f"Removed widgets for {ext_key}")
+
+            self.ext_widget_created = False
 
 
     def create_ext_widgets(self):
@@ -501,24 +531,7 @@ class SettingView:
                 entry.grid(row=row, column=1, padx=5, pady=2, sticky="ew")
                 self.widget_entries[setting.__name__+extension_name][field] = entry
                 row += 1
-    def update_ext_widgets(self):
-        """ Update the extension widgets based on the load_extensions setting. """
-        if self.root.setting.load_extensions.get():
-            self.create_ext_widgets()
-        else:
-            # Clear existing extension widgets
-            for ext in self.root.setting.extension_list:
-                ext_key = f"ExtensionSettings{ext}"
-                if ext_key in self.widget_entries:
-                    entry_dict = self.widget_entries[ext_key]
-                    if entry_dict:
-                        first_widget = next(iter(entry_dict.values()))
-                        parent_frame = first_widget.master
-                        parent_frame.pack_forget()  # or grid_forget() if using grid
-                    del self.widget_entries[ext_key]
-                    log.debug(f"Removed widgets for {ext_key}")
 
-            self.ext_widget_created = False
 
 
     def save_from_widgets(self, setting, extension_name=""):

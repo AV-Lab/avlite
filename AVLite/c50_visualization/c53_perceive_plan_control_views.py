@@ -44,9 +44,8 @@ class PerceptionFrame(ttk.LabelFrame):
         top_pframe = ttk.Frame(self)
         top_pframe.pack(fill=tk.X, padx=5, pady=5)
 
-        perception_dropdown_menu = ttk.Combobox(top_pframe, textvariable=self.root.setting.perception_type, width=10)
+        perception_dropdown_menu = ttk.Combobox(top_pframe, textvariable=self.root.setting.perception_type, width=10, state="readonly")
         perception_dropdown_menu["values"] = tuple(PerceptionStrategy.registry.keys())
-        perception_dropdown_menu.state(["readonly"])
         perception_dropdown_menu.pack(side=tk.LEFT,fill=tk.X, expand=True)
         perception_dropdown_menu.bind("<<ComboboxSelected>>",lambda event: self.root.reload_stack(reload_code=False))
         ttk.Checkbutton(top_pframe, text="Show",variable=self.root.setting.show_occupancy_flow).pack(side=tk.LEFT)

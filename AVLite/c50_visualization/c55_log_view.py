@@ -17,7 +17,7 @@ class LogView(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root, text="Log")
         self.root = root
-        self.max_log_lines = 1000  # Maximum number of log lines to keep
+        self.max_log_lines = self.root.setting.max_log_lines
         # self.log_queue = queue.Queue()
         # self.after(50, self.process_log_queue)
 
@@ -111,7 +111,8 @@ class LogView(ttk.LabelFrame):
         )
         self.rb_db_debug.pack(side=tk.RIGHT)
 
-        self.log_area = ScrolledText(self, state="disabled", height=12)
+        self.log_area = ScrolledText(self, state="disabled", height=self.root.setting.log_view_default_height.get(), wrap=tk.WORD)
+                                     # font=(self.root.setting.log_ont.get(), self.root.setting.log_font_size.get()))
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
         self.after(100, self.update_log_level)
@@ -132,9 +133,24 @@ class LogView(ttk.LabelFrame):
         logger.setLevel(logging.INFO)
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         log.info("Log initialized.")
+
     def reset(self):
         self.update_log_filter()
         self.update_log_level()
+
+    def update_log_view_height(self, reverse: bool = False):
+        """ update the log view height based on the setting """
+
+        if reverse:
+            self.root.setting.log_view_expanded.set(not self.root.setting.log_view_expanded.get())
+
+        if self.root.setting.log_view_expanded.get():
+            self.log_area.configure(height=self.root.setting.log_view_expended_height.get())
+            log.debug("Log view expanded.")
+        else:
+            self.log_area.configure(height=self.root.setting.log_view_default_height.get())
+            log.debug("Log view collapsed.")
+
 
     def update_log_filter(self):
         log.info("Log filter updated.")

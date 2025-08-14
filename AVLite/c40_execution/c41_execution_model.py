@@ -17,7 +17,7 @@ from c30_control.c32_control_strategy import ControlStrategy
 # from c20_planning.c21_planning_model import GlobalPlan
 # from c20_planning.c24_global_planners import RaceGlobalPlanner
 # from c40_execution.c44_basic_sim import BasicSim
-from c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules_from_dir
+from c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
 
 
 
@@ -175,7 +175,7 @@ class Executer(ABC):
         """
 
         if reload_code:
-            reload_lib(exclude_settings=exclude_reload_settings,)
+            reload_lib(exclude_settings=exclude_reload_settings)
 
         from c10_perception.c11_perception_model import PerceptionModel, EgoState
         from c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -189,18 +189,21 @@ class Executer(ABC):
         from c40_execution.c44_async_mproc_executer import AsyncExecuter
         from c40_execution.c43_async_threaded_executer import AsyncThreadedExecuter
         from c40_execution.c44_basic_sim import BasicSim
-
-
-
+        
         if load_extensions:
             log.debug(f"perception registry: {PerceptionStrategy.registry.keys()}")
-            for ext_dir in ExecutionSettings.extension_directories:
-                log.debug(f"Loading extensions from {ext_dir}")
-                import_all_modules_from_dir(ext_dir)
+            import_all_modules()
+            log.warning(f"external extensions: {ExecutionSettings.external_extensions}")
+            for k,v in ExecutionSettings.external_extensions.items():
+                log.warning(f"Loading external extension: {k} from {v}")
+                import_all_modules(v)
             log.debug(f"perception registry after: {PerceptionStrategy.registry.keys()}")
 
             # from extensions.multi_object_prediction.e10_perception.perception import MultiObjectPredictor
             # from extensions.test_ext.e10_perception.test import testClass
+
+
+
 
 
         #################
