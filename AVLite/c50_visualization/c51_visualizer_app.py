@@ -124,13 +124,15 @@ class VisualizerApp(tk.Tk):
             self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
         
     
-    def toggle_plan_view(self):
+    def update_views(self):
         if self.setting.global_plan_view.get() and self.setting.local_plan_view.get():
             self.__update_two_plots_layout()
         else:
             self.__update_one_plot_layout()
 
-        self.after(500, self.update_ui)  
+        self.log_view.update_log_view_height()
+        self.update_shortcut_mode()
+        # self.after(500, self.update_ui)  
 
     def update_shortcut_mode(self, reverse=False):
         if reverse:
@@ -438,13 +440,15 @@ class VisualizerApp(tk.Tk):
 
         self.local_plan_plot_view.reset()
         self.global_plan_plot_view.reset()
-        self.toggle_plan_view()
+        self.update_views()
         self.update_ui()
         self.enable_frame(self)
+        self.focus_set()  # unfocus any entry fields including widgets. Useful to avoid typing shortcut keys 
         self.hide_loading_overlay()
             
 
     def switch_profile(self):
         self.load_configs(profile=self.setting.next_profile.get(), only_stack=False)
-        self.toggle_plan_view()
+        # self.reload_stack(reload_code=False)
+        self.update_views()
         self.update_ui()

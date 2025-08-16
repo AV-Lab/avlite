@@ -16,10 +16,12 @@ Carla_Town10:
   bridge: CarlaBridge
   control_dt: 0.01
   controller: StanleyController
+  external_extensions:
+    delete_me: /home/mkhonji/Desktop/delete_me
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
+  hd_map: data/san_campus.xodr
   local_planner: RNDPlanner
   perception: MultiObjectPredictor
   replan_dt: 5.0
@@ -48,7 +50,7 @@ default:
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
-  local_planner: RNDPlanner
+  local_planner: GreedyLatticePlanner
   perception: MultiObjectPredictor
   replan_dt: 0.55
   sim_dt: 0.011
@@ -64,7 +66,7 @@ perception exp:
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
   local_planner: RNDPlanner
-  perception: MultiObjectPredictor
+  perception: testClass
   replan_dt: 0.55
   sim_dt: 0.011
 source defaults:
@@ -72,11 +74,13 @@ source defaults:
   bridge: BasicSim
   control_dt: 0.05
   controller: StanleyController
+  external_extensions:
+    delete_me: /home/mkhonji/Desktop/delete_me
   filepath: configs/c40_execution.yaml
   global_planner: RaceGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/san_campus.xodr
-  local_planner: RNDPlanner
+  local_planner: GreedyLatticePlanner
   perception: ''
   replan_dt: 0.5
   sim_dt: 0.01

@@ -18,6 +18,8 @@ class LogView(ttk.LabelFrame):
         super().__init__(root, text="Log")
         self.root = root
         self.max_log_lines = self.root.setting.max_log_lines
+        self.pause_log_emit = False  # used to pause log emission, e.g. when the log view is collapsed
+
         # self.log_queue = queue.Queue()
         # self.after(50, self.process_log_queue)
 
@@ -26,93 +28,47 @@ class LogView(ttk.LabelFrame):
         self.controls_frame = ttk.Frame(self)
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
 
-        ttk.Checkbutton(
-            self.controls_frame,
-            text="Perception",
-            variable=self.root.setting.show_perceive_logs,
-            command=self.update_log_filter,
-        ).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Perception", variable=self.root.setting.show_perceive_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
 
-        ttk.Checkbutton(
-            self.controls_frame,
-            text="Planning",
-            variable=self.root.setting.show_plan_logs,
-            command=self.update_log_filter,
-        ).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Planning", variable=self.root.setting.show_plan_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
 
-        ttk.Checkbutton(
-            self.controls_frame,
-            text="Control",
-            variable=self.root.setting.show_control_logs,
-            command=self.update_log_filter,
-        ).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Control", variable=self.root.setting.show_control_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
 
-        ttk.Checkbutton(
-            self.controls_frame,
-            text="Execution",
-            variable=self.root.setting.show_execute_logs,
-            command=self.update_log_filter,
-        ).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Execution", variable=self.root.setting.show_execute_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
 
-        ttk.Checkbutton(
-            self.controls_frame,
-            text="Visualization",
-            variable=self.root.setting.show_vis_logs,
-            command=self.update_log_filter,
-        ).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Visualization", variable=self.root.setting.show_vis_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
         
-        ttk.Checkbutton(
-            self.controls_frame,
-            text="Common",
-            variable=self.root.setting.show_common_logs,
-            command=self.update_log_filter,
-        ).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Common", variable=self.root.setting.show_common_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
         
-        ttk.Checkbutton(
-            self.controls_frame,
-            text="Extensions",
-            variable=self.root.setting.show_extensions_logs,
-            command=self.update_log_filter,
-        ).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Extensions", variable=self.root.setting.show_extensions_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
 
-        self.rb_db_stdout = ttk.Radiobutton(
-            self.controls_frame,
-            text="STDOUT",
-            variable=self.root.setting.log_level,
-            value="STDOUT",
-            command=self.update_log_level,
-        )
+
+        ttk.Checkbutton(self.controls_frame, text="File", variable=self.root.setting.log_to_file, command=self.update_log_to_file).pack(side=tk.RIGHT)
+
+        self.rb_db_stdout = ttk.Radiobutton( self.controls_frame, text="STDOUT", variable=self.root.setting.log_level, value="STDOUT", command=self.update_log_level,)
         self.rb_db_stdout.pack(side=tk.RIGHT)
 
-        self.rb_db_warn = ttk.Radiobutton(
-            self.controls_frame,
-            text="WARN",
-            variable=self.root.setting.log_level,
-            value="WARN",
-            command=self.update_log_level,
-        )
+        self.rb_db_warn = ttk.Radiobutton( self.controls_frame, text="WARN", variable=self.root.setting.log_level, value="WARN", command=self.update_log_level,)
         self.rb_db_warn.pack(side=tk.RIGHT)
 
-        self.rb_db_info = ttk.Radiobutton(
-            self.controls_frame,
-            text="INFO",
-            variable=self.root.setting.log_level,
-            value="INFO",
-            command=self.update_log_level,
-        )
+        self.rb_db_info = ttk.Radiobutton( self.controls_frame, text="INFO", variable=self.root.setting.log_level, value="INFO", command=self.update_log_level,)
         self.rb_db_info.pack(side=tk.RIGHT)
 
-        self.rb_db_debug = ttk.Radiobutton(
-            self.controls_frame,
-            text="DEBUG",
-            variable=self.root.setting.log_level,
-            value="DEBUG",
-            command=self.update_log_level,
-        )
+        self.rb_db_debug = ttk.Radiobutton( self.controls_frame, text="DEBUG", variable=self.root.setting.log_level, value="DEBUG", command=self.update_log_level,)
         self.rb_db_debug.pack(side=tk.RIGHT)
+        
+        ttk.Button(self.controls_frame, text="Clear", command=self.clear_log, width=4).pack(side=tk.RIGHT)
+        ttk.Button(self.controls_frame, text="Copy", command=self.copy_log, width=4).pack(side=tk.RIGHT)
 
+        
+        self.rb_db_debug.pack(side=tk.RIGHT)
         self.log_area = ScrolledText(self, state="disabled", height=self.root.setting.log_view_default_height.get(), wrap=tk.WORD)
-                                     # font=(self.root.setting.log_ont.get(), self.root.setting.log_font_size.get()))
+        # self.log_area.tag_configure("error", foreground="red", lmargin2=82)
+        self.log_area.tag_configure("error", foreground="black", background="#470E00", lmargin2=82)
+        self.log_area.tag_configure("warning", foreground="orange", lmargin2=82)
+        self.log_area.tag_configure("info", foreground="lightgreen", lmargin2=82)
+        self.log_area.tag_configure("debug", lmargin2=82)
+
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
         self.after(100, self.update_log_level)
@@ -124,7 +80,7 @@ class LogView(ttk.LabelFrame):
         # -------------------------------------------
         logger = logging.getLogger()
         text_handler = LogView.LogTextHandler(self.log_area, self)
-        formatter = logging.Formatter("[%(levelname).4s] %(name)-35s (L: %(lineno)3d): %(message)s")
+        formatter = logging.Formatter("%(lineno)-4d [%(levelname).4s] %(name)-36s: %(message)s")
         text_handler.setFormatter(formatter)
         # remove other handlers to avoid duplicate logs
         for handler in logger.handlers:
@@ -137,6 +93,27 @@ class LogView(ttk.LabelFrame):
     def reset(self):
         self.update_log_filter()
         self.update_log_level()
+    
+    def clear_log(self):
+        """ Clear the log area """
+        # self.pause_log_emit = True  
+        self.log_area.config(state="normal")
+        self.log_area.delete("1.0", "end")
+        self.log_area.config(state="disabled")
+        # while not self.log_queue.empty():
+            # self.log_queue.get_nowait()
+    
+    def copy_log(self):
+        """ Clear the log area """
+        self.log_area.config(state="normal")
+        self.log_area.clipboard_clear()
+        self.log_area.clipboard_append(self.log_area.get("1.0", "end"))
+        self.log_area.config(state="disabled")
+        log.info("Log copied to clipboard.")
+
+
+    def update_log_to_file(self):
+        raise NotImplementedError("Log to file functionality is not implemented yet.")
 
     def update_log_view_height(self, reverse: bool = False):
         """ update the log view height based on the setting """
@@ -212,24 +189,16 @@ class LogView(ttk.LabelFrame):
     
 
     def process_log_queue(self):
-        processed = 0
-        self.log_area.configure(state="normal")
         try:
-            while processed < 50:
-                msg, tag = self.log_queue.get_nowait()
-                self.log_area.insert(tk.END, msg + "\n", tag if tag else "")
-                processed += 1
+            while True:
+                msg = self.log_queue.get_nowait()
+                self.log_area.config(state="normal")
+                self.log_area.insert("end", msg)
+                self.log_area.config(state="disabled")
         except queue.Empty:
             pass
-
-        # Trim log if too long
-        line_count = float(self.log_area.index('end-1c').split('.')[0])
-        if line_count > self.max_log_lines:
-            self.log_area.delete('1.0', f'{int(line_count - self.max_log_lines)}.0')
-
-        self.log_area.configure(state="disabled")
-        self.log_area.yview(tk.END)
-        self.after(50, self.process_log_queue)
+        if self.winfo_exists():
+            self.after(50, self.process_log_queue)
 
     class LogTextHandler(logging.Handler):
         def __init__(self, text_widget, log_view: LogView):
@@ -240,25 +209,32 @@ class LogView(ttk.LabelFrame):
             self.text_widget.tag_configure("warn", foreground="#FFFF00")  # bright yellow
             
         def emit(self, record):
+            """ Emit a log record to the text widget """
+            # if self.log_view.pause_log_emit:
+            #     return
+
             for bl in self.log_view.log_blacklist:
-                if bl == "extensions":
-                    if any(bl  in record.name for bl in ["e10","e20", "e30", "e40"]):
-                        return
-                elif record.name.startswith(bl + "."):
+                if record.name.startswith(bl + "."):
                     return
+
             msg = self.format(record)
+            code = msg[msg.find('.')+1 : msg.find('_', msg.find('.'))] + ":" 
+            msg = code + msg
 
             self.text_widget.configure(state="normal")
             if record.levelno >= logging.ERROR:
                 self.text_widget.insert(tk.END, msg + "\n", "error")
             elif record.levelno >= logging.WARNING:
                 self.text_widget.insert(tk.END, msg + "\n", "warn")
+            elif record.levelno >= logging.INFO:
+                self.text_widget.insert(tk.END, msg + "\n", "info")
             else:
-                self.text_widget.insert(tk.END, msg + "\n")
+                self.text_widget.insert(tk.END, msg + "\n", "debug")
             self.text_widget.configure(state="disabled")
             self.text_widget.yview(tk.END)
 
     class TextRedirector:
+        """ Redirects stdout to a Tkinter Text widget """
         def __init__(self, widget):
             self.widget = widget
 
@@ -272,6 +248,7 @@ class LogView(ttk.LabelFrame):
             pass
 
     class StreamToLogger:
+        """ Redirects stdout/stderr to a logger """
         def __init__(self, logger, log_level=logging.ERROR):
             self.logger = logger
             self.log_level = log_level

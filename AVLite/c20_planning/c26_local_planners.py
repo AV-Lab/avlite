@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-class RNDPlanner(LocalPlannerStrategy):
+class GreedyLatticePlanner(LocalPlannerStrategy):
     def __init__( self, global_plan: GlobalPlan, env: PerceptionModel, setting: PlanningSettings = PlanningSettings):# num_of_edge_points=PlanningSettings.num_of_edge_points,
     #              planning_horizon= PlanningSettings.planning_horizon, maneuver_distance=PlanningSettings.maneuver_distance,
     #              boundary_clearance=PlanningSettings.boundary_clearance, sample_size=PlanningSettings.sample_size, 

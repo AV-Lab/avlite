@@ -35,12 +35,12 @@ class ExecView(ttk.Frame):
         bridge_frame.grid(row=0, column=1, sticky="nsew")
         
         ## Execution Settings Frame
-        exec_setting_frame = ExecSettingFrame(self.root, self)
-        exec_setting_frame.grid(row=0, column=2, sticky="nsew")
+        exec_stats_frame = ExecStatsFrame(self.root, self)
+        exec_stats_frame.grid(row=0, column=2, sticky="nsew")
 
         self.columnconfigure(0, weight=2)  # execution_frame wider
-        self.columnconfigure(1, weight=1)  # exec_setting_frame
-        self.columnconfigure(2, weight=1)  # bridge_frame
+        # self.columnconfigure(1, weight=1)  # exec_setting_frame
+        # self.columnconfigure(2, weight=1)  # bridge_frame
         
 
         # ----------------------------------------------------------------------
@@ -208,21 +208,25 @@ class ExecView(ttk.Frame):
         self.root.exec.reset()
         self.root.update_ui()
 
-class ExecSettingFrame(ttk.LabelFrame):
+class ExecStatsFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
         super().__init__(view, text="Execution Stats")
         self.root = root
 
         ttk.Label(self, text="Real time", font=self.root.small_font).grid(row=0, column=0, sticky=tk.W)
-        ttk.Label(self, textvariable=self.root.setting.elapsed_real_time, font=self.root.small_font).grid(row=0, column=1, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.elapsed_real_time, font=self.root.small_font).grid(row=0, column=1, sticky=tk.E)
+
         ttk.Label(self, text="Sim time", font=self.root.small_font).grid(row=1, column=0, sticky=tk.W)
-        ttk.Label(self, textvariable=self.root.setting.elapsed_sim_time, font=self.root.small_font).grid(row=1, column=1, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.elapsed_sim_time, font=self.root.small_font).grid(row=1, column=1, sticky=tk.E)
+        
+        ttk.Label(self, text="Perc. FPS", font=self.root.small_font).grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.perception_fps, font=self.root.small_font).grid(row=2, column=1, sticky=tk.E)
 
-        ttk.Label(self, text="Plan FPS", font=self.root.small_font).grid(row=2, column=0, sticky=tk.W)
-        ttk.Label(self, textvariable=self.root.setting.replan_fps, font=self.root.small_font).grid(row=2, column=1, sticky=tk.W)
+        ttk.Label(self, text="Plan FPS", font=self.root.small_font).grid(row=3, column=0, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.replan_fps, font=self.root.small_font).grid(row=3, column=1, sticky=tk.E)
 
-        ttk.Label(self, text="Con. FPS", font=self.root.small_font).grid(row=3, column=0, sticky=tk.W)
-        ttk.Label(self, textvariable=self.root.setting.control_fps, font=self.root.small_font).grid(row=3, column=1, sticky=tk.W)
+        ttk.Label(self, text="Con. FPS", font=self.root.small_font).grid(row=4, column=0, sticky=tk.W)
+        ttk.Label(self, textvariable=self.root.setting.control_fps, font=self.root.small_font).grid(row=4, column=1, sticky=tk.E)
 
 
 
@@ -231,16 +235,16 @@ class BridgeFrame(ttk.LabelFrame):
         super().__init__(view, text="Bridge Setting")
         self.root = root
 
-        self.chk_ground_truth = ttk.Checkbutton(self, text="Provide Truth Detection", variable=self.root.setting.bridge_provide_ground_truth_detection)
+        self.chk_ground_truth = ttk.Checkbutton(self, text="Truth Detection", variable=self.root.setting.bridge_provide_ground_truth_detection)
         self.chk_ground_truth.grid(row=0, column=0, sticky="w")
 
-        self.chk_rgb_image = ttk.Checkbutton(self, text="Provide RGB Image", variable=self.root.setting.bridge_provide_rgb_image)
+        self.chk_rgb_image = ttk.Checkbutton(self, text="RGB Image", variable=self.root.setting.bridge_provide_rgb_image)
         self.chk_rgb_image.grid(row=1, column=0, sticky="w")
 
         # self.chk_depth_image = ttk.Checkbutton(self, text="Provide Depth Image", variable=self.root.setting.bridge_provide_depth_image)
         # self.chk_depth_image.grid(row=2, column=0, sticky="w")
 
-        self.chk_lidar_data = ttk.Checkbutton(self, text="Provide LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
+        self.chk_lidar_data = ttk.Checkbutton(self, text="LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
         self.chk_lidar_data.grid(row=3, column=0, sticky="w")
 
     def update_bridge_settings(self):

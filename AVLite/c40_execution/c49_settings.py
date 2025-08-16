@@ -1,5 +1,5 @@
 from c20_planning.c24_global_planners import RaceGlobalPlanner
-from c20_planning.c26_local_planners import RNDPlanner
+from c20_planning.c26_local_planners import GreedyLatticePlanner
 from c30_control.c34_stanley import StanleyController
 
 class ExecutionSettings:
@@ -10,7 +10,7 @@ class ExecutionSettings:
     bridge="BasicSim" # Options: Basic, Carla, Gazebo, ROS
     perception = ""
     global_planner = RaceGlobalPlanner.__name__
-    local_planner = RNDPlanner.__name__
+    local_planner = GreedyLatticePlanner.__name__
     controller = StanleyController.__name__
     replan_dt=0.5 
     control_dt=0.05

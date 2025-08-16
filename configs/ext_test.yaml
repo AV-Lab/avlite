@@ -1,5 +1,7 @@
+Carla_Town10:
+  test: test_value
 default:
-  test: 'test_value (updated twice)  '
+  test: test_value
 perception exp:
   test: test_value (perc)
 source defaults:

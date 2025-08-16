@@ -38,17 +38,25 @@ class ConfigShortcutView(ttk.LabelFrame):
         # ----------------------------------------------------------------------
         # Key Bindings --------------------------------------------------------
         # ----------------------------------------------------------------------
+        ## App shortcuts
         self.root.bind("T", lambda e: self.open_settings_window())
-
         self.root.bind_all("Q", lambda e: self.root.quit())
         self.root.bind_all("R", lambda e: self.root.reload_stack())
         self.root.bind_all("F", lambda e: self.root.switch_profile() )
         self.root.bind("S", lambda e: self.root.update_shortcut_mode(reverse=True))
+        self.root.bind("<Control-s>", lambda e: self.save_config())
+        
+        self.root.bind("<Control-plus>", lambda e: self.root.local_plan_plot_view.zoom_in_frenet())
+        self.root.bind("<Control-minus>", lambda e: self.root.local_plan_plot_view.zoom_out_frenet())
+        self.root.bind("<plus>", lambda e: self.root.local_plan_plot_view.zoom_in())
+        self.root.bind("<minus>", lambda e: self.root.local_plan_plot_view.zoom_out())
 
+        ## Exec shortcuts
         self.root.bind("x", lambda e: self.root.exec_visualize_view.toggle_exec())
         self.root.bind("c", lambda e: self.root.exec_visualize_view.step_exec())
         self.root.bind("t", lambda e: self.root.exec_visualize_view.reset_exec())
 
+        ## Perception, Planning and Control shortcuts
         self.root.bind("n", lambda e: self.root.perceive_plan_control_view.plan_frame.step_plan())
         self.root.bind("b", lambda e: self.root.perceive_plan_control_view.plan_frame.step_waypoint_back())
         self.root.bind("r", lambda e: self.root.perceive_plan_control_view.plan_frame.replan())
@@ -63,11 +71,8 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("w", lambda e: self.root.perceive_plan_control_view.control_frame.step_acc())
         self.root.bind("s", lambda e: self.root.perceive_plan_control_view.control_frame.step_dec())
 
-        self.root.bind("<Control-plus>", lambda e: self.root.local_plan_plot_view.zoom_in_frenet())
-        self.root.bind("<Control-minus>", lambda e: self.root.local_plan_plot_view.zoom_out_frenet())
-        self.root.bind("<plus>", lambda e: self.root.local_plan_plot_view.zoom_in())
-        self.root.bind("<minus>", lambda e: self.root.local_plan_plot_view.zoom_out())
 
+        ## Log shortcuts 
         # scroll log text using vim motion
         self.root.bind("k", lambda e: self.root.log_view.log_area.yview_scroll(-1, "units")) 
         self.root.bind("j", lambda e: self.root.log_view.log_area.yview_scroll(1, "units"))
@@ -75,8 +80,12 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("<Control-d>",  lambda e: self.root.log_view.log_area.yview_scroll(int(0.5*self.root.setting.log_view_default_height.get()), "units"))
         self.root.bind("G", lambda e: self.root.log_view.log_area.yview_moveto(1.0))
         self.root.bind("g", lambda e: self.root.log_view.log_area.yview_moveto(0.0))
+        
+        self.root.bind("<Up>", lambda e: self.root.log_view.log_area.yview_scroll(-1, "units")) 
+        self.root.bind("<Down>", lambda e: self.root.log_view.log_area.yview_scroll(1, "units"))
 
         self.root.bind("E", lambda e: self.root.log_view.update_log_view_height(reverse=True))  # Toggle log view height
+        self.root.bind("L", lambda e: self.root.log_view.clear_log())  # Toggle log view height
     
         # ----------------------------------------------------------------------
 
@@ -110,7 +119,7 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=7)
         key_binding_info = """
 App:      Q - Quit             S - Toggle shortcut          F - Switch to next Profile  R - Reload imports     
-          T - Open Settings    E - Expand/collapse log    vim - use vim motion to scroll log   
+          T - Open Settings    E - Expand/collapse log      ↑/↓- use Up/Down or vim motion to scroll log   
 Plan:     n - Step plan        b - Step Back                r - Replan            
           + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out F
 Control:  h - Control Step     i - Re-align control         w - Accelerate 
@@ -198,7 +207,7 @@ class SettingWindow:
         ##########
         # Profiles & Extensions
         ##########
-        profile_ext_frame.rowconfigure(5,weight=1)
+        profile_ext_frame.rowconfigure(6,weight=1)
 
 
         ttk.Label(profile_ext_frame, text="Execution Profiles",style="Big.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, padx=10, pady=5)
@@ -213,23 +222,25 @@ class SettingWindow:
         ttk.Button(profile_ext_frame, text="New", width=5, command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
         ttk.Button(profile_ext_frame, text="Delete",width=5, command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
         ttk.Button(profile_ext_frame, text="Save",width=5, underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
-        ttk.Button(
-            profile_ext_frame, text="Reset to source code defaults", command=self.reset_to_to_source_stack_values
-        ).grid(row=3, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        
-        ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="w")
         next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
         next_profile_dropdown_menu["values"] = self.root.setting.profile_list
         next_profile_dropdown_menu.state(["readonly"])
         # next_profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
-        next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
+        next_profile_dropdown_menu.grid(row=3, column=2, padx=5, pady=5, sticky="we")
+        
+        ttk.Button( profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
+        ).grid(row=4, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        ttk.Button( profile_ext_frame, text="Reset all except Exectution", command= lambda: self.reset_to_to_source_stack_values(exclude_execution=True)
+        ).grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        
 
 
         ##############################################
         ## Extensions
         ##############################################
         extension_frame = ttk.LabelFrame(profile_ext_frame, text="Extensions")
-        extension_frame.grid(row=5, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
+        extension_frame.grid(row=6, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
         ttk.Checkbutton(extension_frame, text="Load Extensions" , variable=self.root.setting.load_extensions,
             command=self.recreate_extensions_widgets).grid(row=0, column=0, sticky="w", padx=5, pady=5)
 
@@ -417,8 +428,7 @@ class SettingWindow:
         """ Load a profile from the settings. """
 
         log.info(f"loading profile: {profile}")
-        load_all_stack_settings(profile=profile, load_extensions=self.root.setting.load_extensions.get(),
-                                all_extension_dirs=ExecutionSettings.extension_directories)
+        load_all_stack_settings(profile=profile, load_extensions=self.root.setting.load_extensions.get())
         load_setting(self.root.setting, profile=profile)
 
         self.update_core_widgets()
@@ -457,7 +467,7 @@ class SettingWindow:
         log.info(f"Selected profile: {event.widget.get()}")
         self.load_profile(event.widget.get())
 
-    def reset_to_to_source_stack_values(self):
+    def reset_to_to_source_stack_values(self, exclude_execution=False):
         """ Reset the stack settings to the source code defaults, except for the UI as it is using some 
             some instant variables for tkinter.
         """
@@ -465,12 +475,14 @@ class SettingWindow:
         from c10_perception.c19_settings import PerceptionSettings
         from c20_planning.c29_settings import PlanningSettings
         from c30_control.c39_settings import ControlSettings
-        from c40_execution.c49_settings import ExecutionSettings
-
         self.update_widgets(PerceptionSettings)
         self.update_widgets(PlanningSettings)
         self.update_widgets(ControlSettings)
-        self.update_widgets(ExecutionSettings)
+
+        if not exclude_execution:
+            from c40_execution.c49_settings import ExecutionSettings
+            self.update_widgets(ExecutionSettings)
+
 
         self.update_extensions_widgets()
         

@@ -40,14 +40,20 @@ class VisualizationSettings:
         self.frenet_zoom = 30
         self.global_zoom = 30
 
+        #############################
         # Perc Plan Control
+
+        # perceptoin
         self.show_occupancy_flow = tk.BooleanVar(value=False)
+        self.vehicle_state = tk.StringVar( value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
+        self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
 
         self.perception_type = tk.StringVar(value=list(PerceptionStrategy.registry.keys())[0] if PerceptionStrategy.registry else None)
         def _on_perception_change(*args):
             ExecutionSettings.perception = self.perception_type.get()
         self.perception_type.trace_add("write", _on_perception_change)
 
+        # planning
         self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
         def _on_global_plan_change(*args):
             ExecutionSettings.global_planner = self.global_planner_type.get()
@@ -57,8 +63,14 @@ class VisualizationSettings:
         def _on_local_plan_change(*args):
             ExecutionSettings.local_planner = self.local_planner_type.get()
         self.local_planner_type.trace_add("write", _on_local_plan_change)
+        
 
-            
+        self.lap = tk.StringVar(value="0")
+        self.current_wp = tk.StringVar(value="0")
+
+
+
+        # control    
         self.controller_type = tk.StringVar(value=(list(ControlStrategy.registry.keys())[0] if ControlStrategy.registry else None))
         def _on_controller_change(*args):
             ExecutionSettings.controller = self.controller_type.get()
@@ -69,7 +81,9 @@ class VisualizationSettings:
         self.global_plan_view = tk.BooleanVar(value=False)
         self.local_plan_view = tk.BooleanVar(value=False)
         
+        ############################
 
+        ############################
         # Exec Options
         self.async_exec = tk.BooleanVar(value=False)
         def _on_async_exec_change(*args): # synchronize with ExecutionSettings
@@ -101,6 +115,13 @@ class VisualizationSettings:
         def _on_execution_bridge_change(*args):
             ExecutionSettings.bridge = self.execution_bridge.get()
         self.execution_bridge.trace_add("write", _on_execution_bridge_change)
+        
+        self.elapsed_real_time = tk.StringVar(value="0")
+        self.elapsed_sim_time = tk.StringVar(value="0")
+        
+        self.replan_fps = tk.StringVar(value="0")
+        self.control_fps = tk.StringVar(value="0")
+        self.perception_fps = tk.StringVar(value="0")
 
 
         ## World Bridge model
@@ -108,7 +129,11 @@ class VisualizationSettings:
         self.bridge_provide_rgb_image = tk.BooleanVar(value=False)  # Whether the world supports RGB image
         self.bridge_provide_depth_image = tk.BooleanVar(value=False)  # Whether the world supports depth image
         self.bridge_provide_lidar_data = tk.BooleanVar(value=False)  # Whether the world supports LiDAR data
+        ############################
 
+
+        ############################
+        # APP Options
 
         # Logger Options
         self.log_level = tk.StringVar(value="INFO")
@@ -128,23 +153,15 @@ class VisualizationSettings:
         self.log_font = tk.StringVar(value="Courier")  # Font for the log view
         self.log_font_size = tk.IntVar(value=11)
 
+        self.log_to_file = tk.BooleanVar(value=False)
+
         
         # General variables - Not saved
-        self.replan_fps = tk.StringVar(value="0")
-        self.control_fps = tk.StringVar(value="0")
 
-        self.lap = tk.StringVar(value="0")
-        self.elapsed_real_time = tk.StringVar(value="0")
-        self.elapsed_sim_time = tk.StringVar(value="0")
-
-        self.vehicle_state = tk.StringVar( value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
-        
-        self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
-
-        self.current_wp = tk.StringVar(value="0")
 
         self.bg_color = "#333333" if self.dark_mode.get() else "white"
         self.fg_color = "white" if self.dark_mode.get() else "black"
 
         self.profile_list = []
+        ############################
 

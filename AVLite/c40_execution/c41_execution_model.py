@@ -17,7 +17,7 @@ from c30_control.c32_control_strategy import ControlStrategy
 # from c20_planning.c21_planning_model import GlobalPlan
 # from c20_planning.c24_global_planners import RaceGlobalPlanner
 # from c40_execution.c44_basic_sim import BasicSim
-from c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
+from c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules, load_an_external_module
 
 
 
@@ -182,7 +182,7 @@ class Executer(ABC):
         from c20_planning.c21_planning_model import GlobalPlan
         from c20_planning.c24_global_planners import HDMapGlobalPlanner
         from c20_planning.c24_global_planners import RaceGlobalPlanner
-        from c20_planning.c26_local_planners import RNDPlanner
+        from c20_planning.c26_local_planners import GreedyLatticePlanner
         from c30_control.c33_pid import PIDController
         from c30_control.c34_stanley import StanleyController
         from c40_execution.c42_sync_executer import SyncExecuter
@@ -193,16 +193,14 @@ class Executer(ABC):
         if load_extensions:
             log.debug(f"perception registry: {PerceptionStrategy.registry.keys()}")
             import_all_modules()
-            log.warning(f"external extensions: {ExecutionSettings.external_extensions}")
-            for k,v in ExecutionSettings.external_extensions.items():
-                log.warning(f"Loading external extension: {k} from {v}")
-                import_all_modules(v)
-            log.debug(f"perception registry after: {PerceptionStrategy.registry.keys()}")
+
+            # for k,v in ExecutionSettings.external_extensions.items():
+                # log.warning(f"Loading external extension: {k} from {v}")
+                # import_all_modules(v)
+            # log.debug(f"perception registry after: {PerceptionStrategy.registry.keys()}")
 
             # from extensions.multi_object_prediction.e10_perception.perception import MultiObjectPredictor
             # from extensions.test_ext.e10_perception.test import testClass
-
-
 
 
 
@@ -229,6 +227,13 @@ class Executer(ABC):
 
         ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
         pm = PerceptionModel(ego_vehicle=ego_state)
+            
+
+        # m=load_an_external_module("/home/mkhonji/Desktop/delete_me/e10_perception/perc.py")
+        # log.warning(f"Loaded external extension: {m.__name__} from {m.__file__}")
+        # x = m.ExternalClass(pm)
+        # x.perceive()
+        # log.warning(f"perception registry after: {PerceptionStrategy.registry.keys()}")
 
         ############################
         # Loading perception strategy
@@ -259,11 +264,11 @@ class Executer(ABC):
         #################
         # Loading planner
         #################
-        if local_planner is None or local_planner == RNDPlanner.__name__:
-            local_planner = RNDPlanner(global_plan=default_global_plan, env=pm)
+        if local_planner is None or local_planner == GreedyLatticePlanner.__name__:
+            local_planner = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
         else:
             log.error(f"Local planner {local_planner} not recognized. Using RNDPlanner as default.")
-            local_planner = RNDPlanner(global_plan=default_global_plan, env=pm)
+            local_planner = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
 
         #################
         # Loading planner
@@ -287,3 +292,5 @@ class Executer(ABC):
         )
 
         return executer
+
+
