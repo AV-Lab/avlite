@@ -37,6 +37,7 @@ SAN:
   stanley_vbeta: 0.01
   stanley_vgamma: 0.3
 default:
+  exclude: []
   filepath: configs/c30_control.yaml
   pid_alpha: 0.01
   pid_beta: 0.001

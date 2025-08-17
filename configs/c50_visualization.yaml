@@ -132,7 +132,7 @@ default:
   local_planner_type: GreedyLatticePlanner
   log_font: Courier
   log_font_size: 11
-  log_level: INFO
+  log_level: WARN
   log_to_file: false
   log_view_default_height: 12
   log_view_expanded: false
@@ -145,20 +145,20 @@ default:
   replan_dt: 0.55
   selected_profile: default
   shortcut_mode: false
-  show_common_logs: true
+  show_common_logs: false
   show_control_logs: false
-  show_execute_logs: true
-  show_extensions_logs: true
+  show_execute_logs: false
+  show_extensions_logs: false
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: false
   show_past_locations: true
-  show_perceive_logs: true
+  show_perceive_logs: false
   show_plan_logs: false
   show_state: true
-  show_vis_logs: false
+  show_vis_logs: true
   sim_dt: 0.011
   xy_zoom: 80
 perception exp:
@@ -204,7 +204,7 @@ perception exp:
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: false
-  show_execute_logs: false
+  show_execute_logs: true
   show_extensions_logs: true
   show_global_plan: true
   show_legend: false
@@ -215,7 +215,7 @@ perception exp:
   show_perceive_logs: true
   show_plan_logs: false
   show_state: true
-  show_vis_logs: false
+  show_vis_logs: true
   sim_dt: 0.011
   xy_zoom: 60
 source defaults:
