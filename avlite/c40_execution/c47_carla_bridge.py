@@ -1,4 +1,4 @@
-from avlite.c40_execution.c43_sync_executer import WorldBridge
+from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c30_control.c32_control_strategy import ControlComand
@@ -16,10 +16,22 @@ except ImportError:
     log.error("Carla module not found. Please ensure you have the Carla Python API installed if you need to integrate with Carla.")
 
 class CarlaBridge(WorldBridge):
+    @property
+    def capabilities(self) -> frozenset[WorldCapability]:
+        return frozenset({
+            WorldCapability.GT_DETECTION,
+            WorldCapability.GT_TRACKING,
+            WorldCapability.GT_LOCALIZATION,
+            WorldCapability.RGB_IMAGE,
+            WorldCapability.LIDAR
+        })
+
     def __init__(
         self, ego_state: Optional[EgoState], host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0
     ):
-        log.info(f"Connecting to Carla at {host}:{port}")
+        self.supports_ground_truth_detection = True
+        self.supports_ground_truth_localization = True
+
         self.client = None
         self.world = None
         self.ego_state = ego_state
@@ -44,6 +56,7 @@ class CarlaBridge(WorldBridge):
 
         self.supports_ground_truth_detection = True  # Carla provides ground truth state
 
+        log.info(f"Connecting to Carla at {host}:{port}")
         try:
             self.client = carla.Client(host, port)
             self.client.set_timeout(timeout)
@@ -396,6 +409,7 @@ class CarlaBridge(WorldBridge):
                 log.error(f"Error resetting world: {e}")
 
         log.info("Reset complete")
+    
 
 
 def spawn_npc_vehicles(world, num_vehicles=10):
@@ -458,3 +472,5 @@ def draw_actor_bbox(world,static_car_bboxes, color=None, life_time=0.05, thickne
                 color=carla.Color(0, 0, 255),
                 life_time=life_time
             )
+    
+

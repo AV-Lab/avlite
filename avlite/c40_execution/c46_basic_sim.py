@@ -4,16 +4,25 @@ from typing import Optional
 from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c30_control.c32_control_strategy import ControlComand
-from avlite.c40_execution.c43_sync_executer import WorldBridge
+from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
 
 import logging
 log = logging.getLogger(__name__)
 
 class BasicSim(WorldBridge):
+    @property
+    def capabilities(self) -> frozenset[WorldCapability]:
+        return frozenset({
+            WorldCapability.GT_DETECTION,
+            WorldCapability.GT_TRACKING,
+            WorldCapability.GT_LOCALIZATION,
+        })
+
     def __init__(self,ego_state:EgoState, pm:PerceptionModel = None,):
         self.ego_state = ego_state
         self.pm = pm
         self.supports_ground_truth_detection = True
+        self.supports_ground_truth_localization = True
     
 
     def control_ego_state(self, cmd:ControlComand, dt=0.01):
@@ -40,3 +49,4 @@ class BasicSim(WorldBridge):
 
     def get_ground_truth_perception_model(self) -> PerceptionModel:
         return self.pm
+    

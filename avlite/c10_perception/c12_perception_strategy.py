@@ -1,9 +1,9 @@
-
-from avlite.c10_perception.c11_perception_model import PerceptionModel
-from avlite.c10_perception.c19_settings import PerceptionSettings
 import logging
 from abc import ABC, abstractmethod
 
+from avlite.c10_perception.c11_perception_model import PerceptionModel
+from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
 
 log = logging.getLogger(__name__)
 
@@ -14,13 +14,17 @@ class PerceptionStrategy(ABC):
     """
     registry = {}
     def __init__(self, perception_model: PerceptionModel, setting:PerceptionSettings = PerceptionSettings):
-        self.supports_detection = False
-        self.supports_tracking = False    
-        self.supports_prediction = False
-        self.supports_rgb = False
-        self.supports_lidar = False
-
         self.perception_model = perception_model
+    
+    @property
+    @abstractmethod
+    def requirements(self) -> frozenset[WorldCapability]:
+        pass
+
+    @property
+    @abstractmethod
+    def capabilities(self) -> frozenset[PerceptionCapability]:
+        pass
 
     def detect(self, rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:
         """
@@ -57,5 +61,4 @@ class PerceptionStrategy(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:  
             PerceptionStrategy.registry[cls.__name__] = cls
-
 

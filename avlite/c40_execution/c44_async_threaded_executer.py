@@ -150,42 +150,41 @@ class AsyncThreadedExecuter(Executer):
                 time.sleep(0.1)
 
             if self.call_perceive:
-                if not self.perception:
-                    log.error("Perception strategy is not set. Skipping perception step.")
-                    continue
-                # log.info(f"support detection: {self.perception.supports_detection}")
-                if self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
-                    self.pm = self.world.get_ground_truth_perception_model()
-                    perception_output = self.perception.perceive(perception_model=self.pm)
-                    # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
-                else:
-                    perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
-                        if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
-                        if self.world.supports_depth_image else None, lidar_data=self.world.get_lidar_data() 
-                        if self.world.supports_lidar_data else None)
-                # log.debug(f"Support detection: {self.perception.supports_detection}")
-                # log.debug(f"Perception output: {perception_output}")
+                try:
+                    self._perception_step()
+                except Exception as e:
+                    log.error(f"Error in perception step: {e}")
+
+    def _perception_step(self):
+        if not self.perception:
+            raise RuntimeError("Perception strategy is not set. Skipping perception step.")
+
+        # elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
+        elif self.perception.requirements.issubset(self.world.capabilities): 
+            self.pm = self.world.get_ground_truth_perception_model()
+            # perception_output = self.perception.perceive(perception_model=self.pm)
+            perception_output = self.perception.perceive(perception_model=self.pm, rgb_img=self.world.get_rgb_image(),
+                                                         depth_img=self.world.get_depth_image(),
+                                                         lidar_data=self.world.get_lidar_data())
+
+            # log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
+            log.debug(f"type of perception_output: {type(perception_output)}")
+            # log.warning(f"occupancy grid: {self.pm.occupancy_flow}")
+            log.debug(f"occupancy grid sizes: {self.pm.grid_bounds}")
+
+        else:
+            raise RuntimeError(f"Perception strategy {self.perception.__class__.__name__} requirements {self.perception.requirements} not satisfied by capabilities: {self.world.capabilities}. Skipping perception step.")
 
     def worker_perception(self):
         while not self.__kill_flag and self.call_perceive:
             try:
-                # if self.world.support_ground_truth_perception:
-                #     self.pm = self.world.get_ground_truth_perception_model()
-
-                # log.info(f"support detection: {self.perception.supports_detection}")
-                if self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
-                    self.pm = self.world.get_ground_truth_perception_model()
-                    perception_output = self.perception.perceive(perception_model=self.pm)
-                    # log.debug(f"[Executer] Perception output: {perception_output} sum{sum(perception_output)}")
-                else:
-                    perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
-                        if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
-                        if self.world.supports_depth_image else None, lidar_data=self.world.get_lidar_data() 
-                        if self.world.supports_lidar_data else None)
-                # log.debug(f"Support detection: {self.perception.supports_detection}")
-                # log.debug(f"Perception output: {perception_output}")
+                t1 = time.time()
+                if self.perception and self.call_perceive:
+                    self._perception_step()
+                t2 = time.time()
+                log.debug(f"Perception iteration: dt={t2-t1:.3f}s")
             except Exception as e:
-                log.error(f"Error in perception worker: {e}", exc_info=True)
+                log.error(f"Error in perception worker: {e}")
                 time.sleep(0.1)
 
     def stop(self):

@@ -12,6 +12,7 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c41_execution_model import Executer
 from avlite.c40_execution.c41_execution_model import WorldBridge
+from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
 
 log = logging.getLogger(__name__)
 
@@ -77,19 +78,23 @@ class SyncExecuter(Executer):
             if not self.perception:
                 log.error("Perception strategy is not set. Skipping perception step.")
 
-            elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
+            # elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
+            elif self.perception.requirements.issubset(self.world.capabilities): 
+                log.warning(f"[Executer] Perception step started at {t2:.4f} sec")
                 self.pm = self.world.get_ground_truth_perception_model()
-                perception_output = self.perception.perceive(perception_model=self.pm)
+                # perception_output = self.perception.perceive(perception_model=self.pm)
+                perception_output = self.perception.perceive(perception_model=self.pm, rgb_img=self.world.get_rgb_image(),
+                                                             depth_img=self.world.get_depth_image(),
+                                                             lidar_data=self.world.get_lidar_data())
+
                 log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
                 log.debug(f"type of perception_output: {type(perception_output)}")
                 # log.warning(f"occupancy grid: {self.pm.occupancy_flow}")
                 log.debug(f"occupancy grid sizes: {self.pm.grid_bounds}")
 
             else:
-                perception_output = self.perception.perceive( rgb_img=self.world.get_rgb_image() 
-                    if self.world.supports_rgb_image else None, depth_img=self.world.get_depth_image() 
-                    if self.world.supports_depth_image else None, lidar_data=self.world.get_lidar_data() 
-                    if self.world.supports_lidar_data else None)
+                log.error(f"Perception strategy {self.perception.__class__.__name__} requirements {self.perception.requirements} not satisfied by capabilities: {self.world.capabilities}. Skipping perception step.")
+
             pr_time_txt = f" PR: {(time.time() - t2):.4f} sec,"
 
 

@@ -1,3 +1,11 @@
+Carla_Town10:
+  boundary_clearance: 0.5
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 4
+  num_of_edge_points: 10
+  planning_horizon: 3
+  sample_size: 3
 default:
   boundary_clearance: 0.5
   filepath: configs/c20_planning.yaml

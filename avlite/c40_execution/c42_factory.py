@@ -100,18 +100,15 @@ def executor_factory(
     # Loading perception strategy
     ##############################
     pr = None
-    if perception is not None and perception != "" and perception in  PerceptionStrategy.registry:
-        # load the class
-        cls = PerceptionStrategy.registry[perception]
-        pr = cls(perception_model=pm)
-        log.info("Perception Module Loaded!")
-    # perception = MultiObjectPredictor(perception_model=pm)
-    
-    # m=load_an_external_module("/home/mkhonji/Desktop/delete_me/extensions/perc.py")
-    # log.warning(f"Loaded external extension: {m.__name__} from {m.__file__}")
-    # pr = m.ExternalClass(pm)
-    # pr.perceive()
-    # log.warning(f"perception registry after: {PerceptionStrategy.registry.keys()}")
+    try:
+        if perception is not None and perception != "" and perception in  PerceptionStrategy.registry:
+            # load the class
+            cls = PerceptionStrategy.registry[perception]
+            pr = cls(perception_model=pm)
+            log.info("Perception Module Loaded!")
+    except Exception as e:
+        log.error(f"Error loading perception strategy {perception}: {e}")
+        pr = None
 
     #################
     # Loading world

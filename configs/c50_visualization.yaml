@@ -156,7 +156,7 @@ default:
   show_common_logs: false
   show_control_logs: false
   show_execute_logs: false
-  show_extensions_logs: false
+  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true

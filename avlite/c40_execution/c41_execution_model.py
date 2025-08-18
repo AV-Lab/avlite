@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 import logging 
 import numpy as np
+from enum import Enum, auto
 
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
@@ -14,9 +15,11 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
+from avlite.c60_common.c62_capabilities import WorldCapability
 
 
 log = logging.getLogger(__name__)
+
 
 @dataclass
 class WorldBridge(ABC):
@@ -27,12 +30,15 @@ class WorldBridge(ABC):
     
     ego_state: EgoState
     perception_model: Optional[PerceptionModel] = None # Simulators can provide ground truth perception model
-    supports_ground_truth_detection: bool = False  # Whether the world supports ground truth perception model
-    supports_rgb_image: bool = False  # Whether the world supports RGB support_rgb_image
-    supports_depth_image: bool = False  # Whether the world supports depth image 
-    supports_lidar_data: bool = False  # Whether the world supports lidar data  
 
     registry = {}
+
+    
+    @property
+    @abstractmethod
+    def capabilities(self) -> frozenset[WorldCapability]:
+        """Set of supported capabilities (must be implemented by subclass)."""
+        pass
 
     @abstractmethod
     def control_ego_state(self, cmd: ControlComand, dt:Optional[float]=0.01):
@@ -67,17 +73,17 @@ class WorldBridge(ABC):
         """ Returns the perception model of the world. This method should be implemented by simulators  """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
-    def get_rgb_image(self) -> np.ndarray:
+    def get_rgb_image(self) -> np.ndarray | None:
         """ Returns the RGB image of the world. This method should be implemented by simulators """
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+        return None
 
-    def get_depth_image(self) -> np.ndarray:
+    def get_depth_image(self) -> np.ndarray | None:
         """ Returns the depth image of the world. This method should be implemented by simulators """
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+        return None
     
-    def get_lidar_data(self) -> np.ndarray:
+    def get_lidar_data(self) -> np.ndarray | None:
         """ Returns the lidar data of the world. This method should be implemented by simulators """
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+        return None
 
     def reset(self):
         pass

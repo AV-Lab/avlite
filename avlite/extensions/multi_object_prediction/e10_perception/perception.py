@@ -6,11 +6,25 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.extensions.multi_object_prediction.settings import ExtensionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+from avlite.c60_common.c62_capabilities import PerceptionCapability, WorldCapability
 
 log = logging.getLogger(__name__)
 
 
 class MultiObjectPredictor(PerceptionStrategy):
+
+    @property
+    def requirements(self) -> frozenset[WorldCapability]:
+        return frozenset({
+            WorldCapability.GT_DETECTION,
+            WorldCapability.GT_TRACKING,
+            WorldCapability.GT_LOCALIZATION,
+        })
+    @property
+    def capabilities(self) -> frozenset[PerceptionCapability]:
+        return frozenset({
+            PerceptionCapability.PREDICTION,
+        })
 
     def __init__(self, perception_model: PerceptionModel,):
         super().__init__(perception_model)

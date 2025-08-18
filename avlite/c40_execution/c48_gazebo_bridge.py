@@ -4,7 +4,7 @@ import math
 from typing import Optional
 import numpy as np
 
-from avlite.c40_execution.c43_sync_executer import WorldBridge
+from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c30_control.c32_control_strategy import ControlComand
 
@@ -20,6 +20,14 @@ except ImportError:
 
 
 class GazeboIgnitionBridge(WorldBridge, Node):
+    @property
+    def capabilities(self) -> frozenset[WorldCapability]:
+        return frozenset({
+            WorldCapability.GT_DETECTION,
+            WorldCapability.GT_LOCALIZATION,
+            WorldCapability.RGB_IMAGE,
+            WorldCapability.LIDAR
+        })
     def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default"):
         """
         Initialize Gazebo Ignition Bridge
