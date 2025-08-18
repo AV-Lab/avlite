@@ -863,19 +863,20 @@ class LocalPlot:
                 pm.grid_bounds.get('min_y', 0),
                 pm.grid_bounds.get('max_y', 0),
             ]
+            flow_sum = pm.occupancy_flow[0].T
             if not hasattr(self, 'pm_occupancy_flow_ax1'):
-                flow_sum = pm.occupancy_flow[0] #np.sum(pm.occupancy_flow, axis=0)
+                # flow_sum = pm.occupancy_flow[0] #np.sum(pm.occupancy_flow, axis=0)
                 self.pm_occupancy_flow_ax1 = self.ax1.imshow(
                     flow_sum,
                     origin='lower',
                     extent=extent,
-                    cmap='viridis',
+                    cmap='plasma',
                     vmin=0,
                     vmax=1
                 )
                 # self.fig.colorbar(self.pm_occupancy_flow_ax1, ax=self.ax1, label='Occupancy')
             else:
-                self.pm_occupancy_flow_ax1.set_data(pm.occupancy_flow[0])
+                self.pm_occupancy_flow_ax1.set_data(flow_sum)
                 self.pm_occupancy_flow_ax1.set_extent(extent)
             self.fig.canvas.draw_idle()
 
