@@ -73,17 +73,25 @@ SAN:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 30
+  frenet_zoom: 10
   global_plan_view: true
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 70
+  global_zoom: 110
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
+  log_font: Courier
+  log_font_size: 11
   log_level: INFO
+  log_to_file: false
+  log_view_default_height: 12
+  log_view_expanded: false
+  log_view_expended_height: 35
+  max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception exp
+  perception_fps: '0'
   perception_type: MultiObjectPredictor
   replan_dt: 0.5
   selected_profile: SAN

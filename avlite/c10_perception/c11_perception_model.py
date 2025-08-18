@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from enum import Enum
 import numpy as np
 from numpy.matlib import ndarray
@@ -9,26 +10,35 @@ from dataclasses import dataclass, field
 import logging
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c10_perception.c18_hdmap import HDMap
+
 
 log = logging.getLogger(__name__)
 
-
-# test
+class PredictionMode(Enum):
+    PATH = 1
+    OCCUPANCY_FLOW = 2
+    OCCUPANCY_FLOW_PER_AGENT = 3
+    NONE = 4
 
 @dataclass
 class PerceptionModel:
     static_obstacles: list[State] = field(default_factory=list)
     agent_vehicles: list[AgentState] = field(default_factory=list)
     ego_vehicle: EgoState= field(default_factory=lambda: EgoState())
-    max_agent_vehicles: int = PerceptionSettings.max_agent_vehicles
-    grid_size: int = PerceptionSettings.grid_size  # Size of the occupancy grid -> 100x100
+    max_agent_vehicles: int = PerceptionSettings.perception_model_max_agents
+    grid_size: int = PerceptionSettings.perception_model_prediction_grid_size  # Size of the occupancy grid -> 100x100
    
     # Optional Agent Prediction 
+    prediction_mode: PredictionMode = PredictionMode.NONE
     occupancy_flow: Optional[list[np.ndarray]] = None # list of 2D grids. Each list corresponds to a timestep in the prediction
     grid_bounds: Optional[Dict[str, float]] = None # Dictionary with bounds of the grid (min_x, max_x, min_y, max_y, resolution)
     predict_delta_t: float = 0.1
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
     occupancy_flow_per_object:  Optional[list[tuple[int,list[np.ndarray]]]] = None # list(agent_id, list(2D grid))
+
+    # Optional HDMap
+    hd_map: Optional[HDMap] = None
 
 
     def add_agent_vehicle(self, agent: AgentState):
@@ -81,18 +91,13 @@ class PerceptionModel:
         self.static_obstacles = []
         self.agent_vehicles = []
 
-class PredictionStyle(Enum):
-    PATH = 1
-    OCCUPANCY_FLOW = 2
-    OCCUPANCY_GRID_PER_AGENT = 3
-    NONE = 4
 
 
 @dataclass
 class State:
     x: float = 0.0
     y: float = 0.0
-    theta: float = PerceptionSettings.default_theta
+    theta: float = PerceptionSettings.state_default_heading
     width: float = 2.0
     length: float = 4.5
 
@@ -173,11 +178,11 @@ class AgentState(State):
 
 @dataclass
 class EgoState(AgentState):
-    max_valocity: float = PerceptionSettings.max_valocity
-    max_acceleration: float = PerceptionSettings.max_acceleration
-    min_acceleration: float = PerceptionSettings.min_acceleration
-    max_steering: float = PerceptionSettings.max_steering  # in radians
-    min_steering: float = PerceptionSettings.min_steering
-    L_f: float = PerceptionSettings.L_f  # Distance from center of mass to front axle
+    max_valocity: float = PerceptionSettings.ego_max_valocity
+    max_acceleration: float = PerceptionSettings.ego_max_acceleration
+    min_acceleration: float = PerceptionSettings.ego_min_acceleration
+    max_steering: float = PerceptionSettings.ego_max_steering  # in radians
+    min_steering: float = PerceptionSettings.ego_min_steering
+    L_f: float = PerceptionSettings.ego_distance_front_axle  # Distance from center of mass to front axle
 
 

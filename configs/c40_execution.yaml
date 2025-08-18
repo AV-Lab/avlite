@@ -12,23 +12,35 @@ B:
   replan_dt: 0.5
   sim_dt: 0.01
 Carla_Town10:
-  async_mode: true
-  bridge: CarlaBridge
-  control_dt: 0.01
+  async_mode: false
+  bridge: BasicSim
+  community_extensions:
+    delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
+  control_dt: 0.05
   controller: StanleyController
+  default_extensions:
+  - executer_multi_processing
+  - test_ext
+  - multi_object_prediction
   filepath: configs/c40_execution.yaml
-  global_planner: HDMapGlobalPlanner
+  global_planner: RaceGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/san_campus.xodr
-  local_planner: RNDPlanner
-  perception: MultiObjectPredictor
-  replan_dt: 5.0
-  sim_dt: 0.011
+  local_planner: GreedyLatticePlanner
+  perception: ''
+  replan_dt: 0.5
+  sim_dt: 0.01
 SAN:
   async_mode: true
   bridge: BasicSim
+  community_extensions:
+    delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   control_dt: 0.01
   controller: StanleyController
+  default_extensions:
+  - executer_multi_processing
+  - test_ext
+  - multi_object_prediction
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -71,7 +83,7 @@ perception exp:
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
-  local_planner: RNDPlanner
+  local_planner: ''
   perception: testClass
   replan_dt: 0.55
   sim_dt: 0.011

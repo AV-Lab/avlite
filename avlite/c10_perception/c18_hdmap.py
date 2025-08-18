@@ -6,6 +6,8 @@ from typing import Optional
 import logging
 from dataclasses import dataclass, field
 
+from avlite.c10_perception.c19_settings import PerceptionSettings
+
 log = logging.getLogger(__name__)
 
 @dataclass
@@ -59,7 +61,7 @@ class HDMap:
         reversed: bool = False  # Flag to indicate if the road is reversed
 
     xodr_file_name: str 
-    sampling_resolution: float = 1.0
+    sampling_resolution: float = PerceptionSettings.hdmap_sampling_resolution # 1.0
     roads: list[Road] = field(default_factory=list)
     lanes: list[Lane] = field(default_factory=list) 
     

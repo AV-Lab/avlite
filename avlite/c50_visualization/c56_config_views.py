@@ -511,7 +511,7 @@ class SettingWindow:
                     self.save_from_widgets(ExtensionSettings, extension_name=ext)
                     save_setting(ExtensionSettings, profile=self.root.setting.selected_profile.get())
                 except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}", stack_info=True)
+                    log.error(f"Failed to save extension settings for {ext}: {e}")
 
         
         # just to save the profile 

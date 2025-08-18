@@ -6,6 +6,7 @@ import numpy as np
 import logging
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
+from avlite.c10_perception.c18_hdmap import HDMap
 from avlite.c30_control.c31_control_model import  ControlComand
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -85,7 +86,9 @@ def executor_factory(
         gp.global_plan = default_global_plan
         log.debug("RaceGlobalPlanner loaded")
     elif global_planner == HDMapGlobalPlanner.__name__:
-        gp = HDMapGlobalPlanner(xodr_file=hd_map)
+
+        hdmap = HDMap(xodr_file_name=hd_map)
+        gp = HDMapGlobalPlanner(hdmap)
         log.debug("GlobalHDMapPlanner loaded")
 
     ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])

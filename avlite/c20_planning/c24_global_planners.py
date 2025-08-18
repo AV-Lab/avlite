@@ -27,21 +27,21 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
     A global planner that uses OpenDRIVE HD maps for path planning.
     """
 
-    def __init__(self, xodr_file:str, sampling_resolution=.1, max_velocity=10, wp_to_full_velocity=20):
+    def __init__(self, hdmap:HDMap, max_velocity=10, wp_to_full_velocity=20):
         """
         :param xodr_file: path to the OpenDRIVE HD map (.xodr).
         :param sampling_resolution: distance (meters) between samples when converting arcs/lines to discrete points.
         :param max_velocity: maximum velocity for the path.
         """
         super().__init__()
-        self.xodr_file = xodr_file
-        self.sampling_resolution = sampling_resolution
+        # self.xodr_file = xodr_file
+        # self.sampling_resolution = sampling_resolution
 
-        self.hdmap:HDMap = HDMap(xodr_file_name=xodr_file, sampling_resolution=sampling_resolution)
+        self.hdmap: HDMap = hdmap
         self.max_velocity = max_velocity
         self.wp_to_full_velocity = wp_to_full_velocity
         
-        log.debug(f"Loading HDMap from {xodr_file}")
+        # log.debug(f"Loading HDMap from {xodr_file}")
 
     def plan(self) -> GlobalPlan: 
 
