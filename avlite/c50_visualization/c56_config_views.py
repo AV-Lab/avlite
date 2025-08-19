@@ -239,7 +239,6 @@ class SettingWindow:
         ).grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
         
 
-
         ##############################################
         ## Extensions
         ##############################################
@@ -251,7 +250,7 @@ class SettingWindow:
 
         # internal extensions 
         ttk.Label(extension_frame, text="Extensions").grid(row=3, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_default_extensions = tk.Listbox(extension_frame, height=5, selectmode=tk.SINGLE, exportselection=False, width=30,)
+        self.listbox_default_extensions = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
         self.listbox_default_extensions.grid(row=2, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
@@ -264,7 +263,7 @@ class SettingWindow:
 
         # community extensions
         ttk.Label(extension_frame, text="Community Extensions").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_community_extensions = tk.Listbox(extension_frame, height=5, selectmode=tk.SINGLE, exportselection=False, width=30,)
+        self.listbox_community_extensions = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
         self.listbox_community_extensions.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
@@ -349,15 +348,15 @@ class SettingWindow:
         additional_setting_row_1 = ttk.Frame(additional_setting_frame)
         ttk.Label(additional_setting_row_1, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         additional_setting_row_1.pack(fill=tk.X)
-        ttk.Checkbutton( additional_setting_row_1, text="Legend", variable=self.root.setting.show_legend, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton( additional_setting_row_1, text="Locations", variable=self.root.setting.show_past_locations, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton( additional_setting_row_1, text="Global Plan", variable=self.root.setting.show_global_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton( additional_setting_row_1, text="Local Plan", variable=self.root.setting.show_local_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton( additional_setting_row_1, text="Local Lattice", variable=self.root.setting.show_local_lattice, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton( additional_setting_row_1, text="State", variable=self.root.setting.show_state, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="Legend", variable=self.root.setting.show_legend, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="Locations", variable=self.root.setting.show_past_locations, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="Global Plan", variable=self.root.setting.show_global_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="Local Plan", variable=self.root.setting.show_local_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="Local Lattice", variable=self.root.setting.show_local_lattice, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="State", variable=self.root.setting.show_state, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
 
-        ttk.Checkbutton( additional_setting_row_1, text="Follow Planner in Global", variable=self.root.setting.global_view_follow_planner).pack(side=tk.LEFT)
-        ttk.Checkbutton( additional_setting_row_1, text="Follow Planner in Frenet", variable=self.root.setting.frenet_view_follow_planner).pack(side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Global", variable=self.root.setting.global_view_follow_planner).pack(side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Frenet", variable=self.root.setting.frenet_view_follow_planner).pack(side=tk.LEFT)
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
@@ -378,8 +377,12 @@ class SettingWindow:
 
     def reset_default_extensions(self):
         """ Reset the default extensions to the source code defaults. """
+
         log.info("Resetting default extensions to source code defaults.")
+
+        self.listbox_default_extensions.delete(0, tk.END)
         ExecutionSettings.default_extensions = list_extensions()
+
         for ext in ExecutionSettings.default_extensions:
             self.listbox_default_extensions.insert(tk.END, ext)
 

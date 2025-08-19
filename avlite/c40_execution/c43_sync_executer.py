@@ -87,7 +87,7 @@ class SyncExecuter(Executer):
                                                              depth_img=self.world.get_depth_image(),
                                                              lidar_data=self.world.get_lidar_data())
 
-                log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
+                # log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
                 log.debug(f"type of perception_output: {type(perception_output)}")
                 # log.warning(f"occupancy grid: {self.pm.occupancy_flow}")
                 log.debug(f"occupancy grid sizes: {self.pm.grid_bounds}")

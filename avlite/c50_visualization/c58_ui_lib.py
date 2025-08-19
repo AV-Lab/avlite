@@ -102,7 +102,11 @@ class ThemedInputDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        self.dialog.geometry("300x100")
+        # self.dialog.geometry("300x100")
+        
+        self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
+
+        
         
         frame = ttk.Frame(self.dialog)
         frame.pack(expand=True, fill=tk.BOTH)
@@ -112,7 +116,7 @@ class ThemedInputDialog:
 
         # Add prompt and entry field
         ttk.Label(top_frame, text=prompt).pack(side=tk.LEFT, padx=10)
-        self.entry = ttk.Entry(top_frame)
+        self.entry = ttk.Entry(top_frame, width=10)
         self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10, pady=5)
         
         # Add button frame
@@ -141,7 +145,8 @@ class ThemedTwoInputDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        self.dialog.geometry("400x150")
+        
+        self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
         
         frame = ttk.Frame(self.dialog)
         # frame.pack(expand=True, fill=tk.BOTH)
@@ -162,7 +167,7 @@ class ThemedTwoInputDialog:
         self.first_entry.insert(0, initial1)
         
         ttk.Label(frame, text=prompt2).grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
-        self.second_entry = ttk.Entry(frame)
+        self.second_entry = ttk.Entry(frame, width=30)
         self.second_entry.grid(row=1, column=1, padx=10, pady=5, sticky=tk.EW)
         self.second_entry.insert(0, initial2)
         

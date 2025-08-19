@@ -7,6 +7,8 @@ import queue
 
 import logging
 
+from textual import widget
+
 log = logging.getLogger(__name__)
 from typing import TYPE_CHECKING
 
@@ -56,12 +58,6 @@ class LogView(ttk.LabelFrame):
         
         self.rb_db_debug.pack(side=tk.RIGHT)
         self.log_area = ScrolledText(self, state="disabled", height=self.root.setting.log_view_default_height.get(), wrap=tk.WORD)
-        # self.log_area.tag_configure("error", foreground="red", lmargin2=82)
-        self.log_area.tag_configure("error", foreground="black", background="#470E00", lmargin2=82)
-        self.log_area.tag_configure("warning", foreground="orange", lmargin2=82)
-        self.log_area.tag_configure("info", foreground="lightgreen", lmargin2=82)
-        self.log_area.tag_configure("debug", lmargin2=82)
-
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
         self.after(100, self.update_log_level)
@@ -72,14 +68,15 @@ class LogView(ttk.LabelFrame):
         # -Configure logging-------------------------
         # -------------------------------------------
         logger = logging.getLogger()
-        text_handler = LogView.LogTextHandler(self.log_area, self)
-        formatter = logging.Formatter("%(lineno)-4d [%(levelname).4s] %(name)-36s: %(message)s")
-        text_handler.setFormatter(formatter)
+        self.log_handler = LogView.LogTextHandler(self.log_area, self)
         # remove other handlers to avoid duplicate logs
         for handler in logger.handlers:
             logger.removeHandler(handler)
-        logger.addHandler(text_handler)
+        logger.addHandler(self.log_handler)
         logger.setLevel(logging.INFO)
+        # self.poll_log_queue()
+
+        ## Redirect stdout and stderr to the log area
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         log.info("Log initialized.")
 
@@ -192,6 +189,35 @@ class LogView(ttk.LabelFrame):
         if self.winfo_exists():
             self.after(50, self.process_log_queue)
 
+
+    class TextRedirector:
+        """ Redirects stdout to a Tkinter Text widget """
+        def __init__(self, log_area_widget):
+            self.log_area_widget = log_area_widget
+
+        def write(self, str):
+            self.log_area_widget.configure(state="normal")
+            self.log_area_widget.insert(tk.END, str)
+            self.log_area_widget.configure(state="disabled")
+            self.log_area_widget.see(tk.END)
+
+        def flush(self):
+            pass
+
+    class StreamToLogger:
+        """ Redirects stdout/stderr to a logger """
+        def __init__(self, logger, log_level=logging.ERROR):
+            self.logger = logger
+            self.log_level = log_level
+            # self.linebuf = ""
+
+        def write(self, buf):
+            for line in buf.rstrip().splitlines():
+                self.logger.log(self.log_level, line)
+
+        def flush(self):
+            pass
+    
     class LogTextHandler(logging.Handler):
         def __init__(self, text_widget, log_view: LogView):
             super().__init__()
@@ -199,7 +225,16 @@ class LogView(ttk.LabelFrame):
             self.log_view = log_view
             self.text_widget.tag_configure("error", foreground="red")
             self.text_widget.tag_configure("warn", foreground="#FFFF00")  # bright yellow
-            
+            formatter = logging.Formatter("%(lineno)-4d [%(levelname).4s] %(name)-36s: %(message)s")
+            self.setFormatter(formatter)
+            self.text_widget.tag_configure("error", foreground="red", lmargin2=82)
+            # self.text_widget.tag_configure("error", foreground="black", background="#470E00", lmargin2=82)
+            self.text_widget.tag_configure("warning", foreground="yellow", lmargin2=82)
+            self.text_widget.tag_configure("info", foreground="lightgreen", lmargin2=82)
+            self.text_widget.tag_configure("debug", lmargin2=82)
+            self.log_queue = queue.Queue()
+
+
         def emit(self, record):
             """ Emit a log record to the text widget """
 
@@ -224,31 +259,71 @@ class LogView(ttk.LabelFrame):
                 self.text_widget.insert(tk.END, msg + "\n", "debug")
             self.text_widget.configure(state="disabled")
             self.text_widget.yview(tk.END)
+ 
 
-    class TextRedirector:
-        """ Redirects stdout to a Tkinter Text widget """
-        def __init__(self, widget):
-            self.widget = widget
+    #     def emit(self, record):
+    #         """ Emit a log record to the text widget """
+    #         
+    #         for bl in self.log_view.log_blacklist:
+    #             if record.name.startswith(bl + "."):
+    #                 return
+    #
+    #         msg = self.format(record)
+    #         _first_dot = msg.find('.')
+    #         _second_dot = msg.find('.', _first_dot + 1)
+    #         code = msg[_second_dot+1 : msg.find('_', _second_dot)] + ":" 
+    #         msg = code + msg
+    #
+    #         # Put the formatted message and level in the queue
+    #         self.log_queue.put((msg, record.levelno))
+    #
+    #
+    # def poll_log_queue(self, max_per_poll: int = 10):
+    #     processed = 0
+    #     messages = []
+    #     tag = "debug"
+    #    
+    #     current_log_level = logging._nameToLevel[self.root.setting.log_level.get()]
+    #     
+    #     # Collect messages first without modifying the widget
+    #     try:
+    #         while processed < max_per_poll:
+    #             msg, levelno = self.log_handler.log_queue.get_nowait()
+    #             if levelno < current_log_level:
+    #                 continue
+    #
+    #             if levelno >= logging.ERROR:
+    #                 tag = "error"
+    #             elif levelno >= logging.WARNING:
+    #                 tag = "warning"
+    #             elif levelno >= logging.INFO:
+    #                 tag = "info"
+    #
+    #             
+    #             messages.append((msg + "\n", tag))
+    #             processed += 1
+    #     except queue.Empty:
+    #         pass
+    #     
+    #     # modify the widget once with all collected messages
+    #     if messages:
+    #         self.log_area.configure(state="normal")
+    #         for msg, tag in messages:
+    #             self.log_area.insert(tk.END, msg, tag)
+    #         
+    #         # Limit total lines 
+    #         if self.max_log_lines > 0:
+    #             line_count = int(self.log_area.index('end-1c').split('.')[0])
+    #             if line_count > self.max_log_lines:
+    #                 self.log_area.delete('1.0', f'{line_count - self.max_log_lines}.0')
+    #         
+    #         self.log_area.configure(state="disabled")
+    #         self.log_area.yview(tk.END)  # Only scroll once at the end
+    #     
+    #     # Schedule next poll
+    #     self.after(self.root.setting.log_pull_time, self.poll_log_queue)  # Slightly longer interval
+    #             
 
-        def write(self, str):
-            self.widget.configure(state="normal")
-            self.widget.insert(tk.END, str)
-            self.widget.configure(state="disabled")
-            self.widget.see(tk.END)
 
-        def flush(self):
-            pass
-
-    class StreamToLogger:
-        """ Redirects stdout/stderr to a logger """
-        def __init__(self, logger, log_level=logging.ERROR):
-            self.logger = logger
-            self.log_level = log_level
-            self.linebuf = ""
-
-        def write(self, buf):
-            for line in buf.rstrip().splitlines():
-                self.logger.log(self.log_level, line)
-
-        def flush(self):
-            pass
+            
+               

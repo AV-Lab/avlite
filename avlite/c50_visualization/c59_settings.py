@@ -153,6 +153,7 @@ class VisualizationSettings:
 
         self.log_to_file = tk.BooleanVar(value=False)
 
+        self.log_pull_time = 50 # Time in milliseconds to pull logs from the logger
         
         # General variables - Not saved
 
