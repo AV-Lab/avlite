@@ -42,6 +42,7 @@ class MultiObjectPredictor(PerceptionStrategy):
         self.predictor_model = None
         self.grid = None
         self.bounds = None
+        self.frame = 0  #Frame number 
             
         self.prediction_output = []
         
@@ -168,14 +169,11 @@ class MultiObjectPredictor(PerceptionStrategy):
             self.pm.trajectories = self.predictor_model.predict(self.pm,output_mode=self.output_mode)
             log.debug(f"Predicted Trajectories:{len(self.pm.trajectories)}")
 
-    # def agents_sizes(self) -> np.ndarray:
-    #     """Get the sizes of all agent vehicles."""
-    #     return np.array([[agent.length,agent.width] for agent in self.agent_vehicles])
-
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None) :
         """
         Main perception method that combines detection, tracking, and prediction.
         """
+        self.frame+=1
 
         if perception_model is not None and self.detector == 'ground_truth':
             self.pm = perception_model
@@ -192,4 +190,6 @@ class MultiObjectPredictor(PerceptionStrategy):
         return  self.prediction_output 
 
     def reset(self):
-        pass
+        print(f"Reset Perception")
+        self.initialize_models()
+        self.frame = 0

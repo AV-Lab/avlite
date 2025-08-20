@@ -775,6 +775,8 @@ class AttentionGMM(nn.Module):
         """
         # 1. Get highest probability predictions
         max_indices = torch.argmax(pi, dim=2).unsqueeze(-1)
+        # selected_pie = torch.gather(pi,dim=2,index=max_indices)
+        # print(f"selected_pie: {selected_pie}")
         highest_prob_pred = torch.gather(mue, dim=2, 
                                     index=max_indices.unsqueeze(dim=-1).repeat(1, 1, 1, 2))
         highest_prob_pred = highest_prob_pred.squeeze(dim=2)
@@ -1321,14 +1323,9 @@ class AttentionGMM(nn.Module):
         """
         if detection_msg is None:
             raise Warning("No detection_msg provided!")
-        # torch.cuda.synchronize()
-        # t0 = time.time()
+
         self.traj_handler.update(detection_msg)
         
-        # torch.cuda.synchronize()
-        # t1 = time.time()
-
-        # print(f"Time taken to update trajectory handler: {t1 - t0:.4f} seconds")
         try:
             super().train(False)
             with torch.no_grad():
@@ -1352,10 +1349,8 @@ class AttentionGMM(nn.Module):
                         dim_src=input_norm.shape[1],
                         mask_type="tgt"
                     ).to(self.device)
-                    # t2 = time.time()
+    
                     pie, sigma_x, sigma_y, mu_x, mu_y,rho = self(input_norm, tgt_zeros, tgt_mask=tgt_mask)
-
-                    # t3 = time.time()
                 
                     mus = torch.stack((mu_x, mu_y), dim=-1)
                     sigmas = torch.stack((sigma_x, sigma_y), dim=-1)
@@ -1365,12 +1360,11 @@ class AttentionGMM(nn.Module):
                     
 
                     highest_prob_pred = self._sample_gmm_predictions(pie, mus)
-
+                    
                     # Return different outputs based on output_mode
                     if output_mode == 'single':
                         denormalized_pred,_,_ =  self.denormalize_to_absolute(highest_prob_pred,pred_obs_last_pos)
-                        # t3 = time.time()
-                        # print(f"Time taken to denormalize: {t3 - t2:.4f} seconds")
+
                         return denormalized_pred, observed_traj
                     
                     elif output_mode == 'multi':
@@ -1397,19 +1391,16 @@ class AttentionGMM(nn.Module):
 
                     elif output_mode == 'grid':
                         
-                        _,_,denormalized_mue = self.denormalize_to_absolute(highest_prob_pred,pred_obs_last_pos,None,mus)
-                    
-                        # Current shape: sigma[128, 30, 6, 2],  Need shape:    [128, 6, 30, 2] Pie shape  [128, 30,6]
-                        # Current shape: denormalized_mue [128, 6, 30, 2] ,  Need shape:    [128, 30, 6, 2]
+                        main_pred,_,denormalized_mue = self.denormalize_to_absolute(highest_prob_pred,pred_obs_last_pos,None,mus)
+                       
+                        # Current shape:sigma[128, 30, 6, 2],  Need shape:    [128, 6, 30, 2] Pie shape  [128, 30,6] denormalized_mue [128, 6, 30, 2] ,  Need shape:    [128, 30, 6, 2]
                         permuted_mue = denormalized_mue.transpose(0, 2, 1, 3)
                     
-                        sizes = torch.tensor(sizes, dtype=torch.float32, device=self.device) if sizes is not None else torch.tensor((np.array([[4.0, 1.5]] * permuted_mue.shape[0])), dtype=torch.float32, device=self.device)
-
-                        # Generate occupancy grid predictions
+                        sizes = torch.tensor(sizes, dtype=torch.float32, device=self.device) if sizes is not None else torch.tensor((np.array([[4.0, 1.5,0.0]] * permuted_mue.shape[0])), dtype=torch.float32, device=self.device)
+                        
                         occupancy_grid,per_object_occupancy_grid_np, grid_bounds, grid_points = self.occupancy_grid_prediction(
                             permuted_mue, sigmas, pie, ego_location,sizes,grid_steps, padding_factor)
-                    
-
+                        
                         return occupancy_grid,per_object_occupancy_grid_np, grid_bounds
                     
          
@@ -1417,12 +1408,10 @@ class AttentionGMM(nn.Module):
                         raise ValueError(f"Invalid output_mode: {output_mode}. Must be 'single', 'multi', or 'gmm'")
                     
 
-
         except Exception as e:
             print(f"[predict] Error during inference: {e}")
             raise
-    
-     
+
     def occupancy_grid_prediction(self, mue, sigma, pi, ego_location, sizes, grid_steps=100, padding_factor=2.0, conservative=False):
         """
         Compute the occupancy probability grid based on Gaussian mixture predictions.
@@ -1503,25 +1492,21 @@ class AttentionGMM(nn.Module):
         grid_resolution_x = (max_x - min_x) / (grid_steps - 1)
         grid_resolution_y = (max_y - min_y) / (grid_steps - 1)
         grid_resolution = torch.tensor([grid_resolution_x, grid_resolution_y], device=self.device)
-
-        # calulate yaw inorder to create a footprint of the object on the grid
-        yaw = self.compute_orientations(mue,pi)
-        
-        # Repeat sizes over timesteps
-        sizes_expanded = sizes.unsqueeze(1).repeat(1, yaw.shape[1], 1)  # (num_objects, num_timesteps, lw)
         
         # Combine sizes and computed yaw
-        object_footprints = torch.cat([sizes_expanded, yaw.unsqueeze(2)], dim=2)  # (num_objects, num_timesteps , lwθ)
+        object_footprints = self.compute_orientations(mue,pi,sizes)#torch.cat([sizes_expanded, yaw.unsqueeze(2)], dim=2)  # (num_objects, num_timesteps , lwθ)
 
-
-        all_occupancies = self.calculate_pdf_daiagonal_gaussian(grid_points, mue, sigma, pi, grid_resolution, conservative=False) # (num_objects , num_timesteps, grid_points.shape[0])
-        
-        # Reshape all_occupancies to 4D grid format
-        all_occupancies_grid = all_occupancies.reshape(1,num_objects*num_timesteps, grid_steps, grid_steps)
+        all_occupancies = self.calculate_exact_cdf_diagonal_gaussian(
+                grid_points, mue, sigma, pi, grid_resolution
+            ) 
+        # reshape to (1, N*T, H, W) for depthwise conv - all_occupancies to 4D grid format
+        all_occupancies_grid = all_occupancies.view(
+            num_objects, num_timesteps, grid_steps, grid_steps
+        ).reshape(1, num_objects*num_timesteps, grid_steps, grid_steps)
 
         # 4. Generate rotated kernels for all objects and timesteps
         rotated_kernels = self.generate_rotated_kernels(object_footprints, grid_resolution)
-       
+      
         # Apply convolution
         convolved_occupancies = F.conv2d(all_occupancies_grid, rotated_kernels, 
                                 groups=num_objects * num_timesteps, padding="same")
@@ -1614,81 +1599,64 @@ class AttentionGMM(nn.Module):
         rotated_kernels = rotated_kernels.view(N*T, 1, H_max, W_max)
 
         return rotated_kernels
-    
-    def calculate_pdf_daiagonal_gaussian(self,grid_points, mue_all, sigma_all, pi_all, grid_resolution, conservative=False):
+    def calculate_exact_cdf_diagonal_gaussian(
+        self,
+        grid_points: torch.Tensor,      # (P, 2)  cell centers (built with indexing='ij')
+        mue_all: torch.Tensor,          # (N, T, K, 2) means
+        sigma_all: torch.Tensor,        # (N, T, K, 2) variances (NOT std)
+        pi_all: torch.Tensor,           # (N, T, K)    mixture weights (will renormalize defensively)
+        grid_resolution: torch.Tensor,  # (2,) tensor [dx, dy]
+    ) -> torch.Tensor:
         """
-        Fully vectorized GMM evaluation over objects & timesteps.
-        
-        Args:
-            grid_points: (n_points, 2)
-            mue_all:     (num_objects, num_timesteps, num_components, 2)
-            sigma_all:   (num_objects, num_timesteps, num_components, 2)
-            pi_all:      (num_objects, num_timesteps, num_components)
-            grid_resolution: float
-            conservative: if True, use closest-point-in-cell (clipped mean). Otherwise, use grid center. (usually very conservative)
-
+        Exact per-cell probabilities for diagonal Gaussians on an axis-aligned grid.
         Returns:
-            gmm_probabilities: (num_objects, num_timesteps, n_points)
+            p_cell: (N, T, P)  π-weighted mass per cell, summed over K.
         """
 
-        # --- Preprocess shapes ---
-        grid_points = grid_points.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, n_points, 2)
-        mue_all = mue_all.unsqueeze(3)        # (num_obj, num_ts, num_comp, 1, 2)
-        sigma_all = sigma_all.unsqueeze(3)    # (num_obj, num_ts, num_comp, 1, 2)
-        pi_all = pi_all.unsqueeze(3)          # (num_obj, num_ts, num_comp, 1)
+        device = mue_all.device
+        dtype  = mue_all.dtype
 
-        if conservative:
-            grid_points = self.compute_clipped_points(grid_points, mue_all, grid_resolution)  # (..., n_points, 2)
+        # ensure shapes/types/devices
+        grid_points   = grid_points.to(device=device, dtype=dtype)           # (P,2)
+        grid_res      = grid_resolution.to(device=device, dtype=dtype)       # (2,)
+        dx, dy        = grid_res[0], grid_res[1]
+        half_dx, half_dy = 0.5*dx, 0.5*dy
 
-        # --- Mahalanobis distance ---
-        diff = grid_points - mue_all
-        mahal_dist = (diff ** 2 / (sigma_all + 1e-6)).sum(dim=-1)
+        mue_all   = mue_all.to(device=device, dtype=dtype)
+        sigma_all = sigma_all.to(device=device, dtype=dtype).clamp_min(1e-12)
+        pi_all    = pi_all.to(device=device, dtype=dtype)
 
-        # --- Normalized Gaussian weight ---
-        norm_const = 1 / (2 * np.pi * torch.sqrt(sigma_all.prod(dim=-1) + 1e-12))  # (..., 1)
-        weighted_pdfs = pi_all * norm_const * torch.exp(-0.5 * mahal_dist)
+        # normalize π defensively along components
+        pi_all = pi_all / pi_all.sum(dim=2, keepdim=True).clamp_min(1e-12)
 
-        # --- Sum over GMM components ---
-        gmm_density = weighted_pdfs.sum(dim=2)  # (num_obj, num_ts, n_points)
-        gmm_probabilities = gmm_density * grid_resolution.prod()
+        # broadcast to (N,T,K,P,·)
+        GP   = grid_points.view(1,1,1,-1,2)
+        MU   = mue_all.unsqueeze(3)
+        VAR  = sigma_all.unsqueeze(3)
+        STD  = VAR.sqrt()
+        PI   = pi_all.unsqueeze(3)  # (N,T,K,1)
 
-        return gmm_probabilities
+        # cell edges per point
+        x1 = GP[..., 0] - half_dx;  x2 = GP[..., 0] + half_dx  # (N,T,K,P)
+        y1 = GP[..., 1] - half_dy;  y2 = GP[..., 1] + half_dy
 
+        # standard normal CDF via erf
+        inv_sqrt2 = 1.0 / math.sqrt(2.0)
+        def Phi(z): return 0.5 * (1.0 + torch.erf(z * inv_sqrt2))
 
-    def compute_clipped_points(self,grid_points, mue_all, grid_resolution):
-        """
-        Clips the mean to the closest point inside each rectangular grid cell.
+        zx1 = (x1 - MU[..., 0]) / STD[..., 0]
+        zx2 = (x2 - MU[..., 0]) / STD[..., 0]
+        zy1 = (y1 - MU[..., 1]) / STD[..., 1]
+        zy2 = (y2 - MU[..., 1]) / STD[..., 1]
 
-        Args:
-            grid_points: (1, 1, 1, n_points, 2)
-            mue_all:     (num_obj, num_ts, num_comp, 1, 2)
-            grid_resolution: Tensor of shape (2,) → [res_x, res_y]
+        Px = (Phi(zx2) - Phi(zx1)).clamp(0.0, 1.0)  # (N,T,K,P)
+        Py = (Phi(zy2) - Phi(zy1)).clamp(0.0, 1.0)
 
-        Returns:
-            clipped_points: (num_obj, num_ts, num_comp, n_points, 2)
-        """
-        # Separate x and y resolutions
-        half_res_x = grid_resolution[0] / 2.0
-        half_res_y = grid_resolution[1] / 2.0
+        # per-component cell mass, then mix by π and sum K
+        p_comp = Px * Py                       # (N,T,K,P)
+        p_cell = (PI * p_comp).sum(dim=2)      # (N,T,P)
 
-        # Compute per-cell bounds from grid center
-        x_min = grid_points[..., 0] - half_res_x
-        x_max = grid_points[..., 0] + half_res_x
-        y_min = grid_points[..., 1] - half_res_y
-        y_max = grid_points[..., 1] + half_res_y
-
-        # Extract mean components
-        mu_x = mue_all[..., 0]
-        mu_y = mue_all[..., 1]
-
-        # Clip each mean to the bounds of each cell
-        x_clipped = torch.clip(mu_x, min=x_min, max=x_max)
-        y_clipped = torch.clip(mu_y, min=y_min, max=y_max)
-
-        # Stack back into (x, y) coordinates
-        clipped_points = torch.stack([x_clipped, y_clipped], dim=-1)
-
-        return clipped_points
+        return p_cell.clamp(0.0, 1.0)
 
     def combine_objects_vectorized_gpu(self, all_occupancies):
         """
@@ -1707,22 +1675,64 @@ class AttentionGMM(nn.Module):
         combined_occupancy = 1 - prob_not_occupied_any
         
         return combined_occupancy
+    def compute_orientations(self, mue, pi, sizes, eps: float = 1e-1):
+        """
+        Build per-timestep footprints [l, w, yaw] using motion where reliable,
+        otherwise fall back to *current* detection yaw.
 
-    def compute_orientations(self,mue, pi):
-        """
-        mue: tensor (num_objects, num_timesteps, num_components, 2)
-        pi: tensor (num_objects, num_timesteps, num_components)
-        
+        Args:
+            mue   : (N, T, K, 2)  GMM component means
+            pi    : (N, T, K)     mixture weights (assumed normalized)
+            sizes : (N,3) or (N,T,3)
+                    if (N,3):     [l, w, yaw_det] per object (broadcast over T)
+                    if (N,T,3):   [l, w, yaw_det_t] per timestep
+            eps   : motion threshold (meters)
+
         Returns:
-            theta: tensor (num_objects, num_timesteps) in radians
+            footprints: (N, T, 3) = [l_t, w_t, yaw_t]
         """
-        expected_means = (pi.unsqueeze(-1) * mue).sum(dim=2)  # (num_objects, num_timesteps, 2)
-        diff = expected_means[:, 1:, :] - expected_means[:, :-1, :]  # (num_objects, num_timesteps-1, 2)
-        theta_partial = torch.atan2(diff[:, :, 1], diff[:, :, 0])  # (num_objects, num_timesteps-1)
-        last_theta = theta_partial[:, -1:].clone()  # (num_objects, 1)
-        theta = torch.cat([theta_partial, last_theta], dim=1)  # (num_objects, num_timesteps)
-        return theta 
-        
+        # π-weighted expected positions (N,T,2)
+        exp_pos = (pi.unsqueeze(-1) * mue).sum(dim=2)
+        N, T = exp_pos.shape[:2]
+        device, dtype = exp_pos.device, exp_pos.dtype
+
+        # split sizes → (N,T,2) lw and (N,T) det_yaw
+        if sizes.ndim == 2:                     # (N,3) → broadcast over T
+            lw = sizes[:, :2].to(device, dtype).unsqueeze(1).expand(N, T, 2)
+            det_yaw = sizes[:, 2].to(device, dtype).unsqueeze(1).expand(N, T)
+        else:                                   # (N,T,3)
+            lw = sizes[..., :2].to(device, dtype)
+            det_yaw = sizes[..., 2].to(device, dtype)
+
+        # motion-based yaw for t>=1
+        if T > 1:
+            diffs = exp_pos[:, 1:, :] - exp_pos[:, :-1, :]        # (N,T-1,2)
+            mags  = diffs.norm(dim=-1)                            # (N,T-1)
+            step_yaw = torch.atan2(diffs[..., 1], diffs[..., 0])  # (N,T-1)
+            has_motion = mags > eps                               # (N,T-1)
+        else:
+            step_yaw = None
+            has_motion = None
+
+        # assemble yaw: start from detection yaw, overwrite where motion is valid
+        yaw = det_yaw.clone()                                     # (N,T)
+        if T > 1:
+            # yaw at t maps to step (t-1): use motion if has_motion, else current detection yaw
+            yaw[:, 1:] = torch.where(has_motion, step_yaw, det_yaw[:, 1:])
+
+            # unwrap deltas to keep temporal smoothness, then wrap back to [-pi, pi]
+            pi_val = torch.pi
+            two_pi = 2.0 * pi_val
+            d = yaw[:, 1:] - yaw[:, :-1]                          # (N,T-1)
+            d = (d + pi_val) % two_pi - pi_val                    # minimal angular diff in (-π, π]
+            yaw_unwrapped = torch.empty_like(yaw)
+            yaw_unwrapped[:, 0] = yaw[:, 0]
+            yaw_unwrapped[:, 1:] = yaw_unwrapped[:, :1] + torch.cumsum(d, dim=1)
+            yaw = (yaw_unwrapped + pi_val) % two_pi - pi_val
+
+        # pack output
+        return torch.cat([lw, yaw.unsqueeze(-1)], dim=-1)         # (N,T,3)
+
     def _process_trajectory_clusters(self, means, weights, variances, weight_threshold=0.01, prediction_length=10):
         """
         Process trajectories from input data.

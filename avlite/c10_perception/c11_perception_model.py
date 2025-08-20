@@ -47,6 +47,8 @@ class PerceptionModel:
         if len(self.agent_vehicles) == self.max_agent_vehicles:
             log.info("Max num of agent reached. Deleteing Old agents")
             self.agent_vehicles = []
+        ids = {a.agent_id for a in self.agent_vehicles} # update agent id
+        agent.agent_id = next(i for i in range(len(ids)+1) if i not in ids)
         self.agent_vehicles.append(agent)
         log.info(f"Total agent vehicles {len(self.agent_vehicles)}")
 
@@ -87,7 +89,7 @@ class PerceptionModel:
         
     def agents_sizes_as_np(self) -> np.ndarray:
         """Get the sizes of all agent vehicles."""
-        return np.array([[agent.length,agent.width] for agent in self.agent_vehicles])
+        return np.array([[agent.length,agent.width,agent.theta] for agent in self.agent_vehicles])
 
     def reset(self):
         self.static_obstacles = []
