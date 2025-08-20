@@ -1,33 +1,12 @@
-SAN:
-  L_f: 2.5
-  exclude: []
+Carla_Town10:
+  ego_distance_front_axle: 2.5
+  ego_max_acceleration: 10
+  ego_max_steering: 0.7
+  ego_max_valocity: 30
+  ego_min_acceleration: -20
+  ego_min_steering: -0.7
   filepath: configs/c10_perception.yaml
-  grid_size: 100
-  max_acceleration: 10
-  max_agent_vehicles: 12
-  max_steering: 0.7
-  max_valocity: 30
-  min_acceleration: -20
-  min_steering: -0.7
-default:
-  L_f: 2.5
-  exclude: []
-  filepath: configs/c10_perception.yaml
-  grid_size: 100
-  max_acceleration: 10
-  max_agent_vehicles: 12
-  max_steering: 0.7
-  max_valocity: 30
-  min_acceleration: -20
-  min_steering: -0.7
-perception exp:
-  L_f: 2.5
-  exclude: []
-  filepath: configs/c10_perception.yaml
-  grid_size: 100
-  max_acceleration: 10
-  max_agent_vehicles: 12
-  max_steering: 0.7
-  max_valocity: 30
-  min_acceleration: -20
-  min_steering: -0.7
+  hdmap_sampling_resolution: 0.1
+  perception_model_max_agents: 12
+  perception_model_prediction_grid_size: 100
+  state_default_heading: 0
