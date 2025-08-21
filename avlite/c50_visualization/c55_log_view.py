@@ -245,8 +245,8 @@ class LogView(ttk.LabelFrame):
             msg = self.format(record)
             _first_dot = msg.find('.')
             _second_dot = msg.find('.', _first_dot + 1)
-            code = msg[_second_dot+1 : msg.find('_', _second_dot)] + ":" 
-            msg = code + msg
+            code = msg[_second_dot+1 : msg.find('_', _second_dot)] 
+            msg = code[:4] + ':' + msg
 
             self.text_widget.configure(state="normal")
             if record.levelno >= logging.ERROR:

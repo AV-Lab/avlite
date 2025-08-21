@@ -29,7 +29,7 @@ class GlobalPlan:
     lane_right_boundary_y: list[float] = field(default_factory=list)
 
     race_mode: bool = True
-    trajectory: Optional[Trajectory] = None
+    trajectory: Trajectory = field(default_factory=lambda: Trajectory(path=[], velocity=[]))
 
     # Optional HDMap and lane path for global planning
     hdmap: Optional[HDMap] = None  

@@ -118,6 +118,8 @@ class Executer(ABC):
         self.local_planner: LocalPlannerStrategy = local_planner
         self.controller: ControlStrategy = controller
         self.world: WorldBridge = world
+
+        self.perception_fps: float = 0.0
         self.planner_fps: float = 0.0
         self.control_fps: float = 0.0
 

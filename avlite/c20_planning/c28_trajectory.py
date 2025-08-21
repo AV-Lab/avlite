@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 @dataclass
 class Trajectory:
     """
-    A class to represent a trajectory (path + velocity with aligned resolution).
+    A class to represent a trajectory with tracking currrent waypoints
     The class also keeps track of the current and next waypoints, and allows for creating sub-trajectories.
     """
     path: list[tuple[float,float]] = field(default_factory=list)

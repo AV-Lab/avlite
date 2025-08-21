@@ -51,6 +51,9 @@ SAN:
   sim_dt: 0.01
 default:
   async_mode: true
+  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  basic_sim_npc_control: true
+  basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
   community_extensions:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
@@ -69,7 +72,10 @@ default:
   replan_dt: 0.55
   sim_dt: 0.011
 perception exp:
-  async_mode: false
+  async_mode: true
+  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  basic_sim_npc_control: true
+  basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
   community_extensions:
     new_plugin: /home/mkhonji/Desktop/new_plugin
@@ -83,8 +89,8 @@ perception exp:
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
-  local_planner: ''
-  perception: testClass
+  local_planner: RNDPlanner
+  perception: MultiObjectPredictor
   replan_dt: 0.55
   sim_dt: 0.011
 source defaults:

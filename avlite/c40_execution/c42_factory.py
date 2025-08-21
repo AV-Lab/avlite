@@ -1,8 +1,3 @@
-from typing import Optional
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
-import logging 
-import numpy as np
 import logging
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
@@ -40,7 +35,7 @@ def executor_factory(
     controller = ExecutionSettings.controller,
     replan_dt = ExecutionSettings.replan_dt,
     control_dt = ExecutionSettings.control_dt,
-    global_trajectory = ExecutionSettings.global_trajectory,
+    default_global_trajectory_file = ExecutionSettings.global_trajectory,
     hd_map = ExecutionSettings.hd_map,
     reload_code = True,
     exclude_reload_settings = False,
@@ -57,19 +52,14 @@ def executor_factory(
     if load_extensions:
         import_all_modules()
 
-        log.warning(f"external_extensions: {ExecutionSettings.community_extensions}")
         for k,v in ExecutionSettings.community_extensions.items():
             log.warning(f"Loading external extension: {k} from {v}")
             import_all_modules(v, pkg_name = k)
-        log.debug(f"perception registry after: {PerceptionStrategy.registry.keys()}")
-
-        # from extensions.multi_object_prediction.e10_perception.perception import MultiObjectPredictor
-        # from extensions.test_ext.e10_perception.test import testClass
 
 
 
     #################
-    global_plan_path =  get_absolute_path(global_trajectory)
+    global_plan_path =  get_absolute_path(default_global_trajectory_file)
 
     # Loading default
     # global planner
@@ -110,23 +100,9 @@ def executor_factory(
         log.error(f"Error loading perception strategy {perception}: {e}")
         pr = None
 
-    #################
-    # Loading world
-    #################
-    if bridge == "CarlaBridge":
-        print("Loading Carla bridge...")
-        from avlite.c40_execution.c47_carla_bridge import CarlaBridge
-        world = CarlaBridge(ego_state=ego_state)
-    elif bridge == "GazeboIgnitionBridge":
-        print("Loading Gazebo bridge...")
-        from avlite.c40_execution.c48_gazebo_bridge import GazeboIgnitionBridge
-        world = GazeboIgnitionBridge(ego_state=ego_state)
-    else:
-        world = BasicSim(ego_state=ego_state, pm = pm)
-
 
     #################
-    # Loading planner
+    # Loading controller
     #################
     if local_planner is None or local_planner == GreedyLatticePlanner.__name__:
         local_planner = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
@@ -135,7 +111,7 @@ def executor_factory(
         local_planner = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
 
     #################
-    # Loading planner
+    # Loading controller
     #################
     if controller is None or controller == PIDController.__name__:
         controller = PIDController()
@@ -144,6 +120,29 @@ def executor_factory(
     else:
         log.error(f"Controller {controller} not recognized. Using PIDController as default.")
         controller = PIDController()
+
+    if default_global_plan.trajectory is not None:
+        controller.set_trajectory(default_global_plan.trajectory)
+
+    
+    #################
+    # Loading world
+    #################
+    try:
+        if bridge == "CarlaBridge": # string for lazy loading, beause it could have dependencies that are not available
+            print("Loading Carla bridge...")
+            from avlite.c40_execution.c47_carla_bridge import CarlaBridge
+            world = CarlaBridge(ego_state=ego_state)
+        elif bridge == "GazeboIgnitionBridge":
+            print("Loading Gazebo bridge...")
+            from avlite.c40_execution.c48_gazebo_bridge import GazeboIgnitionBridge
+            world = GazeboIgnitionBridge(ego_state=ego_state)
+        else:
+            world = BasicSim(ego_state=ego_state, pm = pm)
+    except Exception as e:
+        log.error(f"Error loading world bridge {bridge}: {e}")
+        world = BasicSim(ego_state=ego_state, pm = pm)  # fallback to BasicSim
+
 
 
     #################

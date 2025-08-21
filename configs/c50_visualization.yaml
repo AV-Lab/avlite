@@ -122,6 +122,7 @@ default:
   control_dt: 0.01
   controller_type: StanleyController
   dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   disable_log: false
   enable_joystick: true
   exec_control: true
@@ -141,6 +142,7 @@ default:
   log_font: Courier
   log_font_size: 11
   log_level: WARN
+  log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
   log_view_expanded: false
@@ -155,7 +157,7 @@ default:
   shortcut_mode: false
   show_common_logs: false
   show_control_logs: false
-  show_execute_logs: false
+  show_execute_logs: true
   show_extensions_logs: true
   show_global_plan: true
   show_legend: false
@@ -170,7 +172,7 @@ default:
   sim_dt: 0.011
   xy_zoom: 80
 perception exp:
-  async_exec: false
+  async_exec: true
   bg_color: '#333333'
   bridge_provide_depth_image: false
   bridge_provide_ground_truth_detection: false
@@ -179,6 +181,7 @@ perception exp:
   control_dt: 0.01
   controller_type: StanleyController
   dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   disable_log: false
   enable_joystick: true
   exec_control: true
@@ -197,33 +200,34 @@ perception exp:
   local_planner_type: RNDPlanner
   log_font: Courier
   log_font_size: 11
-  log_level: DEBUG
+  log_level: INFO
+  log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
-  log_view_expanded: true
+  log_view_expanded: false
   log_view_expended_height: 35
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: default
   perception_fps: '0'
-  perception_type: testClass
+  perception_type: MultiObjectPredictor
   replan_dt: 0.55
   selected_profile: perception exp
   shortcut_mode: false
-  show_common_logs: true
+  show_common_logs: false
   show_control_logs: false
   show_execute_logs: true
-  show_extensions_logs: true
+  show_extensions_logs: false
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
-  show_perceive_logs: true
+  show_perceive_logs: false
   show_plan_logs: false
   show_state: true
-  show_vis_logs: true
+  show_vis_logs: false
   sim_dt: 0.011
   xy_zoom: 60
 source defaults:

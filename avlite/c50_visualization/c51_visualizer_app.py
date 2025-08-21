@@ -1,6 +1,7 @@
 import time
 import tkinter as tk
 from tkinter import ttk
+
 import logging
 
 from avlite.c40_execution.c41_execution_model import Executer
@@ -63,8 +64,8 @@ class VisualizerApp(tk.Tk):
 
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
-        self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
-        self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
+        self.exec_visualize_view.grid(row=4, column=0, columnspan=2, sticky="ew")
+        self.log_view.grid(row=5, column=0, columnspan=2, sticky="nsew")
         # Configure grid weights for the 3:1 ratio
         self.grid_columnconfigure(0, weight=1)  # local view gets xx weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
@@ -148,8 +149,8 @@ class VisualizerApp(tk.Tk):
         else:
             self.config_shortcut_view.shortcut_frame.grid_forget()
             self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
-            self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
-            self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
+            self.exec_visualize_view.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self.log_view.grid(row=5, column=0, columnspan=2, sticky="nsew")
 
 
 
@@ -271,6 +272,7 @@ class VisualizerApp(tk.Tk):
             style.configure("Big.TLabel", font=("Arial", 16, "bold"))
             gruvbox_red = "#9d0006"
             gruvbox_orange = "#d65d0e"
+
             style.layout(
                 "Start.TButton",
                 [("Button.border", {"sticky": "nswe", "children": [
@@ -440,6 +442,7 @@ class VisualizerApp(tk.Tk):
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.hd_map,
+                default_global_trajectory_file=self.setting.default_global_plan_file.get(),
                 reload_code=reload_code,
                 exclude_reload_settings=True,
                 load_extensions=self.setting.load_extensions.get(),

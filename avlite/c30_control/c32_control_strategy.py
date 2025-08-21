@@ -7,7 +7,6 @@ from avlite.c20_planning.c28_trajectory import Trajectory
 from avlite.c30_control.c31_control_model import ControlComand
 from abc import ABC, abstractmethod
 import logging
-import copy 
 
 log = logging.getLogger(__name__)
 
@@ -19,10 +18,9 @@ class ControlStrategy(ABC):
         self.cmd: ControlComand = ControlComand()
         self.cte_steer: float = 0
         self.cte_velocity: float = 0
-        self.__control_dt:float=0
 
 
-    def update_trajectory(self, tj: Trajectory):
+    def set_trajectory(self, tj: Trajectory):
         log.debug("Controller Trajectory updated")
         self.tj = tj
 

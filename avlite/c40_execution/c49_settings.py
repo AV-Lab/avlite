@@ -10,6 +10,7 @@ class ExecutionSettings:
     exclude = ["exclude"]
     filepath: str="configs/c40_execution.yaml"
 
+    # executer_type = SyncExecuter.__name__  
     async_mode:bool = False
     bridge="BasicSim" # Options: Basic, Carla, Gazebo, ROS
     perception = ""
@@ -25,5 +26,9 @@ class ExecutionSettings:
 
     community_extensions: dict[str,str] = {"delete_me": "/home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me"}
     default_extensions: list[str] = []
+
+    basic_sim_default_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
+    basic_sim_npc_speed_factor = 0.8   
+    basic_sim_npc_control = True  # If True, NPCs will follow the default trajectory at the above speed factor
 
 
