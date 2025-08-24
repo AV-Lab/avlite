@@ -2,21 +2,21 @@ from __future__ import annotations
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c43_sync_executer import SyncExecuter, WorldBridge
+from avlite.c40_execution.c43_sync_executer import WorldBridge
+from avlite.c40_execution.c41_execution_model import Executer
 
 import multiprocessing as mp
 from multiprocessing.managers import BaseManager
 from multiprocessing import Value, Lock, Queue
 import time
-
 import logging
 from logging.handlers import QueueHandler, QueueListener
-
 
 log = logging.getLogger(__name__)
 
 
-class AsyncExecuter(SyncExecuter):
+# TODO: old code need fixed to match updated interface Exectuer
+class MProcExecuter:
     def __init__(
         self,
         pm: PerceptionModel,

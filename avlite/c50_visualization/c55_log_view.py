@@ -7,7 +7,6 @@ import queue
 
 import logging
 
-from textual import widget
 
 log = logging.getLogger(__name__)
 from typing import TYPE_CHECKING

@@ -10,13 +10,13 @@ class ExecutionSettings:
     exclude = ["exclude"]
     filepath: str="configs/c40_execution.yaml"
 
-    # executer_type = SyncExecuter.__name__  
-    async_mode:bool = False
+    executer_type = "SyncExecuter"
     bridge="BasicSim" # Options: Basic, Carla, Gazebo, ROS
     perception = ""
     global_planner = RaceGlobalPlanner.__name__
     local_planner = GreedyLatticePlanner.__name__
     controller = StanleyController.__name__
+    perception_dt=0.5
     replan_dt=0.5 
     control_dt=0.05
     sim_dt=0.01

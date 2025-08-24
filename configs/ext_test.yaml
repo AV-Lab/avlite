@@ -6,5 +6,7 @@ default:
   test: test_value
 perception exp:
   test: test_value (perc)
+ros:
+  test: test_value (perc)
 source defaults:
   test: test_value

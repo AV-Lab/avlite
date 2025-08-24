@@ -12,3 +12,11 @@ class PerceptionCapability(Enum):
     DETECTION = auto() # Whether the perception strategy supports detection
     TRACKING = auto() # Whether the perception strategy supports tracking
     PREDICTION = auto() # Whether the perception strategy supports prediction
+
+class MappingCapability(Enum):
+    OCCUPANCY_GRID = auto()
+    PATH_BOUNDARY = auto()
+    OPENDRIVE_HDMAP = auto()
+
+
+

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-
+from typing import Type 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
@@ -13,7 +13,7 @@ class PerceptionStrategy(ABC):
     This class defines the interface for perception strategies, including methods for detection, tracking, and prediction
     """
     registry = {}
-    def __init__(self, perception_model: PerceptionModel, setting:PerceptionSettings = PerceptionSettings):
+    def __init__(self, perception_model: PerceptionModel, setting:Type[PerceptionSettings] = PerceptionSettings):
         self.perception_model = perception_model
     
     @property

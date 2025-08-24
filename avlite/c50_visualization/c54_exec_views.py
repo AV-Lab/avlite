@@ -1,4 +1,5 @@
 from __future__ import annotations
+from os import wait
 from typing import TYPE_CHECKING
 import tkinter as tk
 from tkinter import ttk
@@ -6,7 +7,7 @@ import time
 
 from avlite.c40_execution.c46_basic_sim import BasicSim
 from avlite.c40_execution.c47_carla_bridge import CarlaBridge
-from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c40_execution.c41_execution_model import Executer
 
 
 if TYPE_CHECKING:
@@ -73,8 +74,12 @@ class ExecView(ttk.Frame):
         sim_dt.bind("<Return>", self.text_on_enter)
 
 
-        self.asyc_exec_cb = ttk.Checkbutton( exec_first_frame, text="Async Mode", command=self.__on_exec_change, variable=self.root.setting.async_exec,)
-        self.asyc_exec_cb.pack(side=tk.RIGHT)
+        self.executer_dropdown_menu = ttk.Combobox(exec_first_frame, textvariable=self.root.setting.executer_type, state="readonly",)
+        self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
+        # self.global_planner_dropdown_menu.current(0)  
+        self.executer_dropdown_menu.state(["readonly"])
+        self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.executer_dropdown_menu.pack(side = tk.RIGHT)
 
 
         ## Second frame
@@ -103,8 +108,6 @@ class ExecView(ttk.Frame):
         global_tj_file.bind("<Return>", self.text_on_enter)
         ttk.Label(exec_third_frame, text="Default Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
 
-    def __on_exec_change(self):
-        self.root.reload_stack(reload_code=False)
 
     def text_on_enter(self, event):
         widget = event.widget  # Get the widget that triggered the event
@@ -148,10 +151,7 @@ class ExecView(ttk.Frame):
             self.root.after(int(next_frame_delay * 1000), self._exec_loop)
 
     def stop_exec(self):
-        if self.root.setting.async_exec.get():
-            log.info(f"Stopping Async Exec in 0.1 sec.")
-            # self.root.after(100, self.root.exec.stop())
-            self.root.exec.stop()
+        self.root.exec.stop()
         # self.start_exec_button.config(state=tk.NORMAL)
         self.start_exec_button.state(['!disabled'])
         self.root.update_ui()

@@ -27,10 +27,12 @@ class AsyncThreadedExecuter(Executer):
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
         world: WorldBridge,
+        perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.05,
     ):
-        super().__init__(perception_model, perception, global_planner, local_planner, controller, world, replan_dt=replan_dt, control_dt=control_dt)
+        super().__init__(perception_model, perception, global_planner, local_planner, controller, world,perception_dt=perception_dt,
+                         replan_dt=replan_dt, control_dt=control_dt)
 
         # Thread-specific attributes - no need for shared Values
         self.__planner_last_step_time = time.time()

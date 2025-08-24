@@ -1,0 +1,10 @@
+default:
+  controller_topic: controller topic
+  global_Planner_topic: global planner topic
+  local_planner_topic: local planner
+  perception_topic: perception topic
+ros:
+  controller_topic: controller topic
+  global_Planner_topic: global planner topic
+  local_planner_topic: local planner
+  perception_topic: perception topic

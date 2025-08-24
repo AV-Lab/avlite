@@ -7,6 +7,7 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c40_execution.c41_execution_model import Executer
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class VisualizationSettings:
         def _on_perception_change(*args):
             ExecutionSettings.perception = self.perception_type.get()
         self.perception_type.trace_add("write", _on_perception_change)
+        self.perception_dt = tk.DoubleVar(value=ExecutionSettings.perception_dt)
 
         # planning
         self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
@@ -82,15 +84,11 @@ class VisualizationSettings:
 
         ############################
         # Exec Options
-        self.async_exec = tk.BooleanVar(value=False)
-        def _on_async_exec_change(*args): # synchronize with ExecutionSettings
-            ExecutionSettings.async_mode = bool(self.async_exec.get())
-        self.async_exec.trace_add("write", _on_async_exec_change)
         
-        # self.executer_type = tk.StringVar(value=(list(LocalPlannerStrategy.registry.keys())[0] if LocalPlannerStrategy.registry else None))
-        # def _on_executer_change(*args):
-        #     ExecutionSettings.executer_type = self.executer_type.get()
-        # self.executer_type.trace_add("write", _on_executer_change)
+        self.executer_type = tk.StringVar(value=(list(Executer.registry.keys())[0] if Executer.registry else None))
+        def _on_executer_change(*args):
+            ExecutionSettings.executer_type = self.executer_type.get()
+        self.executer_type.trace_add("write", _on_executer_change)
     
         self.exec_plan = tk.BooleanVar(value=True)
         self.exec_control = tk.BooleanVar(value=True)

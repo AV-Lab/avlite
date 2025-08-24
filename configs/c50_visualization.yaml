@@ -113,7 +113,6 @@ SAN:
   sim_dt: 0.01
   xy_zoom: 30
 default:
-  async_exec: true
   bg_color: '#333333'
   bridge_provide_depth_image: false
   bridge_provide_ground_truth_detection: false
@@ -128,6 +127,7 @@ default:
   exec_control: true
   exec_perceive: false
   exec_plan: true
+  executer_type: AsyncThreadedExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
@@ -149,7 +149,8 @@ default:
   log_view_expended_height: 35
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
-  next_profile: perception exp
+  next_profile: ros
+  perception_dt: 0.5
   perception_fps: '0'
   perception_type: MultiObjectPredictor
   replan_dt: 0.55
@@ -172,7 +173,6 @@ default:
   sim_dt: 0.011
   xy_zoom: 80
 perception exp:
-  async_exec: true
   bg_color: '#333333'
   bridge_provide_depth_image: false
   bridge_provide_ground_truth_detection: false
@@ -187,6 +187,7 @@ perception exp:
   exec_control: true
   exec_perceive: true
   exec_plan: true
+  executer_type: AsyncThreadedExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
@@ -197,27 +198,88 @@ perception exp:
   global_zoom: 80
   load_extensions: true
   local_plan_view: true
-  local_planner_type: RNDPlanner
+  local_planner_type: GreedyLatticePlanner
   log_font: Courier
   log_font_size: 11
-  log_level: INFO
+  log_level: DEBUG
   log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
-  log_view_expanded: false
+  log_view_expanded: true
   log_view_expended_height: 35
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: default
+  perception_dt: 0.5
   perception_fps: '0'
-  perception_type: MultiObjectPredictor
+  perception_type: testClass
   replan_dt: 0.55
   selected_profile: perception exp
   shortcut_mode: false
-  show_common_logs: false
+  show_common_logs: true
   show_control_logs: false
   show_execute_logs: true
-  show_extensions_logs: false
+  show_extensions_logs: true
+  show_global_plan: true
+  show_legend: false
+  show_local_lattice: true
+  show_local_plan: true
+  show_occupancy_flow: true
+  show_past_locations: true
+  show_perceive_logs: false
+  show_plan_logs: false
+  show_state: true
+  show_vis_logs: false
+  sim_dt: 0.011
+  xy_zoom: 60
+ros:
+  bg_color: '#333333'
+  bridge_provide_depth_image: false
+  bridge_provide_ground_truth_detection: false
+  bridge_provide_lidar_data: false
+  bridge_provide_rgb_image: false
+  control_dt: 0.01
+  controller_type: StanleyController
+  dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  disable_log: false
+  enable_joystick: true
+  exec_control: true
+  exec_perceive: true
+  exec_plan: true
+  executer_type: ROSExecuter
+  execution_bridge: BasicSim
+  fg_color: white
+  frenet_view_follow_planner: false
+  frenet_zoom: 50
+  global_plan_view: false
+  global_planner_type: HDMapGlobalPlanner
+  global_view_follow_planner: false
+  global_zoom: 80
+  load_extensions: true
+  local_plan_view: true
+  local_planner_type: GreedyLatticePlanner
+  log_font: Courier
+  log_font_size: 11
+  log_level: DEBUG
+  log_pull_time: 50
+  log_to_file: false
+  log_view_default_height: 12
+  log_view_expanded: true
+  log_view_expended_height: 35
+  max_log_lines: 1000
+  mouse_drag_slowdown_factor: 0.5
+  next_profile: default
+  perception_dt: 0.5
+  perception_fps: '0'
+  perception_type: testClass
+  replan_dt: 0.55
+  selected_profile: ros
+  shortcut_mode: false
+  show_common_logs: true
+  show_control_logs: false
+  show_execute_logs: true
+  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true

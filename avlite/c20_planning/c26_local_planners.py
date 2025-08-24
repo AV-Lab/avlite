@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
@@ -15,11 +15,8 @@ log = logging.getLogger(__name__)
 
 
 class GreedyLatticePlanner(LocalPlannerStrategy):
-    def __init__( self, global_plan: GlobalPlan, env: PerceptionModel, setting: PlanningSettings = PlanningSettings):# num_of_edge_points=PlanningSettings.num_of_edge_points,
-    #              planning_horizon= PlanningSettings.planning_horizon, maneuver_distance=PlanningSettings.maneuver_distance,
-    #              boundary_clearance=PlanningSettings.boundary_clearance, sample_size=PlanningSettings.sample_size, 
-    #              match_speed_wp_buffer=PlanningSettings.match_speed_wp_buffer
-    # ):
+    def __init__( self, global_plan: GlobalPlan, env: PerceptionModel, setting: Type[PlanningSettings] = PlanningSettings):
+
         super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.num_of_edge_points, planning_horizon=setting.planning_horizon,)
         self.maneuver_distance: float = setting.maneuver_distance
         self.boundary_clearance: float = setting.boundary_clearance

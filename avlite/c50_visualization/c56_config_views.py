@@ -203,7 +203,7 @@ class SettingWindow:
         profile_ext_frame.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
 
         settings_frame = ttk.Frame(self.frame)
-        settings_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
+        settings_frame.grid(row=0, column=1, rowspan=1, sticky="nsew", padx=10, pady=10)
 
         additional_setting_frame = ttk.LabelFrame(self.frame, text="Additional Settings")
         additional_setting_frame.grid(row=1, column=0, columnspan=2, sticky="sew", padx=5, pady=5)
@@ -227,11 +227,11 @@ class SettingWindow:
         ttk.Button(profile_ext_frame, text="Delete",width=5, command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
         ttk.Button(profile_ext_frame, text="Save",width=5, underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
         ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="w")
-        next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
-        next_profile_dropdown_menu["values"] = self.root.setting.profile_list
-        next_profile_dropdown_menu.state(["readonly"])
+        self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
+        self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
+        self.next_profile_dropdown_menu.state(["readonly"])
         # next_profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
-        next_profile_dropdown_menu.grid(row=3, column=2, padx=5, pady=5, sticky="we")
+        self.next_profile_dropdown_menu.grid(row=3, column=2, padx=5, pady=5, sticky="we")
         
         ttk.Button( profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
         ).grid(row=4, column=0, columnspan=3, padx=5, pady=5, sticky="we")
@@ -459,6 +459,8 @@ class SettingWindow:
         self.root.setting.profile_list.append(text)
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.root.config_shortcut_view.profile_dropdown_menu["values"] = self.root.setting.profile_list
+        self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
+
         self.save_profile()
 
 
