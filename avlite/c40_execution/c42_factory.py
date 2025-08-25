@@ -1,9 +1,5 @@
 import logging
-from threading import local
 
-from numpy.random import f
-from pygments.lexer import default
-from race_plan_control.control.pid import Controller
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
 from avlite.c10_perception.c18_hdmap import HDMap
