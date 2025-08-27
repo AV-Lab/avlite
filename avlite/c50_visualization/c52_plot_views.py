@@ -169,6 +169,7 @@ class GlobalPlanPlotView(ttk.Frame):
                         self.global_plot.plot_global_plan(self.root.exec.global_planner.global_plan)
                         self.root.exec.local_planner.set_global_plan(self.root.exec.global_planner.global_plan)
                         self.root.exec.controller.reset()
+                        self.root.exec.controller.set_trajectory(self.root.exec.local_planner.global_plan.trajectory)
                         self.root.local_plan_plot_view.reset()
                         self.root.update_ui()
                         self.root.exec.controller.reset()

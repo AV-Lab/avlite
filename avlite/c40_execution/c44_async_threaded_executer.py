@@ -27,10 +27,12 @@ class AsyncThreadedExecuter(Executer):
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
         world: WorldBridge,
+        perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.05,
     ):
-        super().__init__(perception_model, perception, global_planner, local_planner, controller, world, replan_dt=replan_dt, control_dt=control_dt)
+        super().__init__(perception_model, perception, global_planner, local_planner, controller, world,perception_dt=perception_dt,
+                         replan_dt=replan_dt, control_dt=control_dt)
 
         # Thread-specific attributes - no need for shared Values
         self.__planner_last_step_time = time.time()
@@ -71,17 +73,27 @@ class AsyncThreadedExecuter(Executer):
         self.call_perceive = call_perceive
 
         if not self.threads_started:
+            log.info(f"Threads not started yet. Creating and starting threads.")
             self.create_threads()
             self.start_threads()
             return
-        elif all(not t.is_alive() for t in self.threads) and self.threads_started:
+        elif self.threads_started and all(not t.is_alive() for t in self.threads):
             log.warning(f"All threads are dead. Recreating and starting threads.")
             self.stop()
             self.create_threads()
             self.start_threads()
             return
-        elif any(t.is_alive() for t in self.threads) and not all(t.is_alive() for t in self.threads):
-            log.error( f"Some Async Executer Threads are dead! Planner status: {self.planner_thread.is_alive() if self.planner_thread else 'None'}, Controller status: {self.controller_thread.is_alive() if self.controller_thread else 'None'} . Call stop() to terminate all threads.")
+        elif (
+            self.threads_started
+            and (
+                (self.planner_thread and call_replan != self.planner_thread.is_alive())
+                or (self.controller_thread and call_control != self.controller_thread.is_alive())
+            )
+        ):  # or call_perceive != (self.perception_thread.is_alive() if self.perception_thread else False):
+
+            log.error( f"Some threads are dead: {self.planner_thread.is_alive() if self.planner_thread else 'None'}, Controller status: {self.controller_thread.is_alive() if self.controller_thread else 'None'} . Call stop() to terminate all threads.")
+            self.create_threads()
+            self.start_threads()
             return
 
         # delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
@@ -210,27 +222,33 @@ class AsyncThreadedExecuter(Executer):
         self.threads_started = False
 
     def create_threads(self):
-        log.info(f"Creating threads for Async Executer")
-        self.planner_thread = None
-        self.controller_thread = None
-        self.perception_thread = None
+        log.info(f"Creating threads...")
         # Make threads daemon so they exit when main thread exits
-        self.planner_thread = threading.Thread( target=self.worker_planning, name="Planner", daemon=True,  )
-        self.controller_thread = threading.Thread(target=self.worker_control, name="Controller", daemon=True)
+        self.threads = []
+
+        if self.planner_thread is None or self.planner_thread.is_alive():
+            self.planner_thread = threading.Thread( target=self.worker_planning, name="Planner", daemon=True,  )
+            self.threads.append(self.planner_thread)
+            log.info(f"Planner thread created: {self.planner_thread.name}")
+
+        if self.controller_thread is None or not self.controller_thread.is_alive():
+            self.controller_thread = threading.Thread(target=self.worker_control, name="Controller", daemon=True)
+            self.threads.append(self.controller_thread)
+            log.info(f"Controller thread created: {self.controller_thread.name}")   
+
         # self.perception_thread = threading.Thread(target=self.worker_perception, name="Perception", daemon=True)
         # self.threads = [self.planner_thread, self.controller_thread, self.perception_thread]
+        log.info(f"{len(self.threads)} threads created.")
 
-        self.threads = [self.planner_thread, self.controller_thread]
-
-        log.info(f"Created {len(self.threads)} threads: {[t.name for t in self.threads]}")
 
     def start_threads(self):
         if self.threads_started:
             log.warning("Threads already started. Call stop() to restart.")
             return
-        if len(self.threads) < 2:
+        if len(self.threads) == 0:
             log.warning("No threads created to start. Call create_threads() first.")
             return
+
         self.__kill_flag = False
 
         t1 = time.time()

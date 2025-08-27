@@ -257,7 +257,7 @@ def import_all_modules(directory:str = "", pkg_name=""):
             log.warning(f"Package path does not exist: {pkg_path}")
             continue
         package_prefix = "avlite.extensions." + pkg_path.name
-        log.warning(f"Importing package: {package_prefix} from {pkg_path}")
+        log.info(f"Importing package: {package_prefix} from {pkg_path}")
         
 
         init_py_path = pkg_path / "__init__.py"
@@ -300,6 +300,6 @@ def import_all_modules(directory:str = "", pkg_name=""):
                     sys.modules[module_name] = module
                     log.debug(f"Loaded module: {module_name} from {f}")
             except Exception as e:
-                log.error(f"Failed to load module {module_name} from {f}: {e}")
+                log.error(f"Failed to load module {module_name} from {f}: {e}")#, stack_info=True)
 
 

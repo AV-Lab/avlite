@@ -1,7 +1,5 @@
-from ast import Global
 import logging
 import time
-from typing import Optional, Union, TYPE_CHECKING
 
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
@@ -25,18 +23,20 @@ class SyncExecuter(Executer):
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
         world: WorldBridge,
+        perception_dt=ExecutionSettings.perception_dt,
         replan_dt=ExecutionSettings.replan_dt,
         control_dt=ExecutionSettings.control_dt,
     ):
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
-        super().__init__(perception_model,perception, global_planner, local_planner, controller, world, replan_dt=replan_dt, control_dt=control_dt)
+        super().__init__(perception_model,perception, global_planner, local_planner, controller, world,perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt)
 
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
 
         self.__prev_exec_time = None
+        self.__perception_last_time = 0.0
         self.__planner_last_time = 0.0
         self.__controller_last_time = 0.0
 
@@ -80,7 +80,7 @@ class SyncExecuter(Executer):
 
             # elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
             elif self.perception.requirements.issubset(self.world.capabilities): 
-                log.warning(f"[Executer] Perception step started at {t2:.4f} sec")
+                # log.warning(f"[Executer] Perception step started at {t2:.4f} sec")
                 self.pm = self.world.get_ground_truth_perception_model()
                 # perception_output = self.perception.perceive(perception_model=self.pm)
                 perception_output = self.perception.perceive(perception_model=self.pm, rgb_img=self.world.get_rgb_image(),

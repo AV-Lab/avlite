@@ -7,6 +7,7 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c40_execution.c41_execution_model import Executer
 
 log = logging.getLogger(__name__)
 
@@ -43,13 +44,14 @@ class VisualizationSettings:
 
         # perceptoin
         self.show_occupancy_flow = tk.BooleanVar(value=False)
-        self.vehicle_state = tk.StringVar( value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
+        self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
 
         self.perception_type = tk.StringVar(value=list(PerceptionStrategy.registry.keys())[0] if PerceptionStrategy.registry else None)
         def _on_perception_change(*args):
             ExecutionSettings.perception = self.perception_type.get()
         self.perception_type.trace_add("write", _on_perception_change)
+        self.perception_dt = tk.DoubleVar(value=ExecutionSettings.perception_dt)
 
         # planning
         self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
@@ -62,7 +64,6 @@ class VisualizationSettings:
             ExecutionSettings.local_planner = self.local_planner_type.get()
         self.local_planner_type.trace_add("write", _on_local_plan_change)
         
-
         self.lap = tk.StringVar(value="0")
         self.current_wp = tk.StringVar(value="0")
 
@@ -83,10 +84,11 @@ class VisualizationSettings:
 
         ############################
         # Exec Options
-        self.async_exec = tk.BooleanVar(value=False)
-        def _on_async_exec_change(*args): # synchronize with ExecutionSettings
-            ExecutionSettings.async_mode = bool(self.async_exec.get())
-        self.async_exec.trace_add("write", _on_async_exec_change)
+        
+        self.executer_type = tk.StringVar(value=(list(Executer.registry.keys())[0] if Executer.registry else None))
+        def _on_executer_change(*args):
+            ExecutionSettings.executer_type = self.executer_type.get()
+        self.executer_type.trace_add("write", _on_executer_change)
     
         self.exec_plan = tk.BooleanVar(value=True)
         self.exec_control = tk.BooleanVar(value=True)
@@ -109,10 +111,16 @@ class VisualizationSettings:
             ExecutionSettings.sim_dt = float(self.sim_dt.get())
         self.sim_dt.trace_add("write", _on_sim_dt_change)
 
-        self.execution_bridge = tk.StringVar(value="Basicim")
+        self.execution_bridge = tk.StringVar(value=ExecutionSettings.bridge)
         def _on_execution_bridge_change(*args):
             ExecutionSettings.bridge = self.execution_bridge.get()
         self.execution_bridge.trace_add("write", _on_execution_bridge_change)
+        
+
+        self.default_global_plan_file = tk.StringVar(value=ExecutionSettings.global_trajectory)
+        def _on_default_global_plan_file_change(*args):
+            ExecutionSettings.bridge = self.default_global_plan_file.get()
+        self.default_global_plan_file.trace_add("write", _on_default_global_plan_file_change)
         
         self.elapsed_real_time = tk.StringVar(value="0")
         self.elapsed_sim_time = tk.StringVar(value="0")

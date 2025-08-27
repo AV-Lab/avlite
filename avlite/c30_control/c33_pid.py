@@ -43,6 +43,7 @@ class PIDController(ControlStrategy):
             log.debug(f"CTE with Lookahead: {self.lookahead}, cte: {cte:.2f}, W.O LA cte: {cte_:.2f}")
             # cte = cte_
         else:   
+            self.tj.update_waypoint_by_xy(ego.x, ego.y)
             s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
             # self.past_cte.append(cte)
         

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from os import wait
 from typing import TYPE_CHECKING
 import tkinter as tk
 from tkinter import ttk
@@ -6,6 +7,7 @@ import time
 
 from avlite.c40_execution.c46_basic_sim import BasicSim
 from avlite.c40_execution.c47_carla_bridge import CarlaBridge
+from avlite.c40_execution.c41_execution_model import Executer
 
 
 if TYPE_CHECKING:
@@ -25,17 +27,19 @@ class ExecView(ttk.Frame):
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
-        self.execution_frame = ttk.LabelFrame(self, text="Execution")
-        self.execution_frame.grid(row=0,column=0, sticky="nsew")
+        self.execution_factory_frame = ttk.LabelFrame(self, text="Execution")
+        self.execution_factory_frame.grid(row=0,column=0,pady=5, sticky="nsew")
 
+        executer_frame = ExecSettingsFrame(self.root, self)
+        executer_frame.grid(row=0, column=1, pady=5, sticky="nsew")
 
         ## Bridge 
         bridge_frame = BridgeFrame(self.root, self)
-        bridge_frame.grid(row=0, column=1, sticky="nsew")
+        bridge_frame.grid(row=0, column=2,pady=5, sticky="nsew")
         
         ## Execution Settings Frame
         exec_stats_frame = ExecStatsFrame(self.root, self)
-        exec_stats_frame.grid(row=0, column=2, sticky="nsew")
+        exec_stats_frame.grid(row=0, column=3,pady=5, sticky="nsew")
 
         self.columnconfigure(0, weight=2)  # execution_frame wider
         # self.columnconfigure(1, weight=1)  # exec_setting_frame
@@ -44,101 +48,66 @@ class ExecView(ttk.Frame):
 
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
-        exec_first_frame = ttk.Frame(self.execution_frame)
+        exec_first_frame = ttk.Frame(self.execution_factory_frame)
         exec_first_frame.grid(row=0, column=0, sticky="we")
-        exec_second_frame = ttk.Frame(self.execution_frame)
+        exec_second_frame = ttk.Frame(self.execution_factory_frame)
         exec_second_frame.grid(row=1, column=0, sticky="we")
-        exec_third_frame = ttk.Frame(self.execution_frame)
+        exec_third_frame = ttk.Frame(self.execution_factory_frame)
         exec_third_frame.grid(row=2, column=0, sticky="we")
-        self.execution_frame.columnconfigure(0, weight=1)
-        
+        self.execution_factory_frame.columnconfigure(0, weight=1)
+        # ------------------------------------------------------------------------
+        # ------------------------------------------------------------------------
         ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        dt_control_entry = ttk.Entry(
-            exec_first_frame,
-            textvariable=self.root.setting.control_dt,
-            width=5,
-        )
+        dt_control_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.control_dt, width=5,)
         # self.dt_exec_cn_entry.insert(0, "0.02")
         dt_control_entry.pack(side=tk.LEFT)
         dt_control_entry.bind("<Return>", self.text_on_enter)
 
         ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        dt_plan_entry = ttk.Entry(
-            exec_first_frame,
-            textvariable=self.root.setting.replan_dt,
-            width=5,
-        )
+        dt_plan_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
         dt_plan_entry.pack(side=tk.LEFT)
         dt_plan_entry.bind("<Return>", self.text_on_enter)
 
         ttk.Label(exec_first_frame, text="Sim Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        sim_dt=ttk.Entry(
-            exec_first_frame,
-            textvariable=self.root.setting.sim_dt,
-            width=5,
-        )
+        sim_dt=ttk.Entry( exec_first_frame, textvariable=self.root.setting.sim_dt, width=5,)
         sim_dt.pack(side=tk.LEFT)
         sim_dt.bind("<Return>", self.text_on_enter)
 
-        self.asyc_exec_cb = ttk.Checkbutton(
-            exec_first_frame,
-            text="Async Mode",
-            command=self.__on_exec_change,
-            variable=self.root.setting.async_exec,
-        )
-        self.asyc_exec_cb.pack(side=tk.RIGHT)
 
-        self.start_exec_button = ttk.Button(
-            exec_second_frame,
-            text="Start",
-            command=self.toggle_exec,
-            style="Start.TButton",
-            width=10,
-        )
+        self.executer_dropdown_menu = ttk.Combobox(exec_first_frame, textvariable=self.root.setting.executer_type, state="readonly",)
+        self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
+        # self.global_planner_dropdown_menu.current(0)  
+        self.executer_dropdown_menu.state(["readonly"])
+        self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.executer_dropdown_menu.pack(side = tk.RIGHT)
+
+
+        ## Second frame
+        self.start_exec_button = ttk.Button( exec_second_frame, text="Start", command=self.toggle_exec, style="Start.TButton", width=10,)
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
 
-        ttk.Button(
-            exec_second_frame,
-            text="Stop",
-            command=self.stop_exec,
-            style="Stop.TButton",
-        ).pack(side=tk.LEFT, padx=1)
-        ttk.Button(exec_second_frame, text="Step", command=self.step_exec).pack(side=tk.LEFT)
-        ttk.Button(exec_second_frame, text="Reset", command=self.reset_exec).pack(side=tk.LEFT)
+        ttk.Button( exec_second_frame, text="Stop", command=self.stop_exec, style="Stop.TButton",).pack(side=tk.LEFT, padx=1)
+        ttk.Button(exec_second_frame, text="Step", width=4, command=self.step_exec).pack(side=tk.LEFT)
+        ttk.Button(exec_second_frame, text="Reset", width=4, command=self.reset_exec).pack(side=tk.LEFT)
 
+
+        ## Third frame 
         ttk.Label(exec_third_frame, text="Bridge:").pack(side=tk.LEFT)
-        ttk.Radiobutton(
-            exec_third_frame,
-            text="Basic Sim",
-            variable=self.root.setting.execution_bridge,
-            value=BasicSim.__name__,
+        ttk.Radiobutton( exec_third_frame, text="Basic Sim", variable=self.root.setting.execution_bridge, value=BasicSim.__name__,
             command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
-        ttk.Radiobutton(
-            exec_third_frame,
-            text="Carla",
-            variable=self.root.setting.execution_bridge,
-            value=CarlaBridge.__name__,
+        ttk.Radiobutton( exec_third_frame, text="Carla", variable=self.root.setting.execution_bridge, value=CarlaBridge.__name__,
             command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
-        ttk.Radiobutton(
-            exec_third_frame,
-            text="Gazebo Ign",
-            variable=self.root.setting.execution_bridge,
-            value="GazeboIgnitionBridge",
+        ttk.Radiobutton( exec_third_frame, text="Gazebo Ign", variable=self.root.setting.execution_bridge, value="GazeboIgnitionBridge",
             command=lambda: self.root.reload_stack(reload_code=False),
         ).pack(side=tk.LEFT)
 
-        ttk.Checkbutton(exec_third_frame, text="Control", variable=self.root.setting.exec_control).pack(side=tk.RIGHT)
-        ttk.Checkbutton(exec_third_frame, text="Plan", variable=self.root.setting.exec_plan).pack(side=tk.RIGHT)
-        ttk.Checkbutton(exec_third_frame, text="Percieve", variable=self.root.setting.exec_perceive).pack(side=tk.RIGHT)
+        global_tj_file=ttk.Entry( exec_third_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
+        global_tj_file.pack(side=tk.RIGHT, padx = 5, pady=5)
+        global_tj_file.bind("<Return>", self.text_on_enter)
+        ttk.Label(exec_third_frame, text="Default Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
 
-
-
-
-
-    def __on_exec_change(self):
-        self.root.reload_stack(reload_code=False)
 
     def text_on_enter(self, event):
         widget = event.widget  # Get the widget that triggered the event
@@ -182,10 +151,7 @@ class ExecView(ttk.Frame):
             self.root.after(int(next_frame_delay * 1000), self._exec_loop)
 
     def stop_exec(self):
-        if self.root.setting.async_exec.get():
-            log.info(f"Stopping Async Exec in 0.1 sec.")
-            # self.root.after(100, self.root.exec.stop())
-            self.root.exec.stop()
+        self.root.exec.stop()
         # self.start_exec_button.config(state=tk.NORMAL)
         self.start_exec_button.state(['!disabled'])
         self.root.update_ui()
@@ -207,6 +173,35 @@ class ExecView(ttk.Frame):
         self.root.exec.reset()
         self.root.update_ui()
 
+class ExecSettingsFrame(ttk.LabelFrame):
+    def __init__(self, root: VisualizerApp, view):
+        super().__init__(view, text="Running")
+        self.root = root
+        ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control).grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(self, text="Plan", variable=self.root.setting.exec_plan).grid(row=1, column=0, sticky="w")
+        ttk.Checkbutton(self, text="Percieve", variable=self.root.setting.exec_perceive).grid(row=2, column=0, sticky="w")
+
+
+class BridgeFrame(ttk.LabelFrame):
+    def __init__(self, root: VisualizerApp, view):
+        super().__init__(view, text="Bridge Setting")
+        self.root = root
+
+        self.chk_ground_truth = ttk.Checkbutton(self, text="Ground Truth", variable=self.root.setting.bridge_provide_ground_truth_detection)
+        self.chk_ground_truth.grid(row=0, column=0, sticky="w")
+
+        self.chk_rgb_image = ttk.Checkbutton(self, text="RGB Image", variable=self.root.setting.bridge_provide_rgb_image)
+        self.chk_rgb_image.grid(row=1, column=0, sticky="w")
+
+        # self.chk_depth_image = ttk.Checkbutton(self, text="Provide Depth Image", variable=self.root.setting.bridge_provide_depth_image)
+        # self.chk_depth_image.grid(row=2, column=0, sticky="w")
+
+        self.chk_lidar_data = ttk.Checkbutton(self, text="LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
+        self.chk_lidar_data.grid(row=3, column=0, sticky="w")
+
+
+
+
 class ExecStatsFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
         super().__init__(view, text="Execution Stats")
@@ -227,26 +222,5 @@ class ExecStatsFrame(ttk.LabelFrame):
         ttk.Label(self, text="Con. FPS", font=self.root.small_font).grid(row=4, column=0, sticky=tk.W)
         ttk.Label(self, textvariable=self.root.setting.control_fps, font=self.root.small_font).grid(row=4, column=1, sticky=tk.E)
 
-
-
-class BridgeFrame(ttk.LabelFrame):
-    def __init__(self, root: VisualizerApp, view):
-        super().__init__(view, text="Bridge Setting")
-        self.root = root
-
-        self.chk_ground_truth = ttk.Checkbutton(self, text="Ground Truth", variable=self.root.setting.bridge_provide_ground_truth_detection)
-        self.chk_ground_truth.grid(row=0, column=0, sticky="w")
-
-        self.chk_rgb_image = ttk.Checkbutton(self, text="RGB Image", variable=self.root.setting.bridge_provide_rgb_image)
-        self.chk_rgb_image.grid(row=1, column=0, sticky="w")
-
-        # self.chk_depth_image = ttk.Checkbutton(self, text="Provide Depth Image", variable=self.root.setting.bridge_provide_depth_image)
-        # self.chk_depth_image.grid(row=2, column=0, sticky="w")
-
-        self.chk_lidar_data = ttk.Checkbutton(self, text="LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
-        self.chk_lidar_data.grid(row=3, column=0, sticky="w")
-
-    def update_bridge_settings(self):
-        pass
 
 

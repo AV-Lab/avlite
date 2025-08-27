@@ -1,6 +1,7 @@
 import time
 import tkinter as tk
 from tkinter import ttk
+
 import logging
 
 from avlite.c40_execution.c41_execution_model import Executer
@@ -13,7 +14,7 @@ from avlite.c50_visualization.c54_exec_views import ExecView
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c61_setting_utils import load_setting, list_profiles, list_extensions, load_all_stack_settings
+from avlite.c60_common.c61_setting_utils import load_setting, list_profiles, list_extensions, load_all_stack_settings, reload_lib
     
 
 log = logging.getLogger(__name__)
@@ -63,8 +64,8 @@ class VisualizerApp(tk.Tk):
 
         self.config_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
-        self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
-        self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
+        self.exec_visualize_view.grid(row=4, column=0, columnspan=2, sticky="ew")
+        self.log_view.grid(row=5, column=0, columnspan=2, sticky="nsew")
         # Configure grid weights for the 3:1 ratio
         self.grid_columnconfigure(0, weight=1)  # local view gets xx weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
@@ -148,8 +149,8 @@ class VisualizerApp(tk.Tk):
         else:
             self.config_shortcut_view.shortcut_frame.grid_forget()
             self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
-            self.exec_visualize_view.grid(row=3, column=0, columnspan=2, sticky="ew")
-            self.log_view.grid(row=4, column=0, columnspan=2, sticky="nsew")
+            self.exec_visualize_view.grid(row=4, column=0, columnspan=2, sticky="ew")
+            self.log_view.grid(row=5, column=0, columnspan=2, sticky="nsew")
 
 
 
@@ -271,6 +272,7 @@ class VisualizerApp(tk.Tk):
             style.configure("Big.TLabel", font=("Arial", 16, "bold"))
             gruvbox_red = "#9d0006"
             gruvbox_orange = "#d65d0e"
+
             style.layout(
                 "Start.TButton",
                 [("Button.border", {"sticky": "nswe", "children": [
@@ -430,18 +432,23 @@ class VisualizerApp(tk.Tk):
         try:
             # if reload_code:
                 # self.load_configs()
+            if reload_code:
+                reload_lib(exclude_settings=True)
             self.exec = executor_factory(
-                async_mode=self.setting.async_exec.get(),
+                executer_type=self.setting.executer_type.get(),
+                # async_mode=self.setting.async_exec.get(),
                 bridge=self.setting.execution_bridge.get(),
-                perception=self.setting.perception_type.get(),
-                global_planner=self.setting.global_planner_type.get(),
-                local_planner=self.setting.local_planner_type.get(),
-                controller=self.setting.controller_type.get(),
+                perception_strategy_name=self.setting.perception_type.get(),
+                global_planner_strategy_name=self.setting.global_planner_type.get(),
+                local_planner_strategy_name=self.setting.local_planner_type.get(),
+                controller_strategy_name=self.setting.controller_type.get(),
+                perception_dt=self.setting.perception_dt.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.hd_map,
-                reload_code=reload_code,
-                exclude_reload_settings=True,
+                default_global_trajectory_file=self.setting.default_global_plan_file.get(),
+                # reload_code=reload_code,
+                # exclude_reload_settings=True,
                 load_extensions=self.setting.load_extensions.get(),
             )
 

@@ -43,7 +43,7 @@ class PerceptionModel:
 
 
 
-    def add_agent_vehicle(self, agent: AgentState):
+    def add_agent_vehicle(self, agent: AgentState) -> int: # return agent_id
         if len(self.agent_vehicles) == self.max_agent_vehicles:
             log.info("Max num of agent reached. Deleteing Old agents")
             self.agent_vehicles = []
@@ -51,6 +51,8 @@ class PerceptionModel:
         agent.agent_id = next(i for i in range(len(ids)+1) if i not in ids)
         self.agent_vehicles.append(agent)
         log.info(f"Total agent vehicles {len(self.agent_vehicles)}")
+
+        return agent.agent_id
 
     
     def filter_agent_vehicles(self, distance_threshold: float = 100.0):
@@ -165,6 +167,14 @@ class AgentState(State):
     velocity: float = 0.0
     agent_id: int = -1
 
+    # default
+    L_f: float = PerceptionSettings.ego_distance_front_axle  # Distance from center of mass to front axle
+    max_valocity: float = PerceptionSettings.ego_max_valocity
+    max_acceleration: float = PerceptionSettings.ego_max_acceleration
+    min_acceleration: float = PerceptionSettings.ego_min_acceleration
+    max_steering: float = PerceptionSettings.ego_max_steering  # in radians
+    min_steering: float = PerceptionSettings.ego_min_steering
+
     def __post_init__(self):
         super().__post_init__()
         self.__init_speed = self.velocity
@@ -183,11 +193,7 @@ class AgentState(State):
 
 @dataclass
 class EgoState(AgentState):
-    max_valocity: float = PerceptionSettings.ego_max_valocity
-    max_acceleration: float = PerceptionSettings.ego_max_acceleration
-    min_acceleration: float = PerceptionSettings.ego_min_acceleration
-    max_steering: float = PerceptionSettings.ego_max_steering  # in radians
-    min_steering: float = PerceptionSettings.ego_min_steering
-    L_f: float = PerceptionSettings.ego_distance_front_axle  # Distance from center of mass to front axle
+    """Ego vehicle state with additional properties in future."""
+    pass
 
 

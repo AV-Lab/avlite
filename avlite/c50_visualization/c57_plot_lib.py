@@ -865,7 +865,7 @@ class LocalPlot:
             ]
             flow_sum = pm.occupancy_flow[0].T
             if not hasattr(self, 'pm_occupancy_flow_ax1'):
-                # flow_sum = pm.occupancy_flow[0] #np.sum(pm.occupancy_flow, axis=0)
+                flow_sum = np.sum(pm.occupancy_flow, axis=0)
                 self.pm_occupancy_flow_ax1 = self.ax1.imshow(
                     flow_sum,
                     origin='lower',

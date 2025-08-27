@@ -105,6 +105,7 @@ class Executer(ABC):
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
         world: WorldBridge,
+        perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.01,
     ):
@@ -118,9 +119,12 @@ class Executer(ABC):
         self.local_planner: LocalPlannerStrategy = local_planner
         self.controller: ControlStrategy = controller
         self.world: WorldBridge = world
+
+        self.perception_fps: float = 0.0
         self.planner_fps: float = 0.0
         self.control_fps: float = 0.0
 
+        self.perception_dt: float = perception_dt
         self.replan_dt: float = replan_dt
         self.control_dt: float = control_dt
 
