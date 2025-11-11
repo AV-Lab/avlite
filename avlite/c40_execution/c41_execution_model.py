@@ -132,7 +132,7 @@ class Executer(ABC):
         self.elapsed_sim_time = 0
 
     @abstractmethod
-    def step(self, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True,) -> None:
+    def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True,) -> None:
         """ Steps the executer for one time step. This method should be implemented by the specific executer class. """
         pass
 

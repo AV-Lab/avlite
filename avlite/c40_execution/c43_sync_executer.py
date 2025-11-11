@@ -41,7 +41,7 @@ class SyncExecuter(Executer):
         self.__controller_last_time = 0.0
 
 
-    def step(self, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True,) -> None:
+    def step(self, perception_dt = 0.01,  control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True,) -> None:
         """ Executes a single step of the simulation, including planning, control, and perception. """
 
         pln_time_txt, cn_time_txt, pr_time_txt, sim_time_txt = "", "", "", ""

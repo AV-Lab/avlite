@@ -4,8 +4,7 @@ from typing import TYPE_CHECKING
 import importlib
 import tkinter as tk
 from tkinter import ttk
-
-from networkx import reverse
+import tkinter.font as tkfont
 
 
 from avlite.c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, reload_lib, load_all_stack_settings
@@ -617,7 +616,7 @@ class SettingWindow:
             try:
                 module = importlib.import_module(f"avlite.extensions.{ext}.settings")
                 ExtensionSettings = getattr(module, "ExtensionSettings")
-                self.create_widgets(ExtensionSettings, f"Extension {ext} Settings", extension_name=ext)
+                self.create_widgets(ExtensionSettings, f"{ext}", extension_name=ext)
                 self.ext_widget_created = True
             except Exception as e:
                 log.error(f"Failed to load extension settings for {ext}: {e}")

@@ -106,7 +106,7 @@ class ExecView(ttk.Frame):
         global_tj_file=ttk.Entry( exec_third_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
         global_tj_file.pack(side=tk.RIGHT, padx = 5, pady=5)
         global_tj_file.bind("<Return>", self.text_on_enter)
-        ttk.Label(exec_third_frame, text="Default Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
+        ttk.Label(exec_third_frame, text="Default Global Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
 
 
     def text_on_enter(self, event):
@@ -175,7 +175,7 @@ class ExecView(ttk.Frame):
 
 class ExecSettingsFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
-        super().__init__(view, text="Running")
+        super().__init__(view, text="Executables")
         self.root = root
         ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control).grid(row=0, column=0, sticky="w")
         ttk.Checkbutton(self, text="Plan", variable=self.root.setting.exec_plan).grid(row=1, column=0, sticky="w")

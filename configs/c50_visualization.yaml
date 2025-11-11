@@ -261,7 +261,7 @@ ros:
   local_planner_type: GreedyLatticePlanner
   log_font: Courier
   log_font_size: 11
-  log_level: DEBUG
+  log_level: INFO
   log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
