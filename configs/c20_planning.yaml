@@ -1,4 +1,32 @@
-global_trajectory: "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
-# global_trajectory: "data/san_campus.json"
-hd_map: "data/Town10HD_Opt.xodr"
-# hd_map: "data/Mine_01.xodr"
+Carla_Town10:
+  boundary_clearance: 0.5
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 4
+  num_of_edge_points: 10
+  planning_horizon: 3
+  sample_size: 3
+default:
+  boundary_clearance: 0.5
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 4
+  num_of_edge_points: 10
+  planning_horizon: 3
+  sample_size: 3
+perception exp:
+  boundary_clearance: 0.5
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 4
+  num_of_edge_points: 10
+  planning_horizon: 3
+  sample_size: 3
+ros:
+  boundary_clearance: 0.5
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 4
+  num_of_edge_points: 10
+  planning_horizon: 3
+  sample_size: 3
