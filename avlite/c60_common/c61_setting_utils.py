@@ -18,8 +18,10 @@ def get_absolute_path(relative_path: str) -> str:
     """Convert a relative path to an absolute path based on the current file location."""
     if os.path.isabs(relative_path):
         return relative_path
-    current_file = os.path.realpath(__file__) if sys.argv[0] == "" else sys.argv[0]
-    project_dir = Path(current_file).parent.parent
+    # current_file = os.path.realpath(__file__) if sys.argv[0] == "" else sys.argv[0]
+    # project_dir = Path(current_file).parent.parent
+    project_dir = Path(__file__).resolve().parent.parent.parent
+    log.warning(f"Converting relative path {relative_path} to absolute path based on project dir {str(project_dir/ relative_path)}")
     return str(project_dir / relative_path)
 
 

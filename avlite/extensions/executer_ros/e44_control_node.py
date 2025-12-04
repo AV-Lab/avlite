@@ -24,6 +24,7 @@ class ControlNode(Node):
         msg = String()
         msg.data = f'control:{self.i}'
         self.pub.publish(msg)
+        self.get_logger().warn(f'****Publishing: "{msg.data}"')
         self.i += 1
 
 def main():

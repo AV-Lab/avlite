@@ -5,6 +5,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 # from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c40_execution.c49_settings import ExecutionSettings
 
 import logging
 log = logging.getLogger(__name__)
@@ -14,15 +15,18 @@ class PlannerNode(Node):
         super().__init__('planner_node')
 
         try:
-            self.declare_parameter('planner_name', 'default_value')
+            self.declare_parameter('global_planner_name', 'default_value')
+            self.declare_parameter('local_planner_name', 'default_value')
             self.declare_parameter('replan_dt', 0.1)
-            planner_name = self.get_parameter('planner_name').get_parameter_value().string_value
+            global_planner_name = self.get_parameter('global_planner_name').get_parameter_value().string_value
+            local_planner_name = self.get_parameter('local_planner_name').get_parameter_value().string_value
             replan_dt = self.get_parameter('replan_dt').get_parameter_value().double_value
         except Exception as e:
             self.get_logger().error(f"Error retrieving parameters: {e}")
             return
 
-        self.get_logger().info(f"Using planner: {planner_name} with replan_dt: {replan_dt}")
+
+        self.get_logger().warn(f"##### global planner: {global_planner_name} local planner: {local_planner_name} with replan_dt: {replan_dt}")
 
 
         self.pub = self.create_publisher(String, 'local_plan', int(1/replan_dt)) 
@@ -32,6 +36,7 @@ class PlannerNode(Node):
     def tick(self):
         msg = String()
         msg.data = f'planner:{self.i}'
+        self.get_logger().info(f'############# Planner Publishing: "{msg.data}"')
         self.pub.publish(msg)
         self.i += 1
 
