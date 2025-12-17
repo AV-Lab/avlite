@@ -4,10 +4,7 @@ Autoware message converters for AVLite.
 Converts between AVLite types and Autoware message types.
 
 Required Autoware packages:
-- autoware_auto_vehicle_msgs
-- autoware_auto_planning_msgs  
-- autoware_auto_control_msgs
-- autoware_auto_perception_msgs
+- ros-humble-autoware-auto-msgs (apt install ros-humble-autoware-auto-msgs)
 """
 import logging
 import math
@@ -23,17 +20,16 @@ log = logging.getLogger(__name__)
 
 # Try importing Autoware messages - these may not be available
 try:
-    from autoware_auto_planning_msgs.msg import Trajectory as AutowareTrajectory
-    from autoware_auto_planning_msgs.msg import TrajectoryPoint
-    from autoware_auto_control_msgs.msg import AckermannControlCommand
-    from autoware_auto_vehicle_msgs.msg import VehicleKinematicState
-    from autoware_auto_perception_msgs.msg import TrackedObjects, TrackedObject
+    from autoware_auto_msgs.msg import Trajectory as AutowareTrajectory
+    from autoware_auto_msgs.msg import TrajectoryPoint
+    from autoware_auto_msgs.msg import VehicleControlCommand
+    from autoware_auto_msgs.msg import VehicleKinematicState
     from geometry_msgs.msg import Pose, Point, Quaternion
     from std_msgs.msg import Header
     from builtin_interfaces.msg import Time
     AUTOWARE_AVAILABLE = True
 except ImportError:
-    log.warning("Autoware messages not found. Install autoware_auto_msgs package.")
+    log.warning("Autoware messages not found. Install: sudo apt install ros-humble-autoware-auto-msgs")
     AUTOWARE_AVAILABLE = False
 
 
@@ -78,16 +74,13 @@ def ego_state_from_kinematic_state(msg, ego: EgoState) -> EgoState:
     if not AUTOWARE_AVAILABLE:
         return ego
     
-    pose = msg.state.pose
-    ego.x = pose.position.x
-    ego.y = pose.position.y
-    ego.theta = quaternion_to_yaw(
-        pose.orientation.x,
-        pose.orientation.y,
-        pose.orientation.z,
-        pose.orientation.w
-    )
-    ego.velocity = msg.state.longitudinal_velocity_mps
+    # VehicleKinematicState.state is a TrajectoryPoint with x, y, heading (Complex32)
+    state = msg.state
+    ego.x = state.x
+    ego.y = state.y
+    # heading is Complex32 with real and imag (cos and sin of heading)
+    ego.theta = math.atan2(state.heading.imag, state.heading.real)
+    ego.velocity = state.longitudinal_velocity_mps
     return ego
 
 
@@ -105,19 +98,18 @@ def ego_state_to_kinematic_state(ego: EgoState, header: Optional['Header'] = Non
     if not AUTOWARE_AVAILABLE:
         raise RuntimeError("Autoware messages not available")
     
+    from autoware_auto_msgs.msg import Complex32
+    
     msg = VehicleKinematicState()
     if header:
         msg.header = header
     
-    qx, qy, qz, qw = euler_to_quaternion(ego.theta)
-    msg.state.pose.position.x = ego.x
-    msg.state.pose.position.y = ego.y
-    msg.state.pose.position.z = 0.0
-    msg.state.pose.orientation.x = qx
-    msg.state.pose.orientation.y = qy
-    msg.state.pose.orientation.z = qz
-    msg.state.pose.orientation.w = qw
-    msg.state.longitudinal_velocity_mps = ego.velocity
+    msg.state.x = float(ego.x)
+    msg.state.y = float(ego.y)
+    # heading as Complex32 (cos + i*sin)
+    msg.state.heading.real = float(math.cos(ego.theta))
+    msg.state.heading.imag = float(math.sin(ego.theta))
+    msg.state.longitudinal_velocity_mps = float(ego.velocity)
     
     return msg
 
@@ -143,7 +135,8 @@ def trajectory_from_autoware(msg) -> Trajectory:
     velocity = []
     
     for point in msg.points:
-        path.append((point.pose.position.x, point.pose.position.y))
+        # TrajectoryPoint has x, y directly (not pose.position)
+        path.append((point.x, point.y))
         velocity.append(point.longitudinal_velocity_mps)
     
     return Trajectory(path=path, velocity=velocity)
@@ -169,37 +162,36 @@ def trajectory_to_autoware(traj: Trajectory, header: Optional['Header'] = None) 
     
     for i, (x, y) in enumerate(traj.path):
         point = TrajectoryPoint()
-        point.pose.position.x = float(x)
-        point.pose.position.y = float(y)
-        point.pose.position.z = 0.0
+        point.x = float(x)
+        point.y = float(y)
         
-        # Set orientation from heading if available
+        # Set heading from path_heading if available (as Complex32)
         if i < len(traj.path_heading):
-            qx, qy, qz, qw = euler_to_quaternion(traj.path_heading[i])
-            point.pose.orientation.x = qx
-            point.pose.orientation.y = qy
-            point.pose.orientation.z = qz
-            point.pose.orientation.w = qw
+            heading = traj.path_heading[i]
+            point.heading.real = float(math.cos(heading))
+            point.heading.imag = float(math.sin(heading))
         
         # Set velocity
-        if i < len(traj.velocity):
+        if hasattr(traj, 'velocity') and hasattr(traj.velocity, '__len__') and i < len(traj.velocity):
             point.longitudinal_velocity_mps = float(traj.velocity[i])
         
         msg.points.append(point)
     
     return msg
+    
+    return msg
 
 
 # -----------------------------------------------------------------------------
-# ControlCommand <-> AckermannControlCommand
+# ControlCommand <-> VehicleControlCommand
 # -----------------------------------------------------------------------------
 
-def control_from_ackermann(msg) -> ControlComand:
+def control_from_vehicle_cmd(msg) -> ControlComand:
     """
-    Convert Autoware AckermannControlCommand to AVLite ControlCommand.
+    Convert Autoware VehicleControlCommand to AVLite ControlCommand.
     
     Args:
-        msg: AckermannControlCommand message
+        msg: VehicleControlCommand message
     
     Returns:
         AVLite ControlCommand
@@ -208,45 +200,51 @@ def control_from_ackermann(msg) -> ControlComand:
         return ControlComand()
     
     return ControlComand(
-        steer=msg.lateral.steering_tire_angle,
-        acceleration=msg.longitudinal.acceleration
+        steer=msg.front_wheel_angle_rad,
+        acceleration=msg.long_accel_mps2
     )
 
 
-def control_to_ackermann(cmd: ControlComand, header: Optional['Header'] = None) -> 'AckermannControlCommand':
+def control_to_vehicle_cmd(cmd: ControlComand, header: Optional['Header'] = None) -> 'VehicleControlCommand':
     """
-    Convert AVLite ControlCommand to Autoware AckermannControlCommand.
+    Convert AVLite ControlCommand to Autoware VehicleControlCommand.
     
     Args:
         cmd: AVLite ControlCommand
         header: Optional ROS header
     
     Returns:
-        AckermannControlCommand message
+        VehicleControlCommand message
     """
     if not AUTOWARE_AVAILABLE:
         raise RuntimeError("Autoware messages not available")
     
-    msg = AckermannControlCommand()
+    msg = VehicleControlCommand()
     if header:
         msg.stamp = header.stamp
     
-    msg.lateral.steering_tire_angle = float(cmd.steer)
-    msg.longitudinal.acceleration = float(cmd.acceleration)
+    msg.front_wheel_angle_rad = float(cmd.steer)
+    msg.long_accel_mps2 = float(cmd.acceleration)
     
     return msg
 
 
+# Aliases for backward compatibility
+control_from_ackermann = control_from_vehicle_cmd
+control_to_ackermann = control_to_vehicle_cmd
+
+
 # -----------------------------------------------------------------------------
-# AgentState <-> TrackedObjects
+# AgentState <-> BoundingBoxArray (perception)
+# Note: autoware_auto_msgs uses BoundingBoxArray, not TrackedObjects
 # -----------------------------------------------------------------------------
 
-def agents_from_tracked_objects(msg) -> list[AgentState]:
+def agents_from_bounding_boxes(msg) -> list[AgentState]:
     """
-    Convert Autoware TrackedObjects to list of AVLite AgentState.
+    Convert Autoware BoundingBoxArray to list of AVLite AgentState.
     
     Args:
-        msg: TrackedObjects message
+        msg: BoundingBoxArray message
     
     Returns:
         List of AgentState
@@ -255,29 +253,18 @@ def agents_from_tracked_objects(msg) -> list[AgentState]:
         return []
     
     agents = []
-    for obj in msg.objects:
-        pose = obj.kinematics.pose_with_covariance.pose
-        twist = obj.kinematics.twist_with_covariance.twist
-        
-        yaw = quaternion_to_yaw(
-            pose.orientation.x,
-            pose.orientation.y,
-            pose.orientation.z,
-            pose.orientation.w
-        )
-        
-        # Calculate velocity magnitude
-        vx = twist.linear.x
-        vy = twist.linear.y
-        velocity = math.sqrt(vx * vx + vy * vy)
-        
+    for i, box in enumerate(msg.boxes):
         agent = AgentState(
-            x=pose.position.x,
-            y=pose.position.y,
-            theta=yaw,
-            velocity=velocity,
-            agent_id=hash(obj.object_id.uuid.tobytes()) % 10000  # Simple ID conversion
+            x=box.centroid.x,
+            y=box.centroid.y,
+            theta=box.heading,
+            velocity=box.velocity,
+            agent_id=i
         )
         agents.append(agent)
     
     return agents
+
+
+# Alias for backward compatibility (in case code uses old function name)
+agents_from_tracked_objects = agents_from_bounding_boxes

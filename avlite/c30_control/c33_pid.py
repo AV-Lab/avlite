@@ -20,6 +20,7 @@ class PIDController(ControlStrategy):
         self.lookahead = pid_lookahead
         
         self.cte_steer = 0
+        self.cte_velocity = 0  # Track velocity error
 
         self.cte_s_sum = 0
         self.cte_v_sum = 0
@@ -41,7 +42,8 @@ class PIDController(ControlStrategy):
             s, cte = self.tj.convert_xy_to_sd(x, y)
             s_, cte_ = self.tj.convert_xy_to_sd(ego.x, ego.y)
             log.debug(f"CTE with Lookahead: {self.lookahead}, cte: {cte:.2f}, W.O LA cte: {cte_:.2f}")
-            # cte = cte_
+            # Also update current_wp for local trajectory to get correct target velocity
+            self.tj.update_waypoint_by_xy(ego.x, ego.y)
         else:   
             self.tj.update_waypoint_by_xy(ego.x, ego.y)
             s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
@@ -74,15 +76,26 @@ class PIDController(ControlStrategy):
         idx = self.tj.current_wp
         target_velocity = self.tj.velocity[idx]
 
+        prev_cte_v = self.cte_velocity
         self.cte_velocity = ego.velocity - target_velocity
         self.cte_v_sum += self.cte_velocity
 
         vP = -self.valpha * self.cte_velocity
         vI = -self.vbeta * self.cte_v_sum
-        vD = -self.vgamma * self.cte_velocity
+        vD = -self.vgamma * (self.cte_velocity - prev_cte_v)  # D-term: rate of change of error
 
         # Compute the acceleration
         acc = vP + vI + vD
+        
+        # Emergency braking: if target velocity is 0 (or very low) and we're still moving,
+        # apply maximum braking force regardless of PID output
+        if target_velocity < 0.5 and ego.velocity > 1.0:
+            # Emergency stop requested - apply max deceleration
+            emergency_acc = ego.min_acceleration * 0.9  # 90% of max braking
+            if acc > emergency_acc:
+                log.warning(f"Emergency braking: overriding PID acc {acc:.2f} with {emergency_acc:.2f}")
+                acc = emergency_acc
+        
         acc = np.clip(acc, ego.min_acceleration, ego.max_acceleration)
 
         log.debug(f"Acc  : {acc:+6.2f} [P={vP:+.3f}, I={vI:+.3f}, D={vD:+.3f}] based on CTE: {self.cte_velocity:+.2f} ({ego.velocity:.2f} vs target: {target_velocity:.2f})")

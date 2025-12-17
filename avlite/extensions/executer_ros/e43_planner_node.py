@@ -12,6 +12,7 @@ Launch standalone:
 """
 import logging
 import json
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -31,8 +32,8 @@ from .settings import ExtensionSettings
 log = logging.getLogger(__name__)
 
 if AUTOWARE_AVAILABLE:
-    from autoware_auto_vehicle_msgs.msg import VehicleKinematicState
-    from autoware_auto_planning_msgs.msg import Trajectory as AutowareTrajectory
+    from autoware_auto_msgs.msg import VehicleKinematicState
+    from autoware_auto_msgs.msg import Trajectory as AutowareTrajectory
 
 
 class PlannerNode(Node):
@@ -44,17 +45,24 @@ class PlannerNode(Node):
     2. Embedded: Pass planner instance directly to constructor
     """
 
-    def __init__(self, planner: LocalPlannerStrategy = None, ego_state: EgoState = None):
+    def __init__(self, planner: LocalPlannerStrategy = None, ego_state: EgoState = None, ros_data=None, replan_dt: float = 0.1):
         super().__init__('avlite_planner')
         
         self.settings = ExtensionSettings()
         self.planner = planner
         self.ego_state = ego_state if ego_state else EgoState(x=0, y=0, theta=0)
-        self.use_autoware = AUTOWARE_AVAILABLE
+        self.ros_data = ros_data
+        # Use Autoware messages only if available AND enabled in settings
+        self.use_autoware = AUTOWARE_AVAILABLE and self.settings.use_autoware_msgs
+        
+        # FPS tracking
+        self._tick_count: int = 0
+        self._fps_update_time: float = time.time()
+        self._shutdown: bool = False
         
         # Declare parameters
         self.declare_parameter('planner_name', '')
-        self.declare_parameter('replan_dt', 0.1)
+        self.declare_parameter('replan_dt', replan_dt)
         
         planner_name = self.get_parameter('planner_name').get_parameter_value().string_value
         replan_dt = self.get_parameter('replan_dt').get_parameter_value().double_value
@@ -102,6 +110,10 @@ class PlannerNode(Node):
 
     def _plan_tick(self):
         """Run planner and publish trajectory."""
+        # Skip if shutting down or ROS context invalid
+        if self._shutdown or not rclpy.ok():
+            return
+            
         if self.planner is None:
             self.get_logger().debug("No planner set")
             return
@@ -139,13 +151,38 @@ class PlannerNode(Node):
             
             self.traj_pub.publish(msg)
             self.get_logger().debug(f"Published trajectory with {len(trajectory.path)} points")
+            
+            # Update FPS tracking
+            self._tick_count += 1
+            now = time.time()
+            elapsed = now - self._fps_update_time
+            if elapsed >= 1.0:  # Update FPS every second
+                fps = self._tick_count / elapsed
+                self._tick_count = 0
+                self._fps_update_time = now
+                
+                # Update ros_data with FPS
+                if self.ros_data:
+                    with self.ros_data.lock:
+                        self.ros_data.planner_fps = fps
+        except (rclpy.exceptions.InvalidHandle, RuntimeError):
+            # Suppress errors during shutdown (invalid handle or runtime errors)
+            pass
         except Exception as e:
-            self.get_logger().error(f"Planning failed: {e}")
+            if not self._shutdown:
+                self.get_logger().error(f"Planning failed: {e}")
 
     def set_planner(self, planner: LocalPlannerStrategy):
         """Set or update the planner instance."""
         self.planner = planner
         self.get_logger().info(f"Planner set: {planner.__class__.__name__}")
+
+    def destroy_node(self):
+        """Clean shutdown."""
+        self._shutdown = True
+        if self.timer:
+            self.timer.cancel()
+        super().destroy_node()
 
 
 def main(args=None):

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional
+import time
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
@@ -43,7 +44,13 @@ class LocalPlannerStrategy(ABC):
         self.num_of_edge_points: int = num_of_edge_points
         self.lattice: Lattice = Lattice( self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
             planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
-        self.lap: int = 0 
+        self.lap: int = 0
+        
+        # Replan stability: track when plan was last changed
+        self._last_plan_change_time: float = 0.0
+        self._replan_wait_time: float = 2.5  # default, can be overridden by subclass
+        self._min_edge_progress_to_block: float = 0.2  # block switch if >20% through edge
+        self._urgent_collision_threshold: int = 3  # collision within N waypoints is urgent
 
 
     def set_global_plan(self, global_plan: GlobalPlan) -> None:
@@ -78,6 +85,62 @@ class LocalPlannerStrategy(ABC):
         self.global_trajectory.update_waypoint_by_wp(wp)
         self.selected_local_plan = None
         self.lattice.reset()
+        self._last_plan_change_time = 0.0
+
+    def should_switch_plan(self, new_plan: Edge, force_if_collision: bool = True) -> bool:
+        """
+        Determine if we should switch to a new plan.
+        
+        Switches immediately if:
+        - No current plan exists
+        - Current plan has urgent collision (within threshold waypoints)
+        
+        Blocks switch if:
+        - Vehicle is midway through current edge (>20% progress) unless urgent
+        - Wait time has not elapsed since last plan change
+        
+        Args:
+            new_plan: The candidate new plan to switch to
+            force_if_collision: If True, switch immediately when current plan has urgent collision
+            
+        Returns:
+            True if plan should be switched, False otherwise
+        """
+        # Always switch if no current plan
+        if self.selected_local_plan is None:
+            return True
+        
+        # Check if current plan has URGENT collision (imminent risk)
+        if force_if_collision and self.selected_local_plan.collision:
+            collision_idx = getattr(self.selected_local_plan, 'collision_idx', -1)
+            current_wp = self.selected_local_plan.local_trajectory.current_wp
+            waypoints_to_collision = collision_idx - current_wp if collision_idx >= 0 else float('inf')
+            
+            if waypoints_to_collision <= self._urgent_collision_threshold:
+                log.debug(f"Switching plan: urgent collision in {waypoints_to_collision} waypoints")
+                return True
+        
+        # Check progress through current edge
+        tj = self.selected_local_plan.local_trajectory
+        total_points = len(tj.path) if hasattr(tj, 'path') and tj.path else len(tj.path_x)
+        if total_points > 0:
+            progress = tj.current_wp / total_points
+            if progress >= self._min_edge_progress_to_block:
+                log.debug(f"Plan switch blocked: {progress:.0%} through current edge (threshold: {self._min_edge_progress_to_block:.0%})")
+                return False
+        
+        # Check if wait time has elapsed
+        elapsed = time.time() - self._last_plan_change_time
+        if elapsed >= self._replan_wait_time:
+            return True
+        
+        log.debug(f"Plan switch blocked: {elapsed:.1f}s < {self._replan_wait_time:.1f}s wait time")
+        return False
+
+    def set_selected_plan(self, new_plan: Edge) -> None:
+        """Set the selected plan and update the change timestamp."""
+        self.selected_local_plan = new_plan
+        self._last_plan_change_time = time.time()
 
     @abstractmethod
     def replan(self):

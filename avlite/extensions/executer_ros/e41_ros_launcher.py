@@ -15,6 +15,7 @@ Architecture:
 import threading
 import time
 import logging
+import json
 from typing import Optional
 from dataclasses import dataclass, field
 
@@ -22,6 +23,7 @@ import rclpy
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node
 from rcl_interfaces.msg import Log
+from std_msgs.msg import String
 
 from avlite.c40_execution.c41_execution_model import Executer
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
@@ -33,18 +35,18 @@ from .e46_autoware_converters import (
     AUTOWARE_AVAILABLE,
     ego_state_from_kinematic_state,
     trajectory_from_autoware,
-    control_from_ackermann,
-    agents_from_tracked_objects,
+    control_from_vehicle_cmd,
+    agents_from_bounding_boxes,
 )
 
 log = logging.getLogger(__name__)
 
 # Import Autoware messages if available
 if AUTOWARE_AVAILABLE:
-    from autoware_auto_planning_msgs.msg import Trajectory as AutowareTrajectory
-    from autoware_auto_control_msgs.msg import AckermannControlCommand
-    from autoware_auto_vehicle_msgs.msg import VehicleKinematicState
-    from autoware_auto_perception_msgs.msg import TrackedObjects
+    from autoware_auto_msgs.msg import Trajectory as AutowareTrajectory
+    from autoware_auto_msgs.msg import VehicleControlCommand
+    from autoware_auto_msgs.msg import VehicleKinematicState
+    from autoware_auto_msgs.msg import BoundingBoxArray
 
 @dataclass
 class ROSData:
@@ -57,11 +59,28 @@ class ROSData:
     control_cmd: Optional[ControlComand] = None
     agents: list[AgentState] = field(default_factory=list)
     
+    # Prediction/heatmap data from perception
+    prediction_mode: Optional[int] = None  # PredictionMode enum value
+    occupancy_flow: Optional[list] = None  # list of 2D numpy arrays
+    grid_bounds: Optional[dict] = None  # min_x, max_x, min_y, max_y, resolution
+    predict_delta_t: float = 0.1
+    trajectories: Optional[any] = None  # For trajectory predictions
+    occupancy_flow_per_object: Optional[list] = None  # per-agent occupancy
+    
     # Timestamps for staleness checking
     ego_stamp: float = 0.0
     plan_stamp: float = 0.0
     control_stamp: float = 0.0
     perception_stamp: float = 0.0
+    
+    # FPS counters (updated by nodes)
+    perception_fps: float = 0.0
+    planner_fps: float = 0.0
+    control_fps: float = 0.0
+    sim_fps: float = 0.0
+    
+    # Elapsed simulation time (from WorldNode)
+    elapsed_sim_time: float = 0.0
 
 
 class CollectorNode(Node):
@@ -69,57 +88,76 @@ class CollectorNode(Node):
     ROS2 node that subscribes to Autoware topics and collects data.
     
     Subscribes to:
-    - Localization (VehicleKinematicState) - ego pose and velocity
-    - Planning (Trajectory) - trajectory from external planner
-    - Control (AckermannControlCommand) - control from external controller
-    - Perception (TrackedObjects) - detected/tracked objects
+    - Localization (VehicleKinematicState or String) - ego pose and velocity
+    - Planning (Trajectory or String) - trajectory from external planner
+    - Control (VehicleControlCommand or String) - control from external controller
+    - Perception (BoundingBoxArray or String) - detected/tracked objects
     """
     
     def __init__(self, ros_data: ROSData, settings: ExtensionSettings):
         super().__init__('avlite_collector')
         self.ros_data = ros_data
         self.settings = settings
+        # Use Autoware messages only if available AND enabled in settings
+        self.use_autoware = AUTOWARE_AVAILABLE and settings.use_autoware_msgs
         
-        if not AUTOWARE_AVAILABLE:
-            self.get_logger().error("Autoware messages not available!")
-            return
-        
-        # Subscribe to localization
-        self.create_subscription(
-            VehicleKinematicState,
-            settings.localization_topic,
-            self._localization_callback,
-            10
-        )
-        
-        # Subscribe to trajectory from external planner
-        self.create_subscription(
-            AutowareTrajectory,
-            settings.trajectory_topic,
-            self._trajectory_callback,
-            10
-        )
-        
-        # Subscribe to control command from external controller
-        self.create_subscription(
-            AckermannControlCommand,
-            settings.control_cmd_topic,
-            self._control_callback,
-            10
-        )
-        
-        # Subscribe to tracked objects
-        self.create_subscription(
-            TrackedObjects,
-            settings.perception_topic,
-            self._perception_callback,
-            10
-        )
+        if self.use_autoware:
+            # Subscribe to Autoware messages
+            self.create_subscription(
+                VehicleKinematicState,
+                settings.localization_topic,
+                self._localization_callback,
+                10
+            )
+            self.create_subscription(
+                AutowareTrajectory,
+                settings.trajectory_topic,
+                self._trajectory_callback,
+                10
+            )
+            self.create_subscription(
+                VehicleControlCommand,
+                settings.control_cmd_topic,
+                self._control_callback,
+                10
+            )
+            self.create_subscription(
+                BoundingBoxArray,
+                settings.perception_topic,
+                self._perception_callback,
+                10
+            )
+        else:
+            # Subscribe to JSON string messages
+            self.create_subscription(
+                String,
+                settings.localization_topic,
+                self._localization_json_callback,
+                10
+            )
+            self.create_subscription(
+                String,
+                settings.trajectory_topic,
+                self._trajectory_json_callback,
+                10
+            )
+            self.create_subscription(
+                String,
+                settings.control_cmd_topic,
+                self._control_json_callback,
+                10
+            )
+            self.create_subscription(
+                String,
+                settings.perception_topic,
+                self._perception_json_callback,
+                10
+            )
         
         # Subscribe to ROS log for debugging
         self.create_subscription(Log, '/rosout', self._rosout_callback, 10)
         
-        self.get_logger().info(f"CollectorNode initialized, subscribing to:")
+        self.get_logger().info(f"CollectorNode initialized (autoware={self.use_autoware})")
         self.get_logger().info(f"  Localization: {settings.localization_topic}")
         self.get_logger().info(f"  Trajectory: {settings.trajectory_topic}")
         self.get_logger().info(f"  Control: {settings.control_cmd_topic}")
@@ -140,17 +178,79 @@ class CollectorNode(Node):
             self.ros_data.local_plan.name = "ROS Trajectory"
             self.ros_data.plan_stamp = time.time()
     
-    def _control_callback(self, msg: 'AckermannControlCommand'):
+    def _control_callback(self, msg: 'VehicleControlCommand'):
         """Handle control command from external controller."""
         with self.ros_data.lock:
-            self.ros_data.control_cmd = control_from_ackermann(msg)
+            self.ros_data.control_cmd = control_from_vehicle_cmd(msg)
             self.ros_data.control_stamp = time.time()
     
-    def _perception_callback(self, msg: 'TrackedObjects'):
-        """Handle tracked objects message."""
+    def _perception_callback(self, msg: 'BoundingBoxArray'):
+        """Handle bounding box array message."""
         with self.ros_data.lock:
-            self.ros_data.agents = agents_from_tracked_objects(msg)
+            self.ros_data.agents = agents_from_bounding_boxes(msg)
             self.ros_data.perception_stamp = time.time()
+
+    # JSON fallback callbacks
+    def _localization_json_callback(self, msg: String):
+        """Handle localization as JSON string."""
+        try:
+            data = json.loads(msg.data)
+            with self.ros_data.lock:
+                if self.ros_data.ego_state is None:
+                    self.ros_data.ego_state = EgoState(x=0, y=0, theta=0)
+                self.ros_data.ego_state.x = data.get('x', 0)
+                self.ros_data.ego_state.y = data.get('y', 0)
+                self.ros_data.ego_state.theta = data.get('theta', 0)
+                self.ros_data.ego_state.velocity = data.get('velocity', 0)
+                self.ros_data.ego_stamp = time.time()
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"Invalid JSON in localization: {e}")
+
+    def _trajectory_json_callback(self, msg: String):
+        """Handle trajectory as JSON string."""
+        try:
+            data = json.loads(msg.data)
+            with self.ros_data.lock:
+                path = [(p['x'], p['y']) for p in data.get('points', [])]
+                velocity = [p.get('velocity', 0) for p in data.get('points', [])]
+                self.ros_data.local_plan = Trajectory(path=path, velocity=velocity)
+                self.ros_data.local_plan.name = "ROS Trajectory"
+                self.ros_data.plan_stamp = time.time()
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"Invalid JSON in trajectory: {e}")
+
+    def _control_json_callback(self, msg: String):
+        """Handle control command as JSON string."""
+        try:
+            data = json.loads(msg.data)
+            with self.ros_data.lock:
+                self.ros_data.control_cmd = ControlComand(
+                    steer=data.get('steer', 0),
+                    acceleration=data.get('acceleration', 0)
+                )
+                self.ros_data.control_stamp = time.time()
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"Invalid JSON in control: {e}")
+
+    def _perception_json_callback(self, msg: String):
+        """Handle perception as JSON string."""
+        try:
+            data = json.loads(msg.data)
+            with self.ros_data.lock:
+                agents = []
+                for obj in data.get('objects', []):
+                    agent = AgentState(
+                        x=obj.get('x', 0),
+                        y=obj.get('y', 0),
+                        theta=obj.get('theta', 0),
+                        velocity=obj.get('velocity', 0),
+                        agent_id=obj.get('id', 0)
+                    )
+                    agents.append(agent)
+                self.ros_data.agents = agents
+                self.ros_data.perception_stamp = time.time()
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"Invalid JSON in perception: {e}")
     
     def _rosout_callback(self, msg: Log):
         """Forward ROS log to Python logging."""
@@ -185,6 +285,11 @@ class ROSExecuter(Executer):
         
         self.settings = ExtensionSettings()
         
+        # Override timing from settings
+        self.perception_dt = self.settings.perception_dt
+        self.replan_dt = self.settings.replan_dt
+        self.control_dt = self.settings.control_dt
+        
         # Shared data container for ROS callbacks
         self.ros_data = ROSData()
 
@@ -192,9 +297,14 @@ class ROSExecuter(Executer):
         self.collector_node: Optional[CollectorNode] = None
         self.planner_node = None
         self.controller_node = None
+        self.perception_node = None
+        self.world_node = None
         self.ros_exec: Optional[SingleThreadedExecutor] = None
         self.spin_thread: Optional[threading.Thread] = None
         self.ros_started = False
+        
+        # Timing tracking
+        self._start_real_time: float = 0.0
         
         log.info("ROSExecuter initialized")
 
@@ -217,12 +327,36 @@ class ROSExecuter(Executer):
         # Start ROS infrastructure if not already started
         if not self.ros_started:
             self._start_ros()
+            self._start_real_time = time.time()
         
         # Get ego state from world
         self.ego_state = self.world.get_ego_state()
         
+        # Run perception strategy to populate occupancy_flow, etc.
+        if call_perceive and self.perception:
+            try:
+                if self.perception.requirements.issubset(self.world.capabilities):
+                    self.pm = self.world.get_ground_truth_perception_model()
+                    self.perception.perceive(
+                        perception_model=self.pm,
+                        rgb_img=self.world.get_rgb_image(),
+                        depth_img=self.world.get_depth_image(),
+                        lidar_data=self.world.get_lidar_data()
+                    )
+                    # Update perception node's reference to pm
+                    if self.perception_node:
+                        self.perception_node.pm = self.pm
+            except Exception as e:
+                log.debug(f"Perception step error: {e}")
+        
         # Sync external ROS data (localization, perception) to AVLite
         self._sync_ros_to_avlite()
+        
+        # Sync FPS values from ROS nodes
+        self._sync_fps()
+        
+        # Update elapsed real time
+        self.elapsed_real_time = time.time() - self._start_real_time
         
         # Update local planner step (updates waypoint tracking)
         if self.local_planner:
@@ -240,9 +374,17 @@ class ROSExecuter(Executer):
             # Apply control command to world/simulator
             if cmd and self.world:
                 self.world.control_ego_state(cmd, dt=sim_dt)
+    
+    def _sync_fps(self):
+        """Sync FPS values from ROS nodes to executer."""
+        with self.ros_data.lock:
+            self.perception_fps = self.ros_data.perception_fps
+            self.planner_fps = self.ros_data.planner_fps
+            self.control_fps = self.ros_data.control_fps
+            self.elapsed_sim_time = self.ros_data.elapsed_sim_time
 
     def _start_ros(self):
-        """Initialize and start ROS components including planner/controller nodes."""
+        """Initialize and start ROS components including world/perception/planner/controller nodes."""
         if self.ros_started:
             return
             
@@ -251,27 +393,51 @@ class ROSExecuter(Executer):
             rclpy.init()
         
         # Import node classes
+        from .e42_perception_node import PerceptionNode
         from .e43_planner_node import PlannerNode
         from .e44_controller_node import ControllerNode
+        from .e45_world_node import WorldNode
         
         # Create collector node (subscribes to external topics)
         self.collector_node = CollectorNode(self.ros_data, self.settings)
         
+        # Create world node (runs simulation step asynchronously)
+        self.world_node = WorldNode(
+            world=self.world, 
+            ros_data=self.ros_data,
+            sim_dt=self.settings.sim_dt
+        )
+        
+        # Create perception node (publishes ego state and tracked objects)
+        self.perception_node = PerceptionNode(
+            ego_state=self.ego_state,
+            perception_model=self.pm,
+            world=self.world,
+            ros_data=self.ros_data,
+            perception_dt=self.settings.perception_dt
+        )
+        
         # Create planner node (publishes trajectory)
         self.planner_node = PlannerNode(
             planner=self.local_planner,
-            ego_state=self.ego_state
+            ego_state=self.ego_state,
+            ros_data=self.ros_data,
+            replan_dt=self.settings.replan_dt
         )
         
         # Create controller node (publishes control commands)
         self.controller_node = ControllerNode(
             controller=self.controller,
-            ego_state=self.ego_state
+            ego_state=self.ego_state,
+            ros_data=self.ros_data,
+            control_dt=self.settings.control_dt
         )
         
         # Create executor and add all nodes
         self.ros_exec = SingleThreadedExecutor()
         self.ros_exec.add_node(self.collector_node)
+        self.ros_exec.add_node(self.world_node)
+        self.ros_exec.add_node(self.perception_node)
         self.ros_exec.add_node(self.planner_node)
         self.ros_exec.add_node(self.controller_node)
         
@@ -280,7 +446,8 @@ class ROSExecuter(Executer):
         self.spin_thread.start()
         
         self.ros_started = True
-        log.info("ROS infrastructure started with planner and controller nodes")
+        log.info("ROS infrastructure started with world, planner and controller nodes")
+        log.info(f"  Timing: sim_dt={self.settings.sim_dt}, perception_dt={self.settings.perception_dt}, replan_dt={self.settings.replan_dt}, control_dt={self.settings.control_dt}")
 
     def _spin_ros(self):
         """Spin ROS executor in background thread."""
@@ -314,6 +481,21 @@ class ROSExecuter(Executer):
             # Sync perceived agents
             if self.ros_data.agents:
                 self.pm.agent_vehicles = self.ros_data.agents
+            
+            # Sync prediction/heatmap data
+            if self.ros_data.occupancy_flow is not None:
+                self.pm.occupancy_flow = self.ros_data.occupancy_flow
+            if self.ros_data.grid_bounds is not None:
+                self.pm.grid_bounds = self.ros_data.grid_bounds
+            if self.ros_data.prediction_mode is not None:
+                from avlite.c10_perception.c11_perception_model import PredictionMode
+                self.pm.prediction_mode = PredictionMode(self.ros_data.prediction_mode)
+            if self.ros_data.predict_delta_t:
+                self.pm.predict_delta_t = self.ros_data.predict_delta_t
+            if self.ros_data.trajectories is not None:
+                self.pm.trajectories = self.ros_data.trajectories
+            if self.ros_data.occupancy_flow_per_object is not None:
+                self.pm.occupancy_flow_per_object = self.ros_data.occupancy_flow_per_object
 
     def stop(self):
         """Clean shutdown of ROS components."""
@@ -329,6 +511,10 @@ class ROSExecuter(Executer):
         # Destroy nodes
         if self.collector_node:
             self.collector_node.destroy_node()
+        if self.world_node:
+            self.world_node.destroy_node()
+        if self.perception_node:
+            self.perception_node.destroy_node()
         if self.planner_node:
             self.planner_node.destroy_node()
         if self.controller_node:

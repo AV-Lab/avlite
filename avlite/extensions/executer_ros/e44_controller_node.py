@@ -13,6 +13,7 @@ Launch standalone:
 """
 import logging
 import json
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -26,16 +27,16 @@ from .e46_autoware_converters import (
     AUTOWARE_AVAILABLE,
     ego_state_from_kinematic_state,
     trajectory_from_autoware,
-    control_to_ackermann,
+    control_to_vehicle_cmd,
 )
 from .settings import ExtensionSettings
 
 log = logging.getLogger(__name__)
 
 if AUTOWARE_AVAILABLE:
-    from autoware_auto_vehicle_msgs.msg import VehicleKinematicState
-    from autoware_auto_planning_msgs.msg import Trajectory as AutowareTrajectory
-    from autoware_auto_control_msgs.msg import AckermannControlCommand
+    from autoware_auto_msgs.msg import VehicleKinematicState
+    from autoware_auto_msgs.msg import Trajectory as AutowareTrajectory
+    from autoware_auto_msgs.msg import VehicleControlCommand
 
 
 class ControllerNode(Node):
@@ -47,18 +48,25 @@ class ControllerNode(Node):
     2. Embedded: Pass controller instance directly to constructor
     """
 
-    def __init__(self, controller: ControlStrategy = None, ego_state: EgoState = None):
+    def __init__(self, controller: ControlStrategy = None, ego_state: EgoState = None, ros_data=None, control_dt: float = 0.02):
         super().__init__('avlite_controller')
         
         self.settings = ExtensionSettings()
         self.controller = controller
         self.ego_state = ego_state if ego_state else EgoState(x=0, y=0, theta=0)
         self.current_trajectory: Trajectory = None
-        self.use_autoware = AUTOWARE_AVAILABLE
+        self.ros_data = ros_data
+        # Use Autoware messages only if available AND enabled in settings
+        self.use_autoware = AUTOWARE_AVAILABLE and self.settings.use_autoware_msgs
+        
+        # FPS tracking
+        self._tick_count: int = 0
+        self._fps_update_time: float = time.time()
+        self._shutdown: bool = False
         
         # Declare parameters
         self.declare_parameter('controller_name', '')
-        self.declare_parameter('control_dt', 0.02)
+        self.declare_parameter('control_dt', control_dt)
         
         controller_name = self.get_parameter('controller_name').get_parameter_value().string_value
         control_dt = self.get_parameter('control_dt').get_parameter_value().double_value
@@ -91,7 +99,7 @@ class ControllerNode(Node):
             
             # Publisher for Autoware control command
             self.ctrl_pub = self.create_publisher(
-                AckermannControlCommand,
+                VehicleControlCommand,
                 self.settings.control_out_topic,
                 10
             )
@@ -107,7 +115,6 @@ class ControllerNode(Node):
         self.timer = self.create_timer(control_dt, self._control_tick)
         
         self.get_logger().info(f"ControllerNode initialized (autoware={self.use_autoware})")
-        self.get_logger().info(f"  Publish: {self.settings.control_out_topic}")
         self.get_logger().info(f"  Rate: {1.0/control_dt:.1f} Hz")
 
     def _on_localization(self, msg: 'VehicleKinematicState'):
@@ -122,6 +129,10 @@ class ControllerNode(Node):
 
     def _control_tick(self):
         """Run controller and publish command."""
+        # Skip if shutting down or ROS context invalid
+        if self._shutdown or not rclpy.ok():
+            return
+            
         if self.controller is None:
             return
         
@@ -137,7 +148,7 @@ class ControllerNode(Node):
             if cmd:
                 if self.use_autoware:
                     # Convert to Autoware message
-                    msg = control_to_ackermann(cmd)
+                    msg = control_to_vehicle_cmd(cmd)
                     msg.stamp = self.get_clock().now().to_msg()
                 else:
                     # Fallback: publish as JSON
@@ -149,13 +160,38 @@ class ControllerNode(Node):
                 
                 self.ctrl_pub.publish(msg)
                 self.get_logger().debug(f"Published control: steer={cmd.steer:.3f}, accel={cmd.acceleration:.3f}")
+                
+                # Update FPS tracking
+                self._tick_count += 1
+                now = time.time()
+                elapsed = now - self._fps_update_time
+                if elapsed >= 1.0:  # Update FPS every second
+                    fps = self._tick_count / elapsed
+                    self._tick_count = 0
+                    self._fps_update_time = now
+                    
+                    # Update ros_data with FPS
+                    if self.ros_data:
+                        with self.ros_data.lock:
+                            self.ros_data.control_fps = fps
+        except (rclpy.exceptions.InvalidHandle, RuntimeError):
+            # Suppress errors during shutdown (invalid handle or runtime errors)
+            pass
         except Exception as e:
-            self.get_logger().error(f"Control failed: {e}")
+            if not self._shutdown:
+                self.get_logger().error(f"Control failed: {e}")
 
     def set_controller(self, controller: ControlStrategy):
         """Set or update the controller instance."""
         self.controller = controller
         self.get_logger().info(f"Controller set: {controller.__class__.__name__}")
+
+    def destroy_node(self):
+        """Clean shutdown."""
+        self._shutdown = True
+        if self.timer:
+            self.timer.cancel()
+        super().destroy_node()
 
 
 def main(args=None):

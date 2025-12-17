@@ -177,6 +177,7 @@ class TrajectoryHandler:
         
         # Object tracking dictionaries
         self.obj_id_to_index = {}  # Maps object ID to index in trajectories tensor
+        self.index_to_obj_id = {}  # Maps index to object ID (reverse mapping)
         self.active_objects = set()  # Set of currently active objects
         self.available_index = [i for i in range(max_objects)]  # available indicies
         
@@ -196,6 +197,7 @@ class TrajectoryHandler:
                     
             idx = self.available_index.pop()
             self.obj_id_to_index[obj_id] = idx
+            self.index_to_obj_id[idx] = obj_id  # Maintain reverse mapping
 
         # Get index and update trajectory
         idx = self.obj_id_to_index[obj_id]

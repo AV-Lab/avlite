@@ -24,3 +24,8 @@ class ControlSettings:
     stanley_slow_down_cte = 0.5  # threshold for slowing down based on steering CTE
     stanley_slow_down_heading_cte = np.pi / 6  # threshold for slowing down based on heading CTE
     stanley_slow_down_vel_threshold = 3 # threshold for slowing down based on steering CTE
+    
+    # Emergency braking settings
+    emergency_velocity_threshold: float = 0.5  # m/s - target velocity below this triggers emergency braking
+    emergency_min_moving_velocity: float = 1.0  # m/s - ego velocity above this considered "moving"
+    emergency_braking_factor: float = 0.9  # fraction of max decel for emergency braking

@@ -355,16 +355,30 @@ class Trajectory:
 
         tx, ty = zip(*[self.convert_sd_to_xy(s, d) for s, d in zip(s_values, d_values)])
 
-        # finding velocities
+        # finding velocities from parent trajectory
         start_v = self.get_closest_waypoint_frm_sd(s_values[0], d_values[0])
         end_v = self.get_closest_waypoint_frm_sd(s_values[-1], d_values[-1])
 
-        vel = self.velocity[start_v:end_v+1]
+        # Ensure correct order and handle edge cases
+        if start_v > end_v:
+            start_v, end_v = end_v, start_v
+        
+        # Ensure we have at least 2 velocity points for interpolation
+        vel_array = np.array(self.velocity)  # Convert to numpy if needed
+        vel = vel_array[start_v:end_v+1]
+        
+        # Handle edge case where slice is too small
+        if len(vel) < 2:
+            # Fall back to using surrounding points
+            start_v = max(0, start_v - 1)
+            end_v = min(len(vel_array) - 1, end_v + 1)
+            vel = vel_array[start_v:end_v+1]
+            if len(vel) < 2:
+                # Last resort: use constant velocity from nearest point
+                vel = np.array([vel_array[start_v], vel_array[start_v]])
 
         # increasing the resolution of the velocity array
         current_size = len(vel)
-        if current_size < 2:
-            raise ValueError("Need at least two velocity values to interpolate.")
         x_old = np.linspace(0, 1, current_size)
         x_new = np.linspace(0, 1, len(s_values))
         velocity_high_res = np.interp(x_new, x_old, vel)
