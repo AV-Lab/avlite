@@ -339,11 +339,53 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#core-components" class="md-nav__link">
+  <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
-      Core Components
+      Features
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#minimal-core-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      Minimal (core only)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#full-includes-joystick-dev-tools-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Full (includes joystick, dev tools, docs)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-integrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Optional Integrations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -354,12 +396,105 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-launch-the-application" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Launch the Application
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-using-the-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Using the GUI
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-basic-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Basic Workflow
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
-  <a href="#next-steps" class="md-nav__link">
+  <a href="#core-components" class="md-nav__link">
     <span class="md-ellipsis">
-      Next Steps
+      Core Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-switching-simulators" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Switching Simulators
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Documentation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#support" class="md-nav__link">
+    <span class="md-ellipsis">
+      Support
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
     </span>
   </a>
   
@@ -432,7 +567,45 @@
 
 
 <h1 id="avlite-documentation">AVLite Documentation<a class="headerlink" href="#avlite-documentation" title="Permanent link">&para;</a></h1>
-<p>AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education.</p>
+<p>AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.</p>
+<p><strong>Repository</strong>: <a href="https://github.com/AV-Lab/avlite">github.com/AV-Lab/avlite</a></p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Modular Architecture</strong>: Swap perception, planning, and control algorithms at runtime</li>
+<li><strong>Multi-Simulator Support</strong>: Works with BasicSim (built-in), CARLA, and Gazebo</li>
+<li><strong>Real-time Visualization</strong>: Tkinter-based GUI for monitoring and debugging</li>
+<li><strong>Hot Reloading</strong>: Modify code without restarting the application</li>
+<li><strong>Plugin System</strong>: Extend functionality with community plugins</li>
+<li><strong>Profile Management</strong>: Save and load different configurations</li>
+</ul>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<h3 id="minimal-core-only">Minimal (core only)<a class="headerlink" href="#minimal-core-only" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/AV-Lab/avlite.git
+<span class="nb">cd</span><span class="w"> </span>avlite
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-minimal.txt
+</code></pre></div>
+<h3 id="full-includes-joystick-dev-tools-docs">Full (includes joystick, dev tools, docs)<a class="headerlink" href="#full-includes-joystick-dev-tools-docs" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-full.txt
+</code></pre></div>
+<h3 id="optional-integrations">Optional Integrations<a class="headerlink" href="#optional-integrations" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>CARLA</strong>: Install from <a href="https://github.com/carla-simulator/carla/releases">CARLA releases</a></li>
+<li><strong>ROS2</strong>: Install via your ROS2 distribution</li>
+</ul>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<h3 id="1-launch-the-application">1. Launch the Application<a class="headerlink" href="#1-launch-the-application" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite
+</code></pre></div>
+<h3 id="2-using-the-gui">2. Using the GUI<a class="headerlink" href="#2-using-the-gui" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Config Tab</strong>: Select a profile or create a new one</li>
+<li><strong>Start Stack</strong>: Click "Start/Stop Stack" to begin simulation</li>
+<li><strong>Spawn NPCs</strong>: Right-click on the plot to add vehicles</li>
+<li><strong>Adjust Parameters</strong>: Modify settings in real-time through the GUI panels</li>
+</ol>
+<h3 id="3-basic-workflow">3. Basic Workflow<a class="headerlink" href="#3-basic-workflow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>Load Profile → Configure Components → Start Stack → Monitor/Debug → Save Profile
+</code></pre></div>
 <h2 id="core-components">Core Components<a class="headerlink" href="#core-components" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -444,11 +617,11 @@
 <tbody>
 <tr>
 <td><strong>c10_perception</strong></td>
-<td>Interfaces and capability system for perception, localization, mapping</td>
+<td>Interfaces for detection, tracking, prediction, localization, mapping</td>
 </tr>
 <tr>
 <td><strong>c20_planning</strong></td>
-<td>Global and local path planning</td>
+<td>Global planning (A*, HD maps) and local planning (lattice-based)</td>
 </tr>
 <tr>
 <td><strong>c30_control</strong></td>
@@ -456,26 +629,58 @@
 </tr>
 <tr>
 <td><strong>c40_execution</strong></td>
-<td>Execution loop, simulator bridges</td>
+<td>Execution orchestration, simulator bridges (BasicSim, CARLA, Gazebo)</td>
 </tr>
 <tr>
 <td><strong>c50_visualization</strong></td>
-<td>Real-time GUI</td>
+<td>Real-time Tkinter GUI with multiple plot views</td>
 </tr>
 <tr>
 <td><strong>c60_common</strong></td>
-<td>Utilities and settings</td>
+<td>Settings management, utilities, capability definitions</td>
 </tr>
 </tbody>
 </table>
-<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
-python<span class="w"> </span>-m<span class="w"> </span>avlite
-</code></pre></div>
-<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>AVLite uses YAML-based configuration with profile support. Configuration files are in the <code>configs/</code> directory:</p>
 <ul>
-<li><a href="plugin-development/">Plugin Development Guide</a> - Create custom components</li>
+<li><code>c10_perception.yaml</code> - Perception settings</li>
+<li><code>c20_planning.yaml</code> - Planning parameters</li>
+<li><code>c30_control.yaml</code> - Controller tuning</li>
+<li><code>c40_execution.yaml</code> - Execution and simulator settings</li>
+<li><code>c50_visualization.yaml</code> - GUI preferences</li>
 </ul>
+<h3 id="example-switching-simulators">Example: Switching Simulators<a class="headerlink" href="#example-switching-simulators" title="Permanent link">&para;</a></h3>
+<p>In the GUI Config tab, change the <strong>Bridge</strong> dropdown:
+- <code>BasicSim</code> - Built-in 2D simulation (no external dependencies)
+- <code>CarlaBridge</code> - Connect to CARLA simulator
+- <code>GazeboBridge</code> - Connect to Gazebo Ignition</p>
+<h2 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>avlite/
+├── c10_perception/     # Perception interfaces
+├── c20_planning/       # Planning algorithms
+├── c30_control/        # Control strategies
+├── c40_execution/      # Execution and bridges
+├── c50_visualization/  # GUI components
+├── c60_common/         # Shared utilities
+└── extensions/         # Built-in extensions
+    ├── multi_object_prediction/
+    ├── executer_ros/
+    └── test_ext/
+</code></pre></div>
+<p>Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.</p>
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="architecture/">Architecture</a> - System design and patterns</li>
+<li><a href="plugin-development/">Plugin Development</a> - Create custom components</li>
+</ul>
+<h2 id="support">Support<a class="headerlink" href="#support" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Issues</strong>: <a href="https://github.com/AV-Lab/avlite/issues">GitHub Issues</a></li>
+<li><strong>Discussions</strong>: <a href="https://github.com/AV-Lab/avlite/discussions">GitHub Discussions</a></li>
+</ul>
+<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
+<p>See the <a href="https://github.com/AV-Lab/avlite">repository</a> for license information.</p>
 
 
 
