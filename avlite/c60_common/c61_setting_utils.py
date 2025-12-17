@@ -252,7 +252,18 @@ def import_all_modules(directory:str = "", pkg_name=""):
             log.error(f"Extensions directory does not exist: {extensions_directory}")
             return
         pkg_paths = [extensions_directory / pkg_name]
-            
+    
+    # Ensure avlite.extensions is in sys.modules before loading subpackages
+    if "avlite.extensions" not in sys.modules:
+        extensions_init = extensions_directory / "__init__.py"
+        if extensions_init.exists():
+            spec = importlib.util.spec_from_file_location("avlite.extensions", extensions_init)
+            if spec and spec.loader:
+                ext_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(ext_module)
+                sys.modules["avlite.extensions"] = ext_module
+        else:
+            sys.modules["avlite.extensions"] = types.ModuleType("avlite.extensions")
     
     for pkg_path in pkg_paths:
         if not pkg_path.exists():
