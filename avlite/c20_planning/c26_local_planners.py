@@ -26,8 +26,33 @@ class GreedyLatticePlanner(LocalPlannerStrategy):
         self.safety_margin_weight: float = setting.safety_margin_weight
         self._min_edge_progress_to_block: float = setting.min_edge_progress_to_block
         self._urgent_collision_threshold: int = setting.urgent_collision_threshold
+        self.max_lateral_accel: float = setting.max_lateral_accel
+        self.min_curvature_velocity: float = setting.min_curvature_velocity
         # TODO: 
         self.lattice.targetted_num_edges = setting.sample_size * setting.sample_size**(self.planning_horizon - 1)
+
+    def _get_max_curvature_for_velocity(self, velocity: float) -> float:
+        """
+        Compute velocity-dependent max curvature.
+        Based on: a_lateral = v^2 * curvature, so curvature_max = a_lat_max / v^2
+        """
+        v = max(velocity, self.min_curvature_velocity)
+        return self.max_lateral_accel / (v * v)
+
+    def _is_curvature_feasible(self, edge) -> bool:
+        """Check if edge trajectory curvature is within velocity-dependent limits."""
+        if edge.local_trajectory is None:
+            return True
+        
+        max_curv = edge.local_trajectory.max_curvature()
+        velocity = self.pm.ego_vehicle.velocity if self.pm.ego_vehicle.velocity > 0 else self.min_curvature_velocity
+        max_allowed = self._get_max_curvature_for_velocity(velocity)
+        
+        feasible = max_curv <= max_allowed
+        if not feasible:
+            log.debug(f"Edge curvature {max_curv:.4f} exceeds limit {max_allowed:.4f} at v={velocity:.1f} m/s")
+        
+        return feasible
 
     def _edge_cost(self, edge) -> float:
         """
@@ -68,18 +93,31 @@ class GreedyLatticePlanner(LocalPlannerStrategy):
 
         self.lattice.generate_lattice_from_nodes(pm=self.pm)
 
-        no_collision_edges = [edge for edge in self.lattice.level0_edges if not edge.collision]
-        if no_collision_edges:
+        # Filter edges: no collision and curvature within limits
+        feasible_edges = [edge for edge in self.lattice.level0_edges 
+                         if not edge.collision and self._is_curvature_feasible(edge)]
+        
+        # Fallback to collision-free only if no curvature-feasible edges
+        if not feasible_edges:
+            feasible_edges = [edge for edge in self.lattice.level0_edges if not edge.collision]
+            if feasible_edges:
+                log.warning("No curvature-feasible edges, using collision-free edges")
+        
+        if feasible_edges:
             # Select best edge considering both reference tracking and safety
-            edge = self._select_best_edge(no_collision_edges)
+            edge = self._select_best_edge(feasible_edges)
 
             current_plan = edge
             while edge is not None and len(edge.next_edges) > 0:
-                no_collision_edges = [e for e in edge.next_edges if not e.collision]
-                if not no_collision_edges:
+                # Filter next edges by collision and curvature
+                next_feasible = [e for e in edge.next_edges 
+                                if not e.collision and self._is_curvature_feasible(e)]
+                if not next_feasible:
+                    next_feasible = [e for e in edge.next_edges if not e.collision]
+                if not next_feasible:
                     edge.selected_next_local_plan = None
                     break
-                edge.selected_next_local_plan = self._select_best_edge(no_collision_edges)
+                edge.selected_next_local_plan = self._select_best_edge(next_feasible)
                 edge = edge.selected_next_local_plan
 
             

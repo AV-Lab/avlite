@@ -1,17 +1,26 @@
-# Race Stack
-The stack is organize into the following subpackages:
+# AVLite Documentation
 
-- `percieve`: perception related code
-- `plan`: planning related code
-- `control`: control related code
-- `execute`: execution related code
-- `visualize`: visualization related code
+AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education.
 
-# Reference
+## Core Components
 
-## `race_plan_control.plan.trajectory.Trajectory`
-::: race_plan_control.plan.trajectory.Trajectory
-    options:
-        show_root_heading: false
-        show_source: false
+| Component | Description |
+|-----------|-------------|
+| **c10_perception** | Interfaces and capability system for perception, localization, mapping |
+| **c20_planning** | Global and local path planning |
+| **c30_control** | Vehicle controllers (Stanley, PID) |
+| **c40_execution** | Execution loop, simulator bridges |
+| **c50_visualization** | Real-time GUI |
+| **c60_common** | Utilities and settings |
+
+## Quick Start
+
+```bash
+pip install -r requirements.txt
+python -m avlite
+```
+
+## Next Steps
+
+- [Plugin Development Guide](plugin-development.md) - Create custom components
 

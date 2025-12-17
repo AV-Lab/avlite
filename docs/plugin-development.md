@@ -1,0 +1,115 @@
+# Plugin Development
+
+AVLite supports two types of extensions:
+- **Built-in extensions** (`avlite/extensions/`): Maintained by the core team
+- **Community plugins**: External directories you create and register
+
+This guide covers creating community plugins. Classes inheriting from base strategies automatically register and appear in the UI.
+
+## Community Plugin Structure
+
+Create your plugin anywhere on your system:
+
+```
+/path/to/my_plugin/
+├── __init__.py      # Export classes
+├── settings.py      # ExtensionSettings class
+└── my_strategy.py   # Your implementation
+```
+
+## 1. Settings File (Required)
+
+```python
+# settings.py
+class ExtensionSettings:
+    exclude = ["exclude", "filepath"]
+    filepath: str = "configs/my_plugin.yaml"
+    
+    # Your parameters (appear in UI automatically)
+    my_param: float = 1.0
+```
+
+## 2. Example: Custom Perception
+
+```python
+from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
+from .settings import ExtensionSettings
+
+class MyPerception(PerceptionStrategy):
+    def __init__(self, perception_model, setting=None):
+        super().__init__(perception_model, setting)
+    
+    @property
+    def requirements(self) -> set[WorldCapability]:
+        return {WorldCapability.GT_DETECTION}
+    
+    @property
+    def capabilities(self) -> set[PerceptionCapability]:
+        return {PerceptionCapability.DETECTION}
+    
+    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, 
+                 perception_model=None):
+        # Your logic here
+        return self.perception_model
+```
+
+## 3. Example: Custom Controller
+
+```python
+from avlite.c30_control.c32_control_strategy import ControlStrategy
+from avlite.c30_control.c31_control_model import ControlComand
+
+class MyController(ControlStrategy):
+    def control(self, ego, tj=None, control_dt=None) -> ControlComand:
+        # Your logic here
+        return ControlComand(throttle=1.0, steer=0.0)
+    
+    def reset(self):
+        pass
+```
+
+## 4. Export Classes
+
+```python
+# __init__.py
+from .my_strategy import MyPerception, MyController
+from .settings import ExtensionSettings
+
+__all__ = ["MyPerception", "MyController", "ExtensionSettings"]
+```
+
+## 5. Register Your Community Plugin
+
+**Via GUI** (recommended):
+1. Open AVLite
+2. Go to Config tab
+3. Add entry to Community Extensions: `my_plugin` -> `/path/to/my_plugin`
+4. Save profile
+
+**Via settings file** (`configs/c40_execution.yaml`):
+```yaml
+community_extensions:
+  my_plugin: /path/to/my_plugin
+```
+
+Your classes will now appear in the UI dropdowns.
+
+## Base Classes Reference
+
+| Base Class | Purpose | Key Method |
+|------------|---------|------------|
+| `PerceptionStrategy` | Detection/tracking/prediction | `perceive()` |
+| `LocalizationStrategy` | Localization | `localize()` |
+| `MappingStrategy` | Mapping | TBD |
+| `LocalPlannerStrategy` | Local planning | `replan()` |
+| `GlobalPlannerStrategy` | Global planning | `plan()` |
+| `ControlStrategy` | Vehicle control | `control()` |
+| `WorldBridge` | Simulator integration | `control_ego_state()` |
+
+## See Also
+
+Built-in extensions in `avlite/extensions/` (maintained by core team):
+- `test_ext` - Minimal template for reference
+- `multi_object_prediction` - Perception with prediction
+- `executer_ros` - ROS2 integration

@@ -1,36 +1,155 @@
-# High Level AV Stack
-The stack provides a clear logical abstraction of the autonomous vehicle driving components, isolating the developer
-from lower-level technical details when not needed. The code also includes tools for hot reloading and debugging, 
-making it easier to develop and test the code while running the stack.
+# AVLite - Modular Autonomous Vehicle Stack
+
+AVLite is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
 
 ![](docs/imgs/tk_visualizer.png)
 
+## Architecture Overview
+
+AVLite follows a modular architecture with clear separation of concerns:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Visualization                          │
+│              (Real-time GUI with Tkinter)                   │
+└─────────────────────────────────────────────────────────────┘
+                            ▲
+                            │
+┌─────────────────────────────────────────────────────────────┐
+│                       Execution Layer                       │
+│          (SyncExecuter / AsyncThreadedExecuter)             │
+└─────────────────────────────────────────────────────────────┘
+         │              │              │              │
+         ▼              ▼              ▼              ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  Perception  │ │   Planning   │ │   Control    │ │  World       │
+│              │ │              │ │              │ │  Bridge      │
+│  - Detect    │ │  - Global    │ │  - Stanley   │ │              │
+│  - Track     │ │  - Local     │ │  - PID       │ │  - BasicSim  │
+│  - Predict   │ │  - Lattice   │ │              │ │  - Carla     │
+│              │ │              │ │              │ │  - Gazebo    │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```
+
+### Core Components
+
+- **c10_perception**: Interfaces for detection, tracking, prediction, localization, mapping; HD map support
+- **c20_planning**: Global planning (A*, HD map routing) and local planning (lattice-based, RRT)
+- **c30_control**: Vehicle control algorithms (Stanley, PID)
+- **c40_execution**: Execution orchestration with support for sync/async modes and simulator bridges
+- **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
+- **c60_common**: Utilities, settings management, and capability definitions
+- **extensions**: Plugin system for custom components
+
+### Key Features
+
+**Strategy Pattern Architecture**: All major components (perception, planning, control) use the strategy pattern with automatic registration, allowing runtime selection and hot-reloading without code changes.
+
+**Capability-Based System**: Components declare their requirements and capabilities, enabling automatic compatibility checking between perception strategies and world bridges.
+
+**YAML-Based Configuration**: Profile-based configuration system allows quick switching between different algorithm combinations and parameters.
+
+**Hot Reloading**: Modify code and configuration files while the system is running without restarting.
+
+**Multiple Simulator Support**: Works with BasicSim (built-in), Carla, Gazebo, and ROS2 through abstract world bridge interface.
+
+**Extensible Plugin System**: Add custom perception, planning, or control algorithms as plugins without modifying core code.
+
+## Why AVLite?
+
+- **Lightweight**: Small codebase focused on clarity over production complexity
+- **No middleware lock-in**: Works standalone; ROS/Autoware integration is optional
+- **Multi-simulator**: Same code runs on BasicSim, Carla, or Gazebo
+- **Rapid iteration**: Hot-reload code and tune parameters without restarting
+- **Minimal dependencies**: Core needs only NumPy, Matplotlib, Tkinter
+- **Educational**: Numbered modules and clean abstractions for learning
+
 ## Installation
 
-To install the package from source 
+**Minimal** (core functionality):
 ```bash
-pip install -r requirements.txt
-```
-To run the package from source:
-```bash
-python AVLite/main.py
+pip install -r requirements-minimal.txt
 ```
 
-To install the package system wide:
+**Full** (includes joystick support, dev tools, docs):
+```bash
+pip install -r requirements-full.txt
+```
+
+**Optional integrations** (install separately as needed):
+- Carla: Install from [Carla releases](https://github.com/carla-simulator/carla/releases)
+- ROS2: Install via ROS2 distribution
+
+Run from source:
+```bash
+python -m avlite
+```
+
+Install system-wide:
 ```bash
 pip install .
 ```
-To run the package system wide:
-```bash
-AVLite
-```
-## Project structure 
-The project is structured as follows:
-- Core components are prevised with `ci_` prefix, where `i` is the component number. For examplle `c30_control` is the controllers.
-Utility.
-- Within each coponent, each module has also number prefix. For example `c32_pid_controller` is the PID controller module `c30_control`.
 
-The goal is to be able to quicly navigate to the desired module by using the search function of the editor. It also provide a quick understanding on where the code belongs to.
+## Quick Start
+
+1. Launch the visualizer: `python -m avlite`
+2. Select a profile from the Config tab (e.g., "default")
+3. Click "Start/Stop Stack" to begin execution
+4. Right-click on the plot to spawn NPC vehicles
+5. Adjust parameters in real-time through the GUI
+
+## Project Structure
+
+AVLite uses a numbered module system for easy navigation:
+
+```
+avlite/
+├── c10_perception/         # Perception components
+│   ├── c11_perception_model.py
+│   ├── c12_perception_strategy.py
+│   ├── c13_localization_strategy.py
+│   ├── c18_hdmap.py
+│   └── c19_settings.py
+├── c20_planning/           # Planning components
+│   ├── c21_planning_model.py
+│   ├── c22_global_planning_strategy.py
+│   ├── c23_local_planning_strategy.py
+│   ├── c24_global_planners.py
+│   ├── c26_local_planners.py
+│   └── c29_settings.py
+├── c30_control/            # Control components
+│   ├── c31_control_model.py
+│   ├── c32_control_strategy.py
+│   ├── c33_pid.py
+│   ├── c34_stanley.py
+│   └── c39_settings.py
+├── c40_execution/          # Execution and simulation
+│   ├── c41_execution_model.py
+│   ├── c42_factory.py
+│   ├── c43_sync_executer.py
+│   ├── c44_async_threaded_executer.py
+│   ├── c46_basic_sim.py
+│   ├── c47_carla_bridge.py
+│   ├── c48_gazebo_bridge.py
+│   └── c49_settings.py
+├── c50_visualization/      # GUI and plotting
+│   ├── c51_visualizer_app.py
+│   ├── c52_plot_views.py
+│   └── c59_settings.py
+├── c60_common/            # Utilities
+│   ├── c61_setting_utils.py
+│   └── c62_capabilities.py
+└── extensions/            # Plugin system
+    ├── test_ext/
+    ├── executer_ros/
+    └── multi_object_prediction/
+```
+
+The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley controller, etc.
+
+## Developing Custom Plugins
+
+See the [Plugin Development Guide](docs/plugin-development.md) for detailed instructions on creating custom perception, planning, and control components.
 
 
 

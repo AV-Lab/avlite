@@ -205,6 +205,45 @@ class Trajectory:
         """
         return self.current_wp >= len(self.__reference_path) - 1
 
+    def compute_curvature(self) -> np.ndarray:
+        """
+        Compute curvature at each point along the trajectory.
+        Curvature k = |x'y'' - y'x''| / (x'^2 + y'^2)^(3/2)
+        
+        Returns:
+            np.ndarray: Curvature values at each waypoint (1/meters)
+        """
+        if not self.is_initialized or len(self.path_x) < 3:
+            return np.zeros(len(self.path_x) if self.is_initialized else 1)
+        
+        # Compute first derivatives (velocity)
+        dx = np.gradient(self.path_x)
+        dy = np.gradient(self.path_y)
+        
+        # Compute second derivatives (acceleration)
+        ddx = np.gradient(dx)
+        ddy = np.gradient(dy)
+        
+        # Compute curvature: k = |x'y'' - y'x''| / (x'^2 + y'^2)^(3/2)
+        numerator = np.abs(dx * ddy - dy * ddx)
+        denominator = (dx**2 + dy**2)**1.5
+        
+        # Avoid division by zero
+        curvature = np.divide(numerator, denominator, 
+                             out=np.zeros_like(numerator), 
+                             where=denominator > 1e-10)
+        
+        return curvature
+
+    def max_curvature(self) -> float:
+        """
+        Returns the maximum curvature along the trajectory.
+        
+        Returns:
+            float: Maximum curvature value (1/meters)
+        """
+        return float(np.max(self.compute_curvature()))
+
     def create_quintic_trajectory_sd(
         self,
         s_start: float,

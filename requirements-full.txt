@@ -1,0 +1,14 @@
+# Full requirements including optional features
+-r requirements-minimal.txt
+
+# Joystick/gamepad support
+pygame>=2.5
+
+# Development tools
+ipython>=8.0
+pillow>=10.0
+
+# Documentation
+mkdocs>=1.5
+mkdocs-material>=9.0
+mkdocstrings[python]>=0.24

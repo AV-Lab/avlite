@@ -36,3 +36,8 @@ class PlanningSettings:
     stopping_decel_factor = 0.8  # fraction of max decel to use for stopping calculation
     fallback_deceleration = 3.0  # m/s^2 - fallback decel if vehicle max is too low
     stopping_safety_buffer = 2.0  # meters - safety buffer before collision point
+    
+    # Curvature settings (velocity-dependent)
+    # max_curvature = max_lateral_accel / velocity^2
+    max_lateral_accel = 4.0  # m/s^2 - maximum comfortable lateral acceleration
+    min_curvature_velocity = 3.0  # m/s - minimum velocity for curvature calculation (avoids division issues)
