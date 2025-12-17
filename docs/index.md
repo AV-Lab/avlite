@@ -1,13 +1,21 @@
+<p align="center">
+  <img src="imgs/logo-black-bg.png" alt="AVLite Logo" width="200">
+</p>
+
 # AVLite Documentation
 
 AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.
+
+!!! tip "ROS2 & Autoware Ready"
+    AVLite includes a built-in ROS2 executor extension (`executer_ros`) with native Autoware message support. Publish and subscribe to `autoware_auto_msgs` types like Trajectory and ControlCommand out of the box.
 
 **Repository**: [github.com/AV-Lab/avlite](https://github.com/AV-Lab/avlite)
 
 ## Features
 
 - **Modular Architecture**: Swap perception, planning, and control algorithms at runtime
-- **Multi-Simulator Support**: Works with BasicSim (built-in), CARLA, and Gazebo
+- **Multi-Simulator Support**: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2
+- **ROS2 & Autoware Integration**: Built-in extension for ROS2 with native Autoware message types
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
 - **Hot Reloading**: Modify code without restarting the application
 - **Plugin System**: Extend functionality with community plugins
@@ -32,7 +40,12 @@ pip install -r requirements-full.txt
 ### Optional Integrations
 
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2**: Install via your ROS2 distribution
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. The built-in `executer_ros` extension provides:
+    - `ROSExecuter`: Synchronize AVLite with ROS2 ecosystem
+    - `PlannerNode`: Publishes Autoware Trajectory messages
+    - `ControllerNode`: Publishes Autoware ControlCommand messages
+    - `PerceptionNode`: Publishes ego state and tracked objects
+    - Message converters for seamless Autoware integration
 
 ## Quick Start
 
@@ -95,7 +108,7 @@ avlite/
 ├── c60_common/         # Shared utilities
 └── extensions/         # Built-in extensions
     ├── multi_object_prediction/
-    ├── executer_ros/
+    ├── executer_ros/   # ROS2 executor with Autoware msgs
     └── test_ext/
 ```
 

@@ -1,6 +1,12 @@
+<p align="center">
+  <img src="data/imgs/logo-black-bg.png" alt="AVLite Logo" width="200">
+</p>
+
 # AVLite - Modular Autonomous Vehicle Stack
 
 AVLite is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
+
+**ROS2 & Autoware Ready**: Built-in ROS2 executor extension with native Autoware message support (Trajectory, ControlCommand, etc.).
 
 ![](docs/imgs/tk_visualizer.png)
 
@@ -26,8 +32,9 @@ AVLite follows a modular architecture with clear separation of concerns:
 │              │ │              │ │              │ │  Bridge      │
 │  - Detect    │ │  - Global    │ │  - Stanley   │ │              │
 │  - Track     │ │  - Local     │ │  - PID       │ │  - BasicSim  │
-│  - Predict   │ │  - Lattice   │ │              │ │  - Carla     │
+│  - Predict   │ │  - Lattice   │ │              │ │  - CARLA     │
 │              │ │              │ │              │ │  - Gazebo    │
+│              │ │              │ │              │ │  - ROS2      │
 └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
@@ -39,7 +46,7 @@ AVLite follows a modular architecture with clear separation of concerns:
 - **c40_execution**: Execution orchestration with support for sync/async modes and simulator bridges
 - **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
 - **c60_common**: Utilities, settings management, and capability definitions
-- **extensions**: Plugin system for custom components
+- **extensions**: Plugin system for custom components (includes ROS2 executor with Autoware messages)
 
 ### Key Features
 
@@ -51,14 +58,14 @@ AVLite follows a modular architecture with clear separation of concerns:
 
 **Hot Reloading**: Modify code and configuration files while the system is running without restarting.
 
-**Multiple Simulator Support**: Works with BasicSim (built-in), Carla, Gazebo, and ROS2 through abstract world bridge interface.
+**Multiple Simulator Support**: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2/Autoware through abstract world bridge interface.
 
 **Extensible Plugin System**: Add custom perception, planning, or control algorithms as plugins without modifying core code.
 
 ## Why AVLite?
 
 - **Lightweight**: Small codebase focused on clarity over production complexity
-- **No middleware lock-in**: Works standalone; ROS/Autoware integration is optional
+- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via built-in extension
 - **Multi-simulator**: Same code runs on BasicSim, Carla, or Gazebo
 - **Rapid iteration**: Hot-reload code and tune parameters without restarting
 - **Minimal dependencies**: Core needs only NumPy, Matplotlib, Tkinter
@@ -77,8 +84,8 @@ pip install -r requirements-full.txt
 ```
 
 **Optional integrations** (install separately as needed):
-- Carla: Install from [Carla releases](https://github.com/carla-simulator/carla/releases)
-- ROS2: Install via ROS2 distribution
+- **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `executer_ros` extension provides ROS2 nodes and Autoware message converters out of the box.
 
 Run from source:
 ```bash
