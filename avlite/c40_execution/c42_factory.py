@@ -137,11 +137,11 @@ def executor_factory(
     #################
     try:
         if bridge == "CarlaBridge": # string for lazy loading, beause it could have dependencies that are not available
-            print("Loading Carla bridge...")
+            log.info("Loading Carla bridge...")
             from avlite.c40_execution.c47_carla_bridge import CarlaBridge
             world = CarlaBridge(ego_state=ego_state)
         elif bridge == "GazeboIgnitionBridge":
-            print("Loading Gazebo bridge...")
+            log.info("Loading Gazebo bridge...")
             from avlite.c40_execution.c48_gazebo_bridge import GazeboIgnitionBridge
             world = GazeboIgnitionBridge(ego_state=ego_state)
         else:

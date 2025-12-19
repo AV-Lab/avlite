@@ -7,15 +7,22 @@ repo_url: https://github.com/AV-Lab/avlite
 
 theme:
   name: material
+  icon:
+    logo: material/fire
+  favicon: imgs/logo-black-bg.png
   palette:
-    primary: indigo
-    accent: indigo
+    scheme: slate
+    primary: custom
+    accent: custom
   features:
     - navigation.tabs
     - navigation.sections
     - toc.integrate
     - search.suggest
     - search.highlight
+
+extra_css:
+  - stylesheets/extra.css
 
 plugins:
   - search

@@ -207,8 +207,9 @@ def check_collision(pm: PerceptionModel, trajectory: Trajectory, sample_size=5) 
                 predicted_corners = list(predicted_polygon.exterior.coords)
                 all_corners = current_corners + predicted_corners
                 swept_polygon = Polygon(all_corners).convex_hull
-            except:
-                # Fallback: just use union
+            except (AttributeError, ValueError, TypeError) as e:
+                # Fallback: just use union if polygon construction fails
+                log.debug(f"Failed to create swept polygon: {e}, using union fallback")
                 swept_polygon = agent_polygon.union(predicted_polygon).convex_hull
             
             if trajectory_corridor.intersects(swept_polygon):

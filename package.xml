@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>race_plan_control</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <name>avlite</name>
+  <version>0.1.0</version>
+  <description>AVLite - Modular Autonomous Vehicle Stack for rapid prototyping, research, and education</description>
   <maintainer email="majid.khonji@gmail.com">mkhonji</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
