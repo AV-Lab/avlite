@@ -5,9 +5,8 @@ import logging
 log = logging.getLogger(__name__)
 
 
-if __name__ == "__main__":
-    source_run = True
-
+def main():
+    """Main entry point for the AVLite application."""
     import platform
 
     if platform.system() == "Linux":
@@ -25,3 +24,7 @@ if __name__ == "__main__":
 
     app = VisualizerApp()
     app.mainloop()
+
+
+if __name__ == "__main__":
+    main()

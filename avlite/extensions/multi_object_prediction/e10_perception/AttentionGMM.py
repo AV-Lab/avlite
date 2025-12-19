@@ -28,6 +28,8 @@ import sys
 from pathlib import Path
 import time
 
+log = logging.getLogger(__name__)
+
 @dataclass
 class ModelConfig:
     """Configuration for the AttentionGMM model."""
@@ -138,7 +140,7 @@ class ModelConfig:
             logger.info(f"Patience:               {self.early_stopping_patience}")
             logger.info(f"Delta:                  {self.early_stopping_delta}")
 
-            logger.info("\Loss info:")
+            logger.info("Loss info:")
             logger.info("-"*20)
             logger.info(f" Entropy loss weight (lambda_value) : {self.lambda_value}")
             
@@ -1409,8 +1411,7 @@ class AttentionGMM(nn.Module):
                     
 
         except Exception as e:
-            logger = logging.getLogger('AttentionGMM')
-            logger.error(f"[predict] Error during inference: {e}")
+            log.error(f"[predict] Error during inference: {e}")
             raise
 
     def occupancy_grid_prediction(self, mue, sigma, pi, ego_location, sizes, grid_steps=100, padding_factor=2.0, conservative=False):
