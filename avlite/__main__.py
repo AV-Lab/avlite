@@ -5,9 +5,8 @@ import logging
 log = logging.getLogger(__name__)
 
 
-if __name__ == "__main__":
-    source_run = True
-
+def main():
+    """Main entry point for the AVLite application."""
     import platform
 
     if platform.system() == "Linux":
@@ -18,10 +17,14 @@ if __name__ == "__main__":
 
         try:  # >= win 8.
             ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except:  # win 8.0 or less
+        except (AttributeError, OSError):  # win 8.0 or less
             ctypes.windll.user32.SetProcessDPIAware()
         import os
         os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
 
     app = VisualizerApp()
     app.mainloop()
+
+
+if __name__ == "__main__":
+    main()

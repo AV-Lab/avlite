@@ -190,6 +190,6 @@ class MultiObjectPredictor(PerceptionStrategy):
         return  self.prediction_output 
 
     def reset(self):
-        print(f"Reset Perception")
+        log.info("Reset Perception")
         self.initialize_models()
         self.frame = 0

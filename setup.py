@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 from glob import glob
 
-package_name = 'race_plan_control'
+package_name = 'avlite'
 
 # with open('requirements.txt') as f:
 #     requirements = f.read().splitlines()
@@ -21,11 +21,11 @@ setup(
     zip_safe=True,
     maintainer='mkhonji',
     maintainer_email='majid.khonji@gmail.com',
-    description='An autonomous racing stack',
+    description='AVLite - Modular Autonomous Vehicle Stack',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'race_plan_control = race_plan_control.main:run'
+            'avlite = avlite.__main__:main'
         ],
     },
 )
