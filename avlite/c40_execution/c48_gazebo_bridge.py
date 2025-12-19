@@ -62,7 +62,7 @@ class GazeboIgnitionBridge(WorldBridge, Node):
         # Test connection to Gazebo
         if not self._test_gazebo_connection():
             raise ConnectionError("Cannot connect to Gazebo Ignition. Make sure it's running.")
-        print(f"Connected to Gazebo Ignition with model: {model_name}")
+        log.info(f"Connected to Gazebo Ignition with model: {model_name}")
 
     def _test_gazebo_connection(self) -> bool:
         """Test if Gazebo Ignition is running and accessible"""

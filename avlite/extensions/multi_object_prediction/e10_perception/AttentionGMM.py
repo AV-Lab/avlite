@@ -1161,7 +1161,7 @@ class AttentionGMM(nn.Module):
                 logger = logging.getLogger('AttentionGMM')
                 if not logger.handlers:
                     logger = self.setup_logger(save_path=self.log_save_path,eval=True)    
-                print("logger initialized") 
+                logger.info("Logger initialized") 
                 logger.info(f"Loading Model")  
                 self.load_model(self.checkpoint_file)
                 logger.info(f"Model Loaded!")                                              
@@ -1409,7 +1409,8 @@ class AttentionGMM(nn.Module):
                     
 
         except Exception as e:
-            print(f"[predict] Error during inference: {e}")
+            logger = logging.getLogger('AttentionGMM')
+            logger.error(f"[predict] Error during inference: {e}")
             raise
 
     def occupancy_grid_prediction(self, mue, sigma, pi, ego_location, sizes, grid_steps=100, padding_factor=2.0, conservative=False):

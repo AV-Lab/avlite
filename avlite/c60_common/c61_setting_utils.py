@@ -3,12 +3,9 @@ import logging
 import os
 from pathlib import Path
 import types
-
 import sys
-import logging
 import importlib
 import importlib.util
-
 import tkinter as tk
 
 log = logging.getLogger(__name__)

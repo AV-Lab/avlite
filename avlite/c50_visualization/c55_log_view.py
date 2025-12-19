@@ -171,9 +171,9 @@ class LogView(ttk.LabelFrame):
         if self.root.setting.log_level.get() == "STDOUT":
             logging.getLogger().setLevel(logging.CRITICAL)
             sys.stdout = LogView.TextRedirector(self.log_area)
+            log.critical("Log setting updated: showing only CRITICAL and STDOUT messages.")
         else:
             sys.stdout = sys.__stdout__
-        print("Log setting updated: showing only CRITICAL and STDOUT messages.")
     
 
     def process_log_queue(self):
