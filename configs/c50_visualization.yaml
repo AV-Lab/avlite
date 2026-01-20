@@ -131,11 +131,11 @@ default:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 30
+  frenet_zoom: 150
   global_plan_view: true
-  global_planner_type: HDMapGlobalPlanner
+  global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 130
+  global_zoom: 250
   load_extensions: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
@@ -164,7 +164,7 @@ default:
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
-  show_occupancy_flow: false
+  show_occupancy_flow: true
   show_past_locations: true
   show_perceive_logs: false
   show_plan_logs: false
