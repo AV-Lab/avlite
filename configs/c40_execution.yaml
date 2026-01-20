@@ -65,7 +65,7 @@ default:
   - multi_object_prediction
   executer_type: AsyncThreadedExecuter
   filepath: configs/c40_execution.yaml
-  global_planner: HDMapGlobalPlanner
+  global_planner: RaceGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
   local_planner: GreedyLatticePlanner
