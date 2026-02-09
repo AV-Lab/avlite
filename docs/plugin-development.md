@@ -54,7 +54,40 @@ class MyPerception(PerceptionStrategy):
         return self.perception_model
 ```
 
-## 3. Example: Custom Controller
+## 3. Example: Custom Localization
+
+Localization strategies estimate the ego vehicle’s pose and update
+`self.perception_model.ego_vehicle` **in-place** (no return value).
+
+```python
+from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
+from avlite.c60_common.c62_capabilities import WorldCapability, LocalizationCapability
+
+class MyLocalization(LocalizationStrategy):
+    def __init__(self, perception_model, setting=None):
+        super().__init__(perception_model, setting)
+    
+    @property
+    def requirements(self) -> set[WorldCapability]:
+        return {WorldCapability.LIDAR}
+    
+    @property
+    def capabilities(self) -> set[LocalizationCapability]:
+        return {LocalizationCapability.LIDAR_LOCALIZATION}
+    
+    def localize(self, imu=None, lidar=None, rgb_img=None) -> None:
+        # Estimate the ego pose from sensor data and update in-place
+        if lidar is not None:
+            # ... your scan-matching / localization logic ...
+            self.perception_model.ego_vehicle.x = estimated_x
+            self.perception_model.ego_vehicle.y = estimated_y
+            self.perception_model.ego_vehicle.theta = estimated_theta
+    
+    def reset(self):
+        pass
+```
+
+## 4. Example: Custom Controller
 
 ```python
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -69,17 +102,17 @@ class MyController(ControlStrategy):
         pass
 ```
 
-## 4. Export Classes
+## 5. Export Classes
 
 ```python
 # __init__.py
-from .my_strategy import MyPerception, MyController
+from .my_strategy import MyPerception, MyLocalization, MyController
 from .settings import ExtensionSettings
 
-__all__ = ["MyPerception", "MyController", "ExtensionSettings"]
+__all__ = ["MyPerception", "MyLocalization", "MyController", "ExtensionSettings"]
 ```
 
-## 5. Register Your Community Plugin
+## 6. Register Your Community Plugin
 
 **Via GUI** (recommended):
 1. Open AVLite

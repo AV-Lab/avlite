@@ -38,7 +38,9 @@ Carla_Town10:
   replan_dt: 5.0
   sim_dt: 0.011
 SAN:
-  async_mode: true
+  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  basic_sim_npc_control: true
+  basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
   community_extensions:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
@@ -48,12 +50,19 @@ SAN:
   - executer_multi_processing
   - test_ext
   - multi_object_prediction
+  executer_type: ROSExecuter
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/san_campus.xodr
   local_planner: RNDPlanner
+  localization: Localization
+  localization_dt: 0.1
   perception: MultiObjectPredictor
+  perception_dt: 0.5
+  provide_ground_truth: true
+  provide_lidar: false
+  provide_rgb: false
   replan_dt: 0.5
   sim_dt: 0.01
 default:
@@ -66,15 +75,17 @@ default:
   controller: StanleyController
   default_extensions:
   - executer_multi_processing
-  executer_type: AsyncThreadedExecuter
+  executer_type: ROSExecuter
   filepath: configs/c40_execution.yaml
   global_planner: RaceGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
   local_planner: GreedyLatticePlanner
-  perception: MultiObjectPredictor
+  localization: Localization
+  localization_dt: 0.1
+  perception: testClass
   perception_dt: 0.5
-  provide_ground_truth: false
+  provide_ground_truth: true
   provide_lidar: false
   provide_rgb: false
   replan_dt: 0.55
@@ -99,8 +110,13 @@ perception exp:
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
   local_planner: GreedyLatticePlanner
+  localization: Localization
+  localization_dt: 0.1
   perception: testClass
   perception_dt: 0.5
+  provide_ground_truth: true
+  provide_lidar: false
+  provide_rgb: false
   replan_dt: 0.55
   sim_dt: 0.011
 ros:
@@ -123,20 +139,41 @@ ros:
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
   local_planner: GreedyLatticePlanner
+  localization: Localization
+  localization_dt: 0.1
   perception: MultiObjectPredictor
   perception_dt: 0.5
+  provide_ground_truth: true
+  provide_lidar: false
+  provide_rgb: false
   replan_dt: 0.55
   sim_dt: 0.011
 source defaults:
-  async_mode: false
+  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  basic_sim_npc_control: true
+  basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  control_dt: 0.05
+  community_extensions:
+    delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
+  control_dt: 0.01
   controller: StanleyController
+  default_extensions:
+  - executer_multi_processing
+  - test_ext
+  - executer_ros
+  - multi_object_prediction
+  executer_type: ROSExecuter
   filepath: configs/c40_execution.yaml
-  global_planner: RaceGlobalPlanner
+  global_planner: HDMapGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/san_campus.xodr
-  local_planner: GreedyLatticePlanner
-  perception: ''
-  replan_dt: 0.5
-  sim_dt: 0.01
+  local_planner: RNDPlanner
+  localization: Localization
+  localization_dt: 0.1
+  perception: MultiObjectPredictor
+  perception_dt: 0.5
+  provide_ground_truth: true
+  provide_lidar: false
+  provide_rgb: false
+  replan_dt: 0.55
+  sim_dt: 0.011

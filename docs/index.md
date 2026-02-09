@@ -13,9 +13,10 @@ AVLite is a lightweight, extensible autonomous vehicle software stack for rapid 
 
 ## Features
 
-- **Modular Architecture**: Swap perception, planning, and control algorithms at runtime
+- **Modular Architecture**: Swap perception, localization, planning, and control algorithms at runtime
 - **Multi-Simulator Support**: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2
 - **ROS2 & Autoware Integration**: Built-in extension for ROS2 with native Autoware message types
+- **Optional Perception & Localization**: Both perception and localization are optional — run with ground truth or plug in your own strategies
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
 - **Hot Reloading**: Modify code without restarting the application
 - **Plugin System**: Extend functionality with community plugins
@@ -72,7 +73,7 @@ Load Profile → Configure Components → Start Stack → Monitor/Debug → Save
 
 | Component | Description |
 |-----------|-------------|
-| **c10_perception** | Interfaces for detection, tracking, prediction, localization, mapping |
+| **c10_perception** | Interfaces for detection, tracking, prediction, localization (optional), mapping |
 | **c20_planning** | Global planning (A*, HD maps) and local planning (lattice-based) |
 | **c30_control** | Vehicle controllers (Stanley, PID) |
 | **c40_execution** | Execution orchestration, simulator bridges (BasicSim, CARLA, Gazebo) |

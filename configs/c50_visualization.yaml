@@ -59,20 +59,22 @@ Carla_Town10:
   sim_dt: 0.011
   xy_zoom: 30
 SAN:
-  async_exec: true
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
+  bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
   controller_type: StanleyController
   dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   disable_log: false
   enable_joystick: true
   exec_control: true
+  exec_localize: true
   exec_perceive: true
   exec_plan: true
+  executer_type: ROSExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
@@ -84,9 +86,12 @@ SAN:
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
+  localization_dt: 0.1
+  localization_type: Localization
   log_font: Courier
   log_font_size: 11
   log_level: INFO
+  log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
   log_view_expanded: false
@@ -94,6 +99,7 @@ SAN:
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception exp
+  perception_dt: 0.5
   perception_fps: '0'
   perception_type: MultiObjectPredictor
   replan_dt: 0.5
@@ -118,7 +124,7 @@ SAN:
 default:
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
+  bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
@@ -128,13 +134,14 @@ default:
   disable_log: false
   enable_joystick: true
   exec_control: true
+  exec_localize: true
   exec_perceive: false
   exec_plan: true
-  executer_type: AsyncThreadedExecuter
+  executer_type: ROSExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 150
+  frenet_zoom: 70
   global_plan_view: true
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
@@ -142,6 +149,8 @@ default:
   load_extensions: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
+  localization_dt: 0.1
+  localization_type: Localization
   log_font: Courier
   log_font_size: 11
   log_level: WARN
@@ -178,7 +187,7 @@ default:
 perception exp:
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
+  bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
@@ -188,6 +197,7 @@ perception exp:
   disable_log: false
   enable_joystick: true
   exec_control: true
+  exec_localize: true
   exec_perceive: true
   exec_plan: true
   executer_type: AsyncThreadedExecuter
@@ -202,6 +212,8 @@ perception exp:
   load_extensions: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
+  localization_dt: 0.1
+  localization_type: Localization
   log_font: Courier
   log_font_size: 11
   log_level: DEBUG
@@ -238,7 +250,7 @@ perception exp:
 ros:
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
+  bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
@@ -248,6 +260,7 @@ ros:
   disable_log: false
   enable_joystick: true
   exec_control: true
+  exec_localize: true
   exec_perceive: true
   exec_plan: true
   executer_type: ROSExecuter
@@ -262,6 +275,8 @@ ros:
   load_extensions: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
+  localization_dt: 0.1
+  localization_type: Localization
   log_font: Courier
   log_font_size: 11
   log_level: INFO
@@ -296,20 +311,22 @@ ros:
   sim_dt: 0.011
   xy_zoom: 60
 source defaults:
-  async_exec: true
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
+  bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
   controller_type: StanleyController
   dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   disable_log: false
   enable_joystick: true
   exec_control: true
+  exec_localize: true
   exec_perceive: false
   exec_plan: true
+  executer_type: ROSExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
@@ -321,9 +338,12 @@ source defaults:
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
+  localization_dt: 0.1
+  localization_type: Localization
   log_font: Courier
   log_font_size: 11
   log_level: WARN
+  log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
   log_view_expanded: true
@@ -331,6 +351,7 @@ source defaults:
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception exp
+  perception_dt: 0.5
   perception_fps: '0'
   perception_type: MultiObjectPredictor
   replan_dt: 0.55

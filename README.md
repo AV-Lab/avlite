@@ -33,14 +33,14 @@ AVLite follows a modular architecture with clear separation of concerns:
 │  - Detect    │ │  - Global    │ │  - Stanley   │ │              │
 │  - Track     │ │  - Local     │ │  - PID       │ │  - BasicSim  │
 │  - Predict   │ │  - Lattice   │ │              │ │  - CARLA     │
-│              │ │              │ │              │ │  - Gazebo    │
+│  - Localize  │ │              │ │              │ │  - Gazebo    │
 │              │ │              │ │              │ │  - ROS2      │
 └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
 ### Core Components
 
-- **c10_perception**: Interfaces for detection, tracking, prediction, localization, mapping; HD map support
+- **c10_perception**: Interfaces for detection, tracking, prediction, localization (optional), mapping; HD map support
 - **c20_planning**: Global planning (A*, HD map routing) and local planning (lattice-based, RRT)
 - **c30_control**: Vehicle control algorithms (Stanley, PID)
 - **c40_execution**: Execution orchestration with support for sync/async modes and simulator bridges
@@ -50,9 +50,11 @@ AVLite follows a modular architecture with clear separation of concerns:
 
 ### Key Features
 
-**Strategy Pattern Architecture**: All major components (perception, planning, control) use the strategy pattern with automatic registration, allowing runtime selection and hot-reloading without code changes.
+**Strategy Pattern Architecture**: All major components (perception, localization, planning, control) use the strategy pattern with automatic registration, allowing runtime selection and hot-reloading without code changes.
 
-**Capability-Based System**: Components declare their requirements and capabilities, enabling automatic compatibility checking between perception strategies and world bridges.
+**Capability-Based System**: Components declare their requirements and capabilities, enabling automatic compatibility checking between perception/localization strategies and world bridges.
+
+**Optional Perception & Localization**: Both perception and localization are optional in the execution pipeline. Run with ground truth data or plug in your own strategies as needed.
 
 **YAML-Based Configuration**: Profile-based configuration system allows quick switching between different algorithm combinations and parameters.
 

@@ -15,18 +15,18 @@ AVLite follows a layered architecture with clear separation between interfaces a
 │         SyncExecuter / AsyncThreadedExecuter                │
 │                    Factory Pattern                          │
 └─────────────────────────────────────────────────────────────┘
-         │              │              │              │
-         ▼              ▼              ▼              ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Perception  │ │   Planning   │ │   Control    │ │    World     │
-│    (c10)     │ │    (c20)     │ │    (c30)     │ │   Bridge     │
-│              │ │              │ │              │ │              │
-│  Interfaces  │ │  Global +    │ │  Stanley     │ │  BasicSim    │
-│  + Registry  │ │  Local       │ │  PID         │ │  Carla       │
-│              │ │  Lattice     │ │              │ │  Gazebo      │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
-         │              │              │              │
-         └──────────────┴──────────────┴──────────────┘
+    │           │              │              │              │
+    ▼           ▼              ▼              ▼              ▼
+┌────────┐┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│Localiz.││  Perception  │ │   Planning   │ │   Control    │ │    World     │
+│ (c10)  ││    (c10)     │ │    (c20)     │ │    (c30)     │ │   Bridge     │
+│        ││              │ │              │ │              │ │              │
+│Optional││  Optional    │ │  Global +    │ │  Stanley     │ │  BasicSim    │
+│        ││  + Registry  │ │  Local       │ │  PID         │ │  Carla       │
+│        ││              │ │  Lattice     │ │              │ │  Gazebo      │
+└────────┘└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+    │           │              │              │              │
+    └───────────┴──────────────┴──────────────┴──────────────┘
                                 │
 ┌─────────────────────────────────────────────────────────────┐
 │                      Common (c60)                           │
@@ -35,7 +35,7 @@ AVLite follows a layered architecture with clear separation between interfaces a
                                 │
 ┌─────────────────────────────────────────────────────────────┐
 │              Extensions + Community Plugins                 │
-│     Perception, Planning, Control implementations           │
+│  Perception, Localization, Planning, Control implementations│
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -89,6 +89,20 @@ class MyPerception(PerceptionStrategy):
 - `TRACKING` - Object tracking
 - `PREDICTION` - Motion prediction
 
+**Localization Capabilities** (what localization strategies provide):
+
+- `IMU` - Inertial measurement unit based localization
+- `GNSS` - GNSS / GPS based localization
+- `LIDAR_LOCALIZATION` - LiDAR scan-matching localization
+- `VISUAL_LOCALIZATION` - Camera / visual odometry based localization
+- `WHEEL_ODOMETRY` - Wheel encoder / odometry based localization
+
+**Mapping Capabilities** (what mapping strategies provide):
+
+- `OCCUPANCY_GRID` - Occupancy grid mapping
+- `PATH_BOUNDARY` - Path boundary extraction
+- `OPENDRIVE_HDMAP` - OpenDRIVE HD map integration
+
 ### Factory Pattern
 
 The executor factory assembles components based on configuration:
@@ -96,25 +110,26 @@ The executor factory assembles components based on configuration:
 ```python
 executer = executor_factory(
     bridge="BasicSim",
-    perception="MultiObjectPredictor",
-    local_planner="GreedyLatticePlanner",
-    controller="StanleyController"
+    perception_strategy_name="MultiObjectPredictor",
+    localization_strategy_name="MyLocalization",
+    local_planner_strategy_name="GreedyLatticePlanner",
+    controller_strategy_name="StanleyController"
 )
 ```
 
-It loads extensions, instantiates strategies from registries, and wires everything together.
+It loads extensions, instantiates strategies from registries, and wires everything together. Both `perception_strategy_name` and `localization_strategy_name` are optional — pass an empty string or omit them to run without that component.
 
 ## Core Modules
 
 ### c10_perception
 
 Provides **interfaces** for:
-- `PerceptionStrategy` - Detection, tracking, prediction
-- `LocalizationStrategy` - Ego localization
+- `PerceptionStrategy` (optional) - Detection, tracking, prediction
+- `LocalizationStrategy` (optional) - Ego-vehicle pose estimation (IMU, GNSS, LiDAR, visual odometry). Updates `PerceptionModel.ego_vehicle` in-place.
 - `MappingStrategy` - Environment mapping
 - `HDMap` - OpenDRIVE map parsing and routing
 
-Implementations come from extensions/plugins.
+Both `PerceptionStrategy` and `LocalizationStrategy` are optional in the execution pipeline. Implementations come from extensions/plugins.
 
 ### c20_planning
 
@@ -161,9 +176,9 @@ Tkinter-based GUI with:
 ```
 World Bridge
     │
-    ├─► Ego State ─────────────────────────────┐
+    ├─► Sensor Data ──► Localization ──► Ego Pose (updated in-place)
     │                                          │
-    ├─► Sensor Data ──► Perception ──► Agents  │
+    ├─► Sensor Data ──► Perception ───► Agents │
     │                                          ▼
     │                              Local Planner
     │                                          │
@@ -176,11 +191,12 @@ World Bridge
     └─────────────── Control Command ◄─────────┘
 ```
 
-1. **World Bridge** provides ego state and sensor data
-2. **Perception** (optional) detects/tracks/predicts agents
-3. **Local Planner** generates trajectory avoiding obstacles
-4. **Controller** computes steering and throttle
-5. **World Bridge** executes control command
+1. **World Bridge** provides sensor data (IMU, LiDAR, camera, ground truth)
+2. **Localization** (optional) estimates the ego pose from sensor data, updating `PerceptionModel.ego_vehicle` in-place
+3. **Perception** (optional) detects/tracks/predicts surrounding agents
+4. **Local Planner** generates trajectory avoiding obstacles
+5. **Controller** computes steering and throttle
+6. **World Bridge** executes control command
 
 ## Extension System
 
