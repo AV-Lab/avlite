@@ -211,6 +211,16 @@ class GlobalRacePlot(GlobalPlot):
         # Adjust layout to align with LocalPlot
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
+    def clear_goal(self):
+        """Clear the goal plot (no-op for race plot)."""
+        self.goal.set_data([], [])
+        self.goal_text.set_text("")
+        self.fig.canvas.draw()
+
+    def clear_road_path_plots(self):
+        """Clear road path plots (no-op for race plot)."""
+        pass
+
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         super().set_plot_theme(bg_color, fg_color)
 

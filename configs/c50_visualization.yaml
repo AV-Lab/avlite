@@ -152,7 +152,7 @@ default:
   next_profile: ros
   perception_dt: 0.5
   perception_fps: '0'
-  perception_type: MultiObjectPredictor
+  perception_type: testClass
   replan_dt: 0.55
   selected_profile: default
   shortcut_mode: false

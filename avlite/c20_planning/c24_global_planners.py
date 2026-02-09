@@ -16,7 +16,7 @@ class RaceGlobalPlanner(GlobalPlannerStrategy):
         super().__init__()
 
 
-    def plan(self, start: tuple[float, float], goal: tuple[float, float]) -> None:
+    def plan(self, start=None, goal=None) -> None:
         pass
 
 # Assumtpions

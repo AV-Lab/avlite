@@ -62,7 +62,6 @@ default:
   - executer_multi_processing
   - test_ext
   - executer_ros
-  - multi_object_prediction
   executer_type: AsyncThreadedExecuter
   filepath: configs/c40_execution.yaml
   global_planner: RaceGlobalPlanner

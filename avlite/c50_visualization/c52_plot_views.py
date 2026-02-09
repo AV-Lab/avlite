@@ -80,6 +80,7 @@ class GlobalPlanPlotView(ttk.Frame):
             log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
         except Exception as e:
             log.error(f"Error in Global Plot: {e}")
+            self.update_plot_type()
         
     
     def update_plot_theme(self):
