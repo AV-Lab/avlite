@@ -37,6 +37,9 @@ SAN:
   stanley_vbeta: 0.01
   stanley_vgamma: 0.3
 default:
+  emergency_braking_factor: 0.9
+  emergency_min_moving_velocity: 1.0
+  emergency_velocity_threshold: 0.5
   exclude: []
   filepath: configs/c30_control.yaml
   pid_alpha: 0.01

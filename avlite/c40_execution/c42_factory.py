@@ -74,10 +74,12 @@ def executor_factory(
         elif global_planner_strategy_name in GlobalPlannerStrategy.registry:
             cls = GlobalPlannerStrategy.registry[global_planner_strategy_name]
             gp = cls()
+            gp.global_plan = default_global_plan
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
         gp = RaceGlobalPlanner()
+        gp.global_plan = default_global_plan
         
 
     ##############################

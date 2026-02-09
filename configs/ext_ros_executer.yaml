@@ -1,8 +1,18 @@
 default:
-  controller_topic: controller topic
-  global_Planner_topic: global planner topic
-  local_planner_topic: local planner
+  base_frame: base_link
+  collection_hz: 20.0
+  control_cmd_topic: /control/command/control_cmd
+  control_dt: 0.02
+  control_out_topic: /avlite/control/control_cmd
+  localization_topic: /localization/kinematic_state
+  map_frame: map
+  perception_dt: 0.1
   perception_topic: perception topic
+  replan_dt: 0.1
+  sim_dt: 0.02
+  trajectory_out_topic: /avlite/planning/trajectory
+  trajectory_topic: /planning/scenario_planning/trajectory
+  use_autoware_msgs: true
 ros:
   controller_topic: controller topic
   global_Planner_topic: global planner topic

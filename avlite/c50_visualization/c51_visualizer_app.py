@@ -156,14 +156,18 @@ class VisualizerApp(tk.Tk):
 
     def disable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
-            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton, ttk.Radiobutton)):
+            if isinstance(child, ttk.Combobox):
+                child.configure(state="disabled")
+            elif isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton, ttk.Radiobutton)):
                 child.configure(state="disabled")
             elif isinstance(child, (ttk.LabelFrame, ttk.Frame, tk.Frame)):
                 self.disable_frame(child)
 
     def enable_frame(self, frame: ttk.Frame):
         for child in frame.winfo_children():
-            if isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton, ttk.Radiobutton)):
+            if isinstance(child, ttk.Combobox):
+                child.configure(state="readonly")
+            elif isinstance(child, (tk.Entry, tk.Button, ttk.Entry, ttk.Button, ttk.Checkbutton, ttk.Radiobutton)):
                 child.configure(state="normal")
             elif isinstance(child, (ttk.LabelFrame, ttk.Frame, tk.Frame)):
                 self.enable_frame(child)
