@@ -17,12 +17,12 @@ class MappingStrategy(ABC):
 
     @property
     @abstractmethod
-    def requirements(self) -> frozenset[WorldCapability]:
+    def requirements(self) -> set[WorldCapability]:
         pass
 
     @property
     @abstractmethod
-    def capabilities(self) -> frozenset[MappingCapability]:
+    def capabilities(self) -> set[MappingCapability]:
         pass
     
 

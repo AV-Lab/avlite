@@ -21,13 +21,13 @@ except ImportError:
 
 class GazeboIgnitionBridge(WorldBridge, Node):
     @property
-    def capabilities(self) -> frozenset[WorldCapability]:
-        return frozenset({
+    def capabilities(self) -> set[WorldCapability]:
+        return {
             WorldCapability.GT_DETECTION,
             WorldCapability.GT_LOCALIZATION,
             WorldCapability.RGB_IMAGE,
             WorldCapability.LIDAR
-        })
+        }
     def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default"):
         """
         Initialize Gazebo Ignition Bridge

@@ -11,6 +11,7 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c30_control.c31_control_model import  ControlComand
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -36,7 +37,7 @@ class WorldBridge(ABC):
     
     @property
     @abstractmethod
-    def capabilities(self) -> frozenset[WorldCapability]:
+    def capabilities(self) -> set[WorldCapability]:
         """Set of supported capabilities (must be implemented by subclass)."""
         pass
 
@@ -100,20 +101,23 @@ class Executer(ABC):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        perception: PerceptionStrategy,
+        perception: Optional[PerceptionStrategy],
         global_planner: GlobalPlannerStrategy,
         local_planner: LocalPlannerStrategy,
         controller: ControlStrategy,
         world: WorldBridge,
+        localization: Optional[LocalizationStrategy] = None,
         perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.01,
+        localization_dt=0.1,
     ):
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         self.pm: PerceptionModel = perception_model
-        self.perception: PerceptionStrategy = perception  
+        self.perception: Optional[PerceptionStrategy] = perception  
+        self.localization: Optional[LocalizationStrategy] = localization
         self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: GlobalPlannerStrategy = global_planner
         self.local_planner: LocalPlannerStrategy = local_planner
@@ -123,16 +127,18 @@ class Executer(ABC):
         self.perception_fps: float = 0.0
         self.planner_fps: float = 0.0
         self.control_fps: float = 0.0
+        self.localization_fps: float = 0.0
 
         self.perception_dt: float = perception_dt
         self.replan_dt: float = replan_dt
         self.control_dt: float = control_dt
+        self.localization_dt: float = localization_dt
 
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
 
     @abstractmethod
-    def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True,) -> None:
+    def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True, call_localize=True,) -> None:
         """ Steps the executer for one time step. This method should be implemented by the specific executer class. """
         pass
 
@@ -147,6 +153,8 @@ class Executer(ABC):
         self.ego_state.reset()
         if self.perception:
             self.perception.reset()
+        if self.localization:
+            self.localization.reset()
         self.local_planner.reset()
         self.controller.reset()
         self.world.reset()

@@ -6,7 +6,8 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_execution_model import Executer
-from avlite.c40_execution.c43_sync_executer import SyncExecuter, WorldBridge
+from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c40_execution.c43_sync_executer import WorldBridge
 
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
@@ -22,17 +23,20 @@ class AsyncThreadedExecuter(Executer):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        perception: PerceptionStrategy,
-        global_planner: GlobalPlannerStrategy,
-        local_planner: LocalPlannerStrategy,
-        controller: ControlStrategy,
-        world: WorldBridge,
+        perception: PerceptionStrategy = None,
+        global_planner: GlobalPlannerStrategy = None,
+        local_planner: LocalPlannerStrategy = None,
+        controller: ControlStrategy = None,
+        world: WorldBridge = None,
+        localization=None,
         perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.05,
+        localization_dt=0.1,
     ):
-        super().__init__(perception_model, perception, global_planner, local_planner, controller, world,perception_dt=perception_dt,
-                         replan_dt=replan_dt, control_dt=control_dt)
+        super().__init__(perception_model, perception, global_planner, local_planner, controller, world,
+                         localization=localization, perception_dt=perception_dt,
+                         replan_dt=replan_dt, control_dt=control_dt, localization_dt=localization_dt)
 
         # Thread-specific attributes - no need for shared Values
         self.__planner_last_step_time = time.time()
@@ -49,6 +53,7 @@ class AsyncThreadedExecuter(Executer):
         self.call_replan = True
         self.call_control = True
         self.call_perceive = True
+        self.call_localize = True
 
         self.__log_queue = Queue()
         self.__queue_listener = QueueListener(self.__log_queue, logging.getLogger().handlers[0])
@@ -64,13 +69,15 @@ class AsyncThreadedExecuter(Executer):
 
         self.create_threads()
 
-    def step( self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
+    def step( self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=False, call_localize=True):
         self.control_dt = control_dt
         self.replan_dt = replan_dt
+        self.localization_dt = localization_dt
         self.sim_dt = sim_dt
         self.call_replan = call_replan
         self.call_control = call_control
         self.call_perceive = call_perceive
+        self.call_localize = call_localize
 
         if not self.threads_started:
             log.info(f"Threads not started yet. Creating and starting threads.")
@@ -128,6 +135,14 @@ class AsyncThreadedExecuter(Executer):
 
                 t2 = time.time()
                 log.debug(f"Planner iteration: dt={dt:.3f}s, execution time={t2-t1:.3f}s")
+
+                # Localization runs alongside planning
+                if self.call_localize:
+                    try:
+                        self._localization_step()
+                    except Exception as e:
+                        log.error(f"Error in localization step: {e}", exc_info=True)
+
             except Exception as e:
                 log.error(f"Error in planner worker: {e}", exc_info=True)
                 time.sleep(0.1)
@@ -167,17 +182,36 @@ class AsyncThreadedExecuter(Executer):
                 except Exception as e:
                     log.error(f"Error in perception step: {e}")
 
+    def _localization_step(self):
+        """Run one localization iteration.  Called from the planner worker thread."""
+        if not self.localization:
+            return
+
+        if self.localization.requirements.issubset(self.world.capabilities):
+            self.localization.localize(
+                lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
+                rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
+            )
+        else:
+            log.warning(f"Localization strategy {self.localization.__class__.__name__} requirements "
+                        f"{self.localization.requirements} not satisfied by capabilities: {self.world.capabilities}.")
+
     def _perception_step(self):
         if not self.perception:
             raise RuntimeError("Perception strategy is not set. Skipping perception step.")
 
         # elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
         elif self.perception.requirements.issubset(self.world.capabilities): 
-            self.pm = self.world.get_ground_truth_perception_model()
-            # perception_output = self.perception.perceive(perception_model=self.pm)
-            perception_output = self.perception.perceive(perception_model=self.pm, rgb_img=self.world.get_rgb_image(),
-                                                         depth_img=self.world.get_depth_image(),
-                                                         lidar_data=self.world.get_lidar_data())
+            if ExecutionSettings.provide_ground_truth:
+                self.pm = self.world.get_ground_truth_perception_model()
+            else:
+                self.pm.agent_vehicles = []
+            perception_output = self.perception.perceive(
+                perception_model=self.pm,
+                rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
+                depth_img=self.world.get_depth_image(),
+                lidar_data=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
+            )
 
             # log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
             log.debug(f"type of perception_output: {type(perception_output)}")

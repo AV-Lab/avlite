@@ -14,17 +14,17 @@ log = logging.getLogger(__name__)
 class MultiObjectPredictor(PerceptionStrategy):
 
     @property
-    def requirements(self) -> frozenset[WorldCapability]:
-        return frozenset({
+    def requirements(self) -> set[WorldCapability]:
+        return {
             WorldCapability.GT_DETECTION,
             WorldCapability.GT_TRACKING,
             WorldCapability.GT_LOCALIZATION,
-        })
+        }
     @property
-    def capabilities(self) -> frozenset[PerceptionCapability]:
-        return frozenset({
+    def capabilities(self) -> set[PerceptionCapability]:
+        return {
             PerceptionCapability.PREDICTION,
-        })
+        }
 
     def __init__(self, perception_model: PerceptionModel,):
         super().__init__(perception_model)

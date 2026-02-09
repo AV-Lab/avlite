@@ -373,9 +373,12 @@ class SettingWindow:
         
         # additional_setting_row_3 = ttk.Frame(additional_setting_frame)
         # additional_setting_row_3.pack(fill=tk.X, padx=5)
+        ttk.Button(additional_setting_row_2, text="Close",width=5, underline=0, command=self.hide).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(additional_setting_row_2, text="Save",width=5, underline=0, command=self.save_profile).pack(side=tk.RIGHT, padx=5)
 
     def reset_default_extensions(self):
         """ Reset the default extensions to the source code defaults. """
+        from avlite.c60_common.c61_setting_utils import import_all_modules
 
         log.info("Resetting default extensions to source code defaults.")
 
@@ -385,6 +388,10 @@ class SettingWindow:
         for ext in ExecutionSettings.default_extensions:
             self.listbox_default_extensions.insert(tk.END, ext)
 
+        import_all_modules(extensions_filter=ExecutionSettings.default_extensions)
+        self.root.perceive_plan_control_view.reset()
+        self.root.exec_visualize_view.update_data()
+
     def remove_default_extension(self):
         """ Remove the selected default extension from the list. """
         selected = self.listbox_default_extensions.curselection()
@@ -393,11 +400,38 @@ class SettingWindow:
             if ext_name in ExecutionSettings.default_extensions:
                 ExecutionSettings.default_extensions.remove(ext_name)
                 self.listbox_default_extensions.delete(selected)
-                log.info(f"Removed default extension: {ext_name}")
+                self._unregister_extension(ext_name)
+                self.root.perceive_plan_control_view.reset()
+                self.root.exec_visualize_view.update_data()
+                log.info(f"Removed and unloaded extension: {ext_name}")
             else:
                 log.warning(f"Extension {ext_name} not found in default extensions.")
         else:
             log.warning("No extension selected to remove.")
+
+    def _unregister_extension(self, ext_name: str):
+        """Remove all strategy classes registered by an extension from all registries and sys.modules."""
+        import sys
+        from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+        from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+        from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+        from avlite.c30_control.c32_control_strategy import ControlStrategy
+        from avlite.c40_execution.c41_execution_model import Executer
+
+        ext_module_prefix = f"avlite.extensions.{ext_name}"
+        for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
+                         LocalPlannerStrategy.registry, ControlStrategy.registry, Executer.registry]:
+            to_remove = [name for name, cls in registry.items()
+                         if cls.__module__.startswith(ext_module_prefix)]
+            for name in to_remove:
+                del registry[name]
+                log.info(f"Unregistered {name} from {ext_module_prefix}")
+
+        # Purge extension modules from sys.modules so reload_lib won't re-register them
+        for mod_name in list(sys.modules.keys()):
+            if mod_name.startswith(ext_module_prefix):
+                del sys.modules[mod_name]
+                log.debug(f"Removed {mod_name} from sys.modules")
 
 
     def add_community_extension(self):

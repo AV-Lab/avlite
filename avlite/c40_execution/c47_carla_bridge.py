@@ -7,8 +7,18 @@ import math
 import logging
 import numpy as np
 import time
+import threading
 from typing import Optional
 log = logging.getLogger(__name__)
+
+# LiDAR sensor defaults
+LIDAR_CHANNELS = 32
+LIDAR_RANGE = 100.0          # metres
+LIDAR_POINTS_PER_SECOND = 500_000
+LIDAR_ROTATION_FREQUENCY = 10  # Hz
+LIDAR_UPPER_FOV = 10.0
+LIDAR_LOWER_FOV = -30.0
+LIDAR_Z_OFFSET = 2.4          # sensor height above vehicle origin
 
 try:
     import carla
@@ -17,14 +27,14 @@ except ImportError:
 
 class CarlaBridge(WorldBridge):
     @property
-    def capabilities(self) -> frozenset[WorldCapability]:
-        return frozenset({
+    def capabilities(self) -> set[WorldCapability]:
+        return {
             WorldCapability.GT_DETECTION,
             WorldCapability.GT_TRACKING,
             WorldCapability.GT_LOCALIZATION,
             WorldCapability.RGB_IMAGE,
             WorldCapability.LIDAR
-        })
+        }
 
     def __init__(
         self, ego_state: Optional[EgoState], host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0
@@ -45,6 +55,17 @@ class CarlaBridge(WorldBridge):
         self.follow_camera = True 
         self.spawn_points = []  
         self.scene_name = scene_name  
+
+        # Sensor actors & thread-safe buffers
+        self._lidar_sensor = None
+        self._rgb_sensor = None
+        self._depth_sensor = None
+        self._lidar_lock = threading.Lock()
+        self._rgb_lock = threading.Lock()
+        self._depth_lock = threading.Lock()
+        self._lidar_buffer: Optional[np.ndarray] = None   # (N,4) world-frame [x,y,z,intensity]
+        self._rgb_buffer: Optional[np.ndarray] = None      # (H,W,3) uint8
+        self._depth_buffer: Optional[np.ndarray] = None    # (H,W) float32 metres
         self.use_static_objects = False  # Use static objects in perception model
         self.static_vehicle_labels = (
                 carla.CityObjectLabel.Car,
@@ -194,6 +215,104 @@ class CarlaBridge(WorldBridge):
 
             if not self.vehicle:
                 log.error("Failed to spawn vehicle at any spawn point!")
+
+        # Attach sensors once vehicle exists
+        if self.vehicle:
+            self.__attach_sensors()
+
+    # ------------------------------------------------------------------
+    # Sensor lifecycle
+    # ------------------------------------------------------------------
+    def __attach_sensors(self):
+        """Spawn LiDAR (and optionally camera) sensors attached to the ego vehicle."""
+        if not self.vehicle or not self.world:
+            return
+        bp_lib = self.world.get_blueprint_library()
+
+        # --- LiDAR ---
+        lidar_bp = bp_lib.find('sensor.lidar.ray_cast')
+        lidar_bp.set_attribute('channels', str(LIDAR_CHANNELS))
+        lidar_bp.set_attribute('range', str(LIDAR_RANGE))
+        lidar_bp.set_attribute('points_per_second', str(LIDAR_POINTS_PER_SECOND))
+        lidar_bp.set_attribute('rotation_frequency', str(LIDAR_ROTATION_FREQUENCY))
+        lidar_bp.set_attribute('upper_fov', str(LIDAR_UPPER_FOV))
+        lidar_bp.set_attribute('lower_fov', str(LIDAR_LOWER_FOV))
+        lidar_transform = carla.Transform(carla.Location(z=LIDAR_Z_OFFSET))
+        self._lidar_sensor = self.world.spawn_actor(lidar_bp, lidar_transform, attach_to=self.vehicle)
+        self._lidar_sensor.listen(self._on_lidar)
+        log.info(f"LiDAR sensor attached ({LIDAR_CHANNELS}ch, {LIDAR_RANGE}m range)")
+
+    def __destroy_sensors(self):
+        """Destroy all sensor actors."""
+        for sensor in (self._lidar_sensor, self._rgb_sensor, self._depth_sensor):
+            if sensor is not None:
+                try:
+                    sensor.stop()
+                    sensor.destroy()
+                except Exception as e:
+                    log.warning(f"Error destroying sensor: {e}")
+        self._lidar_sensor = None
+        self._rgb_sensor = None
+        self._depth_sensor = None
+        with self._lidar_lock:
+            self._lidar_buffer = None
+        with self._rgb_lock:
+            self._rgb_buffer = None
+        with self._depth_lock:
+            self._depth_buffer = None
+
+    # ------------------------------------------------------------------
+    # Sensor callbacks (run on Carla's sensor thread)
+    # ------------------------------------------------------------------
+    def _on_lidar(self, measurement):
+        """Convert carla.LidarMeasurement to world-frame (N,4) numpy array with AVLite coord convention."""
+        # Raw data: each point is [x, y, z, intensity] in sensor-local frame
+        data = np.frombuffer(measurement.raw_data, dtype=np.float32).reshape(-1, 4).copy()
+
+        # Sensor → world transform
+        st = measurement.transform
+        yaw = math.radians(st.rotation.yaw)
+        pitch = math.radians(st.rotation.pitch)
+        roll = math.radians(st.rotation.roll)
+
+        # Rotation matrix (Carla uses left-hand UE4 convention)
+        cy, sy = math.cos(yaw), math.sin(yaw)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll), math.sin(roll)
+        R = np.array([
+            [cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr],
+            [sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr],
+            [  -sp,           cp*sr,           cp*cr  ],
+        ], dtype=np.float32)
+
+        pts_local = data[:, :3]                       # (N,3)
+        pts_world = pts_local @ R.T                   # rotate to world
+        pts_world[:, 0] += st.location.x
+        pts_world[:, 1] += st.location.y
+        pts_world[:, 2] += st.location.z
+
+        # Carla LH → AVLite RH: negate Y
+        pts_world[:, 1] *= -1.0
+
+        result = np.column_stack([pts_world, data[:, 3]])  # (N,4)
+        with self._lidar_lock:
+            self._lidar_buffer = result
+
+    # ------------------------------------------------------------------
+    # WorldBridge sensor overrides
+    # ------------------------------------------------------------------
+    def get_lidar_data(self) -> Optional[np.ndarray]:
+        """Return latest LiDAR point cloud as (N,4) [x,y,z,intensity] in AVLite world frame."""
+        with self._lidar_lock:
+            return self._lidar_buffer
+
+    def get_rgb_image(self) -> Optional[np.ndarray]:
+        with self._rgb_lock:
+            return self._rgb_buffer
+
+    def get_depth_image(self) -> Optional[np.ndarray]:
+        with self._depth_lock:
+            return self._depth_buffer
 
     def control_ego_state(self, cmd: ControlComand, dt=0.01):
         """Update the ego state with the given command.
@@ -354,6 +473,9 @@ class CarlaBridge(WorldBridge):
         and prepares the environment for a new run.
         """
         log.info("Resetting Carla simulation...")
+
+        # Destroy sensors before the vehicle
+        self.__destroy_sensors()
 
         # Destroy the current vehicle if it exists
         if self.vehicle:

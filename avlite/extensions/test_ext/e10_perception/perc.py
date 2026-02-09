@@ -16,13 +16,13 @@ class testClass(PerceptionStrategy):
         log.warning(f"Perceiving environment...loaded var: {ExtensionSettings.test}")
     
     @property
-    def requirements(self) -> frozenset[WorldCapability]:
-        return frozenset({
+    def requirements(self) -> set[WorldCapability]:
+        return {
             WorldCapability.GT_DETECTION,
             WorldCapability.GT_LOCALIZATION,
-        })
+        }
     @property
-    def capabilities(self) -> frozenset[PerceptionCapability]:
-        return frozenset({
+    def capabilities(self) -> set[PerceptionCapability]:
+        return {
             PerceptionCapability.PREDICTION,
-        })
+        }

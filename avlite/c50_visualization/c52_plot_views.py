@@ -394,6 +394,9 @@ class LocalPlanPlotView(ttk.Frame):
             global_follow_planner=self.root.setting.global_view_follow_planner.get(),
             frenet_follow_planner=self.root.setting.frenet_view_follow_planner.get(),
             plot_occupancy_flow=self.root.setting.show_occupancy_flow.get(),
+            plot_lidar=self.root.setting.bridge_provide_lidar_data.get(),
+            lidar_data=self.root.exec.world.get_lidar_data(),
+            plot_ground_truth=self.root.setting.bridge_provide_ground_truth_detection.get(),
         )
         self.canvas.draw()
         log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")

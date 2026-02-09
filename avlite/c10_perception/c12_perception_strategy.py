@@ -18,12 +18,12 @@ class PerceptionStrategy(ABC):
     
     @property
     @abstractmethod
-    def requirements(self) -> frozenset[WorldCapability]:
+    def requirements(self) -> set[WorldCapability]:
         pass
 
     @property
     @abstractmethod
-    def capabilities(self) -> frozenset[PerceptionCapability]:
+    def capabilities(self) -> set[PerceptionCapability]:
         pass
 
     def detect(self, rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:

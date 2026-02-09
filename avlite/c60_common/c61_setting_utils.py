@@ -236,12 +236,22 @@ def load_all_stack_settings(profile="default", load_extensions=True):
             log.error(f"Failed to load settings for extension {ext}: {e}")
 
 
-def import_all_modules(directory:str = "", pkg_name=""):
-    """Import all Python modules from a directory."""
+def import_all_modules(directory:str = "", pkg_name="", extensions_filter: list[str] = None):
+    """Import all Python modules from a directory.
+    
+    Args:
+        directory: Path to the external extension directory.
+        pkg_name: Package name for external extensions.
+        extensions_filter: If provided, only load these extensions. If empty list, load nothing.
+                          If None, load all discovered extensions.
+    """
 
     if not directory:
         extensions_directory = Path(__file__).parent.parent / "extensions"
-        pkgs = list_extensions()
+        if extensions_filter is not None:
+            pkgs = extensions_filter
+        else:
+            pkgs = list_extensions()
         pkg_paths = [extensions_directory / pkg for pkg in pkgs]
     else:
         extensions_directory = Path(directory).parent # to get the parent directory

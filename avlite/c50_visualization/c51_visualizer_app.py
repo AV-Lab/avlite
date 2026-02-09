@@ -443,10 +443,12 @@ class VisualizerApp(tk.Tk):
                 # async_mode=self.setting.async_exec.get(),
                 bridge=self.setting.execution_bridge.get(),
                 perception_strategy_name=self.setting.perception_type.get(),
+                localization_strategy_name=self.setting.localization_type.get(),
                 global_planner_strategy_name=self.setting.global_planner_type.get(),
                 local_planner_strategy_name=self.setting.local_planner_type.get(),
                 controller_strategy_name=self.setting.controller_type.get(),
                 perception_dt=self.setting.perception_dt.get(),
+                localization_dt=self.setting.localization_dt.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.hd_map,
@@ -463,6 +465,7 @@ class VisualizerApp(tk.Tk):
         self.local_plan_plot_view.reset()
         self.global_plan_plot_view.reset()
         self.perceive_plan_control_view.reset()
+        self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
         self.update_views()
         self.update_ui()
         self.enable_frame(self)

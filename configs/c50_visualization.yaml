@@ -1,18 +1,19 @@
 Carla_Town10:
-  async_exec: true
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
+  bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
   controller_type: StanleyController
   dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   disable_log: false
   enable_joystick: true
   exec_control: true
   exec_perceive: true
   exec_plan: true
+  executer_type: ROSExecuter
   execution_bridge: CarlaBridge
   fg_color: white
   frenet_view_follow_planner: false
@@ -20,20 +21,22 @@ Carla_Town10:
   global_plan_view: true
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 110
+  global_zoom: 240
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
   log_font: Courier
   log_font_size: 11
-  log_level: DEBUG
+  log_level: INFO
+  log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
-  log_view_expanded: true
+  log_view_expanded: false
   log_view_expended_height: 35
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception exp
+  perception_dt: 0.5
   perception_fps: '0'
   perception_type: MultiObjectPredictor
   replan_dt: 5.0
@@ -47,7 +50,7 @@ Carla_Town10:
   show_legend: false
   show_local_lattice: true
   show_local_plan: true
-  show_occupancy_flow: false
+  show_occupancy_flow: true
   show_past_locations: true
   show_perceive_logs: true
   show_plan_logs: false
@@ -149,7 +152,7 @@ default:
   log_view_expended_height: 35
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
-  next_profile: ros
+  next_profile: Carla_Town10
   perception_dt: 0.5
   perception_fps: '0'
   perception_type: testClass

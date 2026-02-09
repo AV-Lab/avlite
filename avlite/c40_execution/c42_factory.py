@@ -13,6 +13,7 @@ from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, i
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c24_global_planners import RaceGlobalPlanner
@@ -31,10 +32,12 @@ def executor_factory(
     executer_type = ExecutionSettings.executer_type,
     bridge = ExecutionSettings.bridge,
     perception_strategy_name = ExecutionSettings.perception,
+    localization_strategy_name = ExecutionSettings.localization,
     global_planner_strategy_name = ExecutionSettings.global_planner,
     local_planner_strategy_name = ExecutionSettings.local_planner,
     controller_strategy_name = ExecutionSettings.controller,
     perception_dt = ExecutionSettings.perception_dt,
+    localization_dt = ExecutionSettings.localization_dt,
     replan_dt = ExecutionSettings.replan_dt,
     control_dt = ExecutionSettings.control_dt,
     default_global_trajectory_file = ExecutionSettings.global_trajectory,
@@ -95,6 +98,20 @@ def executor_factory(
     except Exception as e:
         log.error(f"Error loading perception strategy {perception_strategy_name}: {e}")
         pr = None
+
+
+    #################################
+    # Loading localization strategy
+    #################################
+    loc = None
+    try:
+        if localization_strategy_name is not None and localization_strategy_name != "" and localization_strategy_name in LocalizationStrategy.registry:
+            cls = LocalizationStrategy.registry[localization_strategy_name]
+            loc = cls(perception_model=pm)
+            log.info("Localization Module Loaded!")
+    except Exception as e:
+        log.error(f"Error loading localization strategy {localization_strategy_name}: {e}")
+        loc = None
 
 
     ########################
@@ -161,11 +178,15 @@ def executor_factory(
         if executer_type in Executer.registry:
             cls = Executer.registry[executer_type]
             executer = cls(perception_model=pm,perception=pr, global_planner=gp, local_planner=pl,
-                           controller=cn, world=world, perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt)
+                           controller=cn, world=world, localization=loc,
+                           perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt,
+                           localization_dt=localization_dt)
         else:
             log.error(f"Invalid Executer. Moving to default executer")
             executer = SyncExecuter(perception_model=pm,perception=pr, global_planner=gp, local_planner=pl,
-                           controller=cn, world=world, perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt)
+                           controller=cn, world=world, localization=loc,
+                           perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt,
+                           localization_dt=localization_dt)
     except Exception as e:
         log.error(f"Error loading exectuter {e}")
 

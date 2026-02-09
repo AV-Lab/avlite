@@ -3,6 +3,7 @@ import tkinter as tk
 import logging
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -53,6 +54,16 @@ class VisualizationSettings:
         self.perception_type.trace_add("write", _on_perception_change)
         self.perception_dt = tk.DoubleVar(value=ExecutionSettings.perception_dt)
 
+        # localization
+        self.localization_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "")
+        def _on_localization_change(*args):
+            ExecutionSettings.localization = self.localization_type.get()
+        self.localization_type.trace_add("write", _on_localization_change)
+        self.localization_dt = tk.DoubleVar(value=ExecutionSettings.localization_dt)
+        def _on_localization_dt_change(*args):
+            ExecutionSettings.localization_dt = float(self.localization_dt.get())
+        self.localization_dt.trace_add("write", _on_localization_dt_change)
+
         # planning
         self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
         def _on_global_plan_change(*args):
@@ -93,6 +104,7 @@ class VisualizationSettings:
         self.exec_plan = tk.BooleanVar(value=True)
         self.exec_control = tk.BooleanVar(value=True)
         self.exec_perceive = tk.BooleanVar(value=True)
+        self.exec_localize = tk.BooleanVar(value=True)
 
         self.exec_running = False # excluded
 
@@ -132,9 +144,19 @@ class VisualizationSettings:
 
         ## World Bridge model
         self.bridge_provide_ground_truth_detection = tk.BooleanVar(value=False)  # Whether the world supports ground truth perception
+        def _on_gt_change(*args):
+            ExecutionSettings.provide_ground_truth = self.bridge_provide_ground_truth_detection.get()
+        self.bridge_provide_ground_truth_detection.trace_add("write", _on_gt_change)
+
         self.bridge_provide_rgb_image = tk.BooleanVar(value=False)  # Whether the world supports RGB image
+        def _on_rgb_change(*args):
+            ExecutionSettings.provide_rgb = self.bridge_provide_rgb_image.get()
+        self.bridge_provide_rgb_image.trace_add("write", _on_rgb_change)
         self.bridge_provide_depth_image = tk.BooleanVar(value=False)  # Whether the world supports depth image
         self.bridge_provide_lidar_data = tk.BooleanVar(value=False)  # Whether the world supports LiDAR data
+        def _on_lidar_change(*args):
+            ExecutionSettings.provide_lidar = self.bridge_provide_lidar_data.get()
+        self.bridge_provide_lidar_data.trace_add("write", _on_lidar_change)
         ############################
 
 

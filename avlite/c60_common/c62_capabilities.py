@@ -13,6 +13,13 @@ class PerceptionCapability(Enum):
     TRACKING = auto() # Whether the perception strategy supports tracking
     PREDICTION = auto() # Whether the perception strategy supports prediction
 
+class LocalizationCapability(Enum):
+    IMU = auto()                  # Inertial measurement unit based localization
+    GNSS = auto()                 # GNSS / GPS based localization
+    LIDAR_LOCALIZATION = auto()   # LiDAR scan-matching localization
+    VISUAL_LOCALIZATION = auto()  # Camera / visual odometry based localization
+    WHEEL_ODOMETRY = auto()       # Wheel encoder / odometry based localization
+
 class MappingCapability(Enum):
     OCCUPANCY_GRID = auto()
     PATH_BOUNDARY = auto()

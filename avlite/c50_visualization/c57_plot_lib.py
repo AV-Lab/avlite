@@ -596,6 +596,9 @@ class LocalPlot:
             self.pm_plots_ax1.append(agent_vehicle_ax1)
             self.pm_plots_ax2.append(agent_vehicle_ax2)
 
+        # LiDAR point cloud scatter (XY view only)
+        self.lidar_scatter_ax1 = self.ax1.scatter([], [], s=1, c='lime', alpha=0.4, zorder=1, label="LiDAR")
+
         # self.pm_occupancy_flow_ax1 = self.ax1.imshow(
         #         np.zeros((100, 100)),
         #         origin='upper',
@@ -637,6 +640,9 @@ class LocalPlot:
         global_follow_planner = False,
         frenet_follow_planner = False,
         plot_occupancy_flow = False,
+        plot_lidar = False,
+        lidar_data = None,
+        plot_ground_truth = True,
     ):
         self.legend_ax.set_visible(show_legend)
         
@@ -669,7 +675,8 @@ class LocalPlot:
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model)
+        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model and plot_ground_truth)
+        self.update_lidar_plot(lidar_data, plot_lidar)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
         self.redraw_plots()
 
@@ -859,6 +866,14 @@ class LocalPlot:
                 break
             self.pm_plots_ax1[i].set_xy(agent.get_bb_corners())
             self.pm_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
+
+    def update_lidar_plot(self, lidar_data, show_plot=True):
+        """Update the LiDAR scatter on ax1 (XY view)."""
+        if not show_plot or lidar_data is None or len(lidar_data) == 0:
+            self.lidar_scatter_ax1.set_offsets(np.empty((0, 2)))
+            return
+        # lidar_data is (N,4) [x,y,z,intensity] – plot X,Y
+        self.lidar_scatter_ax1.set_offsets(lidar_data[:, :2])
 
     def update_pm_occupancy_flow_plots(self, pm: Optional[PerceptionModel]=None, show_plot=True):
         if not show_plot or pm is None:

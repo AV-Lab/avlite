@@ -8,6 +8,7 @@ import time
 from avlite.c40_execution.c46_basic_sim import BasicSim
 from avlite.c40_execution.c47_carla_bridge import CarlaBridge
 from avlite.c40_execution.c41_execution_model import Executer
+from avlite.c60_common.c62_capabilities import WorldCapability
 
 
 if TYPE_CHECKING:
@@ -34,8 +35,8 @@ class ExecView(ttk.Frame):
         executer_frame.grid(row=0, column=1, pady=5, sticky="nsew")
 
         ## Bridge 
-        bridge_frame = BridgeFrame(self.root, self)
-        bridge_frame.grid(row=0, column=2,pady=5, sticky="nsew")
+        self.bridge_frame = BridgeFrame(self.root, self)
+        self.bridge_frame.grid(row=0, column=2,pady=5, sticky="nsew")
         
         ## Execution Settings Frame
         exec_stats_frame = ExecStatsFrame(self.root, self)
@@ -140,6 +141,7 @@ class ExecView(ttk.Frame):
                 call_replan=self.root.setting.exec_plan.get(),
                 call_control=self.root.setting.exec_control.get(),
                 call_perceive=self.root.setting.exec_perceive.get(),
+                call_localize=self.root.setting.exec_localize.get(),
             ),
             self.root.update_ui()
 
@@ -166,8 +168,13 @@ class ExecView(ttk.Frame):
             call_replan=self.root.setting.exec_plan.get(),
             call_control=self.root.setting.exec_control.get(),
             call_perceive=self.root.setting.exec_perceive.get(),
+            call_localize=self.root.setting.exec_localize.get(),
         )
         self.root.update_ui()
+
+    def update_data(self):
+        """Refresh the executer dropdown from the registry."""
+        self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
 
     def reset_exec(self):
         self.root.exec.reset()
@@ -180,6 +187,7 @@ class ExecSettingsFrame(ttk.LabelFrame):
         ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control).grid(row=0, column=0, sticky="w")
         ttk.Checkbutton(self, text="Plan", variable=self.root.setting.exec_plan).grid(row=1, column=0, sticky="w")
         ttk.Checkbutton(self, text="Percieve", variable=self.root.setting.exec_perceive).grid(row=2, column=0, sticky="w")
+        ttk.Checkbutton(self, text="Localize", variable=self.root.setting.exec_localize).grid(row=3, column=0, sticky="w")
 
 
 class BridgeFrame(ttk.LabelFrame):
@@ -198,6 +206,19 @@ class BridgeFrame(ttk.LabelFrame):
 
         self.chk_lidar_data = ttk.Checkbutton(self, text="LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
         self.chk_lidar_data.grid(row=3, column=0, sticky="w")
+
+    def update_for_bridge(self, capabilities: set):
+        """Enable / disable checkboxes based on the active bridge's capabilities."""
+        cap_map = {
+            WorldCapability.GT_DETECTION: self.chk_ground_truth,
+            WorldCapability.RGB_IMAGE:    self.chk_rgb_image,
+            WorldCapability.LIDAR:        self.chk_lidar_data,
+        }
+        for cap, chk in cap_map.items():
+            if cap in capabilities:
+                chk.state(['!disabled'])
+            else:
+                chk.state(['disabled'])
 
 
 

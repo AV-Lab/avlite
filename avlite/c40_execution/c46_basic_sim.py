@@ -14,12 +14,12 @@ log = logging.getLogger(__name__)
 
 class BasicSim(WorldBridge):
     @property
-    def capabilities(self) -> frozenset[WorldCapability]:
-        return frozenset({
+    def capabilities(self) -> set[WorldCapability]:
+        return {
             WorldCapability.GT_DETECTION,
             WorldCapability.GT_TRACKING,
             WorldCapability.GT_LOCALIZATION,
-        })
+        }
 
     def __init__(self,ego_state:EgoState, pm:Optional[PerceptionModel] = None,
                  npc_control=ExecutionSettings.basic_sim_npc_control,
