@@ -163,6 +163,10 @@ def executor_factory(
             log.info("Loading Gazebo bridge...")
             from avlite.c40_execution.c48_gazebo_bridge import GazeboIgnitionBridge
             world = GazeboIgnitionBridge(ego_state=ego_state)
+        elif bridge in WorldBridge.registry:
+            log.info(f"Loading registered world bridge {bridge}...")
+            cls = WorldBridge.registry[bridge]
+            world = cls(ego_state=ego_state, pm=pm)
         else:
             world = BasicSim(ego_state=ego_state, pm = pm)
     except Exception as e:
@@ -191,4 +195,3 @@ def executor_factory(
         log.error(f"Error loading exectuter {e}")
 
     return executer
-
