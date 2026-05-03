@@ -1,4 +1,7 @@
 Carla_Town10:
+  emergency_braking_factor: 0.9
+  emergency_min_moving_velocity: 1.0
+  emergency_velocity_threshold: 0.5
   exclude: []
   filepath: configs/c30_control.yaml
   pid_alpha: 0.01

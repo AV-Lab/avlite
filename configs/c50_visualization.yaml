@@ -11,6 +11,7 @@ Carla_Town10:
   disable_log: false
   enable_joystick: true
   exec_control: true
+  exec_localize: true
   exec_perceive: true
   exec_plan: true
   executer_type: ROSExecuter
@@ -25,6 +26,8 @@ Carla_Town10:
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
+  localization_dt: 0.1
+  localization_type: Localization
   log_font: Courier
   log_font_size: 11
   log_level: INFO
@@ -44,6 +47,7 @@ Carla_Town10:
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: false
+  show_core_logs: true
   show_execute_logs: true
   show_extensions_logs: true
   show_global_plan: true
@@ -107,6 +111,7 @@ SAN:
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: true
+  show_core_logs: true
   show_execute_logs: true
   show_extensions_logs: true
   show_global_plan: true
@@ -137,15 +142,15 @@ default:
   exec_localize: true
   exec_perceive: false
   exec_plan: true
-  executer_type: ROSExecuter
+  executer_type: AsyncThreadedExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 70
+  frenet_zoom: 90
   global_plan_view: true
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 250
+  global_zoom: 280
   load_extensions: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
@@ -168,8 +173,9 @@ default:
   replan_dt: 0.55
   selected_profile: default
   shortcut_mode: false
-  show_common_logs: false
-  show_control_logs: false
+  show_common_logs: true
+  show_control_logs: true
+  show_core_logs: true
   show_execute_logs: true
   show_extensions_logs: true
   show_global_plan: true
@@ -178,8 +184,8 @@ default:
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
-  show_perceive_logs: false
-  show_plan_logs: false
+  show_perceive_logs: true
+  show_plan_logs: true
   show_state: true
   show_vis_logs: true
   sim_dt: 0.011
@@ -233,6 +239,7 @@ perception exp:
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: false
+  show_core_logs: true
   show_execute_logs: true
   show_extensions_logs: true
   show_global_plan: true
@@ -296,6 +303,7 @@ ros:
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: false
+  show_core_logs: true
   show_execute_logs: true
   show_extensions_logs: true
   show_global_plan: true
@@ -359,6 +367,7 @@ source defaults:
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: false
+  show_core_logs: true
   show_execute_logs: false
   show_extensions_logs: true
   show_global_plan: true

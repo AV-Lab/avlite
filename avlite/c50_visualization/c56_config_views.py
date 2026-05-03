@@ -261,7 +261,7 @@ class SettingWindow:
 
 
         # community extensions
-        ttk.Label(extension_frame, text="Community Extensions").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
+        ttk.Label(extension_frame, text="Community Plugins").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
         self.listbox_community_extensions = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
         self.listbox_community_extensions.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
@@ -273,8 +273,8 @@ class SettingWindow:
 
 
 
-        ttk.Button(extension_frame, text="Add Extension", command=self.add_community_extension).grid(row=6, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Delete Extension", command=self.delete_community_extension
+        ttk.Button(extension_frame, text="Add Plugin", command=self.add_community_extension).grid(row=6, column=0, sticky="we", padx=5, pady=5)
+        ttk.Button(extension_frame, text="Delete Plugin", command=self.delete_community_extension
                    ).grid(row=6, column=1, sticky="we", padx=5, pady=5)
 
 
@@ -435,7 +435,7 @@ class SettingWindow:
 
 
     def add_community_extension(self):
-        dialog = ThemedTwoInputDialog(self.root, "Community Extensions", "Package Name", "Package Directory")
+        dialog = ThemedTwoInputDialog(self.root, "Community Plugins", "Package Name", "Package Directory")
         name, dir =  dialog.result if dialog.result else (None, None)
         if not name:
             return
@@ -461,7 +461,7 @@ class SettingWindow:
         ext_name = self.listbox_community_extensions.get(selected)
         current_dir = ExecutionSettings.community_extensions.get(ext_name, "")
         
-        dialog = ThemedTwoInputDialog(self.root, "Edit Community Extension", "Package Name", "Package Directory", ext_name, current_dir)
+        dialog = ThemedTwoInputDialog(self.root, "Edit Community Plugin", "Package Name", "Package Directory", ext_name, current_dir)
         
         if dialog.result:
             new_name, new_dir = dialog.result

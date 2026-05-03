@@ -165,6 +165,7 @@ class VisualizationSettings:
 
         # Logger Options
         self.log_level = tk.StringVar(value="INFO")
+        self.show_core_logs = tk.BooleanVar(value=True)
         self.show_perceive_logs = tk.BooleanVar(value=True)
         self.show_plan_logs = tk.BooleanVar(value=True)
         self.show_control_logs = tk.BooleanVar(value=True)

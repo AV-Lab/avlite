@@ -28,12 +28,19 @@ class LogView(ttk.LabelFrame):
         self.controls_frame = ttk.Frame(self)
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
 
-        ttk.Checkbutton( self.controls_frame, text="Perception", variable=self.root.setting.show_perceive_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
-        ttk.Checkbutton( self.controls_frame, text="Planning", variable=self.root.setting.show_plan_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
-        ttk.Checkbutton( self.controls_frame, text="Control", variable=self.root.setting.show_control_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
-        ttk.Checkbutton( self.controls_frame, text="Execution", variable=self.root.setting.show_execute_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
-        ttk.Checkbutton( self.controls_frame, text="Visualization", variable=self.root.setting.show_vis_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
-        ttk.Checkbutton( self.controls_frame, text="Common", variable=self.root.setting.show_common_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Core", variable=self.root.setting.show_core_logs, command=self.update_core_toggle,).pack(side=tk.LEFT)
+        self.cb_perceive = ttk.Checkbutton( self.controls_frame, text="Perception", variable=self.root.setting.show_perceive_logs, command=self.update_log_filter,)
+        self.cb_perceive.pack(side=tk.LEFT)
+        self.cb_plan = ttk.Checkbutton( self.controls_frame, text="Planning", variable=self.root.setting.show_plan_logs, command=self.update_log_filter,)
+        self.cb_plan.pack(side=tk.LEFT)
+        self.cb_control = ttk.Checkbutton( self.controls_frame, text="Control", variable=self.root.setting.show_control_logs, command=self.update_log_filter,)
+        self.cb_control.pack(side=tk.LEFT)
+        self.cb_execute = ttk.Checkbutton( self.controls_frame, text="Execution", variable=self.root.setting.show_execute_logs, command=self.update_log_filter,)
+        self.cb_execute.pack(side=tk.LEFT)
+        self.cb_vis = ttk.Checkbutton( self.controls_frame, text="Visualization", variable=self.root.setting.show_vis_logs, command=self.update_log_filter,)
+        self.cb_vis.pack(side=tk.LEFT)
+        self.cb_common = ttk.Checkbutton( self.controls_frame, text="Common", variable=self.root.setting.show_common_logs, command=self.update_log_filter,)
+        self.cb_common.pack(side=tk.LEFT)
         ttk.Checkbutton( self.controls_frame, text="Extensions", variable=self.root.setting.show_extensions_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
 
 
@@ -60,6 +67,7 @@ class LogView(ttk.LabelFrame):
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
         self.after(100, self.update_log_level)
+        self.after(100, self.update_core_toggle)
         self.after(100, self.update_log_filter)
 
         # -------------------------------------------
@@ -116,6 +124,29 @@ class LogView(ttk.LabelFrame):
             self.log_area.configure(height=self.root.setting.log_view_default_height.get())
             log.debug("Log view collapsed.")
 
+
+    def update_core_toggle(self):
+        """ Master toggle: when Core is checked, enable & check the 6 child checkbuttons;
+        when unchecked, uncheck & disable them. Extensions is unaffected. """
+        core_on = self.root.setting.show_core_logs.get()
+        child_vars = (
+            self.root.setting.show_perceive_logs,
+            self.root.setting.show_plan_logs,
+            self.root.setting.show_control_logs,
+            self.root.setting.show_execute_logs,
+            self.root.setting.show_vis_logs,
+            self.root.setting.show_common_logs,
+        )
+        child_widgets = (
+            self.cb_perceive, self.cb_plan, self.cb_control,
+            self.cb_execute, self.cb_vis, self.cb_common,
+        )
+        new_state = "normal" if core_on else "disabled"
+        for var in child_vars:
+            var.set(core_on)
+        for w in child_widgets:
+            w.configure(state=new_state)
+        self.update_log_filter()
 
     def update_log_filter(self):
         log.info("Log filter updated.")
