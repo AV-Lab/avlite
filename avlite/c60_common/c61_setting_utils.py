@@ -284,7 +284,7 @@ def import_all_modules(directory:str = "", pkg_name="", extensions_filter: list[
         if not extensions_directory.exists():
             log.error(f"Extensions directory does not exist: {extensions_directory}")
             return
-        pkg_paths = [extensions_directory / pkg_name]
+        pkg_paths = [Path(directory)]
     
     _ensure_extensions_package(extensions_directory)
     
@@ -292,7 +292,7 @@ def import_all_modules(directory:str = "", pkg_name="", extensions_filter: list[
         if not pkg_path.exists():
             log.warning(f"Package path does not exist: {pkg_path}")
             continue
-        package_prefix = "avlite.extensions." + pkg_path.name
+        package_prefix = "avlite.extensions." + (pkg_name if directory else pkg_path.name)
         log.info(f"Importing package: {package_prefix} from {pkg_path}")
         
 

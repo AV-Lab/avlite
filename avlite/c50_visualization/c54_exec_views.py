@@ -73,6 +73,11 @@ class ExecView(ttk.Frame):
         sim_dt.pack(side=tk.LEFT)
         sim_dt.bind("<Return>", self.text_on_enter)
 
+        self.executer_dropdown_menu = ttk.Combobox(exec_first_frame, textvariable=self.root.setting.executer_type, state="readonly",)
+        self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
+        self.executer_dropdown_menu.state(["readonly"])
+        self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.executer_dropdown_menu.pack(side = tk.RIGHT)
 
 
 
@@ -96,12 +101,6 @@ class ExecView(ttk.Frame):
         # ttk.Radiobutton( exec_third_frame, text="Gazebo Ign", variable=self.root.setting.execution_bridge, value="GazeboIgnitionBridge",
         #     command=lambda: self.root.reload_stack(reload_code=False),
         # ).pack(side=tk.LEFT)
-        self.executer_dropdown_menu = ttk.Combobox(exec_third_frame, textvariable=self.root.setting.executer_type, state="readonly",)
-        self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
-        # self.global_planner_dropdown_menu.current(0)  
-        self.executer_dropdown_menu.state(["readonly"])
-        self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.executer_dropdown_menu.pack(side = tk.LEFT)
 
 
         global_tj_file=ttk.Entry( exec_third_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)

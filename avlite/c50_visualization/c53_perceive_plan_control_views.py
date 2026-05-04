@@ -76,7 +76,11 @@ class PerceptionFrame(ttk.LabelFrame):
         """Update data in the perception frame."""
         core_stratigies = set(PerceptionStrategy.registry.keys()) 
         allowed_default_extensions = set(PerceptionStrategy.registry.keys()) & set(ExecutionSettings.default_extensions)
-        allowed_communitty_extensions = set(ExecutionSettings.community_extensions.keys()) & set(PerceptionStrategy.registry.keys())
+        community_prefixes = tuple(f"avlite.extensions.{a}" for a in ExecutionSettings.community_plugins.keys())
+        allowed_communitty_extensions = {
+            n for n, c in PerceptionStrategy.registry.items()
+            if community_prefixes and c.__module__.startswith(community_prefixes)
+        }
         data = sorted(core_stratigies | allowed_default_extensions | allowed_communitty_extensions)
 
         log.warning(f"allowed_default_extensions: {allowed_default_extensions}, allowed_communitty_extensions: {allowed_communitty_extensions}")

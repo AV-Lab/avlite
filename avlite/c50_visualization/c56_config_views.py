@@ -92,6 +92,7 @@ class ConfigShortcutView(ttk.LabelFrame):
         # ----------------------------------------------------------------------
 
         ttk.Button(self, text="⚙" , command=self.open_settings_window, width=2).pack(side=tk.RIGHT)
+        ttk.Button(self, text="Plugins", command=self.open_plugins_window).pack(side=tk.RIGHT)
         ttk.Button(self, text="Reload Stack", command=self.root.reload_stack).pack(side=tk.RIGHT)
         ttk.Button(self, text="Reset Config", command=self.root.load_configs).pack(side=tk.RIGHT)
         ttk.Button(self, text="Save Config", command=self.save_config).pack(side=tk.RIGHT)
@@ -164,8 +165,13 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         if hasattr(self, "setting_view") and hasattr(self.setting_view, "window") and self.setting_view.window.winfo_exists():
             self.setting_view.update_core_widgets()
             self.setting_view.update_extensions_widgets()
-            self.setting_view.update_community_extension_list()
+            self.setting_view.update_community_plugin_list()
             log.info("Updated existing settings window")
+
+    def open_plugins_window(self):
+        """Open the community plugins manager window."""
+        from avlite.c50_visualization.c50_community_plugins_app import CommunityPluginsApp
+        CommunityPluginsApp.open(parent=self.root)
 
 
 class SettingWindow:
@@ -262,20 +268,23 @@ class SettingWindow:
 
         # community extensions
         ttk.Label(extension_frame, text="Community Plugins").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_community_extensions = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
-        self.listbox_community_extensions.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
+        self.listbox_community_plugins = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
+        self.listbox_community_plugins.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for ext in ExecutionSettings.community_extensions.keys() if self.root.setting.load_extensions.get() else []:
-            self.listbox_community_extensions.insert(tk.END, ext)
+        for ext in ExecutionSettings.community_plugins.keys() if self.root.setting.load_extensions.get() else []:
+            self.listbox_community_plugins.insert(tk.END, ext)
 
-        self.listbox_community_extensions.bind("<Double-Button-1>",lambda e:  self.edit_community_extension())
+        self.listbox_community_plugins.bind("<Double-Button-1>",lambda e:  self.edit_community_plugin())
 
 
 
-        ttk.Button(extension_frame, text="Add Plugin", command=self.add_community_extension).grid(row=6, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Delete Plugin", command=self.delete_community_extension
+        ttk.Button(extension_frame, text="Add Plugin", command=self.add_community_plugin).grid(row=6, column=0, sticky="we", padx=5, pady=5)
+        ttk.Button(extension_frame, text="Delete Plugin", command=self.delete_community_plugin
                    ).grid(row=6, column=1, sticky="we", padx=5, pady=5)
+        ttk.Button(extension_frame, text="Browse Community Plugins…",
+                   command=self.open_plugins_window
+                   ).grid(row=7, column=0, columnspan=2, sticky="we", padx=5, pady=5)
 
 
         #############################################
@@ -434,49 +443,55 @@ class SettingWindow:
                 log.debug(f"Removed {mod_name} from sys.modules")
 
 
-    def add_community_extension(self):
+    def add_community_plugin(self):
         dialog = ThemedTwoInputDialog(self.root, "Community Plugins", "Package Name", "Package Directory")
         name, dir =  dialog.result if dialog.result else (None, None)
         if not name:
             return
 
         log.info(f"Adding Extension: {name}")
-        ExecutionSettings.community_extensions[name] = dir
-        self.listbox_community_extensions.insert(tk.END, name)
+        ExecutionSettings.community_plugins[name] = dir
+        self.listbox_community_plugins.insert(tk.END, name)
         
-    def delete_community_extension(self):
-        selected = self.listbox_community_extensions.curselection()
+    def delete_community_plugin(self):
+        selected = self.listbox_community_plugins.curselection()
         if selected:
-            ext_name = self.listbox_community_extensions.get(selected)
-            ExecutionSettings.community_extensions.pop(ext_name, None)
-            self.listbox_community_extensions.delete(selected)
-        log.warning(f"Deleted extension: {ExecutionSettings.community_extensions}")
+            ext_name = self.listbox_community_plugins.get(selected)
+            ExecutionSettings.community_plugins.pop(ext_name, None)
+            self.listbox_community_plugins.delete(selected)
+        log.warning(f"Deleted extension: {ExecutionSettings.community_plugins}")
 
-    def edit_community_extension(self):
-        selected = self.listbox_community_extensions.curselection()
+    def edit_community_plugin(self):
+        selected = self.listbox_community_plugins.curselection()
         if not selected:
             log.warning("No extension selected to edit.")
             return
         
-        ext_name = self.listbox_community_extensions.get(selected)
-        current_dir = ExecutionSettings.community_extensions.get(ext_name, "")
+        ext_name = self.listbox_community_plugins.get(selected)
+        current_dir = ExecutionSettings.community_plugins.get(ext_name, "")
         
         dialog = ThemedTwoInputDialog(self.root, "Edit Community Plugin", "Package Name", "Package Directory", ext_name, current_dir)
         
         if dialog.result:
             new_name, new_dir = dialog.result
             if new_name and new_dir:
-                ExecutionSettings.community_extensions[new_name] = new_dir
+                ExecutionSettings.community_plugins[new_name] = new_dir
                 if new_name != ext_name:
-                    ExecutionSettings.community_extensions.pop(ext_name, None)
-                self.update_community_extension_list()
+                    ExecutionSettings.community_plugins.pop(ext_name, None)
+                self.update_community_plugin_list()
 
-    def update_community_extension_list(self):
+    def update_community_plugin_list(self):
         """ Load the extensions from the settings. """
 
-        self.listbox_community_extensions.delete(0, tk.END)
-        for name, dir in ExecutionSettings.community_extensions.items():
-            self.listbox_community_extensions.insert(tk.END, name)
+        self.listbox_community_plugins.delete(0, tk.END)
+        for name, dir in ExecutionSettings.community_plugins.items():
+            self.listbox_community_plugins.insert(tk.END, name)
+
+    def open_plugins_window(self):
+        """Open the community plugins manager and refresh the list on close."""
+        from avlite.c50_visualization.c50_community_plugins_app import CommunityPluginsApp
+        app = CommunityPluginsApp.open(parent=self.root)
+        app.window.bind("<Destroy>", lambda _e: self.update_community_plugin_list(), add="+")
 
 
     def create_profile(self):
@@ -565,7 +580,7 @@ class SettingWindow:
 
         self.update_core_widgets()
         self.update_extensions_widgets()
-        self.update_community_extension_list()
+        self.update_community_plugin_list()
 
     def update_core_widgets(self):
         self.update_widgets(PerceptionSettings)

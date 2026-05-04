@@ -15,39 +15,37 @@ Carla_Town10:
   basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
-  bridge: CarlaBridge
-  community_extensions: {}
-  control_dt: 0.01
+  bridge: BasicSim
+  community_plugins:
+    delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
+  control_dt: 0.05
   controller: StanleyController
-  default_extensions:
-  - executer_multi_processing
-  - test_ext
-  executer_type: ROSExecuter
+  default_extensions: []
+  executer_type: SyncExecuter
   filepath: configs/c40_execution.yaml
-  global_planner: HDMapGlobalPlanner
+  global_planner: RaceGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: RNDPlanner
-  localization: Localization
+  hd_map: data/san_campus.xodr
+  local_planner: GreedyLatticePlanner
+  localization: ''
   localization_dt: 0.1
-  perception: MultiObjectPredictor
+  perception: ''
   perception_dt: 0.5
-  provide_ground_truth: true
+  provide_ground_truth: false
   provide_lidar: false
   provide_rgb: false
-  replan_dt: 5.0
-  sim_dt: 0.011
+  replan_dt: 0.5
+  sim_dt: 0.01
 SAN:
   basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  community_extensions:
+  community_plugins:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   control_dt: 0.01
   controller: StanleyController
   default_extensions:
-  - executer_multi_processing
   - test_ext
   - multi_object_prediction
   executer_type: ROSExecuter
@@ -70,8 +68,8 @@ default:
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  community_extensions:
-    test_perception: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/sample-avlite-plugin
+  community_plugins:
+    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
   control_dt: 0.01
   controller: StanleyController
   default_extensions:
@@ -86,7 +84,7 @@ default:
   local_planner: GreedyLatticePlanner
   localization: Localization
   localization_dt: 0.1
-  perception: testClass
+  perception: TestPerceptionStrategy
   perception_dt: 0.5
   provide_ground_truth: true
   provide_lidar: false
@@ -98,7 +96,7 @@ perception exp:
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  community_extensions:
+  community_plugins:
     new_plugin: /home/mkhonji/Desktop/new_plugin
   control_dt: 0.01
   controller: StanleyController
@@ -127,7 +125,7 @@ ros:
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  community_extensions:
+  community_plugins:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   control_dt: 0.01
   controller: StanleyController
@@ -156,7 +154,7 @@ source defaults:
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  community_extensions:
+  community_plugins:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   control_dt: 0.01
   controller: StanleyController

@@ -55,7 +55,7 @@ def executor_factory(
     if load_extensions:
         import_all_modules() # loading default extensions
         # loading community extensions
-        for k,v in ExecutionSettings.community_extensions.items():
+        for k,v in ExecutionSettings.community_plugins.items():
             log.warning(f"Loading external extension: {k} from {v}")
             import_all_modules(v, pkg_name = k)
 

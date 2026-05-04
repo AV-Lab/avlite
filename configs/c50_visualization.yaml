@@ -169,7 +169,7 @@ default:
   next_profile: Carla_Town10
   perception_dt: 0.5
   perception_fps: '0'
-  perception_type: testClass
+  perception_type: None
   replan_dt: 0.55
   selected_profile: default
   shortcut_mode: false
@@ -233,7 +233,7 @@ perception exp:
   next_profile: default
   perception_dt: 0.5
   perception_fps: '0'
-  perception_type: testClass
+  perception_type: null
   replan_dt: 0.55
   selected_profile: perception exp
   shortcut_mode: false

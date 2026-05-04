@@ -122,7 +122,7 @@ __all__ = ["MyPerception", "MyLocalization", "MyController", "ExtensionSettings"
 
 **Via settings file** (`configs/c40_execution.yaml`):
 ```yaml
-community_extensions:
+community_plugins:
   my_plugin: /path/to/my_plugin
 ```
 
