@@ -37,15 +37,373 @@ def _run_plugins() -> None:
     plugins_main()
 
 
+def _render_dashboard(executer, profile: str):
+    """Build a `rich` renderable summarizing the live executer state (stats only)."""
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+
+    def _g(obj, attr, default="-"):
+        try:
+            val = getattr(obj, attr)
+            return val if val is not None else default
+        except Exception:
+            return default
+
+    def _fmt(v, spec=""):
+        try:
+            return format(v, spec)
+        except Exception:
+            return str(v)
+
+    table = Table.grid(padding=(0, 2), expand=True)
+    table.add_column(style="cyan", no_wrap=True)
+    table.add_column(style="white")
+
+    ego = _g(executer, "ego_state", None)
+    controller = _g(executer, "controller", None)
+    cmd = _g(controller, "cmd", None) if controller != "-" else None
+    local_planner = _g(executer, "local_planner", None)
+    world = _g(executer, "world", None)
+
+    table.add_row("Profile", str(profile))
+    requested = getattr(executer, "_requested_executer_type", None)
+    actual = type(executer).__name__
+    if requested and requested != actual:
+        table.add_row("Executer", f"{actual}  [yellow](requested: {requested})[/yellow]")
+    else:
+        table.add_row("Executer", actual)
+    table.add_row("World", type(world).__name__ if world not in (None, "-") else "-")
+    table.add_row(
+        "Elapsed (real / sim)",
+        f"{_fmt(_g(executer, 'elapsed_real_time', 0.0), '7.2f')} s  /  "
+        f"{_fmt(_g(executer, 'elapsed_sim_time', 0.0), '7.2f')} s",
+    )
+    table.add_row(
+        "FPS (plan / ctrl / perc / loc)",
+        f"{_fmt(_g(executer, 'planner_fps', 0.0), '6.1f')}  "
+        f"{_fmt(_g(executer, 'control_fps', 0.0), '6.1f')}  "
+        f"{_fmt(_g(executer, 'perception_fps', 0.0), '6.1f')}  "
+        f"{_fmt(_g(executer, 'localization_fps', 0.0), '6.1f')}",
+    )
+    if ego not in (None, "-"):
+        table.add_row(
+            "Ego (x, y, θ)",
+            f"({_fmt(_g(ego, 'x', 0.0), '+8.2f')}, "
+            f"{_fmt(_g(ego, 'y', 0.0), '+8.2f')}, "
+            f"{_fmt(_g(ego, 'theta', 0.0), '+6.2f')})",
+        )
+        v = _g(ego, "velocity", 0.0)
+        table.add_row(
+            "Velocity",
+            f"{_fmt(v, '6.2f')} m/s  ({_fmt(v * 3.6 if isinstance(v, (int, float)) else 0.0, '6.2f')} km/h)",
+        )
+    if local_planner not in (None, "-"):
+        table.add_row("Lap", str(_g(local_planner, "lap", 0)))
+    if cmd not in (None, "-"):
+        table.add_row(
+            "Last cmd (acc / steer)",
+            f"{_fmt(_g(cmd, 'acceleration', 0.0), '+6.2f')}  /  "
+            f"{_fmt(_g(cmd, 'steer', 0.0), '+6.2f')}",
+        )
+
+    footer = Text("Press Ctrl+C to stop", style="dim")
+    body = Table.grid(expand=True)
+    body.add_row(table)
+    body.add_row(footer)
+    return Panel(body, title="AVlite — Headless", border_style="green")
+
+
+class _DequeLogHandler(logging.Handler):
+    """Logging handler that appends formatted records into a bounded deque."""
+
+    def __init__(self, buffer):
+        super().__init__()
+        self._buffer = buffer
+
+    def emit(self, record):
+        try:
+            self._buffer.append(self.format(record))
+        except Exception:
+            pass
+
+
+class _FDStreamCapture:
+    """Redirect a real OS file descriptor (e.g. fd 2 / stderr) into a deque.
+
+    This catches output from C/C++ libraries (rclpy/rcutils, native code) that
+    write directly to fd 2 and would otherwise corrupt rich.live's display.
+    """
+
+    def __init__(self, fd: int, buffer, prefix: str = ""):
+        self._fd = fd
+        self._buffer = buffer
+        self._prefix = prefix
+        self._saved_fd = None
+        self._read_fd = None
+        self._write_fd = None
+        self._thread = None
+        self._stop = False
+
+    def start(self) -> None:
+        import os
+        import threading
+
+        self._saved_fd = os.dup(self._fd)
+        self._read_fd, self._write_fd = os.pipe()
+        os.dup2(self._write_fd, self._fd)
+        os.close(self._write_fd)
+        self._write_fd = None
+
+        def _pump():
+            buf = b""
+            while not self._stop:
+                try:
+                    chunk = os.read(self._read_fd, 4096)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                buf += chunk
+                while b"\n" in buf:
+                    line, buf = buf.split(b"\n", 1)
+                    text = line.decode("utf-8", errors="replace").rstrip("\r")
+                    if text:
+                        self._buffer.append(self._prefix + text)
+            if buf:
+                text = buf.decode("utf-8", errors="replace")
+                if text:
+                    self._buffer.append(self._prefix + text)
+
+        self._thread = threading.Thread(target=_pump, name=f"fd{self._fd}-capture", daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        import os
+
+        self._stop = True
+        if self._saved_fd is not None:
+            try:
+                os.dup2(self._saved_fd, self._fd)
+                os.close(self._saved_fd)
+            except OSError:
+                pass
+            self._saved_fd = None
+        if self._read_fd is not None:
+            try:
+                os.close(self._read_fd)
+            except OSError:
+                pass
+            self._read_fd = None
+
+
+def _render_log_panel(log_buffer, height: int):
+    from rich.panel import Panel
+    from rich.text import Text
+
+    # Show the most recent lines that fit in the panel.
+    recent = list(log_buffer)[-height:]
+    if not recent:
+        body = Text("(no logs yet)", style="dim")
+    else:
+        body = Text()
+        level_styles = {
+            "DEBUG": "dim",
+            "INFO": "white",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "bold red",
+        }
+        for line in recent:
+            style = "white"
+            for lvl, s in level_styles.items():
+                if f" {lvl} " in line:
+                    style = s
+                    break
+            body.append(line + "\n", style=style)
+    return Panel(body, title="Logs", border_style="blue", height=height + 2)
+
+
+def _build_layout(executer, profile, log_buffer, log_height: int):
+    from rich.layout import Layout
+
+    layout = Layout()
+    layout.split_column(
+        Layout(_render_log_panel(log_buffer, log_height), name="logs"),
+        Layout(_render_dashboard(executer, profile), name="stats", size=18),
+    )
+    return layout
+
+
+def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bool, log_level: str) -> None:
+    """Run the executer in a background thread with a live `rich` dashboard."""
+    try:
+        from rich.console import Console
+        from rich.live import Live
+    except ImportError:
+        sys.stderr.write(
+            "Headless mode requires the 'rich' package.\n"
+            "Install it with:  pip install rich\n"
+        )
+        sys.exit(1)
+
+    import threading
+    import time
+    from collections import deque
+
+    from avlite.c40_execution.c42_factory import executor_factory
+    from avlite.c40_execution.c49_settings import ExecutionSettings
+    from avlite.c60_common.c61_setting_utils import load_all_stack_settings
+
+    # Capture all log output into a bounded buffer so background-thread logs
+    # (AsyncThreadedExecuter, ROSExecuter) don't corrupt the live display.
+    log_buffer: deque[str] = deque(maxlen=500)
+    level_value = getattr(logging, log_level.upper(), logging.INFO)
+
+    # Strip every console StreamHandler attached to root *and* every existing
+    # non-root logger; otherwise libraries that grabbed sys.stderr at import
+    # time will continue to write past rich.live's redirect.
+    def _strip_console_handlers(logger: logging.Logger) -> None:
+        for h in list(logger.handlers):
+            if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler):
+                logger.removeHandler(h)
+
+    root_logger = logging.getLogger()
+    _strip_console_handlers(root_logger)
+    for name in list(logging.Logger.manager.loggerDict.keys()):
+        lg = logging.getLogger(name)
+        if isinstance(lg, logging.Logger):
+            _strip_console_handlers(lg)
+
+    deque_handler = _DequeLogHandler(log_buffer)
+    deque_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
+    )
+    deque_handler.setLevel(level_value)
+    root_logger.addHandler(deque_handler)
+    root_logger.setLevel(level_value)
+
+    # Redirect OS-level stderr (fd 2) so C-library output (rclpy/rcutils, etc.)
+    # ends up in the log buffer instead of corrupting the live display.
+    import os as _os
+
+    fd_capture = _FDStreamCapture(2, log_buffer, prefix="[stderr] ")
+    fd_capture.start()
+
+    # Also nudge ROS to be quieter at the source, if the user hasn't set these.
+    _os.environ.setdefault("RCUTILS_LOGGING_USE_STDOUT", "0")
+    _os.environ.setdefault("RCUTILS_COLORIZED_OUTPUT", "0")
+    _os.environ.setdefault("RCUTILS_LOGGING_MIN_SEVERITY", log_level.upper())
+
+    console = Console(stderr=False)
+
+    load_all_stack_settings(profile=profile, load_extensions=True)
+
+    executer = executor_factory(
+        executer_type=ExecutionSettings.executer_type,
+        bridge=ExecutionSettings.bridge,
+        perception_strategy_name=ExecutionSettings.perception,
+        localization_strategy_name=ExecutionSettings.localization,
+        global_planner_strategy_name=ExecutionSettings.global_planner,
+        local_planner_strategy_name=ExecutionSettings.local_planner,
+        controller_strategy_name=ExecutionSettings.controller,
+        perception_dt=ExecutionSettings.perception_dt,
+        localization_dt=ExecutionSettings.localization_dt,
+        replan_dt=replan_dt,
+        control_dt=control_dt,
+        hd_map=ExecutionSettings.hd_map,
+        default_global_trajectory_file=ExecutionSettings.global_trajectory,
+        load_extensions=True,
+    )
+
+    # Re-strip handlers that may have been added during factory/extension import.
+    _strip_console_handlers(root_logger)
+    for name in list(logging.Logger.manager.loggerDict.keys()):
+        lg = logging.getLogger(name)
+        if isinstance(lg, logging.Logger):
+            _strip_console_handlers(lg)
+    if deque_handler not in root_logger.handlers:
+        root_logger.addHandler(deque_handler)
+
+    runner = threading.Thread(
+        target=executer.run,
+        kwargs={
+            "replan_dt": replan_dt,
+            "control_dt": control_dt,
+            "call_replan": True,
+            "call_control": True,
+            "call_perceive": perceive,
+        },
+        daemon=True,
+        name="avlite-headless-runner",
+    )
+    runner.start()
+
+    def _log_height() -> int:
+        # Reserve ~18 rows for the stats panel + 4 for the log panel border/title.
+        return max(5, console.size.height - 22)
+
+    try:
+        with Live(
+            _build_layout(executer, profile, log_buffer, _log_height()),
+            console=console,
+            refresh_per_second=10,
+            screen=True,
+            redirect_stdout=True,
+            redirect_stderr=True,
+        ) as live:
+            while runner.is_alive():
+                time.sleep(0.1)
+                live.update(_build_layout(executer, profile, log_buffer, _log_height()))
+    except KeyboardInterrupt:
+        try:
+            executer.stop()
+        except Exception:
+            pass
+        console.print("[yellow]Stopped.[/yellow]")
+    finally:
+        root_logger.removeHandler(deque_handler)
+        fd_capture.stop()
+
+
 def main(argv: list[str] | None = None) -> None:
     """Main entry point for the AVLite application."""
     parser = argparse.ArgumentParser(prog="avlite", description="AVLite")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("plugins", help="Open the community plugins manager")
-    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+
+    headless = sub.add_parser("headless", help="Run the executer headless with a terminal dashboard")
+    headless.add_argument("-p", "--profile", default=None, help="Profile name to load (default: 'default')")
+    headless.add_argument("profile_pos", nargs="?", default=None, help=argparse.SUPPRESS)
+    headless.add_argument("--control-dt", type=float, default=0.01, help="Control loop dt in seconds")
+    headless.add_argument("--replan-dt", type=float, default=0.5, help="Replan dt in seconds")
+    headless.add_argument("--perceive", action="store_true", help="Enable perception step in the loop")
+    headless.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Minimum log level shown in the Logs panel (default: INFO)",
+    )
+
+    try:
+        args, unknown = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
+    except SystemExit as exc:
+        sys.stderr.write(f"\nError parsing arguments. Use --help for usage.\n")
+        raise
 
     if args.command == "plugins":
         _run_plugins()
+    elif args.command == "headless":
+        if unknown:
+            sys.stderr.write(f"Ignoring unknown arguments: {unknown}\n")
+        profile = args.profile or args.profile_pos or "default"
+        _run_headless(
+            profile=profile,
+            control_dt=args.control_dt,
+            replan_dt=args.replan_dt,
+            perceive=args.perceive,
+            log_level=args.log_level,
+        )
     else:
         _run_visualizer()
 

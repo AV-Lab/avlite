@@ -99,6 +99,19 @@ class CollectorNode(Node):
         super().__init__('avlite_collector')
         self.ros_data = ros_data
         self.settings = settings
+
+        # Validate topic names early so misconfigured profiles surface a clear
+        # error instead of a deep rclpy traceback.
+        for attr in ("localization_topic", "trajectory_topic",
+                     "control_cmd_topic", "perception_topic"):
+            value = getattr(settings, attr, None)
+            if not isinstance(value, str) or not value or " " in value or not value.startswith("/"):
+                raise ValueError(
+                    f"Invalid ROS topic for setting '{attr}': {value!r}. "
+                    f"Topic names must be non-empty strings starting with '/' and contain no spaces. "
+                    f"Check your ext_ros_executer.yaml profile."
+                )
+
         # Use Autoware messages only if available AND enabled in settings
         self.use_autoware = AUTOWARE_AVAILABLE and settings.use_autoware_msgs
         
@@ -516,6 +529,7 @@ class ROSExecuter(Executer):
 
     def stop(self):
         """Clean shutdown of ROS components."""
+        self._stop_event.set()
         if not self.ros_started:
             return
             

@@ -101,12 +101,14 @@ class ExecView(ttk.Frame):
         # ttk.Radiobutton( exec_third_frame, text="Gazebo Ign", variable=self.root.setting.execution_bridge, value="GazeboIgnitionBridge",
         #     command=lambda: self.root.reload_stack(reload_code=False),
         # ).pack(side=tk.LEFT)
+        vehicle_state_label = ttk.Label(exec_third_frame, font=self.root.small_font, textvariable=self.root.setting.vehicle_state)
+        vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
 
-        global_tj_file=ttk.Entry( exec_third_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
+        global_tj_file=ttk.Entry( exec_second_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
         global_tj_file.pack(side=tk.RIGHT, padx = 5, pady=5)
         global_tj_file.bind("<Return>", self.text_on_enter)
-        ttk.Label(exec_third_frame, text="Default Global Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
+        ttk.Label(exec_second_frame, text="Default Global Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
 
 
     def text_on_enter(self, event):

@@ -142,7 +142,7 @@ default:
   exec_localize: true
   exec_perceive: false
   exec_plan: true
-  executer_type: AsyncThreadedExecuter
+  executer_type: ROSExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
@@ -164,6 +164,7 @@ default:
   log_view_default_height: 12
   log_view_expanded: false
   log_view_expended_height: 35
+  mapping_type: Mapping
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: Carla_Town10

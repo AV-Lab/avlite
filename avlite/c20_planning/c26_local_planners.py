@@ -101,7 +101,7 @@ class GreedyLatticePlanner(LocalPlannerStrategy):
         if not feasible_edges:
             feasible_edges = [edge for edge in self.lattice.level0_edges if not edge.collision]
             if feasible_edges:
-                log.warning("No curvature-feasible edges, using collision-free edges")
+                log.debug("No curvature-feasible edges, using collision-free edges")
         
         if feasible_edges:
             # Select best edge considering both reference tracking and safety

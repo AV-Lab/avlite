@@ -76,7 +76,7 @@ default:
   - bridge_gazebo
   - executer_ros
   - multi_object_prediction
-  executer_type: AsyncThreadedExecuter
+  executer_type: ROSExecuter
   filepath: configs/c40_execution.yaml
   global_planner: RaceGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -84,7 +84,8 @@ default:
   local_planner: GreedyLatticePlanner
   localization: Localization
   localization_dt: 0.1
-  perception: TestPerceptionStrategy
+  mapping: Mapping
+  perception: None
   perception_dt: 0.5
   provide_ground_truth: true
   provide_lidar: false

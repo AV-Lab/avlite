@@ -2,7 +2,9 @@ from __future__ import annotations
 from typing import Optional
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-import logging 
+import logging
+import threading
+import time
 import numpy as np
 from enum import Enum, auto
 
@@ -137,16 +139,46 @@ class Executer(ABC):
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
 
+        self._stop_event = threading.Event()
+
     @abstractmethod
     def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True, call_localize=True,) -> None:
         """ Steps the executer for one time step. This method should be implemented by the specific executer class. """
         pass
 
-    def run(self, replan_dt=0.5, control_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
-        raise NotImplementedError("This method should be implemented by the specific executer class.")
+    def run(self, replan_dt=None, control_dt=None, call_replan=True, call_control=True, call_perceive=False, call_localize=True):
+        """Generic run loop that repeatedly calls step() until stop() is called.
+
+        Subclasses may override for specialized scheduling.
+        """
+        self.reset()
+        self._stop_event.clear()
+        rdt = replan_dt if replan_dt is not None else self.replan_dt
+        cdt = control_dt if control_dt is not None else self.control_dt
+        pdt = self.perception_dt
+        ldt = self.localization_dt
+        sdt = ExecutionSettings.sim_dt
+        while not self._stop_event.is_set():
+            try:
+                self.step(
+                    perception_dt=pdt,
+                    control_dt=cdt,
+                    replan_dt=rdt,
+                    localization_dt=ldt,
+                    sim_dt=sdt,
+                    call_replan=call_replan,
+                    call_control=call_control,
+                    call_perceive=call_perceive,
+                    call_localize=call_localize,
+                )
+            except Exception as e:
+                log.error(f"Executer step error: {e}", exc_info=True)
+            if self._stop_event.wait(timeout=cdt):
+                break
 
     def stop(self):
-        raise NotImplementedError("This method should be implemented by the specific executer class.")
+        """Signal run() to exit. Subclasses may override to also tear down threads/resources."""
+        self._stop_event.set()
 
     def reset(self):
         self.pm.reset()

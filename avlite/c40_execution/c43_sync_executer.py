@@ -134,21 +134,6 @@ class SyncExecuter(Executer):
         log.debug( f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec")
 
 
-    def run(self, replan_dt=0.5, control_dt=0.01, call_replan=True, call_control=True, call_perceive=False):
-        self.reset()
-        while True:
-            self.step(
-                control_dt=control_dt,
-                replan_dt=replan_dt,
-                call_replan=call_replan,
-                call_control=call_control,
-                call_perceive=call_perceive,
-            )
-            time.sleep(control_dt)
-
-    def stop(self):
-        pass
-
     def reset(self):
         super().reset()
         self.__prev_exec_time = None
