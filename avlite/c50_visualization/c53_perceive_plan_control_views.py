@@ -112,7 +112,7 @@ class PlanFrame(ttk.LabelFrame):
         global_frame = ttk.Frame(self)
         global_frame.pack(fill=tk.X)
         ttk.Label(global_frame, text="Global: ").pack(side=tk.LEFT, padx=5)
-        ttk.Checkbutton( global_frame, text="Show Global", command=self.root.update_views, variable=self.root.setting.global_plan_view,
+        ttk.Checkbutton( global_frame, text="Show", command=self.root.update_views, variable=self.root.setting.global_plan_view,
         ).pack(side=tk.LEFT)
         self.global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
         self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
@@ -127,7 +127,7 @@ class PlanFrame(ttk.LabelFrame):
         wp_frame.pack(fill=tk.X)
         # ttk.Separator(wp_frame, orient='horizontal').pack(side=tk.TOP,fill='x', pady=2)
         ttk.Label(wp_frame, text="Local:   ").pack(side=tk.LEFT, padx=5)
-        ttk.Checkbutton( wp_frame, text="Show Local  ", command=self.root.update_views,
+        ttk.Checkbutton( wp_frame, text="Show  ", command=self.root.update_views,
             variable=self.root.setting.local_plan_view).pack(side=tk.LEFT)
 
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
