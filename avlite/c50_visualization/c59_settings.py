@@ -64,6 +64,13 @@ class VisualizationSettings:
             ExecutionSettings.localization_dt = float(self.localization_dt.get())
         self.localization_dt.trace_add("write", _on_localization_dt_change)
 
+        # mapping
+        self.mapping_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "")
+        def _on_mapping_change(*args):
+            ExecutionSettings.mapping = self.mapping_type.get()
+        self.mapping_type.trace_add("write", _on_mapping_change)
+
+
         # planning
         self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
         def _on_global_plan_change(*args):

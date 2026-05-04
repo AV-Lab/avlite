@@ -7,14 +7,14 @@ default:
   localization_topic: /localization/kinematic_state
   map_frame: map
   perception_dt: 0.1
-  perception_topic: perception topic
+  perception_topic: /perception/object_recognition/tracking/objects
   replan_dt: 0.1
   sim_dt: 0.02
   trajectory_out_topic: /avlite/planning/trajectory
   trajectory_topic: /planning/scenario_planning/trajectory
   use_autoware_msgs: true
 ros:
-  controller_topic: controller topic
-  global_Planner_topic: global planner topic
-  local_planner_topic: local planner
-  perception_topic: perception topic
+  control_cmd_topic: /control/command/control_cmd
+  trajectory_topic: /planning/scenario_planning/trajectory
+  localization_topic: /localization/kinematic_state
+  perception_topic: /perception/object_recognition/tracking/objects

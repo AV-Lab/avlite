@@ -14,6 +14,7 @@ class ExecutionSettings:
     bridge="BasicSim" # Options: Basic, Carla, Gazebo, ROS
     perception = ""
     localization = ""
+    mapping = ""
     global_planner = RaceGlobalPlanner.__name__
     local_planner = GreedyLatticePlanner.__name__
     controller = StanleyController.__name__

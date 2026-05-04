@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
+from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c58_ui_lib import ValueGauge
@@ -51,26 +52,31 @@ class PerceptionFrame(ttk.LabelFrame):
         super().__init__(view, text="Perception")
         self.root = root
 
-        top_pframe = ttk.Frame(self)
-        top_pframe.pack(fill=tk.X, padx=5, pady=5)
 
-        self.perception_dropdown_menu = ttk.Combobox(top_pframe, textvariable=self.root.setting.perception_type, state="readonly", width=10)
+        self.perception_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.perception_type, state="readonly", width=10)
         self.perception_dropdown_menu["values"] = list(PerceptionStrategy.registry.keys())
-        self.perception_dropdown_menu.pack(side=tk.LEFT)
         self.perception_dropdown_menu.bind("<<ComboboxSelected>>",lambda event: self.root.reload_stack(reload_code=False))
+        self.perception_dropdown_menu.pack(side=tk.LEFT)
+        self.perception_dropdown_menu.grid(row=0, column=0, sticky="w")
+        
+        ttk.Checkbutton(self, text="Show",variable=self.root.setting.show_occupancy_flow).grid(row=0, column=1)
 
-        self.localization_dropdown_menu = ttk.Combobox(top_pframe, textvariable=self.root.setting.localization_type, state="readonly", width=8)
+        self.localization_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.localization_type, state="readonly", width=10)
         self.localization_dropdown_menu["values"] = list(LocalizationStrategy.registry.keys())
-        self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or "Localization")
-        self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(4, 0))
+        self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or "GT Localization")
         self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
+        self.localization_dropdown_menu.grid(row=1, column=0, sticky="w")
 
-        ttk.Checkbutton(top_pframe, text="Show",variable=self.root.setting.show_occupancy_flow).pack(side=tk.LEFT)
+
+
+        self.mapping_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.mapping_type, state="readonly", width=10)
+        self.mapping_dropdown_menu["values"] = list(MappingStrategy.registry.keys())
+        self.mapping_dropdown_menu.set(self.root.setting.mapping_type.get() or "No Mapping")
+        self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
+        self.mapping_dropdown_menu.grid(row=2, column=0, sticky="w")
+
 
         # ----
-        vehicle_state_label = ttk.Label( self, font=self.root.small_font, textvariable=self.root.setting.vehicle_state,
-            width=30, wraplength=235)
-        vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
     def update_data(self):
         """Update data in the perception frame."""

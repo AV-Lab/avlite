@@ -56,7 +56,14 @@ class AsyncThreadedExecuter(Executer):
         self.call_localize = True
 
         self.__log_queue = Queue()
-        self.__queue_listener = QueueListener(self.__log_queue, logging.getLogger().handlers[0])
+        root_handlers = logging.getLogger().handlers
+        if not root_handlers:
+            # No root handler configured (e.g. headless CLI before basicConfig).
+            # Fall back to a NullHandler so QueueListener has something to forward to.
+            fallback = logging.NullHandler()
+            self.__queue_listener = QueueListener(self.__log_queue, fallback)
+        else:
+            self.__queue_listener = QueueListener(self.__log_queue, root_handlers[0])
         self.__queue_listener.start()
         self.setup_process_logging()
 
@@ -234,6 +241,7 @@ class AsyncThreadedExecuter(Executer):
                 time.sleep(0.1)
 
     def stop(self):
+        self._stop_event.set()
         count = 0
         for t in self.threads:
             if t and t.is_alive():

@@ -8,6 +8,9 @@ shapely>=2.0
 networkx>=3.0
 ttkthemes>=3.2
 
+# Optional: Headless dashboard (avlite headless)
+# rich>=13.0
+
 # Optional: Joystick support
 # pygame>=2.5
 

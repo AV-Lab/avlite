@@ -69,6 +69,74 @@ python -m avlite
 Load Profile → Configure Components → Start Stack → Monitor/Debug → Save Profile
 ```
 
+### 4. Headless Mode (no GUI)
+
+For deployments on a robot, server, or CI runner, run AVLite without the
+Tkinter GUI using the same YAML profiles you saved from the visualizer:
+
+```bash
+# Default profile
+python -m avlite headless
+
+# Pick a saved profile
+python -m avlite headless -p my_robot_profile
+python -m avlite headless my_robot_profile        # positional shortcut
+
+# Tune log noise / loop rates
+python -m avlite headless -p my_robot_profile \
+    --log-level WARNING \
+    --control-dt 0.01 --replan-dt 0.5 --perceive
+```
+
+A live `rich` dashboard shows FPS, ego state, lap counter, and recent log
+lines. Press **Ctrl+C** to stop. Requires `pip install rich`.
+
+!!! tip "Recommended workflow"
+    1. **Configure** with `python -m avlite` — pick the bridge, strategies,
+       and tune parameters in the GUI.
+    2. **Save** the result as a named profile from the Config tab.
+    3. **Deploy** with `python -m avlite headless -p <profile>` on your
+       robot or server. The same YAML profile drives both modes, so what
+       you see in the visualizer is what the robot will run.
+
+## Community Plugins
+
+AVLite has a community plugin system that lets anyone publish perception,
+planning, control, executer, or world-bridge strategies as a small Git
+repository.
+
+### Browse and install (GUI)
+
+```bash
+python -m avlite plugins
+```
+
+The browser fetches the official registry from
+[avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins),
+lets you install/uninstall plugins, and (de)registers them with the
+active profile. Installed plugins live under
+`$XDG_DATA_HOME/avlite/plugins` (or `~/.local/share/avlite/plugins`);
+override with the `AVLITE_PLUGINS_DIR` environment variable.
+
+### Publish your plugin
+
+1. Build a plugin following the [Plugin Development Guide](plugin-development.md).
+2. Push it to a public Git repository.
+3. Fork [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)
+   and add an entry to `plugins.yaml`:
+
+    ```yaml
+    plugins:
+      - name: my_cool_planner
+        repository: https://github.com/<you>/my_cool_planner
+        version: latest        # or a tag/commit SHA
+        description: One-line summary
+        author: Your Name
+    ```
+
+4. Open a pull request. Once merged the plugin appears automatically in
+   every user's `avlite plugins` browser.
+
 ## Core Components
 
 | Component | Description |
