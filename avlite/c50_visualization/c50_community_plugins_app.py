@@ -127,6 +127,48 @@ def uninstall_plugin(name: str, plugins_dir: Path) -> None:
     shutil.rmtree(target)
 
 
+def check_requirements(req_file: Path) -> tuple[list[str], list[str]]:
+    """Inspect ``requirements.txt`` vs current env. Returns (missing, mismatched)."""
+    from importlib.metadata import PackageNotFoundError, version as pkg_version
+
+    try:
+        from packaging.requirements import Requirement
+        from packaging.version import Version
+    except Exception:
+        return [], []
+
+    missing: list[str] = []
+    mismatched: list[str] = []
+    for raw in req_file.read_text().splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line or line.startswith("-"):
+            continue
+        try:
+            req = Requirement(line)
+        except Exception:
+            continue
+        try:
+            installed = pkg_version(req.name)
+        except PackageNotFoundError:
+            missing.append(line)
+            continue
+        if req.specifier and not req.specifier.contains(Version(installed), prereleases=True):
+            mismatched.append(f"{line} (installed {installed})")
+    return missing, mismatched
+
+
+def pip_install(req_file: Path) -> None:
+    """Install requirements from ``req_file`` into the current interpreter."""
+    import sys
+
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def _current_profile() -> str:
     """Best-effort: read the active profile from the visualization settings file."""
     try:
@@ -422,11 +464,41 @@ class CommunityPluginsApp:
                 self._set_busy(False, f"Install failed: {err}")
                 messagebox.showerror("Install failed", str(err), parent=self.window)
                 return
+            self._handle_requirements(name, path)
             self._set_busy(False, f"Installed {name} at {path}")
             self._populate()
             self._notify_host_changed()
 
         self._run_bg(task, done)
+
+    def _handle_requirements(self, name: str, plugin_path: Path) -> None:
+        """Check the plugin's requirements.txt and prompt to install missing deps."""
+        req_file = plugin_path / "requirements.txt"
+        if not req_file.exists():
+            return
+        missing, mismatched = check_requirements(req_file)
+        if mismatched:
+            messagebox.showwarning(
+                "Dependency version mismatch",
+                f"'{name}' requires:\n  " + "\n  ".join(mismatched)
+                + "\n\nThe plugin may not work correctly.",
+                parent=self.window,
+            )
+        if missing and messagebox.askyesno(
+            "Install missing dependencies?",
+            f"'{name}' needs:\n  " + "\n  ".join(missing)
+            + "\n\nInstall them into the current Python environment?",
+            parent=self.window,
+        ):
+            try:
+                pip_install(req_file)
+            except subprocess.CalledProcessError as e:
+                detail = "\n".join(p for p in (e.stdout, e.stderr) if p) or str(e)
+                messagebox.showerror(
+                    "pip install failed",
+                    detail,
+                    parent=self.window,
+                )
 
     def _on_uninstall(self) -> None:
         sel = self._selected_entry()

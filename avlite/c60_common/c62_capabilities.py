@@ -26,4 +26,15 @@ class MappingCapability(Enum):
     OPENDRIVE_HDMAP = auto()
 
 
+class PluginCapability(Enum):
+    PLANNING = auto()
+    CONTROL = auto()
+    PERCEPTION = auto()
+    EXECUTION = auto()
+    WORLDBRIDGE = auto()
+
+
+    LOCALIZATION = auto()
+    MAPPING = auto()
+
 

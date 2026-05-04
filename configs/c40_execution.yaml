@@ -68,8 +68,7 @@ default:
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  community_plugins:
-    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
+  community_plugins: {}
   control_dt: 0.01
   controller: StanleyController
   default_extensions:

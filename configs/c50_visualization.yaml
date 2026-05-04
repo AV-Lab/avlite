@@ -140,7 +140,7 @@ default:
   enable_joystick: true
   exec_control: true
   exec_localize: true
-  exec_perceive: false
+  exec_perceive: true
   exec_plan: true
   executer_type: ROSExecuter
   execution_bridge: BasicSim
