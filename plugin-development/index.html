@@ -408,27 +408,45 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-example-custom-controller" class="md-nav__link">
+  <a href="#3-example-custom-detection-tracking-or-prediction-sub-strategy" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Example: Custom Controller
+      3. Example: Custom Detection, Tracking, or Prediction Sub-Strategy
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-export-classes" class="md-nav__link">
+  <a href="#4-example-custom-localization" class="md-nav__link">
     <span class="md-ellipsis">
-      4. Export Classes
+      4. Example: Custom Localization
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-register-your-community-plugin" class="md-nav__link">
+  <a href="#5-example-custom-controller" class="md-nav__link">
     <span class="md-ellipsis">
-      5. Register Your Community Plugin
+      5. Example: Custom Controller
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-export-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Export Classes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-register-your-community-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Register Your Community Plugin
     </span>
   </a>
   
@@ -521,7 +539,86 @@
         <span class="c1"># Your logic here</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span>
 </code></pre></div>
-<h2 id="3-example-custom-controller">3. Example: Custom Controller<a class="headerlink" href="#3-example-custom-controller" title="Permanent link">&para;</a></h2>
+<h2 id="3-example-custom-detection-tracking-or-prediction-sub-strategy">3. Example: Custom Detection, Tracking, or Prediction Sub-Strategy<a class="headerlink" href="#3-example-custom-detection-tracking-or-prediction-sub-strategy" title="Permanent link">&para;</a></h2>
+<p>Use <code>DetectionStrategy</code>, <code>TrackingStrategy</code>, or <code>PredictionStrategy</code> when you only need
+to implement one stage of the pipeline. These plug into <code>PerceptionPipeline</code> and are
+selected by name in the <code>PerceptionSettings</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">DetectionStrategy</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
+
+<span class="k">class</span> <span class="nc">MyDetector</span><span class="p">(</span><span class="n">DetectionStrategy</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span><span class="p">,</span>
+               <span class="n">rgb_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">depth_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lidar_data</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span><span class="p">:</span>
+        <span class="c1"># Your detection logic here</span>
+        <span class="k">return</span> <span class="n">perception_model</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">TrackingStrategy</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
+
+<span class="k">class</span> <span class="nc">MyTracker</span><span class="p">(</span><span class="n">TrackingStrategy</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">track</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span><span class="p">:</span>
+        <span class="c1"># Your tracking logic here</span>
+        <span class="k">return</span> <span class="n">perception_model</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PredictionStrategy</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
+
+<span class="k">class</span> <span class="nc">MyPredictor</span><span class="p">(</span><span class="n">PredictionStrategy</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Your prediction logic here</span>
+        <span class="k">return</span> <span class="n">perception_model</span>
+</code></pre></div>
+<p>To use these sub-strategies with <code>PerceptionPipeline</code>, set the appropriate fields in
+<code>configs/c10_perception.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span>
+<span class="nt">tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span>
+<span class="nt">prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span>
+</code></pre></div>
+<h2 id="4-example-custom-localization">4. Example: Custom Localization<a class="headerlink" href="#4-example-custom-localization" title="Permanent link">&para;</a></h2>
+<p>Localization strategies estimate the ego vehicle’s pose and update
+<code>self.perception_model.ego_vehicle</code> <strong>in-place</strong> (no return value).</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c13_localization_strategy</span> <span class="kn">import</span> <span class="n">LocalizationStrategy</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">LocalizationCapability</span>
+
+<span class="k">class</span> <span class="nc">MyLocalization</span><span class="p">(</span><span class="n">LocalizationStrategy</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_3D</span><span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">LocalizationCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">LocalizationCapability</span><span class="o">.</span><span class="n">LOCALIZATION_2D</span><span class="p">,</span> <span class="n">LocalizationCapability</span><span class="o">.</span><span class="n">LOCALIZATION_HEADING</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">localize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">imu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lidar</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rgb_img</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Estimate the ego pose from sensor data and update in-place</span>
+        <span class="k">if</span> <span class="n">lidar</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># ... your scan-matching / localization logic ...</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">estimated_x</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">estimated_y</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">estimated_theta</span>
+
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</code></pre></div>
+<h2 id="5-example-custom-controller">5. Example: Custom Controller<a class="headerlink" href="#5-example-custom-controller" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c30_control.c32_control_strategy</span> <span class="kn">import</span> <span class="n">ControlStrategy</span>
 <span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlComand</span>
 
@@ -533,21 +630,21 @@
     <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 </code></pre></div>
-<h2 id="4-export-classes">4. Export Classes<a class="headerlink" href="#4-export-classes" title="Permanent link">&para;</a></h2>
+<h2 id="6-export-classes">6. Export Classes<a class="headerlink" href="#6-export-classes" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="c1"># __init__.py</span>
-<span class="kn">from</span> <span class="nn">.my_strategy</span> <span class="kn">import</span> <span class="n">MyPerception</span><span class="p">,</span> <span class="n">MyController</span>
+<span class="kn">from</span> <span class="nn">.my_strategy</span> <span class="kn">import</span> <span class="n">MyPerception</span><span class="p">,</span> <span class="n">MyLocalization</span><span class="p">,</span> <span class="n">MyController</span>
 <span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">ExtensionSettings</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MyPerception&quot;</span><span class="p">,</span> <span class="s2">&quot;MyController&quot;</span><span class="p">,</span> <span class="s2">&quot;ExtensionSettings&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MyPerception&quot;</span><span class="p">,</span> <span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span> <span class="s2">&quot;MyController&quot;</span><span class="p">,</span> <span class="s2">&quot;ExtensionSettings&quot;</span><span class="p">]</span>
 </code></pre></div>
-<h2 id="5-register-your-community-plugin">5. Register Your Community Plugin<a class="headerlink" href="#5-register-your-community-plugin" title="Permanent link">&para;</a></h2>
+<h2 id="7-register-your-community-plugin">7. Register Your Community Plugin<a class="headerlink" href="#7-register-your-community-plugin" title="Permanent link">&para;</a></h2>
 <p><strong>Via GUI</strong> (recommended):
 1. Open AVLite
 2. Go to Config tab
 3. Add entry to Community Extensions: <code>my_plugin</code> -&gt; <code>/path/to/my_plugin</code>
 4. Save profile</p>
 <p><strong>Via settings file</strong> (<code>configs/c40_execution.yaml</code>):
-<div class="highlight"><pre><span></span><code><span class="nt">community_extensions</span><span class="p">:</span>
+<div class="highlight"><pre><span></span><code><span class="nt">community_plugins</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/my_plugin</span>
 </code></pre></div></p>
 <p>Your classes will now appear in the UI dropdowns.</p>
@@ -563,8 +660,23 @@
 <tbody>
 <tr>
 <td><code>PerceptionStrategy</code></td>
-<td>Detection/tracking/prediction</td>
+<td>Monolithic detection/tracking/prediction</td>
 <td><code>perceive()</code></td>
+</tr>
+<tr>
+<td><code>DetectionStrategy</code></td>
+<td>Detection sub-strategy (used by <code>PerceptionPipeline</code>)</td>
+<td><code>detect()</code></td>
+</tr>
+<tr>
+<td><code>TrackingStrategy</code></td>
+<td>Tracking sub-strategy (used by <code>PerceptionPipeline</code>)</td>
+<td><code>track()</code></td>
+</tr>
+<tr>
+<td><code>PredictionStrategy</code></td>
+<td>Prediction sub-strategy (used by <code>PerceptionPipeline</code>)</td>
+<td><code>predict()</code></td>
 </tr>
 <tr>
 <td><code>LocalizationStrategy</code></td>
@@ -600,7 +712,7 @@
 </table>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <p>Built-in extensions in <code>avlite/extensions/</code> (maintained by core team):
-- <code>test_ext</code> - Minimal template for reference
+- <code>bridge_gazebo</code> - Gazebo world bridge
 - <code>multi_object_prediction</code> - Perception with prediction
 - <code>executer_ros</code> - ROS2 integration</p>
 

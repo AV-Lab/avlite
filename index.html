@@ -428,6 +428,48 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#4-headless-mode-no-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Headless Mode (no GUI)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#community-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      Community Plugins
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Community Plugins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#browse-and-install-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      Browse and install (GUI)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#publish-your-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      Publish your plugin
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -581,9 +623,10 @@
 <p><strong>Repository</strong>: <a href="https://github.com/AV-Lab/avlite">github.com/AV-Lab/avlite</a></p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Modular Architecture</strong>: Swap perception, planning, and control algorithms at runtime</li>
+<li><strong>Modular Architecture</strong>: Swap perception, localization, planning, and control algorithms at runtime</li>
 <li><strong>Multi-Simulator Support</strong>: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2</li>
 <li><strong>ROS2 &amp; Autoware Integration</strong>: Built-in extension for ROS2 with native Autoware message types</li>
+<li><strong>Optional Perception &amp; Localization</strong>: Both perception and localization are optional — run with ground truth or plug in your own strategies</li>
 <li><strong>Real-time Visualization</strong>: Tkinter-based GUI for monitoring and debugging</li>
 <li><strong>Hot Reloading</strong>: Modify code without restarting the application</li>
 <li><strong>Plugin System</strong>: Extend functionality with community plugins</li>
@@ -624,6 +667,67 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <h3 id="3-basic-workflow">3. Basic Workflow<a class="headerlink" href="#3-basic-workflow" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>Load Profile → Configure Components → Start Stack → Monitor/Debug → Save Profile
 </code></pre></div>
+<h3 id="4-headless-mode-no-gui">4. Headless Mode (no GUI)<a class="headerlink" href="#4-headless-mode-no-gui" title="Permanent link">&para;</a></h3>
+<p>For deployments on a robot, server, or CI runner, run AVLite without the
+Tkinter GUI using the same YAML profiles you saved from the visualizer:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Default profile</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless
+
+<span class="c1"># Pick a saved profile</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless<span class="w"> </span>-p<span class="w"> </span>my_robot_profile
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless<span class="w"> </span>my_robot_profile<span class="w">        </span><span class="c1"># positional shortcut</span>
+
+<span class="c1"># Tune log noise / loop rates</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless<span class="w"> </span>-p<span class="w"> </span>my_robot_profile<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--log-level<span class="w"> </span>WARNING<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--control-dt<span class="w"> </span><span class="m">0</span>.01<span class="w"> </span>--replan-dt<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--perceive
+</code></pre></div>
+<p>A live <code>rich</code> dashboard shows FPS, ego state, lap counter, and recent log
+lines. Press <strong>Ctrl+C</strong> to stop. Requires <code>pip install rich</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Recommended workflow</p>
+<ol>
+<li><strong>Configure</strong> with <code>python -m avlite</code> — pick the bridge, strategies,
+   and tune parameters in the GUI.</li>
+<li><strong>Save</strong> the result as a named profile from the Config tab.</li>
+<li><strong>Deploy</strong> with <code>python -m avlite headless -p &lt;profile&gt;</code> on your
+   robot or server. The same YAML profile drives both modes, so what
+   you see in the visualizer is what the robot will run.</li>
+</ol>
+</div>
+<h2 id="community-plugins">Community Plugins<a class="headerlink" href="#community-plugins" title="Permanent link">&para;</a></h2>
+<p>AVLite has a community plugin system that lets anyone publish perception,
+planning, control, executer, or world-bridge strategies as a small Git
+repository.</p>
+<h3 id="browse-and-install-gui">Browse and install (GUI)<a class="headerlink" href="#browse-and-install-gui" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>plugins
+</code></pre></div>
+<p>The browser fetches the official registry from
+<a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>,
+lets you install/uninstall plugins, and (de)registers them with the
+active profile. Installed plugins live under
+<code>$XDG_DATA_HOME/avlite/plugins</code> (or <code>~/.local/share/avlite/plugins</code>);
+override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
+<h3 id="publish-your-plugin">Publish your plugin<a class="headerlink" href="#publish-your-plugin" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Build a plugin following the <a href="plugin-development/">Plugin Development Guide</a>.</li>
+<li>Push it to a public Git repository.</li>
+<li>
+<p>Fork <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>
+   and add an entry to <code>plugins.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">plugins</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_cool_planner</span>
+<span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/&lt;you&gt;/my_cool_planner</span>
+<span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">        </span><span class="c1"># or a tag/commit SHA</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary</span>
+<span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Your Name</span>
+</code></pre></div>
+</li>
+<li>
+<p>Open a pull request. Once merged the plugin appears automatically in
+   every user's <code>avlite plugins</code> browser.</p>
+</li>
+</ol>
 <h2 id="core-components">Core Components<a class="headerlink" href="#core-components" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -635,7 +739,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <tbody>
 <tr>
 <td><strong>c10_perception</strong></td>
-<td>Interfaces for detection, tracking, prediction, localization, mapping</td>
+<td>Interfaces for detection, tracking, prediction, localization (optional), mapping</td>
 </tr>
 <tr>
 <td><strong>c20_planning</strong></td>
@@ -684,7 +788,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 └── extensions/         # Built-in extensions
     ├── multi_object_prediction/
     ├── executer_ros/   # ROS2 executor with Autoware msgs
-    └── test_ext/
+    └── bridge_gazebo/  # Gazebo world bridge
 </code></pre></div>
 <p>Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>

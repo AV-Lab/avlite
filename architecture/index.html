@@ -559,18 +559,18 @@
 │         SyncExecuter / AsyncThreadedExecuter                │
 │                    Factory Pattern                          │
 └─────────────────────────────────────────────────────────────┘
-         │              │              │              │
-         ▼              ▼              ▼              ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Perception  │ │   Planning   │ │   Control    │ │    World     │
-│    (c10)     │ │    (c20)     │ │    (c30)     │ │   Bridge     │
-│              │ │              │ │              │ │              │
-│  Interfaces  │ │  Global +    │ │  Stanley     │ │  BasicSim    │
-│  + Registry  │ │  Local       │ │  PID         │ │  Carla       │
-│              │ │  Lattice     │ │              │ │  Gazebo      │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
-         │              │              │              │
-         └──────────────┴──────────────┴──────────────┘
+    │           │              │              │              │
+    ▼           ▼              ▼              ▼              ▼
+┌────────┐┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│Localiz.││  Perception  │ │   Planning   │ │   Control    │ │    World     │
+│ (c10)  ││    (c10)     │ │    (c20)     │ │    (c30)     │ │   Bridge     │
+│        ││              │ │              │ │              │ │              │
+│Optional││  Optional    │ │  Global +    │ │  Stanley     │ │  BasicSim    │
+│        ││  + Registry  │ │  Local       │ │  PID         │ │  Carla       │
+│        ││              │ │  Lattice     │ │              │ │  Gazebo      │
+└────────┘└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+    │           │              │              │              │
+    └───────────┴──────────────┴──────────────┴──────────────┘
                                 │
 ┌─────────────────────────────────────────────────────────────┐
 │                      Common (c60)                           │
@@ -579,7 +579,7 @@
                                 │
 ┌─────────────────────────────────────────────────────────────┐
 │              Extensions + Community Plugins                 │
-│     Perception, Planning, Control implementations           │
+│  Perception, Localization, Planning, Control implementations│
 └─────────────────────────────────────────────────────────────┘
 </code></pre></div>
 <h2 id="design-patterns">Design Patterns<a class="headerlink" href="#design-patterns" title="Permanent link">&para;</a></h2>
@@ -600,7 +600,7 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
         <span class="c1"># What I need from the world/simulator</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">RGB_IMAGE</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">}</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">PerceptionCapability</span><span class="p">]:</span>
@@ -612,9 +612,14 @@
 <li><code>GT_DETECTION</code> - Ground truth object detection</li>
 <li><code>GT_TRACKING</code> - Ground truth tracking IDs</li>
 <li><code>GT_LOCALIZATION</code> - Ground truth ego pose</li>
-<li><code>RGB_IMAGE</code> - Camera images</li>
-<li><code>DEPTH_IMAGE</code> - Depth maps</li>
-<li><code>LIDAR</code> - Point cloud data</li>
+<li><code>CAMERA_RGB</code> - RGB camera images</li>
+<li><code>CAMERA_DEPTH</code> - Depth camera images</li>
+<li><code>LIDAR_3D</code> - 3D LiDAR point cloud data</li>
+<li><code>LIDAR_2D</code> - 2D LiDAR scanner data</li>
+<li><code>RADAR</code> - Radar sensor data</li>
+<li><code>WHEEL_ENCODER</code> - Wheel encoder for odometry</li>
+<li><code>IMU</code> - Inertial measurement unit</li>
+<li><code>GNSS</code> - GNSS / GPS receiver</li>
 </ul>
 <p><strong>Perception Capabilities</strong> (what perception strategies provide):</p>
 <ul>
@@ -622,24 +627,43 @@
 <li><code>TRACKING</code> - Object tracking</li>
 <li><code>PREDICTION</code> - Motion prediction</li>
 </ul>
+<p><strong>Localization Capabilities</strong> (what localization strategies provide):</p>
+<ul>
+<li><code>LOCALIZATION_2D</code> - 2D pose estimation (x, y)</li>
+<li><code>LOCALIZATION_3D</code> - 3D pose estimation (x, y, z)</li>
+<li><code>LOCALIZATION_HEADING</code> - Heading / yaw estimation</li>
+<li><code>LOCALIZATION_HEADING_3D</code> - Full 3D orientation (roll, pitch, yaw)</li>
+<li><code>VELOCITY</code> - Velocity estimation</li>
+</ul>
+<p><strong>Mapping Capabilities</strong> (what mapping strategies provide):</p>
+<ul>
+<li><code>OCCUPANCY_GRID</code> - Occupancy grid mapping</li>
+<li><code>PATH_BOUNDARY</code> - Path boundary extraction</li>
+<li><code>OPENDRIVE_HDMAP</code> - OpenDRIVE HD map integration</li>
+</ul>
 <h3 id="factory-pattern">Factory Pattern<a class="headerlink" href="#factory-pattern" title="Permanent link">&para;</a></h3>
 <p>The executor factory assembles components based on configuration:</p>
 <div class="highlight"><pre><span></span><code><span class="n">executer</span> <span class="o">=</span> <span class="n">executor_factory</span><span class="p">(</span>
     <span class="n">bridge</span><span class="o">=</span><span class="s2">&quot;BasicSim&quot;</span><span class="p">,</span>
-    <span class="n">perception</span><span class="o">=</span><span class="s2">&quot;MultiObjectPredictor&quot;</span><span class="p">,</span>
-    <span class="n">local_planner</span><span class="o">=</span><span class="s2">&quot;GreedyLatticePlanner&quot;</span><span class="p">,</span>
-    <span class="n">controller</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
+    <span class="n">perception_strategy_name</span><span class="o">=</span><span class="s2">&quot;MultiObjectPredictor&quot;</span><span class="p">,</span>
+    <span class="n">localization_strategy_name</span><span class="o">=</span><span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span>
+    <span class="n">local_planner_strategy_name</span><span class="o">=</span><span class="s2">&quot;GreedyLatticePlanner&quot;</span><span class="p">,</span>
+    <span class="n">controller_strategy_name</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
 <span class="p">)</span>
 </code></pre></div>
-<p>It loads extensions, instantiates strategies from registries, and wires everything together.</p>
+<p>It loads extensions, instantiates strategies from registries, and wires everything together. Both <code>perception_strategy_name</code> and <code>localization_strategy_name</code> are optional — pass an empty string or omit them to run without that component.</p>
 <h2 id="core-modules">Core Modules<a class="headerlink" href="#core-modules" title="Permanent link">&para;</a></h2>
 <h3 id="c10_perception">c10_perception<a class="headerlink" href="#c10_perception" title="Permanent link">&para;</a></h3>
 <p>Provides <strong>interfaces</strong> for:
-- <code>PerceptionStrategy</code> - Detection, tracking, prediction
-- <code>LocalizationStrategy</code> - Ego localization
+- <code>PerceptionStrategy</code> (optional) - Monolithic detect/track/predict interface; subclasses auto-register and appear in the UI dropdown
+- <code>DetectionStrategy</code> - Detection-only sub-strategy with its own registry; used by <code>PerceptionPipeline</code>
+- <code>TrackingStrategy</code> - Tracking-only sub-strategy with its own registry; used by <code>PerceptionPipeline</code>
+- <code>PredictionStrategy</code> - Prediction-only sub-strategy with its own registry; used by <code>PerceptionPipeline</code>
+- <code>PerceptionPipeline</code> - Built-in <code>PerceptionStrategy</code> that composes a <code>DetectionStrategy</code>, <code>TrackingStrategy</code>, and <code>PredictionStrategy</code> selected by name; missing stages fall back to ground truth from the bridge
+- <code>LocalizationStrategy</code> (optional) - Ego-vehicle pose estimation. Updates <code>PerceptionModel.ego_vehicle</code> in-place.
 - <code>MappingStrategy</code> - Environment mapping
 - <code>HDMap</code> - OpenDRIVE map parsing and routing</p>
-<p>Implementations come from extensions/plugins.</p>
+<p>Both <code>PerceptionStrategy</code> and <code>LocalizationStrategy</code> are optional in the execution pipeline. Implementations come from extensions/plugins.</p>
 <h3 id="c20_planning">c20_planning<a class="headerlink" href="#c20_planning" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>GlobalPlannerStrategy</code> - Route planning (A*, HD map routing)</li>
@@ -659,6 +683,7 @@
 <li><code>Executer</code> - Main execution loop (sync/async variants)</li>
 <li><code>WorldBridge</code> - Simulator abstraction</li>
 <li><code>Factory</code> - Component assembly</li>
+<li><code>ExecutionSettings</code> - Runtime settings including <code>log_level</code> (DEBUG/INFO/WARNING/ERROR/CRITICAL) and <code>log_to_file</code> (write logs to <code>./logs/avlite_&lt;timestamp&gt;.log</code>)</li>
 </ul>
 <p>Built-in bridges: <code>BasicSim</code>, <code>CarlaBridge</code>, <code>GazeboBridge</code>.</p>
 <h3 id="c50_visualization">c50_visualization<a class="headerlink" href="#c50_visualization" title="Permanent link">&para;</a></h3>
@@ -678,9 +703,9 @@
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>World Bridge
     │
-    ├─► Ego State ─────────────────────────────┐
+    ├─► Sensor Data ──► Localization ──► Ego Pose (updated in-place)
     │                                          │
-    ├─► Sensor Data ──► Perception ──► Agents  │
+    ├─► Sensor Data ──► Perception ───► Agents │
     │                                          ▼
     │                              Local Planner
     │                                          │
@@ -693,8 +718,9 @@
     └─────────────── Control Command ◄─────────┘
 </code></pre></div>
 <ol>
-<li><strong>World Bridge</strong> provides ego state and sensor data</li>
-<li><strong>Perception</strong> (optional) detects/tracks/predicts agents</li>
+<li><strong>World Bridge</strong> provides sensor data (IMU, LiDAR, camera, ground truth)</li>
+<li><strong>Localization</strong> (optional) estimates the ego pose from sensor data, updating <code>PerceptionModel.ego_vehicle</code> in-place</li>
+<li><strong>Perception</strong> (optional) detects/tracks/predicts surrounding agents</li>
 <li><strong>Local Planner</strong> generates trajectory avoiding obstacles</li>
 <li><strong>Controller</strong> computes steering and throttle</li>
 <li><strong>World Bridge</strong> executes control command</li>
@@ -704,7 +730,7 @@
 └── extensions/           # Built-in (core team)
     ├── multi_object_prediction/
     ├── executer_ros/
-    └── test_ext/
+    └── bridge_gazebo/
 
 /path/to/                 # Community plugins
 └── my_plugin/
