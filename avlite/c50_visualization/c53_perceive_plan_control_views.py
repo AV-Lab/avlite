@@ -7,7 +7,9 @@ import logging
 
 from typing import TYPE_CHECKING
 
-from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+from avlite.c10_perception.c12_perception_strategy import (
+    PerceptionStrategy, DetectionStrategy, TrackingStrategy, PredictionStrategy,
+)
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
@@ -27,14 +29,30 @@ class PerceivePlanControlView(ttk.Frame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root)
         self.root = root
-        self.perceive_frame = PerceptionFrame(root=self.root, view=self)
+
+        # Top bar: perceive / plan / control side by side
+        top_bar = ttk.Frame(self)
+        top_bar.pack(fill=tk.X)
+
+        self.perceive_frame = PerceptionFrame(root=self.root, view=top_bar)
         self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-      
-        self.plan_frame = PlanFrame(root=self.root, view=self)
+
+        self.plan_frame = PlanFrame(root=self.root, view=top_bar)
         self.plan_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
 
-        self.control_frame = ControlFrame(root=self.root, view=self)
+        self.control_frame = ControlFrame(root=self.root, view=top_bar)
         self.control_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
+
+        # Extras row – hidden until the checkbox enables it
+        self.perception_extras_frame = PerceptionExtrasFrame(root=self.root, view=self)
+        self.root.setting.show_perception_extras.trace_add("write", lambda *_: self.toggle_perception_extras())
+        self.toggle_perception_extras()  # sync initial checkbox state
+
+    def toggle_perception_extras(self):
+        if self.root.setting.show_perception_extras.get():
+            self.perception_extras_frame.pack(fill=tk.X, expand=True)
+        else:
+            self.perception_extras_frame.pack_forget()
 
     def reset(self):
         """Update data in the view."""
@@ -42,60 +60,119 @@ class PerceivePlanControlView(ttk.Frame):
         self.plan_frame.update_data()
         self.control_frame.update_data()
 
-       
 
 # --------------------------------------------------------------------------------------------
 # -Perception---------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------
 class PerceptionFrame(ttk.LabelFrame):
-    def __init__(self, root: VisualizerApp, view:ttk.Frame):
+    def __init__(self, root: VisualizerApp, view: ttk.Frame):
         super().__init__(view, text="Perception")
         self.root = root
 
-
-        self.perception_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.perception_type, state="readonly", width=10)
+        # Row 0: main perception dropdown + Show checkbox + Extras checkbox
+        self.perception_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.perception_type, state="readonly", width=10)
         self.perception_dropdown_menu["values"] = list(PerceptionStrategy.registry.keys())
-        self.perception_dropdown_menu.bind("<<ComboboxSelected>>",lambda event: self.root.reload_stack(reload_code=False))
-        self.perception_dropdown_menu.pack(side=tk.LEFT)
-        self.perception_dropdown_menu.grid(row=0, column=0, sticky="w")
-        
-        ttk.Checkbutton(self, text="Show",variable=self.root.setting.show_occupancy_flow).grid(row=0, column=1)
+        self.perception_dropdown_menu.bind("<<ComboboxSelected>>", self._on_perception_selected)
+        self.perception_dropdown_menu.grid(row=0, column=0, sticky="w", padx=2)
 
-        self.localization_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.localization_type, state="readonly", width=10)
-        self.localization_dropdown_menu["values"] = list(LocalizationStrategy.registry.keys())
-        self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or "GT Localization")
-        self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
-        self.localization_dropdown_menu.grid(row=1, column=0, sticky="w")
+        ttk.Checkbutton(self, text="Show", variable=self.root.setting.show_occupancy_flow).grid(
+            row=0, column=1, padx=2)
+        ttk.Checkbutton(
+            self, text="Extras", variable=self.root.setting.show_perception_extras,
+            command=lambda: self.root.perceive_plan_control_view.toggle_perception_extras(),
+        ).grid(row=0, column=2, padx=2)
 
+        # Rows 1-3: pipeline sub-strategy widgets (shown only for PerceptionPipeline)
+        self._lbl_detect = ttk.Label(self, text="Detect:")
+        self._lbl_detect.grid(row=1, column=0, sticky="e", padx=(5, 0))
+        self.detection_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.detection_strategy_type, state="readonly")
+        self.detection_dropdown_menu["values"] = ("Ground Truth",) + tuple(DetectionStrategy.registry.keys())
+        self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.detection_dropdown_menu.grid(row=1, column=1, columnspan=2, sticky="ew")
 
+        self._lbl_track = ttk.Label(self, text="Track:")
+        self._lbl_track.grid(row=2, column=0, sticky="e", padx=(5, 0))
+        self.tracking_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
+        self.tracking_dropdown_menu["values"] = ("Ground Truth",) + tuple(TrackingStrategy.registry.keys())
+        self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.tracking_dropdown_menu.grid(row=2, column=1, columnspan=2, sticky="ew")
 
-        self.mapping_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.mapping_type, state="readonly", width=10)
-        self.mapping_dropdown_menu["values"] = list(MappingStrategy.registry.keys())
-        self.mapping_dropdown_menu.set(self.root.setting.mapping_type.get() or "No Mapping")
-        self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
-        self.mapping_dropdown_menu.grid(row=2, column=0, sticky="w")
+        self._lbl_predict = ttk.Label(self, text="Predict:")
+        self._lbl_predict.grid(row=3, column=0, sticky="e", padx=(5, 0))
+        self.prediction_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.prediction_strategy_type, state="readonly")
+        self.prediction_dropdown_menu["values"] = ("Ground Truth",) + tuple(PredictionStrategy.registry.keys())
+        self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=2, sticky="ew")
 
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=1)
 
-        # ----
+        self._pipeline_widgets = [
+            self._lbl_detect, self.detection_dropdown_menu,
+            self._lbl_track, self.tracking_dropdown_menu,
+            self._lbl_predict, self.prediction_dropdown_menu,
+        ]
+
+        self.root.setting.perception_type.trace_add("write", lambda *_: self._update_pipeline_visibility())
+        self._update_pipeline_visibility()
+
+    def _on_perception_selected(self, event=None):
+        self._update_pipeline_visibility()
+        self.root.reload_stack(reload_code=False)
+
+    def _update_pipeline_visibility(self):
+        from avlite.c10_perception.c12_perception_strategy import PerceptionPipeline
+        is_pipeline = self.root.setting.perception_type.get() == PerceptionPipeline.__name__
+        for w in self._pipeline_widgets:
+            if is_pipeline:
+                w.grid()
+            else:
+                w.grid_remove()
 
     def update_data(self):
         """Update data in the perception frame."""
-        core_stratigies = set(PerceptionStrategy.registry.keys()) 
+        core_strategies = set(PerceptionStrategy.registry.keys())
         allowed_default_extensions = set(PerceptionStrategy.registry.keys()) & set(ExecutionSettings.default_extensions)
         community_prefixes = tuple(f"avlite.extensions.{a}" for a in ExecutionSettings.community_plugins.keys())
-        allowed_communitty_extensions = {
+        allowed_community_extensions = {
             n for n, c in PerceptionStrategy.registry.items()
             if community_prefixes and c.__module__.startswith(community_prefixes)
         }
-        data = sorted(core_stratigies | allowed_default_extensions | allowed_communitty_extensions)
-
-        log.warning(f"allowed_default_extensions: {allowed_default_extensions}, allowed_communitty_extensions: {allowed_communitty_extensions}")
+        data = sorted(core_strategies | allowed_default_extensions | allowed_community_extensions)
+        log.warning(f"allowed_default_extensions: {allowed_default_extensions}, allowed_community_extensions: {allowed_community_extensions}")
         log.warning(f"final Strategies: {data}")
-        self.perception_dropdown_menu.delete(0, tk.END)  # Clear existing values
+
         self.perception_dropdown_menu["values"] = tuple(data)
+        self.detection_dropdown_menu["values"] = ("Ground Truth",) + tuple(DetectionStrategy.registry.keys())
+        self.tracking_dropdown_menu["values"] = ("Ground Truth",) + tuple(TrackingStrategy.registry.keys())
+        self.prediction_dropdown_menu["values"] = ("Ground Truth",) + tuple(PredictionStrategy.registry.keys())
+        self._update_pipeline_visibility()
 
-        self.localization_dropdown_menu["values"] = tuple(LocalizationStrategy.registry.keys())
 
+class PerceptionExtrasFrame(ttk.LabelFrame):
+    def __init__(self, root: VisualizerApp, view: ttk.Frame):
+        super().__init__(view, text="Perception Extras")
+        self.root = root
+
+        ttk.Label(self, text="Localization:").pack(side=tk.LEFT, padx=(5, 2))
+        self.localization_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
+        self.localization_dropdown_menu["values"] = ("Ground Truth",) + tuple(LocalizationStrategy.registry.keys())
+        self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or "Ground Truth")
+        self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10))
+
+        ttk.Label(self, text="Mapping:").pack(side=tk.LEFT, padx=(5, 2))
+        self.mapping_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.mapping_type, state="readonly", width=12)
+        self.mapping_dropdown_menu["values"] = ("Ground Truth",) + tuple(MappingStrategy.registry.keys())
+        self.mapping_dropdown_menu.set(self.root.setting.mapping_type.get() or "Ground Truth")
+        self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.mapping_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10))
 
 # --------------------------------------------------------------------------------------------
 # -Plan---------------------------------------------------------------------------------------
@@ -112,7 +189,7 @@ class PlanFrame(ttk.LabelFrame):
         global_frame = ttk.Frame(self)
         global_frame.pack(fill=tk.X)
         ttk.Label(global_frame, text="Global: ").pack(side=tk.LEFT, padx=5)
-        ttk.Checkbutton( global_frame, text="Show Global", command=self.root.update_views, variable=self.root.setting.global_plan_view,
+        ttk.Checkbutton( global_frame, text="Show", command=self.root.update_views, variable=self.root.setting.global_plan_view,
         ).pack(side=tk.LEFT)
         self.global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
         self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
@@ -127,7 +204,7 @@ class PlanFrame(ttk.LabelFrame):
         wp_frame.pack(fill=tk.X)
         # ttk.Separator(wp_frame, orient='horizontal').pack(side=tk.TOP,fill='x', pady=2)
         ttk.Label(wp_frame, text="Local:   ").pack(side=tk.LEFT, padx=5)
-        ttk.Checkbutton( wp_frame, text="Show Local  ", command=self.root.update_views,
+        ttk.Checkbutton( wp_frame, text="Show  ", command=self.root.update_views,
             variable=self.root.setting.local_plan_view).pack(side=tk.LEFT)
 
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)

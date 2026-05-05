@@ -4,6 +4,8 @@ from tkinter import ttk
 from tkinter.scrolledtext import ScrolledText
 import sys
 import queue
+from datetime import datetime
+from pathlib import Path
 
 import logging
 
@@ -66,6 +68,8 @@ class LogView(ttk.LabelFrame):
         self.log_area = ScrolledText(self, state="disabled", height=self.root.setting.log_view_default_height.get(), wrap=tk.WORD)
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
+        self._file_handler: logging.FileHandler | None = None
+
         self.after(100, self.update_log_level)
         self.after(100, self.update_core_toggle)
         self.after(100, self.update_log_filter)
@@ -86,6 +90,7 @@ class LogView(ttk.LabelFrame):
         ## Redirect stdout and stderr to the log area
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         log.info("Log initialized.")
+        self.after(self.root.setting.log_pull_time, self.poll_log_queue)
 
     def reset(self):
         self.update_log_filter()
@@ -109,7 +114,27 @@ class LogView(ttk.LabelFrame):
 
 
     def update_log_to_file(self):
-        raise NotImplementedError("Log to file functionality is not implemented yet.")
+        log_dir = Path.cwd() / "logs"
+
+        if self.root.setting.log_to_file.get():
+            log_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_path = log_dir / f"avlite_{timestamp}.log"
+            self._file_handler = logging.FileHandler(log_path, encoding="utf-8")
+            formatter = logging.Formatter(
+                "%(asctime)s %(lineno)-4d [%(levelname).4s] %(name)-36s: %(message)s"
+            )
+            self._file_handler.setFormatter(formatter)
+            logging.getLogger().addHandler(self._file_handler)
+            self.log_area.pack_forget()
+            log.info(f"Logging to file: {log_path}")
+        else:
+            if self._file_handler is not None:
+                logging.getLogger().removeHandler(self._file_handler)
+                self._file_handler.close()
+                self._file_handler = None
+                log.info("File logging stopped.")
+            self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
     def update_log_view_height(self, reverse: bool = False):
         """ update the log view height based on the setting """
@@ -221,6 +246,37 @@ class LogView(ttk.LabelFrame):
         if self.winfo_exists():
             self.after(50, self.process_log_queue)
 
+    def poll_log_queue(self, max_per_poll: int = 20):
+        messages = []
+        try:
+            while len(messages) < max_per_poll:
+                msg, levelno = self.log_handler.log_queue.get_nowait()
+                if levelno >= logging.ERROR:
+                    tag = "error"
+                elif levelno >= logging.WARNING:
+                    tag = "warn"
+                elif levelno >= logging.INFO:
+                    tag = "info"
+                else:
+                    tag = "debug"
+                messages.append((msg + "\n", tag))
+        except queue.Empty:
+            pass
+
+        if messages and not self.root.setting.log_to_file.get():
+            self.log_area.configure(state="normal")
+            for msg, tag in messages:
+                self.log_area.insert(tk.END, msg, tag)
+            if self.max_log_lines > 0:
+                line_count = int(self.log_area.index("end-1c").split(".")[0])
+                if line_count > self.max_log_lines:
+                    self.log_area.delete("1.0", f"{line_count - self.max_log_lines}.0")
+            self.log_area.configure(state="disabled")
+            self.log_area.yview(tk.END)
+
+        if self.winfo_exists():
+            self.after(self.root.setting.log_pull_time, self.poll_log_queue)
+
 
     class TextRedirector:
         """ Redirects stdout to a Tkinter Text widget """
@@ -277,20 +333,10 @@ class LogView(ttk.LabelFrame):
             msg = self.format(record)
             _first_dot = msg.find('.')
             _second_dot = msg.find('.', _first_dot + 1)
-            code = msg[_second_dot+1 : msg.find('_', _second_dot)] 
+            code = msg[_second_dot+1 : msg.find('_', _second_dot)]
             msg = code[:4] + ':' + msg
 
-            self.text_widget.configure(state="normal")
-            if record.levelno >= logging.ERROR:
-                self.text_widget.insert(tk.END, msg + "\n", "error")
-            elif record.levelno >= logging.WARNING:
-                self.text_widget.insert(tk.END, msg + "\n", "warn")
-            elif record.levelno >= logging.INFO:
-                self.text_widget.insert(tk.END, msg + "\n", "info")
-            else:
-                self.text_widget.insert(tk.END, msg + "\n", "debug")
-            self.text_widget.configure(state="disabled")
-            self.text_widget.yview(tk.END)
+            self.log_queue.put((msg, record.levelno))
  
 
     #     def emit(self, record):

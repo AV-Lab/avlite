@@ -40,3 +40,7 @@ class ExecutionSettings:
     basic_sim_npc_control = True  # If True, NPCs will follow the default trajectory at the above speed factor
 
 
+    log_level = "INFO"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_to_file = False
+
+

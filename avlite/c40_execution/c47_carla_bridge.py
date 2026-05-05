@@ -32,8 +32,8 @@ class CarlaBridge(WorldBridge):
             WorldCapability.GT_DETECTION,
             WorldCapability.GT_TRACKING,
             WorldCapability.GT_LOCALIZATION,
-            WorldCapability.RGB_IMAGE,
-            WorldCapability.LIDAR
+            WorldCapability.CAMERA_RGB,
+            WorldCapability.LIDAR_3D
         }
 
     def __init__(

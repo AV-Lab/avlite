@@ -5,13 +5,13 @@ from os import wait
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.extensions.multi_object_prediction.settings import ExtensionSettings
-from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
-from avlite.c60_common.c62_capabilities import PerceptionCapability, WorldCapability
+from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
+from avlite.c60_common.c62_capabilities import WorldCapability
 
 log = logging.getLogger(__name__)
 
 
-class MultiObjectPredictor(PerceptionStrategy):
+class MultiObjectPredictor(PredictionStrategy):
 
     @property
     def requirements(self) -> set[WorldCapability]:
@@ -20,23 +20,17 @@ class MultiObjectPredictor(PerceptionStrategy):
             WorldCapability.GT_TRACKING,
             WorldCapability.GT_LOCALIZATION,
         }
-    @property
-    def capabilities(self) -> set[PerceptionCapability]:
-        return {
-            PerceptionCapability.PREDICTION,
-        }
 
-    def __init__(self, perception_model: PerceptionModel,):
-        super().__init__(perception_model)
+    def __init__(self):
+        self.pm = None
         self.supports_prediction = True
 
         self.detector = ExtensionSettings.detector
         self.tracker = ExtensionSettings.tracker
         self.predictor = ExtensionSettings.predictor
         self.device = ExtensionSettings.device
-        self.output_mode = ExtensionSettings.prediction_mode 
-        self.max_agent_distance = ExtensionSettings.max_agent_distance 
-        self.pm = perception_model
+        self.output_mode = ExtensionSettings.prediction_mode
+        self.max_agent_distance = ExtensionSettings.max_agent_distance
         self.detector_model = None
         self.tracker_model = None
         self.predictor_model = None
@@ -129,14 +123,16 @@ class MultiObjectPredictor(PerceptionStrategy):
                 self.predictor_model = None
     
 
-    def detect(self, rgb_img = None, depth_img = None, lidar_data = None):
+    def detect(self, rgb_img=None, depth_img=None, lidar_data=None):
         pass
-    
+
     def track(self):
         pass
 
-    def predict(self):
-        
+    def predict(self, perception_model: PerceptionModel = None) -> PerceptionModel | None:
+        if perception_model is not None:
+            self.pm = perception_model
+
         if self.pm is None or self.pm.ego_vehicle is None:
             log.debug("Prediction cancelled: Perception model or ego vehicle not initialized")
             return
@@ -152,7 +148,7 @@ class MultiObjectPredictor(PerceptionStrategy):
             self.prediction_output = []
             self.grid = None
             self.bounds = None
-            return
+            return self.pm
         if self.output_mode == 'grid':
             try:
                 ego_location = [self.pm.ego_vehicle.x, self.pm.ego_vehicle.y]
@@ -168,26 +164,7 @@ class MultiObjectPredictor(PerceptionStrategy):
             log.debug(f"Predicting for {len(self.pm.agent_vehicles)} agents, ego_location at : {ego_location}")
             self.pm.trajectories = self.predictor_model.predict(self.pm,output_mode=self.output_mode)
             log.debug(f"Predicted Trajectories:{len(self.pm.trajectories)}")
-
-    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None) :
-        """
-        Main perception method that combines detection, tracking, and prediction.
-        """
-        self.frame+=1
-
-        if perception_model is not None and self.detector == 'ground_truth':
-            self.pm = perception_model
-            # log.debug(f"Using ground truth perception model number of agents: {len(self.pm.agent_vehicles)}")
-        elif self.detector is not None:
-            self.pm = self.detect(rgb_img, depth_img, lidar_data)
-
-        if self.tracker is not None:
-            self.track()
-
-        if self.predictor is not None:
-            self.predict()
-
-        return  self.prediction_output 
+        return self.pm
 
     def reset(self):
         log.info("Reset Perception")

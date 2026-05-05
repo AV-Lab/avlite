@@ -2,8 +2,12 @@ from __future__ import annotations
 import tkinter as tk
 import logging
 
-from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+from avlite.c10_perception.c12_perception_strategy import (
+    PerceptionStrategy, DetectionStrategy, TrackingStrategy, PredictionStrategy,
+)
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
+from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
+from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -43,8 +47,9 @@ class VisualizationSettings:
         #############################
         # Perc Plan Control
 
-        # perceptoin
+        # perception
         self.show_occupancy_flow = tk.BooleanVar(value=False)
+        self.show_perception_extras = tk.BooleanVar(value=False)
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
 
@@ -54,10 +59,29 @@ class VisualizationSettings:
         self.perception_type.trace_add("write", _on_perception_change)
         self.perception_dt = tk.DoubleVar(value=ExecutionSettings.perception_dt)
 
+        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.detection_strategy or "Ground Truth")
+        def _on_detection_change(*args):
+            v = self.detection_strategy_type.get()
+            PerceptionSettings.detection_strategy = "" if v == "Ground Truth" else v
+        self.detection_strategy_type.trace_add("write", _on_detection_change)
+
+        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.tracking_strategy or "Ground Truth")
+        def _on_tracking_change(*args):
+            v = self.tracking_strategy_type.get()
+            PerceptionSettings.tracking_strategy = "" if v == "Ground Truth" else v
+        self.tracking_strategy_type.trace_add("write", _on_tracking_change)
+
+        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.prediction_strategy or "Ground Truth")
+        def _on_prediction_change(*args):
+            v = self.prediction_strategy_type.get()
+            PerceptionSettings.prediction_strategy = "" if v == "Ground Truth" else v
+        self.prediction_strategy_type.trace_add("write", _on_prediction_change)
+
         # localization
-        self.localization_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "")
+        self.localization_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "Ground Truth")
         def _on_localization_change(*args):
-            ExecutionSettings.localization = self.localization_type.get()
+            v = self.localization_type.get()
+            ExecutionSettings.localization = "" if v == "Ground Truth" else v
         self.localization_type.trace_add("write", _on_localization_change)
         self.localization_dt = tk.DoubleVar(value=ExecutionSettings.localization_dt)
         def _on_localization_dt_change(*args):
@@ -65,11 +89,11 @@ class VisualizationSettings:
         self.localization_dt.trace_add("write", _on_localization_dt_change)
 
         # mapping
-        self.mapping_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "")
+        self.mapping_type = tk.StringVar(value=list(MappingStrategy.registry.keys())[0] if MappingStrategy.registry else "Ground Truth")
         def _on_mapping_change(*args):
-            ExecutionSettings.mapping = self.mapping_type.get()
+            v = self.mapping_type.get()
+            ExecutionSettings.mapping = "" if v == "Ground Truth" else v
         self.mapping_type.trace_add("write", _on_mapping_change)
-
 
         # planning
         self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
@@ -171,7 +195,10 @@ class VisualizationSettings:
         # APP Options
 
         # Logger Options
-        self.log_level = tk.StringVar(value="INFO")
+        self.log_level = tk.StringVar(value=ExecutionSettings.log_level)
+        def _on_log_level_change(*_):
+            ExecutionSettings.log_level = self.log_level.get()
+        self.log_level.trace_add("write", _on_log_level_change)
         self.show_core_logs = tk.BooleanVar(value=True)
         self.show_perceive_logs = tk.BooleanVar(value=True)
         self.show_plan_logs = tk.BooleanVar(value=True)
@@ -189,7 +216,10 @@ class VisualizationSettings:
         self.log_font = tk.StringVar(value="Courier")  # Font for the log view
         self.log_font_size = tk.IntVar(value=11)
 
-        self.log_to_file = tk.BooleanVar(value=False)
+        self.log_to_file = tk.BooleanVar(value=ExecutionSettings.log_to_file)
+        def _on_log_to_file_change(*_):
+            ExecutionSettings.log_to_file = self.log_to_file.get()
+        self.log_to_file.trace_add("write", _on_log_to_file_change)
 
         self.log_pull_time = 50 # Time in milliseconds to pull logs from the logger
         
@@ -201,4 +231,19 @@ class VisualizationSettings:
 
         self.profile_list = []
         ############################
+
+    _GT_SENTINEL_VARS = (
+        "detection_strategy_type",
+        "tracking_strategy_type",
+        "prediction_strategy_type",
+        "localization_type",
+        "mapping_type",
+    )
+
+    def normalize_gt_sentinels(self):
+        """Convert empty-string values to 'Ground Truth' display label after profile load."""
+        for name in self._GT_SENTINEL_VARS:
+            var = getattr(self, name, None)
+            if var is not None and isinstance(var, tk.StringVar) and var.get() == "":
+                var.set("Ground Truth")
 
