@@ -96,6 +96,31 @@ def list_extensions() -> list:
     return extensions
 
 
+def load_plugin_settings_class(name: str, plugin_path: str):
+    """Load ``PluginSettings`` from ``<plugin_path>/settings.py``, or return ``None``."""
+    settings_file = Path(plugin_path) / "settings.py"
+    if not settings_file.exists():
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location(
+            f"_avlite_plugin_{name}_settings", settings_file
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return getattr(module, "PluginSettings", None)
+    except Exception as e:
+        log.warning("Could not load PluginSettings for '%s': %s", name, e)
+        return None
+
+
+def patch_plugin_settings(cls, name: str, plugin_path: str) -> None:
+    """Inject ``filepath`` and ``exclude`` onto *cls* so save/load_setting work."""
+    config_dir = Path(plugin_path) / "config"
+    cls.filepath = str(config_dir / f"{name}.yaml")
+    if not hasattr(cls, "exclude"):
+        cls.exclude = ["exclude", "filepath"]
+
+
 def save_setting(setting, profile="default") -> None:
     """Save current visualization configuration to a YAML file. """
     filepath=setting.filepath

@@ -169,6 +169,89 @@ def pip_install(req_file: Path) -> None:
     )
 
 
+def get_local_head(plugin_path: Path) -> Optional[str]:
+    """Return the current HEAD commit SHA of a local git repo, or ``None``."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(plugin_path), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def get_remote_sha(repo_url: str, ref: str = "HEAD") -> Optional[str]:
+    """Return the commit SHA for *ref* on the remote, or ``None`` on failure.
+
+    Uses ``ref^{}`` to dereference annotated tags to the underlying commit SHA.
+    The last matching line from ``git ls-remote`` is used.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", repo_url, ref, f"{ref}^{{}}"],
+            capture_output=True, text=True, timeout=20,
+        )
+        if result.returncode != 0:
+            return None
+        sha = None
+        for line in result.stdout.strip().splitlines():
+            parts = line.split()
+            if parts:
+                sha = parts[0]
+        return sha
+    except Exception:
+        return None
+
+
+def check_plugin_update(plugin_path: Path, registry_entry: Optional[dict]) -> str:
+    """Compare local HEAD against remote ref.
+
+    Returns ``'up-to-date'``, ``'update-available'``, or ``'unknown'``.
+    """
+    local_sha = get_local_head(plugin_path)
+    if local_sha is None:
+        return "unknown"
+    if registry_entry is not None:
+        version = registry_entry.get("version", "latest")
+        repo = registry_entry.get("repository", "")
+    else:
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(plugin_path), "remote", "get-url", "origin"],
+                capture_output=True, text=True, timeout=5,
+            )
+            repo = r.stdout.strip() if r.returncode == 0 else ""
+            version = "latest"
+        except Exception:
+            return "unknown"
+    if not repo:
+        return "unknown"
+    ref = "HEAD" if version == "latest" else f"refs/tags/{version}"
+    remote_sha = get_remote_sha(repo, ref)
+    if remote_sha is None:
+        return "unknown"
+    return "up-to-date" if local_sha == remote_sha else "update-available"
+
+
+def update_plugin(plugin_path: Path, version: str = "latest") -> None:
+    """Pull the latest commit, or fetch and check out a specific tag."""
+    if version == "latest":
+        subprocess.run(
+            ["git", "-C", str(plugin_path), "pull"],
+            check=True, capture_output=True, text=True,
+        )
+    else:
+        subprocess.run(
+            ["git", "-C", str(plugin_path), "fetch", "origin"],
+            check=True, capture_output=True, text=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(plugin_path), "checkout", version],
+            check=True, capture_output=True, text=True,
+        )
+
+
 def _current_profile() -> str:
     """Best-effort: read the active profile from the visualization settings file."""
     try:
@@ -231,13 +314,14 @@ class CommunityPluginsApp:
 
     _instance: "Optional[CommunityPluginsApp]" = None
 
-    COLUMNS = ("name", "category", "version", "status", "path")
+    COLUMNS = ("name", "category", "version", "status", "update_status", "path")
 
     def __init__(self, parent: Optional[tk.Misc] = None):
         self.parent = parent
         self.plugins_dir = get_plugins_dir()
         self._busy = False
         self._registry: list[dict] = []
+        self._update_statuses: dict[str, str] = {}
         self._owns_root = parent is None
 
         if parent is None:
@@ -293,7 +377,8 @@ class CommunityPluginsApp:
             "category": ("Category", 110),
             "version": ("Version", 80),
             "status": ("Status", 130),
-            "path": ("Repository / Path", 380),
+            "update_status": ("Update", 120),
+            "path": ("Repository / Path", 300),
         }
         for col, (label, width) in headings.items():
             self.tree.heading(col, text=label)
@@ -315,10 +400,13 @@ class CommunityPluginsApp:
         self.btn_refresh = ttk.Button(toolbar, text="Refresh", command=self._refresh_async)
         self.btn_install = ttk.Button(toolbar, text="Install", command=self._on_install)
         self.btn_uninstall = ttk.Button(toolbar, text="Uninstall", command=self._on_uninstall)
+        self.btn_update = ttk.Button(toolbar, text="Update", command=self._on_update)
+        self.btn_update_all = ttk.Button(toolbar, text="Update All", command=self._on_update_all)
         self.btn_open = ttk.Button(toolbar, text="Open Folder", command=self._open_folder)
         self.btn_close = ttk.Button(toolbar, text="Close", command=self._on_close)
 
-        for b in (self.btn_refresh, self.btn_install, self.btn_uninstall, self.btn_open):
+        for b in (self.btn_refresh, self.btn_install, self.btn_uninstall,
+                  self.btn_update, self.btn_update_all, self.btn_open):
             b.pack(side=tk.LEFT, padx=(0, 6))
         self.btn_close.pack(side=tk.RIGHT)
 
@@ -349,6 +437,7 @@ class CommunityPluginsApp:
             else:
                 status = "Available"
                 path = entry.get("repository", "")
+            up_st = self._update_statuses.get(name, "Checking…") if inst is not None else ""
             self.tree.insert(
                 "",
                 tk.END,
@@ -358,6 +447,7 @@ class CommunityPluginsApp:
                     entry.get("category", ""),
                     entry.get("version", ""),
                     status,
+                    up_st,
                     path,
                 ),
             )
@@ -367,12 +457,14 @@ class CommunityPluginsApp:
             status = "Installed (local)"
             if name in registered:
                 status += " ✓"
+            up_st = self._update_statuses.get(name, "Checking…")
             self.tree.insert(
                 "",
                 tk.END,
                 iid=name,
-                values=(name, "", "", status, str(inst["path"])),
+                values=(name, "", "", status, up_st, str(inst["path"])),
             )
+        self._check_updates_async()
         self._update_buttons()
 
     def _selected_entry(self) -> Optional[tuple[str, str]]:
@@ -388,9 +480,16 @@ class CommunityPluginsApp:
         installed = sel is not None and sel[1].startswith("Installed")
         available = sel is not None and sel[1] == "Available"
         busy = self._busy
+        has_update = (
+            installed and sel is not None
+            and self._update_statuses.get(sel[0]) == "update-available"
+        )
+        has_any_update = any(s == "update-available" for s in self._update_statuses.values())
         self.btn_install.state(["!disabled"] if (available and not busy) else ["disabled"])
         self.btn_uninstall.state(["!disabled"] if (installed and not busy) else ["disabled"])
         self.btn_refresh.state(["disabled"] if busy else ["!disabled"])
+        self.btn_update.state(["!disabled"] if (has_update and not busy) else ["disabled"])
+        self.btn_update_all.state(["!disabled"] if (has_any_update and not busy) else ["disabled"])
 
     def _on_default_action(self) -> None:
         sel = self._selected_entry()
@@ -429,10 +528,121 @@ class CommunityPluginsApp:
                 self._set_busy(False, f"Failed to load registry: {err}")
                 return
             self._registry = result or []
+            self._update_statuses.clear()
             self._populate()
             self._set_busy(False, f"Loaded {len(self._registry)} plugin(s) from registry.")
 
         self._run_bg(fetch_registry, done)
+
+    def _check_updates_async(self) -> None:
+        """Start background update checks for installed plugins not yet checked."""
+        installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
+        registry_by_name = {e["name"]: e for e in self._registry}
+        names_to_check = [n for n in installed if n not in self._update_statuses]
+        if not names_to_check:
+            return
+
+        def run_all():
+            for name in names_to_check:
+                plugin_path = installed[name]["path"]
+                registry_entry = registry_by_name.get(name)
+                try:
+                    result = check_plugin_update(plugin_path, registry_entry)
+                except Exception as e:
+                    log.debug("Update check failed for %s: %s", name, e)
+                    result = "unknown"
+                self.window.after(0, lambda n=name, r=result: self._on_update_check_done(n, r))
+
+        threading.Thread(target=run_all, daemon=True).start()
+
+    def _on_update_check_done(self, name: str, result: str) -> None:
+        """Called on the main thread when a single plugin's update check finishes."""
+        self._update_statuses[name] = result
+        label_map = {
+            "up-to-date": "Up to date \u2713",
+            "update-available": "Update \u2191",
+            "unknown": "\u2014",
+        }
+        label = label_map.get(result, "\u2014")
+        try:
+            if self.tree.exists(name):
+                self.tree.set(name, "update_status", label)
+        except tk.TclError:
+            pass
+        self._update_buttons()
+
+    def _on_update(self) -> None:
+        """Update the currently selected plugin."""
+        sel = self._selected_entry()
+        if not sel or not sel[1].startswith("Installed"):
+            return
+        name = sel[0]
+        if self._update_statuses.get(name) != "update-available":
+            return
+        self._update_single(name)
+
+    def _update_single(self, name: str) -> None:
+        installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
+        plugin_path = installed.get(name, {}).get("path")
+        if plugin_path is None:
+            return
+        registry_entry = next((e for e in self._registry if e["name"] == name), None)
+        version = registry_entry.get("version", "latest") if registry_entry else "latest"
+        self._set_busy(True, f"Updating {name}\u2026")
+
+        def task():
+            update_plugin(plugin_path, version)
+
+        def done(_result, err):
+            if err is not None:
+                self._set_busy(False, f"Update failed for {name}: {err}")
+                messagebox.showerror("Update failed", str(err), parent=self.window)
+                return
+            self._update_statuses.pop(name, None)
+            self._set_busy(False, f"Updated {name}.")
+            self._populate()
+            self._notify_host_changed()
+
+        self._run_bg(task, done)
+
+    def _on_update_all(self) -> None:
+        """Update all plugins that have an available update."""
+        names = [n for n, s in self._update_statuses.items() if s == "update-available"]
+        if not names:
+            return
+        installed_map = {p["name"]: p for p in list_installed(self.plugins_dir)}
+        registry_by_name = {e["name"]: e for e in self._registry}
+        self._set_busy(True, f"Updating {len(names)} plugin(s)\u2026")
+
+        def task():
+            errors: list[str] = []
+            for name in names:
+                path = installed_map.get(name, {}).get("path")
+                if path is None:
+                    continue
+                entry = registry_by_name.get(name)
+                version = entry.get("version", "latest") if entry else "latest"
+                try:
+                    update_plugin(path, version)
+                    self._update_statuses.pop(name, None)
+                except Exception as e:
+                    errors.append(f"{name}: {e}")
+            return errors
+
+        def done(errors, err):
+            if err is not None:
+                self._set_busy(False, f"Update all failed: {err}")
+                return
+            if errors:
+                messagebox.showwarning(
+                    "Some updates failed", "\n".join(errors), parent=self.window
+                )
+            updated = len(names) - len(errors or [])
+            self._set_busy(False, f"Updated {updated} plugin(s).")
+            self._populate()
+            self._notify_host_changed()
+
+        self._run_bg(task, done)
 
     def _active_profile(self) -> Optional[str]:
         host = self.parent

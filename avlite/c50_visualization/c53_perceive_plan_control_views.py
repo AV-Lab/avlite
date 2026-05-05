@@ -71,7 +71,7 @@ class PerceptionFrame(ttk.LabelFrame):
 
         # Row 0: main perception dropdown + Show checkbox + Extras checkbox
         self.perception_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.perception_type, state="readonly", width=10)
+            self, textvariable=self.root.setting.perception_type, state="readonly", width=14)
         self.perception_dropdown_menu["values"] = list(PerceptionStrategy.registry.keys())
         self.perception_dropdown_menu.bind("<<ComboboxSelected>>", self._on_perception_selected)
         self.perception_dropdown_menu.grid(row=0, column=0, sticky="w", padx=2)

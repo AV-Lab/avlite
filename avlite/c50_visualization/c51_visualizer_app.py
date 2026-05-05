@@ -393,11 +393,33 @@ class VisualizerApp(tk.Tk):
         self.setting.hide_menubar.trace_add("write", lambda *_: self._apply_menubar_visibility())
 
     def _show_about(self):
-        messagebox.showinfo(
-            "About AVLite",
-            "AVLite  \n\nVersion 0.1.0\n\n"
-            "A lightweight autonomous driving software stack.",
-        )
+        win = tk.Toplevel(self)
+        win.title("About AVLite")
+        win.resizable(False, False)
+        win.configure(bg="black")
+
+        inner = tk.Frame(win, bg="black", padx=40, pady=0)
+        inner.pack(fill="both", expand=True)
+
+        try:
+            from PIL import Image, ImageTk
+            logo_img = Image.open("data/imgs/logo.png")
+            logo_img = logo_img.resize((200, 200), Image.LANCZOS)
+            win._logo_photo = ImageTk.PhotoImage(logo_img)
+            tk.Label(inner, image=win._logo_photo, bg="black").pack(pady=(24, 8))
+        except Exception:
+            log.warning("Failed to load logo for About dialog.")
+
+        tk.Label(inner, text="AVLite", fg="#10bfe8", bg="black",
+                 font=("Arial", 16, "bold")).pack()
+        tk.Label(inner, text="Version 0.1.0", fg="#10bfe8", bg="black",
+                 font=("Arial", 11)).pack(pady=(4, 0))
+        tk.Label(inner, text="A lightweight autonomous driving software stack.",
+                 fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(6, 24))
+
+        ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, 20))
+        win.grab_set()
+        win.focus_set()
 
     def _apply_menubar_visibility(self):
         if self.setting.hide_menubar.get():

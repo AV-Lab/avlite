@@ -1,13 +1,15 @@
 from __future__ import annotations
 from os import wait
+from pathlib import Path
 from typing import TYPE_CHECKING
 import importlib
+import importlib.util
 import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkfont
 
 
-from avlite.c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, reload_lib, load_all_stack_settings
+from avlite.c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, reload_lib, load_all_stack_settings, load_plugin_settings_class, patch_plugin_settings
 from avlite.c50_visualization.c58_ui_lib import ThemedInputDialog, ThemedTwoInputDialog
 if TYPE_CHECKING:
     from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
@@ -27,6 +29,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
+
+
+# Aliases kept for readability within this module
+_load_plugin_settings_class = load_plugin_settings_class
+_patch_plugin_settings = patch_plugin_settings
 
 
 class ConfigShortcutView(ttk.LabelFrame):
@@ -275,7 +282,9 @@ class SettingWindow:
         for ext in ExecutionSettings.community_plugins.keys() if self.root.setting.load_extensions.get() else []:
             self.listbox_community_plugins.insert(tk.END, ext)
 
-        self.listbox_community_plugins.bind("<Double-Button-1>",lambda e:  self.edit_community_plugin())
+        self.listbox_community_plugins.bind("<Double-Button-1>", lambda e: self.edit_community_plugin())
+        self.listbox_community_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_plugin())
+        self.listbox_default_extensions.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_extension())
 
 
 
@@ -336,6 +345,7 @@ class SettingWindow:
         ttk.Label(self.settings_frame, text="Core Stack Settings",style="Big.TLabel").pack(anchor=tk.W, padx=5, pady=5)
         # to keep track of all widgets
         self.widget_entries = {}
+        self.settings_section_frames = {}
         self.create_widgets(PerceptionSettings, "Perception Settings")
         self.create_widgets(PlanningSettings, "Planning Settings")
         self.create_widgets(ControlSettings, "Control Settings")
@@ -347,6 +357,11 @@ class SettingWindow:
             ttk.Label(self.settings_frame, text="Extensions Settings",style="Big.TLabel").pack(anchor=tk.W, padx=5, pady=5)
             self.create_ext_widgets()
 
+        # Pre-create separator and label for community plugin settings section;
+        # they are pack()ed lazily inside create_community_plugin_widgets().
+        self._cp_sep = ttk.Separator(self.settings_frame, orient='horizontal')
+        self._cp_label = ttk.Label(self.settings_frame, text="Community Plugin Settings", style="Big.TLabel")
+        self.create_community_plugin_widgets()
 
         ################
         # Additional settings
@@ -568,7 +583,20 @@ class SettingWindow:
                 except Exception as e:
                     log.error(f"Failed to save extension settings for {ext}: {e}")
 
-        
+        # Save community plugin settings
+        if self.root.setting.load_extensions.get():
+            for name, plugin_path in ExecutionSettings.community_plugins.items():
+                try:
+                    cls = _load_plugin_settings_class(name, plugin_path)
+                    if cls is None:
+                        continue
+                    _patch_plugin_settings(cls, name, plugin_path)
+                    self.save_from_widgets(cls, extension_name=f"community_{name}")
+                    Path(cls.filepath).parent.mkdir(parents=True, exist_ok=True)
+                    save_setting(cls, profile=self.root.setting.selected_profile.get())
+                except Exception as e:
+                    log.error("Failed to save plugin settings for '%s': %s", name, e)
+
         # just to save the profile 
         save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
     
@@ -600,6 +628,24 @@ class SettingWindow:
                     log.debug(f"loaded extension settings for {ext}")
                 except Exception as e:
                     log.error(f"Failed to save extension settings for {ext}: {e}")
+
+        self.update_community_plugin_widgets()
+
+    def update_community_plugin_widgets(self):
+        """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
+        if not self.root.setting.load_extensions.get():
+            return
+        for name, plugin_path in ExecutionSettings.community_plugins.items():
+            ext_name = f"community_{name}"
+            cls = _load_plugin_settings_class(name, plugin_path)
+            if cls is None:
+                continue
+            _patch_plugin_settings(cls, name, plugin_path)
+            try:
+                load_setting(cls, profile=self.root.setting.selected_profile.get())
+            except Exception as e:
+                log.warning("Could not reload plugin settings for '%s': %s", name, e)
+            self.update_widgets(cls, extension_name=ext_name)
 
     def update_extensions_widgets(self):
         """ Update the extension widgets with the current settings. """ 
@@ -642,6 +688,7 @@ class SettingWindow:
 
         if self.root.setting.load_extensions.get():
             self.create_ext_widgets()
+            self.create_community_plugin_widgets()
         else:
             # Clear existing extension widgets
             for ext in ExecutionSettings.default_extensions:
@@ -656,6 +703,23 @@ class SettingWindow:
                     log.debug(f"Removed widgets for {ext_key}")
 
             self.ext_widget_created = False
+
+            # Clear community plugin widgets
+            for name in list(ExecutionSettings.community_plugins.keys()):
+                cp_key = f"PluginSettingscommunity_{name}"
+                if cp_key in self.widget_entries:
+                    entry_dict = self.widget_entries[cp_key]
+                    if entry_dict:
+                        first_widget = next(iter(entry_dict.values()))
+                        parent_frame = first_widget.master
+                        parent_frame.pack_forget()
+                    del self.widget_entries[cp_key]
+                    log.debug("Removed community plugin widgets for %s", name)
+
+            # Hide the community plugin section header
+            self._cp_sep.pack_forget()
+            self._cp_label.pack_forget()
+            self._cp_widget_created = False
 
 
     def create_ext_widgets(self):
@@ -672,15 +736,44 @@ class SettingWindow:
             except Exception as e:
                 log.error(f"Failed to load extension settings for {ext}: {e}")
 
-    
-    # TODO: need add list to possible values
+    def create_community_plugin_widgets(self):
+        """Create settings widgets for community plugins that expose a ``PluginSettings`` class."""
+        if getattr(self, "_cp_widget_created", False):
+            log.warning("Community plugin widgets already created, skipping.")
+            return
+
+        found = []
+        if self.root.setting.load_extensions.get():
+            for name, plugin_path in ExecutionSettings.community_plugins.items():
+                cls = _load_plugin_settings_class(name, plugin_path)
+                if cls is not None:
+                    found.append((name, plugin_path, cls))
+
+        if not found:
+            return
+
+        self._cp_sep.pack(fill='x', pady=10)
+        self._cp_label.pack(anchor=tk.W, padx=5, pady=5)
+        for name, plugin_path, cls in found:
+            _patch_plugin_settings(cls, name, plugin_path)
+            try:
+                load_setting(cls, profile=self.root.setting.selected_profile.get())
+            except Exception as e:
+                log.warning("Could not load plugin settings for '%s': %s", name, e)
+            self.create_widgets(cls, f"Plugin: {name}", extension_name=f"community_{name}")
+
+        self._cp_widget_created = True
+
+
     def create_widgets(self, setting, setting_name="Settings", extension_name=""):
         """ Create widgets for the settings view. """
 
         frame = ttk.Labelframe(self.settings_frame, text=setting_name)
         frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.widget_entries[setting.__name__+extension_name] = {}
+        key = setting.__name__ + extension_name
+        self.widget_entries[key] = {}
+        self.settings_section_frames[key] = frame
         row = 0
         for field in dir(setting):
             if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
@@ -691,7 +784,7 @@ class SettingWindow:
                 entry = ttk.Entry(frame)
                 entry.insert(0, str(value))
                 entry.grid(row=row, column=1, padx=5, pady=2, sticky="ew")
-                self.widget_entries[setting.__name__+extension_name][field] = entry
+                self.widget_entries[key][field] = entry
                 row += 1
 
 
@@ -754,6 +847,28 @@ class SettingWindow:
             else:
                 entry.delete(0, tk.END)
                 entry.insert(0, value)
+
+    def _scroll_to_settings(self, key: str) -> None:
+        """Scroll the settings canvas so the section for *key* is visible."""
+        frame = self.settings_section_frames.get(key)
+        if not frame:
+            return
+        self.window.update_idletasks()
+        total = self.settings_frame.winfo_height()
+        if total > 0:
+            self.canvas.yview_moveto(frame.winfo_y() / total)
+
+    def _scroll_to_selected_extension(self) -> None:
+        sel = self.listbox_default_extensions.curselection()
+        if sel:
+            ext = self.listbox_default_extensions.get(sel[0])
+            self._scroll_to_settings(f"ExtensionSettings{ext}")
+
+    def _scroll_to_selected_plugin(self) -> None:
+        sel = self.listbox_community_plugins.curselection()
+        if sel:
+            name = self.listbox_community_plugins.get(sel[0])
+            self._scroll_to_settings(f"PluginSettingscommunity_{name}")
 
     def hide(self):
         """Hide the window instead of destroying it"""

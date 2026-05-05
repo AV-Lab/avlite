@@ -232,12 +232,21 @@ class LocalPlannerStrategy(ABC):
                 log.info("Local plan traversed, no next local plan selected. I'll follow the global trajectory")
                 self.selected_local_plan = None
 
-        if self.global_trajectory.is_traversed():
-            self.lap += 1
-            log.info(f"Lap {self.lap} Done")
-
         #### Frenet Coordinates
         s_, d_ = self.global_trajectory.convert_xy_to_sd(state.x, state.y)
+
+        # Lap detection via S-coordinate crossover.
+        # global_trajectory.is_traversed() relies on current_wp reaching the last index,
+        # which is unreliable when the ego is laterally displaced on a local plan and the
+        # closest global waypoint jumps directly from near-end to near-start.
+        # Instead, compare the previous S value to the new one: if we were near the end of
+        # the track (s > 80%) and are now near the start (s < 20%), a lap has been completed.
+        if self.global_plan.race_mode and len(self.traversed_s) > 0:
+            track_len = self.global_trajectory.path_s[-2]
+            if track_len > 0 and self.traversed_s[-1] > track_len * 0.8 and s_ < track_len * 0.05:
+                self.lap += 1
+                log.info(f"Lap {self.lap} Done")
+
         self.traversed_d.append(d_)
         self.traversed_s.append(s_)
         self.location_xy = (state.x, state.y)

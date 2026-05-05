@@ -24,7 +24,7 @@ from avlite.c40_execution.c41_execution_model import Executer, WorldBridge
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
 from avlite.c40_execution.c44_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim
-from avlite.c40_execution.c47_carla_bridge import CarlaBridge
+from avlite.extensions.bridge_carla.carla_bridge import CarlaBridge
 
 
 
@@ -159,7 +159,7 @@ def executor_factory(
     try:
         if bridge == "CarlaBridge": # string for lazy loading, beause it could have dependencies that are not available
             log.info("Loading Carla bridge...")
-            from avlite.c40_execution.c47_carla_bridge import CarlaBridge
+            from avlite.extensions.bridge_carla.carla_bridge import CarlaBridge
             world = CarlaBridge(ego_state=ego_state)
         elif bridge == "GazeboIgnitionBridge":
             log.info("Loading Gazebo bridge...")
