@@ -152,6 +152,7 @@ default:
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
   global_zoom: 280
+  hide_menubar: false
   load_extensions: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner

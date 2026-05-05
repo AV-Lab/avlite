@@ -25,6 +25,7 @@ class VisualizationSettings:
         # Config
         self.shortcut_mode = tk.BooleanVar()
         self.dark_mode = tk.BooleanVar(value=True)
+        self.hide_menubar = tk.BooleanVar(value=False)
         self.selected_profile = tk.StringVar(value="default")
         self.next_profile = tk.StringVar(value="default")
         self.load_extensions = tk.BooleanVar(value=True)  # Load extensions on startup

@@ -380,8 +380,10 @@ class SettingWindow:
         ttk.Entry(additional_setting_row_2, textvariable=self.root.setting.log_view_expended_height, width=5,
                   validatecommand=self.root.validate_cmd).pack(side=tk.LEFT, padx=5)
         
-        # additional_setting_row_3 = ttk.Frame(additional_setting_frame)
-        # additional_setting_row_3.pack(fill=tk.X, padx=5)
+        additional_setting_row_3 = ttk.Frame(additional_setting_frame)
+        additional_setting_row_3.pack(fill=tk.X, padx=5)
+        ttk.Checkbutton(additional_setting_row_3, text="Hide menu bar",
+                        variable=self.root.setting.hide_menubar).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(additional_setting_row_2, text="Close",width=5, underline=0, command=self.hide).pack(side=tk.RIGHT, padx=5)
         ttk.Button(additional_setting_row_2, text="Save",width=5, underline=0, command=self.save_profile).pack(side=tk.RIGHT, padx=5)
 

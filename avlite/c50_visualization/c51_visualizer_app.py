@@ -1,6 +1,6 @@
 import time
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 import logging
 
@@ -86,6 +86,7 @@ class VisualizerApp(tk.Tk):
         self.bind("<Configure>", self.__update_grid_column_sizes)
         self.after(500, self.update_ui)
         self.last_resize_time = time.time()
+        self._create_menubar()
         self.ui_initialized = True
         
         log.info(f"Available profiles: {self.setting.profile_list}")
@@ -264,7 +265,7 @@ class VisualizerApp(tk.Tk):
             self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
     
         if hasattr(self, 'menubar'):
-            bg = "#333333"; fg = "white"; activebg = "#555555"; activefg = "white"
+            bg = "#333333"; fg = "#bbbbbb"; activebg = "#555555"; activefg = "#bbbbbb"
             self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
@@ -361,6 +362,48 @@ class VisualizerApp(tk.Tk):
         self.option_add('*Listbox.borderWidth', 2)
        
         style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+
+    def _create_menubar(self):
+        self.menubar = tk.Menu(self)
+        self.menus = []
+
+        file_menu = tk.Menu(self.menubar, tearoff=0)
+        file_menu.add_command(label="Settings", command=self.config_shortcut_view.open_settings_window)
+        file_menu.add_command(label="Community Plugins", command=self.config_shortcut_view.open_plugins_window)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.quit)
+        self.menubar.add_cascade(label="File", menu=file_menu)
+        self.menus.append(file_menu)
+
+        help_menu = tk.Menu(self.menubar, tearoff=0)
+        help_menu.add_command(label="About AVLite\u2026", command=self._show_about)
+        self.menubar.add_cascade(label="Help", menu=help_menu)
+        self.menus.append(help_menu)
+
+        # Apply current theme colours
+        if self.setting.dark_mode.get():
+            bg, fg, activebg, activefg = "#333333", "#bbbbbb", "#555555", "#bbbbbb"
+        else:
+            bg, fg, activebg, activefg = "white", "black", "#ececec", "black"
+        self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
+        for menu in self.menus:
+            menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
+
+        self._apply_menubar_visibility()
+        self.setting.hide_menubar.trace_add("write", lambda *_: self._apply_menubar_visibility())
+
+    def _show_about(self):
+        messagebox.showinfo(
+            "About AVLite",
+            "AVLite \u2014 Autonomous Vehicle Lite\n\nVersion 0.1.0\n\n"
+            "A lightweight autonomous driving simulation and visualization framework.",
+        )
+
+    def _apply_menubar_visibility(self):
+        if self.setting.hide_menubar.get():
+            self.config(menu="")
+        else:
+            self.config(menu=self.menubar)
 
     def set_set_light_mode_darker(self):
         self.configure(bg="gray14")
