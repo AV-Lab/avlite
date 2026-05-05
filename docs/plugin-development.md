@@ -54,7 +54,68 @@ class MyPerception(PerceptionStrategy):
         return self.perception_model
 ```
 
-## 3. Example: Custom Localization
+## 3. Example: Custom Detection, Tracking, or Prediction Sub-Strategy
+
+Use `DetectionStrategy`, `TrackingStrategy`, or `PredictionStrategy` when you only need
+to implement one stage of the pipeline. These plug into `PerceptionPipeline` and are
+selected by name in the `PerceptionSettings`.
+
+```python
+from avlite.c10_perception.c12_perception_strategy import DetectionStrategy
+from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c10_perception.c11_perception_model import PerceptionModel
+
+class MyDetector(DetectionStrategy):
+    @property
+    def requirements(self) -> set[WorldCapability]:
+        return {WorldCapability.CAMERA_RGB}
+
+    def detect(self, perception_model: PerceptionModel,
+               rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:
+        # Your detection logic here
+        return perception_model
+```
+
+```python
+from avlite.c10_perception.c12_perception_strategy import TrackingStrategy
+from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c10_perception.c11_perception_model import PerceptionModel
+
+class MyTracker(TrackingStrategy):
+    @property
+    def requirements(self) -> set[WorldCapability]:
+        return set()
+
+    def track(self, perception_model: PerceptionModel) -> PerceptionModel:
+        # Your tracking logic here
+        return perception_model
+```
+
+```python
+from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
+from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c10_perception.c11_perception_model import PerceptionModel
+
+class MyPredictor(PredictionStrategy):
+    @property
+    def requirements(self) -> set[WorldCapability]:
+        return set()
+
+    def predict(self, perception_model: PerceptionModel) -> PerceptionModel | None:
+        # Your prediction logic here
+        return perception_model
+```
+
+To use these sub-strategies with `PerceptionPipeline`, set the appropriate fields in
+`configs/c10_perception.yaml`:
+
+```yaml
+detection_strategy: MyDetector
+tracking_strategy: MyTracker
+prediction_strategy: MyPredictor
+```
+
+## 4. Example: Custom Localization
 
 Localization strategies estimate the ego vehicle’s pose and update
 `self.perception_model.ego_vehicle` **in-place** (no return value).
@@ -69,11 +130,11 @@ class MyLocalization(LocalizationStrategy):
     
     @property
     def requirements(self) -> set[WorldCapability]:
-        return {WorldCapability.LIDAR}
+        return {WorldCapability.LIDAR_3D}
     
     @property
     def capabilities(self) -> set[LocalizationCapability]:
-        return {LocalizationCapability.LIDAR_LOCALIZATION}
+        return {LocalizationCapability.LOCALIZATION_2D, LocalizationCapability.LOCALIZATION_HEADING}
     
     def localize(self, imu=None, lidar=None, rgb_img=None) -> None:
         # Estimate the ego pose from sensor data and update in-place
@@ -87,7 +148,7 @@ class MyLocalization(LocalizationStrategy):
         pass
 ```
 
-## 4. Example: Custom Controller
+## 5. Example: Custom Controller
 
 ```python
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -102,7 +163,7 @@ class MyController(ControlStrategy):
         pass
 ```
 
-## 5. Export Classes
+## 6. Export Classes
 
 ```python
 # __init__.py
@@ -112,7 +173,7 @@ from .settings import ExtensionSettings
 __all__ = ["MyPerception", "MyLocalization", "MyController", "ExtensionSettings"]
 ```
 
-## 6. Register Your Community Plugin
+## 7. Register Your Community Plugin
 
 **Via GUI** (recommended):
 1. Open AVLite
@@ -132,7 +193,10 @@ Your classes will now appear in the UI dropdowns.
 
 | Base Class | Purpose | Key Method |
 |------------|---------|------------|
-| `PerceptionStrategy` | Detection/tracking/prediction | `perceive()` |
+| `PerceptionStrategy` | Monolithic detection/tracking/prediction | `perceive()` |
+| `DetectionStrategy` | Detection sub-strategy (used by `PerceptionPipeline`) | `detect()` |
+| `TrackingStrategy` | Tracking sub-strategy (used by `PerceptionPipeline`) | `track()` |
+| `PredictionStrategy` | Prediction sub-strategy (used by `PerceptionPipeline`) | `predict()` |
 | `LocalizationStrategy` | Localization | `localize()` |
 | `MappingStrategy` | Mapping | TBD |
 | `LocalPlannerStrategy` | Local planning | `replan()` |
