@@ -186,9 +186,9 @@ class ExecSettingsFrame(ttk.LabelFrame):
         super().__init__(view, text="Executables")
         self.root = root
         ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control).grid(row=0, column=0, sticky="w")
-        ttk.Checkbutton(self, text="Plan", variable=self.root.setting.exec_plan).grid(row=1, column=0, sticky="w")
-        ttk.Checkbutton(self, text="Percieve", variable=self.root.setting.exec_perceive).grid(row=2, column=0, sticky="w")
-        ttk.Checkbutton(self, text="Localize", variable=self.root.setting.exec_localize).grid(row=3, column=0, sticky="w")
+        ttk.Checkbutton(self, text="Planning", variable=self.root.setting.exec_plan).grid(row=1, column=0, sticky="w")
+        ttk.Checkbutton(self, text="Perception", variable=self.root.setting.exec_perceive).grid(row=2, column=0, sticky="w")
+        ttk.Checkbutton(self, text="Localization", variable=self.root.setting.exec_localize).grid(row=3, column=0, sticky="w")
 
 
 class BridgeFrame(ttk.LabelFrame):
@@ -219,8 +219,8 @@ class BridgeFrame(ttk.LabelFrame):
         """Enable / disable checkboxes based on the active bridge's capabilities."""
         cap_map = {
             WorldCapability.GT_DETECTION: self.chk_ground_truth,
-            WorldCapability.RGB_IMAGE:    self.chk_rgb_image,
-            WorldCapability.LIDAR:        self.chk_lidar_data,
+            WorldCapability.CAMERA_RGB:    self.chk_rgb_image,
+            WorldCapability.LIDAR_3D:        self.chk_lidar_data,
         }
         for cap, chk in cap_map.items():
             if cap in capabilities:

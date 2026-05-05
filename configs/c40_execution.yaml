@@ -68,7 +68,8 @@ default:
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
-  community_plugins: {}
+  community_plugins:
+    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
   control_dt: 0.01
   controller: StanleyController
   default_extensions:
@@ -81,13 +82,13 @@ default:
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
   local_planner: GreedyLatticePlanner
-  localization: Localization
+  localization: ''
   localization_dt: 0.1
-  mapping: Mapping
-  perception: None
+  mapping: ''
+  perception: PerceptionPipeline
   perception_dt: 0.5
   provide_ground_truth: true
-  provide_lidar: false
+  provide_lidar: true
   provide_rgb: false
   replan_dt: 0.55
   sim_dt: 0.011
@@ -142,6 +143,9 @@ ros:
   local_planner: GreedyLatticePlanner
   localization: Localization
   localization_dt: 0.1
+  log_level: DEBUG
+  log_to_file: true
+  mapping: ''
   perception: MultiObjectPredictor
   perception_dt: 0.5
   provide_ground_truth: true
@@ -169,8 +173,9 @@ source defaults:
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/san_campus.xodr
   local_planner: RNDPlanner
-  localization: Localization
+  localization: ''
   localization_dt: 0.1
+  mapping: ''
   perception: MultiObjectPredictor
   perception_dt: 0.5
   provide_ground_truth: true

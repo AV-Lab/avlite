@@ -4,9 +4,14 @@ class WorldCapability(Enum):
     GT_DETECTION = auto() # Whether the world supports ground truth detection
     GT_TRACKING = auto() # Whether the world supports ground truth tracking ids
     GT_LOCALIZATION = auto() # Whether the world supports ground truth localization
-    RGB_IMAGE = auto() # Whether the world supports RGB image
-    DEPTH_IMAGE = auto() # Whether the world supports depth image
-    LIDAR = auto() # Whether the world supports lidar data
+    CAMERA_RGB = auto() # Whether the world supports RGB image
+    CAMERA_DEPTH = auto() # Whether the world supports depth image
+    LIDAR_3D = auto() # Whether the world supports lidar data
+    LIDAR_2D = auto()             # 2D LiDAR scanner
+    RADAR = auto()                # Radar sensor
+    WHEEL_ENCODER = auto()        # Wheel encoder for odometry
+    IMU = auto()                  # Inertial measurement unit
+    GNSS = auto()                 # GNSS / GPS receiver
 
 class PerceptionCapability(Enum):
     DETECTION = auto() # Whether the perception strategy supports detection
@@ -14,11 +19,11 @@ class PerceptionCapability(Enum):
     PREDICTION = auto() # Whether the perception strategy supports prediction
 
 class LocalizationCapability(Enum):
-    IMU = auto()                  # Inertial measurement unit based localization
-    GNSS = auto()                 # GNSS / GPS based localization
-    LIDAR_LOCALIZATION = auto()   # LiDAR scan-matching localization
-    VISUAL_LOCALIZATION = auto()  # Camera / visual odometry based localization
-    WHEEL_ODOMETRY = auto()       # Wheel encoder / odometry based localization
+    LOCALIZATION_2D = auto() # Whether the localization strategy provides 2D pose (x, y)
+    LOCALIZATION_3D = auto() # Whether the localization strategy provides 3D pose (x, y, z)
+    LOCALIZATION_HEADING = auto() # Whether the localization strategy provides heading estimation
+    LOCALIZATION_HEADING_3D = auto() # Whether the localization strategy provides 3D heading estimation (e.g. roll, pitch, yaw)
+    VELOCITY = auto() # Whether the localization strategy provides velocity estimation
 
 class MappingCapability(Enum):
     OCCUPANCY_GRID = auto()
@@ -26,15 +31,5 @@ class MappingCapability(Enum):
     OPENDRIVE_HDMAP = auto()
 
 
-class PluginCapability(Enum):
-    PLANNING = auto()
-    CONTROL = auto()
-    PERCEPTION = auto()
-    EXECUTION = auto()
-    WORLDBRIDGE = auto()
-
-
-    LOCALIZATION = auto()
-    MAPPING = auto()
 
 

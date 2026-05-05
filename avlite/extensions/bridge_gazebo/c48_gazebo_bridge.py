@@ -25,8 +25,8 @@ class GazeboIgnitionBridge(WorldBridge, Node):
         return {
             WorldCapability.GT_DETECTION,
             WorldCapability.GT_LOCALIZATION,
-            WorldCapability.RGB_IMAGE,
-            WorldCapability.LIDAR
+            WorldCapability.CAMERA_RGB,
+            WorldCapability.LIDAR_3D
         }
     def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default"):
         """

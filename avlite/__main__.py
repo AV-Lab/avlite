@@ -58,7 +58,7 @@ def _render_dashboard(executer, profile: str):
 
     table = Table.grid(padding=(0, 2), expand=True)
     table.add_column(style="cyan", no_wrap=True)
-    table.add_column(style="white")
+    table.add_column(style="white", no_wrap=True, justify="left")
 
     ego = _g(executer, "ego_state", None)
     controller = _g(executer, "controller", None)
@@ -76,35 +76,35 @@ def _render_dashboard(executer, profile: str):
     table.add_row("World", type(world).__name__ if world not in (None, "-") else "-")
     table.add_row(
         "Elapsed (real / sim)",
-        f"{_fmt(_g(executer, 'elapsed_real_time', 0.0), '7.2f')} s  /  "
-        f"{_fmt(_g(executer, 'elapsed_sim_time', 0.0), '7.2f')} s",
+        f"{_fmt(_g(executer, 'elapsed_real_time', 0.0), '<7.2f')} s  /  "
+        f"{_fmt(_g(executer, 'elapsed_sim_time', 0.0), '<7.2f')} s",
     )
     table.add_row(
         "FPS (plan / ctrl / perc / loc)",
-        f"{_fmt(_g(executer, 'planner_fps', 0.0), '6.1f')}  "
-        f"{_fmt(_g(executer, 'control_fps', 0.0), '6.1f')}  "
-        f"{_fmt(_g(executer, 'perception_fps', 0.0), '6.1f')}  "
-        f"{_fmt(_g(executer, 'localization_fps', 0.0), '6.1f')}",
+        f"{_fmt(_g(executer, 'planner_fps', 0.0), '<6.1f')}  "
+        f"{_fmt(_g(executer, 'control_fps', 0.0), '<6.1f')}  "
+        f"{_fmt(_g(executer, 'perception_fps', 0.0), '<6.1f')}  "
+        f"{_fmt(_g(executer, 'localization_fps', 0.0), '<6.1f')}",
     )
     if ego not in (None, "-"):
         table.add_row(
             "Ego (x, y, θ)",
-            f"({_fmt(_g(ego, 'x', 0.0), '+8.2f')}, "
-            f"{_fmt(_g(ego, 'y', 0.0), '+8.2f')}, "
-            f"{_fmt(_g(ego, 'theta', 0.0), '+6.2f')})",
+            f"({_fmt(_g(ego, 'x', 0.0), '<+8.2f')}, "
+            f"{_fmt(_g(ego, 'y', 0.0), '<+8.2f')}, "
+            f"{_fmt(_g(ego, 'theta', 0.0), '<+6.2f')})",
         )
         v = _g(ego, "velocity", 0.0)
         table.add_row(
             "Velocity",
-            f"{_fmt(v, '6.2f')} m/s  ({_fmt(v * 3.6 if isinstance(v, (int, float)) else 0.0, '6.2f')} km/h)",
+            f"{_fmt(v, '<6.2f')} m/s  ({_fmt(v * 3.6 if isinstance(v, (int, float)) else 0.0, '<6.2f')} km/h)",
         )
     if local_planner not in (None, "-"):
         table.add_row("Lap", str(_g(local_planner, "lap", 0)))
     if cmd not in (None, "-"):
         table.add_row(
             "Last cmd (acc / steer)",
-            f"{_fmt(_g(cmd, 'acceleration', 0.0), '+6.2f')}  /  "
-            f"{_fmt(_g(cmd, 'steer', 0.0), '+6.2f')}",
+            f"{_fmt(_g(cmd, 'acceleration', 0.0), '<+6.2f')}  /  "
+            f"{_fmt(_g(cmd, 'steer', 0.0), '<+6.2f')}",
         )
 
     footer = Text("Press Ctrl+C to stop", style="dim")
@@ -235,7 +235,7 @@ def _build_layout(executer, profile, log_buffer, log_height: int):
     return layout
 
 
-def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bool, log_level: str) -> None:
+def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bool, log_level: str | None) -> None:
     """Run the executer in a background thread with a live `rich` dashboard."""
     try:
         from rich.console import Console
@@ -250,6 +250,8 @@ def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: b
     import threading
     import time
     from collections import deque
+    from datetime import datetime
+    from pathlib import Path
 
     from avlite.c40_execution.c42_factory import executor_factory
     from avlite.c40_execution.c49_settings import ExecutionSettings
@@ -258,7 +260,8 @@ def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: b
     # Capture all log output into a bounded buffer so background-thread logs
     # (AsyncThreadedExecuter, ROSExecuter) don't corrupt the live display.
     log_buffer: deque[str] = deque(maxlen=500)
-    level_value = getattr(logging, log_level.upper(), logging.INFO)
+    # Use INFO temporarily until the profile is loaded and the real level is known.
+    level_value = logging.INFO
 
     # Strip every console StreamHandler attached to root *and* every existing
     # non-root logger; otherwise libraries that grabbed sys.stderr at import
@@ -293,11 +296,34 @@ def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: b
     # Also nudge ROS to be quieter at the source, if the user hasn't set these.
     _os.environ.setdefault("RCUTILS_LOGGING_USE_STDOUT", "0")
     _os.environ.setdefault("RCUTILS_COLORIZED_OUTPUT", "0")
-    _os.environ.setdefault("RCUTILS_LOGGING_MIN_SEVERITY", log_level.upper())
+    _os.environ.setdefault("RCUTILS_LOGGING_MIN_SEVERITY", (log_level or "INFO").upper())
 
     console = Console(stderr=False)
 
     load_all_stack_settings(profile=profile, load_extensions=True)
+
+    # Resolve effective log level: CLI arg wins over profile; profile wins over default.
+    effective_log_level = log_level if log_level is not None else ExecutionSettings.log_level
+    level_value = getattr(logging, effective_log_level.upper(), logging.INFO)
+    root_logger.setLevel(level_value)
+    deque_handler.setLevel(level_value)
+
+    # Attach a file handler if the profile requests it.
+    file_handler: logging.FileHandler | None = None
+    if ExecutionSettings.log_to_file:
+        log_dir = Path.cwd() / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_path = log_dir / f"avlite_{timestamp}.log"
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
+        file_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(lineno)-4d [%(levelname).4s] %(name)-36s: %(message)s"
+            )
+        )
+        file_handler.setLevel(level_value)
+        root_logger.addHandler(file_handler)
+        log.info(f"Logging to file: {log_path}")
 
     executer = executor_factory(
         executer_type=ExecutionSettings.executer_type,
@@ -363,6 +389,9 @@ def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: b
         console.print("[yellow]Stopped.[/yellow]")
     finally:
         root_logger.removeHandler(deque_handler)
+        if file_handler is not None:
+            root_logger.removeHandler(file_handler)
+            file_handler.close()
         fd_capture.stop()
 
 
@@ -380,9 +409,9 @@ def main(argv: list[str] | None = None) -> None:
     headless.add_argument("--perceive", action="store_true", help="Enable perception step in the loop")
     headless.add_argument(
         "--log-level",
-        default="INFO",
+        default=None,
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Minimum log level shown in the Logs panel (default: INFO)",
+        help="Override the log level from the profile (default: read from profile)",
     )
 
     try:

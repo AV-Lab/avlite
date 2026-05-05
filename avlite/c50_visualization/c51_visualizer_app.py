@@ -417,6 +417,7 @@ class VisualizerApp(tk.Tk):
         load_all_stack_settings(profile=profile, load_extensions=self.setting.load_extensions.get())
         if not only_stack:
             load_setting(self.setting, profile=profile)
+            self.setting.normalize_gt_sentinels()
         self.config_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 

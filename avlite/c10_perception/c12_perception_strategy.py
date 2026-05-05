@@ -26,23 +26,6 @@ class PerceptionStrategy(ABC):
     def capabilities(self) -> set[PerceptionCapability]:
         pass
 
-    # def detect(self, rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:
-    #     """
-    #     Detect objects in the environment using the specified detection method.
-    #     """
-    #     raise NotImplementedError("Detection method not implemented.")
-    #
-    # def track(self) -> PerceptionModel | None:
-    #     """
-    #     Track detected objects over time.
-    #     """
-    #     raise NotImplementedError("Tracking method not implemented.")
-    #
-    # def predict(self)-> PerceptionModel | None:
-    #     """
-    #     Predict future states of tracked objects.
-    #     """
-    #     raise NotImplementedError("Prediction method not implemented.")
 
     @abstractmethod
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None)-> PerceptionModel | None:
@@ -75,7 +58,7 @@ class DetectionStrategy(ABC):
         pass
 
     @abstractmethod
-    def detect(self, rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:
+    def detect(self, perception_model: PerceptionModel, rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:
         """
         Detect objects in the environment using the specified detection method.
         """
@@ -88,40 +71,86 @@ class DetectionStrategy(ABC):
 
     
 class TrackingStrategy(ABC):
-    """
-    A simple perception strategy that only performs tracking.
-    """
     registry = {}
-    def __init__(self, perception_model: PerceptionModel, setting:Type[PerceptionSettings] = PerceptionSettings):
-        self.perception_model = perception_model
-    
+
     @property
     @abstractmethod
     def requirements(self) -> set[WorldCapability]:
         pass
 
+    @abstractmethod
+    def track(self, perception_model: PerceptionModel) -> PerceptionModel:
+        pass
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            TrackingStrategy.registry[cls.__name__] = cls
+
+
+class PredictionStrategy(ABC):
+    registry = {}
+
+    @property
+    @abstractmethod
+    def requirements(self) -> set[WorldCapability]:
+        pass
+
+    @abstractmethod
+    def predict(self, perception_model: PerceptionModel) -> PerceptionModel | None:
+        pass
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            PredictionStrategy.registry[cls.__name__] = cls
+
 
 class PerceptionPipeline(PerceptionStrategy):
     """
-    A simple pipe-lined perception strategy that performs detection, tracking, and prediction in sequence.
+    Pipelined perception strategy: detect → track → predict.
+    Each stage is resolved by name from its registry at construction time.
+    Empty name or unknown name means that stage is skipped.
     """
-    def __init__(self, perception_model: PerceptionModel, setting:Type[PerceptionSettings] = PerceptionSettings):
+    def __init__(self, perception_model: PerceptionModel, setting: Type[PerceptionSettings] = PerceptionSettings):
         super().__init__(perception_model, setting)
-    
+        self._detector = self._resolve(DetectionStrategy.registry, setting.detection_strategy)
+        self._tracker = self._resolve(TrackingStrategy.registry, setting.tracking_strategy)
+        self._predictor = self._resolve(PredictionStrategy.registry, setting.prediction_strategy)
+
+    @staticmethod
+    def _resolve(registry: dict, name: str):
+        if name and name in registry:
+            return registry[name]()
+        return None
+
     @property
     def requirements(self) -> set[WorldCapability]:
-        return set()
-    
+        reqs = set()
+        for child in (self._detector, self._tracker, self._predictor):
+            if child is not None:
+                reqs |= child.requirements
+        # Stages with no strategy fall back to ground truth from the world bridge
+        if self._detector is None:
+            reqs.add(WorldCapability.GT_DETECTION)
+        if self._tracker is None:
+            reqs.add(WorldCapability.GT_TRACKING)
+        return reqs
+
     @property
     def capabilities(self) -> set[PerceptionCapability]:
         return {PerceptionCapability.DETECTION, PerceptionCapability.TRACKING, PerceptionCapability.PREDICTION}
-    
-    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None)-> PerceptionModel | None:
+
+    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, perception_model=None) -> PerceptionModel | None:
         if perception_model is not None:
             self.perception_model = perception_model
-        
-        self.detect(rgb_img=rgb_img, depth_img=depth_img, lidar_data=lidar_data)
-        self.track()
-        self.predict()
+        if self._detector is not None:
+            self.perception_model = self._detector.detect(
+                self.perception_model, rgb_img=rgb_img, depth_img=depth_img, lidar_data=lidar_data
+            )
+        if self._tracker is not None:
+            self.perception_model = self._tracker.track(self.perception_model)
+        if self._predictor is not None:
+            self.perception_model = self._predictor.predict(self.perception_model)
         return self.perception_model
 

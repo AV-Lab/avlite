@@ -26,3 +26,8 @@ class PerceptionSettings:
     # hdmap
     hdmap_sampling_resolution: float = 0.1  # Sampling resolution for the HDMap
 
+    # Pipeline sub-strategies (empty string = ground truth / skip that stage)
+    detection_strategy: str = ""
+    tracking_strategy: str = ""
+    prediction_strategy: str = ""
+

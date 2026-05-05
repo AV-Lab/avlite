@@ -54,3 +54,23 @@ ros:
   num_of_edge_points: 10
   planning_horizon: 3
   sample_size: 3
+source defaults:
+  boundary_clearance: 0.5
+  collision_safety_margin: 0.3
+  default_ego_velocity: 5.0
+  fallback_deceleration: 3.0
+  filepath: configs/c20_planning.yaml
+  maneuver_distance: 30
+  match_speed_wp_buffer: 4
+  max_lateral_accel: 4.0
+  min_curvature_velocity: 3.0
+  min_edge_progress_to_block: 0.2
+  min_velocity_threshold: 0.5
+  num_of_edge_points: 10
+  planning_horizon: 3
+  replan_wait_time: 2.5
+  safety_margin_weight: 0.3
+  sample_size: 3
+  stopping_decel_factor: 0.8
+  stopping_safety_buffer: 2.0
+  urgent_collision_threshold: 3

@@ -15,6 +15,21 @@ default:
   use_autoware_msgs: true
 ros:
   control_cmd_topic: /control/command/control_cmd
-  trajectory_topic: /planning/scenario_planning/trajectory
   localization_topic: /localization/kinematic_state
   perception_topic: /perception/object_recognition/tracking/objects
+  trajectory_topic: /planning/scenario_planning/trajectory
+source defaults:
+  base_frame: base_link
+  collection_hz: 20.0
+  control_cmd_topic: /control/command/control_cmd
+  control_dt: 0.02
+  control_out_topic: /avlite/control/control_cmd
+  localization_topic: /localization/kinematic_state
+  map_frame: map
+  perception_dt: 0.1
+  perception_topic: /perception/object_recognition/tracking/objects
+  replan_dt: 0.1
+  sim_dt: 0.02
+  trajectory_out_topic: /avlite/planning/trajectory
+  trajectory_topic: /planning/scenario_planning/trajectory
+  use_autoware_msgs: true
