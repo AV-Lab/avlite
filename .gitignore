@@ -10,3 +10,4 @@ venv
 venvs
 1-files
 site/
+.hypothesis/
