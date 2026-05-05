@@ -7,7 +7,7 @@ from scipy.signal import savgol_filter
 from avlite.c10_perception.c18_hdmap import HDMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c28_trajectory import Trajectory, convert_sd_path_to_xy_path
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         self.global_plan = smoothen_path_splprep(self.global_plan, min_spacing=0.5, smoothing=20)
         
         self.global_plan.lane_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path2]
-        self.global_plan.trajectory = Trajectory(path=self.global_plan.path, velocity=self.global_plan.velocity)
+        self.global_plan.trajectory = TrajectoryTracker(path=self.global_plan.path, velocity=self.global_plan.velocity)
         self.global_plan.left_boundary_x,self.global_plan.left_boundary_y = convert_sd_path_to_xy_path(
                 self.global_plan.trajectory,
                 self.global_plan.trajectory.path_s,

@@ -13,7 +13,7 @@ from typing import Optional
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c31_control_model import ControlComand
 
 log = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ def ego_state_to_kinematic_state(ego: EgoState, header: Optional['Header'] = Non
 # Trajectory <-> Autoware Trajectory
 # -----------------------------------------------------------------------------
 
-def trajectory_from_autoware(msg) -> Trajectory:
+def trajectory_from_autoware(msg) -> TrajectoryTracker:
     """
     Convert Autoware Trajectory message to AVLite Trajectory.
     
@@ -129,7 +129,7 @@ def trajectory_from_autoware(msg) -> Trajectory:
         AVLite Trajectory
     """
     if not AUTOWARE_AVAILABLE:
-        return Trajectory()
+        return TrajectoryTracker()
     
     path = []
     velocity = []
@@ -139,10 +139,10 @@ def trajectory_from_autoware(msg) -> Trajectory:
         path.append((point.x, point.y))
         velocity.append(point.longitudinal_velocity_mps)
     
-    return Trajectory(path=path, velocity=velocity)
+    return TrajectoryTracker(path=path, velocity=velocity)
 
 
-def trajectory_to_autoware(traj: Trajectory, header: Optional['Header'] = None) -> 'AutowareTrajectory':
+def trajectory_to_autoware(traj: TrajectoryTracker, header: Optional['Header'] = None) -> 'AutowareTrajectory':
     """
     Convert AVLite Trajectory to Autoware Trajectory message.
     

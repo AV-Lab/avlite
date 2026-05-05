@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c31_control_model import ControlComand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
@@ -11,7 +11,7 @@ from avlite.c30_control.c39_settings import ControlSettings
 log = logging.getLogger(__name__)
 
 class StanleyController(ControlStrategy):
-    def __init__(self, tj:Optional[Trajectory]=None, k=ControlSettings.stanley_k, k_soft = ControlSettings.stanley_k_soft,
+    def __init__(self, tj:Optional[TrajectoryTracker]=None, k=ControlSettings.stanley_k, k_soft = ControlSettings.stanley_k_soft,
                  lookahead=ControlSettings.stanley_lookahead, valpha=ControlSettings.stanley_valpha, vbeta=ControlSettings.stanley_vbeta,
                  vgamma=ControlSettings.stanley_vgamma, slow_down_cte=ControlSettings.stanley_slow_down_cte, 
                  slow_down_heading_cte = ControlSettings.stanley_slow_down_heading_cte,
@@ -42,7 +42,7 @@ class StanleyController(ControlStrategy):
         self.previous_heading = None
 
 
-    def control(self, ego: EgoState, tj: Optional[Trajectory]=None, control_dt = None) -> ControlComand:
+    def control(self, ego: EgoState, tj: Optional[TrajectoryTracker]=None, control_dt = None) -> ControlComand:
         if tj is not None:
             self.tj = tj
         elif tj is None and self.tj is None:

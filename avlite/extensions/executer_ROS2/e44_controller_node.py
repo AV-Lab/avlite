@@ -20,7 +20,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 from .e46_autoware_converters import (
@@ -54,7 +54,7 @@ class ControllerNode(Node):
         self.settings = ExtensionSettings()
         self.controller = controller
         self.ego_state = ego_state if ego_state else EgoState(x=0, y=0, theta=0)
-        self.current_trajectory: Trajectory = None
+        self.current_trajectory: TrajectoryTracker = None
         self.ros_data = ros_data
         # Use Autoware messages only if available AND enabled in settings
         self.use_autoware = AUTOWARE_AVAILABLE and self.settings.use_autoware_msgs

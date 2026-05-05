@@ -5,7 +5,7 @@ import time
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c27_lattice import Edge, Lattice
-from avlite.c20_planning.c28_trajectory import Trajectory, convert_sd_path_to_xy_path
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 
 import logging
@@ -19,7 +19,7 @@ class LocalPlannerStrategy(ABC):
         """Initialize the local planner with a global plan and perception model."""
         self.global_plan: GlobalPlan = global_plan
         self.pm: PerceptionModel = pm
-        self.global_trajectory: Trajectory = global_plan.trajectory
+        self.global_trajectory: TrajectoryTracker = global_plan.trajectory
         self.traversed_x: list[float]
         self.traversed_y: list[float]
         self.traversed_d: list[float]
@@ -146,7 +146,7 @@ class LocalPlannerStrategy(ABC):
     def replan(self):
         pass
 
-    def get_local_plan(self) -> Trajectory:
+    def get_local_plan(self) -> TrajectoryTracker:
         return self.selected_local_plan.local_trajectory if self.selected_local_plan is not None else self.global_trajectory
 
     def step_wp(self):

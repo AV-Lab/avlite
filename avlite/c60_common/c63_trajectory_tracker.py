@@ -4,11 +4,12 @@ import numpy as np
 import math
 from numpy.polynomial.polynomial import Polynomial
 from dataclasses import dataclass, field
+from scipy.spatial import KDTree
 
 log = logging.getLogger(__name__)
 
 @dataclass
-class Trajectory:
+class TrajectoryTracker:
     """
     A class to represent a trajectory with tracking currrent waypoints
     The class also keeps track of the current and next waypoints, and allows for creating sub-trajectories.
@@ -30,7 +31,7 @@ class Trajectory:
     poly_d: Optional[Polynomial] = None 
     poly_x: Optional[Polynomial] = None
     poly_y: Optional[Polynomial] = None
-    parent_trajectory: Optional["Trajectory"] = None
+    parent_trajectory: Optional["TrajectoryTracker"] = None
     path_s_from_parent: Optional[list[float]]  = None
     path_d_from_parent: Optional[list[float]] = None
 
@@ -50,14 +51,23 @@ class Trajectory:
         self.path_x = self.__reference_path[:, 0]
         self.path_y = self.__reference_path[:, 1]
         self.__cumulative_distances = self.__precompute_cumulative_distances()
-        self.path_s, self.path_d = self.convert_xy_path_to_sd_path( self.__reference_path)  
 
+        # Build KD-tree over the XY reference path for O(log n) nearest-waypoint queries.
+        # Must be built before convert_xy_path_to_sd_path, which calls get_closest_waypoint_frm_xy.
+        self.__xy_kdtree = KDTree(self.__reference_path)
+
+        self.path_s, self.path_d = self.convert_xy_path_to_sd_path(self.__reference_path)
 
         # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
+
+        # path_s is monotonically increasing arc-length; store as a plain numpy array so
+        # np.searchsorted can do O(log n) SD lookups without a second spatial index.
+        self.__path_s_array = np.array(self.path_s)
+
         self.path_heading = self.__precompute_path_orientation()
 
-        # log.debug(f"Trajectory initialized with {len(self.path)} waypoints: {self.__reference_sd_path}")
+        # log.debug(f"TrajectoryTracker initialized with {len(self.path)} waypoints: {self.__reference_sd_path}")
 
     def __precompute_path_orientation(self):
         """
@@ -92,11 +102,11 @@ class Trajectory:
         return orientations
     
     def __precompute_cumulative_distances(self):
-        reference_path = np.array(self.__reference_path)
-        cumulative_distances = [0]
-        for i in range(1, len(reference_path)):
-            cumulative_distances.append(cumulative_distances[i - 1] + np.linalg.norm(reference_path[i] - reference_path[i - 1]))
-        return cumulative_distances
+        # Vectorised: compute all segment lengths in one np.linalg.norm call,
+        # then prefix-sum with np.cumsum — avoids a Python loop over every waypoint pair.
+        diffs = np.diff(self.__reference_path, axis=0)        # shape (n-1, 2)
+        segment_lengths = np.linalg.norm(diffs, axis=1)       # shape (n-1,)
+        return np.concatenate(([0.0], np.cumsum(segment_lengths)))
 
 
     
@@ -111,7 +121,7 @@ class Trajectory:
         Returns the current S and D coordinates.
         """
         if not self.is_initialized:
-            raise ValueError("Trajectory not initialized")
+            raise ValueError("TrajectoryTracker not initialized")
 
         return self.path_s[self.current_wp], self.path_d[self.current_wp]
     
@@ -120,7 +130,7 @@ class Trajectory:
     #     Returns the current heading angle in radians.
     #     """
     #     if not self.is_initialized:
-    #         raise ValueError("Trajectory not initialized")
+    #         raise ValueError("TrajectoryTracker not initialized")
     #     
     #     
     #     if 2<= self.current_wp <= len(self.path_x) - 1:
@@ -144,7 +154,7 @@ class Trajectory:
         Returns the current heading angle in radians.
         """
         if not self.is_initialized:
-            raise ValueError("Trajectory not initialized")
+            raise ValueError("TrajectoryTracker not initialized")
         
         return self.path_heading[self.current_wp]
 
@@ -157,7 +167,7 @@ class Trajectory:
             The waypoint index.
         """
         if not self.is_initialized:
-            raise ValueError("Trajectory not initialized")
+            raise ValueError("TrajectoryTracker not initialized")
 
         return self.path_x[wp], self.path_y[wp]
 
@@ -255,7 +265,7 @@ class Trajectory:
         end_d_1st_derv: float = 0.0,
         end_d_2nd_derv: float = 0.0,
         num_points=10,
-    ) -> "Trajectory":
+    ) -> "TrajectoryTracker":
         """
         Create a quintic polynomial trajectory in the s-d plane with C2 continuity with respect to the current trajectory.
         By default, speed profile is taken 
@@ -328,7 +338,7 @@ class Trajectory:
 
     def create_default_trajectory_sd(
         self, s_start: float, d_start: float, s_end: float, d_end: float, num_points=10
-    ) -> "Trajectory":
+    ) -> "TrajectoryTracker":
         poly = Polynomial.fit([s_start, s_end], [d_start, d_end], 3)
         # log.debug(f"Poly Coefficients: {poly.coef}")
 
@@ -345,7 +355,7 @@ class Trajectory:
         d_start_1st_derv: float,
         d_start_2nd_derv: float,
         num_points=10,
-    ) -> "Trajectory":
+    ) -> "TrajectoryTracker":
 
         A = np.array(
             [
@@ -355,14 +365,6 @@ class Trajectory:
                 [6 * s_start, 2, 0, 0],  # 2nd derivative at s_start
             ]
         )
-        # A = np.array(
-        #     [
-        #         [0, 0, 0, 1],  # Polynomial at s_start = 0
-        #         [1, 1, 1, 1],  # Polynomial at s_end = 1
-        #         [0, 0, 1, 0],  # 1st derivative at s_start
-        #         [0, 2, 0, 0],  # 2nd derivative at s_start
-        #     ]
-        # )
 
         b = np.array([d_start, d_end, d_start_1st_derv, d_start_2nd_derv])
 
@@ -377,7 +379,7 @@ class Trajectory:
         s_values = np.linspace(s_start, s_end, num_points)
         return self.__decorate_trajectory_sd(poly, s_values)
 
-    def __decorate_trajectory_sd(self, poly: Polynomial, s_values: list[float]) -> "Trajectory":
+    def __decorate_trajectory_sd(self, poly: Polynomial, s_values: list[float]) -> "TrajectoryTracker":
         """
         Decorate the trajectory with calculated d values and convert to (x, y) coordinates.
 
@@ -386,7 +388,7 @@ class Trajectory:
             s_values (iterable): The s values along the trajectory.
 
         Returns:
-            Trajectory: The decorated trajectory with (x, y) coordinates.
+            TrajectoryTracker: The decorated trajectory with (x, y) coordinates.
         """
 
         # Calculate the d values for the trajectory
@@ -424,7 +426,7 @@ class Trajectory:
 
         path = list(zip(tx, ty))
 
-        local_trajectory = Trajectory(path, name="Local Trajectory", velocity=velocity_high_res)
+        local_trajectory = TrajectoryTracker(path, name="Local Trajectory", velocity=velocity_high_res)
 
         local_trajectory.poly_d = poly
         local_trajectory.parent_trajectory = self
@@ -444,7 +446,7 @@ class Trajectory:
         start_x_2nd_derv: float,
         start_y_2nd_derv: float,
         num_points=10,
-    ) -> "Trajectory":
+    ) -> "TrajectoryTracker":
         A = np.array(
             [
                 [0, 0, 0, 1],  # Polynomial at t=0
@@ -485,7 +487,7 @@ class Trajectory:
         end_y_2nd_derv: float,
         end_x_2nd_derv: float,
         num_points=10,
-    ) -> "Trajectory":
+    ) -> "TrajectoryTracker":
         A = np.array(
             [
                 [0, 0, 0, 0, 0, 1],  # Polynomial at t=0
@@ -532,11 +534,11 @@ class Trajectory:
 
         return self.__decoreate_trajectory_xy(poly_x, poly_y, t_values)
 
-    def __decoreate_trajectory_xy(self, poly_x: Polynomial, poly_y: Polynomial, t_values: np.ndarray) -> "Trajectory":
+    def __decoreate_trajectory_xy(self, poly_x: Polynomial, poly_y: Polynomial, t_values: np.ndarray) -> "TrajectoryTracker":
         x_values = poly_x(t_values)
         y_values = poly_y(t_values)
         path = list(zip(x_values, y_values))
-        local_trajectory = Trajectory(path, name="Local Trajectory")
+        local_trajectory = TrajectoryTracker(path, name="Local Trajectory")
         s_value, d_values = self.convert_xy_path_to_sd_path(path)
         local_trajectory.path_s_from_parent = s_value
         local_trajectory.path_d_from_parent = d_values
@@ -554,7 +556,7 @@ class Trajectory:
         start_x_2nd_derv: float,
         start_y_2nd_derv: float,
         num_points=10,
-    ) -> list["Trajectory"]:
+    ) -> list["TrajectoryTracker"]:
         assert len(x_values) == len(y_values)
 
         local_trajectories = []
@@ -636,13 +638,18 @@ class Trajectory:
         return x, y, theta
 
     def convert_xy_path_to_sd_path(self, points):
+        # Batch-query the KD-tree for all points in one C-level call, rather than
+        # one query per point. The Frenet projection arithmetic still runs per-point
+        # (requires segment geometry), but the expensive nearest-neighbour search is vectorised.
+        points_array = np.asarray(points)                       # shape (m, 2)
+        _, closest_wps = self.__xy_kdtree.query(points_array)   # shape (m,) — O(m log n)
 
         reference_path = self.__reference_path
         frenet_coords = []
         cumulative_distances = self.__cumulative_distances
-        for point in points:
+        for idx, point in enumerate(points_array):
 
-            closest_wp = self.get_closest_waypoint_frm_xy(point[0], point[1])
+            closest_wp = closest_wps[idx]
 
             if closest_wp == 0:
                 next_wp = 1
@@ -728,24 +735,27 @@ class Trajectory:
 
 
 
-    # TODO: this inefficient! need to look into a window only not the whole track
     def get_closest_waypoint_frm_xy(self, x, y):
-        diffs = self.__reference_path - np.array((x, y))
-        dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
-        closest_wp = np.argmin(dists)
-        return closest_wp
+        # O(log n) KD-tree lookup — replaces the former O(n) full-array scan.
+        _, closest_wp = self.__xy_kdtree.query((x, y))
+        return int(closest_wp)
 
-    # TODO: this inefficient! need to look into a window only not the whole track
     def get_closest_waypoint_frm_sd(self, s, d):
-        diffs = self.__reference_sd_path - np.array((s, d))
-        dists = np.sqrt(diffs[:, 0] ** 2 + diffs[:, 1] ** 2)
-        closest_wp = np.argmin(dists)
-        return closest_wp
+        # path_s is monotonically increasing arc-length, so binary search (searchsorted)
+        # gives O(log n) without a second spatial index.
+        # d is intentionally ignored: the reference path always sits at d≈0, so lateral
+        # offset does not change which longitudinal waypoint is closest.
+        idx = int(np.searchsorted(self.__path_s_array, s))
+        # searchsorted returns the insertion point; clamp and pick the neighbour closest in s.
+        idx = min(idx, len(self.__path_s_array) - 1)
+        if idx > 0 and abs(self.__path_s_array[idx - 1] - s) < abs(self.__path_s_array[idx] - s):
+            idx -= 1
+        return idx
 
     def __str__(self):
-        return f"Trajectory: {self.name}"
+        return f"TrajectoryTracker: {self.name}"
 
-def convert_sd_path_to_xy_path(tj: Trajectory, s_values, d_values):
+def convert_sd_path_to_xy_path(tj: TrajectoryTracker, s_values, d_values):
     x_values = []
     y_values = []
 

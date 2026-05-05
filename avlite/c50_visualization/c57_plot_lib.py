@@ -5,7 +5,7 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c18_hdmap import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c20_planning.c27_lattice import Edge
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
 from avlite.c20_planning.c24_global_planners import HDMapGlobalPlanner
 
@@ -822,7 +822,7 @@ class LocalPlot:
             self.local_plan_plots_ax1[i].set_data([], [])
             self.local_plan_plots_ax2[i].set_data([], [])
 
-    def update_state_plots(self, state: EgoState, global_trajectory: Trajectory, show_plot=True):
+    def update_state_plots(self, state: EgoState, global_trajectory: TrajectoryTracker, show_plot=True):
         if not show_plot:
             self.car_heading_plot.set_data([], [])
             self.car_location_plot.set_data([], [])
@@ -850,7 +850,7 @@ class LocalPlot:
         else:
             self.ego_vehicle_ax2.set_xy(np.empty((0, 2)))
 
-    def update_perception_model_plots(self, pm: PerceptionModel, global_trajectory: Trajectory, show_plot=True):
+    def update_perception_model_plots(self, pm: PerceptionModel, global_trajectory: TrajectoryTracker, show_plot=True):
         if not show_plot or len(pm.agent_vehicles) == 0:
             for i in range(self.MAX_AGENT_COUNT):
                 self.pm_plots_ax1[i].set_xy(np.empty((0, 2)))

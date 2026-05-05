@@ -4,14 +4,14 @@ import logging
 from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c32_control_strategy import ControlStrategy, ControlComand
 from avlite.c30_control.c39_settings import ControlSettings
 
 log = logging.getLogger(__name__)
 
 class PIDController(ControlStrategy):
-    def __init__(self, tj:Optional[Trajectory]=None, alpha=ControlSettings.pid_alpha, beta=ControlSettings.pid_beta, gamma=ControlSettings.pid_gamma,
+    def __init__(self, tj:Optional[TrajectoryTracker]=None, alpha=ControlSettings.pid_alpha, beta=ControlSettings.pid_beta, gamma=ControlSettings.pid_gamma,
                  valpha=ControlSettings.pid_valpha, vbeta=ControlSettings.pid_vbeta, vgamma=ControlSettings.pid_vgamma, pid_lookahead=ControlSettings.pid_lookahead):
         super().__init__(tj)
         self.alpha, self.beta, self.gamma = alpha, beta, gamma
@@ -26,7 +26,7 @@ class PIDController(ControlStrategy):
         self.cte_v_sum = 0
 
 
-    def control(self, ego: EgoState, tj: Optional[Trajectory]=None, control_dt=None) -> ControlComand:
+    def control(self, ego: EgoState, tj: Optional[TrajectoryTracker]=None, control_dt=None) -> ControlComand:
         if tj is not None:
             self.tj = tj
         elif tj is None and self.tj is None:

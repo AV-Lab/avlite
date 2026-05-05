@@ -20,7 +20,7 @@ from std_msgs.msg import String, Header
 
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 
 from .e46_autoware_converters import (
     AUTOWARE_AVAILABLE,

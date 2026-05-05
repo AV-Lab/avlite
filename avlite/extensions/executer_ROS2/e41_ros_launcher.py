@@ -28,7 +28,7 @@ from std_msgs.msg import String
 from avlite.c40_execution.c41_execution_model import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c31_control_model import ControlComand
 
 from .settings import ExtensionSettings
@@ -56,7 +56,7 @@ class ROSData:
     
     # Latest received data
     ego_state: Optional[EgoState] = None
-    local_plan: Optional[Trajectory] = None
+    local_plan: Optional[TrajectoryTracker] = None
     control_cmd: Optional[ControlComand] = None
     agents: list[AgentState] = field(default_factory=list)
     
@@ -227,7 +227,7 @@ class CollectorNode(Node):
             with self.ros_data.lock:
                 path = [(p['x'], p['y']) for p in data.get('points', [])]
                 velocity = [p.get('velocity', 0) for p in data.get('points', [])]
-                self.ros_data.local_plan = Trajectory(path=path, velocity=velocity)
+                self.ros_data.local_plan = TrajectoryTracker(path=path, velocity=velocity)
                 self.ros_data.local_plan.name = "ROS Trajectory"
                 self.ros_data.plan_stamp = time.time()
         except json.JSONDecodeError as e:

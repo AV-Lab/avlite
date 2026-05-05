@@ -4,7 +4,7 @@ import logging
 import json
 
 from avlite.c10_perception.c18_hdmap import HDMap
-from avlite.c20_planning.c28_trajectory import Trajectory, convert_sd_path_to_xy_path
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class GlobalPlan:
     lane_right_boundary_y: list[float] = field(default_factory=list)
 
     race_mode: bool = True
-    trajectory: Trajectory = field(default_factory=lambda: Trajectory(path=[], velocity=[]))
+    trajectory: TrajectoryTracker = field(default_factory=lambda: TrajectoryTracker(path=[], velocity=[]))
 
     # Optional HDMap and lane path for global planning
     hdmap: Optional[HDMap] = None  
@@ -43,7 +43,7 @@ class GlobalPlan:
             velocity=data["ReferenceSpeed"]
             left_boundary_d=data["LeftBound"]
             right_boundary_d=data["RightBound"]
-            trajectory = Trajectory(path=path, velocity=velocity)
+            trajectory = TrajectoryTracker(path=path, velocity=velocity)
             left_boundary_x, left_boundary_y = convert_sd_path_to_xy_path(trajectory, trajectory.path_s, left_boundary_d)
             right_boundary_x, right_boundary_y = convert_sd_path_to_xy_path(trajectory, trajectory.path_s, right_boundary_d)
             return cls(
@@ -66,7 +66,7 @@ class LocalPlan:
     path: list[tuple[float, float]] = field(default_factory=list)
     velocity: list[float] = field(default_factory=list)
 
-    trajectory: Optional[Trajectory] = None
+    trajectory: Optional[TrajectoryTracker] = None
 
     
 

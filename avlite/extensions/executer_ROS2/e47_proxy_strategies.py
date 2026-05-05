@@ -11,7 +11,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c31_control_model import ControlComand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 
@@ -28,10 +28,10 @@ class ProxyLocalPlanner(LocalPlannerStrategy):
     
     def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel, **kwargs):
         super().__init__(global_plan, pm, **kwargs)
-        self.last_plan: Optional[Trajectory] = None
+        self.last_plan: Optional[TrajectoryTracker] = None
         log.info("ProxyLocalPlanner initialized - will receive plans from ROS")
     
-    def replan(self) -> Trajectory:
+    def replan(self) -> TrajectoryTracker:
         """
         Return the last received trajectory (no actual planning).
         
@@ -42,7 +42,7 @@ class ProxyLocalPlanner(LocalPlannerStrategy):
             return self.last_plan
         return self.global_trajectory
     
-    def get_local_plan(self) -> Trajectory:
+    def get_local_plan(self) -> TrajectoryTracker:
         """Return the last received trajectory."""
         if self.last_plan is not None:
             return self.last_plan
@@ -62,7 +62,7 @@ class ProxyController(ControlStrategy):
     received via ROS topics, allowing the visualizer to display it.
     """
     
-    def __init__(self, tj: Optional[Trajectory] = None):
+    def __init__(self, tj: Optional[TrajectoryTracker] = None):
         super().__init__(tj)
         self.last_command: Optional[ControlComand] = None
         log.info("ProxyController initialized - will receive commands from ROS")
@@ -70,7 +70,7 @@ class ProxyController(ControlStrategy):
     def control(
         self,
         ego: EgoState,
-        tj: Optional[Trajectory] = None,
+        tj: Optional[TrajectoryTracker] = None,
         control_dt: float = None
     ) -> ControlComand:
         """

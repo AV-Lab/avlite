@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c20_planning.c28_trajectory import Trajectory
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c31_control_model import ControlComand
 from abc import ABC, abstractmethod
 import logging
@@ -13,19 +13,19 @@ log = logging.getLogger(__name__)
 class ControlStrategy(ABC):
     registry = {}
 
-    def __init__(self, tj: Optional[Trajectory] = None):
-        self.tj: Optional[Trajectory] = tj
+    def __init__(self, tj: Optional[TrajectoryTracker] = None):
+        self.tj: Optional[TrajectoryTracker] = tj
         self.cmd: ControlComand = ControlComand()
         self.cte_steer: float = 0
         self.cte_velocity: float = 0
 
 
-    def set_trajectory(self, tj: Trajectory):
+    def set_trajectory(self, tj: TrajectoryTracker):
         log.debug("Controller Trajectory updated")
         self.tj = tj
 
     @abstractmethod
-    def control(self, ego: EgoState, tj: Optional[Trajectory]=None, control_dt:float=None) -> ControlComand:
+    def control(self, ego: EgoState, tj: Optional[TrajectoryTracker]=None, control_dt:float=None) -> ControlComand:
         pass
 
 
