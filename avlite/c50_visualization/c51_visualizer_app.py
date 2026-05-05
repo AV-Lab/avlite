@@ -466,10 +466,10 @@ class VisualizerApp(tk.Tk):
         self.local_plan_plot_view.reset()
         self.global_plan_plot_view.reset()
         self.perceive_plan_control_view.reset()
-        self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
         self.update_views()
         self.update_ui()
         self.enable_frame(self)
+        self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
         self.focus_set()  # unfocus any entry fields including widgets. Useful to avoid typing shortcut keys 
         self.hide_loading_overlay()
             
