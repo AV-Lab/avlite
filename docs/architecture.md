@@ -215,7 +215,7 @@ avlite/
 └── extensions/           # Built-in (core team)
     ├── multi_object_prediction/
     ├── executer_ros/
-    └── test_ext/
+    └── bridge_gazebo/
 
 /path/to/                 # Community plugins
 └── my_plugin/
