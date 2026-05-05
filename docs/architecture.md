@@ -66,7 +66,7 @@ class MyPerception(PerceptionStrategy):
     @property
     def requirements(self) -> set[WorldCapability]:
         # What I need from the world/simulator
-        return {WorldCapability.RGB_IMAGE}
+        return {WorldCapability.CAMERA_RGB}
     
     @property
     def capabilities(self) -> set[PerceptionCapability]:
@@ -79,9 +79,14 @@ class MyPerception(PerceptionStrategy):
 - `GT_DETECTION` - Ground truth object detection
 - `GT_TRACKING` - Ground truth tracking IDs
 - `GT_LOCALIZATION` - Ground truth ego pose
-- `RGB_IMAGE` - Camera images
-- `DEPTH_IMAGE` - Depth maps
-- `LIDAR` - Point cloud data
+- `CAMERA_RGB` - RGB camera images
+- `CAMERA_DEPTH` - Depth camera images
+- `LIDAR_3D` - 3D LiDAR point cloud data
+- `LIDAR_2D` - 2D LiDAR scanner data
+- `RADAR` - Radar sensor data
+- `WHEEL_ENCODER` - Wheel encoder for odometry
+- `IMU` - Inertial measurement unit
+- `GNSS` - GNSS / GPS receiver
 
 **Perception Capabilities** (what perception strategies provide):
 
@@ -91,11 +96,11 @@ class MyPerception(PerceptionStrategy):
 
 **Localization Capabilities** (what localization strategies provide):
 
-- `IMU` - Inertial measurement unit based localization
-- `GNSS` - GNSS / GPS based localization
-- `LIDAR_LOCALIZATION` - LiDAR scan-matching localization
-- `VISUAL_LOCALIZATION` - Camera / visual odometry based localization
-- `WHEEL_ODOMETRY` - Wheel encoder / odometry based localization
+- `LOCALIZATION_2D` - 2D pose estimation (x, y)
+- `LOCALIZATION_3D` - 3D pose estimation (x, y, z)
+- `LOCALIZATION_HEADING` - Heading / yaw estimation
+- `LOCALIZATION_HEADING_3D` - Full 3D orientation (roll, pitch, yaw)
+- `VELOCITY` - Velocity estimation
 
 **Mapping Capabilities** (what mapping strategies provide):
 
@@ -124,8 +129,12 @@ It loads extensions, instantiates strategies from registries, and wires everythi
 ### c10_perception
 
 Provides **interfaces** for:
-- `PerceptionStrategy` (optional) - Detection, tracking, prediction
-- `LocalizationStrategy` (optional) - Ego-vehicle pose estimation (IMU, GNSS, LiDAR, visual odometry). Updates `PerceptionModel.ego_vehicle` in-place.
+- `PerceptionStrategy` (optional) - Monolithic detect/track/predict interface; subclasses auto-register and appear in the UI dropdown
+- `DetectionStrategy` - Detection-only sub-strategy with its own registry; used by `PerceptionPipeline`
+- `TrackingStrategy` - Tracking-only sub-strategy with its own registry; used by `PerceptionPipeline`
+- `PredictionStrategy` - Prediction-only sub-strategy with its own registry; used by `PerceptionPipeline`
+- `PerceptionPipeline` - Built-in `PerceptionStrategy` that composes a `DetectionStrategy`, `TrackingStrategy`, and `PredictionStrategy` selected by name; missing stages fall back to ground truth from the bridge
+- `LocalizationStrategy` (optional) - Ego-vehicle pose estimation. Updates `PerceptionModel.ego_vehicle` in-place.
 - `MappingStrategy` - Environment mapping
 - `HDMap` - OpenDRIVE map parsing and routing
 
@@ -152,6 +161,7 @@ Includes built-in controllers: `StanleyController`, `PIDController`.
 - `Executer` - Main execution loop (sync/async variants)
 - `WorldBridge` - Simulator abstraction
 - `Factory` - Component assembly
+- `ExecutionSettings` - Runtime settings including `log_level` (DEBUG/INFO/WARNING/ERROR/CRITICAL) and `log_to_file` (write logs to `./logs/avlite_<timestamp>.log`)
 
 Built-in bridges: `BasicSim`, `CarlaBridge`, `GazeboBridge`.
 
