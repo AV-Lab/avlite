@@ -178,7 +178,7 @@ avlite/
 └── extensions/         # Built-in extensions
     ├── multi_object_prediction/
     ├── executer_ros/   # ROS2 executor with Autoware msgs
-    └── test_ext/
+    └── bridge_gazebo/  # Gazebo world bridge
 ```
 
 Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.

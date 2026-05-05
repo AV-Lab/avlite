@@ -215,7 +215,6 @@ avlite/
 │   ├── c44_async_threaded_executer.py
 │   ├── c46_basic_sim.py
 │   ├── c47_carla_bridge.py
-│   ├── c48_gazebo_bridge.py
 │   └── c49_settings.py
 ├── c50_visualization/      # GUI and plotting
 │   ├── c51_visualizer_app.py
@@ -225,7 +224,7 @@ avlite/
 │   ├── c61_setting_utils.py
 │   └── c62_capabilities.py
 └── extensions/            # Plugin system
-    ├── test_ext/
+    ├── bridge_gazebo/
     ├── executer_ros/
     └── multi_object_prediction/
 ```

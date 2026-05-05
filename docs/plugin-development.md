@@ -207,6 +207,6 @@ Your classes will now appear in the UI dropdowns.
 ## See Also
 
 Built-in extensions in `avlite/extensions/` (maintained by core team):
-- `test_ext` - Minimal template for reference
+- `bridge_gazebo` - Gazebo world bridge
 - `multi_object_prediction` - Perception with prediction
 - `executer_ros` - ROS2 integration
