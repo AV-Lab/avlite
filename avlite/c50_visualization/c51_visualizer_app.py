@@ -376,7 +376,7 @@ class VisualizerApp(tk.Tk):
         self.menus.append(file_menu)
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
-        help_menu.add_command(label="About AVLite\u2026", command=self._show_about)
+        help_menu.add_command(label="About AVLite", command=self._show_about)
         self.menubar.add_cascade(label="Help", menu=help_menu)
         self.menus.append(help_menu)
 
@@ -395,8 +395,8 @@ class VisualizerApp(tk.Tk):
     def _show_about(self):
         messagebox.showinfo(
             "About AVLite",
-            "AVLite \u2014 Autonomous Vehicle Lite\n\nVersion 0.1.0\n\n"
-            "A lightweight autonomous driving simulation and visualization framework.",
+            "AVLite  \n\nVersion 0.1.0\n\n"
+            "A lightweight autonomous driving software stack.",
         )
 
     def _apply_menubar_visibility(self):
