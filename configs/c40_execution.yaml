@@ -84,6 +84,8 @@ default:
   local_planner: GreedyLatticePlanner
   localization: ''
   localization_dt: 0.1
+  log_level: WARN
+  log_to_file: false
   mapping: ''
   perception: PerceptionPipeline
   perception_dt: 0.5
