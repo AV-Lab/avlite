@@ -16,9 +16,10 @@ from avlite.c40_execution.c41_execution_model import Executer
 
 log = logging.getLogger(__name__)
 
+
 class VisualizationSettings:
     exclude = ["exclude","vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
-                         "control_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "extension_list"]
+                         "control_fps", "perception_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "extension_list"]
     filepath: str="configs/c50_visualization.yaml"
 
     def __init__(self):
@@ -143,12 +144,20 @@ class VisualizationSettings:
         self.control_dt = tk.DoubleVar(value=0.01)
         def _on_control_dt_change(*args):
             ExecutionSettings.control_dt = float(self.control_dt.get())
+            _sync_exec_dt("control_dt", self.control_dt.get())
         self.control_dt.trace_add("write", _on_control_dt_change)
     
         self.replan_dt = tk.DoubleVar(value=0.5)
         def _on_replan_dt_change(*args):
             ExecutionSettings.replan_dt = float(self.replan_dt.get())
-        self.replan_dt.trace_add("write", _on_replan_dt_change) 
+            _sync_exec_dt("replan_dt", self.replan_dt.get())
+        self.replan_dt.trace_add("write", _on_replan_dt_change)
+
+        self.perception_dt = tk.DoubleVar(value=0.5)
+        def _on_perception_dt_change(*args):
+            ExecutionSettings.perception_dt = float(self.perception_dt.get())
+            _sync_exec_dt("perception_dt", self.perception_dt.get())
+        self.perception_dt.trace_add("write", _on_perception_dt_change)
 
         self.sim_dt = tk.DoubleVar(value=0.01)
         def _on_sim_dt_change(*args):
@@ -247,4 +256,15 @@ class VisualizationSettings:
             var = getattr(self, name, None)
             if var is not None and isinstance(var, tk.StringVar) and var.get() == "":
                 var.set("Ground Truth")
+
+
+def _sync_exec_dt(attr: str, value: float) -> None:
+    """Persist dt change to the ROS extension YAML so it takes effect on next launch."""
+    try:
+        from avlite.extensions.executer_ROS2.settings import ExtensionSettings as ROSSettings
+        from avlite.c60_common.c61_setting_utils import save_setting
+        setattr(ROSSettings, attr, float(value))
+        save_setting(ROSSettings)
+    except Exception:
+        pass
 

@@ -57,16 +57,21 @@ class ExecView(ttk.Frame):
         self.execution_factory_frame.columnconfigure(0, weight=1)
         # ------------------------------------------------------------------------
         # ------------------------------------------------------------------------
+        ttk.Label(exec_first_frame, text="Perception \u0394t ").pack(side=tk.LEFT, padx=5, pady=5)
+        dt_perception_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.perception_dt, width=5,)
+        dt_perception_entry.pack(side=tk.LEFT)
+        dt_perception_entry.bind("<Return>", self.text_on_enter)
+        
+        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
+        dt_plan_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
+        dt_plan_entry.pack(side=tk.LEFT)
+        dt_plan_entry.bind("<Return>", self.text_on_enter)
+
         ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         dt_control_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.control_dt, width=5,)
         # self.dt_exec_cn_entry.insert(0, "0.02")
         dt_control_entry.pack(side=tk.LEFT)
         dt_control_entry.bind("<Return>", self.text_on_enter)
-
-        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        dt_plan_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
-        dt_plan_entry.pack(side=tk.LEFT)
-        dt_plan_entry.bind("<Return>", self.text_on_enter)
 
         ttk.Label(exec_first_frame, text="Sim Δt ").pack(side=tk.LEFT, padx=5, pady=5)
         sim_dt=ttk.Entry( exec_first_frame, textvariable=self.root.setting.sim_dt, width=5,)
@@ -133,11 +138,13 @@ class ExecView(ttk.Frame):
             current_time = time.time()
             cn_dt = float(self.root.setting.control_dt.get())
             pl_dt = float(self.root.setting.replan_dt.get())
+            pr_dt = float(self.root.setting.perception_dt.get())
             sim_dt = float(self.root.setting.sim_dt.get())
 
             self.root.exec.step(
                 control_dt=cn_dt,
                 replan_dt=pl_dt,
+                perception_dt=pr_dt,
                 sim_dt=sim_dt,
                 call_replan=self.root.setting.exec_plan.get(),
                 call_control=self.root.setting.exec_control.get(),
@@ -163,9 +170,11 @@ class ExecView(ttk.Frame):
     def step_exec(self):
         cn_dt = float(self.root.setting.control_dt.get())
         pl_dt = float(self.root.setting.replan_dt.get())
+        pr_dt = float(self.root.setting.perception_dt.get())
         self.root.exec.step(
             control_dt=cn_dt,
             replan_dt=pl_dt,
+            perception_dt=pr_dt,
             call_replan=self.root.setting.exec_plan.get(),
             call_control=self.root.setting.exec_control.get(),
             call_perceive=self.root.setting.exec_perceive.get(),

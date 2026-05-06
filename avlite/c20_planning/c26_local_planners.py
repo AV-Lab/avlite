@@ -207,4 +207,3 @@ class GreedyLatticePlanner(LocalPlannerStrategy):
                 tj.velocity = np.zeros(len(tj.path))
 
 
-

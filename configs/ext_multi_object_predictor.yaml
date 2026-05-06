@@ -14,6 +14,14 @@ SAN:
   prediction_mode: grid
   predictor: AttentionGMM
   tracker: None
+async:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: null
 default:
   detector: ground_truth
   device: cuda:0
@@ -31,14 +39,6 @@ perception exp:
   predictor: AttentionGMM
   tracker: None
 ros:
-  detector: ground_truth
-  device: cuda:0
-  max_agent_distance: 50.0
-  pred_horizon: 3
-  prediction_mode: grid
-  predictor: AttentionGMM
-  tracker: None
-source defaults:
   detector: ground_truth
   device: cuda:0
   max_agent_distance: 50.0

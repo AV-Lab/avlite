@@ -29,6 +29,7 @@ from avlite.c40_execution.c41_execution_model import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c60_common.c61_setting_utils import load_setting
 from avlite.c30_control.c31_control_model import ControlComand
 
 from .settings import ExtensionSettings
@@ -298,7 +299,8 @@ class ROSExecuter(Executer):
         super().__init__(*args, **kwargs)
         
         self.settings = ExtensionSettings()
-        
+        load_setting(ExtensionSettings)
+
         # Override timing from settings
         self.perception_dt = self.settings.perception_dt
         self.replan_dt = self.settings.replan_dt
@@ -319,6 +321,7 @@ class ROSExecuter(Executer):
         
         # Timing tracking
         self._start_real_time: float = 0.0
+        self._planner_last_real_time: float = 0.0  # real-time gate for replan throttling
         
         log.info("ROSExecuter initialized")
 
@@ -368,31 +371,17 @@ class ROSExecuter(Executer):
         # Run localization strategy (before perception)
         if call_localize and self.localization:
             try:
-                if self.localization.requirements.issubset(self.world.capabilities):
-                    self.localization.localize(
-                        lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
-                        rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
-                    )
+                self._localization_step()
             except Exception as e:
                 log.debug(f"Localization step error: {e}")
 
         # Run perception strategy to populate occupancy_flow, etc.
         if call_perceive and self.perception:
             try:
-                if self.perception.requirements.issubset(self.world.capabilities):
-                    if ExecutionSettings.provide_ground_truth:
-                        self.pm = self.world.get_ground_truth_perception_model()
-                    else:
-                        self.pm.agent_vehicles = []
-                    self.perception.perceive(
-                        perception_model=self.pm,
-                        rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
-                        depth_img=self.world.get_depth_image(),
-                        lidar_data=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
-                    )
-                    # Update perception node's reference to pm
-                    if self.perception_node:
-                        self.perception_node.pm = self.pm
+                self._perception_step()
+                # Update perception node's reference to pm
+                if self.perception_node:
+                    self.perception_node.pm = self.pm
             except Exception as e:
                 log.debug(f"Perception step error: {e}")
         
@@ -409,8 +398,10 @@ class ROSExecuter(Executer):
         if self.local_planner:
             self.local_planner.step(self.ego_state)
         
-        # Run planner (replan if needed)
-        if call_replan and self.local_planner:
+        # Run planner (replan if needed) — throttled by replan_dt to match SyncExecuter behavior
+        now = time.time()
+        if call_replan and self.local_planner and (now - self._planner_last_real_time) >= replan_dt:
+            self._planner_last_real_time = now
             self.local_planner.replan()
         
         # Run controller and apply to world

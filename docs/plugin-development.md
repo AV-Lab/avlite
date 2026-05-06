@@ -42,15 +42,17 @@ class MyPerception(PerceptionStrategy):
     
     @property
     def requirements(self) -> set[WorldCapability]:
-        return {WorldCapability.GT_DETECTION}
+        return {WorldCapability.CAMERA_RGB, WorldCapability.LIDAR_3D}
     
     @property
     def capabilities(self) -> set[PerceptionCapability]:
-        return {PerceptionCapability.DETECTION}
+        return {PerceptionCapability.DETECTION, PerceptionCapability.TRACKING,
+                PerceptionCapability.PREDICTION}
     
-    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None, 
+    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None,
                  perception_model=None):
-        # Your logic here
+        # Fuse camera and LiDAR to detect, track, and predict agents
+        # Update self.perception_model.agents in-place, then return it
         return self.perception_model
 ```
 
@@ -207,6 +209,8 @@ Your classes will now appear in the UI dropdowns.
 ## See Also
 
 Built-in extensions in `avlite/extensions/` (maintained by core team):
-- `bridge_gazebo` - Gazebo world bridge
-- `multi_object_prediction` - Perception with prediction
-- `executer_ros` - ROS2 integration
+- `bridge_carla` - CARLA simulator world bridge
+- `bridge_gazebo` - Gazebo Ignition world bridge
+- `bridge_ROS2` - ROS2 world bridge
+- `executer_ROS2` - ROS2 executor with Autoware message support
+- `multi_object_prediction` - Multi-object prediction perception

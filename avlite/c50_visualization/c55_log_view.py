@@ -250,7 +250,13 @@ class LogView(ttk.LabelFrame):
         messages = []
         try:
             while len(messages) < max_per_poll:
-                msg, levelno = self.log_handler.log_queue.get_nowait()
+                record, levelno = self.log_handler.log_queue.get_nowait()
+                # Format lazily on the UI thread (avoids blocking planner/controller threads in emit)
+                msg = self.log_handler.format(record)
+                _first_dot = msg.find('.')
+                _second_dot = msg.find('.', _first_dot + 1)
+                code = msg[_second_dot+1 : msg.find('_', _second_dot)]
+                msg = code[:4] + ':' + msg
                 if levelno >= logging.ERROR:
                     tag = "error"
                 elif levelno >= logging.WARNING:
@@ -325,18 +331,12 @@ class LogView(ttk.LabelFrame):
 
         def emit(self, record):
             """ Emit a log record to the text widget """
-
+            # Blacklist check only — no formatting here so calling threads (planner, etc.) are not stalled.
+            # Formatting is deferred to poll_log_queue() on the UI thread.
             for bl in self.log_view.log_blacklist:
                 if record.name.startswith(bl + "."):
                     return
-
-            msg = self.format(record)
-            _first_dot = msg.find('.')
-            _second_dot = msg.find('.', _first_dot + 1)
-            code = msg[_second_dot+1 : msg.find('_', _second_dot)]
-            msg = code[:4] + ':' + msg
-
-            self.log_queue.put((msg, record.levelno))
+            self.log_queue.put((record, record.levelno))
  
 
     #     def emit(self, record):

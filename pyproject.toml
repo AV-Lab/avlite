@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "avlite"
+version = "0.1.1"
+description = "AVLite - Modular Autonomous Vehicle Stack for rapid prototyping, research, and education"
+readme = "README.md"
+license = { text = "MIT" }
+maintainers = [{ name = "mkhonji", email = "majid.khonji@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0",
+    "matplotlib>=3.8",
+    "PyYAML>=6.0",
+    "shapely>=2.0",
+    "networkx>=3.0",
+    "ttkthemes>=3.2",
+]
+
+[project.scripts]
+avlite = "avlite.__main__:main"
+
+[tool.setuptools.packages.find]
+exclude = ["test*", "build*", "site*"]

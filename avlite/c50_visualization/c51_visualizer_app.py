@@ -275,6 +275,7 @@ class VisualizerApp(tk.Tk):
             style = ThemedStyle(self)
             style.set_theme("equilux")
             style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+            style.configure("TLabelframe.Label", font=("Arial", 11, "bold"))
             gruvbox_red = "#9d0006"
             gruvbox_orange = "#d65d0e"
 
@@ -362,6 +363,7 @@ class VisualizerApp(tk.Tk):
         self.option_add('*Listbox.borderWidth', 2)
        
         style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+        style.configure("TLabelframe.Label", font=("Arial", 10, "bold"))
 
     def _create_menubar(self):
         self.menubar = tk.Menu(self)
@@ -462,6 +464,7 @@ class VisualizerApp(tk.Tk):
             self.setting.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
             self.setting.replan_fps.set(f"{self.exec.planner_fps:6.1f}")
             self.setting.control_fps.set(f"{self.exec.control_fps:6.1f}")
+            self.setting.perception_fps.set(f"{self.exec.perception_fps:6.1f}")
             self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
 
 

@@ -647,7 +647,8 @@ class LocalPlot:
         self.legend_ax.set_visible(show_legend)
         
         center_xy = exec.local_planner.location_xy if global_follow_planner else  (exec.ego_state.x, exec.ego_state.y)
-        center_sd = exec.local_planner.location_sd if frenet_follow_planner else exec.local_planner.global_trajectory.convert_xy_to_sd(*center_xy)
+        # location_sd is the planner's cached Frenet position (updated every step) — avoids a KD-tree call per frame
+        center_sd = exec.local_planner.location_sd
         if xy_zoom is not None:
             self.ax1.set_xlim(center_xy[0] - xy_zoom, center_xy[0] + xy_zoom)
             self.ax1.set_ylim( center_xy[1] - xy_zoom / aspect_ratio / 2, center_xy[1] + xy_zoom / aspect_ratio / 2,)
@@ -678,7 +679,6 @@ class LocalPlot:
         self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model and plot_ground_truth)
         self.update_lidar_plot(lidar_data, plot_lidar)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
-        self.redraw_plots()
 
     def redraw_plots(self):
         self.ax1.draw_artist(self.ax1.patch)
@@ -860,12 +860,16 @@ class LocalPlot:
         def transform(row):
             return global_trajectory.convert_xy_to_sd(row[0], row[1])
 
-        for i, agent in enumerate(pm.agent_vehicles):
-            if i >= self.MAX_AGENT_COUNT:
-                log.warning(f"Exceeded maximum number of agents: {self.MAX_AGENT_COUNT}")
-                break
+        n = min(len(pm.agent_vehicles), self.MAX_AGENT_COUNT)
+        if len(pm.agent_vehicles) > self.MAX_AGENT_COUNT:
+            log.warning(f"Exceeded maximum number of agents: {self.MAX_AGENT_COUNT}")
+        for i, agent in enumerate(pm.agent_vehicles[:n]):
             self.pm_plots_ax1[i].set_xy(agent.get_bb_corners())
             self.pm_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
+        # clear stale patches left over from the previous frame when agent count drops
+        for j in range(n, self.MAX_AGENT_COUNT):
+            self.pm_plots_ax1[j].set_xy(np.empty((0, 2)))
+            self.pm_plots_ax2[j].set_xy(np.empty((0, 2)))
 
     def update_lidar_plot(self, lidar_data, show_plot=True):
         """Update the LiDAR scatter on ax1 (XY view)."""

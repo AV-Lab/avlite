@@ -79,12 +79,29 @@ def _render_dashboard(executer, profile: str):
         f"{_fmt(_g(executer, 'elapsed_real_time', 0.0), '<7.2f')} s  /  "
         f"{_fmt(_g(executer, 'elapsed_sim_time', 0.0), '<7.2f')} s",
     )
+    def _fps_cell(fps, target_dt):
+        """Format FPS with its target rate. Colour green if near target, yellow if slow."""
+        fps_val = fps if isinstance(fps, (int, float)) else 0.0
+        target = target_dt if isinstance(target_dt, (int, float)) and target_dt > 0 else None
+        target_fps = 1.0 / target if target else None
+        fps_str = f"{fps_val:<6.1f}"
+        if target_fps:
+            target_str = f"[dim]/{target_fps:<5.1f}[/dim]"
+        else:
+            target_str = ""
+        if target_fps and fps_val >= target_fps * 0.9:
+            return f"[green]{fps_str}[/green]{target_str}"
+        elif fps_val > 0:
+            return f"[yellow]{fps_str}[/yellow]{target_str}"
+        else:
+            return f"[red]{fps_str}[/red]{target_str}"
+
     table.add_row(
-        "FPS (plan / ctrl / perc / loc)",
-        f"{_fmt(_g(executer, 'planner_fps', 0.0), '<6.1f')}  "
-        f"{_fmt(_g(executer, 'control_fps', 0.0), '<6.1f')}  "
-        f"{_fmt(_g(executer, 'perception_fps', 0.0), '<6.1f')}  "
-        f"{_fmt(_g(executer, 'localization_fps', 0.0), '<6.1f')}",
+        "FPS  (actual[dim]/target[/dim])",
+        f"plan  {_fps_cell(_g(executer, 'planner_fps', 0.0), _g(executer, 'replan_dt', None))}  "
+        f"ctrl  {_fps_cell(_g(executer, 'control_fps', 0.0), _g(executer, 'control_dt', None))}  "
+        f"perc  {_fps_cell(_g(executer, 'perception_fps', 0.0), _g(executer, 'perception_dt', None))}  "
+        f"loc  {_fps_cell(_g(executer, 'localization_fps', 0.0), _g(executer, 'localization_dt', None))}",
     )
     if ego not in (None, "-"):
         table.add_row(
@@ -111,7 +128,7 @@ def _render_dashboard(executer, profile: str):
     body = Table.grid(expand=True)
     body.add_row(table)
     body.add_row(footer)
-    return Panel(body, title="AVlite — Headless", border_style="green")
+    return Panel(body, title="[bold]AVlite — Headless[/bold]", border_style="green")
 
 
 class _DequeLogHandler(logging.Handler):
@@ -221,7 +238,7 @@ def _render_log_panel(log_buffer, height: int):
                     style = s
                     break
             body.append(line + "\n", style=style)
-    return Panel(body, title="Logs", border_style="blue", height=height + 2)
+    return Panel(body, title="[bold]Logs[/bold]", border_style="blue", height=height + 2)
 
 
 def _build_layout(executer, profile, log_buffer, log_height: int):
@@ -301,6 +318,12 @@ def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: b
     console = Console(stderr=False)
 
     load_all_stack_settings(profile=profile, load_extensions=True)
+
+    # CLI args win over profile; profile wins over built-in defaults.
+    if control_dt is None:
+        control_dt = ExecutionSettings.control_dt
+    if replan_dt is None:
+        replan_dt = ExecutionSettings.replan_dt
 
     # Resolve effective log level: CLI arg wins over profile; profile wins over default.
     effective_log_level = log_level if log_level is not None else ExecutionSettings.log_level
@@ -404,8 +427,8 @@ def main(argv: list[str] | None = None) -> None:
     headless = sub.add_parser("headless", help="Run the executer headless with a terminal dashboard")
     headless.add_argument("-p", "--profile", default=None, help="Profile name to load (default: 'default')")
     headless.add_argument("profile_pos", nargs="?", default=None, help=argparse.SUPPRESS)
-    headless.add_argument("--control-dt", type=float, default=0.01, help="Control loop dt in seconds")
-    headless.add_argument("--replan-dt", type=float, default=0.5, help="Replan dt in seconds")
+    headless.add_argument("--control-dt", type=float, default=None, help="Control loop dt in seconds (default: from profile)")
+    headless.add_argument("--replan-dt", type=float, default=None, help="Replan dt in seconds (default: from profile)")
     headless.add_argument("--perceive", action="store_true", help="Enable perception step in the loop")
     headless.add_argument(
         "--log-level",

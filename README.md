@@ -6,7 +6,7 @@
 
 AVLite is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
 
-**ROS2 & Autoware Ready**: Built-in ROS2 executor extension with native Autoware message support (Trajectory, ControlCommand, etc.).
+**ROS2 & Autoware Ready**: Built-in ROS2 executor extension (`executer_ROS2`) with native Autoware message support (Trajectory, ControlCommand, etc.).
 
 ![](docs/imgs/tk_visualizer.png)
 
@@ -14,28 +14,31 @@ AVLite is a lightweight, extensible autonomous vehicle software stack designed f
 
 AVLite follows a modular architecture with clear separation of concerns:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Visualization                          │
-│              (Real-time GUI with Tkinter)                   │
-└─────────────────────────────────────────────────────────────┘
-                            ▲
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│                       Execution Layer                       │
-│          (SyncExecuter / AsyncThreadedExecuter)             │
-└─────────────────────────────────────────────────────────────┘
-         │              │              │              │
-         ▼              ▼              ▼              ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Perception  │ │   Planning   │ │   Control    │ │  World       │
-│              │ │              │ │              │ │  Bridge      │
-│  - Detect    │ │  - Global    │ │  - Stanley   │ │              │
-│  - Track     │ │  - Local     │ │  - PID       │ │  - BasicSim  │
-│  - Predict   │ │  - Lattice   │ │              │ │  - CARLA     │
-│  - Localize  │ │              │ │              │ │  - Gazebo    │
-│              │ │              │ │              │ │  - ROS2      │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```mermaid
+flowchart TB
+    subgraph ENTRY[" "]
+        direction LR
+        VIZ["🖥️ Visualization · c50\nReal-time Tkinter GUI"]
+        HL["⌨️ Headless Mode\nTerminal dashboard · rich"]
+        VIZ ~~~ HL
+    end
+
+    EXEC["⚙️ Execution Layer · c40\nSyncExecuter · AsyncThreadedExecuter · Factory"]
+
+    subgraph COMPONENTS[" "]
+        direction LR
+        PERC["Perception · c10 (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
+        PLAN["Planning · c20\nGlobal · Local · Lattice"]
+        CTRL["Control · c30\nStanley · PID"]
+        WB["World Bridge · c40\nBasicSim · Carla · Gazebo · ROS2"]
+        PERC ~~~ PLAN ~~~ CTRL ~~~ WB
+    end
+
+    COMMON["🔧 Common · c60\nSettings · Capabilities · TrajectoryTracker · CollisionChecker"]
+
+    ENTRY --> EXEC
+    EXEC --> COMPONENTS
+    COMPONENTS --> COMMON
 ```
 
 ### Core Components
@@ -87,7 +90,7 @@ pip install -r requirements-full.txt
 
 **Optional integrations** (install separately as needed):
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `executer_ros` extension provides ROS2 nodes and Autoware message converters out of the box.
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `executer_ROS2` extension provides ROS2 nodes and Autoware message converters out of the box.
 
 Run from source:
 ```bash
@@ -193,6 +196,7 @@ avlite/
 │   ├── c11_perception_model.py
 │   ├── c12_perception_strategy.py
 │   ├── c13_localization_strategy.py
+│   ├── c14_mapping_strategy.py
 │   ├── c18_hdmap.py
 │   └── c19_settings.py
 ├── c20_planning/           # Planning components
@@ -201,6 +205,7 @@ avlite/
 │   ├── c23_local_planning_strategy.py
 │   ├── c24_global_planners.py
 │   ├── c26_local_planners.py
+│   ├── c27_lattice.py
 │   └── c29_settings.py
 ├── c30_control/            # Control components
 │   ├── c31_control_model.py
@@ -214,18 +219,28 @@ avlite/
 │   ├── c43_sync_executer.py
 │   ├── c44_async_threaded_executer.py
 │   ├── c46_basic_sim.py
-│   ├── c47_carla_bridge.py
 │   └── c49_settings.py
 ├── c50_visualization/      # GUI and plotting
+│   ├── c50_community_plugins_app.py
 │   ├── c51_visualizer_app.py
 │   ├── c52_plot_views.py
+│   ├── c53_perceive_plan_control_views.py
+│   ├── c54_exec_views.py
+│   ├── c55_log_view.py
+│   ├── c56_config_views.py
+│   ├── c57_plot_lib.py
+│   ├── c58_ui_lib.py
 │   └── c59_settings.py
 ├── c60_common/            # Utilities
 │   ├── c61_setting_utils.py
-│   └── c62_capabilities.py
-└── extensions/            # Plugin system
+│   ├── c62_capabilities.py
+│   ├── c63_trajectory_tracker.py
+│   └── c64_collision_checking.py
+└── extensions/            # Built-in extensions
+    ├── bridge_carla/
     ├── bridge_gazebo/
-    ├── executer_ros/
+    ├── bridge_ROS2/
+    ├── executer_ROS2/
     └── multi_object_prediction/
 ```
 

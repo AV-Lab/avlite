@@ -690,14 +690,16 @@ class TrajectoryTracker:
 
     # A numpy version of the above function
     def convert_xy_path_to_sd_path_np(self, points):
+        # Batch KD-tree query (same as convert_xy_path_to_sd_path) — avoids one lookup per point.
+        # Results collected in a list and converted to np.array once at the end (avoids np.vstack per iteration).
+        points_array = np.asarray(points)                       # shape (m, 2)
+        _, closest_wps = self.__xy_kdtree.query(points_array)  # shape (m,) — O(m log n)
 
         reference_path = self.__reference_path
-        frenet_coords = np.empty((0, 2))
         cumulative_distances = self.__cumulative_distances
-        for point in points:
-
-            closest_wp = self.get_closest_waypoint_frm_xy(point[0], point[1])
-            # To avoid returning the last point which is the same as the first
+        frenet_coords = []
+        for idx, point in enumerate(points_array):
+            closest_wp = closest_wps[idx]
 
             if closest_wp == 0:
                 next_wp = 1
@@ -729,9 +731,9 @@ class TrajectoryTracker:
             vec_to_point = np.array([x_x - proj_x, x_y - proj_y])
             d = np.dot(vec_to_point, normal) / np.linalg.norm(normal)
 
-            frenet_coords = np.vstack((frenet_coords, (s, d)))
+            frenet_coords.append((s, d))
 
-        return frenet_coords
+        return np.array(frenet_coords)
 
 
 

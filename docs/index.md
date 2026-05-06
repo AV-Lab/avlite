@@ -7,7 +7,7 @@
 AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.
 
 !!! tip "ROS2 & Autoware Ready"
-    AVLite includes a built-in ROS2 executor extension (`executer_ros`) with native Autoware message support. Publish and subscribe to `autoware_auto_msgs` types like Trajectory and ControlCommand out of the box.
+    AVLite includes a built-in ROS2 executor extension (`executer_ROS2`) with native Autoware message support. Publish and subscribe to `autoware_auto_msgs` types like Trajectory and ControlCommand out of the box.
 
 **Repository**: [github.com/AV-Lab/avlite](https://github.com/AV-Lab/avlite)
 
@@ -41,7 +41,7 @@ pip install -r requirements-full.txt
 ### Optional Integrations
 
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. The built-in `executer_ros` extension provides:
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. The built-in `executer_ROS2` extension provides:
     - `ROSExecuter`: Synchronize AVLite with ROS2 ecosystem
     - `PlannerNode`: Publishes Autoware Trajectory messages
     - `ControllerNode`: Publishes Autoware ControlCommand messages
@@ -162,8 +162,9 @@ AVLite uses YAML-based configuration with profile support. Configuration files a
 
 In the GUI Config tab, change the **Bridge** dropdown:
 - `BasicSim` - Built-in 2D simulation (no external dependencies)
-- `CarlaBridge` - Connect to CARLA simulator
-- `GazeboBridge` - Connect to Gazebo Ignition
+- `CarlaBridge` - Connect to a running CARLA simulator (`bridge_carla` extension)
+- `GazeboIgnitionBridge` - Connect to Gazebo Ignition via ROS2 (`bridge_gazebo` extension)
+- `ROS2WorldBridge` - Use a ROS2 topic-based world bridge (`bridge_ROS2` extension)
 
 ## Project Structure
 
@@ -176,9 +177,11 @@ avlite/
 ├── c50_visualization/  # GUI components
 ├── c60_common/         # Shared utilities
 └── extensions/         # Built-in extensions
-    ├── multi_object_prediction/
-    ├── executer_ros/   # ROS2 executor with Autoware msgs
-    └── bridge_gazebo/  # Gazebo world bridge
+    ├── bridge_carla/       # CARLA simulator bridge
+    ├── bridge_gazebo/      # Gazebo Ignition bridge
+    ├── bridge_ROS2/        # ROS2 world bridge
+    ├── executer_ROS2/      # ROS2 executor with Autoware msgs
+    └── multi_object_prediction/  # Multi-object prediction
 ```
 
 Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.

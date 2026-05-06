@@ -19,7 +19,7 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
 from avlite.c60_common.c62_capabilities import WorldCapability
-
+from avlite.c60_common.c65_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
 
@@ -139,6 +139,11 @@ class Executer(ABC):
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
 
+        self._perception_fps_tracker = FpsTracker()
+        self._planner_fps_tracker = FpsTracker()
+        self._control_fps_tracker = FpsTracker()
+        self._localization_fps_tracker = FpsTracker()
+
         self._stop_event = threading.Event()
 
     @abstractmethod
@@ -192,7 +197,67 @@ class Executer(ABC):
         self.world.reset()
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
+        self._perception_fps_tracker.reset()
+        self._planner_fps_tracker.reset()
+        self._control_fps_tracker.reset()
+        self._localization_fps_tracker.reset()
 
+    def _localization_step(self) -> None:
+        """Run one localization iteration using the current world capabilities."""
+        if not self.localization:
+            return
+
+        if self.localization.requirements.issubset(self.world.capabilities):
+            self.localization.localize(
+                lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
+                rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
+            )
+        else:
+            log.warning(
+                f"Localization strategy {self.localization.__class__.__name__} requirements "
+                f"{self.localization.requirements} not satisfied by capabilities: "
+                f"{self.world.capabilities}. Skipping."
+            )
+
+    def _perception_step(self) -> None:
+        """Run one perception iteration and update fps tracking."""
+        if not self.perception:
+            log.error("Perception strategy is not set. Skipping perception step.")
+            return
+
+        if not self.perception.requirements.issubset(self.world.capabilities):
+            log.error(
+                f"Perception strategy {self.perception.__class__.__name__} requirements "
+                f"{self.perception.requirements} not satisfied by capabilities: "
+                f"{self.world.capabilities}. Skipping perception step."
+            )
+            return
+
+        if ExecutionSettings.provide_ground_truth:
+            self.pm = self.world.get_ground_truth_perception_model()
+        else:
+            self.pm.agent_vehicles = []
+
+        self.perception.perceive(
+            perception_model=self.pm,
+            rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
+            depth_img=self.world.get_depth_image(),
+            lidar_data=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
+        )
+
+        self.perception_fps = self._perception_fps_tracker.tick()
+
+    def _replan_step(self, sim_time: float = None) -> None:
+        """Run one planning iteration (replan) and update FPS."""
+        self.local_planner.replan()
+        self.planner_fps = self._planner_fps_tracker.tick(sim_time)
+
+    def _control_step(self, sim_dt: float, sim_time: float = None) -> None:
+        """Run one control iteration, apply to world, and update FPS."""
+        local_tj = self.local_planner.get_local_plan()
+        cmd = self.controller.control(self.ego_state, local_tj, control_dt=sim_dt)
+        self.world.control_ego_state(cmd, dt=sim_dt)
+        self.control_fps = self._control_fps_tracker.tick(sim_time)
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

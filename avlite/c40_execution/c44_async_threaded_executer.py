@@ -130,8 +130,7 @@ class AsyncThreadedExecuter(Executer):
 
                 elif dt > self.replan_dt:
                     self.__planner_last_step_time = time.time()
-                    self.local_planner.replan()
-                    self.planner_fps = 1.0 / dt
+                    self._replan_step()
 
                 # with self.lock_controller:
                 self.controller.tj = self.local_planner.get_local_plan()
@@ -149,6 +148,18 @@ class AsyncThreadedExecuter(Executer):
                         self._localization_step()
                     except Exception as e:
                         log.error(f"Error in localization step: {e}", exc_info=True)
+
+                # Perception runs alongside planning, rate-limited by perception_dt
+                if self.call_perceive:
+                    dt_p = time.time() - self._perception_fps_tracker.last
+                    if dt_p > 10 * self.perception_dt:
+                        # Startup or long gap — reset timer without running
+                        self._perception_fps_tracker.last = time.time()
+                    elif dt_p >= self.perception_dt:
+                        try:
+                            self._perception_step()
+                        except Exception as e:
+                            log.error(f"Error in perception step: {e}", exc_info=True)
 
             except Exception as e:
                 log.error(f"Error in planner worker: {e}", exc_info=True)
@@ -173,7 +184,9 @@ class AsyncThreadedExecuter(Executer):
                         cmd = self.controller.control(state, control_dt=self.sim_dt)
                         self.world.control_ego_state(cmd, dt=self.sim_dt)
 
-                    self.control_fps = 1.0 / dt
+                    self.control_fps = self._control_fps_tracker.tick()
+                    self.elapsed_sim_time += self.sim_dt
+                    self.elapsed_real_time += dt
 
                 t2 = time.time()
                 sleep_time = max(0, self.control_dt - (t2 - t1))
@@ -182,51 +195,6 @@ class AsyncThreadedExecuter(Executer):
             except Exception as e:
                 log.error(f"Error in controller worker: {e}", exc_info=True)
                 time.sleep(0.1)
-
-            if self.call_perceive:
-                try:
-                    self._perception_step()
-                except Exception as e:
-                    log.error(f"Error in perception step: {e}")
-
-    def _localization_step(self):
-        """Run one localization iteration.  Called from the planner worker thread."""
-        if not self.localization:
-            return
-
-        if self.localization.requirements.issubset(self.world.capabilities):
-            self.localization.localize(
-                lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
-                rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
-            )
-        else:
-            log.warning(f"Localization strategy {self.localization.__class__.__name__} requirements "
-                        f"{self.localization.requirements} not satisfied by capabilities: {self.world.capabilities}.")
-
-    def _perception_step(self):
-        if not self.perception:
-            raise RuntimeError("Perception strategy is not set. Skipping perception step.")
-
-        # elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
-        elif self.perception.requirements.issubset(self.world.capabilities): 
-            if ExecutionSettings.provide_ground_truth:
-                self.pm = self.world.get_ground_truth_perception_model()
-            else:
-                self.pm.agent_vehicles = []
-            perception_output = self.perception.perceive(
-                perception_model=self.pm,
-                rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
-                depth_img=self.world.get_depth_image(),
-                lidar_data=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
-            )
-
-            # log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
-            log.debug(f"type of perception_output: {type(perception_output)}")
-            # log.warning(f"occupancy grid: {self.pm.occupancy_flow}")
-            log.debug(f"occupancy grid sizes: {self.pm.grid_bounds}")
-
-        else:
-            raise RuntimeError(f"Perception strategy {self.perception.__class__.__name__} requirements {self.perception.requirements} not satisfied by capabilities: {self.world.capabilities}. Skipping perception step.")
 
     def worker_perception(self):
         while not self.__kill_flag and self.call_perceive:

@@ -1,8 +1,7 @@
 import logging
 import time
 
-from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
+from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
@@ -11,7 +10,7 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c41_execution_model import Executer
 from avlite.c40_execution.c41_execution_model import WorldBridge
-from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
+from avlite.c60_common.c62_capabilities import WorldCapability
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +40,6 @@ class SyncExecuter(Executer):
         self.elapsed_sim_time = 0
 
         self.__prev_exec_time = None
-        self.__perception_last_time = 0.0
         self.__planner_last_time = 0.0
         self.__controller_last_time = 0.0
         self.__localization_last_time = 0.0
@@ -58,11 +56,9 @@ class SyncExecuter(Executer):
         if call_replan:
             dt_p = self.elapsed_sim_time - self.__planner_last_time
             if dt_p >= replan_dt:
-                self.local_planner.replan()
                 self.__planner_last_time = self.elapsed_sim_time
-                self.planner_fps = 1.0 / dt_p
+                self._replan_step(self.elapsed_sim_time)
                 pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
-                # log.info(f"DT Planner: {dt_p:.4f} sec")
 
         self.local_planner.step(self.ego_state)
 
@@ -71,57 +67,23 @@ class SyncExecuter(Executer):
             dt_c = self.elapsed_sim_time - self.__controller_last_time
             if dt_c >= control_dt:
                 self.__controller_last_time = self.elapsed_sim_time
-                self.control_fps = 1.0 / dt_c
-                local_tj = self.local_planner.get_local_plan()
-                cmd = self.controller.control(self.ego_state, local_tj, control_dt=sim_dt)
+                self._control_step(sim_dt, sim_time=self.elapsed_sim_time)
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
-
-                self.world.control_ego_state(cmd, dt=sim_dt)
         self.elapsed_sim_time += control_dt
         
         # ---- Localization step ----
         t_loc = time.time()
         if call_localize and self.localization:
-            if self.localization.requirements.issubset(self.world.capabilities):
-                dt_loc = self.elapsed_sim_time - self.__localization_last_time
-                if dt_loc >= localization_dt:
-                    self.__localization_last_time = self.elapsed_sim_time
-                    self.localization.localize(
-                        lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
-                        rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
-                    )
-                    self.localization_fps = 1.0 / dt_loc
-                    loc_time_txt = f" LOC: {(time.time() - t_loc):.4f} sec,"
-            else:
-                log.error(f"Localization strategy {self.localization.__class__.__name__} requirements {self.localization.requirements} not satisfied by capabilities: {self.world.capabilities}. Skipping localization step.")
+            dt_loc = self.elapsed_sim_time - self.__localization_last_time
+            if dt_loc >= localization_dt:
+                self.__localization_last_time = self.elapsed_sim_time
+                self._localization_step()
+                self.localization_fps = self._localization_fps_tracker.tick(self.elapsed_sim_time)
+                loc_time_txt = f" LOC: {(time.time() - t_loc):.4f} sec,"
 
         t2 = time.time()
         if call_perceive:
-            if not self.perception:
-                log.error("Perception strategy is not set. Skipping perception step.")
-
-            # elif self.perception.supports_detection == False and self.world.supports_ground_truth_detection:
-            elif self.perception.requirements.issubset(self.world.capabilities): 
-                # log.warning(f"[Executer] Perception step started at {t2:.4f} sec")
-                if ExecutionSettings.provide_ground_truth:
-                    self.pm = self.world.get_ground_truth_perception_model()
-                else:
-                    self.pm.agent_vehicles = []
-                perception_output = self.perception.perceive(
-                    perception_model=self.pm,
-                    rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
-                    depth_img=self.world.get_depth_image(),
-                    lidar_data=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
-                )
-
-                # log.debug(f"[Executer] Perception output: {perception_output.shape if not isinstance(perception_output, list) else len(perception_output)}")
-                log.debug(f"type of perception_output: {type(perception_output)}")
-                # log.warning(f"occupancy grid: {self.pm.occupancy_flow}")
-                log.debug(f"occupancy grid sizes: {self.pm.grid_bounds}")
-
-            else:
-                log.error(f"Perception strategy {self.perception.__class__.__name__} requirements {self.perception.requirements} not satisfied by capabilities: {self.world.capabilities}. Skipping perception step.")
-
+            self._perception_step()
             pr_time_txt = f" PR: {(time.time() - t2):.4f} sec,"
 
 

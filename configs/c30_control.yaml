@@ -39,6 +39,28 @@ SAN:
   stanley_valpha: 0.8
   stanley_vbeta: 0.01
   stanley_vgamma: 0.3
+async:
+  emergency_braking_factor: 0.9
+  emergency_min_moving_velocity: 1.0
+  emergency_velocity_threshold: 0.5
+  exclude: []
+  filepath: configs/c30_control.yaml
+  pid_alpha: 0.01
+  pid_beta: 0.001
+  pid_gamma: 0.6
+  pid_lookahead: 2
+  pid_valpha: 0.8
+  pid_vbeta: 0.01
+  pid_vgamma: 0.3
+  stanley_k: 5
+  stanley_k_soft: 0.01
+  stanley_lookahead: 5
+  stanley_slow_down_cte: 0.5
+  stanley_slow_down_heading_cte: 0.5235987755982988
+  stanley_slow_down_vel_threshold: 3
+  stanley_valpha: 0.8
+  stanley_vbeta: 0.01
+  stanley_vgamma: 0.3
 default:
   emergency_braking_factor: 0.9
   emergency_min_moving_velocity: 1.0
@@ -62,6 +84,9 @@ default:
   stanley_vbeta: 0.01
   stanley_vgamma: 0.3
 perception exp:
+  emergency_braking_factor: 0.9
+  emergency_min_moving_velocity: 1.0
+  emergency_velocity_threshold: 0.5
   exclude: []
   filepath: configs/c30_control.yaml
   pid_alpha: 0.01
@@ -81,28 +106,6 @@ perception exp:
   stanley_vbeta: 0.01
   stanley_vgamma: 0.3
 ros:
-  exclude: []
-  filepath: configs/c30_control.yaml
-  pid_alpha: 0.01
-  pid_beta: 0.001
-  pid_gamma: 0.6
-  pid_lookahead: 2
-  pid_valpha: 0.8
-  pid_vbeta: 0.01
-  pid_vgamma: 0.3
-  stanley_k: 5
-  stanley_k_soft: 0.01
-  stanley_lookahead: 5
-  stanley_slow_down_cte: 0.5
-  stanley_slow_down_heading_cte: 0.5235987755982988
-  stanley_slow_down_vel_threshold: 3
-  stanley_valpha: 0.8
-  stanley_vbeta: 0.01
-  stanley_vgamma: 0.3
-source defaults:
-  emergency_braking_factor: 0.9
-  emergency_min_moving_velocity: 1.0
-  emergency_velocity_threshold: 0.5
   exclude: []
   filepath: configs/c30_control.yaml
   pid_alpha: 0.01

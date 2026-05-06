@@ -4,39 +4,31 @@
 
 AVLite follows a layered architecture with clear separation between interfaces and implementations.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Visualization (c50)                      │
-│                  Real-time Tkinter GUI                      │
-└─────────────────────────────────────────────────────────────┘
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│                    Execution Layer (c40)                    │
-│         SyncExecuter / AsyncThreadedExecuter                │
-│                    Factory Pattern                          │
-└─────────────────────────────────────────────────────────────┘
-    │           │              │              │              │
-    ▼           ▼              ▼              ▼              ▼
-┌────────┐┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│Localiz.││  Perception  │ │   Planning   │ │   Control    │ │    World     │
-│ (c10)  ││    (c10)     │ │    (c20)     │ │    (c30)     │ │   Bridge     │
-│        ││              │ │              │ │              │ │              │
-│Optional││  Optional    │ │  Global +    │ │  Stanley     │ │  BasicSim    │
-│        ││  + Registry  │ │  Local       │ │  PID         │ │  Carla       │
-│        ││              │ │  Lattice     │ │              │ │  Gazebo      │
-└────────┘└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
-    │           │              │              │              │
-    └───────────┴──────────────┴──────────────┴──────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────┐
-│                      Common (c60)                           │
-│        Settings, Capabilities, Utilities                    │
-└─────────────────────────────────────────────────────────────┘
-                                │
-┌─────────────────────────────────────────────────────────────┐
-│              Extensions + Community Plugins                 │
-│  Perception, Localization, Planning, Control implementations│
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph ENTRY[" "]
+        direction LR
+        VIZ["🖥️ Visualization · c50\nReal-time Tkinter GUI"]
+        HL["⌨️ Headless Mode\nTerminal dashboard · rich"]
+        VIZ ~~~ HL
+    end
+
+    EXEC["⚙️ Execution Layer · c40\nSyncExecuter · AsyncThreadedExecuter · Factory"]
+
+    subgraph COMPONENTS[" "]
+        direction LR
+        PERC["Perception · c10 (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
+        PLAN["Planning · c20\nGlobal · Local · Lattice"]
+        CTRL["Control · c30\nStanley · PID"]
+        WB["World Bridge · c40\nBasicSim · Carla · Gazebo · ROS2"]
+        PERC ~~~ PLAN ~~~ CTRL ~~~ WB
+    end
+
+    COMMON["🔧 Common · c60\nSettings · Capabilities · TrajectoryTracker · CollisionChecker"]
+
+    ENTRY --> EXEC
+    EXEC --> COMPONENTS
+    COMPONENTS --> COMMON
 ```
 
 ## Design Patterns
@@ -163,7 +155,7 @@ Includes built-in controllers: `StanleyController`, `PIDController`.
 - `Factory` - Component assembly
 - `ExecutionSettings` - Runtime settings including `log_level` (DEBUG/INFO/WARNING/ERROR/CRITICAL) and `log_to_file` (write logs to `./logs/avlite_<timestamp>.log`)
 
-Built-in bridges: `BasicSim`, `CarlaBridge`, `GazeboBridge`.
+Built-in bridges: `BasicSim` (c46_basic_sim.py), `CarlaBridge` (bridge_carla), `GazeboIgnitionBridge` (bridge_gazebo), `ROS2WorldBridge` (bridge_ROS2).
 
 ### c50_visualization
 
@@ -213,9 +205,11 @@ World Bridge
 ```
 avlite/
 └── extensions/           # Built-in (core team)
-    ├── multi_object_prediction/
-    ├── executer_ros/
-    └── bridge_gazebo/
+    ├── bridge_carla/
+    ├── bridge_gazebo/
+    ├── bridge_ROS2/
+    ├── executer_ROS2/
+    └── multi_object_prediction/
 
 /path/to/                 # Community plugins
 └── my_plugin/
