@@ -685,7 +685,7 @@
 <li><code>Factory</code> - Component assembly</li>
 <li><code>ExecutionSettings</code> - Runtime settings including <code>log_level</code> (DEBUG/INFO/WARNING/ERROR/CRITICAL) and <code>log_to_file</code> (write logs to <code>./logs/avlite_&lt;timestamp&gt;.log</code>)</li>
 </ul>
-<p>Built-in bridges: <code>BasicSim</code>, <code>CarlaBridge</code>, <code>GazeboBridge</code>.</p>
+<p>Built-in bridges: <code>BasicSim</code> (c46_basic_sim.py), <code>CarlaBridge</code> (bridge_carla), <code>GazeboIgnitionBridge</code> (bridge_gazebo), <code>ROS2WorldBridge</code> (bridge_ROS2).</p>
 <h3 id="c50_visualization">c50_visualization<a class="headerlink" href="#c50_visualization" title="Permanent link">&para;</a></h3>
 <p>Tkinter-based GUI with:
 - Real-time plotting (XY, Frenet views)
@@ -728,9 +728,11 @@
 <h2 id="extension-system">Extension System<a class="headerlink" href="#extension-system" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>avlite/
 └── extensions/           # Built-in (core team)
-    ├── multi_object_prediction/
-    ├── executer_ros/
-    └── bridge_gazebo/
+    ├── bridge_carla/
+    ├── bridge_gazebo/
+    ├── bridge_ROS2/
+    ├── executer_ROS2/
+    └── multi_object_prediction/
 
 /path/to/                 # Community plugins
 └── my_plugin/

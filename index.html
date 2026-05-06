@@ -618,7 +618,7 @@
 <p>AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.</p>
 <div class="admonition tip">
 <p class="admonition-title">ROS2 &amp; Autoware Ready</p>
-<p>AVLite includes a built-in ROS2 executor extension (<code>executer_ros</code>) with native Autoware message support. Publish and subscribe to <code>autoware_auto_msgs</code> types like Trajectory and ControlCommand out of the box.</p>
+<p>AVLite includes a built-in ROS2 executor extension (<code>executer_ROS2</code>) with native Autoware message support. Publish and subscribe to <code>autoware_auto_msgs</code> types like Trajectory and ControlCommand out of the box.</p>
 </div>
 <p><strong>Repository</strong>: <a href="https://github.com/AV-Lab/avlite">github.com/AV-Lab/avlite</a></p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
@@ -644,7 +644,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <h3 id="optional-integrations">Optional Integrations<a class="headerlink" href="#optional-integrations" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>CARLA</strong>: Install from <a href="https://github.com/carla-simulator/carla/releases">CARLA releases</a></li>
-<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code> for native Autoware message support. The built-in <code>executer_ros</code> extension provides:<ul>
+<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code> for native Autoware message support. The built-in <code>executer_ROS2</code> extension provides:<ul>
 <li><code>ROSExecuter</code>: Synchronize AVLite with ROS2 ecosystem</li>
 <li><code>PlannerNode</code>: Publishes Autoware Trajectory messages</li>
 <li><code>ControllerNode</code>: Publishes Autoware ControlCommand messages</li>
@@ -775,8 +775,9 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 <h3 id="example-switching-simulators">Example: Switching Simulators<a class="headerlink" href="#example-switching-simulators" title="Permanent link">&para;</a></h3>
 <p>In the GUI Config tab, change the <strong>Bridge</strong> dropdown:
 - <code>BasicSim</code> - Built-in 2D simulation (no external dependencies)
-- <code>CarlaBridge</code> - Connect to CARLA simulator
-- <code>GazeboBridge</code> - Connect to Gazebo Ignition</p>
+- <code>CarlaBridge</code> - Connect to a running CARLA simulator (<code>bridge_carla</code> extension)
+- <code>GazeboIgnitionBridge</code> - Connect to Gazebo Ignition via ROS2 (<code>bridge_gazebo</code> extension)
+- <code>ROS2WorldBridge</code> - Use a ROS2 topic-based world bridge (<code>bridge_ROS2</code> extension)</p>
 <h2 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>avlite/
 ├── c10_perception/     # Perception interfaces
@@ -786,9 +787,11 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 ├── c50_visualization/  # GUI components
 ├── c60_common/         # Shared utilities
 └── extensions/         # Built-in extensions
-    ├── multi_object_prediction/
-    ├── executer_ros/   # ROS2 executor with Autoware msgs
-    └── bridge_gazebo/  # Gazebo world bridge
+    ├── bridge_carla/       # CARLA simulator bridge
+    ├── bridge_gazebo/      # Gazebo Ignition bridge
+    ├── bridge_ROS2/        # ROS2 world bridge
+    ├── executer_ROS2/      # ROS2 executor with Autoware msgs
+    └── multi_object_prediction/  # Multi-object prediction
 </code></pre></div>
 <p>Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
