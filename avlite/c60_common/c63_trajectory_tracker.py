@@ -690,50 +690,31 @@ class TrajectoryTracker:
 
     # A numpy version of the above function
     def convert_xy_path_to_sd_path_np(self, points):
-        # Batch KD-tree query (same as convert_xy_path_to_sd_path) — avoids one lookup per point.
-        # Results collected in a list and converted to np.array once at the end (avoids np.vstack per iteration).
-        points_array = np.asarray(points)                       # shape (m, 2)
-        _, closest_wps = self.__xy_kdtree.query(points_array)  # shape (m,) — O(m log n)
+        # Fully vectorised — no Python loop, so numpy releases the GIL during the
+        # bulk C-level work and async planner/controller threads are not starved.
+        points_array = np.asarray(points, dtype=float)         # (m, 2)
+        _, closest_wps = self.__xy_kdtree.query(points_array)  # (m,) — O(m log n)
 
-        reference_path = self.__reference_path
-        cumulative_distances = self.__cumulative_distances
-        frenet_coords = []
-        for idx, point in enumerate(points_array):
-            closest_wp = closest_wps[idx]
+        prev_wps = np.where(closest_wps == 0, 0, closest_wps - 1)  # (m,)
+        next_wps = np.where(closest_wps == 0, 1, closest_wps)       # (m,)
 
-            if closest_wp == 0:
-                next_wp = 1
-                prev_wp = 0
-            else:
-                next_wp = closest_wp
-                prev_wp = next_wp - 1
+        seg_n   = self.__reference_path[next_wps] - self.__reference_path[prev_wps]  # (m, 2)
+        seg_vec = points_array - self.__reference_path[prev_wps]                     # (m, 2)
 
-            n_x = reference_path[next_wp, 0] - reference_path[prev_wp, 0]
-            n_y = reference_path[next_wp, 1] - reference_path[prev_wp, 1]
-            x_x = point[0] - reference_path[prev_wp, 0]
-            x_y = point[1] - reference_path[prev_wp, 1]
+        seg_len_sq = np.einsum('ij,ij->i', seg_n, seg_n)                   # (m,)
+        safe_len   = np.where(seg_len_sq == 0, 1.0, seg_len_sq)
+        proj_norm  = np.einsum('ij,ij->i', seg_vec, seg_n) / safe_len      # (m,)
+        proj       = proj_norm[:, None] * seg_n                             # (m, 2)
 
-            # Compute the projection of the point onto the reference path
-            if (n_x * n_x + n_y * n_y) == 0:
-                proj_x = 0
-                proj_y = 0
-            else:
-                proj_norm = (x_x * n_x + x_y * n_y) / (n_x * n_x + n_y * n_y)  # normalized projection
-                proj_x = proj_norm * n_x
-                proj_y = proj_norm * n_y
+        s = self.__cumulative_distances[prev_wps] + np.linalg.norm(proj, axis=1)
 
+        normal   = np.column_stack([-seg_n[:, 1], seg_n[:, 0]])            # (m, 2)
+        residual = seg_vec - proj                                           # (m, 2)
+        norm_mag = np.linalg.norm(normal, axis=1)                          # (m,)
+        safe_mag = np.where(norm_mag == 0, 1.0, norm_mag)
+        d = np.einsum('ij,ij->i', residual, normal) / safe_mag             # (m,)
 
-            s = cumulative_distances[prev_wp] + np.sqrt(proj_x**2 + proj_y**2)
-
-            # The sign of the d coordinate is determined by the cross product of the vectors to the point and along the reference path
-            # d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt((x_x - proj_x) ** 2 + (x_y - proj_y) ** 2)
-            normal = np.array([-n_y, n_x])  # Left-hand normal
-            vec_to_point = np.array([x_x - proj_x, x_y - proj_y])
-            d = np.dot(vec_to_point, normal) / np.linalg.norm(normal)
-
-            frenet_coords.append((s, d))
-
-        return np.array(frenet_coords)
+        return np.column_stack([s, d])
 
 
 

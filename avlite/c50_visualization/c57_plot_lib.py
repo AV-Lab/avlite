@@ -541,12 +541,12 @@ class LocalPlot:
 
         (self.left_boundry_x1,) = self.ax1.plot([], [], color="orange", label="Left Boundary", linewidth=2)
         (self.right_boundry_x1,) = self.ax1.plot([], [], color="tan", label="Right Boundary", linewidth=2)
-        self.left_boundry_ax2 = self.ax2.scatter([], [], color="orange", s=5, label="Left Boundary (Ref)")
-        self.right_boundry_ax2 = self.ax2.scatter([], [], color="tan", s=5, label="Right Boundary (Ref)")
+        (self.left_boundry_ax2,) = self.ax2.plot([], [], color="orange", linewidth=1, label="Left Boundary (Ref)")
+        (self.right_boundry_ax2,) = self.ax2.plot([], [], color="tan", linewidth=1, label="Right Boundary (Ref)")
 
         (self.reference_trajectory_ax1,) = self.ax1.plot([], [], "gray", label="Reference Trajectory", linewidth=2)
-        self.reference_trajectory_ax2 = self.ax2.scatter(
-            [], [], s=5, alpha=0.5, color="gray", label="Global Trajectory"
+        (self.reference_trajectory_ax2,) = self.ax2.plot(
+            [], [], color="gray", linewidth=1, alpha=0.5, label="Global Trajectory"
         )
 
         (self.last_locs_ax1,) = self.ax1.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
@@ -701,10 +701,23 @@ class LocalPlot:
         if not self.initialized:
             self.left_boundry_x1.set_data(pl.global_plan.left_boundary_x, pl.global_plan.left_boundary_y)
             self.right_boundry_x1.set_data(pl.global_plan.right_boundary_x, pl.global_plan.right_boundary_y)
-            self.left_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_plan.left_boundary_d])
-            self.right_boundry_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_plan.right_boundary_d])
+            # Insert NaN where s wraps backward (closed track: last point rejoins start),
+            # so the line plot doesn't draw a segment spanning the full s-axis.
+            _s = np.asarray(pl.global_trajectory.path_s, dtype=float)
+            _gaps = np.where(np.diff(_s) < 0)[0] + 1
+            if len(_gaps):
+                _s   = np.insert(_s,   _gaps, np.nan)
+                _ld  = np.insert(np.asarray(pl.global_plan.left_boundary_d,  dtype=float), _gaps, np.nan)
+                _rd  = np.insert(np.asarray(pl.global_plan.right_boundary_d, dtype=float), _gaps, np.nan)
+                _ref = np.insert(np.asarray(pl.global_trajectory.path_d,     dtype=float), _gaps, np.nan)
+            else:
+                _ld  = pl.global_plan.left_boundary_d
+                _rd  = pl.global_plan.right_boundary_d
+                _ref = pl.global_trajectory.path_d
+            self.left_boundry_ax2.set_data(_s, _ld)
+            self.right_boundry_ax2.set_data(_s, _rd)
             self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
-            self.reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d])
+            self.reference_trajectory_ax2.set_data(_s, _ref)
             self.initialized = True
 
         if not show_plot:
@@ -713,12 +726,12 @@ class LocalPlot:
             self.g_wp_next_ax1.set_data([], [])
             self.g_wp_next_ax2.set_data([], [])
             self.reference_trajectory_ax1.set_data([], [])
-            self.reference_trajectory_ax2.set_offsets(np.c_[[], []])
+            self.reference_trajectory_ax2.set_data([], [])
             self.toggle_plot = True
             return
         elif self.initialized and self.toggle_plot:
             self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
-            self.reference_trajectory_ax2.set_offsets(np.c_[pl.global_trajectory.path_s, pl.global_trajectory.path_d])
+            self.reference_trajectory_ax2.set_data(pl.global_trajectory.path_s, pl.global_trajectory.path_d)
             self.toggle_plot = False
 
         if pl.global_trajectory.next_wp is not None:
@@ -857,15 +870,16 @@ class LocalPlot:
                 self.pm_plots_ax2[i].set_xy(np.empty((0, 2)))
             return
 
-        def transform(row):
-            return global_trajectory.convert_xy_to_sd(row[0], row[1])
-
         n = min(len(pm.agent_vehicles), self.MAX_AGENT_COUNT)
         if len(pm.agent_vehicles) > self.MAX_AGENT_COUNT:
             log.warning(f"Exceeded maximum number of agents: {self.MAX_AGENT_COUNT}")
-        for i, agent in enumerate(pm.agent_vehicles[:n]):
+        agents = pm.agent_vehicles[:n]
+        # Batch all corners into one KD-tree call (n*4 points) instead of 4 calls per agent
+        all_corners_xy = np.vstack([agent.get_bb_corners() for agent in agents])  # (n*4, 2)
+        all_corners_sd = global_trajectory.convert_xy_path_to_sd_path_np(all_corners_xy)  # (n*4, 2)
+        for i, agent in enumerate(agents):
             self.pm_plots_ax1[i].set_xy(agent.get_bb_corners())
-            self.pm_plots_ax2[i].set_xy(agent.get_transformed_bb_corners(transform))
+            self.pm_plots_ax2[i].set_xy(all_corners_sd[i * 4:(i + 1) * 4])
         # clear stale patches left over from the previous frame when agent count drops
         for j in range(n, self.MAX_AGENT_COUNT):
             self.pm_plots_ax1[j].set_xy(np.empty((0, 2)))

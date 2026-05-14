@@ -9,7 +9,7 @@ from collections import defaultdict
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c60_common.c64_collision_checking import check_collision
+from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
 
 
 log = logging.getLogger(__name__)
@@ -110,13 +110,22 @@ class Lattice:
                 self.lattice_nodes_by_level[l].append(n_)
 
     def generate_lattice_from_nodes(self, pm: Optional[PerceptionModel] = None):
+        # Pre-build all obstacle polygons once (swept for movers, plain for statics).
+        # This avoids re-constructing N_agents polygons inside every edge's check_collision call.
+        obstacle_polygons = None
+        if pm is not None and len(pm.agent_vehicles) > 0:
+            # Estimate traversal time from ego speed and a rough trajectory length
+            ego_vel = max(pm.ego_vehicle.velocity, PlanningSettings.default_ego_velocity)
+            obstacle_polygons = precompute_obstacle_polygons(pm, total_time=self.num_of_points * 0.1 / ego_vel)
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
                 for next_node in self.lattice_nodes_by_level[l + 1]:
                     assert node != next_node
                     edge = Edge(start=node, end=next_node, global_tj = self.global_trajectory, num_of_points=self.num_of_points)
                     if pm is not None:
-                        edge.collision, edge.collision_idx, edge.collision_agent_velocity=  check_collision(pm, edge.local_trajectory)
+                        edge.collision, edge.collision_idx, edge.collision_agent_velocity = check_collision(
+                            pm, edge.local_trajectory, obstacle_polygons=obstacle_polygons
+                        )
                     self.edges.append(edge)
                     self.incoming_edges[next_node].append(edge)
                     self.outgoing_edges[node].append(edge)

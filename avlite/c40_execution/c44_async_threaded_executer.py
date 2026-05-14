@@ -65,7 +65,9 @@ class AsyncThreadedExecuter(Executer):
         else:
             self.__queue_listener = QueueListener(self.__log_queue, root_handlers[0])
         self.__queue_listener.start()
-        self.setup_process_logging()
+        # NOTE: setup_process_logging() intentionally not called — threads share
+        # root logger handlers which are already thread-safe. Routing via
+        # QueueHandler adds lock contention on every log call across the process.
 
         self.threads = []
         self.threads_started = False
@@ -117,49 +119,59 @@ class AsyncThreadedExecuter(Executer):
     def worker_planning(self):
         log.info(f"Plan Worker Started")
         log.info(f"replan dt: {self.replan_dt}")
+        __localize_last_t = time.time()
+        __planner_step_last_t = time.time()
 
         while not self.__kill_flag and self.call_replan:
             try:
                 t1 = time.time()
-                # with self.lock_planner:
                 dt = t1 - self.__planner_last_step_time
                 self.__planner_elapsed_time += time.time() - self.__planner_start_time
 
                 if dt > 10 * self.replan_dt:
                     self.__planner_last_step_time = t1
-
                 elif dt > self.replan_dt:
                     self.__planner_last_step_time = time.time()
                     self._replan_step()
 
-                # with self.lock_controller:
                 self.controller.tj = self.local_planner.get_local_plan()
 
-                # with self.lock_world:
-                state = self.world.get_ego_state()
-                self.local_planner.step(state)
+                # Rate-limit local_planner.step to replan_dt — avoids flooding the GIL
+                # with continuous KD-tree queries that starve the controller thread
+                if t1 - __planner_step_last_t >= self.replan_dt:
+                    state = self.world.get_ego_state()
+                    self.local_planner.step(state)
+                    __planner_step_last_t = t1
 
                 t2 = time.time()
                 log.debug(f"Planner iteration: dt={dt:.3f}s, execution time={t2-t1:.3f}s")
 
-                # Localization runs alongside planning
+                # Localization: rate-limited by localization_dt
                 if self.call_localize:
-                    try:
-                        self._localization_step()
-                    except Exception as e:
-                        log.error(f"Error in localization step: {e}", exc_info=True)
+                    if t1 - __localize_last_t >= self.localization_dt:
+                        try:
+                            self._localization_step()
+                            __localize_last_t = t1
+                        except Exception as e:
+                            log.error(f"Error in localization step: {e}", exc_info=True)
 
                 # Perception runs alongside planning, rate-limited by perception_dt
                 if self.call_perceive:
                     dt_p = time.time() - self._perception_fps_tracker.last
                     if dt_p > 10 * self.perception_dt:
-                        # Startup or long gap — reset timer without running
                         self._perception_fps_tracker.last = time.time()
                     elif dt_p >= self.perception_dt:
                         try:
                             self._perception_step()
                         except Exception as e:
                             log.error(f"Error in perception step: {e}", exc_info=True)
+
+                # Yield CPU to the controller thread between replans.
+                # Without this the planner busy-waits at 100% CPU, holding the GIL
+                # on every iteration and starving the controller.
+                sleep_time = max(0, self.replan_dt * 0.1 - (time.time() - t1))
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
 
             except Exception as e:
                 log.error(f"Error in planner worker: {e}", exc_info=True)
