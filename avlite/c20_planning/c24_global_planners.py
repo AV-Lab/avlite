@@ -308,7 +308,8 @@ def smoothen_path_splprep(plan: GlobalPlan, min_spacing=0.5, smoothing=0.5):
     cleaned_path_np = np.array(cleaned_path)
     if len(cleaned_path_np) >= 4:  # B-spline requires at least 4 points for cubic smoothing
         # Fit spline to x and y separately, using arc-length as parameter
-        tck, _ = splprep([cleaned_path_np[:, 0], cleaned_path_np[:, 1]], s=smoothing)
+        nest = len(cleaned_path_np) + 4  # pre-allocate enough knots to prevent FITPACK overflow
+        tck, _ = splprep([cleaned_path_np[:, 0], cleaned_path_np[:, 1]], s=smoothing, nest=nest)
         u_new = np.linspace(0, 1, len(cleaned_path_np))
         x_smooth, y_smooth = splev(u_new, tck)
         cleaned_path = list(zip(x_smooth, y_smooth))

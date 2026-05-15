@@ -98,7 +98,7 @@ class VisualizationSettings:
         self.mapping_type.trace_add("write", _on_mapping_change)
 
         # planning
-        self.global_planner_type = tk.StringVar(value=list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
+        self.global_planner_type = tk.StringVar(value=ExecutionSettings.global_planner if ExecutionSettings.global_planner else (list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None))
         def _on_global_plan_change(*args):
             ExecutionSettings.global_planner = self.global_planner_type.get()
         self.global_planner_type.trace_add("write", _on_global_plan_change)

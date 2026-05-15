@@ -23,7 +23,7 @@ default:
   map_frame: map
   perception_dt: 0.5
   perception_topic: /perception/object_recognition/tracking/objects
-  replan_dt: 0.05
+  replan_dt: 0.01
   sim_dt: 0.01
   trajectory_out_topic: /avlite/planning/trajectory
   trajectory_topic: /planning/scenario_planning/trajectory

@@ -41,3 +41,7 @@ class PlanningSettings:
     # max_curvature = max_lateral_accel / velocity^2
     max_lateral_accel = 4.0  # m/s^2 - maximum comfortable lateral acceleration
     min_curvature_velocity = 3.0  # m/s - minimum velocity for curvature calculation (avoids division issues)
+
+    # d=0 preference: edges ending within this lateral distance (metres) of the reference
+    # line are hard-preferred over farther edges when selecting the best lattice edge
+    d0_reference_threshold = 0.2  # metres

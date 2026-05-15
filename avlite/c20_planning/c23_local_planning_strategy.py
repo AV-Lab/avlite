@@ -7,6 +7,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c27_lattice import Edge, Lattice
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 from avlite.c20_planning.c21_planning_model import GlobalPlan
+from avlite.c20_planning.c29_settings import PlanningSettings
 
 import logging
 log = logging.getLogger(__name__)
@@ -90,51 +91,34 @@ class LocalPlannerStrategy(ABC):
     def should_switch_plan(self, new_plan: Edge, force_if_collision: bool = True) -> bool:
         """
         Determine if we should switch to a new plan.
-        
-        Switches immediately if:
+
+        Switches only if:
         - No current plan exists
-        - Current plan has urgent collision (within threshold waypoints)
-        
-        Blocks switch if:
-        - Vehicle is midway through current edge (>20% progress) unless urgent
-        - Wait time has not elapsed since last plan change
-        
-        Args:
-            new_plan: The candidate new plan to switch to
-            force_if_collision: If True, switch immediately when current plan has urgent collision
-            
-        Returns:
-            True if plan should be switched, False otherwise
+        - Current edge is fully traversed with no successor
+        - Current plan has an urgent collision (within threshold waypoints)
+
+        Otherwise the planner commits to the current edge and follows it to
+        completion, preventing jitter from replanning on every cycle.
         """
-        # Always switch if no current plan
+        # No plan yet — take the first one available
         if self.selected_local_plan is None:
             return True
-        
-        # Check if current plan has URGENT collision (imminent risk)
+
+        # Current edge is done and has no queued successor — must switch
+        if (self.selected_local_plan.local_trajectory.is_traversed()
+                and self.selected_local_plan.selected_next_local_plan is None):
+            return True
+
+        # Urgent collision on the current edge — switch immediately
         if force_if_collision and self.selected_local_plan.collision:
             collision_idx = getattr(self.selected_local_plan, 'collision_idx', -1)
             current_wp = self.selected_local_plan.local_trajectory.current_wp
             waypoints_to_collision = collision_idx - current_wp if collision_idx >= 0 else float('inf')
-            
             if waypoints_to_collision <= self._urgent_collision_threshold:
                 log.debug(f"Switching plan: urgent collision in {waypoints_to_collision} waypoints")
                 return True
-        
-        # Check progress through current edge
-        tj = self.selected_local_plan.local_trajectory
-        total_points = len(tj.path) if hasattr(tj, 'path') and tj.path else len(tj.path_x)
-        if total_points > 0:
-            progress = tj.current_wp / total_points
-            if progress >= self._min_edge_progress_to_block:
-                log.debug(f"Plan switch blocked: {progress:.0%} through current edge (threshold: {self._min_edge_progress_to_block:.0%})")
-                return False
-        
-        # Check if wait time has elapsed
-        elapsed = time.time() - self._last_plan_change_time
-        if elapsed >= self._replan_wait_time:
-            return True
-        
-        log.debug(f"Plan switch blocked: {elapsed:.1f}s < {self._replan_wait_time:.1f}s wait time")
+
+        # Commit to current plan — do not switch
         return False
 
     def set_selected_plan(self, new_plan: Edge) -> None:
@@ -169,16 +153,15 @@ class LocalPlannerStrategy(ABC):
             self.selected_local_plan = self.selected_local_plan.selected_next_local_plan
             self.selected_local_plan.local_trajectory.update_to_next_waypoint()
             x_new, y_new = self.selected_local_plan.local_trajectory.get_current_xy()
-        # no edge selected
+        # no edge selected — hold last trajectory until replan provides a new one
         elif (
             self.selected_local_plan is not None
             and self.selected_local_plan.local_trajectory.is_traversed()
             and self.selected_local_plan.selected_next_local_plan is None
         ):
-            log.info("Local Plan Traversed. No next Local Plan selected")
-            x_new = self.global_trajectory.path_x[self.global_trajectory.next_wp]
-            y_new = self.global_trajectory.path_y[self.global_trajectory.next_wp]
-            self.selected_local_plan = None
+            log.info("Local Plan Traversed. No next Local Plan selected — holding last trajectory until replan")
+            x_new = self.selected_local_plan.local_trajectory.path_x[-1]
+            y_new = self.selected_local_plan.local_trajectory.path_y[-1]
         else:
             log.warning("No Local Plan, back to closest next reference point")
             x_new = self.global_trajectory.path_x[self.global_trajectory.next_wp]
@@ -229,8 +212,7 @@ class LocalPlannerStrategy(ABC):
                 self.selected_local_plan.local_trajectory.update_to_next_waypoint()
 
             elif self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_local_plan is None:
-                log.info("Local plan traversed, no next local plan selected. I'll follow the global trajectory")
-                self.selected_local_plan = None
+                log.info("Local plan traversed, no next local plan — holding last trajectory until replan")
 
         #### Frenet Coordinates
         s_, d_ = self.global_trajectory.convert_xy_to_sd(state.x, state.y)

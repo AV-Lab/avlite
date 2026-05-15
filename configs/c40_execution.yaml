@@ -127,8 +127,8 @@ default:
   provide_ground_truth: true
   provide_lidar: true
   provide_rgb: false
-  replan_dt: 0.5
-  sim_dt: 0.011
+  replan_dt: 0.01
+  sim_dt: 0.02
 perception exp:
   basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   basic_sim_npc_control: true

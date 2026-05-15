@@ -69,9 +69,13 @@ class GreedyLatticePlanner(LocalPlannerStrategy):
         return ref_cost + self.safety_margin_weight * safety_cost * 10.0
 
     def _select_best_edge(self, edges: list):
-        """Select best edge from candidates considering both reference and safety."""
+        """Select best edge from candidates considering both reference and safety.
+        Hard-prefers edges ending at d=0 (within tolerance) when any exist."""
         if not edges:
             return None
+        d0_edges = [e for e in edges if abs(e.end.d) < PlanningSettings.d0_reference_threshold]
+        if d0_edges:
+            return min(d0_edges, key=self._edge_cost)
         return min(edges, key=self._edge_cost)
 
     def replan(self, back_to_ref_horizon=10):
