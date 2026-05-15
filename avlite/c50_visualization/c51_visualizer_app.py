@@ -445,10 +445,14 @@ class VisualizerApp(tk.Tk):
     
     def update_ui(self):
         t1 = time.time()
-        if self.setting.global_plan_view.get():
-            self.global_plan_plot_view.plot()
-        if self.setting.local_plan_view.get():
-            self.local_plan_plot_view.plot()
+        _plot_dt = t1 - getattr(self, '_last_plot_time', 0)
+        _do_plot = _plot_dt >= 0.033  # cap plot redraws at ~30 Hz
+        if _do_plot:
+            self._last_plot_time = t1
+            if self.setting.global_plan_view.get():
+                self.global_plan_plot_view.plot()
+            if self.setting.local_plan_view.get():
+                self.local_plan_plot_view.plot()
 
         if not self.setting.shortcut_mode.get():
             self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), Vel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+5.1f}")
@@ -468,7 +472,7 @@ class VisualizerApp(tk.Tk):
             self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
 
 
-        log.debug(f"UI Update Time: {(time.time()-t1)*1000:.2f} ms")
+        log.debug("UI Update Time: %.2f ms", (time.time() - t1) * 1000)
     
 
     def load_configs(self, only_stack=False, profile=None):
@@ -525,6 +529,7 @@ class VisualizerApp(tk.Tk):
                 # reload_code=reload_code,
                 # exclude_reload_settings=True,
                 load_extensions=self.setting.load_extensions.get(),
+                async_combined_perception_planning=ExecutionSettings.async_combined_perception_planning,
             )
 
         except Exception as e:

@@ -77,7 +77,6 @@ class Lattice:
     lattice_nodes_by_level: Dict[int, list] = field(default_factory=lambda: defaultdict(list))
     incoming_edges: Dict[Node, list] = field(default_factory=lambda: defaultdict(list))
     outgoing_edges: Dict[Node, list] = field(default_factory=lambda: defaultdict(list))
-    targetted_num_edges: int = 0
 
     def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance, orientation=0):
         s1_ = s

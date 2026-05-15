@@ -363,6 +363,7 @@ def _run_headless(profile: str, control_dt: float, replan_dt: float, perceive: b
         hd_map=ExecutionSettings.hd_map,
         default_global_trajectory_file=ExecutionSettings.global_trajectory,
         load_extensions=True,
+        async_combined_perception_planning=ExecutionSettings.async_combined_perception_planning,
     )
 
     # Re-strip handlers that may have been added during factory/extension import.

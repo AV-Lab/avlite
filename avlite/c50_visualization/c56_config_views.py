@@ -381,10 +381,16 @@ class SettingWindow:
         ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Global", variable=self.root.setting.global_view_follow_planner).pack(side=tk.LEFT)
         ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Frenet", variable=self.root.setting.frenet_view_follow_planner).pack(side=tk.LEFT)
 
+        additional_setting_row_1b = ttk.Frame(additional_setting_frame)
+        additional_setting_row_1b.pack(fill=tk.X)
+        ttk.Label(additional_setting_row_1b, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        ttk.Checkbutton(additional_setting_row_1b, text="Local Global View", variable=self.root.setting.show_local_global_view, command=self.root.update_ui).pack(side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1b, text="Local Frenet View", variable=self.root.setting.show_local_frenet_view, command=self.root.update_ui).pack(side=tk.LEFT)
+
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
 
-        ttk.Label(additional_setting_row_2, text="Log View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        ttk.Label(additional_setting_row_2, text="Log View:").pack(anchor=tk.W, side=tk.LEFT, padx=0)
         ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.root.setting.log_view_expanded).pack(side=tk.LEFT)
         
         ttk.Label(additional_setting_row_2, text="Default Log Height:").pack(side=tk.LEFT, padx=5)
@@ -396,9 +402,9 @@ class SettingWindow:
                   validatecommand=self.root.validate_cmd).pack(side=tk.LEFT, padx=5)
         
         additional_setting_row_3 = ttk.Frame(additional_setting_frame)
-        additional_setting_row_3.pack(fill=tk.X, padx=5)
-        ttk.Checkbutton(additional_setting_row_3, text="Hide menu bar",
-                        variable=self.root.setting.hide_menubar).pack(anchor=tk.W, side=tk.LEFT)
+        additional_setting_row_3.pack(fill=tk.X, padx=0)
+        ttk.Label(additional_setting_row_3, text="Menu bar:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.root.setting.hide_menubar).pack(anchor=tk.W, side=tk.LEFT)
         ttk.Button(additional_setting_row_2, text="Close",width=5, underline=0, command=self.hide).pack(side=tk.RIGHT, padx=5)
         ttk.Button(additional_setting_row_2, text="Save",width=5, underline=0, command=self.save_profile).pack(side=tk.RIGHT, padx=5)
 

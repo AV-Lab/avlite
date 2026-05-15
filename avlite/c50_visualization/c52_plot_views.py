@@ -221,7 +221,7 @@ class LocalPlanPlotView(ttk.Frame):
         self.root = root
 
 
-        self.local_plot = LocalPlot(max_lattice_size=self.root.exec.local_planner.lattice.targetted_num_edges)
+        self.local_plot = LocalPlot()
         self.fig = self.local_plot.fig
         self.ax1 = self.local_plot.ax1
         self.ax2 = self.local_plot.ax2
@@ -377,6 +377,13 @@ class LocalPlanPlotView(ttk.Frame):
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()
         aspect_ratio = width / height
+        # ylim formulas assume two stacked axes each occupying half the height;
+        # when only one axis is shown at full height, halving the ratio doubles
+        # the y-range so the content fills the available space.
+        show_gv = self.root.setting.show_local_global_view.get()
+        show_fv = self.root.setting.show_local_frenet_view.get()
+        if show_gv != show_fv:
+            aspect_ratio /= 2
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
@@ -397,6 +404,8 @@ class LocalPlanPlotView(ttk.Frame):
             plot_lidar=self.root.setting.bridge_provide_lidar_data.get(),
             lidar_data=self.root.exec.world.get_lidar_data(),
             plot_ground_truth=self.root.setting.bridge_provide_ground_truth_detection.get(),
+            show_global_view=self.root.setting.show_local_global_view.get(),
+            show_frenet_view=self.root.setting.show_local_frenet_view.get(),
         )
         self.canvas.draw()
         log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")

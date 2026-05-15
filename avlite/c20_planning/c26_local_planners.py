@@ -3,8 +3,9 @@ from typing import TYPE_CHECKING, Type
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
-from avlite.c20_planning.c27_lattice import Lattice
+from avlite.c20_planning.c27_lattice import Lattice, Node, Edge
 from avlite.c20_planning.c29_settings import PlanningSettings
+from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
 import numpy as np
 import logging
 
@@ -28,8 +29,6 @@ class GreedyLatticePlanner(LocalPlannerStrategy):
         self._urgent_collision_threshold: int = setting.urgent_collision_threshold
         self.max_lateral_accel: float = setting.max_lateral_accel
         self.min_curvature_velocity: float = setting.min_curvature_velocity
-        # TODO: 
-        self.lattice.targetted_num_edges = setting.sample_size * setting.sample_size**(self.planning_horizon - 1)
 
     def _get_max_curvature_for_velocity(self, velocity: float) -> float:
         """
@@ -210,4 +209,85 @@ class GreedyLatticePlanner(LocalPlannerStrategy):
                 tj = self.selected_local_plan.local_trajectory
                 tj.velocity = np.zeros(len(tj.path))
 
+    def _on_edge_traversed(self) -> None:
+        self._partial_replan()
 
+    def _partial_replan(self) -> None:
+        """Slide the planning horizon forward by appending one new edge at the tail.
+
+        Finds the last committed edge in the chain (where selected_next_local_plan
+        is None), samples candidate nodes one maneuver_distance further along the
+        reference, generates Edges from the tail node to each candidate, runs
+        collision checking, and assigns the best feasible edge as the new tail.
+
+        Falls back to a full replan when no committed chain exists yet.
+        """
+        if self.selected_local_plan is None:
+            log.debug("_partial_replan: no current plan, falling back to full replan")
+            self.replan()
+            return
+
+        # Walk to the tail of the current committed chain.
+        tail_plan = self.selected_local_plan
+        while tail_plan.selected_next_local_plan is not None:
+            tail_plan = tail_plan.selected_next_local_plan
+
+        tail_node: Node = tail_plan.end
+        s_new = tail_node.s + self.maneuver_distance
+
+        if s_new > self.global_trajectory.path_s[-2]:
+            log.debug("partial_replan: approaching track end, skipping extension")
+            return
+
+        # Sample candidate nodes at s_new (one on reference line, rest random).
+        candidate_nodes: list[Node] = []
+
+        wp_ref = self.global_trajectory.get_closest_waypoint_frm_sd(s_new, 0)
+        _, d_ref = self.global_trajectory.get_sd_by_waypoint(wp_ref)
+        x_ref, y_ref = self.global_trajectory.convert_sd_to_xy(s_new, d_ref)
+        candidate_nodes.append(Node(s_new, d_ref, x_ref, y_ref))
+
+        d_left = self.lattice.ref_left_boundary_d[wp_ref] - self.boundary_clearance
+        d_right = self.lattice.ref_right_boundary_d[wp_ref] + self.boundary_clearance
+        for _ in range(self.sample_size - 1):
+            d_rnd = np.random.uniform(d_left, d_right)
+            x_rnd, y_rnd = self.global_trajectory.convert_sd_to_xy(s_new, d_rnd)
+            candidate_nodes.append(Node(s_new, d_rnd, x_rnd, y_rnd))
+
+        # Build obstacle polygons once for all candidate edges.
+        obstacle_polygons = None
+        if len(self.pm.agent_vehicles) > 0:
+            ego_vel = max(self.pm.ego_vehicle.velocity, PlanningSettings.default_ego_velocity)
+            obstacle_polygons = precompute_obstacle_polygons(
+                self.pm, total_time=self.num_of_edge_points * 0.1 / ego_vel
+            )
+
+        # Create and evaluate edges from tail_node to each candidate.
+        new_edges: list[Edge] = []
+        for node in candidate_nodes:
+            edge = Edge(
+                start=tail_node,
+                end=node,
+                global_tj=self.global_trajectory,
+                num_of_points=self.num_of_edge_points,
+            )
+            edge.collision, edge.collision_idx, edge.collision_agent_velocity = check_collision(
+                self.pm, edge.local_trajectory, obstacle_polygons=obstacle_polygons
+            )
+            new_edges.append(edge)
+
+        feasible = [e for e in new_edges if not e.collision and self._is_curvature_feasible(e)]
+        if not feasible:
+            feasible = [e for e in new_edges if not e.collision]
+            if feasible:
+                log.debug("partial_replan: no curvature-feasible edges, using collision-free only")
+
+        if feasible:
+            best = self._select_best_edge(feasible)
+            tail_plan.selected_next_local_plan = best
+            log.debug(
+                "_partial_replan: extended chain by 1 edge (tail s=%.1f -> s=%.1f, d=%.2f)",
+                tail_node.s, s_new, best.end.d,
+            )
+        else:
+            log.warning("_partial_replan: no feasible extension edges at s=%.1f", s_new)

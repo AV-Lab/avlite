@@ -27,6 +27,7 @@ from .e46_autoware_converters import (
     ego_state_to_kinematic_state,
     euler_to_quaternion,
 )
+from avlite.c60_common.c65_fps_tracker import FpsTracker
 from .settings import ExtensionSettings
 
 log = logging.getLogger(__name__)
@@ -68,8 +69,8 @@ class PerceptionNode(Node):
         perception_dt = self.get_parameter('perception_dt').get_parameter_value().double_value
         
         # FPS tracking
-        self._tick_count: int = 0
-        self._fps_update_time: float = time.time()
+        self._fps_tracker = FpsTracker()
+        self._node_period: float = perception_dt
         self._shutdown: bool = False
         
         if self.use_autoware:
@@ -118,18 +119,10 @@ class PerceptionNode(Node):
         self._sync_prediction_data()
         
         # Update FPS tracking
-        self._tick_count += 1
-        now = time.time()
-        elapsed = now - self._fps_update_time
-        if elapsed >= 1.0:  # Update FPS every second
-            fps = self._tick_count / elapsed
-            self._tick_count = 0
-            self._fps_update_time = now
-            
-            # Update ros_data with FPS
-            if self.ros_data:
-                with self.ros_data.lock:
-                    self.ros_data.perception_fps = fps
+        fps = self._fps_tracker.tick()
+        if self.ros_data:
+            with self.ros_data.lock:
+                self.ros_data.perception_fps = fps
     
     def _sync_prediction_data(self):
         """Sync prediction/heatmap data from perception model to ros_data."""

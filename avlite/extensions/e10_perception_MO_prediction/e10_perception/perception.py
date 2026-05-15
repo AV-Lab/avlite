@@ -4,7 +4,7 @@ from os import wait
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.extensions.multi_object_prediction.settings import ExtensionSettings
+from avlite.extensions.e10_perception_MO_prediction.settings import ExtensionSettings
 from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
 from avlite.c60_common.c62_capabilities import WorldCapability
 

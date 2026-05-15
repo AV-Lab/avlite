@@ -29,6 +29,7 @@ from .e46_autoware_converters import (
     trajectory_from_autoware,
     control_to_vehicle_cmd,
 )
+from avlite.c60_common.c65_fps_tracker import FpsTracker
 from .settings import ExtensionSettings
 
 log = logging.getLogger(__name__)
@@ -60,8 +61,7 @@ class ControllerNode(Node):
         self.use_autoware = AUTOWARE_AVAILABLE and self.settings.use_autoware_msgs
         
         # FPS tracking
-        self._tick_count: int = 0
-        self._fps_update_time: float = time.time()
+        self._fps_tracker = FpsTracker()
         self._shutdown: bool = False
         
         # Declare parameters
@@ -70,6 +70,7 @@ class ControllerNode(Node):
         
         controller_name = self.get_parameter('controller_name').get_parameter_value().string_value
         control_dt = self.get_parameter('control_dt').get_parameter_value().double_value
+        self._node_period: float = control_dt
         
         # If no controller passed, try to load from registry
         if self.controller is None and controller_name:
@@ -162,18 +163,10 @@ class ControllerNode(Node):
                 self.get_logger().debug(f"Published control: steer={cmd.steer:.3f}, accel={cmd.acceleration:.3f}")
                 
                 # Update FPS tracking
-                self._tick_count += 1
-                now = time.time()
-                elapsed = now - self._fps_update_time
-                if elapsed >= 1.0:  # Update FPS every second
-                    fps = self._tick_count / elapsed
-                    self._tick_count = 0
-                    self._fps_update_time = now
-                    
-                    # Update ros_data with FPS
-                    if self.ros_data:
-                        with self.ros_data.lock:
-                            self.ros_data.control_fps = fps
+                fps = self._fps_tracker.tick()
+                if self.ros_data:
+                    with self.ros_data.lock:
+                        self.ros_data.control_fps = fps
         except (rclpy.exceptions.InvalidHandle, RuntimeError):
             # Suppress errors during shutdown (invalid handle or runtime errors)
             pass

@@ -57,7 +57,7 @@ class SyncExecuter(Executer):
             dt_p = self.elapsed_sim_time - self.__planner_last_time
             if dt_p >= replan_dt:
                 self.__planner_last_time = self.elapsed_sim_time
-                self._replan_step(self.elapsed_sim_time)
+                self._replan_step()
                 pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
 
         self.local_planner.step(self.ego_state)
@@ -67,7 +67,7 @@ class SyncExecuter(Executer):
             dt_c = self.elapsed_sim_time - self.__controller_last_time
             if dt_c >= control_dt:
                 self.__controller_last_time = self.elapsed_sim_time
-                self._control_step(sim_dt, sim_time=self.elapsed_sim_time)
+                self._control_step(sim_dt)
                 cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
         self.elapsed_sim_time += control_dt
         
@@ -78,7 +78,6 @@ class SyncExecuter(Executer):
             if dt_loc >= localization_dt:
                 self.__localization_last_time = self.elapsed_sim_time
                 self._localization_step()
-                self.localization_fps = self._localization_fps_tracker.tick(self.elapsed_sim_time)
                 loc_time_txt = f" LOC: {(time.time() - t_loc):.4f} sec,"
 
         t2 = time.time()

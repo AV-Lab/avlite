@@ -27,6 +27,7 @@ from .e46_autoware_converters import (
     ego_state_from_kinematic_state,
     trajectory_to_autoware,
 )
+from avlite.c60_common.c65_fps_tracker import FpsTracker
 from .settings import ExtensionSettings
 
 log = logging.getLogger(__name__)
@@ -56,8 +57,7 @@ class PlannerNode(Node):
         self.use_autoware = AUTOWARE_AVAILABLE and self.settings.use_autoware_msgs
         
         # FPS tracking
-        self._tick_count: int = 0
-        self._fps_update_time: float = time.time()
+        self._fps_tracker = FpsTracker()
         self._shutdown: bool = False
         
         # Declare parameters
@@ -66,6 +66,7 @@ class PlannerNode(Node):
         
         planner_name = self.get_parameter('planner_name').get_parameter_value().string_value
         replan_dt = self.get_parameter('replan_dt').get_parameter_value().double_value
+        self._node_period: float = replan_dt
         
         # If no planner passed, try to load from registry
         if self.planner is None and planner_name:
@@ -119,7 +120,7 @@ class PlannerNode(Node):
             return
         
         try:
-            # Run the planner
+            # Only publish — replan() runs in step() to avoid blocking the ROS spin thread
             trajectory = self.planner.get_local_plan()
             
             if trajectory is None:
@@ -153,18 +154,10 @@ class PlannerNode(Node):
             self.get_logger().debug(f"Published trajectory with {len(trajectory.path)} points")
             
             # Update FPS tracking
-            self._tick_count += 1
-            now = time.time()
-            elapsed = now - self._fps_update_time
-            if elapsed >= 1.0:  # Update FPS every second
-                fps = self._tick_count / elapsed
-                self._tick_count = 0
-                self._fps_update_time = now
-                
-                # Update ros_data with FPS
-                if self.ros_data:
-                    with self.ros_data.lock:
-                        self.ros_data.planner_fps = fps
+            fps = self._fps_tracker.tick()
+            if self.ros_data:
+                with self.ros_data.lock:
+                    self.ros_data.planner_fps = fps
         except (rclpy.exceptions.InvalidHandle, RuntimeError):
             # Suppress errors during shutdown (invalid handle or runtime errors)
             pass

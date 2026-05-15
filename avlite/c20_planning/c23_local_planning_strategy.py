@@ -54,6 +54,8 @@ class LocalPlannerStrategy(ABC):
         self._urgent_collision_threshold: int = 3  # collision within N waypoints is urgent
 
 
+
+
     def set_global_plan(self, global_plan: GlobalPlan) -> None:
         """
         Set the global plan for the local planner and initialize the trajectory.
@@ -129,6 +131,14 @@ class LocalPlannerStrategy(ABC):
     @abstractmethod
     def replan(self):
         pass
+
+    def _on_edge_traversed(self) -> None:
+        """Called once when step() advances to the next edge in the committed chain.
+
+        Subclasses override this to extend the planning horizon incrementally
+        (sliding-window replan).  The base implementation is a no-op so that
+        subclasses that do not override it continue to work without changes.
+        """
 
     def get_local_plan(self) -> TrajectoryTracker:
         return self.selected_local_plan.local_trajectory if self.selected_local_plan is not None else self.global_trajectory
@@ -210,6 +220,7 @@ class LocalPlannerStrategy(ABC):
                 log.info("Local Plan Traversed, choosing next selected Local Plan")
                 self.selected_local_plan = self.selected_local_plan.selected_next_local_plan
                 self.selected_local_plan.local_trajectory.update_to_next_waypoint()
+                self._on_edge_traversed()
 
             elif self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_local_plan is None:
                 log.info("Local plan traversed, no next local plan — holding last trajectory until replan")

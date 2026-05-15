@@ -151,13 +151,24 @@ class ExecView(ttk.Frame):
                 call_perceive=self.root.setting.exec_perceive.get(),
                 call_localize=self.root.setting.exec_localize.get(),
             ),
-            self.root.update_ui()
+
+            # Throttle UI updates to 20 Hz regardless of step() speed.
+            # This decouples simulation rate from widget redraw rate.
+            _now = time.time()
+            if _now - getattr(self, '_last_ui_update_time', 0) >= 0.05:
+                self._last_ui_update_time = _now
+                self.root.update_ui()
 
             processing_time = time.time() - current_time
-            next_frame_delay = max(0.001, sim_dt - processing_time)  # Ensure positive delay
-
-            log.debug(f"Total Processing Time: {int(processing_time*1000):3d} ms")
-            # self.root.after(int(sim_dt * 1000), self._exec_loop)
+            log.debug("Total Processing Time: %d ms", int(processing_time * 1000))
+            # Ask the executer how fast the UI should poll it.
+            # Executers with background workers return a fixed delay; others return None
+            # to indicate the UI should derive the delay from sim_dt adaptively.
+            _poll_delay = self.root.exec.ui_poll_delay
+            if _poll_delay is not None:
+                next_frame_delay = _poll_delay
+            else:
+                next_frame_delay = max(0.001, sim_dt - processing_time)
             self.root.after(int(next_frame_delay * 1000), self._exec_loop)
 
     def stop_exec(self):

@@ -185,6 +185,16 @@ class Executer(ABC):
         """Signal run() to exit. Subclasses may override to also tear down threads/resources."""
         self._stop_event.set()
 
+    @property
+    def ui_poll_delay(self) -> Optional[float]:
+        """Suggested interval (seconds) for the UI to wait between calls to step().
+
+        Return a fixed value when step() is lightweight (background workers handle heavy
+        computation). Return None to let the UI derive the delay from sim_dt adaptively.
+        The default is None (adaptive), which suits synchronous executers.
+        """
+        return None
+
     def reset(self):
         self.pm.reset()
         self.ego_state.reset()
@@ -197,6 +207,10 @@ class Executer(ABC):
         self.world.reset()
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
+        self.perception_fps = 0.0
+        self.planner_fps = 0.0
+        self.control_fps = 0.0
+        self.localization_fps = 0.0
         self._perception_fps_tracker.reset()
         self._planner_fps_tracker.reset()
         self._control_fps_tracker.reset()
@@ -212,6 +226,7 @@ class Executer(ABC):
                 lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
                 rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
             )
+            self.localization_fps = self._localization_fps_tracker.tick()
         else:
             log.warning(
                 f"Localization strategy {self.localization.__class__.__name__} requirements "
@@ -247,17 +262,17 @@ class Executer(ABC):
 
         self.perception_fps = self._perception_fps_tracker.tick()
 
-    def _replan_step(self, sim_time: float = None) -> None:
+    def _replan_step(self) -> None:
         """Run one planning iteration (replan) and update FPS."""
         self.local_planner.replan()
-        self.planner_fps = self._planner_fps_tracker.tick(sim_time)
+        self.planner_fps = self._planner_fps_tracker.tick()
 
-    def _control_step(self, sim_dt: float, sim_time: float = None) -> None:
+    def _control_step(self, sim_dt: float) -> None:
         """Run one control iteration, apply to world, and update FPS."""
         local_tj = self.local_planner.get_local_plan()
         cmd = self.controller.control(self.ego_state, local_tj, control_dt=sim_dt)
         self.world.control_ego_state(cmd, dt=sim_dt)
-        self.control_fps = self._control_fps_tracker.tick(sim_time)
+        self.control_fps = self._control_fps_tracker.tick(floor_dt=sim_dt)
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

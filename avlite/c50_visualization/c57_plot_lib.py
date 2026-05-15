@@ -493,8 +493,7 @@ class GlobalHDMapPlot(GlobalPlot):
             
 
 class LocalPlot:
-    def __init__(self, max_lattice_size=21, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100)):
-        self.MAX_LATTICE_SIZE = max_lattice_size
+    def __init__(self, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100)):
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
 
@@ -522,16 +521,6 @@ class LocalPlot:
         
         self.orientation_arrow = None  # For the vehicle orientation arrow
         
-
-        for _ in range(self.MAX_LATTICE_SIZE):
-            (line_ax1,) = self.ax1.plot([], [], "--", color="lightskyblue", alpha=0.6)
-            (line_ax2,) = self.ax2.plot([], [], "--", color="lightskyblue", alpha=0.6)
-            (endpoint_ax1,) = self.ax1.plot([], [], "bo", alpha=0.6)
-            (endpoint_ax2,) = self.ax2.plot([], [], "bo", alpha=0.6)
-            self.lattice_graph_plots_ax1.append(line_ax1)
-            self.lattice_graph_plots_ax2.append(line_ax2)
-            self.lattice_graph_endpoints_ax1.append(endpoint_ax1)
-            self.lattice_graph_endpoints_ax2.append(endpoint_ax2)
 
         for i in range(self.MAX_PLAN_LENGTH):
             (local_plan_ax1,) = self.ax1.plot([], [], "r-", label=f"Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
@@ -643,21 +632,38 @@ class LocalPlot:
         plot_lidar = False,
         lidar_data = None,
         plot_ground_truth = True,
+        show_global_view = True,
+        show_frenet_view = True,
     ):
         self.legend_ax.set_visible(show_legend)
-        
+        self.ax1.set_visible(show_global_view)
+        self.ax2.set_visible(show_frenet_view)
+
+        # Adjust GridSpec height ratios so the visible axis fills the available space.
+        # hspace=0 eliminates the inter-row gap when only one axis is visible.
+        _gs = self.ax1.get_subplotspec().get_gridspec()
+        if show_global_view and show_frenet_view:
+            _gs._row_height_ratios = [1, 1]
+            self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
+        elif show_global_view:
+            _gs._row_height_ratios = [1, 0.001]
+            self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1, hspace=0)
+        elif show_frenet_view:
+            _gs._row_height_ratios = [0.001, 1]
+            self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1, hspace=0)
+
         center_xy = exec.local_planner.location_xy if global_follow_planner else  (exec.ego_state.x, exec.ego_state.y)
-        # location_sd is the planner's cached Frenet position (updated every step) — avoids a KD-tree call per frame
-        center_sd = exec.local_planner.location_sd
+        center_sd = exec.local_planner.location_sd if frenet_follow_planner else \
+            exec.local_planner.global_trajectory.convert_xy_to_sd(exec.ego_state.x, exec.ego_state.y)
         if xy_zoom is not None:
             self.ax1.set_xlim(center_xy[0] - xy_zoom, center_xy[0] + xy_zoom)
             self.ax1.set_ylim( center_xy[1] - xy_zoom / aspect_ratio / 2, center_xy[1] + xy_zoom / aspect_ratio / 2,)
             self.view_width_ax1 = xy_zoom * 2
             self.view_height_ax1 = xy_zoom / aspect_ratio * 2
         if frenet_zoom is not None:
-            self.ax2.set_xlim( center_sd[0] - frenet_zoom / 2, center_sd[0] + 1.5 * frenet_zoom)
-            self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
+            self.ax2.set_xlim(center_sd[0] - frenet_zoom, center_sd[0] + frenet_zoom)
             self.view_width_ax2 = frenet_zoom * 2
+            self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
             self.view_height_ax2 = frenet_zoom / aspect_ratio * 2
 
         if plot_last_pts and num_plot_last_pts > 0:
@@ -765,31 +771,43 @@ class LocalPlot:
 
         edge_index = 0
         for edge in pl.lattice.edges:
-            if edge_index < self.MAX_LATTICE_SIZE:
-                self.lattice_graph_plots_ax1[edge_index].set_data(
-                    edge.local_trajectory.path_x, edge.local_trajectory.path_y
-                )
-                self.lattice_graph_plots_ax2[edge_index].set_data(
-                    edge.local_trajectory.path_s_from_parent, edge.local_trajectory.path_d_from_parent
-                )
-                if edge.collision:
-                    self.lattice_graph_plots_ax1[edge_index].set_color("firebrick")
-                    self.lattice_graph_plots_ax2[edge_index].set_color("firebrick")
-                else:
-                    self.lattice_graph_plots_ax1[edge_index].set_color("lightskyblue")
-                    self.lattice_graph_plots_ax2[edge_index].set_color("lightskyblue")
+            if edge_index >= len(self.lattice_graph_plots_ax1):
+                (line_ax1,) = self.ax1.plot([], [], "--", color="lightskyblue", alpha=0.6)
+                (line_ax2,) = self.ax2.plot([], [], "--", color="lightskyblue", alpha=0.6)
+                (endpoint_ax1,) = self.ax1.plot([], [], "bo", alpha=0.6)
+                (endpoint_ax2,) = self.ax2.plot([], [], "bo", alpha=0.6)
+                self.lattice_graph_plots_ax1.append(line_ax1)
+                self.lattice_graph_plots_ax2.append(line_ax2)
+                self.lattice_graph_endpoints_ax1.append(endpoint_ax1)
+                self.lattice_graph_endpoints_ax2.append(endpoint_ax2)
 
-                self.lattice_graph_endpoints_ax1[edge_index].set_data(
-                    [edge.local_trajectory.path_x[-1]], [edge.local_trajectory.path_y[-1]]
-                )
-                self.lattice_graph_endpoints_ax2[edge_index].set_data(
-                    [edge.local_trajectory.path_s_from_parent[-1]], [edge.local_trajectory.path_d_from_parent[-1]]
-                )
-                edge_index += 1
+
+            self.lattice_graph_plots_ax1[edge_index].set_data(
+                edge.local_trajectory.path_x, edge.local_trajectory.path_y
+            )
+            self.lattice_graph_plots_ax2[edge_index].set_data(
+                edge.local_trajectory.path_s_from_parent, edge.local_trajectory.path_d_from_parent
+            )
+            if edge.collision:
+                self.lattice_graph_plots_ax1[edge_index].set_color("firebrick")
+                self.lattice_graph_plots_ax2[edge_index].set_color("firebrick")
             else:
-                log.warning(
-                    f"Lattice graph size exceeded: attempting to plot edge {edge_index+1} out of {self.MAX_LATTICE_SIZE}"
-                )
+                self.lattice_graph_plots_ax1[edge_index].set_color("lightskyblue")
+                self.lattice_graph_plots_ax2[edge_index].set_color("lightskyblue")
+
+            self.lattice_graph_endpoints_ax1[edge_index].set_data(
+                [edge.local_trajectory.path_x[-1]], [edge.local_trajectory.path_y[-1]]
+            )
+            self.lattice_graph_endpoints_ax2[edge_index].set_data(
+                [edge.local_trajectory.path_s_from_parent[-1]], [edge.local_trajectory.path_d_from_parent[-1]]
+            )
+            edge_index += 1
+
+        for i in range(edge_index, len(self.lattice_graph_plots_ax1)):
+            self.lattice_graph_plots_ax1[i].set_data([], [])
+            self.lattice_graph_plots_ax2[i].set_data([], [])
+            self.lattice_graph_endpoints_ax1[i].set_data([], [])
+            self.lattice_graph_endpoints_ax2[i].set_data([], [])
 
     def update_local_plan_plots(self, pl: LocalPlannerStrategy, show_plot=True):
         if not show_plot or pl.selected_local_plan is None:

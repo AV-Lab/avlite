@@ -321,7 +321,7 @@ class ROSExecuter(Executer):
         
         # Timing tracking
         self._start_real_time: float = 0.0
-        self._planner_last_real_time: float = 0.0  # real-time gate for replan throttling
+        self._planner_last_real_time: float = 0.0
         
         log.info("ROSExecuter initialized")
 
@@ -397,12 +397,13 @@ class ROSExecuter(Executer):
         # Update local planner step (updates waypoint tracking)
         if self.local_planner:
             self.local_planner.step(self.ego_state)
-        
-        # Run planner (replan if needed) — throttled by replan_dt to match SyncExecuter behavior
+
+        # Replan in main thread (not ROS spin thread — avoids blocking callbacks)
         now = time.time()
         if call_replan and self.local_planner and (now - self._planner_last_real_time) >= replan_dt:
             self._planner_last_real_time = now
             self.local_planner.replan()
+            self.planner_fps = self._planner_fps_tracker.tick()
         
         # Run controller and apply to world
         if call_control and self.controller:
@@ -417,9 +418,16 @@ class ROSExecuter(Executer):
         """Sync FPS values from ROS nodes to executer."""
         with self.ros_data.lock:
             self.perception_fps = self.ros_data.perception_fps
-            self.planner_fps = self.ros_data.planner_fps
+            # planner_fps set at replan() call site in step()
             self.control_fps = self.ros_data.control_fps
             self.elapsed_sim_time = self.ros_data.elapsed_sim_time
+
+    def _spin_ros(self):
+        """Spin ROS executor in background thread."""
+        try:
+            self.ros_exec.spin()
+        except Exception as e:
+            log.error(f"ROS spin error: {e}")
 
     def _start_ros(self):
         """Initialize and start ROS components including world/perception/planner/controller nodes.
@@ -505,13 +513,6 @@ class ROSExecuter(Executer):
             self.settings.control_dt,
         )
 
-    def _spin_ros(self):
-        """Spin ROS executor in background thread."""
-        try:
-            self.ros_exec.spin()
-        except Exception as e:
-            log.error(f"ROS spin error: {e}")
-
     def _sync_ros_to_avlite(self):
         """
         Sync data received from ROS to AVLite's internal state.
@@ -552,6 +553,12 @@ class ROSExecuter(Executer):
                 self.pm.trajectories = self.ros_data.trajectories
             if self.ros_data.occupancy_flow_per_object is not None:
                 self.pm.occupancy_flow_per_object = self.ros_data.occupancy_flow_per_object
+
+    @property
+    def ui_poll_delay(self):
+        # step() is lightweight — replanning runs in _replan_worker background thread.
+        # Tell the UI to poll at 20 Hz rather than burning the main thread.
+        return 0.05
 
     def stop(self):
         """Clean shutdown of ROS components."""

@@ -9,9 +9,6 @@ from avlite.c40_execution.c41_execution_model import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c43_sync_executer import WorldBridge
 
-from logging.handlers import QueueHandler, QueueListener
-from queue import Queue
-
 import threading
 import time
 import logging
@@ -33,10 +30,15 @@ class AsyncThreadedExecuter(Executer):
         replan_dt=0.5,
         control_dt=0.05,
         localization_dt=0.1,
+        combined_perception_planning: bool = True,
     ):
         super().__init__(perception_model, perception, global_planner, local_planner, controller, world,
                          localization=localization, perception_dt=perception_dt,
                          replan_dt=replan_dt, control_dt=control_dt, localization_dt=localization_dt)
+
+        # When True, perception runs inside the planner thread (lower overhead).
+        # When False, perception gets its own dedicated thread.
+        self._combined_perception_planning = combined_perception_planning
 
         # Thread-specific attributes - no need for shared Values
         self.__planner_last_step_time = time.time()
@@ -54,20 +56,6 @@ class AsyncThreadedExecuter(Executer):
         self.call_control = True
         self.call_perceive = True
         self.call_localize = True
-
-        self.__log_queue = Queue()
-        root_handlers = logging.getLogger().handlers
-        if not root_handlers:
-            # No root handler configured (e.g. headless CLI before basicConfig).
-            # Fall back to a NullHandler so QueueListener has something to forward to.
-            fallback = logging.NullHandler()
-            self.__queue_listener = QueueListener(self.__log_queue, fallback)
-        else:
-            self.__queue_listener = QueueListener(self.__log_queue, root_handlers[0])
-        self.__queue_listener.start()
-        # NOTE: setup_process_logging() intentionally not called — threads share
-        # root logger handlers which are already thread-safe. Routing via
-        # QueueHandler adds lock contention on every log call across the process.
 
         self.threads = []
         self.threads_started = False
@@ -144,7 +132,7 @@ class AsyncThreadedExecuter(Executer):
                     __planner_step_last_t = t1
 
                 t2 = time.time()
-                log.debug(f"Planner iteration: dt={dt:.3f}s, execution time={t2-t1:.3f}s")
+                log.debug("Planner iteration: dt=%.3fs, execution time=%.3fs", dt, t2 - t1)
 
                 # Localization: rate-limited by localization_dt
                 if self.call_localize:
@@ -155,8 +143,10 @@ class AsyncThreadedExecuter(Executer):
                         except Exception as e:
                             log.error(f"Error in localization step: {e}", exc_info=True)
 
-                # Perception runs alongside planning, rate-limited by perception_dt
-                if self.call_perceive:
+                # Perception runs alongside planning, rate-limited by perception_dt.
+                # Only active when combined mode is on; in separate-thread mode the
+                # dedicated worker_perception thread handles this instead.
+                if self.call_perceive and self._combined_perception_planning:
                     dt_p = time.time() - self._perception_fps_tracker.last
                     if dt_p > 10 * self.perception_dt:
                         self._perception_fps_tracker.last = time.time()
@@ -166,12 +156,10 @@ class AsyncThreadedExecuter(Executer):
                         except Exception as e:
                             log.error(f"Error in perception step: {e}", exc_info=True)
 
-                # Yield CPU to the controller thread between replans.
-                # Without this the planner busy-waits at 100% CPU, holding the GIL
-                # on every iteration and starving the controller.
-                sleep_time = max(0, self.replan_dt * 0.1 - (time.time() - t1))
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
+                # Sleep for the remainder of the replan cycle so this thread
+                # does not busy-wait between replans and starve the UI + controller.
+                sleep_time = max(0, self.replan_dt - (time.time() - t1))
+                time.sleep(sleep_time)
 
             except Exception as e:
                 log.error(f"Error in planner worker: {e}", exc_info=True)
@@ -196,14 +184,14 @@ class AsyncThreadedExecuter(Executer):
                         cmd = self.controller.control(state, control_dt=self.sim_dt)
                         self.world.control_ego_state(cmd, dt=self.sim_dt)
 
-                    self.control_fps = self._control_fps_tracker.tick()
-                    self.elapsed_sim_time += self.sim_dt
+                    self.control_fps = self._control_fps_tracker.tick(floor_dt=self.sim_dt)
+                    self.elapsed_sim_time += self.control_dt
                     self.elapsed_real_time += dt
 
                 t2 = time.time()
                 sleep_time = max(0, self.control_dt - (t2 - t1))
                 time.sleep(sleep_time)
-                log.debug(f"Controller iteration actual step time {t2-t1:.3f} -> sleep time: {sleep_time:.2f} s")
+                log.debug("Controller iteration actual step time %.3f -> sleep time: %.2f s", t2 - t1, sleep_time)
             except Exception as e:
                 log.error(f"Error in controller worker: {e}", exc_info=True)
                 time.sleep(0.1)
@@ -215,10 +203,16 @@ class AsyncThreadedExecuter(Executer):
                 if self.perception and self.call_perceive:
                     self._perception_step()
                 t2 = time.time()
-                log.debug(f"Perception iteration: dt={t2-t1:.3f}s")
+                log.debug("Perception iteration: dt=%.3fs", t2 - t1)
             except Exception as e:
                 log.error(f"Error in perception worker: {e}")
                 time.sleep(0.1)
+
+    @property
+    def ui_poll_delay(self):
+        # step() is nearly instant — all work runs in background threads.
+        # Tell the UI to poll at 20 Hz rather than burning the event loop.
+        return 0.05
 
     def stop(self):
         self._stop_event.set()
@@ -256,10 +250,13 @@ class AsyncThreadedExecuter(Executer):
         if self.controller_thread is None or not self.controller_thread.is_alive():
             self.controller_thread = threading.Thread(target=self.worker_control, name="Controller", daemon=True)
             self.threads.append(self.controller_thread)
-            log.info(f"Controller thread created: {self.controller_thread.name}")   
+            log.info(f"Controller thread created: {self.controller_thread.name}")
 
-        # self.perception_thread = threading.Thread(target=self.worker_perception, name="Perception", daemon=True)
-        # self.threads = [self.planner_thread, self.controller_thread, self.perception_thread]
+        if not self._combined_perception_planning:
+            self.perception_thread = threading.Thread(target=self.worker_perception, name="Perception", daemon=True)
+            self.threads.append(self.perception_thread)
+            log.info(f"Perception thread created: {self.perception_thread.name}")
+
         log.info(f"{len(self.threads)} threads created.")
 
 
@@ -283,20 +280,9 @@ class AsyncThreadedExecuter(Executer):
         if self.controller_thread:
             self.controller_thread.start()
 
-        # if self.perception_thread:
-        #     log.info(f"Starting Perception Thread...")
-        #     self.perception_thread.start()
+        if not self._combined_perception_planning and self.perception_thread:
+            log.info(f"Starting Perception Thread...")
+            self.perception_thread.start()
 
         self.threads_started = True
         log.info(f"Threads started in {time.time()-t1:.3f} s")
-
-    def setup_process_logging(self):
-        """Configure worker process to send logs to queue"""
-        # Remove all handlers
-        root = logging.getLogger()
-        for handler in root.handlers[:]:
-            root.removeHandler(handler)
-
-        # Add queue handler
-        queue_handler = QueueHandler(self.__log_queue)
-        root.addHandler(queue_handler)

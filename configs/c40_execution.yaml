@@ -64,6 +64,7 @@ SAN:
   replan_dt: 0.5
   sim_dt: 0.01
 async:
+  async_combined_perception_planning: true
   basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
@@ -97,21 +98,22 @@ async:
   replan_dt: 0.01
   sim_dt: 0.011
 default:
+  async_combined_perception_planning: true
   basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
   bridge: BasicSim
   community_plugins:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
-  control_dt: 0.02
+  control_dt: 0.01
   controller: StanleyController
   default_extensions:
-  - bridge_carla
-  - executer_ROS2
-  - bridge_ROS2
-  - bridge_gazebo
-  - multi_object_prediction
-  executer_type: ROSExecuter
+  - e10_perception_MO_prediction
+  - e40_bridge_gazebo
+  - e40_bridge_carla
+  - e40_bridge_ROS2
+  - e40_executer_ROS2
+  executer_type: AsyncThreadedExecuter
   filepath: configs/c40_execution.yaml
   global_planner: RaceGlobalPlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -119,7 +121,7 @@ default:
   local_planner: GreedyLatticePlanner
   localization: ''
   localization_dt: 0.1
-  log_level: WARN
+  log_level: DEBUG
   log_to_file: false
   mapping: ''
   perception: PerceptionPipeline
@@ -128,8 +130,9 @@ default:
   provide_lidar: true
   provide_rgb: false
   replan_dt: 0.01
-  sim_dt: 0.02
+  sim_dt: 0.01
 perception exp:
+  async_combined_perception_planning: true
   basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
@@ -163,6 +166,7 @@ perception exp:
   replan_dt: 0.55
   sim_dt: 0.011
 ros:
+  async_combined_perception_planning: true
   basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   basic_sim_npc_control: true
   basic_sim_npc_speed_factor: 0.8
@@ -192,5 +196,39 @@ ros:
   provide_ground_truth: true
   provide_lidar: false
   provide_rgb: false
-  replan_dt: 0.55
+  replan_dt: 0.01
   sim_dt: 0.011
+sync:
+  async_combined_perception_planning: true
+  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  basic_sim_npc_control: true
+  basic_sim_npc_speed_factor: 0.8
+  bridge: BasicSim
+  community_plugins:
+    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
+  control_dt: 0.01
+  controller: StanleyController
+  default_extensions:
+  - e10_perception_MO_prediction
+  - e40_bridge_gazebo
+  - e40_bridge_carla
+  - e40_bridge_ROS2
+  - e40_executer_ROS2
+  executer_type: SyncExecuter
+  filepath: configs/c40_execution.yaml
+  global_planner: RaceGlobalPlanner
+  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  hd_map: data/Town10HD_Opt.xodr
+  local_planner: GreedyLatticePlanner
+  localization: ''
+  localization_dt: 0.1
+  log_level: DEBUG
+  log_to_file: false
+  mapping: ''
+  perception: PerceptionPipeline
+  perception_dt: 0.5
+  provide_ground_truth: true
+  provide_lidar: true
+  provide_rgb: false
+  replan_dt: 0.01
+  sim_dt: 0.05

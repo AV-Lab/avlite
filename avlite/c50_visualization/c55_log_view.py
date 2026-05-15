@@ -167,8 +167,15 @@ class LogView(ttk.LabelFrame):
             self.cb_execute, self.cb_vis, self.cb_common,
         )
         new_state = "normal" if core_on else "disabled"
-        for var in child_vars:
-            var.set(core_on)
+        if not core_on:
+            self._core_saved_child_values = [v.get() for v in child_vars]
+            for var in child_vars:
+                var.set(False)
+        else:
+            saved = getattr(self, "_core_saved_child_values", None)
+            if saved:
+                for var, val in zip(child_vars, saved):
+                    var.set(val)
         for w in child_widgets:
             w.configure(state=new_state)
         self.update_log_filter()
@@ -271,8 +278,16 @@ class LogView(ttk.LabelFrame):
 
         if messages and not self.root.setting.log_to_file.get():
             self.log_area.configure(state="normal")
-            for msg, tag in messages:
-                self.log_area.insert(tk.END, msg, tag)
+            # Batch consecutive same-tag records into a single insert call
+            # to minimise the number of Tkinter operations per poll.
+            i = 0
+            while i < len(messages):
+                tag = messages[i][1]
+                batch = ""
+                while i < len(messages) and messages[i][1] == tag:
+                    batch += messages[i][0]
+                    i += 1
+                self.log_area.insert(tk.END, batch, tag)
             if self.max_log_lines > 0:
                 line_count = int(self.log_area.index("end-1c").split(".")[0])
                 if line_count > self.max_log_lines:

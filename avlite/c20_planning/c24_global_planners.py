@@ -151,8 +151,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                 list(np.linspace(self.max_velocity, 0, self.wp_to_full_velocity))
 
         # self.global_plan = remove_dublicate_points(self.global_plan)
-        # self.global_plan = smoothen_path_savgol(self.global_plan, min_spacing=0.5, window_length=7, polyorder=3)
-        self.global_plan = smoothen_path_splprep(self.global_plan, min_spacing=0.5, smoothing=20)
+        self.global_plan = smoothen_path_savgol(self.global_plan, min_spacing=0.5, window_length=7, polyorder=3)
         
         self.global_plan.lane_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path2]
         self.global_plan.trajectory = TrajectoryTracker(path=self.global_plan.path, velocity=self.global_plan.velocity)
@@ -308,7 +307,7 @@ def smoothen_path_splprep(plan: GlobalPlan, min_spacing=0.5, smoothing=0.5):
     cleaned_path_np = np.array(cleaned_path)
     if len(cleaned_path_np) >= 4:  # B-spline requires at least 4 points for cubic smoothing
         # Fit spline to x and y separately, using arc-length as parameter
-        nest = len(cleaned_path_np) + 4  # pre-allocate enough knots to prevent FITPACK overflow
+        nest = len(cleaned_path_np) + 8  # scipy: "always large enough is m + 2*k + 2" (k=3 cubic → m+8)
         tck, _ = splprep([cleaned_path_np[:, 0], cleaned_path_np[:, 1]], s=smoothing, nest=nest)
         u_new = np.linspace(0, 1, len(cleaned_path_np))
         x_smooth, y_smooth = splev(u_new, tck)

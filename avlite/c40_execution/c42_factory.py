@@ -24,7 +24,7 @@ from avlite.c40_execution.c41_execution_model import Executer, WorldBridge
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
 from avlite.c40_execution.c44_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim
-from avlite.extensions.bridge_carla.carla_bridge import CarlaBridge
+from avlite.extensions.e40_bridge_carla.carla_bridge import CarlaBridge
 
 
 
@@ -45,6 +45,7 @@ def executor_factory(
     default_global_trajectory_file = ExecutionSettings.global_trajectory,
     hd_map = ExecutionSettings.hd_map,
     load_extensions=True,
+    async_combined_perception_planning: bool = ExecutionSettings.async_combined_perception_planning,
 ) -> "Executer":
     """
     Factory method to create an instance of the Executer class based on the provided configuration.
@@ -159,7 +160,7 @@ def executor_factory(
     try:
         if bridge == "CarlaBridge": # string for lazy loading, beause it could have dependencies that are not available
             log.info("Loading Carla bridge...")
-            from avlite.extensions.bridge_carla.carla_bridge import CarlaBridge
+            from avlite.extensions.e40_bridge_carla.carla_bridge import CarlaBridge
             world = CarlaBridge(ego_state=ego_state)
         elif bridge == "GazeboIgnitionBridge":
             log.info("Loading Gazebo bridge...")
@@ -184,10 +185,13 @@ def executor_factory(
     try:
         if executer_type in Executer.registry:
             cls = Executer.registry[executer_type]
-            executer = cls(perception_model=pm,perception=pr, global_planner=gp, local_planner=pl,
-                           controller=cn, world=world, localization=loc,
-                           perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt,
-                           localization_dt=localization_dt)
+            kwargs = dict(perception_model=pm, perception=pr, global_planner=gp, local_planner=pl,
+                          controller=cn, world=world, localization=loc,
+                          perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt,
+                          localization_dt=localization_dt)
+            if issubclass(cls, AsyncThreadedExecuter):
+                kwargs["combined_perception_planning"] = async_combined_perception_planning
+            executer = cls(**kwargs)
         else:
             log.error(f"Invalid Executer. Moving to default executer")
             executer = SyncExecuter(perception_model=pm,perception=pr, global_planner=gp, local_planner=pl,

@@ -41,6 +41,8 @@ class VisualizationSettings:
         self.show_state = tk.BooleanVar(value=True)
         self.global_view_follow_planner = tk.BooleanVar(value=False)
         self.frenet_view_follow_planner = tk.BooleanVar(value=False)
+        self.show_local_global_view = tk.BooleanVar(value=True)
+        self.show_local_frenet_view = tk.BooleanVar(value=True)
 
         self.xy_zoom = 30
         self.frenet_zoom = 30
@@ -261,7 +263,7 @@ class VisualizationSettings:
 def _sync_exec_dt(attr: str, value: float) -> None:
     """Persist dt change to the ROS extension YAML so it takes effect on next launch."""
     try:
-        from avlite.extensions.executer_ROS2.settings import ExtensionSettings as ROSSettings
+        from avlite.extensions.e40_executer_ROS2.settings import ExtensionSettings as ROSSettings
         from avlite.c60_common.c61_setting_utils import save_setting
         setattr(ROSSettings, attr, float(value))
         save_setting(ROSSettings)

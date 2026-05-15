@@ -39,6 +39,8 @@ class ExecutionSettings:
     basic_sim_npc_speed_factor = 0.8   
     basic_sim_npc_control = True  # If True, NPCs will follow the default trajectory at the above speed factor
 
+    # AsyncThreadedExecuter-specific settings (prefix: async_)
+    async_combined_perception_planning: bool = True  # True: perception runs inside the planner thread (default); False: perception gets its own dedicated thread
 
     log_level = "INFO"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
     log_to_file = False

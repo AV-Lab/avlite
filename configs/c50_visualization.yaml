@@ -201,7 +201,7 @@ default:
   bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: true
   bridge_provide_rgb_image: false
-  control_dt: 0.02
+  control_dt: 0.01
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -212,11 +212,11 @@ default:
   exec_localize: true
   exec_perceive: true
   exec_plan: true
-  executer_type: ROSExecuter
+  executer_type: AsyncThreadedExecuter
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 110
+  frenet_zoom: 120
   global_plan_view: false
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
@@ -229,7 +229,7 @@ default:
   localization_type: Ground Truth
   log_font: Courier
   log_font_size: 11
-  log_level: WARN
+  log_level: DEBUG
   log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
@@ -238,32 +238,34 @@ default:
   mapping_type: Ground Truth
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
-  next_profile: async
+  next_profile: sync
   perception_dt: 0.5
   perception_type: PerceptionPipeline
   prediction_strategy_type: Ground Truth
   replan_dt: 0.01
   selected_profile: default
   shortcut_mode: false
-  show_common_logs: true
-  show_control_logs: true
+  show_common_logs: false
+  show_control_logs: false
   show_core_logs: true
-  show_execute_logs: true
+  show_execute_logs: false
   show_extensions_logs: false
   show_global_plan: true
   show_legend: false
+  show_local_frenet_view: true
+  show_local_global_view: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
-  show_perceive_logs: true
+  show_perceive_logs: false
   show_perception_extras: true
-  show_plan_logs: true
+  show_plan_logs: false
   show_state: true
   show_vis_logs: true
-  sim_dt: 0.02
+  sim_dt: 0.01
   tracking_strategy_type: Ground Truth
-  xy_zoom: 130
+  xy_zoom: 340
 perception exp:
   bg_color: '#333333'
   bridge_provide_depth_image: false
@@ -360,6 +362,7 @@ ros:
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
   global_zoom: 80
+  hide_menubar: false
   load_extensions: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
@@ -378,10 +381,9 @@ ros:
   mouse_drag_slowdown_factor: 0.5
   next_profile: default
   perception_dt: 0.5
-  perception_fps: '0'
   perception_type: MultiObjectPredictor
   prediction_strategy_type: Ground Truth
-  replan_dt: 0.55
+  replan_dt: 0.01
   selected_profile: ros
   shortcut_mode: false
   show_common_logs: true
@@ -403,3 +405,72 @@ ros:
   sim_dt: 0.011
   tracking_strategy_type: Ground Truth
   xy_zoom: 60
+sync:
+  bg_color: '#333333'
+  bridge_provide_depth_image: false
+  bridge_provide_ground_truth_detection: true
+  bridge_provide_lidar_data: true
+  bridge_provide_rgb_image: false
+  control_dt: 0.01
+  controller_type: StanleyController
+  dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  detection_strategy_type: Ground Truth
+  disable_log: false
+  enable_joystick: true
+  exec_control: true
+  exec_localize: true
+  exec_perceive: true
+  exec_plan: true
+  executer_type: SyncExecuter
+  execution_bridge: BasicSim
+  fg_color: white
+  frenet_view_follow_planner: false
+  frenet_zoom: 90
+  global_plan_view: false
+  global_planner_type: RaceGlobalPlanner
+  global_view_follow_planner: false
+  global_zoom: 800
+  hide_menubar: false
+  load_extensions: true
+  local_plan_view: true
+  local_planner_type: GreedyLatticePlanner
+  localization_dt: 0.1
+  localization_type: Ground Truth
+  log_font: Courier
+  log_font_size: 11
+  log_level: DEBUG
+  log_pull_time: 50
+  log_to_file: false
+  log_view_default_height: 12
+  log_view_expanded: false
+  log_view_expended_height: 35
+  mapping_type: Ground Truth
+  max_log_lines: 1000
+  mouse_drag_slowdown_factor: 0.5
+  next_profile: async
+  perception_dt: 0.5
+  perception_type: PerceptionPipeline
+  prediction_strategy_type: Ground Truth
+  replan_dt: 0.01
+  selected_profile: sync
+  shortcut_mode: false
+  show_common_logs: false
+  show_control_logs: false
+  show_core_logs: true
+  show_execute_logs: true
+  show_extensions_logs: false
+  show_global_plan: true
+  show_legend: false
+  show_local_lattice: true
+  show_local_plan: true
+  show_occupancy_flow: true
+  show_past_locations: true
+  show_perceive_logs: false
+  show_perception_extras: true
+  show_plan_logs: false
+  show_state: true
+  show_vis_logs: false
+  sim_dt: 0.05
+  tracking_strategy_type: Ground Truth
+  xy_zoom: 340
