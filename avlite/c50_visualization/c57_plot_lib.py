@@ -500,7 +500,7 @@ class LocalPlot:
         self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
         # Disable the 'l' shortcut for toggling log scale
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
-        self.ax2.set_title("Frenet Coordinate", pad=-100)
+        # self.ax2.set_title("Frenet Coordinate", pad=-100)
 
         self.ax1.set_aspect("equal")
         self.ax2.set_aspect("equal")
@@ -946,7 +946,7 @@ class LocalPlot:
         self.fig.patch.set_facecolor(bg_color)
         self.ax1.patch.set_facecolor(bg_color)
         self.ax2.patch.set_facecolor(bg_color)
-        self.ax2.set_title("Frenet Coordinate", color=fg_color)
+        # self.ax2.set_title("Frenet Coordinate", color=fg_color)
         # Set titles and labels to white
         for ax in [self.ax1, self.ax2]:
             for spine in ax.spines.values():

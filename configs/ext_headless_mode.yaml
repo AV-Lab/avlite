@@ -1,0 +1,4 @@
+default:
+  dashboard_refresh_hz: 10.0
+  log_buffer_size: 500
+  stats_panel_height: 18

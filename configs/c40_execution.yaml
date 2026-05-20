@@ -110,6 +110,7 @@ default:
   default_extensions:
   - e10_perception_MO_prediction
   - e40_bridge_gazebo
+  - e50_headless_mode
   - e40_bridge_carla
   - e40_bridge_ROS2
   - e40_executer_ROS2

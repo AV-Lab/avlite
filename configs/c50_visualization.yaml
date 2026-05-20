@@ -253,7 +253,7 @@ default:
   show_global_plan: true
   show_legend: false
   show_local_frenet_view: true
-  show_local_global_view: false
+  show_local_global_view: true
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
