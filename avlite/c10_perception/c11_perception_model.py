@@ -16,9 +16,10 @@ from avlite.c10_perception.c18_hdmap import HDMap
 log = logging.getLogger(__name__)
 
 class PredictionMode(Enum):
-    TRAJECTORY = 1
-    OCCUPANCY_FLOW = 2
-    OCCUPANCY_FLOW_PER_AGENT = 3
+    TRAJECTORY = 1 # Outputs a single predicted trajectory for each agent, represented as a sequence of future positions and velocities over a specified prediction horizon.
+    GMM = 2 # Gaussian Mixture Model - outputs a set of weighted trajectories
+    OCCUPANCY_FLOW = 2 # Outputs a time sequence of occupancy grids representing the predicted positions of the agent over time. Each grid cell contains a probability of occupancy, and the flow aspect captures how these probabilities evolve across the prediction horizon.
+    OCCUPANCY_FLOW_PER_AGENT = 3 # Similar to OCCUPANCY_FLOW but provides separate occupancy flow predictions for each individual agent, allowing for more granular and agent-specific future state estimations. Each entry in the list corresponds to a specific agent and contains its own sequence of occupancy grids, enabling the model to capture distinct movement patterns and interactions between agents in the environment.
     NONE = 4
 
 @dataclass
@@ -166,14 +167,6 @@ class State:
 class AgentState(State):
     velocity: float = 0.0
     agent_id: int = -1
-
-    # default
-    L_f: float = PerceptionSettings.ego_distance_front_axle  # Distance from center of mass to front axle
-    max_valocity: float = PerceptionSettings.ego_max_valocity
-    max_acceleration: float = PerceptionSettings.ego_max_acceleration
-    min_acceleration: float = PerceptionSettings.ego_min_acceleration
-    max_steering: float = PerceptionSettings.ego_max_steering  # in radians
-    min_steering: float = PerceptionSettings.ego_min_steering
 
     def __post_init__(self):
         super().__post_init__()

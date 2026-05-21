@@ -74,7 +74,7 @@ class StanleyController(ControlStrategy):
         log.debug(f"heading error: {heading_error:+6.2f} [tj: {self.tj.get_current_heading():+6.2f}, ego: {ego.theta:+6.2f}]")
         steer1 = heading_error + np.arctan2(self.k * -cte, ego.velocity + self.k_soft)
         log.debug( f"Steer: {steer1:+6.2f} ")
-        steer = np.clip(steer1, -ego.max_steering, ego.max_steering)
+        steer = np.clip(steer1, -self.ego_max_steering, self.ego_max_steering)
         # if steer1 !=  steer:
         #     log.warning(f"Steering angle {steer1:+6.2f} clipped to {steer:+6.2f} due to limits [{ego.min_steering:+6.2f}, {ego.max_steering:+6.2f}]. Heading error: {heading_error:+6.2f} ")
 
@@ -98,20 +98,28 @@ class StanleyController(ControlStrategy):
         
         # Emergency braking: if target velocity is 0 (or very low) and we're still moving,
         # apply maximum braking force regardless of PID output
-        if target_velocity < 0.5 and ego.velocity > 1.0:
+        if target_velocity < ControlSettings.emergency_velocity_threshold and ego.velocity > ControlSettings.emergency_min_moving_velocity:
             # Emergency stop requested - apply max deceleration
-            emergency_acc = ego.min_acceleration * 0.9  # 90% of max braking
+            emergency_acc = self.ego_min_acceleration * ControlSettings.emergency_braking_factor  # 90% of max braking
             if acc > emergency_acc:
                 log.warning(f"Emergency braking: overriding PID acc {acc:.2f} with {emergency_acc:.2f}")
                 acc = emergency_acc
         
-        acc = np.clip(acc, ego.min_acceleration, ego.max_acceleration)
+        acc = np.clip(acc, self.ego_min_acceleration, self.ego_max_acceleration)
+
+        # Anti-windup: clear integral when stopped so accumulated braking error
+        # does not keep pushing the car backwards past zero velocity.
+        if ego.velocity <= 0 and self.cte_v_sum > 0:
+            self.cte_v_sum = 0.0
+        # Velocity floor: never command further deceleration when already at rest.
+        if ego.velocity <= 0 and acc < 0:
+            acc = 0.0
 
         # lower the speed if abs(steer) > 0.5
         if (np.abs(self.cte_steer) > self.slow_down_cte or np.abs(heading_error) > self.slow_down_heading_cte) \
             and ego.velocity > self.slow_down_vel_threshold:
             acc2 = acc - 3 * np.e**np.abs(self.cte_steer)  # reduce acceleration based on steering error
-            acc2 = np.clip(acc2, ego.min_acceleration, ego.max_acceleration)
+            acc2 = np.clip(acc2, self.ego_min_acceleration, self.ego_max_acceleration)
             log.debug(f"Steering error {self.cte_steer:+6.2f} is large, reducing acceleration from {acc:.2f} to {acc2:.2f}")
             acc = acc2
 

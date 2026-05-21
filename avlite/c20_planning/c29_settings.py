@@ -26,9 +26,14 @@ class PlanningSettings:
     
     # Urgent collision threshold: switch immediately if collision within this many waypoints
     urgent_collision_threshold = 3
+
+    # Disconnect detection: switch plan if car is this far (metres) from the current plan's
+    # nearest waypoint — breaks the deadlock when car decelerates behind the plan start
+    disconnect_distance_threshold = 5.0
     
     # Collision detection settings
     collision_safety_margin = 0.3  # meters added to vehicle width for collision corridor
+    obstacle_inflation_margin = 0.5  # metres — inflate each obstacle polygon for additional safety clearance
     min_velocity_threshold = 0.5  # m/s - agents slower than this treated as static
     default_ego_velocity = 5.0  # m/s - default velocity when ego velocity is 0 or unknown
     
@@ -45,3 +50,17 @@ class PlanningSettings:
     # d=0 preference: edges ending within this lateral distance (metres) of the reference
     # line are hard-preferred over farther edges when selecting the best lattice edge
     d0_reference_threshold = 0.2  # metres
+
+    # Minimum forward speed injected at plan start when ramping up from rest.
+    # Prevents velocity[0]=0 deadlock when car is behind the plan start (current_wp pinned at 0).
+    min_ramp_start_velocity = 0.5  # m/s
+
+    # Fallback filter tiers for the lattice planner.
+    # Tier 1 (curvature fallback): accept edges that are collision-free and boundary-clear
+    # but violate curvature limits.  Off by default — curvature violations can cause loss
+    # of control at high speed.
+    allow_curvature_fallback = False
+
+    # Tier 2 (boundary-violation fallback): accept edges that breach the lateral boundary
+    # clearance margin but have no collision.  Off by default.
+    allow_boundary_violation_fallback = False

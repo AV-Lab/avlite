@@ -4,14 +4,18 @@ from typing import Optional
 import numpy as np
 from shapely.geometry import LineString, Polygon
 
-from avlite.c10_perception.c11_perception_model import PerceptionModel, AgentState
+from avlite.c10_perception.c11_perception_model import PerceptionModel, AgentState, PredictionMode
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c20_planning.c29_settings import PlanningSettings
 
 log = logging.getLogger(__name__)
 
 
-def precompute_obstacle_polygons(pm: PerceptionModel, total_time: float) -> list:
+def precompute_obstacle_polygons(
+    pm: PerceptionModel,
+    total_time: float,
+    min_velocity_threshold: float = 0.5,
+    obstacle_inflation_margin: float = 0.0,
+) -> list:
     """Build obstacle polygons (swept for movers, plain for statics) once per replan.
 
     Pass the returned list to check_collision via ``obstacle_polygons`` to avoid
@@ -19,13 +23,24 @@ def precompute_obstacle_polygons(pm: PerceptionModel, total_time: float) -> list
 
     Returns a list of (polygon, agent_velocity) tuples.
     """
-    min_velocity_threshold = PlanningSettings.min_velocity_threshold
+    use_predicted = (
+        pm.prediction_mode == PredictionMode.TRAJECTORY
+        and pm.trajectories is not None
+        and len(pm.trajectories) == len(pm.agent_vehicles)
+    )
+
+    ego = pm.ego_vehicle
+    ego_heading = np.array([np.cos(ego.theta), np.sin(ego.theta)])
+
     result = []
-    for agent in pm.agent_vehicles:
+    for i, agent in enumerate(pm.agent_vehicles):
         agent_polygon = agent.get_bb_polygon()
-        if abs(agent.velocity) > min_velocity_threshold:
-            predicted_x = agent.x + agent.velocity * np.cos(agent.theta) * total_time
-            predicted_y = agent.y + agent.velocity * np.sin(agent.theta) * total_time
+        to_agent = np.array([agent.x - ego.x, agent.y - ego.y])
+        agent_is_ahead = float(np.dot(ego_heading, to_agent)) >= 0.0
+        if use_predicted and agent_is_ahead and abs(agent.velocity) > min_velocity_threshold:
+            n_steps = pm.trajectories.shape[1]
+            step = min(int(total_time / pm.predict_delta_t), n_steps - 1)
+            predicted_x, predicted_y = pm.trajectories[i, step, 0], pm.trajectories[i, step, 1]
             predicted_agent = AgentState(
                 x=predicted_x, y=predicted_y, theta=agent.theta,
                 velocity=agent.velocity, agent_id=agent.agent_id,
@@ -40,6 +55,8 @@ def precompute_obstacle_polygons(pm: PerceptionModel, total_time: float) -> list
                 obstacle = agent_polygon.union(predicted_polygon).convex_hull
         else:
             obstacle = agent_polygon
+        if obstacle_inflation_margin > 0:
+            obstacle = obstacle.buffer(obstacle_inflation_margin)
         result.append((obstacle, agent.velocity))
     return result
 
@@ -49,6 +66,9 @@ def check_collision(
     trajectory: TrajectoryTracker,
     sample_size=5,
     obstacle_polygons: Optional[list] = None,
+    min_velocity_threshold: float = 0.5,
+    collision_safety_margin: float = 0.3,
+    default_ego_velocity: float = 5.0,
 ) -> tuple[bool, int, float]:
     """
     Check for collision along a trajectory using Shapely's buffered LineString.
@@ -60,7 +80,6 @@ def check_collision(
     Returns: (collision_detected, collision_index, agent_velocity)
     """
     ego = pm.ego_vehicle
-    min_velocity_threshold = PlanningSettings.min_velocity_threshold
 
     if trajectory is None or len(trajectory.path_x) < 2:
         # Check current position collision
@@ -75,7 +94,7 @@ def check_collision(
 
     # Create trajectory LineString and buffer it by half vehicle width (+ safety margin)
     trajectory_line = LineString(list(zip(path_x, path_y)))
-    ego_half_width = ego.width / 2 + PlanningSettings.collision_safety_margin
+    ego_half_width = ego.width / 2 + collision_safety_margin
     trajectory_corridor = trajectory_line.buffer(ego_half_width, cap_style='flat')
 
     if obstacle_polygons is not None:
@@ -91,7 +110,7 @@ def check_collision(
     # Slow path: build polygons here (used when called without pre-computed polygons)
     ego_velocities = getattr(trajectory, 'velocity', None)
     if ego_velocities is None or len(ego_velocities) == 0:
-        default_vel = ego.velocity if ego.velocity > 0 else PlanningSettings.default_ego_velocity
+        default_vel = ego.velocity if ego.velocity > 0 else default_ego_velocity
         ego_velocities = np.ones(len(path_x)) * default_vel
 
     cumulative_dist = [0.0]

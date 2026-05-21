@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, Type
+import math
 import time
+
+import numpy as np
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
@@ -9,6 +12,9 @@ from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c29_settings import PlanningSettings
 
+if TYPE_CHECKING:
+    from avlite.c30_control.c32_control_strategy import ControlStrategy
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -16,10 +22,11 @@ log = logging.getLogger(__name__)
 class LocalPlannerStrategy(ABC):
     registry = {}
 
-    def __init__( self, global_plan: GlobalPlan, pm: PerceptionModel, planning_horizon=3, num_of_edge_points=10):
+    def __init__( self, global_plan: GlobalPlan, pm: PerceptionModel, planning_horizon=3, num_of_edge_points=10, controller: Optional['ControlStrategy'] = None, setting: Type[PlanningSettings] = PlanningSettings):
         """Initialize the local planner with a global plan and perception model."""
         self.global_plan: GlobalPlan = global_plan
         self.pm: PerceptionModel = pm
+        self.controller: Optional['ControlStrategy'] = controller
         self.global_trajectory: TrajectoryTracker = global_plan.trajectory
         self.traversed_x: list[float]
         self.traversed_y: list[float]
@@ -49,9 +56,10 @@ class LocalPlannerStrategy(ABC):
         
         # Replan stability: track when plan was last changed
         self._last_plan_change_time: float = 0.0
-        self._replan_wait_time: float = 2.5  # default, can be overridden by subclass
-        self._min_edge_progress_to_block: float = 0.2  # block switch if >20% through edge
-        self._urgent_collision_threshold: int = 3  # collision within N waypoints is urgent
+        self._replan_wait_time: float = setting.replan_wait_time
+        self._min_edge_progress_to_block: float = setting.min_edge_progress_to_block
+        self._urgent_collision_threshold: int = setting.urgent_collision_threshold
+        self._disconnect_distance_threshold: float = setting.disconnect_distance_threshold
 
 
 
@@ -106,18 +114,55 @@ class LocalPlannerStrategy(ABC):
         if self.selected_local_plan is None:
             return True
 
+        # Zero-velocity recovery: escape an all-zero emergency-stop plan to any clean alternative.
+        # This covers both (a) collision-blocked plans and (b) boundary-violation-blocked plans
+        # where the emergency plan has collision=False and the normal collision guard never fires.
+        cur_vel = getattr(self.selected_local_plan.local_trajectory, 'velocity', None)
+        if (cur_vel is not None and len(cur_vel) > 0
+                and np.all(np.asarray(cur_vel) == 0.0)
+                and not new_plan.collision
+                and not new_plan.boundary_violation):
+            log.info("Zero-velocity emergency plan detected — recovering to clean plan")
+            return True
+
         # Current edge is done and has no queued successor — must switch
         if (self.selected_local_plan.local_trajectory.is_traversed()
                 and self.selected_local_plan.selected_next_local_plan is None):
             return True
 
-        # Urgent collision on the current edge — switch immediately
+        # Current plan is colliding — attempt to escape to a collision-free plan
         if force_if_collision and self.selected_local_plan.collision:
             collision_idx = getattr(self.selected_local_plan, 'collision_idx', -1)
             current_wp = self.selected_local_plan.local_trajectory.current_wp
             waypoints_to_collision = collision_idx - current_wp if collision_idx >= 0 else float('inf')
             if waypoints_to_collision <= self._urgent_collision_threshold:
+                # Imminent — switch immediately regardless of wait time
                 log.debug(f"Switching plan: urgent collision in {waypoints_to_collision} waypoints")
+                return True
+            # Agent cleared: new plan is collision-free with a materially better speed profile.
+            # Allows immediate recovery when an obstacle leaves the path, without waiting
+            # for the full replan_wait_time.
+            if not new_plan.collision and not new_plan.boundary_violation:
+                cur_v = float(np.mean(np.asarray(self.selected_local_plan.local_trajectory.velocity)))
+                new_v = float(np.mean(np.asarray(new_plan.local_trajectory.velocity)))
+                if new_v > cur_v + 0.5:
+                    log.info(f"Switching plan: agent cleared ({new_v:.1f} > {cur_v:.1f} m/s)")
+                    return True
+            # Non-urgent but colliding — switch only after wait time to avoid oscillation
+            if not new_plan.collision and (time.time() - self._last_plan_change_time >= self._replan_wait_time):
+                log.debug("Switching plan: escaping blocked plan to collision-free alternative")
+                return True
+
+        # Geometric disconnect: car has fallen behind the plan start
+        local_tj = self.selected_local_plan.local_trajectory
+        if local_tj is not None:
+            cwp = local_tj.current_wp
+            dist = math.hypot(
+                local_tj.path_x[cwp] - self.location_xy[0],
+                local_tj.path_y[cwp] - self.location_xy[1],
+            )
+            if dist > self._disconnect_distance_threshold:
+                log.debug(f"Switching plan: geometric disconnect — {dist:.1f}m from plan")
                 return True
 
         # Commit to current plan — do not switch

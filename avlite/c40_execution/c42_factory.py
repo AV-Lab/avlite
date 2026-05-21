@@ -20,6 +20,7 @@ from avlite.c20_planning.c24_global_planners import RaceGlobalPlanner
 from avlite.c20_planning.c26_local_planners import GreedyLatticePlanner
 from avlite.c30_control.c33_pid import PIDController
 from avlite.c30_control.c34_stanley import StanleyController
+from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
 from avlite.c40_execution.c41_execution_model import Executer, WorldBridge
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
 from avlite.c40_execution.c44_async_threaded_executer import AsyncThreadedExecuter

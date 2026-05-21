@@ -6,6 +6,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c30_control.c32_control_strategy import ControlComand
 from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability, ExecutionSettings
 from avlite.c30_control.c34_stanley import StanleyController
+from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 
 import logging
@@ -24,9 +25,11 @@ class BasicSim(WorldBridge):
     def __init__(self,ego_state:EgoState, pm:Optional[PerceptionModel] = None,
                  npc_control=ExecutionSettings.basic_sim_npc_control,
                  speed_factor=ExecutionSettings.basic_sim_npc_speed_factor,
-                 default_trajectory=ExecutionSettings.basic_sim_default_trajectory):
+                 default_trajectory=ExecutionSettings.basic_sim_default_trajectory,
+                 controller: Optional[ControlStrategy] = None):
         self.ego_state = ego_state
         self.pm = pm
+        self.ego_controller = controller
         self.supports_ground_truth_detection = True
         self.supports_ground_truth_localization = True
         self.npc_control = npc_control
@@ -50,7 +53,7 @@ class BasicSim(WorldBridge):
         self.ego_state.x += self.ego_state.velocity * math.cos(self.ego_state.theta) * dt
         self.ego_state.y += self.ego_state.velocity * math.sin(self.ego_state.theta) * dt
         self.ego_state.velocity += acceleration * dt
-        self.ego_state.theta += self.ego_state.velocity / self.ego_state.L_f * steering_angle * dt
+        self.ego_state.theta += self.ego_state.velocity / (self.ego_controller.ego_distance_front_axle if self.ego_controller is not None else 2.5) * steering_angle * dt
 
         if self.npc_control:
             self.__control_npc_agents(dt)
@@ -66,7 +69,7 @@ class BasicSim(WorldBridge):
             agent.x += agent.velocity * math.cos(agent.theta) * dt
             agent.y += agent.velocity * math.sin(agent.theta) * dt
             agent.velocity += agent_acceleration * dt
-            agent.theta += agent.velocity / agent.L_f * agent_steering_angle * dt
+            agent.theta += agent.velocity / self.npc_controllers[agent.agent_id].ego_distance_front_axle * agent_steering_angle * dt
 
 
         

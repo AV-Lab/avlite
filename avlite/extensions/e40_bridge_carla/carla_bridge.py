@@ -1,7 +1,7 @@
 from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c10_perception.c11_perception_model import PerceptionModel
-from avlite.c30_control.c32_control_strategy import ControlComand
+from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
 from typing import Union
 import math
 import logging
@@ -37,7 +37,8 @@ class CarlaBridge(WorldBridge):
         }
 
     def __init__(
-        self, ego_state: Optional[EgoState], host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0
+        self, ego_state: Optional[EgoState], host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0,
+        controller: Optional[ControlStrategy] = None
     ):
         self.supports_ground_truth_detection = True
         self.supports_ground_truth_localization = True
@@ -45,6 +46,7 @@ class CarlaBridge(WorldBridge):
         self.client = None
         self.world = None
         self.ego_state = ego_state
+        self.controller = controller
 
         # Carla stuff
         self.vehicle = None
@@ -329,8 +331,8 @@ class CarlaBridge(WorldBridge):
         current_velocity = self.ego_state.velocity
 
         # Calculate throttle and brake values
-        throttle = np.abs(cmd.acceleration) / self.ego_state.max_acceleration if cmd.acceleration > 0 else 0.0
-        brake = np.abs(cmd.acceleration) / self.ego_state.min_acceleration if cmd.acceleration < 0 else 0.0
+        throttle = np.abs(cmd.acceleration) / (self.controller.ego_max_acceleration if self.controller is not None else 10.0) if cmd.acceleration > 0 else 0.0
+        brake = np.abs(cmd.acceleration) / (self.controller.ego_min_acceleration if self.controller is not None else -20.0) if cmd.acceleration < 0 else 0.0
 
         # Convert to float to ensure correct type
         throttle = float(throttle)
@@ -344,7 +346,7 @@ class CarlaBridge(WorldBridge):
 
         # In reverse mode, use throttle instead of brake for backward movement
         if is_reverse and wants_reverse:
-            throttle = float(np.abs(cmd.acceleration) / self.ego_state.max_acceleration)
+            throttle = float(np.abs(cmd.acceleration) / (self.controller.ego_max_acceleration if self.controller is not None else 10.0))
             brake = 0.0
 
         # When steering with zero throttle, maintain a small throttle to prevent stopping

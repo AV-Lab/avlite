@@ -1,6 +1,6 @@
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c10_perception.c11_perception_model import EgoState
+from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c18_hdmap import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
@@ -8,6 +8,7 @@ from avlite.c20_planning.c27_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
 from avlite.c20_planning.c24_global_planners import HDMapGlobalPlanner
+from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 from typing import cast, Optional
 from abc import ABC, abstractmethod
@@ -493,9 +494,10 @@ class GlobalHDMapPlot(GlobalPlot):
             
 
 class LocalPlot:
-    def __init__(self, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100)):
+    def __init__(self, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100), controller: Optional[ControlStrategy] = None):
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
+        self.controller = controller
 
         self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
         # Disable the 'l' shortcut for toggling log scale
@@ -587,6 +589,15 @@ class LocalPlot:
 
         # LiDAR point cloud scatter (XY view only)
         self.lidar_scatter_ax1 = self.ax1.scatter([], [], s=1, c='lime', alpha=0.4, zorder=1, label="LiDAR")
+
+        # Prediction arrows: one dotted orange line per agent on both views
+        self.prediction_lines_ax1 = []
+        self.prediction_lines_ax2 = []
+        for _ in range(self.MAX_AGENT_COUNT):
+            l1, = self.ax1.plot([], [], color="darkorange", linewidth=1.5, linestyle="dotted", zorder=3)
+            l2, = self.ax2.plot([], [], color="darkorange", linewidth=1.5, linestyle="dotted", zorder=3)
+            self.prediction_lines_ax1.append(l1)
+            self.prediction_lines_ax2.append(l2)
 
         # self.pm_occupancy_flow_ax1 = self.ax1.imshow(
         #         np.zeros((100, 100)),
@@ -682,7 +693,7 @@ class LocalPlot:
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model and plot_ground_truth)
+        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model and plot_ground_truth, plot_occupancy_flow)
         self.update_lidar_plot(lidar_data, plot_lidar)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
 
@@ -862,7 +873,7 @@ class LocalPlot:
             return
 
 
-        car_L_f = state.L_f
+        car_L_f = self.controller.ego_distance_front_axle if self.controller is not None else 2.5
         car_L_r = state.length - car_L_f
 
         car_x_front = state.x + car_L_f * np.cos(state.theta)
@@ -881,11 +892,13 @@ class LocalPlot:
         else:
             self.ego_vehicle_ax2.set_xy(np.empty((0, 2)))
 
-    def update_perception_model_plots(self, pm: PerceptionModel, global_trajectory: TrajectoryTracker, show_plot=True):
+    def update_perception_model_plots(self, pm: PerceptionModel, global_trajectory: TrajectoryTracker, show_plot=True, show_prediction=False):
         if not show_plot or len(pm.agent_vehicles) == 0:
             for i in range(self.MAX_AGENT_COUNT):
                 self.pm_plots_ax1[i].set_xy(np.empty((0, 2)))
                 self.pm_plots_ax2[i].set_xy(np.empty((0, 2)))
+                self.prediction_lines_ax1[i].set_data([], [])
+                self.prediction_lines_ax2[i].set_data([], [])
             return
 
         n = min(len(pm.agent_vehicles), self.MAX_AGENT_COUNT)
@@ -902,6 +915,36 @@ class LocalPlot:
         for j in range(n, self.MAX_AGENT_COUNT):
             self.pm_plots_ax1[j].set_xy(np.empty((0, 2)))
             self.pm_plots_ax2[j].set_xy(np.empty((0, 2)))
+
+        # Prediction arrows
+        use_prediction = (
+            show_prediction
+            and pm.prediction_mode == PredictionMode.TRAJECTORY
+            and pm.trajectories is not None
+            and pm.trajectories.shape[0] >= n
+        )
+        if use_prediction:
+            n_steps = pm.trajectories.shape[1]
+            from avlite.c20_planning.c29_settings import PlanningSettings
+            total_time = PlanningSettings.maneuver_distance / PlanningSettings.default_ego_velocity
+            step = min(int(total_time / pm.predict_delta_t), n_steps - 1)
+            pred_xy = pm.trajectories[:n, step, :]  # (n, 2)
+            pred_sd = global_trajectory.convert_xy_path_to_sd_path_np(pred_xy)  # (n, 2)
+            ego_hdg = np.array([np.cos(pm.ego_vehicle.theta), np.sin(pm.ego_vehicle.theta)])
+            for i, agent in enumerate(agents):
+                to_agent = np.array([agent.x - pm.ego_vehicle.x, agent.y - pm.ego_vehicle.y])
+                if float(np.dot(ego_hdg, to_agent)) < 0.0:
+                    self.prediction_lines_ax1[i].set_data([], [])
+                    self.prediction_lines_ax2[i].set_data([], [])
+                    continue
+                self.prediction_lines_ax1[i].set_data(
+                    [agent.x, pred_xy[i, 0]], [agent.y, pred_xy[i, 1]])
+                agent_s, agent_d = global_trajectory.convert_xy_to_sd(agent.x, agent.y)
+                self.prediction_lines_ax2[i].set_data(
+                    [agent_s, pred_sd[i, 0]], [agent_d, pred_sd[i, 1]])
+        for i in range(n if use_prediction else 0, self.MAX_AGENT_COUNT):
+            self.prediction_lines_ax1[i].set_data([], [])
+            self.prediction_lines_ax2[i].set_data([], [])
 
     def update_lidar_plot(self, lidar_data, show_plot=True):
         """Update the LiDAR scatter on ax1 (XY view)."""

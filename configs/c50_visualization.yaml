@@ -216,7 +216,7 @@ default:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 120
+  frenet_zoom: 110
   global_plan_view: false
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
@@ -241,7 +241,7 @@ default:
   next_profile: sync
   perception_dt: 0.5
   perception_type: PerceptionPipeline
-  prediction_strategy_type: Ground Truth
+  prediction_strategy_type: ConstantVelocityPrediction
   replan_dt: 0.01
   selected_profile: default
   shortcut_mode: false
@@ -253,16 +253,16 @@ default:
   show_global_plan: true
   show_legend: false
   show_local_frenet_view: true
-  show_local_global_view: true
+  show_local_global_view: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
   show_perceive_logs: false
   show_perception_extras: true
-  show_plan_logs: false
+  show_plan_logs: true
   show_state: true
-  show_vis_logs: true
+  show_vis_logs: false
   sim_dt: 0.01
   tracking_strategy_type: Ground Truth
   xy_zoom: 340
@@ -451,24 +451,26 @@ sync:
   next_profile: async
   perception_dt: 0.5
   perception_type: PerceptionPipeline
-  prediction_strategy_type: Ground Truth
+  prediction_strategy_type: ConstantVelocityPrediction
   replan_dt: 0.01
   selected_profile: sync
   shortcut_mode: false
   show_common_logs: false
   show_control_logs: false
   show_core_logs: true
-  show_execute_logs: true
+  show_execute_logs: false
   show_extensions_logs: false
   show_global_plan: true
   show_legend: false
+  show_local_frenet_view: true
+  show_local_global_view: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
   show_perceive_logs: false
   show_perception_extras: true
-  show_plan_logs: false
+  show_plan_logs: true
   show_state: true
   show_vis_logs: false
   sim_dt: 0.05

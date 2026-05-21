@@ -9,15 +9,6 @@ class PerceptionSettings:
     # State
     state_default_heading = 0 #- np.pi / 4 
 
-    # Ego
-    ego_max_valocity: float = 30
-    ego_max_acceleration: float = 10    
-    ego_min_acceleration: float = -20
-    ego_max_steering: float = 0.7  # in radians
-    ego_min_steering: float = -0.7
-    ego_distance_front_axle: float = 2.5  # Distance from center of mass to front axle
-
-
     # Perception Model
     perception_model_max_agents: int = 12
     perception_model_prediction_grid_size: int = 100  # Size of the occupancy grid -> 100x100
@@ -30,4 +21,7 @@ class PerceptionSettings:
     detection_strategy: str = ""
     tracking_strategy: str = ""
     prediction_strategy: str = ""
+
+    # Prediction horizon in seconds used by PredictionStrategy implementations
+    prediction_horizon: float = 2.0
 

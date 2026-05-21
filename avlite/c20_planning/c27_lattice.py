@@ -44,7 +44,8 @@ class Edge:
     collision_idx: int = -1 # Index of the collision point in the local trajectory
     cost: float = 0
     risk: float = 0
-    
+    boundary_violation: bool = False  # True if the path exits road boundaries (with clearance)
+
     def __post_init__(self):
         # Create the local trajectory during initialization
         self.local_trajectory = self.global_tj.create_quintic_trajectory_sd(
@@ -79,6 +80,8 @@ class Lattice:
     outgoing_edges: Dict[Node, list] = field(default_factory=lambda: defaultdict(list))
 
     def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance, orientation=0):
+        self.boundary_clearance = boundary_clearance  # stored for full-path boundary checks
+        self.maneuver_distance = maneuver_distance   # stored for collision-prediction horizon
         s1_ = s
         x, y = self.global_trajectory.convert_sd_to_xy(s1_, d)
         self.lattice_nodes_by_level[0].append(Node(s1_, d, x, y, d_1st_derv=orientation))
@@ -86,8 +89,8 @@ class Lattice:
         for l in range(1, self.planning_horizon + 1):
             s1_ = s1_ + maneuver_distance
             if s1_ > self.global_trajectory.path_s[-2]:  # at -1 path_s is zero
-                log.warning("No Replan, reaching the end of lap")
-                return
+                log.debug("sample_nodes: approaching track end, truncating lattice horizon")
+                break
 
             # One line always at track line
             wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
@@ -113,9 +116,15 @@ class Lattice:
         # This avoids re-constructing N_agents polygons inside every edge's check_collision call.
         obstacle_polygons = None
         if pm is not None and len(pm.agent_vehicles) > 0:
-            # Estimate traversal time from ego speed and a rough trajectory length
+            # Predict obstacles over the full planning horizon: horizon_dist / ego_vel
             ego_vel = max(pm.ego_vehicle.velocity, PlanningSettings.default_ego_velocity)
-            obstacle_polygons = precompute_obstacle_polygons(pm, total_time=self.num_of_points * 0.1 / ego_vel)
+            maneuver_dist = getattr(self, 'maneuver_distance', 30.0)
+            obstacle_polygons = precompute_obstacle_polygons(
+                pm,
+                total_time=maneuver_dist / ego_vel,
+                min_velocity_threshold=PlanningSettings.min_velocity_threshold,
+                obstacle_inflation_margin=PlanningSettings.obstacle_inflation_margin,
+            )
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
                 for next_node in self.lattice_nodes_by_level[l + 1]:
@@ -123,8 +132,13 @@ class Lattice:
                     edge = Edge(start=node, end=next_node, global_tj = self.global_trajectory, num_of_points=self.num_of_points)
                     if pm is not None:
                         edge.collision, edge.collision_idx, edge.collision_agent_velocity = check_collision(
-                            pm, edge.local_trajectory, obstacle_polygons=obstacle_polygons
+                            pm, edge.local_trajectory,
+                            obstacle_polygons=obstacle_polygons,
+                            min_velocity_threshold=PlanningSettings.min_velocity_threshold,
+                            collision_safety_margin=PlanningSettings.collision_safety_margin,
+                            default_ego_velocity=PlanningSettings.default_ego_velocity,
                         )
+                    edge.boundary_violation = self._check_boundary_violation(edge)
                     self.edges.append(edge)
                     self.incoming_edges[next_node].append(edge)
                     self.outgoing_edges[node].append(edge)
@@ -133,6 +147,24 @@ class Lattice:
                 for e in self.incoming_edges[node]:
                     for o in self.outgoing_edges[node]:
                         e.next_edges.append(o)
+
+    def _check_boundary_violation(self, edge: "Edge") -> bool:
+        """Return True if any point on the edge path exits the road boundaries (with clearance)."""
+        tj = edge.local_trajectory
+        if (tj is None
+                or not hasattr(tj, 'path_s_from_parent') or tj.path_s_from_parent is None
+                or not hasattr(tj, 'path_d_from_parent') or tj.path_d_from_parent is None):
+            return False
+        path_s_arr = np.asarray(self.global_trajectory.path_s)
+        max_wp = len(self.ref_left_boundary_d) - 1
+        clearance = getattr(self, 'boundary_clearance', 0.0)
+        for s, d in zip(tj.path_s_from_parent, tj.path_d_from_parent):
+            wp = int(np.clip(np.searchsorted(path_s_arr, s, side='left'), 0, max_wp))
+            if d > self.ref_left_boundary_d[wp] - clearance:
+                return True
+            if d < self.ref_right_boundary_d[wp] + clearance:
+                return True
+        return False
 
     def reset(self):
         self.lattice_nodes_by_level.clear()

@@ -6,7 +6,7 @@ import numpy as np
 
 from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
-from avlite.c30_control.c32_control_strategy import ControlComand
+from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
 
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class GazeboIgnitionBridge(WorldBridge, Node):
             WorldCapability.CAMERA_RGB,
             WorldCapability.LIDAR_3D
         }
-    def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default"):
+    def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default", controller: Optional[ControlStrategy] = None):
         """
         Initialize Gazebo Ignition Bridge
         
@@ -58,6 +58,7 @@ class GazeboIgnitionBridge(WorldBridge, Node):
         self.ego_state = ego_state
         self.model_name = model_name
         self.world_name = world_name
+        self.controller = controller
         
         # Test connection to Gazebo
         if not self._test_gazebo_connection():
@@ -346,8 +347,8 @@ class GazeboIgnitionBridge(WorldBridge, Node):
         current_velocity = self.ego_state.velocity
 
         # Calculate throttle and brake values
-        throttle = np.abs(cmd.acceleration) / self.ego_state.max_acceleration if cmd.acceleration > 0 else 0.0
-        brake = np.abs(cmd.acceleration) / self.ego_state.min_acceleration if cmd.acceleration < 0 else 0.0
+        throttle = np.abs(cmd.acceleration) / (self.controller.ego_max_acceleration if self.controller is not None else 10.0) if cmd.acceleration > 0 else 0.0
+        brake = np.abs(cmd.acceleration) / (self.controller.ego_min_acceleration if self.controller is not None else -20.0) if cmd.acceleration < 0 else 0.0
 
         # Convert to float to ensure correct type
         throttle = float(throttle)
@@ -361,11 +362,11 @@ class GazeboIgnitionBridge(WorldBridge, Node):
 
         # In reverse mode, use throttle instead of brake for backward movement
         if is_reverse and wants_reverse:
-            throttle = float(np.abs(cmd.acceleration) / self.ego_state.max_acceleration)
+            throttle = float(np.abs(cmd.acceleration) / (self.controller.ego_max_acceleration if self.controller is not None else 10.0))
             target_linear_velocity = -self.max_velocity_forward * throttle  # Reverse velocity
             brake = 0.0
         else:
-            throttle = float(np.abs(cmd.acceleration) / self.ego_state.max_acceleration)
+            throttle = float(np.abs(cmd.acceleration) / (self.controller.ego_max_acceleration if self.controller is not None else 10.0))
             target_linear_velocity = self.max_velocity_forward * throttle
 
         # When steering with zero throttle, maintain a small throttle to prevent stopping

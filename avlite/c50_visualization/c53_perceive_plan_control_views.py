@@ -18,6 +18,7 @@ from avlite.c50_visualization.c58_ui_lib import ValueGauge
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
 from avlite.c60_common.c61_setting_utils import list_extensions
+from avlite.c60_common.c62_capabilities import WorldCapability
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
@@ -88,7 +89,10 @@ class PerceptionFrame(ttk.LabelFrame):
         self._lbl_detect.grid(row=1, column=0, sticky="e", padx=(5, 0))
         self.detection_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.detection_strategy_type, state="readonly")
-        self.detection_dropdown_menu["values"] = ("Ground Truth",) + tuple(DetectionStrategy.registry.keys())
+        self.detection_dropdown_menu["values"] = (
+            (("Ground Truth",) if WorldCapability.GT_DETECTION in self.root.exec.world.capabilities else ())
+            + tuple(DetectionStrategy.registry.keys())
+        )
         self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.detection_dropdown_menu.grid(row=1, column=1, columnspan=2, sticky="ew")
 
@@ -96,7 +100,10 @@ class PerceptionFrame(ttk.LabelFrame):
         self._lbl_track.grid(row=2, column=0, sticky="e", padx=(5, 0))
         self.tracking_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
-        self.tracking_dropdown_menu["values"] = ("Ground Truth",) + tuple(TrackingStrategy.registry.keys())
+        self.tracking_dropdown_menu["values"] = (
+            (("Ground Truth",) if WorldCapability.GT_TRACKING in self.root.exec.world.capabilities else ())
+            + tuple(TrackingStrategy.registry.keys())
+        )
         self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.tracking_dropdown_menu.grid(row=2, column=1, columnspan=2, sticky="ew")
 
@@ -147,8 +154,15 @@ class PerceptionFrame(ttk.LabelFrame):
         log.warning(f"final Strategies: {data}")
 
         self.perception_dropdown_menu["values"] = tuple(data)
-        self.detection_dropdown_menu["values"] = ("Ground Truth",) + tuple(DetectionStrategy.registry.keys())
-        self.tracking_dropdown_menu["values"] = ("Ground Truth",) + tuple(TrackingStrategy.registry.keys())
+        _caps = self.root.exec.world.capabilities
+        self.detection_dropdown_menu["values"] = (
+            (("Ground Truth",) if WorldCapability.GT_DETECTION in _caps else ())
+            + tuple(DetectionStrategy.registry.keys())
+        )
+        self.tracking_dropdown_menu["values"] = (
+            (("Ground Truth",) if WorldCapability.GT_TRACKING in _caps else ())
+            + tuple(TrackingStrategy.registry.keys())
+        )
         self.prediction_dropdown_menu["values"] = ("Ground Truth",) + tuple(PredictionStrategy.registry.keys())
         self._update_pipeline_visibility()
 
@@ -161,7 +175,10 @@ class PerceptionExtrasFrame(ttk.LabelFrame):
         ttk.Label(self, text="Localization:").pack(side=tk.LEFT, padx=(5, 2))
         self.localization_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
-        self.localization_dropdown_menu["values"] = ("Ground Truth",) + tuple(LocalizationStrategy.registry.keys())
+        self.localization_dropdown_menu["values"] = (
+            (("Ground Truth",) if WorldCapability.GT_LOCALIZATION in self.root.exec.world.capabilities else ())
+            + tuple(LocalizationStrategy.registry.keys())
+        )
         self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or "Ground Truth")
         self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10))
@@ -324,15 +341,15 @@ class ControlFrame(ttk.LabelFrame):
         ttk.Label(self.progress_label_frame, text="Steer", font=self.root.small_font).pack(side=tk.TOP)
 
         self.gauge_acc = ValueGauge( self.progress_frame,
-            min_value=self.root.exec.ego_state.min_acceleration,
-            max_value=self.root.exec.ego_state.max_acceleration,
+            min_value=self.root.exec.controller.ego_min_acceleration,
+            max_value=self.root.exec.controller.ego_max_acceleration,
         )
         self.gauge_acc.pack(side=tk.TOP, fill=tk.X, expand=True)
         # self.progressbar_acc.set_marker(0)
 
         self.gauge_steer = ValueGauge( self.progress_frame,
-            min_value=self.root.exec.ego_state.min_steering,
-            max_value=self.root.exec.ego_state.max_steering,
+            min_value=self.root.exec.controller.ego_min_steering,
+            max_value=self.root.exec.controller.ego_max_steering,
         )
         # self.progressbar_steer.set_marker(0)
         self.gauge_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
@@ -448,11 +465,11 @@ class ControlFrame(ttk.LabelFrame):
 
         # Scale inputs to control values
         # Negative for correct direction
-        steering = -left_stick_x * self.root.exec.ego_state.max_steering
+        steering = -left_stick_x * self.root.exec.controller.ego_max_steering
         acceleration = (right_trigger + 1) / 2 * \
-            self.root.exec.ego_state.max_acceleration
+            self.root.exec.controller.ego_max_acceleration
         braking = (left_trigger + 1) / 2 * \
-            self.root.exec.ego_state.min_acceleration
+            self.root.exec.controller.ego_min_acceleration
 
         # Apply controls if needed
         if abs(steering) > 0.01 or abs(acceleration) > 0.01 or abs(braking) > 0.01:

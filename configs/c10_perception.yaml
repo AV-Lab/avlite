@@ -1,10 +1,4 @@
 Carla_Town10:
-  ego_distance_front_axle: 2.5
-  ego_max_acceleration: 10
-  ego_max_steering: 0.7
-  ego_max_valocity: 30
-  ego_min_acceleration: -20
-  ego_min_steering: -0.7
   filepath: configs/c10_perception.yaml
   hdmap_sampling_resolution: 0.1
   perception_model_max_agents: 12
@@ -12,12 +6,6 @@ Carla_Town10:
   state_default_heading: 0
 async:
   detection_strategy: ''
-  ego_distance_front_axle: 2.5
-  ego_max_acceleration: 10
-  ego_max_steering: 0.7
-  ego_max_valocity: 30
-  ego_min_acceleration: -20
-  ego_min_steering: -0.7
   filepath: configs/c10_perception.yaml
   hdmap_sampling_resolution: 0.1
   perception_model_max_agents: 12
@@ -27,27 +15,16 @@ async:
   tracking_strategy: ''
 default:
   detection_strategy: ''
-  ego_distance_front_axle: 2.5
-  ego_max_acceleration: 10
-  ego_max_steering: 0.7
-  ego_max_valocity: 30
-  ego_min_acceleration: -20
-  ego_min_steering: -0.7
   filepath: configs/c10_perception.yaml
   hdmap_sampling_resolution: 0.1
   perception_model_max_agents: 12
   perception_model_prediction_grid_size: 100
+  prediction_horizon: 2.0
   prediction_strategy: ''
   state_default_heading: 0
   tracking_strategy: ''
 perception exp:
   detection_strategy: ''
-  ego_distance_front_axle: 2.5
-  ego_max_acceleration: 10
-  ego_max_steering: 0.7
-  ego_max_valocity: 30
-  ego_min_acceleration: -20
-  ego_min_steering: -0.7
   filepath: configs/c10_perception.yaml
   hdmap_sampling_resolution: 0.1
   perception_model_max_agents: 12
@@ -56,12 +33,6 @@ perception exp:
   state_default_heading: 0
   tracking_strategy: ''
 ros:
-  ego_distance_front_axle: 2.5
-  ego_max_acceleration: 10
-  ego_max_steering: 0.7
-  ego_max_valocity: 30
-  ego_min_acceleration: -20
-  ego_min_steering: -0.7
   filepath: configs/c10_perception.yaml
   hdmap_sampling_resolution: 0.1
   perception_model_max_agents: 12
@@ -69,12 +40,6 @@ ros:
   state_default_heading: 0
 sync:
   detection_strategy: ''
-  ego_distance_front_axle: 2.5
-  ego_max_acceleration: 10
-  ego_max_steering: 0.7
-  ego_max_valocity: 30
-  ego_min_acceleration: -20
-  ego_min_steering: -0.7
   filepath: configs/c10_perception.yaml
   hdmap_sampling_resolution: 0.1
   perception_model_max_agents: 12

@@ -5,6 +5,7 @@ from typing import Optional
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c39_settings import ControlSettings
 from abc import ABC, abstractmethod
 import logging
 
@@ -18,6 +19,14 @@ class ControlStrategy(ABC):
         self.cmd: ControlComand = ControlComand()
         self.cte_steer: float = 0
         self.cte_velocity: float = 0
+
+        # Kinematic constraints — owned by the control layer
+        self.ego_distance_front_axle: float = ControlSettings.ego_distance_front_axle
+        self.ego_max_velocity: float = ControlSettings.ego_max_velocity
+        self.ego_max_acceleration: float = ControlSettings.ego_max_acceleration
+        self.ego_min_acceleration: float = ControlSettings.ego_min_acceleration
+        self.ego_max_steering: float = ControlSettings.ego_max_steering
+        self.ego_min_steering: float = ControlSettings.ego_min_steering
 
 
     def set_trajectory(self, tj: TrajectoryTracker):

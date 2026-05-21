@@ -64,7 +64,7 @@ class PIDController(ControlStrategy):
 
         # Compute the steering angle
         steer = P + I + D
-        steer = np.clip(steer, ego.min_steering, ego.max_steering)
+        steer = np.clip(steer, self.ego_min_steering, self.ego_max_steering)
         # Logging with formatted string for clarity
         log.debug( f"Steer: {steer:+6.2f} [P={P:+.3f}, I={I:+.3f}, D={D:+.3f}] based on CTE: {cte:+.3f}")
         self.last_steer = steer
@@ -89,14 +89,22 @@ class PIDController(ControlStrategy):
         
         # Emergency braking: if target velocity is 0 (or very low) and we're still moving,
         # apply maximum braking force regardless of PID output
-        if target_velocity < 0.5 and ego.velocity > 1.0:
+        if target_velocity < ControlSettings.emergency_velocity_threshold and ego.velocity > ControlSettings.emergency_min_moving_velocity:
             # Emergency stop requested - apply max deceleration
-            emergency_acc = ego.min_acceleration * 0.9  # 90% of max braking
+            emergency_acc = self.ego_min_acceleration * ControlSettings.emergency_braking_factor  # 90% of max braking
             if acc > emergency_acc:
                 log.warning(f"Emergency braking: overriding PID acc {acc:.2f} with {emergency_acc:.2f}")
                 acc = emergency_acc
         
-        acc = np.clip(acc, ego.min_acceleration, ego.max_acceleration)
+        acc = np.clip(acc, self.ego_min_acceleration, self.ego_max_acceleration)
+
+        # Anti-windup: clear integral when stopped so accumulated braking error
+        # does not keep pushing the car backwards past zero velocity.
+        if ego.velocity <= 0 and self.cte_v_sum > 0:
+            self.cte_v_sum = 0.0
+        # Velocity floor: never command further deceleration when already at rest.
+        if ego.velocity <= 0 and acc < 0:
+            acc = 0.0
 
         log.debug(f"Acc  : {acc:+6.2f} [P={vP:+.3f}, I={vI:+.3f}, D={vD:+.3f}] based on CTE: {self.cte_velocity:+.2f} ({ego.velocity:.2f} vs target: {target_velocity:.2f})")
         cmd = ControlComand(steer=steer, acceleration=acc)

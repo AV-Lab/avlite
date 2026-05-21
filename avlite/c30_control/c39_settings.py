@@ -29,3 +29,11 @@ class ControlSettings:
     emergency_velocity_threshold: float = 0.5  # m/s - target velocity below this triggers emergency braking
     emergency_min_moving_velocity: float = 1.0  # m/s - ego velocity above this considered "moving"
     emergency_braking_factor: float = 0.9  # fraction of max decel for emergency braking
+
+    # Ego vehicle kinematic constraints
+    ego_distance_front_axle: float = 2.5  # Distance from center of mass to front axle (m)
+    ego_max_velocity: float = 30.0        # m/s
+    ego_max_acceleration: float = 10.0   # m/s^2
+    ego_min_acceleration: float = -20.0  # m/s^2
+    ego_max_steering: float = 0.7        # radians
+    ego_min_steering: float = -0.7       # radians
