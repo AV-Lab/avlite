@@ -24,3 +24,8 @@ avlite = "avlite.__main__:main"
 
 [tool.setuptools.packages.find]
 exclude = ["test*", "build*", "site*"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:schemathesis",
+]

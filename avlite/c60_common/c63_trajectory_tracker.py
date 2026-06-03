@@ -735,6 +735,46 @@ class TrajectoryTracker:
             idx -= 1
         return idx
 
+    def concatenate(
+        self,
+        other: "TrajectoryTracker",
+        gap_tolerance: float = 1.0,
+        bridge_points: int = 5,
+        name: str = None,
+    ) -> "TrajectoryTracker":
+        """Stitch self and other into a new standalone TrajectoryTracker.
+
+        If the gap between the last point of self and the first point of other is
+        within gap_tolerance, the duplicate junction point is dropped.
+        If the gap exceeds gap_tolerance, a straight-line bridge is interpolated.
+        """
+        gap = math.dist(self.path[-1], other.path[0])
+
+        if gap <= gap_tolerance:
+            combined_path = self.path + other.path[1:]
+            combined_vel = list(self.velocity) + list(other.velocity)[1:]
+        else:
+            log.warning(
+                "concatenate: gap %.2f m between '%s' and '%s' exceeds tolerance %.2f m — bridging.",
+                gap, self.name, other.name, gap_tolerance,
+            )
+            t = np.linspace(0, 1, bridge_points + 2)[1:-1]  # exclude endpoints
+            bx = self.path[-1][0] + t * (other.path[0][0] - self.path[-1][0])
+            by = self.path[-1][1] + t * (other.path[0][1] - self.path[-1][1])
+            bridge_path = list(zip(bx.tolist(), by.tolist()))
+            if self.velocity and other.velocity:
+                bv = (self.velocity[-1] + t * (other.velocity[0] - self.velocity[-1])).tolist()
+            else:
+                bv = []
+            combined_path = self.path + bridge_path + other.path
+            combined_vel = list(self.velocity) + bv + list(other.velocity)
+
+        return TrajectoryTracker(
+            path=combined_path,
+            velocity=combined_vel,
+            name=name or f"{self.name} + {other.name}",
+        )
+
     def __str__(self):
         return f"TrajectoryTracker: {self.name}"
 
