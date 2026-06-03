@@ -446,13 +446,13 @@ class SettingWindow:
         import sys
         from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
         from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-        from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+        from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
         from avlite.c30_control.c32_control_strategy import ControlStrategy
         from avlite.c40_execution.c41_execution_model import Executer
 
         ext_module_prefix = f"avlite.extensions.{ext_name}"
         for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
-                         LocalPlannerStrategy.registry, ControlStrategy.registry, Executer.registry]:
+                         LocalPlanningStrategy.registry, ControlStrategy.registry, Executer.registry]:
             to_remove = [name for name, cls in registry.items()
                          if cls.__module__.startswith(ext_module_prefix)]
             for name in to_remove:

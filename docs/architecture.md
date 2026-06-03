@@ -135,7 +135,7 @@ Both `PerceptionStrategy` and `LocalizationStrategy` are optional in the executi
 ### c20_planning
 
 - `GlobalPlannerStrategy` - Route planning (A*, HD map routing)
-- `LocalPlannerStrategy` - Reactive planning
+- `LocalPlanningStrategy` - Reactive planning
 - `Lattice` - Frenet frame lattice for local planning
 - `Trajectory` - Path + velocity profile
 

@@ -3,7 +3,7 @@
 #
 # if TYPE_CHECKING:
 from avlite.c20_planning.c24_global_planners import RaceGlobalPlanner
-from avlite.c20_planning.c26_local_planners import GreedyLatticePlanner
+from avlite.c20_planning.c26_local_lattice_planners import GreedyLatticePlanner
 from avlite.c30_control.c34_stanley import StanleyController
 
 class ExecutionSettings:

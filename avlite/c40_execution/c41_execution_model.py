@@ -15,7 +15,7 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
 from avlite.c60_common.c62_capabilities import WorldCapability
@@ -105,7 +105,7 @@ class Executer(ABC):
         perception_model: PerceptionModel,
         perception: Optional[PerceptionStrategy],
         global_planner: GlobalPlannerStrategy,
-        local_planner: LocalPlannerStrategy,
+        local_planner: LocalPlanningStrategy,
         controller: ControlStrategy,
         world: WorldBridge,
         localization: Optional[LocalizationStrategy] = None,
@@ -122,7 +122,7 @@ class Executer(ABC):
         self.localization: Optional[LocalizationStrategy] = localization
         self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: GlobalPlannerStrategy = global_planner
-        self.local_planner: LocalPlannerStrategy = local_planner
+        self.local_planner: LocalPlanningStrategy = local_planner
         self.controller: ControlStrategy = controller
         self.world: WorldBridge = world
 

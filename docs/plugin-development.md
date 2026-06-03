@@ -201,7 +201,7 @@ Your classes will now appear in the UI dropdowns.
 | `PredictionStrategy` | Prediction sub-strategy (used by `PerceptionPipeline`) | `predict()` |
 | `LocalizationStrategy` | Localization | `localize()` |
 | `MappingStrategy` | Mapping | TBD |
-| `LocalPlannerStrategy` | Local planning | `replan()` |
+| `LocalPlanningStrategy` | Local planning | `replan()` |
 | `GlobalPlannerStrategy` | Global planning | `plan()` |
 | `ControlStrategy` | Vehicle control | `control()` |
 | `WorldBridge` | Simulator integration | `control_ego_state()` |

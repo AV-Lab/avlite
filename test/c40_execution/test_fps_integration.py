@@ -19,7 +19,7 @@ import pytest
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c31_control_model import ControlComand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_execution_model import WorldBridge
@@ -52,7 +52,7 @@ class _StubGlobalPlanner(GlobalPlannerStrategy):
         return GlobalPlan()
 
 
-class _StubLocalPlanner(LocalPlannerStrategy):
+class _StubLocalPlanner(LocalPlanningStrategy):
     """Local planner with no trajectory data — just satisfies the interface."""
 
     def __init__(self):

@@ -3,7 +3,7 @@ from __future__ import annotations
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_execution_model import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
@@ -22,7 +22,7 @@ class AsyncThreadedExecuter(Executer):
         perception_model: PerceptionModel,
         perception: PerceptionStrategy = None,
         global_planner: GlobalPlannerStrategy = None,
-        local_planner: LocalPlannerStrategy = None,
+        local_planner: LocalPlanningStrategy = None,
         controller: ControlStrategy = None,
         world: WorldBridge = None,
         localization=None,
@@ -122,7 +122,7 @@ class AsyncThreadedExecuter(Executer):
                     self.__planner_last_step_time = time.time()
                     self._replan_step()
 
-                self.controller.tj = self.local_planner.get_local_plan()
+                self.controller.set_plan(self.local_planner.get_local_plan())
 
                 # Rate-limit local_planner.step to replan_dt — avoids flooding the GIL
                 # with continuous KD-tree queries that starve the controller thread

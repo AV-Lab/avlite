@@ -7,7 +7,7 @@ from avlite.c30_control.c31_control_model import  ControlComand
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
 
@@ -17,7 +17,7 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c24_global_planners import RaceGlobalPlanner
-from avlite.c20_planning.c26_local_planners import GreedyLatticePlanner
+from avlite.c20_planning.c26_local_lattice_planners import GreedyLatticePlanner
 from avlite.c30_control.c33_pid import PIDController
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
@@ -123,8 +123,8 @@ def executor_factory(
     #######################
 
     try:
-        if local_planner_strategy_name in LocalPlannerStrategy.registry:
-            cls = LocalPlannerStrategy.registry[local_planner_strategy_name]
+        if local_planner_strategy_name in LocalPlanningStrategy.registry:
+            cls = LocalPlanningStrategy.registry[local_planner_strategy_name]
             pl = cls(global_plan=default_global_plan, env=pm)
         else:
             log.error(f"Unable to load local planner {local_planner_strategy_name}. Switching to default.")

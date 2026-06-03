@@ -1,15 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Optional, TYPE_CHECKING, Type
-import math
-import time
-
-import numpy as np
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c20_planning.c27_lattice import Edge, Lattice
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
-from avlite.c20_planning.c21_planning_model import GlobalPlan
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c29_settings import PlanningSettings
 
 if TYPE_CHECKING:
@@ -19,55 +14,45 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class LocalPlannerStrategy(ABC):
+class LocalPlanningStrategy(ABC):
+    """Minimal local-planning interface.
+
+    Owns localization bookkeeping (traversed path + current location in xy/sd)
+    and the strategy registry. Concrete planners implement :meth:`replan` and
+    return their result through :meth:`get_local_plan` as a :class:`LocalPlan`.
+
+    Algorithm-specific machinery (e.g. lattice/edge search) lives in
+    subclasses such as ``LatticePlanningStrategy``.
+    """
+
     registry = {}
 
-    def __init__( self, global_plan: GlobalPlan, pm: PerceptionModel, planning_horizon=3, num_of_edge_points=10, controller: Optional['ControlStrategy'] = None, setting: Type[PlanningSettings] = PlanningSettings):
+    def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel,
+                 controller: Optional['ControlStrategy'] = None,
+                 setting: Type[PlanningSettings] = PlanningSettings):
         """Initialize the local planner with a global plan and perception model."""
         self.global_plan: GlobalPlan = global_plan
         self.pm: PerceptionModel = pm
         self.controller: Optional['ControlStrategy'] = controller
         self.global_trajectory: TrajectoryTracker = global_plan.trajectory
+
         self.traversed_x: list[float]
         self.traversed_y: list[float]
         self.traversed_d: list[float]
         self.traversed_s: list[float]
         self.location_xy: tuple[float, float]
         self.location_sd: tuple[float, float]
-        self.lattice: Lattice
-
-        self.selected_local_plan: Optional[Edge]
-        self.planning_horizon: int
-        self.num_of_edge_points: int
 
         # these are localization data
         self.traversed_x, self.traversed_y = [global_plan.start_point[0]], [global_plan.start_point[1]]
         self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
-        
-        self.selected_local_plan: Optional[Edge] = None
-        
-        self.planning_horizon: int = planning_horizon
-        self.num_of_edge_points: int = num_of_edge_points
-        self.lattice: Lattice = Lattice( self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
-            planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
+
         self.lap: int = 0
-        
-        # Replan stability: track when plan was last changed
-        self._last_plan_change_time: float = 0.0
-        self._replan_wait_time: float = setting.replan_wait_time
-        self._min_edge_progress_to_block: float = setting.min_edge_progress_to_block
-        self._urgent_collision_threshold: int = setting.urgent_collision_threshold
-        self._disconnect_distance_threshold: float = setting.disconnect_distance_threshold
-
-
-
 
     def set_global_plan(self, global_plan: GlobalPlan) -> None:
-        """
-        Set the global plan for the local planner and initialize the trajectory.
-        """
+        """Set the global plan for the local planner and reset localization."""
         if global_plan.trajectory is None:
             log.error("Global plan trajectory is None. Cannot set global plan.")
             return
@@ -82,157 +67,40 @@ class LocalPlannerStrategy(ABC):
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
 
-        self.lattice: Lattice = Lattice( self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
-            planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
-
         log.info("Global Plan set and Local Planner reset.")
 
-
-    def reset(self, wp:int=0):
+    def reset(self, wp: int = 0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
         self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[wp]], [self.global_trajectory.path_d[wp]]
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
         self.global_trajectory.update_waypoint_by_wp(wp)
-        self.selected_local_plan = None
-        self.lattice.reset()
-        self._last_plan_change_time = 0.0
-
-    def should_switch_plan(self, new_plan: Edge, force_if_collision: bool = True) -> bool:
-        """
-        Determine if we should switch to a new plan.
-
-        Switches only if:
-        - No current plan exists
-        - Current edge is fully traversed with no successor
-        - Current plan has an urgent collision (within threshold waypoints)
-
-        Otherwise the planner commits to the current edge and follows it to
-        completion, preventing jitter from replanning on every cycle.
-        """
-        # No plan yet — take the first one available
-        if self.selected_local_plan is None:
-            return True
-
-        # Zero-velocity recovery: escape an all-zero emergency-stop plan to any clean alternative.
-        # This covers both (a) collision-blocked plans and (b) boundary-violation-blocked plans
-        # where the emergency plan has collision=False and the normal collision guard never fires.
-        cur_vel = getattr(self.selected_local_plan.local_trajectory, 'velocity', None)
-        if (cur_vel is not None and len(cur_vel) > 0
-                and np.all(np.asarray(cur_vel) == 0.0)
-                and not new_plan.collision
-                and not new_plan.boundary_violation):
-            log.info("Zero-velocity emergency plan detected — recovering to clean plan")
-            return True
-
-        # Current edge is done and has no queued successor — must switch
-        if (self.selected_local_plan.local_trajectory.is_traversed()
-                and self.selected_local_plan.selected_next_local_plan is None):
-            return True
-
-        # Current plan is colliding — attempt to escape to a collision-free plan
-        if force_if_collision and self.selected_local_plan.collision:
-            collision_idx = getattr(self.selected_local_plan, 'collision_idx', -1)
-            current_wp = self.selected_local_plan.local_trajectory.current_wp
-            waypoints_to_collision = collision_idx - current_wp if collision_idx >= 0 else float('inf')
-            if waypoints_to_collision <= self._urgent_collision_threshold:
-                # Imminent — switch immediately regardless of wait time
-                log.debug(f"Switching plan: urgent collision in {waypoints_to_collision} waypoints")
-                return True
-            # Agent cleared: new plan is collision-free with a materially better speed profile.
-            # Allows immediate recovery when an obstacle leaves the path, without waiting
-            # for the full replan_wait_time.
-            if not new_plan.collision and not new_plan.boundary_violation:
-                cur_v = float(np.mean(np.asarray(self.selected_local_plan.local_trajectory.velocity)))
-                new_v = float(np.mean(np.asarray(new_plan.local_trajectory.velocity)))
-                if new_v > cur_v + 0.5:
-                    log.info(f"Switching plan: agent cleared ({new_v:.1f} > {cur_v:.1f} m/s)")
-                    return True
-            # Non-urgent but colliding — switch only after wait time to avoid oscillation
-            if not new_plan.collision and (time.time() - self._last_plan_change_time >= self._replan_wait_time):
-                log.debug("Switching plan: escaping blocked plan to collision-free alternative")
-                return True
-
-        # Geometric disconnect: car has fallen behind the plan start
-        local_tj = self.selected_local_plan.local_trajectory
-        if local_tj is not None:
-            cwp = local_tj.current_wp
-            dist = math.hypot(
-                local_tj.path_x[cwp] - self.location_xy[0],
-                local_tj.path_y[cwp] - self.location_xy[1],
-            )
-            if dist > self._disconnect_distance_threshold:
-                log.debug(f"Switching plan: geometric disconnect — {dist:.1f}m from plan")
-                return True
-
-        # Commit to current plan — do not switch
-        return False
-
-    def set_selected_plan(self, new_plan: Edge) -> None:
-        """Set the selected plan and update the change timestamp."""
-        self.selected_local_plan = new_plan
-        self._last_plan_change_time = time.time()
 
     @abstractmethod
     def replan(self):
         pass
 
-    def _on_edge_traversed(self) -> None:
-        """Called once when step() advances to the next edge in the committed chain.
+    def get_local_plan(self) -> LocalPlan:
+        """Return the current local plan. Defaults to following the global trajectory."""
+        return LocalPlan.from_trajectory(self.global_trajectory)
 
-        Subclasses override this to extend the planning horizon incrementally
-        (sliding-window replan).  The base implementation is a no-op so that
-        subclasses that do not override it continue to work without changes.
+    def _advance_local_plan(self, state: EgoState) -> None:
+        """Hook called from :meth:`step` after the global waypoint is updated.
+
+        Subclasses override this to advance their own plan representation
+        (e.g. a committed edge chain). The base implementation is a no-op.
         """
-
-    def get_local_plan(self) -> TrajectoryTracker:
-        return self.selected_local_plan.local_trajectory if self.selected_local_plan is not None else self.global_trajectory
 
     def step_wp(self):
-        """
-        Advances the planner to the next waypoint and updates the traversed path.
-        """
+        """Advance the planner one waypoint along the global trajectory."""
         log.info(f"Step: {self.global_trajectory.current_wp}")
-        # next edge selected, but not finished
-        if self.selected_local_plan is not None and not self.selected_local_plan.local_trajectory.is_traversed():
-            self.selected_local_plan.local_trajectory.update_to_next_waypoint()
-            x_new, y_new = self.selected_local_plan.local_trajectory.get_current_xy()
-
-        # next edge selected, but finished
-        elif (
-            self.selected_local_plan is not None
-            and self.selected_local_plan.local_trajectory.is_traversed()
-            and self.selected_local_plan.selected_next_local_plan is not None
-        ):
-            log.info("Local Plan Completed, choosing next selected Local Plan")
-            self.selected_local_plan = self.selected_local_plan.selected_next_local_plan
-            self.selected_local_plan.local_trajectory.update_to_next_waypoint()
-            x_new, y_new = self.selected_local_plan.local_trajectory.get_current_xy()
-        # no edge selected — hold last trajectory until replan provides a new one
-        elif (
-            self.selected_local_plan is not None
-            and self.selected_local_plan.local_trajectory.is_traversed()
-            and self.selected_local_plan.selected_next_local_plan is None
-        ):
-            log.info("Local Plan Traversed. No next Local Plan selected — holding last trajectory until replan")
-            x_new = self.selected_local_plan.local_trajectory.path_x[-1]
-            y_new = self.selected_local_plan.local_trajectory.path_y[-1]
-        else:
-            log.warning("No Local Plan, back to closest next reference point")
-            x_new = self.global_trajectory.path_x[self.global_trajectory.next_wp]
-            y_new = self.global_trajectory.path_y[self.global_trajectory.next_wp]
+        x_new = self.global_trajectory.path_x[self.global_trajectory.next_wp]
+        y_new = self.global_trajectory.path_y[self.global_trajectory.next_wp]
 
         self.traversed_x.append(x_new)
         self.traversed_y.append(y_new)
-        current_orientation = self.global_trajectory.get_current_heading()
-        log.debug(f"global tj current orientation: {current_orientation}")
-
-        # TODO some error check might be needed
         self.global_trajectory.update_waypoint_by_xy(x_new, y_new)
-        if self.selected_local_plan is not None:
-            self.selected_local_plan.local_trajectory.update_waypoint_by_xy(x_new, y_new)
 
-        #### Frenet Coordinates
         s_, d_ = self.global_trajectory.convert_xy_to_sd(x_new, y_new)
         self.traversed_d.append(d_)
         self.traversed_s.append(s_)
@@ -240,45 +108,32 @@ class LocalPlannerStrategy(ABC):
         if self.global_trajectory.is_traversed() and self.global_plan.race_mode:
             self.lap += 1
             log.info(f"Lap {self.lap} Done")
-        
+
         self.location_xy = (self.traversed_x[-1], self.traversed_y[-1])
         self.location_sd = (self.traversed_s[-1], self.traversed_d[-1])
 
-
     def step(self, state: EgoState):
-        """
-        Advances the planner based on the given vehicle state and updates the traversed path.
+        """Advance the planner based on the given vehicle state.
 
-        Args:
-            state: The current state of the vehicle.
+        Updates the traversed path, the closest global waypoint, frenet
+        coordinates, and lap counting. Algorithm-specific plan advancement is
+        delegated to :meth:`_advance_local_plan`.
         """
-        # log.debug(f"Step called with state:  {state}")
         self.traversed_x.append(state.x)
         self.traversed_y.append(state.y)
         self.global_trajectory.update_waypoint_by_xy(state.x, state.y)
 
-        if self.selected_local_plan is not None:
-            
-            self.selected_local_plan.local_trajectory.update_waypoint_by_xy(state.x, state.y)
-
-            if self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_local_plan is not None:
-                log.info("Local Plan Traversed, choosing next selected Local Plan")
-                self.selected_local_plan = self.selected_local_plan.selected_next_local_plan
-                self.selected_local_plan.local_trajectory.update_to_next_waypoint()
-                self._on_edge_traversed()
-
-            elif self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_local_plan is None:
-                log.info("Local plan traversed, no next local plan — holding last trajectory until replan")
+        self._advance_local_plan(state)
 
         #### Frenet Coordinates
         s_, d_ = self.global_trajectory.convert_xy_to_sd(state.x, state.y)
 
         # Lap detection via S-coordinate crossover.
         # global_trajectory.is_traversed() relies on current_wp reaching the last index,
-        # which is unreliable when the ego is laterally displaced on a local plan and the
-        # closest global waypoint jumps directly from near-end to near-start.
-        # Instead, compare the previous S value to the new one: if we were near the end of
-        # the track (s > 80%) and are now near the start (s < 20%), a lap has been completed.
+        # which is unreliable when the ego is laterally displaced and the closest global
+        # waypoint jumps directly from near-end to near-start. Instead, compare the
+        # previous S value to the new one: if we were near the end of the track (s > 80%)
+        # and are now near the start (s < 5%), a lap has been completed.
         if self.global_plan.race_mode and len(self.traversed_s) > 0:
             track_len = self.global_trajectory.path_s[-2]
             if track_len > 0 and self.traversed_s[-1] > track_len * 0.8 and s_ < track_len * 0.05:
@@ -290,16 +145,7 @@ class LocalPlannerStrategy(ABC):
         self.location_xy = (state.x, state.y)
         self.location_sd = (s_, d_)
 
-    def local_plan_len(self, tmp_plan=None):
-        edge = self.selected_local_plan if tmp_plan is None else tmp_plan
-        return 1 + self.__plan_len(edge=edge.selected_next_local_plan)
-
-    def __plan_len(self, edge):
-        if edge is None:
-            return 0
-        return 1 + self.__plan_len(edge=edge.selected_next_local_plan)
-
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)
-        if not abstract:  
-            LocalPlannerStrategy.registry[cls.__name__] = cls
+        if not abstract:
+            LocalPlanningStrategy.registry[cls.__name__] = cls

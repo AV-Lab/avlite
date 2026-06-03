@@ -60,14 +60,31 @@ class GlobalPlan:
                 right_boundary_y=right_boundary_y,
             )
 
-# TODO:  
-@dataclass 
+@dataclass
 class LocalPlan:
+    """Minimal local-planning output consumed by the control layer.
+
+    A plan is defined either by an explicit ``trajectory`` (a fully built
+    ``TrajectoryTracker``) or by raw ``path``/``velocity`` samples. When only
+    raw samples are given, ``as_trajectory()`` builds the tracker on demand.
+    """
     path: list[tuple[float, float]] = field(default_factory=list)
     velocity: list[float] = field(default_factory=list)
 
     trajectory: Optional[TrajectoryTracker] = None
 
-    
+    @classmethod
+    def from_trajectory(cls, trajectory: TrajectoryTracker) -> "LocalPlan":
+        """Wrap an existing trajectory in a LocalPlan."""
+        return cls(path=list(trajectory.path), velocity=list(trajectory.velocity), trajectory=trajectory)
+
+    def as_trajectory(self) -> Optional[TrajectoryTracker]:
+        """Return the plan's trajectory, building one from path/velocity if needed."""
+        if self.trajectory is not None:
+            return self.trajectory
+        if len(self.path) == 0:
+            return None
+        self.trajectory = TrajectoryTracker(path=self.path, velocity=self.velocity)
+        return self.trajectory
 
 

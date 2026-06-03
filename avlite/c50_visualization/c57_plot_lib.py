@@ -3,7 +3,8 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c18_hdmap import HDMap
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c20_planning.c26_local_lattice_planners import LatticePlanningStrategy
 from avlite.c20_planning.c27_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
@@ -709,7 +710,7 @@ class LocalPlot:
         self.fig.canvas.blit(self.ax1.bbox)
         self.fig.canvas.blit(self.ax2.bbox)
 
-    def update_global_plan_plots(self, pl: LocalPlannerStrategy, show_plot=True):
+    def update_global_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not hasattr(self, "initialized"):
             self.initialized = False
         if not hasattr(self, "toggle_plot"):
@@ -769,8 +770,8 @@ class LocalPlot:
                 [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]],
             )
 
-    def update_lattice_graph_plots(self, pl: LocalPlannerStrategy, show_plot=True):
-        if not show_plot or len(pl.lattice.edges) == 0:
+    def update_lattice_graph_plots(self, pl: LocalPlanningStrategy, show_plot=True):
+        if not show_plot or not isinstance(pl, LatticePlanningStrategy) or len(pl.lattice.edges) == 0:
             for line in (
                 self.lattice_graph_plots_ax1
                 + self.lattice_graph_endpoints_ax1
@@ -820,7 +821,22 @@ class LocalPlot:
             self.lattice_graph_endpoints_ax1[i].set_data([], [])
             self.lattice_graph_endpoints_ax2[i].set_data([], [])
 
-    def update_local_plan_plots(self, pl: LocalPlannerStrategy, show_plot=True):
+    def update_local_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
+        if not isinstance(pl, LatticePlanningStrategy):
+            # Non-lattice planners expose a single LocalPlan trajectory.
+            self.current_wp_plot_ax1.set_data([], [])
+            self.current_wp_plot_ax2.set_data([], [])
+            self.next_wp_plot_ax1.set_data([], [])
+            self.next_wp_plot_ax2.set_data([], [])
+            local_plan = pl.get_local_plan() if show_plot else None
+            tj = local_plan.as_trajectory() if local_plan is not None else None
+            if tj is None:
+                self.__clear_local_plan_plots()
+            else:
+                self.local_plan_plots_ax1[0].set_data(tj.path_x, tj.path_y)
+                self.local_plan_plots_ax2[0].set_data(tj.path_s, tj.path_d)
+                self.__clear_local_plan_plots(index=1)
+            return
         if not show_plot or pl.selected_local_plan is None:
             self.__clear_local_plan_plots()
             self.current_wp_plot_ax1.set_data([], [])

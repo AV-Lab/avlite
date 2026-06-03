@@ -204,7 +204,7 @@ avlite/
 │   ├── c22_global_planning_strategy.py
 │   ├── c23_local_planning_strategy.py
 │   ├── c24_global_planners.py
-│   ├── c26_local_planners.py
+│   ├── c26_local_lattice_planners.py
 │   ├── c27_lattice.py
 │   └── c29_settings.py
 ├── c30_control/            # Control components

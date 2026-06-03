@@ -19,7 +19,7 @@ from rclpy.node import Node
 from std_msgs.msg import String, Header
 
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 
 from .e46_autoware_converters import (
@@ -46,7 +46,7 @@ class PlannerNode(Node):
     2. Embedded: Pass planner instance directly to constructor
     """
 
-    def __init__(self, planner: LocalPlannerStrategy = None, ego_state: EgoState = None, ros_data=None, replan_dt: float = 0.1):
+    def __init__(self, planner: LocalPlanningStrategy = None, ego_state: EgoState = None, ros_data=None, replan_dt: float = 0.1):
         super().__init__('avlite_planner')
         
         self.settings = ExtensionSettings()
@@ -70,7 +70,7 @@ class PlannerNode(Node):
         
         # If no planner passed, try to load from registry
         if self.planner is None and planner_name:
-            if planner_name in LocalPlannerStrategy.registry:
+            if planner_name in LocalPlanningStrategy.registry:
                 self.get_logger().info(f"Loading planner from registry: {planner_name}")
                 self.get_logger().warn(f"Standalone mode requires global_plan - planner not loaded")
             else:
@@ -165,7 +165,7 @@ class PlannerNode(Node):
             if not self._shutdown:
                 self.get_logger().error(f"Planning failed: {e}")
 
-    def set_planner(self, planner: LocalPlannerStrategy):
+    def set_planner(self, planner: LocalPlanningStrategy):
         """Set or update the planner instance."""
         self.planner = planner
         self.get_logger().info(f"Planner set: {planner.__class__.__name__}")

@@ -9,8 +9,8 @@ from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
-from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c30_control.c31_control_model import ControlComand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -18,7 +18,7 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 log = logging.getLogger(__name__)
 
 
-class ProxyLocalPlanner(LocalPlannerStrategy):
+class ProxyLocalPlanner(LocalPlanningStrategy):
     """
     Proxy local planner that stores trajectory received from external ROS planner.
     
@@ -42,11 +42,11 @@ class ProxyLocalPlanner(LocalPlannerStrategy):
             return self.last_plan
         return self.global_trajectory
     
-    def get_local_plan(self) -> TrajectoryTracker:
-        """Return the last received trajectory."""
+    def get_local_plan(self) -> LocalPlan:
+        """Return the last received trajectory wrapped as a LocalPlan."""
         if self.last_plan is not None:
-            return self.last_plan
-        return self.global_trajectory
+            return LocalPlan.from_trajectory(self.last_plan)
+        return LocalPlan.from_trajectory(self.global_trajectory)
     
     def reset(self, wp: int = 0):
         """Reset the proxy planner."""
@@ -70,7 +70,7 @@ class ProxyController(ControlStrategy):
     def control(
         self,
         ego: EgoState,
-        tj: Optional[TrajectoryTracker] = None,
+        plan: Optional[LocalPlan] = None,
         control_dt: float = None
     ) -> ControlComand:
         """

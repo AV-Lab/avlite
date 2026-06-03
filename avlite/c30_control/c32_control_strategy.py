@@ -4,12 +4,14 @@ from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c20_planning.c21_planning_model import LocalPlan
 from avlite.c30_control.c31_control_model import ControlComand
 from avlite.c30_control.c39_settings import ControlSettings
 from abc import ABC, abstractmethod
 import logging
 
 log = logging.getLogger(__name__)
+
 
 class ControlStrategy(ABC):
     registry = {}
@@ -33,8 +35,12 @@ class ControlStrategy(ABC):
         log.debug("Controller Trajectory updated")
         self.tj = tj
 
+    def set_plan(self, plan: LocalPlan):
+        """Set the active trajectory from a LocalPlan."""
+        self.tj = plan.as_trajectory() if plan is not None else None
+
     @abstractmethod
-    def control(self, ego: EgoState, tj: Optional[TrajectoryTracker]=None, control_dt:float=None) -> ControlComand:
+    def control(self, ego: EgoState, plan: Optional[LocalPlan]=None, control_dt:float=None) -> ControlComand:
         pass
 
 
@@ -48,22 +54,3 @@ class ControlStrategy(ABC):
         if not abstract:  
             ControlStrategy.registry[cls.__name__] = cls
     
-
-
-
-    # # methods used for multiprocessing
-    # def get_copy(self):
-    #     return copy.deepcopy(self)
-    # def update_serializable_trajectory(self, path: list[tuple[float, float]], velocity_list: list[float]):
-    #     self.tj = Trajectory(path, velocity_list)
-    #     log.info("Controller Trajectory updated")
-    # def get_control_dt(self)->float:
-    #     return self.__control_dt
-    # def set_control_dt(self, dt:float):
-    #     self.__control_dt = dt
-    # def get_cte_steer(self)->float:
-    #     return self.cte_steer
-    # def get_cte_velocity(self)->float:
-    #     return self.cte_velocity
-    # def get_cmd(self)->ControlComand:
-    #     return self.cmd

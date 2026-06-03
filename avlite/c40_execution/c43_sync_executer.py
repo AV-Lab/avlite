@@ -5,7 +5,7 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c41_execution_model import Executer
@@ -20,7 +20,7 @@ class SyncExecuter(Executer):
         perception_model: PerceptionModel,
         perception: PerceptionStrategy = None,
         global_planner: GlobalPlannerStrategy = None,
-        local_planner: LocalPlannerStrategy = None,
+        local_planner: LocalPlanningStrategy = None,
         controller: ControlStrategy = None,
         world: WorldBridge = None,
         localization: LocalizationStrategy = None,

@@ -16,7 +16,7 @@ from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrate
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c58_ui_lib import ValueGauge
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c60_common.c61_setting_utils import list_extensions
 from avlite.c60_common.c62_capabilities import WorldCapability
 
@@ -225,7 +225,7 @@ class PlanFrame(ttk.LabelFrame):
             variable=self.root.setting.local_plan_view).pack(side=tk.LEFT)
 
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
-        self.local_planner_dropdown_menu["values"] = tuple(LocalPlannerStrategy.registry.keys())
+        self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
         self.local_planner_dropdown_menu.state(["readonly"])
         self.local_planner_dropdown_menu.pack(side=tk.LEFT)
         self.local_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
@@ -249,7 +249,7 @@ class PlanFrame(ttk.LabelFrame):
     def update_data(self):
         """Update data in the plan frame."""
         self.local_planner_dropdown_menu.delete(0, tk.END)  # Clear existing values
-        self.local_planner_dropdown_menu["values"] = tuple(LocalPlannerStrategy.registry.keys())
+        self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
         self.global_planner_dropdown_menu.delete(0, tk.END)  # Clear existing values
         self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
 

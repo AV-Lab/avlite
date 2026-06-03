@@ -9,7 +9,7 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlannerStrategy
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c41_execution_model import Executer
@@ -105,7 +105,7 @@ class VisualizationSettings:
             ExecutionSettings.global_planner = self.global_planner_type.get()
         self.global_planner_type.trace_add("write", _on_global_plan_change)
 
-        self.local_planner_type = tk.StringVar(value=(list(LocalPlannerStrategy.registry.keys())[0] if LocalPlannerStrategy.registry else None))
+        self.local_planner_type = tk.StringVar(value=(list(LocalPlanningStrategy.registry.keys())[0] if LocalPlanningStrategy.registry else None))
         def _on_local_plan_change(*args):
             ExecutionSettings.local_planner = self.local_planner_type.get()
         self.local_planner_type.trace_add("write", _on_local_plan_change)
