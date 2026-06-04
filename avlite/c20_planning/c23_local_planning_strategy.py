@@ -51,23 +51,29 @@ class LocalPlanningStrategy(ABC):
 
         self.lap: int = 0
 
-    def set_global_plan(self, global_plan: GlobalPlan) -> None:
-        """Set the global plan for the local planner and reset localization."""
+    def set_global_plan(self, global_plan: GlobalPlan, ego_xy: Optional[tuple[float, float]] = None) -> None:
+        """Set the global plan for the local planner and reset localization.
+
+        ``ego_xy``: if provided, initialise Frenet location from the actual ego
+        position rather than ``global_plan.start_point`` (which is always on the
+        centerline, d=0).
+        """
         if global_plan.trajectory is None:
             log.error("Global plan trajectory is None. Cannot set global plan.")
             return
-        if len(self.global_plan.trajectory.path_s) == 0:
+        if len(global_plan.trajectory.path_s) == 0:
             log.error("Global plan trajectory is empty. Cannot set global plan.")
             return
 
         self.global_plan = global_plan
         self.global_trajectory = global_plan.trajectory
-        self.traversed_x, self.traversed_y = [global_plan.start_point[0]], [global_plan.start_point[1]]
-        self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
-        self.location_xy = (self.traversed_x[0], self.traversed_y[0])
-        self.location_sd = (self.traversed_s[0], self.traversed_d[0])
-
-        log.info("Global Plan set and Local Planner reset.")
+        ref_xy = ego_xy if ego_xy is not None else global_plan.start_point
+        self.traversed_x, self.traversed_y = [ref_xy[0]], [ref_xy[1]]
+        s0, d0 = self.global_trajectory.convert_xy_to_sd(*ref_xy)
+        self.traversed_s, self.traversed_d = [s0], [d0]
+        self.location_xy = (ref_xy[0], ref_xy[1])
+        self.location_sd = (s0, d0)
+        log.info(f"Global plan set: ego Frenet s={s0:.2f} d={d0:.2f}")
 
     def reset(self, wp: int = 0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]

@@ -75,7 +75,7 @@ class PerceptionFrame(ttk.LabelFrame):
             self, textvariable=self.root.setting.perception_type, state="readonly", width=14)
         self.perception_dropdown_menu["values"] = list(PerceptionStrategy.registry.keys())
         self.perception_dropdown_menu.bind("<<ComboboxSelected>>", self._on_perception_selected)
-        self.perception_dropdown_menu.grid(row=0, column=0, sticky="w", padx=2)
+        self.perception_dropdown_menu.grid(row=0, column=0, sticky="ew", padx=2)
 
         ttk.Checkbutton(self, text="Show", variable=self.root.setting.show_occupancy_flow).grid(
             row=0, column=1, padx=2)
@@ -115,6 +115,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=2, sticky="ew")
 
+        self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)
 
@@ -181,7 +182,7 @@ class PerceptionExtrasFrame(ttk.LabelFrame):
         )
         self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or "Ground Truth")
         self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10))
+        self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
 
         ttk.Label(self, text="Mapping:").pack(side=tk.LEFT, padx=(5, 2))
         self.mapping_dropdown_menu = ttk.Combobox(
@@ -189,7 +190,7 @@ class PerceptionExtrasFrame(ttk.LabelFrame):
         self.mapping_dropdown_menu["values"] = ("Ground Truth",) + tuple(MappingStrategy.registry.keys())
         self.mapping_dropdown_menu.set(self.root.setting.mapping_type.get() or "Ground Truth")
         self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.mapping_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10))
+        self.mapping_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
 
 # --------------------------------------------------------------------------------------------
 # -Plan---------------------------------------------------------------------------------------
@@ -211,10 +212,10 @@ class PlanFrame(ttk.LabelFrame):
         self.global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
         self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
         self.global_planner_dropdown_menu.state(["readonly"])
-        self.global_planner_dropdown_menu.pack(side=tk.LEFT)
+        self.global_planner_dropdown_menu.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
 
-        ttk.Button(global_frame, text="Global Replan").pack( side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(global_frame, text="Global Replan", command=self.replan_global).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # - Local -----
         wp_frame = ttk.Frame(self)
@@ -227,7 +228,7 @@ class PlanFrame(ttk.LabelFrame):
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
         self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
         self.local_planner_dropdown_menu.state(["readonly"])
-        self.local_planner_dropdown_menu.pack(side=tk.LEFT)
+        self.local_planner_dropdown_menu.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.local_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
 
         ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
@@ -278,6 +279,13 @@ class PlanFrame(ttk.LabelFrame):
         log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
         self.root.update_ui()
 
+    def replan_global(self):
+        self.root.exec.replan_global()
+        self.root.global_plan_plot_view.global_plot.reset()
+        self.root.local_plan_plot_view.reset()
+        self.root.global_plan_plot_view.plot()
+        self.root.update_ui()
+
     def align_plan(self):
         log.debug("Aligning plan with current ego state")
         self.root.exec.local_planner.step(self.root.exec.world.get_ego_state())
@@ -307,7 +315,7 @@ class ControlFrame(ttk.LabelFrame):
         self.controller_dropdown_menu = ttk.Combobox(control_button_frame, textvariable=self.root.setting.controller_type, width=10)
         self.controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
         self.controller_dropdown_menu.state(["readonly"])
-        self.controller_dropdown_menu.pack(side=tk.LEFT)
+        self.controller_dropdown_menu.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.controller_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
 
         ttk.Button(control_button_frame, text="Step", command=self.step_control).pack( side=tk.LEFT, fill=tk.X, expand=True)

@@ -1,0 +1,368 @@
+    Autonomous Inductive Charging System for Battery-operated
+                         Electric Drones
+                                     Majid Khonji                                                                      Mohammed Alshehhi
+               Masdar Institute of Science and Technology                                                       Mohammed Bin Rashid Space Centre
+                            Abu Dhabi, UAE                                                                               Dubai, UAE
+                        mkhonji@masdar.ac.ae                                                                     mohammed.alshehhi@mbrsc.ae
+
+                                Chien-Ming Tseng                                                                            Chi-Kin Chau
+               Masdar Institute of Science and Technology                                                   Masdar Institute of Science and Technology
+                            Abu Dhabi, UAE                                                                               Abu Dhabi, UAE
+                         ctseng@masdar.ac.ae                                                                          ckchau@masdar.ac.ae
+
+ABSTRACT                                                                                              1   INTRODUCTION
+Electric drones have a wide range of applications due to the con-                                     Drones (also known as unmanned aerial vehicles) are becoming a
+venience and agility. One of the main hurdles for their wide de-                                      convenient means of logistics. In particular, the civilian markets for
+ployment and full automation is the battery life limitation and the                                   drones are forecasted to be booming globally. The notable areas of
+need for manual intervention for charging. In this work, we present                                   drone applications include delivery (e.g., for light-weight parcels,
+a solar powered charging system capable of automatically charg-                                       medical items, airmail) and remote operations (e.g., farming, envi-
+ing battery-powered drones in remote locations. We developed a                                        ronmental surveying, search and rescue operations). Remarkably,
+tethered robotic rover equipped with a 2D Lidar sensor to detect                                      oil and gas companies and utility providers, which rely on extensive
+and localize a drone, and a robotic arm equipped with an inductive                                    surveillance, measurements, mapping and surveying, maintenance
+charging pad. The charging pad senses current measurements from                                       operations for geographically diverse facilities, will be the primary
+individual inductive coils, and adjusts accordingly the robotic arm                                   customers of drones for carrying out remote missions involving
+position to maximize charging rate. Such system, in principal, can                                    minimal transportation of manpower to hazardous environments.
+cater for arbitrary drone shapes and landing positions and is less                                       Despite increasingly popular uses of drones in the civilian sec-
+susceptible to external lighting and environmental conditions by                                      tors, most drones are typically controlled by human operators,
+the use of Lidar and current sensors instead of computer vision. We                                   using remote controllers. Piloting a drone is intrinsically difficult
+remark that our system can be also applied to charging other small                                    for human. Manual controls not only incur inefficiency and incon-
+electric vehicles.                                                                                    venience but also are vulnerable to human errors. Often, intensive
+                                                                                                      training for drone piloting are required in advance, which are usu-
+CCS CONCEPTS                                                                                          ally expensive and laborious. On the other hand, improper human
+                                                                                                      controls will cause drone crashes and damages. There are many
+• Computer systems organization → Robotic autonomy; Sen-
+                                                                                                      repetitive routine missions that are more suitably carried out by
+sors and actuators; • Computing methodologies → Object de-
+                                                                                                      drones, and hence, it is desirable to dispense with human controls.
+tection; • Hardware → Renewable energy; Batteries;
+                                                                                                         Although autopilot features have been recently built into many
+                                                                                                      consumer drones, the main barrier for the wide deployment of
+KEYWORDS                                                                                              autonomous drone systems is the short battery life. Multi-rotor
+Drones, Robotics, Electric Vehicles, Inductive charging                                               drones, in particular, have a short flight time, ranging from 15 up
+                                                                                                      to 40 minutes only. On the other hand, charging a drone typical
+ACM Reference format:
+                                                                                                      requires human intervention which restricts full automation.
+Majid Khonji, Mohammed Alshehhi, Chien-Ming Tseng, and Chi-Kin Chau.
+2017. Autonomous Inductive Charging System for Battery-operated Electric                                 Recently, several commercial companies (e.g., Skysense) devel-
+Drones. In Proceedings of e-Energy ’17, Shatin, Hong Kong, May 16-19, 2017,                           oped drone charging systems that do not require human inter-
+6 pages.                                                                                              vention. These systems rely on tailor-made drone hardware and
+DOI: http://dx.doi.org/10.1145/3077839.3078462                                                        software that provide the capability and physical interface of accu-
+                                                                                                      rate landing on a charging dock. However, most consumer drones
+                                                                                                      lack such capabilities, and are mainly equipped with commercial
+Permission to make digital or hard copies of all or part of this work for personal or                 GPS and Inertial Measurement Unit (IMU) that suffer from land-
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation             ing inaccuracy (up to 3 meters) and orientation drifts. Although
+on the first page. Copyrights for components of this work owned by others than the                    accurate landing can be achieved by solely using computer vision
+author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or
+republish, to post on servers or to redistribute to lists, requires prior specific permission
+                                                                                                      techniques, it requires computing resources and protocols that are
+and/or a fee. Request permissions from permissions@acm.org.                                           not yet standardized in commercial drones. Moreover, computer
+e-Energy ’17, Shatin, Hong Kong                                                                       vision techniques are susceptible to lighting and texture changes
+© 2017 Copyright held by the owner/author(s). Publication rights licensed to ACM.                     due to weather conditions which make them less robust with un-
+978-1-4503-5036-5/17/05. . . $15.00
+DOI: http://dx.doi.org/10.1145/3077839.3078462                                                        certainties. Accurate landing can be also achieved by Real Time
+
+
+
+
+                                                                                                322
+e-Energy ’17, May 16-19, 2017, Shatin, Hong Kong                                                                                    M. Khonji et al.
+
+
+
+
+                               (a)                                        (b)                                        (c)
+
+Figure 1: (a) The charging system is powered entirely by a solar panel. (b) The rover detects the drone and autonomously
+navigates to its location. (c) The robotic arm adjusts the inductive charging pads and starts to charge the drone.
+
+
+Kinematic (RTK) satellite navigation technique for precise outdoor              distance between K groups. A seminal work by Felzenszwalb et.al.
+localization; however, it requires a ground base station and a steady           [4] considers a more robust approach that produces more percep-
+communication link with the drone, which may not be suitable for                tually coherent segments using two general cost metrics: internal-
+the case of remote charging stations. In addition, the landing-based            and external difference between and within clusters. Their algorithm
+charging systems constrain the shape and design of a drone to                   run in O (n log n) time which makes it attractive in practical appli-
+match that of the charging station. We believe an alternate way                 cations. Several more recent works improve on the aforementioned
+is more effective, by making the charging station adjustable to                 algorithms (see, e.g., [14], [13])
+different drones.                                                                  For autonomous navigation and path planning, we rely on Robotic
+   In this work, we propose an adjustable automatic charging sys-               Operating System (ROS) [6], Navigation Stack, in our prototype
+tem. We propose a system comprises of three components: (1) A                   implementation, which implements several Simultaneous Localiza-
+solar-powered station that can be deployed in remote locations.                 tion and Mapping (SLAM) algorithms. For a more in-depth survey
+(2) A tethered rover capable of autonomous navigation, equipped                 about SLAM, we refer the reader to [2].
+with a robotic arm equipped with a charging pad that can adapt to                  Our main contribution in this work is due to the system archi-
+different drone sizes and landing positions. The inductive charging             tecture and the use of current sensor measurements to refine the
+pad senses current measurements of individual inductive coils, and              inductive charging procedure. We also present a fast segmentation
+accordingly, used to adjust the arm positions to maximize charging              algorithm that is suitable for uncluttered environments, with a sin-
+rate. (3) Drones equipped with thin inductive receivers can land at             gle compact object such as a drone. The simplicity of the algorithm
+arbitrary locations within a landing zone for charging (see Fig. 1).            makes it attractive in this context.
+Our robotic rover uses 2D Light Detection and Ranging (Lidar) sen-
+sor to navigate and detect a drone. Lidar sensors are more robust to            3   SYSTEM OVERVIEW
+environmental uncertainties and external lighting conditions than               In this section, we illustrate the main components of our system,
+computer vision sensors.                                                        namely, the charging station, the robotic rover, and the drone; fol-
+   The paper is structured as follows. In Sec. 2 we present the related         lowed by our hardware setup, and an overview of the charging
+work, followed by a conceptual view of our system and algorithm                 algorithm process. The system is comprised of three main compo-
+pipeline in Sec. 3. In Secs. 4-6 we present our algorithm pipeline,             nents (Fig. 1):
+namely, drone segmentation and detection, autonomous navigation,
+                                                                                      • Charging station: Since the goal of such system is to
+and inductive charging, respectively. The conclusion and future
+                                                                                        charge drones in remote areas, disconnected from the grid,
+remarks are provided in 7.
+                                                                                        it is vital to provide self-generating charging station, as
+                                                                                        well as to protect the robotic rover from harsh environment
+2   RELATED WORK                                                                        conditions (i.e., rain, the wind, etc.) when idle. As shown
+Several areas of research intersect with this work, namely, Lidar                       in Fig. 1a, our initial prototype is entirely powered by a
+point clustering and segmentation, autonomous navigation, and                           solar panel that stores energy into a 50000 watt-hour solar
+inductive charging.                                                                     battery. The solar housing powers the electronics, rover,
+   The problem of Lidar point cloud segmentation and clustering                         charge drones and protects the robotic rover. A landing
+has been widely studied in the context of autonomous vehicles.                          zone with an area of at least 3 × 3 m2 is designated for
+We highlight few earlier works related to our system. One popular                       drone landing in front of the solar housing.
+approach is graph-based clustering using a Euclidean Minimum                          • Robotic rover: To enable flexible deployment, a tethered
+Spanning Tree (EMST) [15]. This class of algorithms builds a mini-                      rover is equipped with a robotic arm that mounts a wire-
+mum spanning tree between the points, then decides which edge to                        less inductive transmitter (see Fig. 2). Using autonomous
+break in order to obtain disjoint clusters. For instance, it was shown                  drone detection and navigation, the rover can cater for ar-
+in [1] that by removing K −1 largest edges from the spanning tree, a                    bitrary landing position and orientation of a drone, which
+clustering is obtained which maximizes the minimum inter-cluster                        is the case with most commercial drones that solely rely
+
+
+
+
+                                                                          323
+Autonomous Inductive Charging System for Battery-operated Electric Drones                                 e-Energy ’17, May 16-19, 2017, Shatin, Hong Kong
+
+
+         on GPS and commercial Inertial Measurement Unit (IMU)                           3.2     Algorithm Process
+         for landing.                                                                    Once a drone is landed and charging command is sent, the robotic
+       • Drones: A drone is equipped with an inductive wireless                          rover proceeds as follows:
+         receiver, compatible with that of the robotic rover. In order
+         to charge a drone, the drone, or a fleet management system                            (1) Finding the drone: From raw 2D lidar point cloud, we use a
+         [12], should send a signal to the charging station to initiate                            clustering technique to separate drone points from back-
+         the charging procedure.                                                                   ground points. Further details illustrated in Sec. 4.1.
+                                                                                               (2) Classifying the drone and detecting its orientation: Based
+                                                                                                   on supervised learning, drone information (e.g., type, size,
+                              Robotic Arm
+                                                Inductive charging pads                            orientation, etc.) can be extracted from point cloud data.
+                                                                                                   In this work, we consider a single drone, and its orienta-
+      2D Lidar                                                                                     tion is obtained using a simple rectangle model (details
+                                                                                                   are illustrated in Sec. 4.2). Drone orientation is needed to
+                                                                                                   instruct the rover to navigate to a position that supports a
+                                                                                                   better alignment for the charging pad with the receiver on
+                                                                                                   the drone. This allows more flexibility in the charging pad
+                                                                                                   design (e.g., rectangular inductive charging pad instead of
+                                                                                                   a circular pad) to fit more inductive coils on the drone.
+                                                                                               (3) Autonomously navigating towards the drone: the exact posi-
+                                                                                                   tion of the navigation goal is decided based the allowable
+                                                                                                   charging poses (see Sec. 5).
+                       Figure 2: Robotic charger
+                                                                                               (4) Charging: Position the charging pad on the drone and refine
+                                                                                                   the positioning using current sensors readings (see Sec. 6).
+
+3.1     Hardware Setup                                                                   Once a drone is fully charged, a termination command is sent to the
+                                                                                         charging station. The rover, then, returns to the charging station to
+We use Hokuyo UTM-30LX Scanning Laser Rangefinder to obtain                              its idle state.
+2D point cloud. The laser rangefinder provides 30 meters detection
+range which allows the rover to detect far objects such as drones
+or obstacles. Detection angle is 270◦ with 0.25◦ angular resolution.
+                                                                                         4     DRONE SEGMENTATION AND
+The rover odometry is obtained based on wheel rotation using                                   ORIENTATION DETECTION
+quadrature encoders.                                                                     In this section, we show the first two stages of our algorithm
+   A retractable arm is used to conduct inductive charging for the                       pipeline, namely, we present the segmentation and drone orien-
+drones1 . The inductive charging technology is based on “resonant                        tation detection methods. Although segmentation and clustering
+inductive coupling”, which can transfer energy without physical                          techniques have been widely studied in the literature [1, 4], we
+contact. It has been widely used in wireless charging for smart                          present a simple algorithm that is more suitable for uncluttered
+phones. The use of inductive charging technology facilitates a fully                     environments, which is the case of a single drone. Our test drone
+automated fleet management system, without physically plugging                           (Fig. 3) has an ‘L’ or ‘I’ shaped 2D Lidar point signature, depending
+an external charger. The current prototype uses six coils for induc-                     on its landing orientation (see Fig. 5bb). Therefore we consider a
+tive charging, giving a maximum charging speed of 6 × 700 = 3500                         simple rectangle model to bound and detect the drone’s orientation.
+mA. We mounted six current sensors, on the robotic arm, to measure                       The orientation is, then, used in the last stage of our algorithm
+individual coil charging rate.                                                           pipeline to proceed with charging.
+   Our test drone is DJI Matrice 100 which has an on-board Linux
+computer running ROS (shown in Fig. 3). The drone is powered by                          4.1     Segmentation
+two 5700 mA on-board Li-Poly batteries.                                                  Denote the set of all raw 2D Lidar points by P ⊂ R2 . Let δ be
+                                                                                         the maximum diameter of the drone points, that is, any pair of
+                                                                                         Lidar points pertaining to the drone has a pairwise distance of at
+                                                                                         most δ . We also denote µ to be the maximum distance between two
+                                                                                         consecutive Lidar points. µ is used to threshold subsequent Lidar
+                                                                                         points in order to separate them into different objects.
+                                                                                            Our segmentation algorithm is presented in Alg. 1. The algorithm
+                                                                                         proceeds as follows: after the initialization step (Lines 1-3), the
+                                                                                         algorithm iterates over the set of all unvisited points p ∈ P \ V,
+                                                                                         where V is the set of visited points. Starting from point p, we
+Figure 3: Our test drone: DJI Matric 100 with Nvidia Mani-
+                                                                                         grow a cluster Ci by expanding through the nearest neighbors
+fold onboard Linux box.
+                                                                                         recursively. F is the frontier set of our expansion search from point
+                                                                                         p. In each step, we calculate the centroid and the radius of Ci
+1 We use a customize version of a consumer robotic arm called 7bot (www.7bot.cc)         denoted by a (Line 14) and m (Line 16), respectively. Finally, we
+
+
+
+
+                                                                                   324
+e-Energy ’17, May 16-19, 2017, Shatin, Hong Kong                                                                                                  M. Khonji et al.
+
+
+take cluster Ci if its radius m is at most δ2 (Lines 23-24), and hence          4.2      Orientation Detection
+the process is repeated until all points in P are visited. The set              Several methods are proposed in the literature to extract features
+Neighbors(s) (Line 18) returns all points within distance µ from                from Lidar point cloud (see, e.g., [5]), such as the number of points,
+s. We note that µ can be set heuristically based on Lidar angular               estimated area, and the standard deviation with principle horizontal
+resolution, and the maximum expected distance between the drone                 directions. From the ensemble of features one can obtain the drone
+and the rover. If multiple clusters of diameter δ are returned; for the         orientation. Another approach in [10] uses Iterative Closest Point
+sake of our application, a simple tie-breaking rule can be applied              (IPC) method to rotate and translate points to match a reference
+such as returning the cluster with maximum points.                              point cloud (see, e.g., [8]).
+Implementation remarks: Our algorithm performance depends                          We observe that the point cloud pertaining to our test drone (see
+on how we obtain the neighbors for any given point. One way to                  Fig. 3) has an ‘L’ or ‘I’ shape that can be modeled by a rectangle.
+optimize is to create a minimum spanning tree T = (V , E) in a                  Many commercial drones have similar point cloud signatures 2 .
+preprocessing stage (a similar idea was used in [14]), where V = P              Our robotic charging pad has a rectangular shape (Fig. 6) and can
+and each edge (u, v) ∈ E is associated with the euclidean distance              efficiently charge either from the front or back directions of the
+between node u and v. Given a spanning tree (or a forest), the                  drone. Therefore, a bounding rectangle can be used to identify the
+running time of our algorithm is O (n). We use Kruskal’s algorithm              front or back directions by looking at the large rectangle segments
+[7] to calculate the euclidean minimum spanning tree (EMST). The                (see Fig. 5b).
+running time of Kruskal’s algorithm is O (|E| log n); however, |E| in              To obtain the right rectangle, i.e., the one corresponding to the
+a complete graph, corresponding to pairwise distances, is n2 . To               actual shape, we use the rotating calipers algorithm [9, 11]. The
+overcome this issue, we compute the Delaunay triangulation [3]                  algorithm proceeds as follows:
+of nodes V in O (n log n) time and O (n) space to obtain a planner                     • C ← Obtain the convex hull of P
+graph. Since there are O (n) edges in a planner graph, Kruskal’s                       • From each segment of C, define a minimum area rectangle
+algorithm requires only O (n log n) time. Hence, the total running                        R that contains all points of C. See Fig. 4 for a pictorial
+time of Alg. 1 is O (n log n).                                                            illustration.
+                                                                                       • Iterate over all rectangles R and return the one with least
+                                                                                          area.
+Algorithm 1 Segment[P, δ ]                                                         In the next section, we use the bounding rectangle to send a
+ 1: C ← ∅                                         . Family of clusters          navigation goal to the rover.
+ 2: V ← ∅                                       . Set of visited nodes
+ 3: i ← 1
+ 4: while V , P do
+ 5:    Ci ← ∅
+ 6:    p ← an arbitrary point in P \ V
+ 7:    F ← {p}; V ← V ∪ {p}
+ 8:    m ← 0; k ← 0
+ 9:    a ← (0, 0)        . Moving average centroid of cluster Ci
+10:    while F , ∅ do
+11:        s ← an arbitrary point from F
+12:        F ← F \ {s}
+13:        Ci ← Ci ∪ {s}
+14:        a ← a + (s − a)/(k + 1); k ← k + 1
+15:        if ka − sk > m then
+16:            m ← ka − sk
+17:        end if                                                               Figure 4: The gray region corresponds to the convex hull
+18:        for r ∈ Neighbors(s) \ V do                                          of P, and the black segments are the boundaries. Here, we
+19:            F ← F ∪ {r}                                                      consider two segments, namely, (0, 1) and (5, 6) for which we
+20:            V ← V ∪ {r}                                                      draw a red and blue rectangles, respectively, that contain all
+21:        end for                                                              points of the convex hull.
+22:    end while
+23:    if m ≤ δ/2 then
+24:        C ← C ∪ {Ci }; i ← i + 1
+                                                                                5     AUTONOMOUS NAVIGATION
+25:    end if
+26: end while                                                                   Now we describe the third stage of our algorithm pipeline. We
+27: return C                                                                    rely mainly on ROS Navigation Stack in our implementation. The
+                                                                                Navigation Stack basically takes in information from the rover
+                                                                                odometry and sensor streams and outputs velocity commands to
+                                                                                2 We shall extend this part in future to account for arbitrarily shaped drones.
+
+
+
+
+                                                                          325
+Autonomous Inductive Charging System for Battery-operated Electric Drones                           e-Energy ’17, May 16-19, 2017, Shatin, Hong Kong
+
+
+send to the robotic rover motors. It builds two obstacle cost maps,
+local and global, that are used to plan feasible trajectory paths for
+a given navigation goal coordinate.
+   The way we set the goal coordinate is based on the detected
+drone rectangle and its orientation. Given the rectangle (Sec. 4.2),
+      • obtain the closest of the two large segments of the rectangle,
+        then
+      • find a point p such that the line connecting p to the center
+        of the segment is orthogonal, see Fig. 5a. (Fig. 5b shows an
+        screenshot of our ROS implementation.)
+We consider a safety distance between the drone and the rover
+navigation goal to prevent any collision and simplify the robotic                               Figure 6: Our inductive charging pad.
+arm positioning task. (In our prototype, we set the distance to 43
+cm.) Once the goal is set, the rover autonomously navigates to
+position p and stops heading towards the center c of the segment
+ready for charging.
+
+
+
+                                                          L shaped
+
+
+
+             c                                                                                 Figure 7: Inductive charger schematic.
+
+
+                                                                                  7   CONCLUSION
+                       p                                                          Automated charging systems are useful for future application of
+                                                                                  drones to achieve full autonomy. This paper provides an autonomous
+                 (a)                               (b)                            charging system capable of charging battery-operated electric drones
+                                                                                  without human assistance. We presented our system architecture
+Figure 5: (a) Illustrates the location of the navigation goal                     and algorithm pipeline, from drone segmentation and detection to
+p set with respect to the center of the rectangle segment c                       inductive charging and arm adjustment. We note that our system
+(dark dots). The length of the dash line is the safety distance                   can cater for arbitrary drone landing positions and does not depend
+between the rover and the drone. (b) ROS implementation                           on computer vision, hence not susceptible to external lighting and
+(RVIS tool) of the segmentation and orientation algorithms:                       environmental conditions.
+white dots are 2D Lidar point cloud. The drone is detected                           In the future, we will extend our analysis and provide further
+(green rectangle) from its ‘L’ shaped point cluster. The large                    details and plots for inductive charging, arm adjustment, and loss
+segments of the rectangle correspond to the front/back di-                        quantification. We shall further extend our study to incorporate
+rections.                                                                         drones with different geometries. A flight planning system con-
+                                                                                  sidering autonomous drone charging has been implemented in a
+                                                                                  companion paper [12].
+
+6    INDUCTIVE CHARGER ADJUSTMENT                                                 REFERENCES
+In this section, we illustrate our final stage of our algorithm pipeline,         [1] Tetsuo Asano, Binay Bhattacharya, Mark Keil, and Frances Yao. 1988. Clustering
+                                                                                      algorithms based on minimum and maximum spanning trees. In Proceedings of
+charging the drone. The process is twofold, (1) move the arm to a                     the fourth annual symposium on Computational geometry. ACM, 252–257.
+preset position, (2) adjust the arm based on current sensor readings              [2] Tim Bailey and Hugh Durrant-Whyte. 2006. Simultaneous localization and
+                                                                                      mapping (SLAM): Part II. IEEE Robotics & Automation Magazine 13, 3 (2006),
+for individual inductive coils. The inductive charging technology is                  108–117.
+based on “resonant inductive coupling", which can transfer energy                 [3] Kevin Buchin and Wolfgang Mulzer. 2011. Delaunay triangulations in O (sort
+without physical contact. Our inductive charging pad comprises                        (n)) time and more. Journal of the ACM (JACM) 58, 2 (2011), 6.
+                                                                                  [4] Pedro F Felzenszwalb and Daniel P Huttenlocher. 2004. Efficient graph-based
+of six coils (see Fig. 6). Each coil is capable of delivering 700 mA,                 image segmentation. International journal of computer vision 59, 2 (2004), 167–
+a total of 6 × 700 = 3500 mA. Fig. 7 shows a schematic view of a                      181.
+typical inductive charger.                                                        [5] Aleksey Golovinskiy, Vladimir G Kim, and Thomas Funkhouser. 2009. Shape-
+                                                                                      based recognition of 3D point clouds in urban environments. In Computer Vision,
+   We rely on a simple deterministic approach to adjust the robotic                   2009 IEEE 12th International Conference on. IEEE, 2154–2161.
+arm: Based on the relative intensity measurements of current be-                  [6] Rodrigo Longhi Guimarães, André Schneider de Oliveira, João Alberto Fabro,
+                                                                                      Thiago Becker, and Vinícius Amilgar Brenner. 2016. ROS Navigation: Concepts
+tween the coils, the arm is commanded to turn right and left until                    and Tutorial. Springer International Publishing, Cham, 121–160. DOI:http:
+total current is maximized.                                                           //dx.doi.org/10.1007/978-3-319-26054-9_6
+
+
+
+
+                                                                            326
+e-Energy ’17, May 16-19, 2017, Shatin, Hong Kong                                                M. Khonji et al.
+
+
+ [7] Joseph B Kruskal. 1956. On the shortest spanning subtree of a graph and the
+     traveling salesman problem. Proceedings of the American Mathematical society 7,
+     1 (1956), 48–50.
+ [8] Szymon Rusinkiewicz and Marc Levoy. 2001. Efficient variants of the ICP algo-
+     rithm. In 3-D Digital Imaging and Modeling, 2001. Proceedings. Third International
+     Conference on. IEEE, 145–152.
+ [9] Michael Ian Shamos. 1978. Computational geometry. (1978).
+[10] Michael Thuy and Fernando Puente Leon. 2009. Non-linear, shape independent
+     object tracking based on 2d lidar data. In Intelligent Vehicles Symposium, 2009
+     IEEE. IEEE, 532–537.
+[11] Godfried T Toussaint. 1983. Solving geometric problems with the rotating
+     calipers. In Proc. IEEE Melecon, Vol. 83. A10.
+[12] Chien-Ming Tseng, Chi-Kin Chau, Khaled Elbassioni, and Majid Khonji. 2017.
+     Flight Tour Planning with Recharging Optimization for Battery-operated Au-
+     tonomous Drones. Technical Report. Masdar Institute. https://arxiv.org/abs/1703.
+     10049.
+[13] Dominic Zeng Wang, Ingmar Posner, and Paul Newman. 2012. What could
+     move? finding cars, pedestrians and bicyclists in 3d laser data. In Robotics and
+     Automation (ICRA), 2012 IEEE International Conference on. IEEE, 4038–4044.
+[14] Dominic Zeng Wang, Ingmar Posner, and Paul Newman. 2015. Model-free
+     detection and tracking of dynamic objects with 2D lidar. The International
+     Journal of Robotics Research 34, 7 (2015), 1039–1063.
+[15] Charles T Zahn. 1971. Graph-theoretical methods for detecting and describing
+     gestalt clusters. IEEE Transactions on computers 100, 1 (1971), 68–86.
+
+
+
+
+                                                                                          327
+

@@ -534,6 +534,10 @@ class VisualizerApp(tk.Tk):
 
         except Exception as e:
             log.error(f"Error reloading stack: {e}", exc_info=True)
+            messagebox.showerror(
+                "Reload failed",
+                f"Failed to rebuild the stack. The previous configuration is still active.\n\n{e}",
+            )
 
 
         self.local_plan_plot_view.reset()

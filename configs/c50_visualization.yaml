@@ -8,6 +8,7 @@ Carla_Town10:
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  detection_strategy_type: Ground Truth
   disable_log: false
   enable_joystick: true
   exec_control: true
@@ -23,6 +24,7 @@ Carla_Town10:
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
   global_zoom: 240
+  hide_menubar: false
   load_extensions: true
   local_plan_view: true
   local_planner_type: RNDPlanner
@@ -36,12 +38,13 @@ Carla_Town10:
   log_view_default_height: 12
   log_view_expanded: false
   log_view_expended_height: 35
+  mapping_type: Ground Truth
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception exp
   perception_dt: 0.5
-  perception_fps: '0'
-  perception_type: MultiObjectPredictor
+  perception_type: TestPerceptionStrategy
+  prediction_strategy_type: ConstantVelocityPrediction
   replan_dt: 5.0
   selected_profile: Carla_Town10
   shortcut_mode: false
@@ -52,15 +55,19 @@ Carla_Town10:
   show_extensions_logs: true
   show_global_plan: true
   show_legend: false
+  show_local_frenet_view: true
+  show_local_global_view: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
   show_perceive_logs: true
+  show_perception_extras: true
   show_plan_logs: false
   show_state: true
   show_vis_logs: true
   sim_dt: 0.011
+  tracking_strategy_type: Ground Truth
   xy_zoom: 30
 SAN:
   bg_color: '#333333'
@@ -216,7 +223,7 @@ default:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 110
+  frenet_zoom: 120
   global_plan_view: false
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
@@ -229,7 +236,7 @@ default:
   localization_type: Ground Truth
   log_font: Courier
   log_font_size: 11
-  log_level: DEBUG
+  log_level: INFO
   log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
@@ -238,45 +245,48 @@ default:
   mapping_type: Ground Truth
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
-  next_profile: sync
+  next_profile: perception exp
   perception_dt: 0.5
   perception_type: PerceptionPipeline
   prediction_strategy_type: ConstantVelocityPrediction
   replan_dt: 0.01
   selected_profile: default
   shortcut_mode: false
-  show_common_logs: false
-  show_control_logs: false
+  show_common_logs: true
+  show_control_logs: true
   show_core_logs: true
-  show_execute_logs: false
+  show_execute_logs: true
   show_extensions_logs: false
   show_global_plan: true
   show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: true
+  show_lidar_global: true
   show_local_frenet_view: true
   show_local_global_view: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
-  show_perceive_logs: false
+  show_perceive_logs: true
   show_perception_extras: true
   show_plan_logs: true
   show_state: true
-  show_vis_logs: false
+  show_vis_logs: true
   sim_dt: 0.01
   tracking_strategy_type: Ground Truth
-  xy_zoom: 340
-perception exp:
+  xy_zoom: 110
+perception:
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: true
-  bridge_provide_lidar_data: false
+  bridge_provide_ground_truth_detection: false
+  bridge_provide_lidar_data: true
   bridge_provide_rgb_image: false
   control_dt: 0.01
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  detection_strategy_type: Ground Truth
+  detection_strategy_type: FastBEVLidarDetection
   disable_log: false
   enable_joystick: true
   exec_control: true
@@ -287,9 +297,9 @@ perception exp:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 50
+  frenet_zoom: 90
   global_plan_view: false
-  global_planner_type: HDMapGlobalPlanner
+  global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false
   global_zoom: 80
   hide_menubar: false
@@ -300,41 +310,45 @@ perception exp:
   localization_type: Localization
   log_font: Courier
   log_font_size: 11
-  log_level: DEBUG
+  log_level: INFO
   log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
-  log_view_expanded: true
+  log_view_expanded: false
   log_view_expended_height: 35
   mapping_type: Ground Truth
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: default
-  perception_dt: 0.5
-  perception_fps: '0'
-  perception_type: None
-  prediction_strategy_type: Ground Truth
-  replan_dt: 0.55
-  selected_profile: perception exp
+  perception_dt: 0.01
+  perception_type: PerceptionPipeline
+  prediction_strategy_type: ConstantVelocityPrediction
+  replan_dt: 0.01
+  selected_profile: perception
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: false
   show_core_logs: true
-  show_execute_logs: true
+  show_execute_logs: false
   show_extensions_logs: true
   show_global_plan: true
   show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: true
+  show_lidar_global: true
+  show_local_frenet_view: true
+  show_local_global_view: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
   show_past_locations: true
-  show_perceive_logs: false
+  show_perceive_logs: true
   show_perception_extras: true
   show_plan_logs: false
   show_state: true
   show_vis_logs: false
-  sim_dt: 0.011
-  tracking_strategy_type: Ground Truth
+  sim_dt: 0.01
+  tracking_strategy_type: KalmanTracker
   xy_zoom: 60
 ros:
   bg_color: '#333333'

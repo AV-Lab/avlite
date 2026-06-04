@@ -141,12 +141,12 @@ override with the `AVLITE_PLUGINS_DIR` environment variable.
 
 | Component | Description |
 |-----------|-------------|
-| **c10_perception** | Interfaces for detection, tracking, prediction, localization (optional), mapping |
-| **c20_planning** | Global planning (A*, HD maps) and local planning (lattice-based) |
+| **c10_perception** | Interfaces + built-in algorithms: `FastBEVLidarDetection`, `KalmanTracker`, `LidarLocalization`; prediction and mapping interfaces |
+| **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`GreedyLatticePlanner`, lattice-based) |
 | **c30_control** | Vehicle controllers (Stanley, PID) |
-| **c40_execution** | Execution orchestration, simulator bridges (BasicSim, CARLA, Gazebo) |
+| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo) |
 | **c50_visualization** | Real-time Tkinter GUI with multiple plot views |
-| **c60_common** | Settings management, utilities, capability definitions |
+| **c60_common** | Settings management, `HDMap` (OpenDRIVE), capability definitions (`AnyOf`), utilities |
 
 ## Configuration
 

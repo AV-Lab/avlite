@@ -2,7 +2,7 @@ import logging
 
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from avlite.c10_perception.c18_hdmap import HDMap
+from avlite.c60_common.c68_hdmap import HDMap
 from avlite.c30_control.c31_control_model import  ControlComand
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -15,12 +15,14 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c20_planning.c24_global_planners import HDMapGlobalPlanner
-from avlite.c20_planning.c24_global_planners import RaceGlobalPlanner
+from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
+from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c20_planning.c26_local_lattice_planners import GreedyLatticePlanner
 from avlite.c30_control.c33_pid import PIDController
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
+from avlite.c10_perception.c16_localization_algs import LidarLocalization  # noqa: F401 — registers in LocalizationStrategy.registry
 from avlite.c40_execution.c41_execution_model import Executer, WorldBridge
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
 from avlite.c40_execution.c44_async_threaded_executer import AsyncThreadedExecuter
@@ -82,11 +84,15 @@ def executor_factory(
             cls = GlobalPlannerStrategy.registry[global_planner_strategy_name]
             gp = cls()
             gp.global_plan = default_global_plan
+        else:
+            log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
+            gp = GlobalCenterlineRacePlanner(get_absolute_path(PlanningSettings.race_boundary_map))
+            gp.plan()
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
-        gp = RaceGlobalPlanner()
-        gp.global_plan = default_global_plan
+        gp = GlobalCenterlineRacePlanner(get_absolute_path(PlanningSettings.race_boundary_map))
+        gp.plan()
         
 
     ##############################
@@ -158,6 +164,11 @@ def executor_factory(
     #################
     # Loading world
     #################
+    # The world owns its own authoritative perception model (holding spawned
+    # NPC agents / ground-truth state), kept separate from the executer's
+    # perception model `pm` so that perception steps cannot wipe simulated
+    # agents. Both share the same ego_state.
+    world_pm = PerceptionModel(ego_vehicle=ego_state)
     try:
         if bridge == "CarlaBridge": # string for lazy loading, beause it could have dependencies that are not available
             log.info("Loading Carla bridge...")
@@ -170,12 +181,12 @@ def executor_factory(
         elif bridge in WorldBridge.registry:
             log.info(f"Loading registered world bridge {bridge}...")
             cls = WorldBridge.registry[bridge]
-            world = cls(ego_state=ego_state, pm=pm)
+            world = cls(ego_state=ego_state, pm=world_pm)
         else:
-            world = BasicSim(ego_state=ego_state, pm = pm)
+            world = BasicSim(ego_state=ego_state, pm = world_pm)
     except Exception as e:
         log.error(f"Error loading world bridge {bridge}: {e}")
-        world = BasicSim(ego_state=ego_state, pm = pm)  # fallback to BasicSim
+        world = BasicSim(ego_state=ego_state, pm = world_pm)  # fallback to BasicSim
 
 
 

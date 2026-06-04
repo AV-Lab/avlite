@@ -223,6 +223,35 @@ def delete_setting_profile(setting, profile) -> bool:
         log.error(f"Failed to delete profile: {e}")
         return False
 
+def rename_setting_profile(setting, old_profile, new_profile) -> bool:
+    """Rename a profile in the configuration file."""
+    filepath = setting.filepath
+    if old_profile == "default":
+        log.warning("Cannot rename the 'default' profile.")
+        return False
+
+    try:
+        with open(filepath, 'r') as f:
+            config = yaml.safe_load(f) or {}
+
+        if old_profile not in config:
+            log.warning(f"Profile '{old_profile}' does not exist in {filepath}")
+            return False
+        if new_profile in config:
+            log.warning(f"Profile '{new_profile}' already exists in {filepath}")
+            return False
+
+        config[new_profile] = config.pop(old_profile)
+
+        with open(filepath, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False)
+
+        log.info(f"Profile '{old_profile}' renamed to '{new_profile}' in {filepath}")
+        return True
+    except Exception as e:
+        log.error(f"Failed to rename profile: {e}")
+        return False
+
 def list_profiles(setting) -> list:
     """List all profiles in the configuration file."""
     filepath = setting.filepath

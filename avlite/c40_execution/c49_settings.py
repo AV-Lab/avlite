@@ -2,7 +2,7 @@
 # from typing import TYPE_CHECKING
 #
 # if TYPE_CHECKING:
-from avlite.c20_planning.c24_global_planners import RaceGlobalPlanner
+from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
 from avlite.c20_planning.c26_local_lattice_planners import GreedyLatticePlanner
 from avlite.c30_control.c34_stanley import StanleyController
 
@@ -15,7 +15,7 @@ class ExecutionSettings:
     perception = ""
     localization = ""
     mapping = ""
-    global_planner = RaceGlobalPlanner.__name__
+    global_planner = GlobalCenterlineRacePlanner.__name__
     local_planner = GreedyLatticePlanner.__name__
     controller = StanleyController.__name__
     perception_dt=0.5
@@ -38,6 +38,12 @@ class ExecutionSettings:
     basic_sim_default_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
     basic_sim_npc_speed_factor = 0.8   
     basic_sim_npc_control = True  # If True, NPCs will follow the default trajectory at the above speed factor
+
+    # 2D LiDAR simulation (BasicSim raycasts agents + road boundaries)
+    basic_sim_lidar_boundary_file = "data/yasmarina.track.json"  # LeftBound / RightBound polylines
+    basic_sim_lidar_range = 50.0       # max beam range [m]
+    basic_sim_lidar_num_beams = 360    # beams per scan
+    basic_sim_lidar_fov_deg = 360.0    # field of view [deg], centred on ego heading
 
     # AsyncThreadedExecuter-specific settings (prefix: async_)
     async_combined_perception_planning: bool = True  # True: perception runs inside the planner thread (default); False: perception gets its own dedicated thread

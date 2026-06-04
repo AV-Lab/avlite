@@ -9,7 +9,7 @@ from tkinter import ttk
 import tkinter.font as tkfont
 
 
-from avlite.c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, reload_lib, load_all_stack_settings, load_plugin_settings_class, patch_plugin_settings
+from avlite.c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, rename_setting_profile, reload_lib, load_all_stack_settings, load_plugin_settings_class, patch_plugin_settings
 from avlite.c50_visualization.c58_ui_lib import ThemedInputDialog, ThemedTwoInputDialog
 if TYPE_CHECKING:
     from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
@@ -238,6 +238,7 @@ class SettingWindow:
         ttk.Button(profile_ext_frame, text="New", width=5, command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
         ttk.Button(profile_ext_frame, text="Delete",width=5, command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
         ttk.Button(profile_ext_frame, text="Save",width=5, underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="✎", width=2, command=self.rename_profile).grid(row=1, column=3, padx=5, pady=5)
         ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="w")
         self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
@@ -386,6 +387,9 @@ class SettingWindow:
         ttk.Label(additional_setting_row_1b, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         ttk.Checkbutton(additional_setting_row_1b, text="Local Global View", variable=self.root.setting.show_local_global_view, command=self.root.update_ui).pack(side=tk.LEFT)
         ttk.Checkbutton(additional_setting_row_1b, text="Local Frenet View", variable=self.root.setting.show_local_frenet_view, command=self.root.update_ui).pack(side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Global", variable=self.root.setting.show_lidar_global, command=self.root.update_ui).pack(side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Frenet", variable=self.root.setting.show_lidar_frenet, command=self.root.update_ui).pack(side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1b, text="Clustered Pts", variable=self.root.setting.show_lidar_clusters, command=self.root.update_ui).pack(side=tk.LEFT)
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
@@ -561,6 +565,47 @@ class SettingWindow:
             self.root.config_shortcut_view.profile_dropdown_menu["values"] = self.root.setting.profile_list
             self.root.setting.selected_profile.set("default")  
             self.load_profile("default")
+
+
+
+    def rename_profile(self):
+        """ Rename the selected profile across all settings files. """
+
+        from tkinter import messagebox
+        old_name = self.root.setting.selected_profile.get()
+        if old_name == "default":
+            messagebox.showwarning("Rename", "Cannot rename the 'default' profile.")
+            return
+
+        dialog = ThemedInputDialog(self.root, "Rename Profile", "New name", initial=old_name)
+        new_name = dialog.result.strip() if dialog.result else None
+        if not new_name or new_name == old_name:
+            return
+        if new_name in self.root.setting.profile_list:
+            messagebox.showwarning("Rename", f"Profile '{new_name}' already exists.")
+            return
+
+        log.info(f"Renaming profile '{old_name}' to '{new_name}'")
+        rename_setting_profile(PerceptionSettings, old_name, new_name)
+        rename_setting_profile(PlanningSettings, old_name, new_name)
+        rename_setting_profile(ControlSettings, old_name, new_name)
+        rename_setting_profile(ExecutionSettings, old_name, new_name)
+        rename_setting_profile(self.root.setting, old_name, new_name)
+        if self.root.setting.load_extensions.get():
+            for ext in ExecutionSettings.default_extensions:
+                try:
+                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
+                    ExtensionSettings = getattr(module, "ExtensionSettings")
+                    rename_setting_profile(ExtensionSettings, old_name, new_name)
+                except Exception as e:
+                    log.error(f"Failed to rename extension settings for {ext}: {e}")
+
+        idx = self.root.setting.profile_list.index(old_name)
+        self.root.setting.profile_list[idx] = new_name
+        self.root.setting.selected_profile.set(new_name)
+        self.profile_dropdown_menu["values"] = self.root.setting.profile_list
+        self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
+        self.root.config_shortcut_view.profile_dropdown_menu["values"] = self.root.setting.profile_list
 
 
 

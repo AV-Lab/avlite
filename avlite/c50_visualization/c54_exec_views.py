@@ -240,13 +240,18 @@ class BridgeFrame(ttk.LabelFrame):
         cap_map = {
             WorldCapability.GT_DETECTION: self.chk_ground_truth,
             WorldCapability.CAMERA_RGB:    self.chk_rgb_image,
-            WorldCapability.LIDAR_3D:        self.chk_lidar_data,
         }
         for cap, chk in cap_map.items():
             if cap in capabilities:
                 chk.state(['!disabled'])
             else:
                 chk.state(['disabled'])
+
+        # LiDAR checkbox: enabled when the bridge provides either 2D or 3D LiDAR
+        if {WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D} & capabilities:
+            self.chk_lidar_data.state(['!disabled'])
+        else:
+            self.chk_lidar_data.state(['disabled'])
 
 
 

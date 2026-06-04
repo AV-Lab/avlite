@@ -95,7 +95,7 @@ class ValueGauge(ttk.Frame):
 
 
 class ThemedInputDialog:
-    def __init__(self, parent, title, prompt):
+    def __init__(self, parent, title, prompt, initial=""):
         self.result = None
         
         # Create the dialog
@@ -118,6 +118,10 @@ class ThemedInputDialog:
         ttk.Label(top_frame, text=prompt).pack(side=tk.LEFT, padx=10)
         self.entry = ttk.Entry(top_frame, width=10)
         self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10, pady=5)
+        if initial:
+            self.entry.insert(0, initial)
+            self.entry.select_range(0, tk.END)
+        self.entry.focus_set()
         
         # Add button frame
         btn_frame = ttk.Frame(frame)
