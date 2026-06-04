@@ -133,7 +133,7 @@ default:
   - e40_executer_ROS2
   executer_type: AsyncThreadedExecuter
   filepath: configs/c40_execution.yaml
-  global_planner: RaceGlobalPlanner
+  global_planner: GlobalCenterlineRacePlanner
   global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   hd_map: data/Town10HD_Opt.xodr
   local_planner: GreedyLatticePlanner
@@ -147,7 +147,7 @@ default:
   provide_ground_truth: true
   provide_lidar: true
   provide_rgb: false
-  replan_dt: 0.01
+  replan_dt: 0.5
   sim_dt: 0.01
 perception:
   async_combined_perception_planning: true
@@ -241,6 +241,7 @@ ros:
   - test_ext
   - executer_ros
   - multi_object_prediction
+  eplan_dt: 0.01
   executer_type: ROSExecuter
   filepath: configs/c40_execution.yaml
   global_planner: HDMapGlobalPlanner
@@ -257,7 +258,6 @@ ros:
   provide_ground_truth: true
   provide_lidar: false
   provide_rgb: false
-  eplan_dt: 0.01
   sim_dt: 0.011
 sync:
   async_combined_perception_planning: true

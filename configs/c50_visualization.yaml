@@ -223,11 +223,11 @@ default:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 120
+  frenet_zoom: 30
   global_plan_view: false
-  global_planner_type: RaceGlobalPlanner
+  global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false
-  global_zoom: 800
+  global_zoom: 30
   hide_menubar: false
   load_extensions: true
   local_plan_view: true
@@ -245,25 +245,25 @@ default:
   mapping_type: Ground Truth
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
-  next_profile: perception
+  next_profile: default
   perception_dt: 0.5
   perception_type: PerceptionPipeline
   prediction_strategy_type: ConstantVelocityPrediction
-  replan_dt: 0.01
+  replan_dt: 0.5
   selected_profile: default
   shortcut_mode: false
   show_common_logs: true
   show_control_logs: true
   show_core_logs: true
   show_execute_logs: true
-  show_extensions_logs: false
+  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_lidar_clusters: true
   show_lidar_frenet: true
   show_lidar_global: true
   show_local_frenet_view: true
-  show_local_global_view: false
+  show_local_global_view: true
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
@@ -275,15 +275,11 @@ default:
   show_vis_logs: true
   sim_dt: 0.01
   tracking_strategy_type: Ground Truth
-  xy_zoom: 110
+  xy_zoom: 30
 perception:
   bg_color: '#333333'
   bridge_provide_depth_image: false
-<<<<<<< HEAD
-  bridge_provide_ground_truth_detection: false
-=======
   bridge_provide_ground_truth_detection: true
->>>>>>> dev
   bridge_provide_lidar_data: true
   bridge_provide_rgb_image: false
   control_dt: 0.01
