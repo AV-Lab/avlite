@@ -25,7 +25,7 @@ default:
   detection_min_length: 0.5
   detection_min_width: 0.5
   detection_mu: 0.5
-  detection_strategy: FastBEVLidarDetection
+  detection_strategy: ''
   detection_z_max: 0.5
   detection_z_min: -1.5
   filepath: configs/c10_perception.yaml
@@ -48,39 +48,6 @@ default:
   tracking_measurement_noise: 0.5
   tracking_min_speed: 0.5
   tracking_process_noise: 1.0
-  tracking_strategy: KalmanTracker
-perception:
-  detection_default_length: 4.5
-  detection_default_width: 2.0
-  detection_delta_max: 6.0
-  detection_delta_min: 1.0
-  detection_min_length: 0.5
-  detection_min_width: 0.5
-  detection_mu: 0.5
-  detection_strategy: FastBEVLidarDetection
-  detection_z_max: 0.5
-  detection_z_min: -1.5
-  filepath: configs/c10_perception.yaml
-  hdmap_sampling_resolution: 0.1
-  localization_icp_max_correspondence_dist: 5.0
-  localization_icp_max_iterations: 30
-  localization_icp_tolerance: 0.0001
-  localization_lidar_z_max: 2.0
-  localization_lidar_z_min: -1.5
-  localization_map_subsample: 1
-  perception_model_max_agents: 12
-  perception_model_prediction_grid_size: 100
-  prediction_horizon: 2.0
-  prediction_strategy: ConstantVelocityPrediction
-  state_default_heading: 0
-  tracking_dt: 0.1
-  tracking_gate_distance: 4.0
-  tracking_init_velocity_var: 25.0
-  tracking_max_missed: 12
-  tracking_measurement_noise: 0.5
-  tracking_min_speed: 0.5
-  tracking_process_noise: 1.0
-  tracking_strategy: KalmanTracker
 ros:
   filepath: configs/c10_perception.yaml
   hdmap_sampling_resolution: 0.1
