@@ -53,6 +53,15 @@ class SyncExecuter(Executer):
 
         self.ego_state = self.world.get_ego_state()
 
+        # Perceive first so that planning and the visualization both operate on the
+        # same perception snapshot. Running perception after replan caused the planner
+        # to react to the previous frame's obstacles while the UI rendered the new
+        # perception model, making obstacles appear "detected but not visualized".
+        t2 = time.time()
+        if call_perceive:
+            self._perception_step()
+            pr_time_txt = f" PR: {(time.time() - t2):.4f} sec,"
+
         if call_replan:
             dt_p = self.elapsed_sim_time - self.__planner_last_time
             if dt_p >= replan_dt:
@@ -79,13 +88,6 @@ class SyncExecuter(Executer):
                 self.__localization_last_time = self.elapsed_sim_time
                 self._localization_step()
                 loc_time_txt = f" LOC: {(time.time() - t_loc):.4f} sec,"
-
-        t2 = time.time()
-        if call_perceive:
-            self._perception_step()
-            pr_time_txt = f" PR: {(time.time() - t2):.4f} sec,"
-
-
 
         delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         self.__prev_exec_time = time.time()

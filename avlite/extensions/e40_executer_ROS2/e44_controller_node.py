@@ -141,10 +141,15 @@ class ControllerNode(Node):
         traj = self.controller.tj if hasattr(self.controller, 'tj') else self.current_trajectory
         if traj is None:
             return
-        
+
+        # Ensure the controller holds the active TrajectoryTracker. ``control`` expects
+        # a ``LocalPlan`` (not a ``TrajectoryTracker``) for its ``plan`` argument, so we
+        # set the tracker via ``set_trajectory`` and invoke ``control`` without a plan.
+        self.controller.set_trajectory(traj)
+
         try:
-            # Run the controller
-            cmd = self.controller.control(self.ego_state, traj)
+            # Run the controller (uses the trajectory set above)
+            cmd = self.controller.control(self.ego_state)
             
             if cmd:
                 if self.use_autoware:

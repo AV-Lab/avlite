@@ -8,8 +8,8 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c24_global_planners import RaceGlobalPlanner
-from avlite.c20_planning.c24_global_planners import HDMapGlobalPlanner
+from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
 from avlite.c50_visualization.c57_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 
 log = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class GlobalPlanPlotView(ttk.Frame):
         super().__init__(root)
         self.root = root
 
-        if self.root.setting.global_planner_type.get() == RaceGlobalPlanner.__name__:
+        if self.root.setting.global_planner_type.get() == GlobalCenterlineRacePlanner.__name__:
             self.global_plot = GlobalRacePlot()
         elif self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
             self.global_plot = GlobalHDMapPlot()
@@ -90,19 +90,22 @@ class GlobalPlanPlotView(ttk.Frame):
     def update_plot_type(self):
         """Update the plot type based on the selected global planner"""
 
-        log.debug(f"Updating Global Plot type {self.root.setting.global_planner_type.get()}...")
-        self.canvas.get_tk_widget().destroy()  
-        assert self.root.setting.global_planner_type.get() in GlobalPlannerStrategy.registry.keys(), \
-                f"Global planner type {self.root.setting.global_planner_type.get()} not found in registry."
+        planner_type = self.root.setting.global_planner_type.get()
+        log.debug(f"Updating Global Plot type {planner_type}...")
+        self.canvas.get_tk_widget().destroy()
 
-        if self.root.setting.global_planner_type.get() == RaceGlobalPlanner.__name__:
+        if planner_type not in GlobalPlannerStrategy.registry.keys():
+            log.error(f"Global planner type '{planner_type}' not found in registry. Defaulting to race plot.")
+            self.global_plot = GlobalRacePlot()
+        elif planner_type == GlobalCenterlineRacePlanner.__name__:
             self.global_plot = GlobalRacePlot()
             log.debug("Global Plot type changed to Race Plot.")
-        elif self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
+        elif planner_type == HDMapGlobalPlanner.__name__:
             self.global_plot = GlobalHDMapPlot()
             log.debug("Global Plot type changed to HD Map Plot.")
         else:
-            raise ValueError(f"Global planner type {self.root.setting.global_planner_type.get()} not found in registry.")
+            log.error(f"No plot view defined for planner type '{planner_type}'. Defaulting to race plot.")
+            self.global_plot = GlobalRacePlot()
 
         self.__config_canvas()
 
@@ -401,8 +404,12 @@ class LocalPlanPlotView(ttk.Frame):
             global_follow_planner=self.root.setting.global_view_follow_planner.get(),
             frenet_follow_planner=self.root.setting.frenet_view_follow_planner.get(),
             plot_occupancy_flow=self.root.setting.show_occupancy_flow.get(),
+            plot_predictions=True,
             plot_lidar=self.root.setting.bridge_provide_lidar_data.get(),
             lidar_data=self.root.exec.world.get_lidar_data(),
+            plot_lidar_global=self.root.setting.show_lidar_global.get(),
+            plot_lidar_frenet=self.root.setting.show_lidar_frenet.get(),
+            plot_clusters=self.root.setting.show_lidar_clusters.get(),
             plot_ground_truth=self.root.setting.bridge_provide_ground_truth_detection.get(),
             show_global_view=self.root.setting.show_local_global_view.get(),
             show_frenet_view=self.root.setting.show_local_frenet_view.get(),

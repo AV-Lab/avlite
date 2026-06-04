@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import logging
 import json
 
-from avlite.c10_perception.c18_hdmap import HDMap
+from avlite.c60_common.c68_hdmap import HDMap
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)

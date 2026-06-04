@@ -11,14 +11,6 @@ from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_
 
 log = logging.getLogger(__name__)
 
-class RaceGlobalPlanner(GlobalPlannerStrategy):
-    def __init__(self):
-        super().__init__()
-
-
-    def plan(self, start=None, goal=None) -> None:
-        pass
-
 # Assumtpions
 # TODO: Lane sections are not handled properly
 # TODO: Assumptions: lanes of the same road are assumed to have the same size

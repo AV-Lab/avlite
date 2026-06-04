@@ -134,12 +134,15 @@ Both `PerceptionStrategy` and `LocalizationStrategy` are optional in the executi
 
 ### c20_planning
 
-- `GlobalPlannerStrategy` - Route planning (A*, HD map routing)
-- `LocalPlanningStrategy` - Reactive planning
+- `GlobalPlannerStrategy` - Route planning interface
+- `LocalPlanningStrategy` - Reactive planning interface
 - `Lattice` - Frenet frame lattice for local planning
 - `Trajectory` - Path + velocity profile
 
-Includes built-in planners: `RaceGlobalPlanner`, `HDMapGlobalPlanner`, `GreedyLatticePlanner`.
+Built-in planners:
+- `GlobalCenterlineRacePlanner` (`c25_global_race_planners.py`) - Race-line planner from a JSON left/right boundary file; curvature-adapted target velocities
+- `HDMapGlobalPlanner` (`c24_global_hdmap_planners.py`) - OpenDRIVE HD map A\* route planner
+- `GreedyLatticePlanner` - Greedy lattice-based local planner with collision avoidance
 
 ### c30_control
 
@@ -155,7 +158,7 @@ Includes built-in controllers: `StanleyController`, `PIDController`.
 - `Factory` - Component assembly
 - `ExecutionSettings` - Runtime settings including `log_level` (DEBUG/INFO/WARNING/ERROR/CRITICAL) and `log_to_file` (write logs to `./logs/avlite_<timestamp>.log`)
 
-Built-in bridges: `BasicSim` (c46_basic_sim.py), `CarlaBridge` (bridge_carla), `GazeboIgnitionBridge` (bridge_gazebo), `ROS2WorldBridge` (bridge_ROS2).
+Built-in bridges: `BasicSim` (c46_basic_sim.py) — includes 2-D LiDAR simulation via raycasting, `CarlaBridge` (bridge_carla), `GazeboIgnitionBridge` (bridge_gazebo), `ROS2WorldBridge` (bridge_ROS2).
 
 ### c50_visualization
 
@@ -171,7 +174,10 @@ Tkinter-based GUI with:
 - Settings load/save (YAML profiles)
 - Hot reloading
 - Extension discovery
-- Capability enums
+- Capability enums (`WorldCapability`, `PerceptionCapability`, `LocalizationCapability`, `MappingCapability`)
+- `AnyOf` — requirement satisfied by any one of several capabilities; `satisfies_requirements()` helper used by the execution layer
+- `HDMap` (`c68_hdmap.py`) — OpenDRIVE map parsing and routing (used by `HDMapGlobalPlanner` and `PerceptionModel`)
+- `rename_setting_profile()` — rename saved YAML profiles
 
 ## Data Flow
 

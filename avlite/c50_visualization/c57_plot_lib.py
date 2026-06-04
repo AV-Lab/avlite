@@ -2,13 +2,12 @@ from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
-from avlite.c10_perception.c18_hdmap import HDMap
+from avlite.c60_common.c68_hdmap import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
-from avlite.c20_planning.c26_local_lattice_planners import LatticePlanningStrategy
 from avlite.c20_planning.c27_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c43_sync_executer import SyncExecuter
-from avlite.c20_planning.c24_global_planners import HDMapGlobalPlanner
+from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 from typing import cast, Optional
@@ -588,8 +587,13 @@ class LocalPlot:
             self.pm_plots_ax1.append(agent_vehicle_ax1)
             self.pm_plots_ax2.append(agent_vehicle_ax2)
 
-        # LiDAR point cloud scatter (XY view only)
-        self.lidar_scatter_ax1 = self.ax1.scatter([], [], s=1, c='lime', alpha=0.4, zorder=1, label="LiDAR")
+        # LiDAR point cloud scatter (XY view on ax1, Frenet S-D view on ax2)
+        self.lidar_scatter_ax1 = self.ax1.scatter([], [], s=6, c='lime', alpha=0.9, zorder=6, label="LiDAR")
+        self.lidar_scatter_ax2 = self.ax2.scatter([], [], s=6, c='lime', alpha=0.9, zorder=6, label="LiDAR")
+
+        # Clustered LiDAR points that passed segmentation + range gating (diagnostic, XY + Frenet)
+        self.cluster_scatter_ax1 = self.ax1.scatter([], [], s=8, c='yellow', alpha=0.9, zorder=7, label="Clusters")
+        self.cluster_scatter_ax2 = self.ax2.scatter([], [], s=8, c='yellow', alpha=0.9, zorder=7, label="Clusters")
 
         # Prediction arrows: one dotted orange line per agent on both views
         self.prediction_lines_ax1 = []
@@ -641,8 +645,12 @@ class LocalPlot:
         global_follow_planner = False,
         frenet_follow_planner = False,
         plot_occupancy_flow = False,
+        plot_predictions = True,
         plot_lidar = False,
         lidar_data = None,
+        plot_lidar_global = True,
+        plot_lidar_frenet = False,
+        plot_clusters = True,
         plot_ground_truth = True,
         show_global_view = True,
         show_frenet_view = True,
@@ -694,8 +702,9 @@ class LocalPlot:
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model and plot_ground_truth, plot_occupancy_flow)
-        self.update_lidar_plot(lidar_data, plot_lidar)
+        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model, plot_predictions)
+        self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
+        self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
 
     def redraw_plots(self):
@@ -771,7 +780,7 @@ class LocalPlot:
             )
 
     def update_lattice_graph_plots(self, pl: LocalPlanningStrategy, show_plot=True):
-        if not show_plot or not isinstance(pl, LatticePlanningStrategy) or len(pl.lattice.edges) == 0:
+        if not show_plot or not hasattr(pl, "lattice") or len(pl.lattice.edges) == 0:
             for line in (
                 self.lattice_graph_plots_ax1
                 + self.lattice_graph_endpoints_ax1
@@ -822,7 +831,7 @@ class LocalPlot:
             self.lattice_graph_endpoints_ax2[i].set_data([], [])
 
     def update_local_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
-        if not isinstance(pl, LatticePlanningStrategy):
+        if not hasattr(pl, "selected_local_plan"):
             # Non-lattice planners expose a single LocalPlan trajectory.
             self.current_wp_plot_ax1.set_data([], [])
             self.current_wp_plot_ax2.set_data([], [])
@@ -962,13 +971,37 @@ class LocalPlot:
             self.prediction_lines_ax1[i].set_data([], [])
             self.prediction_lines_ax2[i].set_data([], [])
 
-    def update_lidar_plot(self, lidar_data, show_plot=True):
-        """Update the LiDAR scatter on ax1 (XY view)."""
+    def update_lidar_plot(self, lidar_data, show_plot=True, global_trajectory=None, show_global=True, show_frenet=False):
+        """Update the LiDAR scatter on ax1 (XY view) and ax2 (Frenet S-D view)."""
         if not show_plot or lidar_data is None or len(lidar_data) == 0:
             self.lidar_scatter_ax1.set_offsets(np.empty((0, 2)))
+            self.lidar_scatter_ax2.set_offsets(np.empty((0, 2)))
             return
-        # lidar_data is (N,4) [x,y,z,intensity] – plot X,Y
-        self.lidar_scatter_ax1.set_offsets(lidar_data[:, :2])
+        # lidar_data is (N,2+) [x,y,...] – plot X,Y on the global view
+        xy = lidar_data[:, :2]
+        # Global (XY) view, gated by show_global
+        if show_global:
+            self.lidar_scatter_ax1.set_offsets(xy)
+        else:
+            self.lidar_scatter_ax1.set_offsets(np.empty((0, 2)))
+        # Frenet view: convert world points to (s, d), gated by show_frenet
+        if show_frenet and global_trajectory is not None:
+            self.lidar_scatter_ax2.set_offsets(global_trajectory.convert_xy_path_to_sd_path_np(xy))
+        else:
+            self.lidar_scatter_ax2.set_offsets(np.empty((0, 2)))
+
+    def update_cluster_plot(self, clusters, show_plot=True, global_trajectory=None, show_frenet=False):
+        """Highlight (XY + Frenet) the LiDAR points that passed segmentation + range gating."""
+        if not show_plot or clusters is None or len(clusters) == 0:
+            self.cluster_scatter_ax1.set_offsets(np.empty((0, 2)))
+            self.cluster_scatter_ax2.set_offsets(np.empty((0, 2)))
+            return
+        xy = np.asarray(clusters)[:, :2]
+        self.cluster_scatter_ax1.set_offsets(xy)
+        if show_frenet and global_trajectory is not None:
+            self.cluster_scatter_ax2.set_offsets(global_trajectory.convert_xy_path_to_sd_path_np(xy))
+        else:
+            self.cluster_scatter_ax2.set_offsets(np.empty((0, 2)))
 
     def update_pm_occupancy_flow_plots(self, pm: Optional[PerceptionModel]=None, show_plot=True):
         if not show_plot or pm is None:

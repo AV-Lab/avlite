@@ -3,7 +3,10 @@
 class PlanningSettings:
     exclude = ["exclude"]
     filepath = "configs/c20_planning.yaml"
-    
+
+    # Race boundary map (used by GlobalCenterlineRacePlanner)
+    race_boundary_map: str = "data/race_boundary_yas_marina.json"
+
     # Race Planner Setting
     num_of_edge_points = 10
     planning_horizon = 3
@@ -53,7 +56,7 @@ class PlanningSettings:
 
     # Minimum forward speed injected at plan start when ramping up from rest.
     # Prevents velocity[0]=0 deadlock when car is behind the plan start (current_wp pinned at 0).
-    min_ramp_start_velocity = 0.5  # m/s
+    min_ramp_start_velocity = 3.0  # m/s
 
     # Fallback filter tiers for the lattice planner.
     # Tier 1 (curvature fallback): accept edges that are collision-free and boundary-clear

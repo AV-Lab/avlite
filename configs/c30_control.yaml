@@ -107,7 +107,7 @@ default:
   stanley_valpha: 0.8
   stanley_vbeta: 0.01
   stanley_vgamma: 0.3
-perception exp:
+perception:
   ego_distance_front_axle: 2.5
   ego_max_acceleration: 10.0
   ego_max_steering: 0.7

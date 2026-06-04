@@ -43,12 +43,12 @@ flowchart TB
 
 ### Core Components
 
-- **c10_perception**: Interfaces for detection, tracking, prediction, localization (optional), mapping; HD map support
-- **c20_planning**: Global planning (A*, HD map routing) and local planning (lattice-based, RRT)
+- **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`)
+- **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (lattice-based `GreedyLatticePlanner`)
 - **c30_control**: Vehicle control algorithms (Stanley, PID)
-- **c40_execution**: Execution orchestration with support for sync/async modes and simulator bridges
+- **c40_execution**: Execution orchestration with support for sync/async modes, simulator bridges, and `replan_global()`
 - **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
-- **c60_common**: Utilities, settings management, and capability definitions
+- **c60_common**: Utilities, settings management, capability definitions (`AnyOf`, `satisfies_requirements`), and `HDMap` (OpenDRIVE parsing)
 - **extensions**: Plugin system for custom components (includes ROS2 executor with Autoware messages)
 
 ### Key Features
@@ -197,13 +197,17 @@ avlite/
 │   ├── c12_perception_strategy.py
 │   ├── c13_localization_strategy.py
 │   ├── c14_mapping_strategy.py
-│   ├── c18_hdmap.py
+│   ├── c15_perception_algs.py    # FastBEVLidarDetection, KalmanTracker, ConstantVelocityPrediction
+│   ├── c16_localization_algs.py  # LidarLocalization (ICP)
+│   ├── c17_mapping_algs.py
 │   └── c19_settings.py
 ├── c20_planning/           # Planning components
 │   ├── c21_planning_model.py
 │   ├── c22_global_planning_strategy.py
 │   ├── c23_local_planning_strategy.py
+│   ├── c24_global_hdmap_planners.py  # HDMapGlobalPlanner
 │   ├── c24_global_planners.py
+│   ├── c25_global_race_planners.py   # GlobalCenterlineRacePlanner
 │   ├── c26_local_lattice_planners.py
 │   ├── c27_lattice.py
 │   └── c29_settings.py
@@ -235,7 +239,8 @@ avlite/
 │   ├── c61_setting_utils.py
 │   ├── c62_capabilities.py
 │   ├── c63_trajectory_tracker.py
-│   └── c64_collision_checking.py
+│   ├── c64_collision_checking.py
+│   └── c68_hdmap.py              # HDMap (OpenDRIVE parsing)
 └── extensions/            # Built-in extensions
     ├── bridge_carla/
     ├── bridge_gazebo/

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-04
+
+### Added
+- `KalmanTracker` (`c15_perception_algs`): constant-velocity Kalman filter multi-object tracker with greedy nearest-neighbour data association; persistent `agent_id` across frames and velocity estimation
+- `FastBEVLidarDetection` (`c15_perception_algs`): BEV LiDAR segmentation by consecutive-gap splitting + rotating-calipers minimum bounding rectangle; supports 2D scans `(N,2)` and 3D point clouds `(N,3+)` with z-band filtering; exposes `detection_clusters` diagnostic field on `PerceptionModel`
+- `LidarLocalization` (`c16_localization_algs`): ICP scan-to-map ego localization; seeds reference map from first scan, then estimates translation + rotation via iterative closest-point alignment
+- `c17_mapping_algs.py`: placeholder for future online-mapping algorithms
+- `GlobalCenterlineRacePlanner` (`c25_global_race_planners`): race-line planner from a JSON left/right boundary file; computes centre-line path with curvature-adapted target velocities (`v = min(v_max, sqrt(a_lat/κ))`)
+- `HDMap` moved from `c10_perception/c18_hdmap` to `c60_common/c68_hdmap` and re-imported by all dependent modules
+- `HDMapGlobalPlanner` split out into its own module `c24_global_hdmap_planners`
+- `AnyOf` capability requirement class and `satisfies_requirements()` helper in `c62_capabilities`; allows a strategy to declare that any one of several world capabilities suffices (e.g. `AnyOf(LIDAR_2D, LIDAR_3D)`)
+- `Executer.replan_global()`: recompute the global plan at runtime from the current ego pose and push it to the local planner and controller
+- `BasicSim.get_lidar_data()`: 2-D LiDAR simulation via ray-segment intersection against agent bounding boxes and road boundaries; configurable range, beam count, and FOV
+- `BasicSim.reset()`: clears simulated NPC agents and their controllers
+- `LIDAR_2D` capability declared by `BasicSim`
+- `rename_setting_profile()` utility in `c61_setting_utils`
+- `race_boundary_map` setting in `PlanningSettings`; BasicSim LiDAR settings in `ExecutionSettings`
+- `data/race_boundary_yas_marina.json`: Yas Marina race boundary data file
+
+### Changed
+- `set_global_plan()` in `LocalPlanningStrategy` (and `LatticePlanningStrategy`) now accepts an optional `ego_xy` parameter to initialise the Frenet location from the actual ego position instead of the plan's start point
+- Emergency-stop detection in `GreedyLatticePlanner` changed from all-zeros velocity check to a trailing-velocity threshold (`velocity[-1] < 0.5` and `mean < 3.0`), reducing false positives at low speed
+- Velocity clamping on insufficient stopping distance replaced by smooth linear ramp (current → obstacle speed) for more natural deceleration
+- Emergency-stop velocity profile now ramps from current ego speed to zero instead of instantaneous zero-fill
+- Ground-truth perception step copies agent lists into the executer's `pm` instead of aliasing the world's model; prevents perception resets from clearing simulator-spawned NPC agents
+- Perception step in `SyncExecuter` moved before the planning step so the planner always operates on the current frame's obstacles
+- `Executer.reset()` now calls `world.reset()` to also clear simulated NPC state
+- `min_ramp_start_velocity` raised from 0.5 → 3.0 m/s to avoid deadlock when the ego is behind the plan start
+- Default global planner changed from `RaceGlobalPlanner` to `GlobalCenterlineRacePlanner` throughout
+- Factory creates a separate `world_pm` `PerceptionModel` for the world bridge, decoupling simulator state from the executer's perception model
+- Velocity discrepancy between local and global reference plans now logged at INFO level in `GreedyLatticePlanner`
+
 ## [0.1.1] - 2026-05-06
 
 ### Added

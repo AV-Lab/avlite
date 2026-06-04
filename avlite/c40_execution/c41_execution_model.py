@@ -18,7 +18,7 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c62_capabilities import WorldCapability, satisfies_requirements
 from avlite.c60_common.c65_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
@@ -197,6 +197,7 @@ class Executer(ABC):
 
     def reset(self):
         self.pm.reset()
+        self.world.reset()
         self.ego_state.reset()
         if self.perception:
             self.perception.reset()
@@ -221,7 +222,7 @@ class Executer(ABC):
         if not self.localization:
             return
 
-        if self.localization.requirements.issubset(self.world.capabilities):
+        if satisfies_requirements(self.localization.requirements, self.world.capabilities):
             self.localization.localize(
                 lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
                 rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
@@ -240,7 +241,7 @@ class Executer(ABC):
             log.error("Perception strategy is not set. Skipping perception step.")
             return
 
-        if not self.perception.requirements.issubset(self.world.capabilities):
+        if not satisfies_requirements(self.perception.requirements, self.world.capabilities):
             log.error(
                 f"Perception strategy {self.perception.__class__.__name__} requirements "
                 f"{self.perception.requirements} not satisfied by capabilities: "
@@ -249,7 +250,13 @@ class Executer(ABC):
             return
 
         if ExecutionSettings.provide_ground_truth:
-            self.pm = self.world.get_ground_truth_perception_model()
+            gt = self.world.get_ground_truth_perception_model()
+            # Copy the world's authoritative agents into the executer's own
+            # perception model instead of aliasing to it, so that clearing the
+            # executer's model (when ground truth is off) never wipes the
+            # simulator's spawned agents.
+            self.pm.agent_vehicles = list(gt.agent_vehicles)
+            self.pm.static_obstacles = list(gt.static_obstacles)
         else:
             self.pm.agent_vehicles = []
 
@@ -266,6 +273,26 @@ class Executer(ABC):
         """Run one planning iteration (replan) and update FPS."""
         self.local_planner.replan()
         self.planner_fps = self._planner_fps_tracker.tick()
+
+    def replan_global(self) -> None:
+        """Recompute the global plan from the current ego pose and hand it to the local planner.
+
+        Keeps the existing goal, moves the start to the ego's current position,
+        re-runs the global planner, then pushes the resulting plan to the local
+        planner and controller so subsequent ticks follow the new route.
+        """
+        goal = self.global_planner.goal_point
+        if goal is not None:
+            self.global_planner.set_start_goal((self.ego_state.x, self.ego_state.y), goal)
+
+        new_plan = self.global_planner.plan()
+        if new_plan is None or new_plan.trajectory is None:
+            log.error("Global replan failed: planner returned no valid plan.")
+            return
+
+        self.local_planner.set_global_plan(new_plan, ego_xy=(self.ego_state.x, self.ego_state.y))
+        self.controller.set_trajectory(new_plan.trajectory)
+        log.info(f"Global replan complete; {len(new_plan.left_boundary_d)} boundary pts")
 
     def _control_step(self, sim_dt: float) -> None:
         """Run one control iteration, apply to world, and update FPS."""

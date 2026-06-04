@@ -49,8 +49,8 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         self._urgent_collision_threshold: int = setting.urgent_collision_threshold
         self._disconnect_distance_threshold: float = setting.disconnect_distance_threshold
 
-    def set_global_plan(self, global_plan: GlobalPlan) -> None:
-        super().set_global_plan(global_plan)
+    def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
+        super().set_global_plan(global_plan, ego_xy=ego_xy)
         self.lattice = Lattice(
             self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
             planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
@@ -86,12 +86,14 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         # This covers both (a) collision-blocked plans and (b) boundary-violation-blocked plans
         # where the emergency plan has collision=False and the normal collision guard never fires.
         cur_vel = getattr(self.selected_local_plan.local_trajectory, 'velocity', None)
-        if (cur_vel is not None and len(cur_vel) > 0
-                and np.all(np.asarray(cur_vel) == 0.0)
-                and not new_plan.collision
-                and not new_plan.boundary_violation):
-            log.info("Zero-velocity emergency plan detected — recovering to clean plan")
-            return True
+        if cur_vel is not None and len(cur_vel) > 0:
+            _cva = np.asarray(cur_vel)
+            _is_emergency_stop = (float(_cva[-1]) < 0.5 and float(np.mean(_cva)) < 3.0)
+            if (_is_emergency_stop
+                    and not new_plan.collision
+                    and not new_plan.boundary_violation):
+                log.info("Emergency-stop plan detected — recovering to clean plan")
+                return True
 
         # Current edge is done and has no queued successor — must switch
         if (self.selected_local_plan.local_trajectory.is_traversed()
@@ -366,6 +368,16 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                         ramp = np.linspace(ego_v, tj.velocity[n - 1], n)
                         tj.velocity[:n] = np.maximum(0.0, np.minimum(tj.velocity[:n], ramp))
                         log.debug(f"Velocity ramp applied: {ego_v:.1f} -> {tj.velocity[n-1]:.1f} m/s over {n} waypoints")
+                    _g_start = self.global_trajectory.get_closest_waypoint_frm_sd(current_plan.start.s, 0)
+                    _g_end = self.global_trajectory.get_closest_waypoint_frm_sd(current_plan.end.s, 0)
+                    _gv = np.asarray(self.global_trajectory.velocity)[_g_start:_g_end + 1]
+                    _lv = np.asarray(tj.velocity)
+                    if len(_gv) > 0:
+                        log.info(
+                            f"Plan velocity — local: start={float(_lv[0]):.1f} mean={float(np.mean(_lv)):.1f} m/s | "
+                            f"global_ref: start={float(_gv[0]):.1f} mean={float(np.mean(_gv)):.1f} m/s | "
+                            f"discrepancy(mean)={float(np.mean(_gv)) - float(np.mean(_lv)):+.1f} m/s"
+                        )
                 else:
                     log.debug("Keeping current plan (wait time not elapsed)")
 
@@ -417,9 +429,9 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                         f"Current vel: {current_vel:.1f}m/s, Target vel: {target_vel:.1f}m/s")
 
             if stopping_distance >= collision_distance - 2.0:  # 2m safety buffer
-                # Not enough room — clamp immediately to obstacle speed
-                log.warning(f"Cannot match speed in time — clamping to obstacle speed {target_vel:.1f} m/s")
-                tj.velocity = np.full(len(tj.path), target_vel)
+                # Not enough room — ramp from current speed down to obstacle speed over the trajectory
+                log.warning(f"Cannot match speed in time — ramping to obstacle speed {target_vel:.1f} m/s")
+                tj.velocity = np.maximum(0.0, np.linspace(current_vel, target_vel, len(tj.path)))
             else:
                 # Enough room — hold current speed then decelerate smoothly to target_vel
                 cumulative_dist = 0.0
@@ -451,7 +463,8 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             log.error("No lattice edges generated - emergency stop")
             if self.selected_local_plan is not None:
                 tj = self.selected_local_plan.local_trajectory
-                tj.velocity = np.zeros(len(tj.path))
+                stop_vel = self.pm.ego_vehicle.velocity if self.pm.ego_vehicle.velocity > 0 else (float(tj.velocity[0]) if len(tj.velocity) > 0 else 0.0)
+                tj.velocity = np.maximum(0.0, np.linspace(stop_vel, 0.0, len(tj.path)))
 
     def _on_edge_traversed(self) -> None:
         self._partial_replan()

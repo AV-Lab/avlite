@@ -43,6 +43,9 @@ class VisualizationSettings:
         self.frenet_view_follow_planner = tk.BooleanVar(value=False)
         self.show_local_global_view = tk.BooleanVar(value=True)
         self.show_local_frenet_view = tk.BooleanVar(value=True)
+        self.show_lidar_global = tk.BooleanVar(value=True)   # Show LiDAR points in the Local Global (XY) view
+        self.show_lidar_frenet = tk.BooleanVar(value=False)  # Show LiDAR points in the Frenet (S-D) view
+        self.show_lidar_clusters = tk.BooleanVar(value=True)  # Highlight clustered LiDAR points (yellow, XY view)
 
         self.xy_zoom = 30
         self.frenet_zoom = 30

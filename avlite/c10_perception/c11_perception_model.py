@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import logging
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c10_perception.c18_hdmap import HDMap
+from avlite.c60_common.c68_hdmap import HDMap
 
 
 log = logging.getLogger(__name__)
@@ -41,6 +41,9 @@ class PerceptionModel:
     grid_size: int = PerceptionSettings.perception_model_prediction_grid_size  # Size of the occupancy grid -> 100x100
 
     occupancy_flow_per_object:  Optional[list[tuple[int,list[np.ndarray]]]] = None # list(agent_id, list(2D grid))
+
+    # Raw LiDAR points that passed segmentation + range gating (diagnostic overlay)
+    detection_clusters: Optional[np.ndarray] = None
 
 
 
