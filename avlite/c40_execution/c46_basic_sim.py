@@ -1,5 +1,5 @@
 import math
-from typing import Optional
+from typing import Optional, Type
 
 import numpy as np
 
@@ -27,30 +27,35 @@ class BasicSim(WorldBridge):
         }
 
     def __init__(self,ego_state:EgoState, pm:Optional[PerceptionModel] = None,
-                 npc_control=ExecutionSettings.basic_sim_npc_control,
-                 speed_factor=ExecutionSettings.basic_sim_npc_speed_factor,
-                 default_trajectory=ExecutionSettings.basic_sim_default_trajectory,
-                 controller: Optional[ControlStrategy] = None):
+                 controller: Optional[ControlStrategy] = None,
+                 setting: Type[ExecutionSettings] = ExecutionSettings):
+        self.setting = setting
         self.ego_state = ego_state
         self.pm = pm
         self.ego_controller = controller
         self.supports_ground_truth_detection = True
         self.supports_ground_truth_localization = True
-        self.npc_control = npc_control
-        self.speed_factor = speed_factor
+        self.npc_control = setting.c46_npc_control
+        self.speed_factor = setting.c46_npc_speed_factor
         self.npc_controllers = {}
+        self.default_global_plan = None
 
-        log.info(f"Loading default trajectory from {default_trajectory}")
-        if pm is not None and default_trajectory:
+        log.info(f"Loading default trajectory from {setting.c46_default_trajectory}")
+        if pm is not None and setting.c46_default_trajectory:
             try:  
                 from avlite.c20_planning.c21_planning_model import GlobalPlan
-                self.default_global_plan = GlobalPlan.from_file(default_trajectory)
+                self.default_global_plan = GlobalPlan.from_file(setting.c46_default_trajectory)
                 self.npc_control = True
             except Exception as e:
-                log.error(f"Failed to load default trajectory {default_trajectory}: {e}")
+                log.error(f"Failed to load default trajectory {setting.c46_default_trajectory}: {e}")
 
-        self._boundary_segments = self.__load_boundary_segments(
-            ExecutionSettings.basic_sim_lidar_boundary_file
+        # Road boundary polylines as raycasting segments, shape (M, 2, 2):
+        #   axis 0 — segment index (M = total segments from LeftBound + RightBound)
+        #   axis 1 — endpoint: 0 = start, 1 = end
+        #   axis 2 — coordinate: 0 = x, 1 = y
+        # Used by __collect_segments() for LiDAR raycasting and by c57 for visualization.
+        self.boundary_segments: np.ndarray = self.__load_boundary_segments(
+            setting.c46_lidar_boundary_file
         )
 
 
@@ -114,6 +119,7 @@ class BasicSim(WorldBridge):
         if self.pm is not None:
             self.pm.reset()
         self.npc_controllers = {}
+        return self.boundary_frenet
 
     # ------------------------------------------------------------------
     # 2D LiDAR simulation
@@ -142,7 +148,7 @@ class BasicSim(WorldBridge):
 
     def __collect_segments(self) -> np.ndarray:
         """All obstacle segments to raycast: agent bounding boxes + boundaries."""
-        segments = [self._boundary_segments]
+        segments = [self.boundary_segments]
         if self.pm is not None:
             for agent in self.pm.agent_vehicles:
                 corners = agent.get_bb_corners()  # (4, 2) CCW
@@ -162,9 +168,9 @@ class BasicSim(WorldBridge):
         if len(segments) == 0:
             return np.empty((0, 2))
 
-        n = ExecutionSettings.basic_sim_lidar_num_beams
-        fov = math.radians(ExecutionSettings.basic_sim_lidar_fov_deg)
-        max_range = ExecutionSettings.basic_sim_lidar_range
+        n = self.setting.c46_lidar_num_beams
+        fov = math.radians(self.setting.c46_lidar_fov_deg)
+        max_range = self.setting.c46_lidar_range
         origin = np.array([self.ego_state.x, self.ego_state.y])
 
         if fov >= 2 * math.pi:

@@ -17,7 +17,6 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c20_planning.c26_local_lattice_planners import GreedyLatticePlanner
 from avlite.c30_control.c33_pid import PIDController
 from avlite.c30_control.c34_stanley import StanleyController
@@ -34,21 +33,21 @@ from avlite.extensions.e40_bridge_carla.carla_bridge import CarlaBridge
 log = logging.getLogger(__name__)
 
 def executor_factory(
-    executer_type = ExecutionSettings.executer_type,
-    bridge = ExecutionSettings.bridge,
-    perception_strategy_name = ExecutionSettings.perception,
-    localization_strategy_name = ExecutionSettings.localization,
-    global_planner_strategy_name = ExecutionSettings.global_planner,
-    local_planner_strategy_name = ExecutionSettings.local_planner,
-    controller_strategy_name = ExecutionSettings.controller,
-    perception_dt = ExecutionSettings.perception_dt,
-    localization_dt = ExecutionSettings.localization_dt,
-    replan_dt = ExecutionSettings.replan_dt,
-    control_dt = ExecutionSettings.control_dt,
-    default_global_trajectory_file = ExecutionSettings.global_trajectory,
-    hd_map = ExecutionSettings.hd_map,
+    executer_type = ExecutionSettings.c40_executer_type,
+    bridge = ExecutionSettings.c40_bridge,
+    perception_strategy_name = ExecutionSettings.c40_perception,
+    localization_strategy_name = ExecutionSettings.c40_localization,
+    global_planner_strategy_name = ExecutionSettings.c40_global_planner,
+    local_planner_strategy_name = ExecutionSettings.c40_local_planner,
+    controller_strategy_name = ExecutionSettings.c40_controller,
+    perception_dt = ExecutionSettings.c40_perception_dt,
+    localization_dt = ExecutionSettings.c40_localization_dt,
+    replan_dt = ExecutionSettings.c40_replan_dt,
+    control_dt = ExecutionSettings.c40_control_dt,
+    default_global_trajectory_file = ExecutionSettings.c40_global_trajectory,
+    hd_map = ExecutionSettings.c40_hd_map,
     load_extensions=True,
-    async_combined_perception_planning: bool = ExecutionSettings.async_combined_perception_planning,
+    async_combined_perception_planning: bool = ExecutionSettings.c40_async_combined_perception_planning,
 ) -> "Executer":
     """
     Factory method to create an instance of the Executer class based on the provided configuration.
@@ -59,16 +58,29 @@ def executor_factory(
     if load_extensions:
         import_all_modules() # loading default extensions
         # loading community extensions
-        for k,v in ExecutionSettings.community_plugins.items():
+        for k,v in ExecutionSettings.c40_community_plugins.items():
             log.warning(f"Loading external extension: {k} from {v}")
             import_all_modules(v, pkg_name = k)
 
 
-    global_plan_path =  get_absolute_path(default_global_trajectory_file)
-    default_global_plan = GlobalPlan.from_file(global_plan_path)
+    try:
+        global_plan_path = get_absolute_path(default_global_trajectory_file)
+        default_global_plan = GlobalPlan.from_file(global_plan_path)
+        log.debug(f"Default global trajectory loaded from {global_plan_path}")
+    except Exception as e:
+        log.warning(
+            f"Could not load default global trajectory '{default_global_trajectory_file}': {e}. "
+            "Falling back to race boundary centerline."
+        )
+        _fallback_planner = GlobalCenterlineRacePlanner(
+            get_absolute_path(ExecutionSettings.c42_race_boundary_map),
+            margin=ExecutionSettings.c42_race_boundary_margin,
+        )
+        default_global_plan = _fallback_planner.plan()
+
     ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
     pm = PerceptionModel(ego_vehicle=ego_state)
-    
+
     ###################
     # Loading default
     # global planner
@@ -80,18 +92,30 @@ def executor_factory(
             pm.hd_map = hdmap
             gp = HDMapGlobalPlanner(hdmap)
             log.debug("GlobalHDMapPlanner loaded")
+        elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
+            gp = GlobalCenterlineRacePlanner(
+                get_absolute_path(ExecutionSettings.c42_race_boundary_map),
+                margin=ExecutionSettings.c42_race_boundary_margin,
+            )
+            gp.plan()
         elif global_planner_strategy_name in GlobalPlannerStrategy.registry:
             cls = GlobalPlannerStrategy.registry[global_planner_strategy_name]
             gp = cls()
             gp.global_plan = default_global_plan
         else:
             log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
-            gp = GlobalCenterlineRacePlanner(get_absolute_path(PlanningSettings.race_boundary_map))
+            gp = GlobalCenterlineRacePlanner(
+                get_absolute_path(ExecutionSettings.c42_race_boundary_map),
+                margin=ExecutionSettings.c42_race_boundary_margin,
+            )
             gp.plan()
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
-        gp = GlobalCenterlineRacePlanner(get_absolute_path(PlanningSettings.race_boundary_map))
+        gp = GlobalCenterlineRacePlanner(
+            get_absolute_path(ExecutionSettings.c42_race_boundary_map),
+            margin=ExecutionSettings.c42_race_boundary_margin,
+        )
         gp.plan()
         
 

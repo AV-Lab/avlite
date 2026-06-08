@@ -35,6 +35,7 @@ plugins:
 nav:
   - Home: index.md
   - Architecture: architecture.md
+  - Settings Naming: settings-naming.md
   - Plugin Development: plugin-development.md
 
 extra_javascript:

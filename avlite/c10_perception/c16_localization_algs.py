@@ -55,12 +55,12 @@ class LidarLocalization(LocalizationStrategy):
         self,
         perception_model: PerceptionModel,
         setting: Type[PerceptionSettings] = PerceptionSettings,
-        z_min: float = PerceptionSettings.localization_lidar_z_min,
-        z_max: float = PerceptionSettings.localization_lidar_z_max,
-        max_iterations: int = PerceptionSettings.localization_icp_max_iterations,
-        tolerance: float = PerceptionSettings.localization_icp_tolerance,
-        max_correspondence_dist: float = PerceptionSettings.localization_icp_max_correspondence_dist,
-        map_subsample: int = PerceptionSettings.localization_map_subsample,
+        z_min: float = PerceptionSettings.c16_localization_lidar_z_min,
+        z_max: float = PerceptionSettings.c16_localization_lidar_z_max,
+        max_iterations: int = PerceptionSettings.c16_localization_icp_max_iterations,
+        tolerance: float = PerceptionSettings.c16_localization_icp_tolerance,
+        max_correspondence_dist: float = PerceptionSettings.c16_localization_icp_max_correspondence_dist,
+        map_subsample: int = PerceptionSettings.c16_localization_map_subsample,
     ):
         super().__init__(perception_model, setting)
         self._z_min = z_min

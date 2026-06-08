@@ -116,7 +116,7 @@ class ThemedInputDialog:
 
         # Add prompt and entry field
         ttk.Label(top_frame, text=prompt).pack(side=tk.LEFT, padx=10)
-        self.entry = ttk.Entry(top_frame, width=10)
+        self.entry = ttk.Entry(top_frame, width=20)
         self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10, pady=5)
         if initial:
             self.entry.insert(0, initial)

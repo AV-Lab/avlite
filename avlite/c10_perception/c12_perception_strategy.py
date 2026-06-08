@@ -114,9 +114,9 @@ class PerceptionPipeline(PerceptionStrategy):
     """
     def __init__(self, perception_model: PerceptionModel, setting: Type[PerceptionSettings] = PerceptionSettings):
         super().__init__(perception_model, setting)
-        self._detector = self._resolve(DetectionStrategy.registry, setting.detection_strategy)
-        self._tracker = self._resolve(TrackingStrategy.registry, setting.tracking_strategy)
-        self._predictor = self._resolve(PredictionStrategy.registry, setting.prediction_strategy)
+        self._detector = self._resolve(DetectionStrategy.registry, setting.c12_detection_strategy)
+        self._tracker = self._resolve(TrackingStrategy.registry, setting.c12_tracking_strategy)
+        self._predictor = self._resolve(PredictionStrategy.registry, setting.c12_prediction_strategy)
 
     @staticmethod
     def _resolve(registry: dict, name: str):

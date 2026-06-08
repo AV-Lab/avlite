@@ -113,7 +113,7 @@ class ExecView(ttk.Frame):
         global_tj_file=ttk.Entry( exec_second_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
         global_tj_file.pack(side=tk.RIGHT, padx = 5, pady=5)
         global_tj_file.bind("<Return>", self.text_on_enter)
-        ttk.Label(exec_second_frame, text="Default Global Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
+        ttk.Label(exec_second_frame, text="Default Global Plan").pack(side=tk.RIGHT, padx=5, pady=5)
 
 
     def text_on_enter(self, event):

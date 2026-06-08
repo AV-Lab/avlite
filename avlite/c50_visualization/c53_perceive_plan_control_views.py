@@ -1,8 +1,9 @@
 from __future__ import annotations
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import time
 import logging
+from datetime import datetime
 
 
 from typing import TYPE_CHECKING
@@ -14,7 +15,7 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_visualization.c58_ui_lib import ValueGauge
+from avlite.c50_visualization.c58_ui_lib import ValueGauge, ThemedInputDialog
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c60_common.c61_setting_utils import list_extensions
@@ -144,8 +145,8 @@ class PerceptionFrame(ttk.LabelFrame):
     def update_data(self):
         """Update data in the perception frame."""
         core_strategies = set(PerceptionStrategy.registry.keys())
-        allowed_default_extensions = set(PerceptionStrategy.registry.keys()) & set(ExecutionSettings.default_extensions)
-        community_prefixes = tuple(f"avlite.extensions.{a}" for a in ExecutionSettings.community_plugins.keys())
+        allowed_default_extensions = set(PerceptionStrategy.registry.keys()) & set(ExecutionSettings.c40_default_extensions)
+        community_prefixes = tuple(f"avlite.extensions.{a}" for a in ExecutionSettings.c40_community_plugins.keys())
         allowed_community_extensions = {
             n for n, c in PerceptionStrategy.registry.items()
             if community_prefixes and c.__module__.startswith(community_prefixes)
@@ -216,6 +217,7 @@ class PlanFrame(ttk.LabelFrame):
         self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
 
         ttk.Button(global_frame, text="Global Replan", command=self.replan_global).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(global_frame, text="⬇", command=self.save_global_plan, width=3).pack(side=tk.LEFT)
 
         # - Local -----
         wp_frame = ttk.Frame(self)
@@ -284,7 +286,20 @@ class PlanFrame(ttk.LabelFrame):
         self.root.global_plan_plot_view.global_plot.reset()
         self.root.local_plan_plot_view.reset()
         self.root.global_plan_plot_view.plot()
+        self.root.local_plan_plot_view.plot()
         self.root.update_ui()
+
+    def save_global_plan(self):
+        self.root.exec_visualize_view.stop_exec()
+        default_name = f"data/{datetime.now().strftime('%Y%m%d_%H%M%S')}_global_plan.json"
+        dialog = ThemedInputDialog(self.root, "Save Global Plan", "File name:", initial=default_name)
+        fname = dialog.result
+        if not fname:
+            return
+        try:
+            self.root.exec.local_planner.global_plan.to_file(fname)
+        except OSError as e:
+            messagebox.showerror("Save Failed", str(e), parent=self)
 
     def align_plan(self):
         log.debug("Aligning plan with current ego state")

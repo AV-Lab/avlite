@@ -50,7 +50,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
-        ExecutionSettings.default_extensions = list_extensions()
+        ExecutionSettings.c40_default_extensions = list_extensions()
         
         # ----------------------------------------------------------------------
         # UI Views
@@ -74,9 +74,9 @@ class VisualizerApp(tk.Tk):
         
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_configs()
-        log.warning(f"map is {ExecutionSettings.hd_map}")
+        log.warning(f"map is {ExecutionSettings.c40_hd_map}")
         self.reload_stack()
-        log.warning(f"map after is {ExecutionSettings.hd_map}")
+        log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
 
         # Bind to window resize to maintain ratio
         self.update_shortcut_mode()
@@ -524,12 +524,12 @@ class VisualizerApp(tk.Tk):
                 localization_dt=self.setting.localization_dt.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
-                hd_map=ExecutionSettings.hd_map,
+                hd_map=ExecutionSettings.c40_hd_map,
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
                 # reload_code=reload_code,
                 # exclude_reload_settings=True,
                 load_extensions=self.setting.load_extensions.get(),
-                async_combined_perception_planning=ExecutionSettings.async_combined_perception_planning,
+                async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
 
         except Exception as e:

@@ -1,295 +1,299 @@
 B:
   async_mode: false
-  bridge: BasicSim
-  control_dt: 0.05
-  controller: StanleyController
+  c40_bridge: BasicSim
+  c40_control_dt: 0.05
+  c40_controller: StanleyController
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: RNDPlanner
+  c40_perception: ''
+  c40_replan_dt: 0.5
+  c40_sim_dt: 0.01
   filepath: configs/c40_execution.yaml
-  global_planner: GlobalCenterlineRacePlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: RNDPlanner
-  perception: ''
-  replan_dt: 0.5
-  sim_dt: 0.01
 Carla_Town10:
-  async_combined_perception_planning: true
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_lidar_boundary_file: data/yasmarina.track.json
-  basic_sim_lidar_fov_deg: 360.0
-  basic_sim_lidar_num_beams: 360
-  basic_sim_lidar_range: 50.0
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: BasicSim
-  community_plugins: {}
-  control_dt: 0.05
-  controller: StanleyController
-  default_extensions:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_community_plugins: {}
+  c40_control_dt: 0.05
+  c40_controller: StanleyController
+  c40_default_extensions:
   - e10_perception_MO_prediction
   - e40_bridge_gazebo
   - e50_headless_mode
   - e40_bridge_carla
   - e40_bridge_ROS2
   - e40_executer_ROS2
-  executer_type: SyncExecuter
+  c40_executer_type: SyncExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: ''
+  c40_localization_dt: 0.1
+  c40_log_level: INFO
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: TestPerceptionStrategy
+  c40_perception_dt: 0.5
+  c40_replan_dt: 0.5
+  c40_sim_dt: 0.01
+  c41_provide_ground_truth: false
+  c41_provide_lidar: false
+  c41_provide_rgb: false
+  c42_race_boundary_map: data/race_boundary_yas_marina.json
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: GlobalCenterlineRacePlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: GreedyLatticePlanner
-  localization: ''
-  localization_dt: 0.1
-  log_level: INFO
-  log_to_file: false
-  mapping: ''
-  perception: TestPerceptionStrategy
-  perception_dt: 0.5
-  provide_ground_truth: false
-  provide_lidar: false
-  provide_rgb: false
-  replan_dt: 0.5
-  sim_dt: 0.01
 SAN:
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: BasicSim
-  community_plugins:
+  c40_bridge: BasicSim
+  c40_community_plugins:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
-  control_dt: 0.01
-  controller: StanleyController
-  default_extensions:
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_default_extensions:
   - test_ext
   - multi_object_prediction
-  executer_type: ROSExecuter
+  c40_executer_type: ROSExecuter
+  c40_global_planner: HDMapGlobalPlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/san_campus.xodr
+  c40_local_planner: RNDPlanner
+  c40_localization: Localization
+  c40_localization_dt: 0.1
+  c40_perception: MultiObjectPredictor
+  c40_perception_dt: 0.5
+  c40_replan_dt: 0.5
+  c40_sim_dt: 0.01
+  c41_provide_ground_truth: true
+  c41_provide_lidar: false
+  c41_provide_rgb: false
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: HDMapGlobalPlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/san_campus.xodr
-  local_planner: RNDPlanner
-  localization: Localization
-  localization_dt: 0.1
-  perception: MultiObjectPredictor
-  perception_dt: 0.5
-  provide_ground_truth: true
-  provide_lidar: false
-  provide_rgb: false
-  replan_dt: 0.5
-  sim_dt: 0.01
 async:
-  async_combined_perception_planning: true
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: BasicSim
-  community_plugins:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_community_plugins:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
-  control_dt: 0.01
-  controller: StanleyController
-  default_extensions:
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_default_extensions:
   - bridge_carla
   - executer_ROS2
   - bridge_ROS2
   - bridge_gazebo
   - multi_object_prediction
-  executer_type: AsyncThreadedExecuter
+  c40_executer_type: AsyncThreadedExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: ''
+  c40_localization_dt: 0.1
+  c40_log_level: WARN
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: PerceptionPipeline
+  c40_perception_dt: 0.01
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.011
+  c41_provide_ground_truth: true
+  c41_provide_lidar: true
+  c41_provide_rgb: false
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: GlobalCenterlineRacePlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: GreedyLatticePlanner
-  localization: ''
-  localization_dt: 0.1
-  log_level: WARN
-  log_to_file: false
-  mapping: ''
-  perception: PerceptionPipeline
-  perception_dt: 0.01
-  provide_ground_truth: true
-  provide_lidar: true
-  provide_rgb: false
-  replan_dt: 0.01
-  sim_dt: 0.011
 default:
-  async_combined_perception_planning: true
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_lidar_boundary_file: data/yasmarina.track.json
-  basic_sim_lidar_fov_deg: 360.0
-  basic_sim_lidar_num_beams: 360
-  basic_sim_lidar_range: 50.0
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: BasicSim
-  community_plugins:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_community_plugins:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
-  control_dt: 0.01
-  controller: StanleyController
-  default_extensions:
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_default_extensions:
   - e10_perception_MO_prediction
   - e40_bridge_gazebo
   - e50_headless_mode
   - e40_bridge_carla
   - e40_bridge_ROS2
   - e40_executer_ROS2
-  executer_type: AsyncThreadedExecuter
+  c40_executer_type: AsyncThreadedExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: ''
+  c40_localization_dt: 0.1
+  c40_log_level: INFO
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: PerceptionPipeline
+  c40_perception_dt: 0.05
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.01
+  c41_provide_ground_truth: true
+  c41_provide_lidar: true
+  c41_provide_rgb: false
+  c42_race_boundary_map: data/race_boundary_yas_marina.json
+  c42_race_boundary_margin: 0.0
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: RaceGlobalPlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: GreedyLatticePlanner
-  localization: ''
-  localization_dt: 0.1
-  log_level: INFO
-  log_to_file: false
-  mapping: ''
-  perception: PerceptionPipeline
-  perception_dt: 0.5
-  provide_ground_truth: true
-  provide_lidar: true
-  provide_rgb: false
-  replan_dt: 0.01
-  sim_dt: 0.01
 perception:
-  async_combined_perception_planning: true
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_lidar_boundary_file: data/yasmarina.track.json
-  basic_sim_lidar_fov_deg: 360.0
-  basic_sim_lidar_num_beams: 360
-  basic_sim_lidar_range: 50.0
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  community_plugins: {}
-  control_dt: 0.01
-  controller: StanleyController
-  default_extensions:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_community_plugins: {}
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_default_extensions:
   - e10_perception_MO_prediction
   - e40_bridge_gazebo
   - e50_headless_mode
   - e40_bridge_carla
   - e40_bridge_ROS2
   - e40_executer_ROS2
-  executer_type: AsyncThreadedExecuter
+  c40_executer_type: AsyncThreadedExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/san_campus.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: ''
+  c40_localization_dt: 0.1
+  c40_log_level: INFO
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: PerceptionPipeline
+  c40_perception_dt: 0.01
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.01
+  c41_provide_ground_truth: false
+  c41_provide_lidar: true
+  c41_provide_rgb: false
+  c42_race_boundary_map: data/race_boundary_yas_marina.json
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/race_boundary_yas_marina.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: GlobalCenterlineRacePlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/san_campus.xodr
-  local_planner: GreedyLatticePlanner
-  localization: ''
-  localization_dt: 0.1
-  log_level: INFO
-  log_to_file: false
-  mapping: ''
-  perception: PerceptionPipeline
-  perception_dt: 0.01
-  provide_ground_truth: true
-  provide_lidar: true
-  provide_rgb: false
-  replan_dt: 0.01
-  sim_dt: 0.01
 perception exp:
-  async_combined_perception_planning: true
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_lidar_boundary_file: data/yasmarina.track.json
-  basic_sim_lidar_fov_deg: 360.0
-  basic_sim_lidar_num_beams: 360
-  basic_sim_lidar_range: 50.0
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: BasicSim
-  community_plugins:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_community_plugins:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
-  control_dt: 0.01
-  controller: StanleyController
-  default_extensions:
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_default_extensions:
   - e10_perception_MO_prediction
   - e40_bridge_gazebo
   - e50_headless_mode
   - e40_bridge_carla
   - e40_bridge_ROS2
   - e40_executer_ROS2
-  executer_type: AsyncThreadedExecuter
+  c40_executer_type: AsyncThreadedExecuter
+  c40_global_planner: RaceGlobalPlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: ''
+  c40_localization_dt: 0.1
+  c40_log_level: INFO
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: PerceptionPipeline
+  c40_perception_dt: 0.01
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.01
+  c41_provide_ground_truth: false
+  c41_provide_lidar: true
+  c41_provide_rgb: false
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: RaceGlobalPlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: GreedyLatticePlanner
-  localization: ''
-  localization_dt: 0.1
-  log_level: INFO
-  log_to_file: false
-  mapping: ''
-  perception: PerceptionPipeline
-  perception_dt: 0.01
-  provide_ground_truth: false
-  provide_lidar: true
-  provide_rgb: false
-  replan_dt: 0.01
-  sim_dt: 0.01
 ros:
-  async_combined_perception_planning: true
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: BasicSim
-  community_plugins:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_community_plugins:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
-  control_dt: 0.01
-  controller: StanleyController
-  default_extensions:
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_default_extensions:
   - executer_multi_processing
   - test_ext
   - executer_ros
   - multi_object_prediction
-  executer_type: ROSExecuter
+  c40_executer_type: ROSExecuter
+  c40_global_planner: HDMapGlobalPlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: Localization
+  c40_localization_dt: 0.1
+  c40_log_level: DEBUG
+  c40_log_to_file: true
+  c40_mapping: ''
+  c40_perception: MultiObjectPredictor
+  c40_perception_dt: 0.5
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.011
+  c41_provide_ground_truth: true
+  c41_provide_lidar: false
+  c41_provide_rgb: false
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: HDMapGlobalPlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: GreedyLatticePlanner
-  localization: Localization
-  localization_dt: 0.1
-  log_level: DEBUG
-  log_to_file: true
-  mapping: ''
-  perception: MultiObjectPredictor
-  perception_dt: 0.5
-  provide_ground_truth: true
-  provide_lidar: false
-  provide_rgb: false
-  replan_dt: 0.01
-  sim_dt: 0.011
 sync:
-  async_combined_perception_planning: true
-  basic_sim_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  basic_sim_npc_control: true
-  basic_sim_npc_speed_factor: 0.8
-  bridge: BasicSim
-  community_plugins:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_community_plugins:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
-  control_dt: 0.01
-  controller: StanleyController
-  default_extensions:
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_default_extensions:
   - e10_perception_MO_prediction
   - e40_bridge_gazebo
   - e40_bridge_carla
   - e40_bridge_ROS2
   - e40_executer_ROS2
-  executer_type: SyncExecuter
+  c40_executer_type: SyncExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: ''
+  c40_localization_dt: 0.1
+  c40_log_level: DEBUG
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: PerceptionPipeline
+  c40_perception_dt: 0.5
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.05
+  c41_provide_ground_truth: true
+  c41_provide_lidar: true
+  c41_provide_rgb: false
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
   filepath: configs/c40_execution.yaml
-  global_planner: GlobalCenterlineRacePlanner
-  global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  hd_map: data/Town10HD_Opt.xodr
-  local_planner: GreedyLatticePlanner
-  localization: ''
-  localization_dt: 0.1
-  log_level: DEBUG
-  log_to_file: false
-  mapping: ''
-  perception: PerceptionPipeline
-  perception_dt: 0.5
-  provide_ground_truth: true
-  provide_lidar: true
-  provide_rgb: false
-  replan_dt: 0.01
-  sim_dt: 0.05

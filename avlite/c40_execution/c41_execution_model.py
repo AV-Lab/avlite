@@ -162,7 +162,7 @@ class Executer(ABC):
         cdt = control_dt if control_dt is not None else self.control_dt
         pdt = self.perception_dt
         ldt = self.localization_dt
-        sdt = ExecutionSettings.sim_dt
+        sdt = ExecutionSettings.c40_sim_dt
         while not self._stop_event.is_set():
             try:
                 self.step(
@@ -224,8 +224,8 @@ class Executer(ABC):
 
         if satisfies_requirements(self.localization.requirements, self.world.capabilities):
             self.localization.localize(
-                lidar=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
-                rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
+                lidar=self.world.get_lidar_data() if ExecutionSettings.c41_provide_lidar else None,
+                rgb_img=self.world.get_rgb_image() if ExecutionSettings.c41_provide_rgb else None,
             )
             self.localization_fps = self._localization_fps_tracker.tick()
         else:
@@ -249,7 +249,7 @@ class Executer(ABC):
             )
             return
 
-        if ExecutionSettings.provide_ground_truth:
+        if ExecutionSettings.c41_provide_ground_truth:
             gt = self.world.get_ground_truth_perception_model()
             # Copy the world's authoritative agents into the executer's own
             # perception model instead of aliasing to it, so that clearing the
@@ -262,9 +262,9 @@ class Executer(ABC):
 
         self.perception.perceive(
             perception_model=self.pm,
-            rgb_img=self.world.get_rgb_image() if ExecutionSettings.provide_rgb else None,
+            rgb_img=self.world.get_rgb_image() if ExecutionSettings.c41_provide_rgb else None,
             depth_img=self.world.get_depth_image(),
-            lidar_data=self.world.get_lidar_data() if ExecutionSettings.provide_lidar else None,
+            lidar_data=self.world.get_lidar_data() if ExecutionSettings.c41_provide_lidar else None,
         )
 
         self.perception_fps = self._perception_fps_tracker.tick()

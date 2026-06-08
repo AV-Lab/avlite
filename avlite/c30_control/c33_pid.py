@@ -12,8 +12,8 @@ from avlite.c30_control.c39_settings import ControlSettings
 log = logging.getLogger(__name__)
 
 class PIDController(ControlStrategy):
-    def __init__(self, tj:Optional[TrajectoryTracker]=None, alpha=ControlSettings.pid_alpha, beta=ControlSettings.pid_beta, gamma=ControlSettings.pid_gamma,
-                 valpha=ControlSettings.pid_valpha, vbeta=ControlSettings.pid_vbeta, vgamma=ControlSettings.pid_vgamma, pid_lookahead=ControlSettings.pid_lookahead):
+    def __init__(self, tj:Optional[TrajectoryTracker]=None, alpha=ControlSettings.c33_pid_alpha, beta=ControlSettings.c33_pid_beta, gamma=ControlSettings.c33_pid_gamma,
+                 valpha=ControlSettings.c33_pid_valpha, vbeta=ControlSettings.c33_pid_vbeta, vgamma=ControlSettings.c33_pid_vgamma, pid_lookahead=ControlSettings.c33_pid_lookahead):
         super().__init__(tj)
         self.alpha, self.beta, self.gamma = alpha, beta, gamma
 
@@ -90,9 +90,9 @@ class PIDController(ControlStrategy):
         
         # Emergency braking: if target velocity is 0 (or very low) and we're still moving,
         # apply maximum braking force regardless of PID output
-        if target_velocity < ControlSettings.emergency_velocity_threshold and ego.velocity > ControlSettings.emergency_min_moving_velocity:
+        if target_velocity < ControlSettings.c30_emergency_velocity_threshold and ego.velocity > ControlSettings.c30_emergency_min_moving_velocity:
             # Emergency stop requested - apply max deceleration
-            emergency_acc = self.ego_min_acceleration * ControlSettings.emergency_braking_factor  # 90% of max braking
+            emergency_acc = self.ego_min_acceleration * ControlSettings.c30_emergency_braking_factor  # 90% of max braking
             if acc > emergency_acc:
                 log.warning(f"Emergency braking: overriding PID acc {acc:.2f} with {emergency_acc:.2f}")
                 acc = emergency_acc

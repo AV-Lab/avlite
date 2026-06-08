@@ -67,6 +67,7 @@ class AsyncThreadedExecuter(Executer):
         self.create_threads()
 
     def step( self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=False, call_localize=True):
+        self.perception_dt = perception_dt
         self.control_dt = control_dt
         self.replan_dt = replan_dt
         self.localization_dt = localization_dt

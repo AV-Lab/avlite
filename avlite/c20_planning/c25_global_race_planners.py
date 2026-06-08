@@ -34,11 +34,13 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
         filepath: str,
         max_velocity: float = 10.0,
         max_lateral_accel: float = 5.0,
+        margin: float = 1.0,
     ):
         super().__init__()
         self.filepath = filepath
         self.max_velocity = max_velocity
         self.max_lateral_accel = max_lateral_accel
+        self.margin = margin
 
     def plan(self) -> GlobalPlan:
         with open(self.filepath) as f:
@@ -53,24 +55,30 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
                 "arrays must have equal length."
             )
 
-        path_np = (left + right) / 2.0
+        # Apply inward margin: shift each boundary toward the centreline.
+        eps = 1e-6
+        diff = right - left
+        norms = np.linalg.norm(diff, axis=1, keepdims=True)
+        dir_unit = diff / np.maximum(norms, eps)
+        eff_left = left + self.margin * dir_unit
+        eff_right = right - self.margin * dir_unit
+
+        path_np = (eff_left + eff_right) / 2.0
         path = [tuple(p) for p in path_np]
         velocity = self._curvature_velocity(path_np)
         trajectory = TrajectoryTracker(path=path, velocity=velocity)
-        left_boundary_d  = [trajectory.convert_xy_to_sd(x, y)[1] for x, y in left]
-        right_boundary_d = [trajectory.convert_xy_to_sd(x, y)[1] for x, y in right]
 
         self.global_plan = GlobalPlan(
             start_point=path[0],
             goal_point=path[-1],
             path=path,
             velocity=velocity,
-            left_boundary_d=left_boundary_d,
-            right_boundary_d=right_boundary_d,
-            left_boundary_x=left[:, 0].tolist(),
-            left_boundary_y=left[:, 1].tolist(),
-            right_boundary_x=right[:, 0].tolist(),
-            right_boundary_y=right[:, 1].tolist(),
+            left_boundary_d=[trajectory.convert_xy_to_sd(x, y)[1] for x, y in eff_left],
+            right_boundary_d=[trajectory.convert_xy_to_sd(x, y)[1] for x, y in eff_right],
+            left_boundary_x=eff_left[:, 0].tolist(),
+            left_boundary_y=eff_left[:, 1].tolist(),
+            right_boundary_x=eff_right[:, 0].tolist(),
+            right_boundary_y=eff_right[:, 1].tolist(),
             trajectory=trajectory,
             race_mode=True,
         )

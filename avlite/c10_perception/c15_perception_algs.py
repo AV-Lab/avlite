@@ -33,7 +33,7 @@ class ConstantVelocityPrediction(PredictionStrategy):
             return perception_model
 
         dt = perception_model.predict_delta_t
-        horizon = PerceptionSettings.prediction_horizon
+        horizon = PerceptionSettings.c15_prediction_horizon
         n_steps = max(1, int(round(horizon / dt)))
 
         trajectories = np.empty((len(agents), n_steps, 2))
@@ -97,13 +97,13 @@ class KalmanTracker(TrackingStrategy):
 
     def __init__(
         self,
-        dt: float = PerceptionSettings.tracking_dt,
-        process_noise: float = PerceptionSettings.tracking_process_noise,
-        measurement_noise: float = PerceptionSettings.tracking_measurement_noise,
-        init_velocity_var: float = PerceptionSettings.tracking_init_velocity_var,
-        gate_distance: float = PerceptionSettings.tracking_gate_distance,
-        max_missed: int = PerceptionSettings.tracking_max_missed,
-        min_speed: float = PerceptionSettings.tracking_min_speed,
+        dt: float = PerceptionSettings.c15_tracking_dt,
+        process_noise: float = PerceptionSettings.c15_tracking_process_noise,
+        measurement_noise: float = PerceptionSettings.c15_tracking_measurement_noise,
+        init_velocity_var: float = PerceptionSettings.c15_tracking_init_velocity_var,
+        gate_distance: float = PerceptionSettings.c15_tracking_gate_distance,
+        max_missed: int = PerceptionSettings.c15_tracking_max_missed,
+        min_speed: float = PerceptionSettings.c15_tracking_min_speed,
     ):
         self._dt = dt
         self._q = process_noise ** 2
@@ -222,15 +222,15 @@ class FastBEVLidarDetection(DetectionStrategy):
 
     def __init__(
         self,
-        z_min: float = PerceptionSettings.detection_z_min,
-        z_max: float = PerceptionSettings.detection_z_max,
-        delta_min: float = PerceptionSettings.detection_delta_min,
-        delta_max: float = PerceptionSettings.detection_delta_max,
-        mu: float = PerceptionSettings.detection_mu,
-        min_length: float = PerceptionSettings.detection_min_length,
-        min_width: float = PerceptionSettings.detection_min_width,
-        default_length: float = PerceptionSettings.detection_default_length,
-        default_width: float = PerceptionSettings.detection_default_width,
+        z_min: float = PerceptionSettings.c15_detection_z_min,
+        z_max: float = PerceptionSettings.c15_detection_z_max,
+        delta_min: float = PerceptionSettings.c15_detection_delta_min,
+        delta_max: float = PerceptionSettings.c15_detection_delta_max,
+        mu: float = PerceptionSettings.c15_detection_mu,
+        min_length: float = PerceptionSettings.c15_detection_min_length,
+        min_width: float = PerceptionSettings.c15_detection_min_width,
+        default_length: float = PerceptionSettings.c15_detection_default_length,
+        default_width: float = PerceptionSettings.c15_detection_default_width,
     ):
         self._z_min = z_min
         self._z_max = z_max

@@ -273,26 +273,26 @@ def _current_profile() -> str:
 
 
 def register_in_profile(name: str, path: Path, profile: Optional[str] = None) -> None:
-    """Add ``name -> path`` to ``ExecutionSettings.community_plugins`` and persist."""
+    """Add ``name -> path`` to ``ExecutionSettings.c40_community_plugins`` and persist."""
     from avlite.c40_execution.c49_settings import ExecutionSettings
     from avlite.c60_common.c61_setting_utils import load_setting, save_setting
 
     profile = profile or _current_profile()
     # Load existing profile state so we don't overwrite unrelated entries.
     load_setting(ExecutionSettings, profile=profile)
-    ExecutionSettings.community_plugins[name] = str(path)
+    ExecutionSettings.c40_community_plugins[name] = str(path)
     save_setting(ExecutionSettings, profile=profile)
     log.info("Registered plugin '%s' in profile '%s'", name, profile)
 
 
 def unregister_from_profile(name: str, profile: Optional[str] = None) -> None:
-    """Remove ``name`` from ``ExecutionSettings.community_plugins`` and persist."""
+    """Remove ``name`` from ``ExecutionSettings.c40_community_plugins`` and persist."""
     from avlite.c40_execution.c49_settings import ExecutionSettings
     from avlite.c60_common.c61_setting_utils import load_setting, save_setting
 
     profile = profile or _current_profile()
     load_setting(ExecutionSettings, profile=profile)
-    ExecutionSettings.community_plugins.pop(name, None)
+    ExecutionSettings.c40_community_plugins.pop(name, None)
     save_setting(ExecutionSettings, profile=profile)
     log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
 
@@ -301,7 +301,7 @@ def _registered_names() -> set[str]:
     try:
         from avlite.c40_execution.c49_settings import ExecutionSettings
 
-        return set(ExecutionSettings.community_plugins.keys())
+        return set(ExecutionSettings.c40_community_plugins.keys())
     except Exception:
         return set()
 

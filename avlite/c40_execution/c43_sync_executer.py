@@ -24,10 +24,10 @@ class SyncExecuter(Executer):
         controller: ControlStrategy = None,
         world: WorldBridge = None,
         localization: LocalizationStrategy = None,
-        perception_dt=ExecutionSettings.perception_dt,
-        replan_dt=ExecutionSettings.replan_dt,
-        control_dt=ExecutionSettings.control_dt,
-        localization_dt=ExecutionSettings.localization_dt,
+        perception_dt=ExecutionSettings.c40_perception_dt,
+        replan_dt=ExecutionSettings.c40_replan_dt,
+        control_dt=ExecutionSettings.c40_control_dt,
+        localization_dt=ExecutionSettings.c40_localization_dt,
     ):
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
