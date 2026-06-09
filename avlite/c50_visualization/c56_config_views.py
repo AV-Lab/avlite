@@ -190,7 +190,8 @@ class SettingWindow:
         self.setting = root.setting
         self.window = tk.Toplevel(root)
         # settings_window.title("Settings")
-        self.window.geometry("400x300")
+        _s = getattr(root, '_dpi_scale', 1.0)
+        self.window.geometry(f"{round(400 * _s)}x{round(300 * _s)}")
         # self.root.bind("Q", lambda e: settings_window.destroy())
 
         self.frame = ttk.Frame(self.window)

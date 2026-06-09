@@ -402,7 +402,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                 # All edges have boundary violations only — no real collision.
                 # The boundary-violation fallback above should have handled this;
                 # if we still end up here, keep the existing velocity profile unchanged.
-                log.warning("Emergency branch: all edges have boundary violations but no collision "
+                log.debug("Emergency branch: all edges have boundary violations but no collision "
                             "— keeping current velocity profile")
                 return
 

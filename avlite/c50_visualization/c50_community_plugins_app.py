@@ -333,9 +333,10 @@ class CommunityPluginsApp:
             except tk.TclError:
                 pass
 
+        _s = max(1.0, min(3.0, self.window.winfo_fpixels('1i') / 96.0))
         self.window.title("AVLite Community Plugins")
-        self.window.geometry("900x500")
-        self.window.minsize(700, 350)
+        self.window.geometry(f"{round(900 * _s)}x{round(500 * _s)}")
+        self.window.minsize(round(700 * _s), round(350 * _s))
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         self.window.bind("<Escape>", lambda _e: self._on_close())
 

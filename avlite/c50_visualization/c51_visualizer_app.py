@@ -26,6 +26,9 @@ class VisualizerApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
+        # Pixels-per-inch reported by this screen, normalised to a 96 dpi baseline.
+        # Used to scale any hardcoded pixel geometry so windows feel right on all devices.
+        self._dpi_scale: float = max(1.0, min(3.0, self.winfo_fpixels('1i') / 96.0))
         self.exec = executor_factory()
         self.loading_overlay = None
         self.ui_initialized = False
@@ -196,8 +199,9 @@ class VisualizerApp(tk.Tk):
 
     
         # Center the loading window on the screen using xrandr output
-        width = 450
-        height = 350
+        s = getattr(self, '_dpi_scale', 1.0)
+        width = round(450 * s)
+        height = round(350 * s)
         try:
             import subprocess
             output = subprocess.check_output(['xrandr']).decode('utf-8')
@@ -228,7 +232,7 @@ class VisualizerApp(tk.Tk):
         try:
             from PIL import Image, ImageTk
             logo_img = Image.open("data/imgs/logo.png")
-            logo_img = logo_img.resize((256, 256), Image.LANCZOS)
+            logo_img = logo_img.resize((round(256 * s), round(256 * s)), Image.LANCZOS)
             self.logo_photo = ImageTk.PhotoImage(logo_img)
             logo_label = tk.Label(frame, image=self.logo_photo, bg="black")
             logo_label.pack(pady=(15, 5))

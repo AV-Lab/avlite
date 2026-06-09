@@ -102,7 +102,7 @@ class ThemedInputDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        # self.dialog.geometry("300x100")
+        self.dialog.minsize(300, 100)
         
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
 
