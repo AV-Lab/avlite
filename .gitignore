@@ -11,3 +11,5 @@ venvs
 1-files
 site/
 .hypothesis/
+graphify-out/
+.pytest_cache/

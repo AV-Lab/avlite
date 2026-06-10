@@ -1,0 +1,37 @@
+# Files excluded from AI agent context (Cursor, Claude Code, Copilot, etc.)
+# Syntax: same as .gitignore (fnmatch globs)
+#
+# Tool mapping:
+#   .cursorignore  -> symlink to this file (Cursor)
+#   .claudeignore  -> symlink to this file (Claude Code)
+#   .copilotignore -> symlink to this file (Copilot Ignore extension)
+#   VS Code Copilot -> also respects .gitignore automatically
+#
+# Keep in sync with .gitignore; add AI-only patterns in the section below.
+
+# --- .gitignore (project) ---
+build/
+install/
+log/
+logs/
+__pycache__/
+venv/
+venvs/
+.ipynb_checkpoints/
+.env
+.env.*
+1-files/
+site/
+.hypothesis/
+.vscode/
+
+# --- Generated / cache (AI-only; keeps agents out of large artifacts) ---
+graphify-out/
+.pytest_cache/
+.git/
+
+# --- Secrets (belt and suspenders) ---
+*.pem
+*.key
+credentials.json
+secrets/
