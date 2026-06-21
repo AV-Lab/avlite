@@ -121,17 +121,14 @@ class PlannerNode(Node):
         
         try:
             # Only publish — replan() runs in step() to avoid blocking the ROS spin thread
-            trajectory = self.planner.get_local_plan()
-            
-            if trajectory is None:
-                self.get_logger().debug("Trajectory is None")
+            local_plan = self.planner.get_local_plan()
+            if local_plan is None:
+                self.get_logger().debug("Local plan is None")
                 return
-                
-            # Check if path exists and has data
-            has_path = (hasattr(trajectory, 'path') and trajectory.path and len(trajectory.path) > 0)
-            
-            if not has_path:
-                self.get_logger().debug(f"No valid path in trajectory")
+
+            trajectory = local_plan.as_trajectory()
+            if trajectory is None or not trajectory.path:
+                self.get_logger().debug("No valid path in trajectory")
                 return
             
             if self.use_autoware:

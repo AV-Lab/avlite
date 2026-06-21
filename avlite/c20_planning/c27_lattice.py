@@ -117,13 +117,13 @@ class Lattice:
         obstacle_polygons = None
         if pm is not None and len(pm.agent_vehicles) > 0:
             # Predict obstacles over the full planning horizon: horizon_dist / ego_vel
-            ego_vel = max(pm.ego_vehicle.velocity, PlanningSettings.default_ego_velocity)
+            ego_vel = max(pm.ego_vehicle.velocity, PlanningSettings.c20_default_ego_velocity)
             maneuver_dist = getattr(self, 'maneuver_distance', 30.0)
             obstacle_polygons = precompute_obstacle_polygons(
                 pm,
                 total_time=maneuver_dist / ego_vel,
-                min_velocity_threshold=PlanningSettings.min_velocity_threshold,
-                obstacle_inflation_margin=PlanningSettings.obstacle_inflation_margin,
+                min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
+                obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
             )
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
@@ -134,9 +134,9 @@ class Lattice:
                         edge.collision, edge.collision_idx, edge.collision_agent_velocity = check_collision(
                             pm, edge.local_trajectory,
                             obstacle_polygons=obstacle_polygons,
-                            min_velocity_threshold=PlanningSettings.min_velocity_threshold,
-                            collision_safety_margin=PlanningSettings.collision_safety_margin,
-                            default_ego_velocity=PlanningSettings.default_ego_velocity,
+                            min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
+                            collision_safety_margin=PlanningSettings.c20_collision_safety_margin,
+                            default_ego_velocity=PlanningSettings.c20_default_ego_velocity,
                         )
                     edge.boundary_violation = self._check_boundary_violation(edge)
                     self.edges.append(edge)

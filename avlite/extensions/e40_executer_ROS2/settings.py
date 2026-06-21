@@ -1,41 +1,44 @@
+from pydantic import Field
+
+from avlite.c60_common.c68_settings_schema import SettingsSchema
+
+
+class ExtensionSettingsSchema(SettingsSchema):
+    use_autoware_msgs: bool = Field(default=True, description="Use Autoware message types instead of JSON strings.")
+    localization_topic: str = Field(default="/localization/kinematic_state", description="Localization input topic.")
+    perception_topic: str = Field(
+        default="/perception/object_recognition/tracking/objects",
+        description="Perception input topic.",
+    )
+    trajectory_topic: str = Field(default="/planning/scenario_planning/trajectory", description="External trajectory input topic.")
+    control_cmd_topic: str = Field(default="/control/command/control_cmd", description="External control input topic.")
+    trajectory_out_topic: str = Field(default="/avlite/planning/trajectory", description="AVLite trajectory output topic.")
+    control_out_topic: str = Field(default="/avlite/control/control_cmd", description="AVLite control output topic.")
+    map_frame: str = Field(default="map", description="ROS map frame id.")
+    base_frame: str = Field(default="base_link", description="ROS base link frame id.")
+    collection_hz: float = Field(default=20.0, description="ROS data collection rate (Hz).")
+    sim_dt: float = Field(default=0.02, description="Simulation step dt (seconds).")
+    perception_dt: float = Field(default=0.1, description="Perception publish dt (seconds).")
+    replan_dt: float = Field(default=0.1, description="Planning dt (seconds).")
+    control_dt: float = Field(default=0.02, description="Control dt (seconds).")
+
+
 class ExtensionSettings:
-    """Settings for ROS executor with Autoware message topics."""
-    exclude = ["exclude", "filepath"]  # attributes to exclude from saving/loading
+    schema = ExtensionSettingsSchema
+    exclude = ["exclude", "filepath", "schema"]
     filepath: str = "configs/ext_ros_executer.yaml"
 
-    # Whether to use Autoware messages (True) or JSON strings (False)
-    # When False, all messages are published/subscribed as std_msgs/String with JSON content
     use_autoware_msgs: bool = True
-
-    # Autoware localization topic (subscribes to VehicleKinematicState or String)
     localization_topic: str = "/localization/kinematic_state"
-    
-    # Autoware perception topic (subscribes to BoundingBoxArray or String)
     perception_topic: str = "/perception/object_recognition/tracking/objects"
-    
-    # Autoware planning topic (subscribes to Trajectory or String from external planner)
     trajectory_topic: str = "/planning/scenario_planning/trajectory"
-    
-    # Autoware control topic (subscribes to VehicleControlCommand or String from external controller)
     control_cmd_topic: str = "/control/command/control_cmd"
-    
-    # Output topic for AVLite-computed trajectory (if running internal planner)
     trajectory_out_topic: str = "/avlite/planning/trajectory"
-    
-    # Output topic for AVLite-computed control (if running internal controller)
     control_out_topic: str = "/avlite/control/control_cmd"
-    
-    # Frame IDs
     map_frame: str = "map"
     base_frame: str = "base_link"
-    
-    # Collection frequency for syncing ROS data to visualizer
     collection_hz: float = 20.0
-    
-    # Timing settings (dt = delta time between ticks)
-    sim_dt: float = 0.02       # Simulation step dt (50 Hz default)
-    perception_dt: float = 0.1  # Perception publish rate (10 Hz default)
-    replan_dt: float = 0.1      # Planning rate (10 Hz default)
-    control_dt: float = 0.02    # Control rate (50 Hz default)
-
-
+    sim_dt: float = 0.02
+    perception_dt: float = 0.1
+    replan_dt: float = 0.1
+    control_dt: float = 0.02

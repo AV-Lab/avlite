@@ -4,9 +4,9 @@ from tkinter import ttk, messagebox
 
 import logging
 
-from avlite.c40_execution.c41_execution_model import Executer
-from avlite.c40_execution.c42_factory import executor_factory
-from avlite.c40_execution.c43_sync_executer import SyncExecuter
+from avlite.c40_execution.c42_executer import Executer
+from avlite.c40_execution.c43_factory import executor_factory
+from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from avlite.c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
@@ -14,7 +14,15 @@ from avlite.c50_visualization.c54_exec_views import ExecView
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c61_setting_utils import load_setting, list_profiles, list_extensions, load_all_stack_settings, reload_lib
+from avlite.c60_common.c69_setting_utils import (
+    load_setting,
+    list_profiles,
+    list_extensions,
+    load_all_stack_settings,
+    reload_lib,
+    get_startup_profile,
+    set_startup_profile,
+)
     
 
 log = logging.getLogger(__name__)
@@ -26,6 +34,9 @@ class VisualizerApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
+        # Pixels-per-inch reported by this screen, normalised to a 96 dpi baseline.
+        # Used to scale any hardcoded pixel geometry so windows feel right on all devices.
+        self._dpi_scale: float = max(1.0, min(3.0, self.winfo_fpixels('1i') / 96.0))
         self.exec = executor_factory()
         self.loading_overlay = None
         self.ui_initialized = False
@@ -50,7 +61,10 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
-        ExecutionSettings.default_extensions = list_extensions()
+        startup = get_startup_profile()
+        if startup and startup in self.setting.profile_list:
+            self.setting.selected_profile.set(startup)
+        ExecutionSettings.c40_default_extensions = list_extensions()
         
         # ----------------------------------------------------------------------
         # UI Views
@@ -74,9 +88,9 @@ class VisualizerApp(tk.Tk):
         
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_configs()
-        log.warning(f"map is {ExecutionSettings.hd_map}")
+        log.warning(f"map is {ExecutionSettings.c40_hd_map}")
         self.reload_stack()
-        log.warning(f"map after is {ExecutionSettings.hd_map}")
+        log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
 
         # Bind to window resize to maintain ratio
         self.update_shortcut_mode()
@@ -196,8 +210,9 @@ class VisualizerApp(tk.Tk):
 
     
         # Center the loading window on the screen using xrandr output
-        width = 450
-        height = 350
+        s = getattr(self, '_dpi_scale', 1.0)
+        width = round(450 * s)
+        height = round(350 * s)
         try:
             import subprocess
             output = subprocess.check_output(['xrandr']).decode('utf-8')
@@ -228,7 +243,7 @@ class VisualizerApp(tk.Tk):
         try:
             from PIL import Image, ImageTk
             logo_img = Image.open("data/imgs/logo.png")
-            logo_img = logo_img.resize((256, 256), Image.LANCZOS)
+            logo_img = logo_img.resize((round(256 * s), round(256 * s)), Image.LANCZOS)
             self.logo_photo = ImageTk.PhotoImage(logo_img)
             logo_label = tk.Label(frame, image=self.logo_photo, bg="black")
             logo_label.pack(pady=(15, 5))
@@ -476,7 +491,7 @@ class VisualizerApp(tk.Tk):
     
 
     def load_configs(self, only_stack=False, profile=None):
-        """ Load settings from a profile or the current settings. Uses c61_setting_utils files plus UI house keeping """
+        """ Load settings from a profile or the current settings. Uses c69_setting_utils files plus UI house keeping """
         
         if profile:
             self.setting.selected_profile.set(profile)
@@ -494,6 +509,7 @@ class VisualizerApp(tk.Tk):
         log.info(f"Loaded settings from profile: {profile}")
 
         self.log_view.reset()
+        set_startup_profile(profile)
 
     def reload_stack(self, reload_code:bool = True):
         if reload_code:
@@ -524,12 +540,12 @@ class VisualizerApp(tk.Tk):
                 localization_dt=self.setting.localization_dt.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
-                hd_map=ExecutionSettings.hd_map,
+                hd_map=ExecutionSettings.c40_hd_map,
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
                 # reload_code=reload_code,
                 # exclude_reload_settings=True,
                 load_extensions=self.setting.load_extensions.get(),
-                async_combined_perception_planning=ExecutionSettings.async_combined_perception_planning,
+                async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
 
         except Exception as e:
@@ -543,6 +559,7 @@ class VisualizerApp(tk.Tk):
         self.local_plan_plot_view.reset()
         self.global_plan_plot_view.reset()
         self.perceive_plan_control_view.reset()
+        self.exec_visualize_view.update_data()
         self.update_views()
         self.update_ui()
         self.enable_frame(self)

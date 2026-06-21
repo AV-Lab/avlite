@@ -12,11 +12,11 @@ from avlite.c30_control.c39_settings import ControlSettings
 log = logging.getLogger(__name__)
 
 class StanleyController(ControlStrategy):
-    def __init__(self, tj:Optional[TrajectoryTracker]=None, k=ControlSettings.stanley_k, k_soft = ControlSettings.stanley_k_soft,
-                 lookahead=ControlSettings.stanley_lookahead, valpha=ControlSettings.stanley_valpha, vbeta=ControlSettings.stanley_vbeta,
-                 vgamma=ControlSettings.stanley_vgamma, slow_down_cte=ControlSettings.stanley_slow_down_cte, 
-                 slow_down_heading_cte = ControlSettings.stanley_slow_down_heading_cte,
-                 slow_down_vel_threshold=ControlSettings.stanley_slow_down_vel_threshold):
+    def __init__(self, tj:Optional[TrajectoryTracker]=None, k=ControlSettings.c34_stanley_k, k_soft=ControlSettings.c34_stanley_k_soft,
+                 lookahead=ControlSettings.c34_stanley_lookahead, valpha=ControlSettings.c34_stanley_valpha, vbeta=ControlSettings.c34_stanley_vbeta,
+                 vgamma=ControlSettings.c34_stanley_vgamma, slow_down_cte=ControlSettings.c34_stanley_slow_down_cte,
+                 slow_down_heading_cte=ControlSettings.c34_stanley_slow_down_heading_cte,
+                 slow_down_vel_threshold=ControlSettings.c34_stanley_slow_down_vel_threshold):
         """
         Stanley Controller for trajectory following. The controller also slows down the vehicle if steer CTE is > 0.5
         :param tj: Trajectory to follow.
@@ -99,9 +99,9 @@ class StanleyController(ControlStrategy):
         
         # Emergency braking: if target velocity is 0 (or very low) and we're still moving,
         # apply maximum braking force regardless of PID output
-        if target_velocity < ControlSettings.emergency_velocity_threshold and ego.velocity > ControlSettings.emergency_min_moving_velocity:
+        if target_velocity < ControlSettings.c30_emergency_velocity_threshold and ego.velocity > ControlSettings.c30_emergency_min_moving_velocity:
             # Emergency stop requested - apply max deceleration
-            emergency_acc = self.ego_min_acceleration * ControlSettings.emergency_braking_factor  # 90% of max braking
+            emergency_acc = self.ego_min_acceleration * ControlSettings.c30_emergency_braking_factor  # 90% of max braking
             if acc > emergency_acc:
                 log.warning(f"Emergency braking: overriding PID acc {acc:.2f} with {emergency_acc:.2f}")
                 acc = emergency_acc

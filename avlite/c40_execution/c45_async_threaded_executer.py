@@ -5,9 +5,9 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c41_execution_model import Executer
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c42_executer import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c40_execution.c43_sync_executer import WorldBridge
 
 import threading
 import time
@@ -67,6 +67,7 @@ class AsyncThreadedExecuter(Executer):
         self.create_threads()
 
     def step( self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=False, call_localize=True):
+        self.perception_dt = perception_dt
         self.control_dt = control_dt
         self.replan_dt = replan_dt
         self.localization_dt = localization_dt

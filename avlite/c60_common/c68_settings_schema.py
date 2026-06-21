@@ -1,0 +1,197 @@
+"""Pydantic schemas and helpers for validated YAML settings profiles."""
+
+from __future__ import annotations
+
+from typing import Any, Type
+
+import numpy as np
+import tkinter as tk
+from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic.fields import FieldInfo
+
+SETTINGS_META = frozenset({"exclude", "filepath", "schema"})
+
+
+class SettingsSchema(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+
+class SettingsValidationError(Exception):
+    """Raised when a profile dict fails schema validation."""
+
+    def __init__(
+        self,
+        filepath: str,
+        profile: str,
+        message: str,
+        *,
+        field: str | None = None,
+    ) -> None:
+        self.filepath = filepath
+        self.profile = profile
+        self.field = field
+        super().__init__(message)
+
+    def __str__(self) -> str:
+        loc = f"{self.filepath} / profile '{self.profile}'"
+        if self.field:
+            return f"{loc} / {self.field}: {super().__str__()}"
+        return f"{loc}: {super().__str__()}"
+
+
+def _coerce_numpy_scalar(value: Any) -> Any:
+    if isinstance(value, (np.floating, np.integer)):
+        return value.item()
+    return value
+
+
+def _format_validation_error(
+    exc: ValidationError,
+    filepath: str,
+    profile: str,
+    schema: Type[BaseModel] | None = None,
+) -> SettingsValidationError:
+    errors = exc.errors()
+    if not errors:
+        return SettingsValidationError(filepath, profile, str(exc))
+    first = errors[0]
+    field_path = ".".join(str(p) for p in first.get("loc", ()))
+    msg = first.get("msg", str(exc))
+    if schema is not None and field_path:
+        desc = field_description(schema, field_path)
+        if desc:
+            msg = f"{msg} — {desc}"
+    return SettingsValidationError(filepath, profile, msg, field=field_path or None)
+
+
+def validate_profile(
+    schema: Type[BaseModel],
+    profile_dict: dict[str, Any],
+    *,
+    filepath: str = "",
+    profile: str = "default",
+) -> BaseModel:
+    try:
+        return schema.model_validate(profile_dict)
+    except ValidationError as exc:
+        raise _format_validation_error(exc, filepath, profile, schema) from exc
+
+
+def _resolve_attr(setting: Any, field_name: str) -> Any:
+    if isinstance(setting, type):
+        return getattr(setting, field_name)
+    return getattr(setting, field_name)
+
+
+def apply_validated_to_setting(setting: Any, validated: BaseModel) -> None:
+    """Apply validated schema fields onto a settings class or instance."""
+    for field_name, value in validated.model_dump().items():
+        if field_name in SETTINGS_META:
+            continue
+        if not hasattr(setting, field_name):
+            continue
+        attr_value = _resolve_attr(setting, field_name)
+        if isinstance(attr_value, tk.Variable):
+            if isinstance(attr_value, tk.BooleanVar):
+                attr_value.set(bool(value))
+            elif isinstance(attr_value, tk.IntVar):
+                attr_value.set(int(value))
+            elif isinstance(attr_value, tk.DoubleVar):
+                attr_value.set(float(value))
+            else:
+                attr_value.set(value)
+        elif not callable(attr_value):
+            coerced = _coerce_numpy_scalar(value)
+            if value is None and isinstance(attr_value, (list, dict)):
+                setattr(setting, field_name, type(attr_value)())
+            else:
+                setattr(setting, field_name, coerced)
+
+
+def _collect_field_values(setting: Any, schema: Type[BaseModel]) -> dict[str, Any]:
+    data: dict[str, Any] = {}
+    for field_name in schema.model_fields:
+        if field_name in SETTINGS_META:
+            continue
+        if not hasattr(setting, field_name):
+            continue
+        attr_value = _resolve_attr(setting, field_name)
+        if callable(attr_value) or field_name.startswith("_"):
+            continue
+        if isinstance(attr_value, tk.Variable):
+            data[field_name] = attr_value.get()
+        else:
+            val = attr_value
+            if isinstance(val, (np.floating, np.integer)):
+                val = val.item()
+            data[field_name] = val
+    return data
+
+
+def dump_from_setting(
+    setting: Any,
+    schema: Type[BaseModel],
+    *,
+    filepath: str = "",
+    profile: str = "default",
+) -> dict[str, Any]:
+    """Read current settings, validate round-trip, return YAML-safe dict."""
+    raw = _collect_field_values(setting, schema)
+    validated = validate_profile(schema, raw, filepath=filepath, profile=profile)
+    return validated.model_dump()
+
+
+def field_description(schema_or_cls: Type[BaseModel] | Any, field_name: str) -> str | None:
+    """Return Pydantic Field description for a settings field, if any."""
+    schema = schema_or_cls
+    if not isinstance(schema, type) or not issubclass(schema, BaseModel):
+        schema = getattr(schema_or_cls, "schema", None)
+    if schema is None:
+        return None
+    info: FieldInfo | None = schema.model_fields.get(field_name)
+    if info is None:
+        return None
+    return info.description
+
+
+def field_tooltip_text(schema_or_cls: Type[BaseModel] | Any, field_name: str) -> str | None:
+    """Build tooltip text: description first, then type/default in brackets."""
+    schema = schema_or_cls
+    if not isinstance(schema, type) or not issubclass(schema, BaseModel):
+        schema = getattr(schema_or_cls, "schema", None)
+    if schema is None:
+        return None
+    info = schema.model_fields.get(field_name)
+    if info is None:
+        return None
+    desc = info.description
+    if not desc:
+        return None
+    annotation = info.annotation
+    type_name = getattr(annotation, "__name__", str(annotation))
+    if info.is_required():
+        return f"{desc} ({type_name})"
+    default = info.default
+    return f"{desc} ({type_name}, default={default!r})"
+
+
+def describe_schema(
+    schema: Type[BaseModel],
+    *,
+    field_filter: str | None = None,
+) -> list[str]:
+    """Return human-readable lines describing schema fields."""
+    lines: list[str] = []
+    for name, info in schema.model_fields.items():
+        if field_filter is not None and name != field_filter:
+            continue
+        annotation = info.annotation
+        type_name = getattr(annotation, "__name__", str(annotation))
+        default = info.default
+        default_str = ""
+        if default is not None and default is not ... and str(default) != "PydanticUndefined":
+            default_str = f", default={default!r}"
+        lines.append(f"{name} ({type_name}{default_str})")
+        if info.description:
+            lines.append(f"  {info.description}")
+    return lines

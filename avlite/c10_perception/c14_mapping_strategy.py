@@ -4,7 +4,7 @@ from typing import Mapping
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c60_common.c62_capabilities import WorldCapability, MappingCapability
+from avlite.c60_common.c61_capabilities import WorldCapability, MappingCapability
 
 log = logging.getLogger(__name__)
 

@@ -411,6 +411,7 @@ class LocalPlanPlotView(ttk.Frame):
             plot_lidar_frenet=self.root.setting.show_lidar_frenet.get(),
             plot_clusters=self.root.setting.show_lidar_clusters.get(),
             plot_ground_truth=self.root.setting.bridge_provide_ground_truth_detection.get(),
+            plot_race_boundary=self.root.setting.show_race_boundary.get(),
             show_global_view=self.root.setting.show_local_global_view.get(),
             show_frenet_view=self.root.setting.show_local_frenet_view.get(),
         )

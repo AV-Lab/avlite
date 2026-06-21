@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import logging
 import json
 
-from avlite.c60_common.c68_hdmap import HDMap
+from avlite.c60_common.c67_hdmap import HDMap
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
@@ -59,6 +59,23 @@ class GlobalPlan:
                 right_boundary_x=right_boundary_x,
                 right_boundary_y=right_boundary_y,
             )
+
+    def to_file(self, path_to_track: str) -> None:
+        import os
+        data = {
+            "ReferenceLine": [[x, y, 0.0] for x, y in self.path],
+            "ReferenceSpeed": list(self.velocity),
+        }
+        if self.left_boundary_d:
+            data["LeftBound"] = list(self.left_boundary_d)
+        if self.right_boundary_d:
+            data["RightBound"] = list(self.right_boundary_d)
+        dirname = os.path.dirname(path_to_track)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
+        with open(path_to_track, "w") as f:
+            json.dump(data, f, indent=2)
+        log.info("Global plan saved to %s", path_to_track)
 
 @dataclass
 class LocalPlan:

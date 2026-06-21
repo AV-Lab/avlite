@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- GUI startup profile: last selected profile saved in `~/.config/avlite/startup_profile` and restored on launch
+- **Copy repository configs** (settings window): copies shipped `{repo}/configs/*.yaml` into `~/.config/avlite/` and reloads
+- **Edit repository configs** (settings window, git clone only): optional dev mode to read/write `{repo}/configs/` directly; preference in `~/.config/avlite/config_target`
+
+### Changed
+- Renamed `c60_common` modules: `c61_capabilities`, `c62_sensor_data`, `c67_hdmap`, `c68_settings_schema`, `c69_setting_utils` (update imports if you extend AVLite)
+- **Use repository configs** superseded by **Copy repository configs** (copy to home instead of deleting local YAML)
+
+### Fixed
+- Settings window (`T`) no longer crashes when opening the repository-config controls after a partial code reload
+
+## [0.3.1] - 2026-06-21
+
+### Added
+- User config directory (`~/.config/avlite/`, override with `AVLITE_DATA_DIR`): flat YAML layout mirroring repo `configs/` basenames; load prefers user copy, falls back to repo; Save writes user dir only
+- User data directory for maps and trajectories (`~/.local/share/avlite/data/`, override with `AVLITE_DATA_DIR`): read checks user then repo; saves (e.g. global plans) go to user dir only
+- **Use repository configs** button in the settings window to discard local YAML overrides and reload shipped defaults
+- `avlite config help` subcommand; bare `avlite config` prints help instead of erroring
+- Schema tooltips on main-page controls (strategy dropdowns, timing fields) in addition to the settings window
+- `SensorFrame` and canonical sensor layouts in `c62_sensor_data.py` between world bridges and perception/localization
+- Config and data path resolution tests (`test_c61_config_paths.py`)
+
+### Changed
+- Perception/localization sub-strategy dropdowns use **None** as the default label (replacing legacy “Ground Truth” / “Default Perception Model” sentinels)
+- Community plugin install paths stored relative to the plugins directory when registered from the plugin browser
+- Tooltip text shows field description first, then type and default in parentheses
+
+### Fixed
+- `avlite config --help` and missing subcommand no longer emit a spurious parse error line
+- HD map, default trajectory, and global-plan save paths resolved consistently via `get_absolute_path()` (including when cwd is not the repo root)
+
+## [0.3.0] - 2026-06-21
+
+### Added
+- Pydantic-backed settings schemas for stack layers and extensions with field descriptions
+- `avlite config validate` and `avlite config describe` CLI subcommands
+- Hover tooltips in the settings window (`c56`) showing field descriptions from schemas
+
+### Changed
+- Config load/save validates types and reports field-level errors instead of silently assigning bad values
+
+### Fixed
+- Declare `scipy` and `pydantic` as core dependencies in package metadata and requirements files
+
 ## [0.2.0] - 2026-06-04
 
 ### Added
@@ -15,14 +60,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LidarLocalization` (`c16_localization_algs`): ICP scan-to-map ego localization; seeds reference map from first scan, then estimates translation + rotation via iterative closest-point alignment
 - `c17_mapping_algs.py`: placeholder for future online-mapping algorithms
 - `GlobalCenterlineRacePlanner` (`c25_global_race_planners`): race-line planner from a JSON left/right boundary file; computes centre-line path with curvature-adapted target velocities (`v = min(v_max, sqrt(a_lat/κ))`)
-- `HDMap` moved from `c10_perception/c18_hdmap` to `c60_common/c68_hdmap` and re-imported by all dependent modules
+- `HDMap` moved from `c10_perception/c18_hdmap` to `c60_common/c67_hdmap` and re-imported by all dependent modules
 - `HDMapGlobalPlanner` split out into its own module `c24_global_hdmap_planners`
-- `AnyOf` capability requirement class and `satisfies_requirements()` helper in `c62_capabilities`; allows a strategy to declare that any one of several world capabilities suffices (e.g. `AnyOf(LIDAR_2D, LIDAR_3D)`)
+- `AnyOf` capability requirement class and `satisfies_requirements()` helper in `c61_capabilities`; allows a strategy to declare that any one of several world capabilities suffices (e.g. `AnyOf(LIDAR_2D, LIDAR_3D)`)
 - `Executer.replan_global()`: recompute the global plan at runtime from the current ego pose and push it to the local planner and controller
 - `BasicSim.get_lidar_data()`: 2-D LiDAR simulation via ray-segment intersection against agent bounding boxes and road boundaries; configurable range, beam count, and FOV
 - `BasicSim.reset()`: clears simulated NPC agents and their controllers
 - `LIDAR_2D` capability declared by `BasicSim`
-- `rename_setting_profile()` utility in `c61_setting_utils`
+- `rename_setting_profile()` utility in `c69_setting_utils`
 - `race_boundary_map` setting in `PlanningSettings`; BasicSim LiDAR settings in `ExecutionSettings`
 - `data/race_boundary_yas_marina.json`: Yas Marina race boundary data file
 

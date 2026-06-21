@@ -150,13 +150,56 @@ override with the `AVLITE_PLUGINS_DIR` environment variable.
 
 ## Configuration
 
-AVLite uses YAML-based configuration with profile support. Configuration files are in the `configs/` directory:
+AVLite uses YAML-based configuration with **profile support** (multiple named profiles per file, e.g. `default`, `ros`, `perception`).
 
-- `c10_perception.yaml` - Perception settings
-- `c20_planning.yaml` - Planning parameters
-- `c30_control.yaml` - Controller tuning
-- `c40_execution.yaml` - Execution and simulator settings
-- `c50_visualization.yaml` - GUI preferences
+### Where files live
+
+| Purpose | Location | Override env var |
+|---------|----------|------------------|
+| **Shipped defaults** (read-only in git) | `{repo}/configs/*.yaml` | — |
+| **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
+| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/` | `AVLITE_PLUGINS_DIR` |
+| **Maps & trajectories** | Read: `~/.local/share/avlite/data/` then `{repo}/data/`; save: user dir only | `AVLITE_DATA_DIR` |
+| **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
+
+Paths stored as `data/...` in YAML are resolved against the user data directory first, then the repository `data/` folder. Saved global plans and other writes never go into the repo tree.
+
+User and repo config files share the **same basenames** (`c10_perception.yaml`, `c40_execution.yaml`, `ext_ros_executer.yaml`, …).
+
+**Load order:** for each settings file, AVLite reads `~/.config/avlite/<name>.yaml` if it exists; otherwise it falls back to `{repo}/configs/<name>.yaml`.
+
+**Save:** GUI and settings window writes go to `~/.config/avlite/` unless **Edit repository configs** is enabled (then `{repo}/configs/`).
+
+The GUI remembers the last selected profile in `~/.config/avlite/startup_profile` and restores it on the next launch.
+
+### Stack config files
+
+- `c10_perception.yaml` — Perception settings
+- `c20_planning.yaml` — Planning parameters
+- `c30_control.yaml` — Controller tuning
+- `c40_execution.yaml` — Execution and simulator settings
+- `c50_visualization.yaml` — GUI preferences
+- `ext_*.yaml` — Built-in extension settings (same names as in repo `configs/`)
+
+### GUI: profiles and reset
+
+- **Config tab** — profile dropdown, Save Config (visualization + execution layers).
+- **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save.
+- **Copy repository configs** (settings window) — copies shipped `{repo}/configs/*.yaml` into `~/.config/avlite/` (overwrite) and reloads. Requires a git clone; plain `pip install` has no bundled configs directory.
+- **Edit repository configs** (settings window, dev only) — when enabled, Save/load YAML from `{repo}/configs/` instead of home. Preference stored in `~/.config/avlite/config_target`. Hidden when bundled configs are unavailable.
+
+### CLI validation
+
+```bash
+python -m avlite config validate
+python -m avlite config validate --profile default
+python -m avlite config describe --layer execution
+python -m avlite config describe --layer execution --field c40_control_dt
+```
+
+Schema field descriptions appear as **tooltips** in the settings window and on main-page controls (dropdowns, Δt fields).
+
+See [Settings naming](settings-naming.md) for key prefixes and validation details.
 
 ### Example: Switching Simulators
 

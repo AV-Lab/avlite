@@ -5,9 +5,12 @@ import tkinter as tk
 from tkinter import ttk
 import time
 
-from avlite.c40_execution.c41_execution_model import WorldBridge
-from avlite.c40_execution.c41_execution_model import Executer
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c42_executer import Executer
+from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c50_visualization.c58_ui_lib import attach_schema_tooltip
+from avlite.c50_visualization.c59_settings import VisualizationSettings
+from avlite.c60_common.c61_capabilities import WorldCapability
 
 
 if TYPE_CHECKING:
@@ -57,32 +60,44 @@ class ExecView(ttk.Frame):
         self.execution_factory_frame.columnconfigure(0, weight=1)
         # ------------------------------------------------------------------------
         # ------------------------------------------------------------------------
-        ttk.Label(exec_first_frame, text="Perception \u0394t ").pack(side=tk.LEFT, padx=5, pady=5)
-        dt_perception_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.perception_dt, width=5,)
+        lbl = ttk.Label(exec_first_frame, text="Perception \u0394t ")
+        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        dt_perception_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.perception_dt, width=5,)
         dt_perception_entry.pack(side=tk.LEFT)
         dt_perception_entry.bind("<Return>", self.text_on_enter)
-        
-        ttk.Label(exec_first_frame, text="Replan Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        dt_plan_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
+        attach_schema_tooltip(lbl, ExecutionSettings, "c40_perception_dt")
+        attach_schema_tooltip(dt_perception_entry, ExecutionSettings, "c40_perception_dt")
+
+        lbl = ttk.Label(exec_first_frame, text="Replan Δt ")
+        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        dt_plan_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
         dt_plan_entry.pack(side=tk.LEFT)
         dt_plan_entry.bind("<Return>", self.text_on_enter)
+        attach_schema_tooltip(lbl, ExecutionSettings, "c40_replan_dt")
+        attach_schema_tooltip(dt_plan_entry, ExecutionSettings, "c40_replan_dt")
 
-        ttk.Label(exec_first_frame, text="Control Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        dt_control_entry = ttk.Entry( exec_first_frame, textvariable=self.root.setting.control_dt, width=5,)
-        # self.dt_exec_cn_entry.insert(0, "0.02")
+        lbl = ttk.Label(exec_first_frame, text="Control Δt ")
+        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        dt_control_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.control_dt, width=5,)
         dt_control_entry.pack(side=tk.LEFT)
         dt_control_entry.bind("<Return>", self.text_on_enter)
+        attach_schema_tooltip(lbl, ExecutionSettings, "c40_control_dt")
+        attach_schema_tooltip(dt_control_entry, ExecutionSettings, "c40_control_dt")
 
-        ttk.Label(exec_first_frame, text="Sim Δt ").pack(side=tk.LEFT, padx=5, pady=5)
-        sim_dt=ttk.Entry( exec_first_frame, textvariable=self.root.setting.sim_dt, width=5,)
+        lbl = ttk.Label(exec_first_frame, text="Sim Δt ")
+        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        sim_dt = ttk.Entry(exec_first_frame, textvariable=self.root.setting.sim_dt, width=5,)
         sim_dt.pack(side=tk.LEFT)
         sim_dt.bind("<Return>", self.text_on_enter)
+        attach_schema_tooltip(lbl, ExecutionSettings, "c40_sim_dt")
+        attach_schema_tooltip(sim_dt, ExecutionSettings, "c40_sim_dt")
 
         self.executer_dropdown_menu = ttk.Combobox(exec_first_frame, textvariable=self.root.setting.executer_type, state="readonly",)
         self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
         self.executer_dropdown_menu.state(["readonly"])
         self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.executer_dropdown_menu.pack(side = tk.RIGHT)
+        self.executer_dropdown_menu.pack(side=tk.RIGHT)
+        attach_schema_tooltip(self.executer_dropdown_menu, ExecutionSettings, "c40_executer_type")
 
 
 
@@ -110,10 +125,13 @@ class ExecView(ttk.Frame):
         vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
 
-        global_tj_file=ttk.Entry( exec_second_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
-        global_tj_file.pack(side=tk.RIGHT, padx = 5, pady=5)
+        global_tj_file = ttk.Entry(exec_second_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
+        global_tj_file.pack(side=tk.RIGHT, padx=5, pady=5)
         global_tj_file.bind("<Return>", self.text_on_enter)
-        ttk.Label(exec_second_frame, text="Default Global Trajectory").pack(side=tk.RIGHT, padx=5, pady=5)
+        lbl = ttk.Label(exec_second_frame, text="Default Global Plan")
+        lbl.pack(side=tk.RIGHT, padx=5, pady=5)
+        attach_schema_tooltip(lbl, ExecutionSettings, "c40_global_trajectory")
+        attach_schema_tooltip(global_tj_file, ExecutionSettings, "c40_global_trajectory")
 
 
     def text_on_enter(self, event):
@@ -205,10 +223,18 @@ class ExecSettingsFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
         super().__init__(view, text="Executables")
         self.root = root
-        ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control).grid(row=0, column=0, sticky="w")
-        ttk.Checkbutton(self, text="Planning", variable=self.root.setting.exec_plan).grid(row=1, column=0, sticky="w")
-        ttk.Checkbutton(self, text="Perception", variable=self.root.setting.exec_perceive).grid(row=2, column=0, sticky="w")
-        ttk.Checkbutton(self, text="Localization", variable=self.root.setting.exec_localize).grid(row=3, column=0, sticky="w")
+        chk = ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control)
+        chk.grid(row=0, column=0, sticky="w")
+        attach_schema_tooltip(chk, VisualizationSettings, "exec_control")
+        chk = ttk.Checkbutton(self, text="Planning", variable=self.root.setting.exec_plan)
+        chk.grid(row=1, column=0, sticky="w")
+        attach_schema_tooltip(chk, VisualizationSettings, "exec_plan")
+        chk = ttk.Checkbutton(self, text="Perception", variable=self.root.setting.exec_perceive)
+        chk.grid(row=2, column=0, sticky="w")
+        attach_schema_tooltip(chk, VisualizationSettings, "exec_perceive")
+        chk = ttk.Checkbutton(self, text="Localization", variable=self.root.setting.exec_localize)
+        chk.grid(row=3, column=0, sticky="w")
+        attach_schema_tooltip(chk, VisualizationSettings, "exec_localize")
 
 
 class BridgeFrame(ttk.LabelFrame):
@@ -220,18 +246,22 @@ class BridgeFrame(ttk.LabelFrame):
         world_bridge_dropdown_menu.state(["readonly"])
         world_bridge_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         world_bridge_dropdown_menu.grid(row=0, column=0, pady=0, sticky="we")
+        attach_schema_tooltip(world_bridge_dropdown_menu, ExecutionSettings, "c40_bridge")
 
         self.chk_ground_truth = ttk.Checkbutton(self, text="Ground Truth", variable=self.root.setting.bridge_provide_ground_truth_detection)
         self.chk_ground_truth.grid(row=1, column=0, sticky="w")
+        attach_schema_tooltip(self.chk_ground_truth, ExecutionSettings, "c41_provide_ground_truth")
 
         self.chk_rgb_image = ttk.Checkbutton(self, text="RGB Image", variable=self.root.setting.bridge_provide_rgb_image)
         self.chk_rgb_image.grid(row=2, column=0, sticky="w")
+        attach_schema_tooltip(self.chk_rgb_image, ExecutionSettings, "c41_provide_rgb")
 
         # self.chk_depth_image = ttk.Checkbutton(self, text="Provide Depth Image", variable=self.root.setting.bridge_provide_depth_image)
         # self.chk_depth_image.grid(row=2, column=0, sticky="w")
 
         self.chk_lidar_data = ttk.Checkbutton(self, text="LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
         self.chk_lidar_data.grid(row=3, column=0, sticky="w")
+        attach_schema_tooltip(self.chk_lidar_data, ExecutionSettings, "c41_provide_lidar")
 
 
 

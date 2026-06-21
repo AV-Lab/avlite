@@ -289,9 +289,9 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
     from datetime import datetime
     from pathlib import Path
 
-    from avlite.c40_execution.c42_factory import executor_factory
+    from avlite.c40_execution.c43_factory import executor_factory
     from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c60_common.c61_setting_utils import load_all_stack_settings
+    from avlite.c60_common.c69_setting_utils import load_all_stack_settings
     from avlite.extensions.e50_headless_mode.settings import ExtensionSettings
 
     # Use INFO temporarily until the profile is loaded and the real level is known.
@@ -339,19 +339,19 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
 
     # CLI args win over profile; profile wins over built-in defaults.
     if control_dt is None:
-        control_dt = ExecutionSettings.control_dt
+        control_dt = ExecutionSettings.c40_control_dt
     if replan_dt is None:
-        replan_dt = ExecutionSettings.replan_dt
+        replan_dt = ExecutionSettings.c40_replan_dt
 
     # Resolve effective log level: CLI arg wins over profile; profile wins over default.
-    effective_log_level = log_level if log_level is not None else ExecutionSettings.log_level
+    effective_log_level = log_level if log_level is not None else ExecutionSettings.c40_log_level
     level_value = getattr(logging, effective_log_level.upper(), logging.INFO)
     root_logger.setLevel(level_value)
     deque_handler.setLevel(level_value)
 
     # Attach a file handler if the profile requests it.
     file_handler: logging.FileHandler | None = None
-    if ExecutionSettings.log_to_file:
+    if ExecutionSettings.c40_log_to_file:
         log_dir = Path.cwd() / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -367,21 +367,21 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
         log.info(f"Logging to file: {log_path}")
 
     executer = executor_factory(
-        executer_type=ExecutionSettings.executer_type,
-        bridge=ExecutionSettings.bridge,
-        perception_strategy_name=ExecutionSettings.perception,
-        localization_strategy_name=ExecutionSettings.localization,
-        global_planner_strategy_name=ExecutionSettings.global_planner,
-        local_planner_strategy_name=ExecutionSettings.local_planner,
-        controller_strategy_name=ExecutionSettings.controller,
-        perception_dt=ExecutionSettings.perception_dt,
-        localization_dt=ExecutionSettings.localization_dt,
+        executer_type=ExecutionSettings.c40_executer_type,
+        bridge=ExecutionSettings.c40_bridge,
+        perception_strategy_name=ExecutionSettings.c40_perception,
+        localization_strategy_name=ExecutionSettings.c40_localization,
+        global_planner_strategy_name=ExecutionSettings.c40_global_planner,
+        local_planner_strategy_name=ExecutionSettings.c40_local_planner,
+        controller_strategy_name=ExecutionSettings.c40_controller,
+        perception_dt=ExecutionSettings.c40_perception_dt,
+        localization_dt=ExecutionSettings.c40_localization_dt,
         replan_dt=replan_dt,
         control_dt=control_dt,
-        hd_map=ExecutionSettings.hd_map,
-        default_global_trajectory_file=ExecutionSettings.global_trajectory,
+        hd_map=ExecutionSettings.c40_hd_map,
+        default_global_trajectory_file=ExecutionSettings.c40_global_trajectory,
         load_extensions=True,
-        async_combined_perception_planning=ExecutionSettings.async_combined_perception_planning,
+        async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
     )
 
     # Re-strip handlers that may have been added during factory/extension import.

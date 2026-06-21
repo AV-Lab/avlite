@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "avlite"
-version = "0.2.0"
+version = "0.3.1"
 description = "AVLite - Modular Autonomous Vehicle Stack for rapid prototyping, research, and education"
 readme = "README.md"
 license = { text = "MIT" }
@@ -17,6 +17,8 @@ dependencies = [
     "shapely>=2.0",
     "networkx>=3.0",
     "ttkthemes>=3.2",
+    "scipy>=1.11",
+    "pydantic>=2.0",
 ]
 
 [project.scripts]

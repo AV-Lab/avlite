@@ -20,7 +20,7 @@ from rclpy.node import Node
 from std_msgs.msg import String, Header
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
-from avlite.c40_execution.c41_execution_model import WorldBridge
+from avlite.c40_execution.c41_world_bridge import WorldBridge
 
 from .e46_autoware_converters import (
     AUTOWARE_AVAILABLE,

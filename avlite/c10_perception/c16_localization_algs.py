@@ -16,7 +16,8 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c60_common.c62_capabilities import (
+from avlite.c60_common.c62_sensor_data import SensorFrame
+from avlite.c60_common.c61_capabilities import (
     AnyOf,
     LocalizationCapability,
     WorldCapability,
@@ -55,12 +56,12 @@ class LidarLocalization(LocalizationStrategy):
         self,
         perception_model: PerceptionModel,
         setting: Type[PerceptionSettings] = PerceptionSettings,
-        z_min: float = PerceptionSettings.localization_lidar_z_min,
-        z_max: float = PerceptionSettings.localization_lidar_z_max,
-        max_iterations: int = PerceptionSettings.localization_icp_max_iterations,
-        tolerance: float = PerceptionSettings.localization_icp_tolerance,
-        max_correspondence_dist: float = PerceptionSettings.localization_icp_max_correspondence_dist,
-        map_subsample: int = PerceptionSettings.localization_map_subsample,
+        z_min: float = PerceptionSettings.c16_localization_lidar_z_min,
+        z_max: float = PerceptionSettings.c16_localization_lidar_z_max,
+        max_iterations: int = PerceptionSettings.c16_localization_icp_max_iterations,
+        tolerance: float = PerceptionSettings.c16_localization_icp_tolerance,
+        max_correspondence_dist: float = PerceptionSettings.c16_localization_icp_max_correspondence_dist,
+        map_subsample: int = PerceptionSettings.c16_localization_map_subsample,
     ):
         super().__init__(perception_model, setting)
         self._z_min = z_min
@@ -95,13 +96,9 @@ class LidarLocalization(LocalizationStrategy):
     # Main estimation step
     # ------------------------------------------------------------------
 
-    def localize(
-        self,
-        imu: Optional[np.ndarray] = None,
-        lidar: Optional[np.ndarray] = None,
-        rgb_img: Optional[np.ndarray] = None,
-    ) -> None:
-        scan = self._squash(lidar)
+    def localize(self, sensors: SensorFrame | None = None) -> None:
+        lidar_data = sensors.lidar if sensors is not None else None
+        scan = self._squash(lidar_data)
         if scan is None or len(scan) < 3:
             return
 

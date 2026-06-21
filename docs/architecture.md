@@ -153,9 +153,10 @@ Includes built-in controllers: `StanleyController`, `PIDController`.
 
 ### c40_execution
 
-- `Executer` - Main execution loop (sync/async variants)
-- `WorldBridge` - Simulator abstraction
-- `Factory` - Component assembly
+- `WorldBridge` (`c41_world_bridge.py`) — simulator/ROS interface and sensor getters
+- `Executer` (`c42_executer.py`) — base orchestration loop and pipeline steps
+- `executor_factory` (`c43_factory.py`) — component assembly
+- `SyncExecuter` / `AsyncThreadedExecuter` (`c44` / `c45`) — concrete scheduling
 - `ExecutionSettings` - Runtime settings including `log_level` (DEBUG/INFO/WARNING/ERROR/CRITICAL) and `log_to_file` (write logs to `./logs/avlite_<timestamp>.log`)
 
 Built-in bridges: `BasicSim` (c46_basic_sim.py) — includes 2-D LiDAR simulation via raycasting, `CarlaBridge` (bridge_carla), `GazeboIgnitionBridge` (bridge_gazebo), `ROS2WorldBridge` (bridge_ROS2).
@@ -164,22 +165,34 @@ Built-in bridges: `BasicSim` (c46_basic_sim.py) — includes 2-D LiDAR simulatio
 
 Tkinter-based GUI with:
 - Real-time plotting (XY, Frenet views)
-- Component configuration
-- Profile management
+- Component configuration with schema tooltips on main-page controls
+- Profile management (Config tab Save; settings window `T` for full stack)
+- **Use repository configs** — discard `~/.config/avlite/` overrides and reload repo YAML
 - Log viewer
 - Extension settings
 
 ### c60_common
 
-- Settings load/save (YAML profiles)
+- Settings load/save (YAML profiles): repo defaults in `{repo}/configs/`, user overrides in `~/.config/avlite/` (or `AVLITE_CONFIG_DIR`); `effective_config_path()` resolves read path, Save always writes user copy
 - Hot reloading
-- Extension discovery
-- Capability enums (`WorldCapability`, `PerceptionCapability`, `LocalizationCapability`, `MappingCapability`)
+- Extension discovery; community plugins under `~/.local/share/avlite/plugins/` (`AVLITE_PLUGINS_DIR`)
+- Capability enums in `c61_capabilities.py` (`WorldCapability`, `PerceptionCapability`, `LocalizationCapability`, `MappingCapability`)
 - `AnyOf` — requirement satisfied by any one of several capabilities; `satisfies_requirements()` helper used by the execution layer
-- `HDMap` (`c68_hdmap.py`) — OpenDRIVE map parsing and routing (used by `HDMapGlobalPlanner` and `PerceptionModel`)
+- `HDMap` (`c67_hdmap.py`) — OpenDRIVE map parsing and routing (used by `HDMapGlobalPlanner` and `PerceptionModel`)
+- `SensorFrame` (`c62_sensor_data.py`) — canonical sensor formats between WorldBridge and perception/localization (authoritative spec for rgb, depth, lidar, imu, gnss, wheel odometry)
+- Pydantic settings schemas (`c68_settings_schema.py`); YAML load/save helpers (`c69_setting_utils.py`)
 - `rename_setting_profile()` — rename saved YAML profiles
+- `clear_user_configs()` — remove local YAML overrides so the next load uses repo defaults (settings window **Use repository configs**)
+
+### Sensor data conventions
+
+Raw sensor layouts are defined in [`avlite/c60_common/c62_sensor_data.py`](../avlite/c60_common/c62_sensor_data.py). WorldBridge implementations convert simulator/ROS messages into these formats before passing a `SensorFrame` to perception and localization. Array fields use semantic aliases `RgbImage`, `DepthImage`, and `LidarCloud` (all `np.ndarray` with layouts documented in c62). Key fields: `rgb` `(H,W,3)` uint8 RGB; `depth` `(H,W)` float32 metres; `lidar` `(N,4)` float32 `[x,y,z,intensity]` in map frame; `GnssReading` with WGS84 lat/lon/alt plus optional map-frame `map_x/y/z`.
 
 ## Data Flow
+
+```
+World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
+```
 
 ```
 World Bridge

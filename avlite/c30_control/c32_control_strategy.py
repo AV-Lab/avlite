@@ -23,12 +23,12 @@ class ControlStrategy(ABC):
         self.cte_velocity: float = 0
 
         # Kinematic constraints — owned by the control layer
-        self.ego_distance_front_axle: float = ControlSettings.ego_distance_front_axle
-        self.ego_max_velocity: float = ControlSettings.ego_max_velocity
-        self.ego_max_acceleration: float = ControlSettings.ego_max_acceleration
-        self.ego_min_acceleration: float = ControlSettings.ego_min_acceleration
-        self.ego_max_steering: float = ControlSettings.ego_max_steering
-        self.ego_min_steering: float = ControlSettings.ego_min_steering
+        self.ego_distance_front_axle: float = ControlSettings.c32_ego_distance_front_axle
+        self.ego_max_velocity: float = ControlSettings.c32_ego_max_velocity
+        self.ego_max_acceleration: float = ControlSettings.c32_ego_max_acceleration
+        self.ego_min_acceleration: float = ControlSettings.c32_ego_min_acceleration
+        self.ego_max_steering: float = ControlSettings.c32_ego_max_steering
+        self.ego_min_steering: float = ControlSettings.c32_ego_min_steering
 
 
     def set_trajectory(self, tj: TrajectoryTracker):

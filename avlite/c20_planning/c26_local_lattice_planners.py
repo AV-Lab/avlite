@@ -44,10 +44,10 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
 
         # Replan stability: track when plan was last changed
         self._last_plan_change_time: float = 0.0
-        self._replan_wait_time: float = setting.replan_wait_time
-        self._min_edge_progress_to_block: float = setting.min_edge_progress_to_block
-        self._urgent_collision_threshold: int = setting.urgent_collision_threshold
-        self._disconnect_distance_threshold: float = setting.disconnect_distance_threshold
+        self._replan_wait_time: float = setting.c26_replan_wait_time
+        self._min_edge_progress_to_block: float = setting.c26_min_edge_progress_to_block
+        self._urgent_collision_threshold: int = setting.c26_urgent_collision_threshold
+        self._disconnect_distance_threshold: float = setting.c26_disconnect_distance_threshold
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)
@@ -234,17 +234,20 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
 class GreedyLatticePlanner(LatticePlanningStrategy):
     def __init__(self, global_plan: GlobalPlan, env: PerceptionModel, setting: Type[PlanningSettings] = PlanningSettings, controller=None):
 
-        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.num_of_edge_points, planning_horizon=setting.planning_horizon, controller=controller, setting=setting)
-        self.maneuver_distance: float = setting.maneuver_distance
-        self.boundary_clearance: float = setting.boundary_clearance
-        self.sample_size: int = setting.sample_size
-        self.match_speed_wp_buffer: int = setting.match_speed_wp_buffer
-        self.safety_margin_weight: float = setting.safety_margin_weight
-        self.max_lateral_accel: float = setting.max_lateral_accel
-        self.min_curvature_velocity: float = setting.min_curvature_velocity
-        self._min_ramp_start_velocity: float = setting.min_ramp_start_velocity
-        self._allow_curvature_fallback: bool = setting.allow_curvature_fallback
-        self._allow_boundary_violation_fallback: bool = setting.allow_boundary_violation_fallback
+        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.c26_num_of_edge_points, planning_horizon=setting.c26_planning_horizon, controller=controller, setting=setting)
+        self.maneuver_distance: float = setting.c26_maneuver_distance
+        self.boundary_clearance: float = setting.c26_boundary_clearance
+        self.sample_size: int = setting.c26_sample_size
+        self.match_speed_wp_buffer: int = setting.c26_match_speed_wp_buffer
+        self.safety_margin_weight: float = setting.c26_safety_margin_weight
+        self.max_lateral_accel: float = setting.c26_max_lateral_accel
+        self.min_curvature_velocity: float = setting.c26_min_curvature_velocity
+        self._min_ramp_start_velocity: float = setting.c26_min_ramp_start_velocity
+        self._allow_curvature_fallback: bool = setting.c26_allow_curvature_fallback
+        self._allow_boundary_violation_fallback: bool = setting.c26_allow_boundary_violation_fallback
+        self._stopping_decel_factor: float = setting.c26_stopping_decel_factor
+        self._fallback_deceleration: float = setting.c26_fallback_deceleration
+        self._stopping_safety_buffer: float = setting.c26_stopping_safety_buffer
 
     def _get_max_curvature_for_velocity(self, velocity: float) -> float:
         """
@@ -288,7 +291,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
         Hard-prefers edges ending at d=0 (within tolerance) when any exist."""
         if not edges:
             return None
-        d0_edges = [e for e in edges if abs(e.end.d) < PlanningSettings.d0_reference_threshold]
+        d0_edges = [e for e in edges if abs(e.end.d) < PlanningSettings.c26_d0_reference_threshold]
         if d0_edges:
             return min(d0_edges, key=self._edge_cost)
         return min(edges, key=self._edge_cost)
@@ -399,7 +402,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                 # All edges have boundary violations only — no real collision.
                 # The boundary-violation fallback above should have handled this;
                 # if we still end up here, keep the existing velocity profile unchanged.
-                log.warning("Emergency branch: all edges have boundary violations but no collision "
+                log.debug("Emergency branch: all edges have boundary violations but no collision "
                             "— keeping current velocity profile")
                 return
 
@@ -409,10 +412,12 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             current_vel = self.pm.ego_vehicle.velocity if self.pm.ego_vehicle.velocity > 0 else (tj.velocity[0] if len(tj.velocity) > 0 else 0)
             target_vel = max(0.0, vel)  # match obstacle speed, not necessarily zero
 
-            # Conservative deceleration (80% of max)
-            max_decel = abs(self.controller.ego_min_acceleration) * 0.8 if self.controller is not None else 3.0
+            if self.controller is not None:
+                max_decel = abs(self.controller.ego_min_acceleration) * self._stopping_decel_factor
+            else:
+                max_decel = self._fallback_deceleration
             if max_decel < 0.1:
-                max_decel = 3.0
+                max_decel = self._fallback_deceleration
 
             # Distance needed to decelerate from current_vel to target_vel
             stopping_distance = max(0.0, current_vel**2 - target_vel**2) / (2 * max_decel)
@@ -428,7 +433,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             log.warning(f"Collision distance: {collision_distance:.1f}m, Speed-match distance: {stopping_distance:.1f}m, "
                         f"Current vel: {current_vel:.1f}m/s, Target vel: {target_vel:.1f}m/s")
 
-            if stopping_distance >= collision_distance - 2.0:  # 2m safety buffer
+            if stopping_distance >= collision_distance - self._stopping_safety_buffer:
                 # Not enough room — ramp from current speed down to obstacle speed over the trajectory
                 log.warning(f"Cannot match speed in time — ramping to obstacle speed {target_vel:.1f} m/s")
                 tj.velocity = np.maximum(0.0, np.linspace(current_vel, target_vel, len(tj.path)))
@@ -436,7 +441,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                 # Enough room — hold current speed then decelerate smoothly to target_vel
                 cumulative_dist = 0.0
                 brake_start_idx = 0
-                target_brake_dist = collision_distance - stopping_distance - 2.0
+                target_brake_dist = collision_distance - stopping_distance - self._stopping_safety_buffer
 
                 for i in range(1, len(tj.path_x)):
                     cumulative_dist += np.sqrt(
@@ -514,12 +519,12 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
         # Build obstacle polygons once for all candidate edges.
         obstacle_polygons = None
         if len(self.pm.agent_vehicles) > 0:
-            ego_vel = max(self.pm.ego_vehicle.velocity, PlanningSettings.default_ego_velocity)
+            ego_vel = max(self.pm.ego_vehicle.velocity, PlanningSettings.c20_default_ego_velocity)
             obstacle_polygons = precompute_obstacle_polygons(
                 self.pm,
                 total_time=self.maneuver_distance / ego_vel,
-                min_velocity_threshold=PlanningSettings.min_velocity_threshold,
-                obstacle_inflation_margin=PlanningSettings.obstacle_inflation_margin,
+                min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
+                obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
             )
 
         # Create and evaluate edges from tail_node to each candidate.
@@ -534,9 +539,9 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             edge.collision, edge.collision_idx, edge.collision_agent_velocity = check_collision(
                 self.pm, edge.local_trajectory,
                 obstacle_polygons=obstacle_polygons,
-                min_velocity_threshold=PlanningSettings.min_velocity_threshold,
-                collision_safety_margin=PlanningSettings.collision_safety_margin,
-                default_ego_velocity=PlanningSettings.default_ego_velocity,
+                min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
+                collision_safety_margin=PlanningSettings.c20_collision_safety_margin,
+                default_ego_velocity=PlanningSettings.c20_default_ego_velocity,
             )
             edge.boundary_violation = self.lattice._check_boundary_violation(edge)
             new_edges.append(edge)

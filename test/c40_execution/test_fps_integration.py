@@ -22,10 +22,10 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c31_control_model import ControlComand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c41_execution_model import WorldBridge
-from avlite.c40_execution.c43_sync_executer import SyncExecuter
-from avlite.c40_execution.c44_async_threaded_executer import AsyncThreadedExecuter
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c44_sync_executer import SyncExecuter
+from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
+from avlite.c60_common.c61_capabilities import WorldCapability
 
 
 # ---------------------------------------------------------------------------

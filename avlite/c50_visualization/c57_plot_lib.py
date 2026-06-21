@@ -2,11 +2,11 @@ from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
-from avlite.c60_common.c68_hdmap import HDMap
+from avlite.c60_common.c67_hdmap import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c27_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c40_execution.c43_sync_executer import SyncExecuter
+from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 
@@ -15,6 +15,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
+from matplotlib.collections import LineCollection
 
 import logging
 
@@ -595,6 +596,16 @@ class LocalPlot:
         self.cluster_scatter_ax1 = self.ax1.scatter([], [], s=8, c='yellow', alpha=0.9, zorder=7, label="Clusters")
         self.cluster_scatter_ax2 = self.ax2.scatter([], [], s=8, c='yellow', alpha=0.9, zorder=7, label="Clusters")
 
+        # Track boundary segments from the worldbridge (e.g. BasicSim.boundary_segments)
+        self.track_boundary_collection = LineCollection(
+            [], linewidths=1, colors='cyan', alpha=0.5, zorder=2, label="Track Boundary"
+        )
+        self.ax1.add_collection(self.track_boundary_collection)
+        self.track_boundary_collection_ax2 = LineCollection(
+            [], linewidths=1, colors='cyan', alpha=0.5, zorder=2
+        )
+        self.ax2.add_collection(self.track_boundary_collection_ax2)
+
         # Prediction arrows: one dotted orange line per agent on both views
         self.prediction_lines_ax1 = []
         self.prediction_lines_ax2 = []
@@ -654,6 +665,7 @@ class LocalPlot:
         plot_ground_truth = True,
         show_global_view = True,
         show_frenet_view = True,
+        plot_race_boundary = True,
     ):
         self.legend_ax.set_visible(show_legend)
         self.ax1.set_visible(show_global_view)
@@ -698,6 +710,7 @@ class LocalPlot:
             self.last_locs_ax2.set_data([], [])
             self.planner_loc_ax2.set_data([], [])
 
+        self.update_track_boundary_plot(exec.world, show_plot=plot_race_boundary, global_trajectory=exec.local_planner.global_trajectory)
         self.update_global_plan_plots(exec.local_planner, plot_global_plan)
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
@@ -706,6 +719,26 @@ class LocalPlot:
         self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
         self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
+
+    def update_track_boundary_plot(self, world_bridge, show_plot=True, global_trajectory=None):
+        if not show_plot or not hasattr(world_bridge, 'boundary_segments'):
+            self.track_boundary_collection.set_segments([])
+            self.track_boundary_collection_ax2.set_segments([])
+            return
+        segs = world_bridge.boundary_segments  # (M, 2, 2) world-frame
+        self.track_boundary_collection.set_segments(segs if len(segs) else [])
+        if global_trajectory is None or len(segs) == 0:
+            self.track_boundary_collection_ax2.set_segments([])
+            return
+        # Convert all segment endpoints to Frenet (s, d) and draw on ax2.
+        # Filter out segments that span across the lap start/finish (wrap-around
+        # produces a huge s-difference and causes long diagonal lines in Frenet view).
+        pts = segs.reshape(-1, 2)                          # (M*2, 2)
+        sd  = global_trajectory.convert_xy_path_to_sd_path_np(pts)  # (M*2, 2)
+        sd_segs = sd.reshape(-1, 2, 2)                     # (M, 2, 2)
+        s_diff = np.abs(sd_segs[:, 1, 0] - sd_segs[:, 0, 0])
+        valid = s_diff < (np.median(s_diff) * 20 + 50.0)
+        self.track_boundary_collection_ax2.set_segments(sd_segs[valid] if valid.any() else [])
 
     def redraw_plots(self):
         self.ax1.draw_artist(self.ax1.patch)
@@ -720,46 +753,39 @@ class LocalPlot:
         self.fig.canvas.blit(self.ax2.bbox)
 
     def update_global_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
-        if not hasattr(self, "initialized"):
-            self.initialized = False
-        if not hasattr(self, "toggle_plot"):
-            self.toggle_plot = False
-
-        if not self.initialized:
-            self.left_boundry_x1.set_data(pl.global_plan.left_boundary_x, pl.global_plan.left_boundary_y)
-            self.right_boundry_x1.set_data(pl.global_plan.right_boundary_x, pl.global_plan.right_boundary_y)
-            # Insert NaN where s wraps backward (closed track: last point rejoins start),
-            # so the line plot doesn't draw a segment spanning the full s-axis.
-            _s = np.asarray(pl.global_trajectory.path_s, dtype=float)
-            _gaps = np.where(np.diff(_s) < 0)[0] + 1
-            if len(_gaps):
-                _s   = np.insert(_s,   _gaps, np.nan)
-                _ld  = np.insert(np.asarray(pl.global_plan.left_boundary_d,  dtype=float), _gaps, np.nan)
-                _rd  = np.insert(np.asarray(pl.global_plan.right_boundary_d, dtype=float), _gaps, np.nan)
-                _ref = np.insert(np.asarray(pl.global_trajectory.path_d,     dtype=float), _gaps, np.nan)
-            else:
-                _ld  = pl.global_plan.left_boundary_d
-                _rd  = pl.global_plan.right_boundary_d
-                _ref = pl.global_trajectory.path_d
-            self.left_boundry_ax2.set_data(_s, _ld)
-            self.right_boundry_ax2.set_data(_s, _rd)
-            self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
-            self.reference_trajectory_ax2.set_data(_s, _ref)
-            self.initialized = True
-
         if not show_plot:
             self.g_wp_current_ax1.set_data([], [])
             self.g_wp_current_ax2.set_data([], [])
             self.g_wp_next_ax1.set_data([], [])
             self.g_wp_next_ax2.set_data([], [])
+            self.left_boundry_x1.set_data([], [])
+            self.right_boundry_x1.set_data([], [])
+            self.left_boundry_ax2.set_data([], [])
+            self.right_boundry_ax2.set_data([], [])
             self.reference_trajectory_ax1.set_data([], [])
             self.reference_trajectory_ax2.set_data([], [])
-            self.toggle_plot = True
             return
-        elif self.initialized and self.toggle_plot:
-            self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
-            self.reference_trajectory_ax2.set_data(pl.global_trajectory.path_s, pl.global_trajectory.path_d)
-            self.toggle_plot = False
+
+        # Always refresh from the current plan so global replans are immediately visible.
+        self.left_boundry_x1.set_data(pl.global_plan.left_boundary_x, pl.global_plan.left_boundary_y)
+        self.right_boundry_x1.set_data(pl.global_plan.right_boundary_x, pl.global_plan.right_boundary_y)
+        # Insert NaN where s wraps backward (closed track: last point rejoins start),
+        # so the line plot doesn't draw a segment spanning the full s-axis.
+        _s = np.asarray(pl.global_trajectory.path_s, dtype=float)
+        _gaps = np.where(np.diff(_s) < 0)[0] + 1
+        if len(_gaps):
+            _s   = np.insert(_s,   _gaps, np.nan)
+            _ld  = np.insert(np.asarray(pl.global_plan.left_boundary_d,  dtype=float), _gaps, np.nan)
+            _rd  = np.insert(np.asarray(pl.global_plan.right_boundary_d, dtype=float), _gaps, np.nan)
+            _ref = np.insert(np.asarray(pl.global_trajectory.path_d,     dtype=float), _gaps, np.nan)
+        else:
+            _ld  = pl.global_plan.left_boundary_d
+            _rd  = pl.global_plan.right_boundary_d
+            _ref = pl.global_trajectory.path_d
+        self.left_boundry_ax2.set_data(_s, _ld)
+        self.right_boundry_ax2.set_data(_s, _rd)
+        self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
+        self.reference_trajectory_ax2.set_data(_s, _ref)
 
         if pl.global_trajectory.next_wp is not None:
             self.g_wp_current_ax1.set_data(
@@ -951,7 +977,7 @@ class LocalPlot:
         if use_prediction:
             n_steps = pm.trajectories.shape[1]
             from avlite.c20_planning.c29_settings import PlanningSettings
-            total_time = PlanningSettings.maneuver_distance / PlanningSettings.default_ego_velocity
+            total_time = PlanningSettings.c26_maneuver_distance / PlanningSettings.c20_default_ego_velocity
             step = min(int(total_time / pm.predict_delta_t), n_steps - 1)
             pred_xy = pm.trajectories[:n, step, :]  # (n, 2)
             pred_sd = global_trajectory.convert_xy_path_to_sd_path_np(pred_xy)  # (n, 2)
@@ -1082,5 +1108,4 @@ class LocalPlot:
         self.orientation_arrow = None
 
     def reset(self):
-        self.initialized = False
         self.update_pm_occupancy_flow_plots(None, show_plot=False)

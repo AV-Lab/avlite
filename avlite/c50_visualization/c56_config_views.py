@@ -5,12 +5,31 @@ from typing import TYPE_CHECKING
 import importlib
 import importlib.util
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import tkinter.font as tkfont
 
 
-from avlite.c60_common.c61_setting_utils import save_setting, load_setting, delete_setting_profile, rename_setting_profile, reload_lib, load_all_stack_settings, load_plugin_settings_class, patch_plugin_settings
-from avlite.c50_visualization.c58_ui_lib import ThemedInputDialog, ThemedTwoInputDialog
+from avlite.c60_common.c69_setting_utils import (
+    save_setting,
+    load_setting,
+    delete_setting_profile,
+    rename_setting_profile,
+    reload_lib,
+    load_all_stack_settings,
+    load_plugin_settings_class,
+    patch_plugin_settings,
+    bundled_config_dir,
+    can_edit_repo_configs,
+    copy_repo_configs_to_user,
+    get_config_dir,
+    is_repo_config_target,
+    list_profiles,
+    set_repo_config_target,
+    set_startup_profile,
+)
+from avlite.c50_visualization.c58_ui_lib import ThemedInputDialog, ThemedTwoInputDialog, HoverTooltip, attach_schema_tooltip
+from avlite.c50_visualization.c59_settings import VisualizationSettings
+from avlite.c60_common.c68_settings_schema import field_tooltip_text
 if TYPE_CHECKING:
     from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
 
@@ -18,7 +37,7 @@ from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c60_common.c61_setting_utils import list_extensions
+from avlite.c60_common.c69_setting_utils import list_extensions
 
 
 import logging
@@ -34,6 +53,50 @@ if TYPE_CHECKING:
 # Aliases kept for readability within this module
 _load_plugin_settings_class = load_plugin_settings_class
 _patch_plugin_settings = patch_plugin_settings
+
+
+def _setting_window_edit_repo_configs_toggle(win: "SettingWindow") -> None:
+    enabled = win._edit_repo_configs_var.get()
+    if enabled and not messagebox.askyesno(
+        "Edit repository configs",
+        f"Save and load will modify files under\n{bundled_config_dir()}\n\nContinue?",
+        parent=win.window,
+    ):
+        win._edit_repo_configs_var.set(False)
+        return
+    set_repo_config_target(enabled)
+    profile = win.root.setting.selected_profile.get()
+    win.root.load_configs(profile=profile)
+    win.load_profile(profile)
+
+
+def _setting_window_copy_repository_configs(win: "SettingWindow") -> None:
+    user_dir = get_config_dir()
+    if not messagebox.askyesno(
+        "Copy repository configs",
+        f"Copy repository defaults into\n{user_dir}\nand reload the current profile?",
+        parent=win.window,
+    ):
+        return
+    try:
+        copied = copy_repo_configs_to_user()
+    except FileNotFoundError as e:
+        messagebox.showerror("Copy repository configs", str(e), parent=win.window)
+        return
+    profile = win.root.setting.selected_profile.get()
+    win.root.load_configs(profile=profile)
+    win.load_profile(profile)
+    win.root.setting.normalize_gt_sentinels()
+    win.root.setting.profile_list = list_profiles(win.root.setting)
+    win.profile_dropdown_menu["values"] = win.root.setting.profile_list
+    win.next_profile_dropdown_menu["values"] = win.root.setting.profile_list
+    win.root.config_shortcut_view.profile_dropdown_menu["values"] = win.root.setting.profile_list
+    win.root.reload_stack(reload_code=False)
+    messagebox.showinfo(
+        "Copy repository configs",
+        f"Copied {len(copied)} file(s) into {user_dir}.",
+        parent=win.window,
+    )
 
 
 class ConfigShortcutView(ttk.LabelFrame):
@@ -110,14 +173,17 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.profile_dropdown_menu.state(["readonly"])
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
-        self.profile_dropdown_menu.pack(side=tk.RIGHT)    
-        
+        self.profile_dropdown_menu.pack(side=tk.RIGHT)
+        attach_schema_tooltip(self.profile_dropdown_menu, VisualizationSettings, "selected_profile")
 
-        ttk.Checkbutton(self, text="Shortcut Mode", variable=self.root.setting.shortcut_mode,
-            command=self.root.update_shortcut_mode,).pack(anchor=tk.W, side=tk.LEFT)
+        shortcut_cb = ttk.Checkbutton(self, text="Shortcut Mode", variable=self.root.setting.shortcut_mode,
+            command=self.root.update_shortcut_mode,)
+        shortcut_cb.pack(anchor=tk.W, side=tk.LEFT)
+        attach_schema_tooltip(shortcut_cb, VisualizationSettings, "shortcut_mode")
 
-        ttk.Checkbutton(self, text="Dark Mode", variable=self.root.setting.dark_mode, command=self.toggle_dark_mode,
-        ).pack(anchor=tk.W, side=tk.LEFT)
+        dark_cb = ttk.Checkbutton(self, text="Dark Mode", variable=self.root.setting.dark_mode, command=self.toggle_dark_mode)
+        dark_cb.pack(anchor=tk.W, side=tk.LEFT)
+        attach_schema_tooltip(dark_cb, VisualizationSettings, "dark_mode")
         
         ttk.Label(self, textvariable=self.root.setting.perception_status_text, width=30).pack(side=tk.LEFT, padx=(25,5), pady=5)
 
@@ -190,7 +256,8 @@ class SettingWindow:
         self.setting = root.setting
         self.window = tk.Toplevel(root)
         # settings_window.title("Settings")
-        self.window.geometry("400x300")
+        _s = getattr(root, '_dpi_scale', 1.0)
+        self.window.geometry(f"{round(400 * _s)}x{round(300 * _s)}")
         # self.root.bind("Q", lambda e: settings_window.destroy())
 
         self.frame = ttk.Frame(self.window)
@@ -223,7 +290,7 @@ class SettingWindow:
         ##########
         # Profiles & Extensions
         ##########
-        profile_ext_frame.rowconfigure(6,weight=1)
+        profile_ext_frame.rowconfigure(8, weight=1)
 
 
         ttk.Label(profile_ext_frame, text="Execution Profiles",style="Big.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, padx=10, pady=5)
@@ -250,13 +317,23 @@ class SettingWindow:
         ).grid(row=4, column=0, columnspan=3, padx=5, pady=5, sticky="we")
         ttk.Button( profile_ext_frame, text="Reset all except Exectution", command= lambda: self.reset_to_to_source_stack_values(exclude_execution=True)
         ).grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        
-
-        ##############################################
+        if can_edit_repo_configs():
+            self._edit_repo_configs_var = tk.BooleanVar(value=is_repo_config_target())
+            ttk.Checkbutton(
+                profile_ext_frame,
+                text="Edit repository configs",
+                variable=self._edit_repo_configs_var,
+                command=lambda: _setting_window_edit_repo_configs_toggle(self),
+            ).grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="w")
+        ttk.Button(
+            profile_ext_frame,
+            text="Copy repository configs",
+            command=lambda: _setting_window_copy_repository_configs(self),
+        ).grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="we")
         ## Extensions
         ##############################################
         extension_frame = ttk.LabelFrame(profile_ext_frame, text="Extensions")
-        extension_frame.grid(row=6, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
+        extension_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
 
         ttk.Checkbutton(extension_frame, text="Load Extensions" , variable=self.root.setting.load_extensions,
             command=self.recreate_extensions_widgets).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
@@ -267,7 +344,7 @@ class SettingWindow:
         self.listbox_default_extensions.grid(row=2, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for ext in ExecutionSettings.default_extensions:
+        for ext in ExecutionSettings.c40_default_extensions:
             self.listbox_default_extensions.insert(tk.END, ext)
         
         ttk.Button(extension_frame, text="Reset Extensions", command=self.reset_default_extensions).grid(row=3, column=0, sticky="we", padx=5, pady=5)
@@ -280,7 +357,7 @@ class SettingWindow:
         self.listbox_community_plugins.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for ext in ExecutionSettings.community_plugins.keys() if self.root.setting.load_extensions.get() else []:
+        for ext in ExecutionSettings.c40_community_plugins.keys() if self.root.setting.load_extensions.get() else []:
             self.listbox_community_plugins.insert(tk.END, ext)
 
         self.listbox_community_plugins.bind("<Double-Button-1>", lambda e: self.edit_community_plugin())
@@ -390,6 +467,7 @@ class SettingWindow:
         ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Global", variable=self.root.setting.show_lidar_global, command=self.root.update_ui).pack(side=tk.LEFT)
         ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Frenet", variable=self.root.setting.show_lidar_frenet, command=self.root.update_ui).pack(side=tk.LEFT)
         ttk.Checkbutton(additional_setting_row_1b, text="Clustered Pts", variable=self.root.setting.show_lidar_clusters, command=self.root.update_ui).pack(side=tk.LEFT)
+        ttk.Checkbutton(additional_setting_row_1b, text="Race Boundary", variable=self.root.setting.show_race_boundary, command=self.root.update_ui).pack(side=tk.LEFT)
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
@@ -414,17 +492,17 @@ class SettingWindow:
 
     def reset_default_extensions(self):
         """ Reset the default extensions to the source code defaults. """
-        from avlite.c60_common.c61_setting_utils import import_all_modules
+        from avlite.c60_common.c69_setting_utils import import_all_modules
 
         log.info("Resetting default extensions to source code defaults.")
 
         self.listbox_default_extensions.delete(0, tk.END)
-        ExecutionSettings.default_extensions = list_extensions()
+        ExecutionSettings.c40_default_extensions = list_extensions()
 
-        for ext in ExecutionSettings.default_extensions:
+        for ext in ExecutionSettings.c40_default_extensions:
             self.listbox_default_extensions.insert(tk.END, ext)
 
-        import_all_modules(extensions_filter=ExecutionSettings.default_extensions)
+        import_all_modules(extensions_filter=ExecutionSettings.c40_default_extensions)
         self.root.perceive_plan_control_view.reset()
         self.root.exec_visualize_view.update_data()
 
@@ -433,8 +511,8 @@ class SettingWindow:
         selected = self.listbox_default_extensions.curselection()
         if selected:
             ext_name = self.listbox_default_extensions.get(selected)
-            if ext_name in ExecutionSettings.default_extensions:
-                ExecutionSettings.default_extensions.remove(ext_name)
+            if ext_name in ExecutionSettings.c40_default_extensions:
+                ExecutionSettings.c40_default_extensions.remove(ext_name)
                 self.listbox_default_extensions.delete(selected)
                 self._unregister_extension(ext_name)
                 self.root.perceive_plan_control_view.reset()
@@ -452,7 +530,7 @@ class SettingWindow:
         from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
         from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
         from avlite.c30_control.c32_control_strategy import ControlStrategy
-        from avlite.c40_execution.c41_execution_model import Executer
+        from avlite.c40_execution.c42_executer import Executer
 
         ext_module_prefix = f"avlite.extensions.{ext_name}"
         for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
@@ -477,16 +555,16 @@ class SettingWindow:
             return
 
         log.info(f"Adding Extension: {name}")
-        ExecutionSettings.community_plugins[name] = dir
+        ExecutionSettings.c40_community_plugins[name] = dir
         self.listbox_community_plugins.insert(tk.END, name)
         
     def delete_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
         if selected:
             ext_name = self.listbox_community_plugins.get(selected)
-            ExecutionSettings.community_plugins.pop(ext_name, None)
+            ExecutionSettings.c40_community_plugins.pop(ext_name, None)
             self.listbox_community_plugins.delete(selected)
-        log.warning(f"Deleted extension: {ExecutionSettings.community_plugins}")
+        log.warning(f"Deleted extension: {ExecutionSettings.c40_community_plugins}")
 
     def edit_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
@@ -495,23 +573,23 @@ class SettingWindow:
             return
         
         ext_name = self.listbox_community_plugins.get(selected)
-        current_dir = ExecutionSettings.community_plugins.get(ext_name, "")
+        current_dir = ExecutionSettings.c40_community_plugins.get(ext_name, "")
         
         dialog = ThemedTwoInputDialog(self.root, "Edit Community Plugin", "Package Name", "Package Directory", ext_name, current_dir)
         
         if dialog.result:
             new_name, new_dir = dialog.result
             if new_name and new_dir:
-                ExecutionSettings.community_plugins[new_name] = new_dir
+                ExecutionSettings.c40_community_plugins[new_name] = new_dir
                 if new_name != ext_name:
-                    ExecutionSettings.community_plugins.pop(ext_name, None)
+                    ExecutionSettings.c40_community_plugins.pop(ext_name, None)
                 self.update_community_plugin_list()
 
     def update_community_plugin_list(self):
         """ Load the extensions from the settings. """
 
         self.listbox_community_plugins.delete(0, tk.END)
-        for name, dir in ExecutionSettings.community_plugins.items():
+        for name, dir in ExecutionSettings.c40_community_plugins.items():
             self.listbox_community_plugins.insert(tk.END, name)
 
     def open_plugins_window(self):
@@ -552,7 +630,7 @@ class SettingWindow:
             delete_setting_profile(ExecutionSettings, profile=self.root.setting.selected_profile.get())
             delete_setting_profile(self.root.setting, profile=self.root.setting.selected_profile.get())
             if self.root.setting.load_extensions.get():
-                for ext in ExecutionSettings.default_extensions:
+                for ext in ExecutionSettings.c40_default_extensions:
                     try:
                         module = importlib.import_module(f"avlite.extensions.{ext}.settings")
                         ExtensionSettings = getattr(module, "ExtensionSettings")
@@ -592,7 +670,7 @@ class SettingWindow:
         rename_setting_profile(ExecutionSettings, old_name, new_name)
         rename_setting_profile(self.root.setting, old_name, new_name)
         if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.default_extensions:
+            for ext in ExecutionSettings.c40_default_extensions:
                 try:
                     module = importlib.import_module(f"avlite.extensions.{ext}.settings")
                     ExtensionSettings = getattr(module, "ExtensionSettings")
@@ -625,7 +703,7 @@ class SettingWindow:
         save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
 
         if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.default_extensions:
+            for ext in ExecutionSettings.c40_default_extensions:
                 try:
                     module = importlib.import_module(f"avlite.extensions.{ext}.settings")
                     ExtensionSettings = getattr(module, "ExtensionSettings")
@@ -636,7 +714,7 @@ class SettingWindow:
 
         # Save community plugin settings
         if self.root.setting.load_extensions.get():
-            for name, plugin_path in ExecutionSettings.community_plugins.items():
+            for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
                 try:
                     cls = _load_plugin_settings_class(name, plugin_path)
                     if cls is None:
@@ -658,6 +736,8 @@ class SettingWindow:
         log.info(f"loading profile: {profile}")
         load_all_stack_settings(profile=profile, load_extensions=self.root.setting.load_extensions.get())
         load_setting(self.root.setting, profile=profile)
+        self.root.setting.selected_profile.set(profile)
+        set_startup_profile(profile)
 
         self.update_core_widgets()
         self.update_extensions_widgets()
@@ -670,7 +750,7 @@ class SettingWindow:
         self.update_widgets(ExecutionSettings)
         
         if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.default_extensions:
+            for ext in ExecutionSettings.c40_default_extensions:
                 try:
                     module = importlib.import_module(f"avlite.extensions.{ext}.settings")
                     ExtensionSettings = getattr(module, "ExtensionSettings")
@@ -686,7 +766,7 @@ class SettingWindow:
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
         if not self.root.setting.load_extensions.get():
             return
-        for name, plugin_path in ExecutionSettings.community_plugins.items():
+        for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
             ext_name = f"community_{name}"
             cls = _load_plugin_settings_class(name, plugin_path)
             if cls is None:
@@ -702,7 +782,7 @@ class SettingWindow:
         """ Update the extension widgets with the current settings. """ 
 
         if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.default_extensions:
+            for ext in ExecutionSettings.c40_default_extensions:
                 try:
                     module = importlib.import_module(f"avlite.extensions.{ext}.settings")
                     ExtensionSettings = getattr(module, "ExtensionSettings")
@@ -742,7 +822,7 @@ class SettingWindow:
             self.create_community_plugin_widgets()
         else:
             # Clear existing extension widgets
-            for ext in ExecutionSettings.default_extensions:
+            for ext in ExecutionSettings.c40_default_extensions:
                 ext_key = f"ExtensionSettings{ext}"
                 if ext_key in self.widget_entries:
                     entry_dict = self.widget_entries[ext_key]
@@ -756,7 +836,7 @@ class SettingWindow:
             self.ext_widget_created = False
 
             # Clear community plugin widgets
-            for name in list(ExecutionSettings.community_plugins.keys()):
+            for name in list(ExecutionSettings.c40_community_plugins.keys()):
                 cp_key = f"PluginSettingscommunity_{name}"
                 if cp_key in self.widget_entries:
                     entry_dict = self.widget_entries[cp_key]
@@ -778,7 +858,7 @@ class SettingWindow:
             log.warning("Extension widgets already created, skipping.")
             return
 
-        for ext in ExecutionSettings.default_extensions:
+        for ext in ExecutionSettings.c40_default_extensions:
             try:
                 module = importlib.import_module(f"avlite.extensions.{ext}.settings")
                 ExtensionSettings = getattr(module, "ExtensionSettings")
@@ -795,7 +875,7 @@ class SettingWindow:
 
         found = []
         if self.root.setting.load_extensions.get():
-            for name, plugin_path in ExecutionSettings.community_plugins.items():
+            for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
                 cls = _load_plugin_settings_class(name, plugin_path)
                 if cls is not None:
                     found.append((name, plugin_path, cls))
@@ -826,16 +906,22 @@ class SettingWindow:
         self.widget_entries[key] = {}
         self.settings_section_frames[key] = frame
         row = 0
+        skip = {"filepath", "schema", "exclude"}
         for field in dir(setting):
-            if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
+            if field.startswith("__") or field in skip or callable(getattr(setting, field)):
                 continue
             value = getattr(setting, field)
-            if isinstance(value, (str, int, float)):
-                ttk.Label(frame, text=field).grid(row=row, column=0, sticky="w", padx=5, pady=2)
+            if isinstance(value, (str, int, float, bool)):
+                label = ttk.Label(frame, text=field)
+                label.grid(row=row, column=0, sticky="w", padx=5, pady=2)
                 entry = ttk.Entry(frame)
                 entry.insert(0, str(value))
                 entry.grid(row=row, column=1, padx=5, pady=2, sticky="ew")
                 self.widget_entries[key][field] = entry
+                tip = field_tooltip_text(setting, field)
+                if tip:
+                    HoverTooltip(label, tip)
+                    HoverTooltip(entry, tip)
                 row += 1
 
 
