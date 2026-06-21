@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Type
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
-from avlite.c60_common.c67_sensor_data import SensorFrame
+from avlite.c60_common.c61_capabilities import WorldCapability, PerceptionCapability
+from avlite.c60_common.c62_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
 

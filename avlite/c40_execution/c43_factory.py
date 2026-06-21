@@ -2,14 +2,20 @@ import logging
 
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from avlite.c60_common.c68_hdmap import HDMap
+from avlite.c60_common.c67_hdmap import HDMap
 from avlite.c30_control.c31_control_model import  ControlComand
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
+from avlite.c60_common.c69_setting_utils import (
+    reload_lib,
+    get_absolute_path,
+    import_all_modules,
+    resolve_plugin_path,
+    runtime_extensions_filter,
+)
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -57,11 +63,12 @@ def executor_factory(
 
     
     if load_extensions:
-        import_all_modules() # loading default extensions
+        import_all_modules(extensions_filter=runtime_extensions_filter())
         # loading community extensions
-        for k,v in ExecutionSettings.c40_community_plugins.items():
-            log.warning(f"Loading external extension: {k} from {v}")
-            import_all_modules(v, pkg_name = k)
+        for k, v in ExecutionSettings.c40_community_plugins.items():
+            path = resolve_plugin_path(k, v)
+            log.warning(f"Loading external extension: {k} from {path}")
+            import_all_modules(str(path), pkg_name=k)
 
 
     try:
@@ -89,7 +96,7 @@ def executor_factory(
     
     try:
         if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
-            hdmap = HDMap(xodr_file_name=hd_map)
+            hdmap = HDMap(xodr_file_name=get_absolute_path(hd_map))
             pm.hd_map = hdmap
             gp = HDMapGlobalPlanner(hdmap)
             log.debug("GlobalHDMapPlanner loaded")

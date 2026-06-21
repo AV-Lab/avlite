@@ -33,7 +33,7 @@ class ExtensionSettings:
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
-from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
+from avlite.c60_common.c61_capabilities import WorldCapability, PerceptionCapability
 from .settings import ExtensionSettings
 
 class MyPerception(PerceptionStrategy):
@@ -64,7 +64,7 @@ selected by name in the `PerceptionSettings`.
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import DetectionStrategy
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyDetector(DetectionStrategy):
@@ -80,7 +80,7 @@ class MyDetector(DetectionStrategy):
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import TrackingStrategy
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyTracker(TrackingStrategy):
@@ -95,7 +95,7 @@ class MyTracker(TrackingStrategy):
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyPredictor(PredictionStrategy):
@@ -124,7 +124,7 @@ Localization strategies estimate the ego vehicle’s pose and update
 
 ```python
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c60_common.c62_capabilities import WorldCapability, LocalizationCapability
+from avlite.c60_common.c61_capabilities import WorldCapability, LocalizationCapability
 
 class MyLocalization(LocalizationStrategy):
     def __init__(self, perception_model, setting=None):
@@ -183,11 +183,14 @@ __all__ = ["MyPerception", "MyLocalization", "MyController", "ExtensionSettings"
 3. Add entry to Community Extensions: `my_plugin` -> `/path/to/my_plugin`
 4. Save profile
 
-**Via settings file** (`configs/c40_execution.yaml`):
+**Via settings file** (`configs/c40_execution.yaml` or your saved copy under `~/.config/avlite/`):
+
 ```yaml
-community_plugins:
+c40_community_plugins:
   my_plugin: /path/to/my_plugin
 ```
+
+When a plugin is installed through `python -m avlite plugins`, its path is stored under `~/.local/share/avlite/plugins/` (override with `AVLITE_PLUGINS_DIR`).
 
 Your classes will now appear in the UI dropdowns.
 

@@ -4,7 +4,7 @@ import numpy as np
 import logging
 from scipy.signal import savgol_filter
 
-from avlite.c60_common.c68_hdmap import HDMap
+from avlite.c60_common.c67_hdmap import HDMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path

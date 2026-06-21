@@ -10,7 +10,6 @@ B:
   c40_perception: ''
   c40_replan_dt: 0.5
   c40_sim_dt: 0.01
-  filepath: configs/c40_execution.yaml
 Carla_Town10:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -49,7 +48,6 @@ Carla_Town10:
   c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml
 SAN:
   c40_bridge: BasicSim
   c40_community_plugins:
@@ -76,7 +74,6 @@ SAN:
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml
 async:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -110,7 +107,6 @@ async:
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml
 default:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -130,11 +126,11 @@ default:
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c40_hd_map: data/Town10HD_Opt.xodr
   c40_local_planner: GreedyLatticePlanner
-  c40_localization: Ground Truth
+  c40_localization: ''
   c40_localization_dt: 0.1
   c40_log_level: INFO
   c40_log_to_file: false
-  c40_mapping: Ground Truth
+  c40_mapping: ''
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.05
   c40_replan_dt: 0.01
@@ -152,7 +148,6 @@ default:
   c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml
 perception:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -191,7 +186,6 @@ perception:
   c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml
 perception exp:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -230,7 +224,6 @@ perception exp:
   c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml
 ros:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -263,7 +256,6 @@ ros:
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml
 sync:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -297,4 +289,3 @@ sync:
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-  filepath: configs/c40_execution.yaml

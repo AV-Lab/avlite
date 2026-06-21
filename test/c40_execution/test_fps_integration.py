@@ -25,7 +25,7 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c61_capabilities import WorldCapability
 
 
 # ---------------------------------------------------------------------------

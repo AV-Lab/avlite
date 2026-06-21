@@ -11,13 +11,16 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import threading
 import tkinter as tk
 import urllib.request
+import webbrowser
 from pathlib import Path
 from tkinter import messagebox, ttk
+from tkinter.scrolledtext import ScrolledText
 from typing import Optional
 
 import yaml
@@ -275,12 +278,18 @@ def _current_profile() -> str:
 def register_in_profile(name: str, path: Path, profile: Optional[str] = None) -> None:
     """Add ``name -> path`` to ``ExecutionSettings.c40_community_plugins`` and persist."""
     from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c60_common.c61_setting_utils import load_setting, save_setting
+    from avlite.c60_common.c69_setting_utils import load_setting, save_setting
 
     profile = profile or _current_profile()
     # Load existing profile state so we don't overwrite unrelated entries.
     load_setting(ExecutionSettings, profile=profile)
-    ExecutionSettings.c40_community_plugins[name] = str(path)
+    path = path.resolve()
+    try:
+        path.relative_to(get_plugins_dir())
+        stored = name
+    except ValueError:
+        stored = str(path)
+    ExecutionSettings.c40_community_plugins[name] = stored
     save_setting(ExecutionSettings, profile=profile)
     log.info("Registered plugin '%s' in profile '%s'", name, profile)
 
@@ -288,7 +297,7 @@ def register_in_profile(name: str, path: Path, profile: Optional[str] = None) ->
 def unregister_from_profile(name: str, profile: Optional[str] = None) -> None:
     """Remove ``name`` from ``ExecutionSettings.c40_community_plugins`` and persist."""
     from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c60_common.c61_setting_utils import load_setting, save_setting
+    from avlite.c60_common.c69_setting_utils import load_setting, save_setting
 
     profile = profile or _current_profile()
     load_setting(ExecutionSettings, profile=profile)
@@ -306,6 +315,346 @@ def _registered_names() -> set[str]:
         return set()
 
 
+def _parse_github_repo(repository: str) -> Optional[tuple[str, str]]:
+    repo = repository.rstrip("/")
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+    for prefix in ("https://github.com/", "http://github.com/"):
+        if repo.startswith(prefix):
+            parts = repo[len(prefix):].split("/")
+            if len(parts) >= 2:
+                return parts[0], parts[1]
+    return None
+
+
+def _normalize_repo_url(url: str) -> str:
+    url = url.strip().rstrip("/")
+    if url.endswith(".git"):
+        url = url[:-4]
+    if url.startswith("git@"):
+        host_path = url[4:]
+        if ":" in host_path:
+            host, path = host_path.split(":", 1)
+            return f"https://{host}/{path}"
+    return url
+
+
+def get_plugin_repository_url(
+    registry_entry: Optional[dict],
+    install_path: Optional[Path],
+) -> Optional[str]:
+    """Return a browser-friendly GitHub URL for a plugin, if known."""
+    if registry_entry:
+        repo = registry_entry.get("repository", "")
+        if repo:
+            return _normalize_repo_url(repo)
+    if install_path is not None:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(install_path), "remote", "get-url", "origin"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return _normalize_repo_url(result.stdout.strip())
+        except Exception:
+            pass
+    return None
+
+
+def read_local_readme(plugin_path: Path) -> str:
+    """Read README from an installed plugin directory."""
+    for name in ("README.md", "readme.md", "Readme.md"):
+        path = plugin_path / name
+        if path.is_file():
+            return path.read_text(encoding="utf-8", errors="replace")
+    return ""
+
+
+def fetch_remote_readme(repository: str, version: str = "latest", timeout: float = 10.0) -> str:
+    """Fetch README.md from a GitHub repository via raw.githubusercontent.com."""
+    parsed = _parse_github_repo(repository)
+    if parsed is None:
+        return ""
+    owner, repo = parsed
+    refs = [version] if version and version != "latest" else ["main", "master", "HEAD"]
+    for ref in refs:
+        for readme_name in ("README.md", "readme.md"):
+            url = f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{readme_name}"
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "avlite"})
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    return resp.read().decode("utf-8", errors="replace")
+            except Exception:
+                continue
+    return ""
+
+
+def load_plugin_readme(
+    name: str,
+    registry_entry: Optional[dict],
+    installed_path: Optional[Path],
+) -> str:
+    """Load README text from a local install path or remote repository."""
+    if installed_path is not None:
+        text = read_local_readme(installed_path)
+        if text:
+            return text
+    if registry_entry:
+        repo = registry_entry.get("repository", "")
+        version = registry_entry.get("version", "latest")
+        if repo:
+            text = fetch_remote_readme(repo, version)
+            if text:
+                return text
+    if installed_path is not None:
+        return "No README found in the plugin directory."
+    return "No README found."
+
+
+def _fmt_category(category) -> str:
+    if isinstance(category, list):
+        return ", ".join(str(c) for c in category)
+    return str(category) if category else ""
+
+
+_INLINE_MD_RE = re.compile(
+    r"(\*\*(.+?)\*\*|\*(.+?)\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))"
+)
+
+
+def _insert_inline_md(text: tk.Text, line: str, base_tag: Optional[str]) -> None:
+    pos = 0
+    for match in _INLINE_MD_RE.finditer(line):
+        if match.start() > pos:
+            chunk = line[pos:match.start()]
+            text.insert(tk.END, chunk, base_tag if base_tag else ())
+        if match.group(2):
+            tags = (base_tag, "md_bold") if base_tag else ("md_bold",)
+            text.insert(tk.END, match.group(2), tags)
+        elif match.group(3):
+            tags = (base_tag, "md_italic") if base_tag else ("md_italic",)
+            text.insert(tk.END, match.group(3), tags)
+        elif match.group(4):
+            tags = (base_tag, "md_code") if base_tag else ("md_code",)
+            text.insert(tk.END, match.group(4), tags)
+        elif match.group(5):
+            tags = (base_tag, "md_link") if base_tag else ("md_link",)
+            text.insert(tk.END, match.group(5), tags)
+            text.insert(tk.END, f" ({match.group(6)})")
+        pos = match.end()
+    if pos < len(line):
+        text.insert(tk.END, line[pos:], base_tag if base_tag else ())
+
+
+def _render_markdown(text: tk.Text, content: str) -> None:
+    """Apply basic markdown formatting to a Tk Text widget."""
+    text.tag_configure("md_h1", font=("Helvetica", 16, "bold"))
+    text.tag_configure("md_h2", font=("Helvetica", 14, "bold"))
+    text.tag_configure("md_h3", font=("Helvetica", 12, "bold"))
+    text.tag_configure("md_bold", font=("Helvetica", 10, "bold"))
+    text.tag_configure("md_italic", font=("Helvetica", 10, "italic"))
+    text.tag_configure("md_code", font=("Courier", 10), background="#f0f0f0")
+    text.tag_configure("md_codeblock", font=("Courier", 10), background="#f0f0f0")
+    text.tag_configure("md_link", underline=True)
+
+    in_code_block = False
+    for line in content.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            text.insert(tk.END, line, "md_codeblock")
+            continue
+
+        heading = re.match(r"^(#{1,3})\s+(.*)$", line.rstrip("\n"))
+        if heading:
+            level = len(heading.group(1))
+            _insert_inline_md(text, heading.group(2) + "\n", f"md_h{level}")
+            continue
+
+        bullet = re.match(r"^(\s*[-*]|\s*\d+\.)\s+(.*)$", line.rstrip("\n"))
+        if bullet:
+            _insert_inline_md(text, "  \u2022 " + bullet.group(2) + "\n", None)
+            continue
+
+        _insert_inline_md(text, line, None)
+
+
+class _PluginDetailsWindow:
+    """Plugin details dialog with rendered README and install actions."""
+
+    def __init__(
+        self,
+        app: "CommunityPluginsApp",
+        name: str,
+        status: str,
+        registry_entry: Optional[dict],
+        install_path: Optional[Path],
+        dpi_scale: float = 1.0,
+    ) -> None:
+        self.app = app
+        self.name = name
+        self.status = status
+        self.registry_entry = registry_entry
+        self.install_path = install_path
+        entry = registry_entry or {}
+        self._repo_url = get_plugin_repository_url(registry_entry, install_path)
+        self.window = tk.Toplevel(app.window)
+        self.window.title(name)
+        self.window.transient(app.window)
+        self.window.geometry(f"{round(700 * dpi_scale)}x{round(500 * dpi_scale)}")
+        self.window.minsize(round(400 * dpi_scale), round(300 * dpi_scale))
+        self.window.bind("<Escape>", lambda _e: self._on_close())
+        self.window.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        outer = ttk.Frame(self.window, padding=8)
+        outer.pack(fill=tk.BOTH, expand=True)
+        outer.rowconfigure(1, weight=1)
+        outer.columnconfigure(0, weight=1)
+
+        meta = ttk.Frame(outer)
+        meta.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        for label, key in (("Author", "author"), ("Version", "version"), ("Description", "description")):
+            row = ttk.Frame(meta)
+            row.pack(fill=tk.X, anchor=tk.W, pady=1)
+            ttk.Label(row, text=f"{label}:", width=12).pack(side=tk.LEFT)
+            value = entry.get(key, "") or "\u2014"
+            ttk.Label(row, text=value, wraplength=round(620 * dpi_scale)).pack(
+                side=tk.LEFT, fill=tk.X, expand=True
+            )
+
+        text_frame = ttk.Frame(outer)
+        text_frame.grid(row=1, column=0, sticky="nsew")
+        text_frame.rowconfigure(0, weight=1)
+        text_frame.columnconfigure(0, weight=1)
+        self.text = ScrolledText(text_frame, wrap=tk.WORD, state=tk.DISABLED, height=12)
+        self.text.grid(row=0, column=0, sticky="nsew")
+
+        footer = ttk.Frame(outer)
+        footer.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+
+        actions = ttk.Frame(footer)
+        actions.pack(side=tk.LEFT)
+        if self._repo_url:
+            ttk.Button(
+                actions,
+                text="Open on GitHub",
+                command=lambda: webbrowser.open(self._repo_url),
+            ).pack(side=tk.LEFT, padx=(0, 6))
+        self.btn_install = ttk.Button(actions, text="Install", command=self._on_install)
+        self.btn_install.pack(side=tk.LEFT, padx=(0, 6))
+        self.btn_uninstall = ttk.Button(actions, text="Uninstall", command=self._on_uninstall)
+        self.btn_uninstall.pack(side=tk.LEFT, padx=(0, 6))
+        self.btn_update = ttk.Button(actions, text="Update", command=self._on_update)
+        self.btn_update.pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(footer, text="Close", command=self._on_close).pack(side=tk.RIGHT)
+
+        app._details_windows.append(self)
+        self._sync_action_buttons()
+        self._set_body("Loading README\u2026")
+        self._load_readme_async()
+
+    def _on_close(self) -> None:
+        try:
+            self.app._details_windows.remove(self)
+        except ValueError:
+            pass
+        try:
+            self.window.destroy()
+        except tk.TclError:
+            pass
+
+    def sync_from_app(self) -> None:
+        ctx = self.app._plugin_context_for_name(self.name)
+        if ctx is None:
+            return
+        _name, status, entry, install_path = ctx
+        self.status = status
+        self.registry_entry = entry
+        self.install_path = install_path
+        self._repo_url = get_plugin_repository_url(entry, install_path)
+        self._sync_action_buttons()
+
+    def _sync_action_buttons(self) -> None:
+        busy = self.app._busy
+        available = self.status == "Available" and self.registry_entry is not None
+        installed = self.status.startswith("Installed")
+        has_update = (
+            installed
+            and self.app._update_statuses.get(self.name) == "update-available"
+        )
+        self.btn_install.state(["!disabled"] if (available and not busy) else ["disabled"])
+        self.btn_uninstall.state(["!disabled"] if (installed and not busy) else ["disabled"])
+        self.btn_update.state(["!disabled"] if (has_update and not busy) else ["disabled"])
+
+    def _after_plugin_action(self) -> None:
+        self.sync_from_app()
+        self._reload_readme()
+
+    def _on_install(self) -> None:
+        self.app._install_plugin(
+            self.name,
+            parent=self.window,
+            on_done=self._after_plugin_action,
+        )
+
+    def _on_uninstall(self) -> None:
+        self.app._uninstall_plugin(
+            self.name,
+            parent=self.window,
+            on_done=self._after_plugin_action,
+        )
+
+    def _on_update(self) -> None:
+        self.app._update_single(
+            self.name,
+            parent=self.window,
+            on_done=self._after_plugin_action,
+        )
+
+    def _set_body(self, content: str, *, rendered: bool = False) -> None:
+        self.text.configure(state=tk.NORMAL)
+        self.text.delete("1.0", tk.END)
+        if rendered:
+            _render_markdown(self.text, content)
+        else:
+            self.text.insert(tk.END, content)
+        self.text.configure(state=tk.DISABLED)
+
+    def _load_readme_async(self) -> None:
+        name = self.name
+        registry_entry = self.registry_entry
+        install_path = self.install_path
+
+        def worker() -> str:
+            return load_plugin_readme(name, registry_entry, install_path)
+
+        def on_done(content: Optional[str], err: Optional[Exception]) -> None:
+            try:
+                if not self.window.winfo_exists():
+                    return
+            except tk.TclError:
+                return
+            if err is not None:
+                self._set_body(f"Failed to load README: {err}")
+            else:
+                self._set_body(content or "No README found.", rendered=True)
+
+        def run() -> None:
+            try:
+                result = worker()
+                self.app.window.after(0, lambda: on_done(result, None))
+            except Exception as exc:  # noqa: BLE001
+                self.app.window.after(0, lambda: on_done(None, exc))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _reload_readme(self) -> None:
+        self._set_body("Loading README\u2026")
+        self._load_readme_async()
+
+
 # ---------------------------------------------------------------------------
 # UI
 # ---------------------------------------------------------------------------
@@ -314,7 +663,7 @@ class CommunityPluginsApp:
 
     _instance: "Optional[CommunityPluginsApp]" = None
 
-    COLUMNS = ("name", "category", "version", "status", "update_status", "path")
+    COLUMNS = ("name", "category", "author", "version", "status", "update_status", "path")
 
     def __init__(self, parent: Optional[tk.Misc] = None):
         self.parent = parent
@@ -322,6 +671,7 @@ class CommunityPluginsApp:
         self._busy = False
         self._registry: list[dict] = []
         self._update_statuses: dict[str, str] = {}
+        self._details_windows: list[_PluginDetailsWindow] = []
         self._owns_root = parent is None
 
         if parent is None:
@@ -334,6 +684,7 @@ class CommunityPluginsApp:
                 pass
 
         _s = max(1.0, min(3.0, self.window.winfo_fpixels('1i') / 96.0))
+        self._dpi_scale = _s
         self.window.title("AVLite Community Plugins")
         self.window.geometry(f"{round(900 * _s)}x{round(500 * _s)}")
         self.window.minsize(round(700 * _s), round(350 * _s))
@@ -374,12 +725,13 @@ class CommunityPluginsApp:
             tree_frame, columns=self.COLUMNS, show="headings", selectmode="browse"
         )
         headings = {
-            "name": ("Name", 180),
-            "category": ("Category", 110),
-            "version": ("Version", 80),
-            "status": ("Status", 130),
-            "update_status": ("Update", 120),
-            "path": ("Repository / Path", 300),
+            "name": ("Name", 160),
+            "category": ("Category", 100),
+            "author": ("Author", 120),
+            "version": ("Version", 70),
+            "status": ("Status", 120),
+            "update_status": ("Update", 100),
+            "path": ("Repository / Path", 220),
         }
         for col, (label, width) in headings.items():
             self.tree.heading(col, text=label)
@@ -392,13 +744,14 @@ class CommunityPluginsApp:
         tree_frame.rowconfigure(0, weight=1)
         tree_frame.columnconfigure(0, weight=1)
         self.tree.bind("<<TreeviewSelect>>", lambda _e: self._update_buttons())
-        self.tree.bind("<Double-Button-1>", lambda _e: self._on_default_action())
+        self.tree.bind("<Double-Button-1>", lambda _e: self._on_show_details())
 
         # Toolbar
         toolbar = ttk.Frame(outer)
         toolbar.pack(fill=tk.X, pady=(8, 0))
 
         self.btn_refresh = ttk.Button(toolbar, text="Refresh", command=self._refresh_async)
+        self.btn_github = ttk.Button(toolbar, text="Open on GitHub", command=self._on_open_github)
         self.btn_install = ttk.Button(toolbar, text="Install", command=self._on_install)
         self.btn_uninstall = ttk.Button(toolbar, text="Uninstall", command=self._on_uninstall)
         self.btn_update = ttk.Button(toolbar, text="Update", command=self._on_update)
@@ -406,8 +759,8 @@ class CommunityPluginsApp:
         self.btn_open = ttk.Button(toolbar, text="Open Folder", command=self._open_folder)
         self.btn_close = ttk.Button(toolbar, text="Close", command=self._on_close)
 
-        for b in (self.btn_refresh, self.btn_install, self.btn_uninstall,
-                  self.btn_update, self.btn_update_all, self.btn_open):
+        for b in (self.btn_refresh, self.btn_github, self.btn_install,
+                  self.btn_uninstall, self.btn_update, self.btn_update_all, self.btn_open):
             b.pack(side=tk.LEFT, padx=(0, 6))
         self.btn_close.pack(side=tk.RIGHT)
 
@@ -445,7 +798,8 @@ class CommunityPluginsApp:
                 iid=name,
                 values=(
                     name,
-                    entry.get("category", ""),
+                    _fmt_category(entry.get("category", "")),
+                    entry.get("author", ""),
                     entry.get("version", ""),
                     status,
                     up_st,
@@ -463,7 +817,7 @@ class CommunityPluginsApp:
                 "",
                 tk.END,
                 iid=name,
-                values=(name, "", "", status, up_st, str(inst["path"])),
+                values=(name, "", "", "", status, up_st, str(inst["path"])),
             )
         self._check_updates_async()
         self._update_buttons()
@@ -476,8 +830,44 @@ class CommunityPluginsApp:
         status = self.tree.set(name, "status")
         return name, status
 
+    def _selected_plugin_context(self) -> Optional[tuple[str, str, Optional[dict], Optional[Path]]]:
+        sel = self._selected_entry()
+        if not sel:
+            return None
+        return self._plugin_context_for_name(sel[0])
+
+    def _plugin_context_for_name(
+        self, name: str
+    ) -> Optional[tuple[str, str, Optional[dict], Optional[Path]]]:
+        try:
+            status = self.tree.set(name, "status")
+        except tk.TclError:
+            return None
+        entry = next((e for e in self._registry if e["name"] == name), None)
+        install_path = None
+        if status.startswith("Installed"):
+            installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
+            inst = installed.get(name)
+            if inst is not None:
+                install_path = inst["path"]
+        return name, status, entry, install_path
+
+    def _sync_details_windows(self, name: Optional[str] = None) -> None:
+        live: list[_PluginDetailsWindow] = []
+        for win in self._details_windows:
+            try:
+                if not win.window.winfo_exists():
+                    continue
+                live.append(win)
+                if name is None or win.name == name:
+                    win.sync_from_app()
+            except tk.TclError:
+                continue
+        self._details_windows = live
+
     def _update_buttons(self) -> None:
         sel = self._selected_entry()
+        ctx = self._selected_plugin_context()
         installed = sel is not None and sel[1].startswith("Installed")
         available = sel is not None and sel[1] == "Available"
         busy = self._busy
@@ -486,20 +876,37 @@ class CommunityPluginsApp:
             and self._update_statuses.get(sel[0]) == "update-available"
         )
         has_any_update = any(s == "update-available" for s in self._update_statuses.values())
+        has_github = ctx is not None and get_plugin_repository_url(ctx[2], ctx[3]) is not None
+        self.btn_github.state(["!disabled"] if (has_github and not busy) else ["disabled"])
         self.btn_install.state(["!disabled"] if (available and not busy) else ["disabled"])
         self.btn_uninstall.state(["!disabled"] if (installed and not busy) else ["disabled"])
         self.btn_refresh.state(["disabled"] if busy else ["!disabled"])
         self.btn_update.state(["!disabled"] if (has_update and not busy) else ["disabled"])
         self.btn_update_all.state(["!disabled"] if (has_any_update and not busy) else ["disabled"])
+        self._sync_details_windows()
 
-    def _on_default_action(self) -> None:
-        sel = self._selected_entry()
-        if not sel:
+    def _on_show_details(self) -> None:
+        ctx = self._selected_plugin_context()
+        if ctx is None:
             return
-        if sel[1] == "Available":
-            self._on_install()
-        elif sel[1].startswith("Installed"):
-            self._on_uninstall()
+        name, status, entry, install_path = ctx
+        _PluginDetailsWindow(
+            self,
+            name,
+            status,
+            entry,
+            install_path,
+            dpi_scale=self._dpi_scale,
+        )
+
+    def _on_open_github(self) -> None:
+        ctx = self._selected_plugin_context()
+        if ctx is None:
+            return
+        _name, _status, entry, install_path = ctx
+        repo_url = get_plugin_repository_url(entry, install_path)
+        if repo_url:
+            webbrowser.open(repo_url)
 
     # -- Actions ---------------------------------------------------------
     def _set_busy(self, busy: bool, msg: str = "") -> None:
@@ -571,6 +978,7 @@ class CommunityPluginsApp:
         except tk.TclError:
             pass
         self._update_buttons()
+        self._sync_details_windows(name)
 
     def _on_update(self) -> None:
         """Update the currently selected plugin."""
@@ -582,7 +990,14 @@ class CommunityPluginsApp:
             return
         self._update_single(name)
 
-    def _update_single(self, name: str) -> None:
+    def _update_single(
+        self,
+        name: str,
+        *,
+        parent: Optional[tk.Misc] = None,
+        on_done=None,
+    ) -> None:
+        parent = parent or self.window
         installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
         plugin_path = installed.get(name, {}).get("path")
         if plugin_path is None:
@@ -597,12 +1012,14 @@ class CommunityPluginsApp:
         def done(_result, err):
             if err is not None:
                 self._set_busy(False, f"Update failed for {name}: {err}")
-                messagebox.showerror("Update failed", str(err), parent=self.window)
+                messagebox.showerror("Update failed", str(err), parent=parent)
                 return
             self._update_statuses.pop(name, None)
             self._set_busy(False, f"Updated {name}.")
             self._populate()
             self._notify_host_changed()
+            if on_done:
+                on_done()
 
         self._run_bg(task, done)
 
@@ -654,11 +1071,14 @@ class CommunityPluginsApp:
         except Exception:
             return None
 
-    def _on_install(self) -> None:
-        sel = self._selected_entry()
-        if not sel or sel[1] != "Available":
-            return
-        name = sel[0]
+    def _install_plugin(
+        self,
+        name: str,
+        *,
+        parent: Optional[tk.Misc] = None,
+        on_done=None,
+    ) -> None:
+        parent = parent or self.window
         entry = next((e for e in self._registry if e["name"] == name), None)
         if entry is None:
             return
@@ -673,17 +1093,28 @@ class CommunityPluginsApp:
         def done(path, err):
             if err is not None:
                 self._set_busy(False, f"Install failed: {err}")
-                messagebox.showerror("Install failed", str(err), parent=self.window)
+                messagebox.showerror("Install failed", str(err), parent=parent)
                 return
-            self._handle_requirements(name, path)
+            self._handle_requirements(name, path, parent=parent)
             self._set_busy(False, f"Installed {name} at {path}")
             self._populate()
             self._notify_host_changed()
+            if on_done:
+                on_done()
 
         self._run_bg(task, done)
 
-    def _handle_requirements(self, name: str, plugin_path: Path) -> None:
+    def _on_install(self) -> None:
+        sel = self._selected_entry()
+        if not sel or sel[1] != "Available":
+            return
+        self._install_plugin(sel[0])
+
+    def _handle_requirements(
+        self, name: str, plugin_path: Path, *, parent: Optional[tk.Misc] = None
+    ) -> None:
         """Check the plugin's requirements.txt and prompt to install missing deps."""
+        parent = parent or self.window
         req_file = plugin_path / "requirements.txt"
         if not req_file.exists():
             return
@@ -693,13 +1124,13 @@ class CommunityPluginsApp:
                 "Dependency version mismatch",
                 f"'{name}' requires:\n  " + "\n  ".join(mismatched)
                 + "\n\nThe plugin may not work correctly.",
-                parent=self.window,
+                parent=parent,
             )
         if missing and messagebox.askyesno(
             "Install missing dependencies?",
             f"'{name}' needs:\n  " + "\n  ".join(missing)
             + "\n\nInstall them into the current Python environment?",
-            parent=self.window,
+            parent=parent,
         ):
             try:
                 pip_install(req_file)
@@ -708,18 +1139,21 @@ class CommunityPluginsApp:
                 messagebox.showerror(
                     "pip install failed",
                     detail,
-                    parent=self.window,
+                    parent=parent,
                 )
 
-    def _on_uninstall(self) -> None:
-        sel = self._selected_entry()
-        if not sel or not sel[1].startswith("Installed"):
-            return
-        name = sel[0]
+    def _uninstall_plugin(
+        self,
+        name: str,
+        *,
+        parent: Optional[tk.Misc] = None,
+        on_done=None,
+    ) -> None:
+        parent = parent or self.window
         if not messagebox.askyesno(
             "Uninstall plugin",
             f"Remove '{name}' from the profile and delete its files?",
-            parent=self.window,
+            parent=parent,
         ):
             return
         profile = self._active_profile()
@@ -732,13 +1166,21 @@ class CommunityPluginsApp:
         def done(_result, err):
             if err is not None:
                 self._set_busy(False, f"Uninstall failed: {err}")
-                messagebox.showerror("Uninstall failed", str(err), parent=self.window)
+                messagebox.showerror("Uninstall failed", str(err), parent=parent)
                 return
             self._set_busy(False, f"Uninstalled {name}")
             self._populate()
             self._notify_host_changed()
+            if on_done:
+                on_done()
 
         self._run_bg(task, done)
+
+    def _on_uninstall(self) -> None:
+        sel = self._selected_entry()
+        if not sel or not sel[1].startswith("Installed"):
+            return
+        self._uninstall_plugin(sel[0])
 
     def _open_folder(self) -> None:
         self.plugins_dir.mkdir(parents=True, exist_ok=True)

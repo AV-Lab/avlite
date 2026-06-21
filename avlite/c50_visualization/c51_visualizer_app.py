@@ -14,7 +14,15 @@ from avlite.c50_visualization.c54_exec_views import ExecView
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c61_setting_utils import load_setting, list_profiles, list_extensions, load_all_stack_settings, reload_lib
+from avlite.c60_common.c69_setting_utils import (
+    load_setting,
+    list_profiles,
+    list_extensions,
+    load_all_stack_settings,
+    reload_lib,
+    get_startup_profile,
+    set_startup_profile,
+)
     
 
 log = logging.getLogger(__name__)
@@ -53,6 +61,9 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
+        startup = get_startup_profile()
+        if startup and startup in self.setting.profile_list:
+            self.setting.selected_profile.set(startup)
         ExecutionSettings.c40_default_extensions = list_extensions()
         
         # ----------------------------------------------------------------------
@@ -480,7 +491,7 @@ class VisualizerApp(tk.Tk):
     
 
     def load_configs(self, only_stack=False, profile=None):
-        """ Load settings from a profile or the current settings. Uses c61_setting_utils files plus UI house keeping """
+        """ Load settings from a profile or the current settings. Uses c69_setting_utils files plus UI house keeping """
         
         if profile:
             self.setting.selected_profile.set(profile)
@@ -498,6 +509,7 @@ class VisualizerApp(tk.Tk):
         log.info(f"Loaded settings from profile: {profile}")
 
         self.log_view.reset()
+        set_startup_profile(profile)
 
     def reload_stack(self, reload_code:bool = True):
         if reload_code:
@@ -547,6 +559,7 @@ class VisualizerApp(tk.Tk):
         self.local_plan_plot_view.reset()
         self.global_plan_plot_view.reset()
         self.perceive_plan_control_view.reset()
+        self.exec_visualize_view.update_data()
         self.update_views()
         self.update_ui()
         self.enable_frame(self)

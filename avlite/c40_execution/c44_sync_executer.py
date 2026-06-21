@@ -10,7 +10,7 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_executer import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c61_capabilities import WorldCapability
 
 log = logging.getLogger(__name__)
 

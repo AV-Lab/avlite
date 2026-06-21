@@ -6,8 +6,8 @@ from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c30_control.c31_control_model import ControlCommand
-from avlite.c60_common.c62_capabilities import WorldCapability
-from avlite.c60_common.c67_sensor_data import (
+from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c60_common.c62_sensor_data import (
     GnssReading,
     ImuReading,
     SensorFrame,
@@ -70,15 +70,15 @@ class WorldBridge(ABC):
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     def get_rgb_image(self) -> RgbImage | None:
-        """Returns the RGB image. Layout: ``RgbImage`` in c67_sensor_data."""
+        """Returns the RGB image. Layout: ``RgbImage`` in c62_sensor_data."""
         return None
 
     def get_depth_image(self) -> DepthImage | None:
-        """Returns the depth image. Layout: ``DepthImage`` in c67_sensor_data."""
+        """Returns the depth image. Layout: ``DepthImage`` in c62_sensor_data."""
         return None
 
     def get_lidar_data(self) -> LidarCloud | None:
-        """Returns the lidar point cloud. Layout: ``LidarCloud`` in c67_sensor_data."""
+        """Returns the lidar point cloud. Layout: ``LidarCloud`` in c62_sensor_data."""
         return None
 
     def get_imu(self) -> ImuReading | None:

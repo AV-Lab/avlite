@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 import logging
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c60_common.c68_hdmap import HDMap
+from avlite.c60_common.c67_hdmap import HDMap
 
 
 log = logging.getLogger(__name__)
@@ -161,9 +161,6 @@ class State:
     def get_bb_polygon(self):
         return Polygon(self.get_bb_corners())
 
-    def get_transformed_bb_corners(self, func):
-        corners = self.get_bb_corners()
-        return np.apply_along_axis(func, 1, corners)
 
 @dataclass
 class AgentState(State):

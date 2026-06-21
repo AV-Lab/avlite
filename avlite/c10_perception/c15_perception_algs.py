@@ -7,7 +7,7 @@ from avlite.c10_perception.c12_perception_strategy import (
     TrackingStrategy,
 )
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c60_common.c62_capabilities import AnyOf, WorldCapability
+from avlite.c60_common.c61_capabilities import AnyOf, WorldCapability
 
 import logging 
 

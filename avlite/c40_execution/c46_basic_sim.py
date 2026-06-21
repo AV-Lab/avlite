@@ -7,12 +7,12 @@ from avlite.c10_perception.c11_perception_model import AgentState, PerceptionMod
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c30_control.c32_control_strategy import ControlComand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c61_setting_utils import get_absolute_path
-from avlite.c60_common.c67_sensor_data import LidarCloud, lidar_2d_to_4
+from avlite.c60_common.c69_setting_utils import get_absolute_path
+from avlite.c60_common.c62_sensor_data import LidarCloud, lidar_2d_to_4
 
 
 import logging
@@ -47,7 +47,9 @@ class BasicSim(WorldBridge):
         if pm is not None and setting.c46_default_trajectory:
             try:  
                 from avlite.c20_planning.c21_planning_model import GlobalPlan
-                self.default_global_plan = GlobalPlan.from_file(setting.c46_default_trajectory)
+                self.default_global_plan = GlobalPlan.from_file(
+                    get_absolute_path(setting.c46_default_trajectory)
+                )
                 self.npc_control = True
             except Exception as e:
                 log.error(f"Failed to load default trajectory {setting.c46_default_trajectory}: {e}")
@@ -122,7 +124,6 @@ class BasicSim(WorldBridge):
         if self.pm is not None:
             self.pm.reset()
         self.npc_controllers = {}
-        return self.boundary_frenet
 
     # ------------------------------------------------------------------
     # 2D LiDAR simulation

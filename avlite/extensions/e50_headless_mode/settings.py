@@ -1,12 +1,19 @@
+from pydantic import Field
+
+from avlite.c60_common.c68_settings_schema import SettingsSchema
+
+
+class ExtensionSettingsSchema(SettingsSchema):
+    log_buffer_size: int = Field(default=500, description="Max log lines in headless dashboard buffer.")
+    dashboard_refresh_hz: float = Field(default=10.0, description="Terminal dashboard refresh rate (Hz).")
+    stats_panel_height: int = Field(default=18, description="Rows reserved for stats panel in dashboard.")
+
+
 class ExtensionSettings:
-    exclude = ["exclude", "filepath"]  # attributes to exclude from saving/loading
+    schema = ExtensionSettingsSchema
+    exclude = ["exclude", "filepath", "schema"]
     filepath: str = "configs/ext_headless_mode.yaml"
 
-    # Maximum number of log lines kept in the dashboard buffer
     log_buffer_size: int = 500
-
-    # Terminal dashboard refresh rate (Hz)
     dashboard_refresh_hz: float = 10.0
-
-    # Number of rows reserved for the stats panel in the dashboard layout
     stats_panel_height: int = 18

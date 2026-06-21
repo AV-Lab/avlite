@@ -23,7 +23,6 @@ Carla_Town10:
   c26_stopping_decel_factor: 0.8
   c26_stopping_safety_buffer: 2.0
   c26_urgent_collision_threshold: 3
-  filepath: configs/c20_planning.yaml
 async:
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
@@ -43,7 +42,6 @@ async:
   c26_stopping_decel_factor: 0.8
   c26_stopping_safety_buffer: 2.0
   c26_urgent_collision_threshold: 3
-  filepath: configs/c20_planning.yaml
 default:
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
@@ -69,7 +67,6 @@ default:
   c26_stopping_decel_factor: 0.8
   c26_stopping_safety_buffer: 2.0
   c26_urgent_collision_threshold: 3
-  filepath: configs/c20_planning.yaml
 perception:
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
@@ -95,7 +92,6 @@ perception:
   c26_stopping_decel_factor: 0.8
   c26_stopping_safety_buffer: 2.0
   c26_urgent_collision_threshold: 3
-  filepath: configs/c20_planning.yaml
 ros:
   c26_boundary_clearance: 0.5
   c26_maneuver_distance: 30
@@ -103,7 +99,6 @@ ros:
   c26_num_of_edge_points: 10
   c26_planning_horizon: 3
   c26_sample_size: 3
-  filepath: configs/c20_planning.yaml
 sync:
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
@@ -124,4 +119,3 @@ sync:
   c26_stopping_decel_factor: 0.8
   c26_stopping_safety_buffer: 2.0
   c26_urgent_collision_threshold: 3
-  filepath: configs/c20_planning.yaml

@@ -36,21 +36,30 @@ def _run_plugins() -> None:
 
 def main(argv: list[str] | None = None) -> None:
     """Main entry point for the AVLite application."""
-    from avlite.extensions.e50_headless_mode import register_parser, run_headless
+    from avlite.extensions.e50_headless_mode import (
+        register_parser,
+        run_headless,
+        register_config_parser,
+        run_config_command,
+    )
 
     parser = argparse.ArgumentParser(prog="avlite", description="AVLite")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("plugins", help="Open the community plugins manager")
+    register_config_parser(sub)
     register_parser(sub)
 
     try:
         args, unknown = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
     except SystemExit as exc:
-        sys.stderr.write("\nError parsing arguments. Use --help for usage.\n")
+        if exc.code not in (0, None):
+            sys.stderr.write("\nError parsing arguments. Use --help for usage.\n")
         raise
 
     if args.command == "plugins":
         _run_plugins()
+    elif args.command == "config":
+        sys.exit(run_config_command(args))
     elif args.command == "headless":
         if unknown:
             sys.stderr.write(f"Ignoring unknown arguments: {unknown}\n")

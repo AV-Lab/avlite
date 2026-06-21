@@ -15,8 +15,8 @@ Then the executer calls:
   - ``world.control_ego_state(cmd)``→ publishes cmd to control_out_topic
   - ``world.get_ground_truth_perception_model()`` → returns perception model populated
                                                     from the perception topic
-  - ``world.get_rgb_image()``       → returns latest ``RgbImage`` (see c67_sensor_data)
-  - ``world.get_lidar_data()``      → returns latest ``LidarCloud`` (see c67_sensor_data)
+  - ``world.get_rgb_image()``       → returns latest ``RgbImage`` (see c62_sensor_data)
+  - ``world.get_lidar_data()``      → returns latest ``LidarCloud`` (see c62_sensor_data)
 
 Capabilities advertised depend on which sensor topics are configured in settings.
 """
@@ -33,8 +33,8 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c30_control.c31_control_model import ControlComand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c60_common.c62_capabilities import WorldCapability
-from avlite.c60_common.c67_sensor_data import LidarCloud, RgbImage, SensorFrame
+from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c60_common.c62_sensor_data import LidarCloud, RgbImage, SensorFrame
 
 from .settings import ExtensionSettings
 

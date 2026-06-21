@@ -16,9 +16,18 @@ from avlite.c40_execution.c42_executer import Executer
 
 log = logging.getLogger(__name__)
 
+DEFAULT_SUBSTRATEGY = "None"
+_LEGACY_SUBSTRATEGY_LABELS = frozenset({"", "Ground Truth", "Default Perception Model", DEFAULT_SUBSTRATEGY})
+
+
+def is_default_substrategy(value: str) -> bool:
+    """True when UI label means use the built-in / empty backend strategy."""
+    return value in _LEGACY_SUBSTRATEGY_LABELS
+
 
 class VisualizationSettings:
-    exclude = ["exclude","vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
+    schema = None  # set after VisualizationSettingsSchema is defined below
+    exclude = ["exclude", "filepath", "schema", "vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
                          "control_fps", "perception_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "extension_list"]
     filepath: str="configs/c50_visualization.yaml"
 
@@ -67,29 +76,29 @@ class VisualizationSettings:
         self.perception_type.trace_add("write", _on_perception_change)
         self.perception_dt = tk.DoubleVar(value=ExecutionSettings.c40_perception_dt)
 
-        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy or "Default Perception Model")
+        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy or DEFAULT_SUBSTRATEGY)
         def _on_detection_change(*args):
             v = self.detection_strategy_type.get()
-            PerceptionSettings.c12_detection_strategy = "" if v == "Default Perception Model" else v
+            PerceptionSettings.c12_detection_strategy = "" if is_default_substrategy(v) else v
         self.detection_strategy_type.trace_add("write", _on_detection_change)
 
-        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy or "Default Perception Model")
+        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy or DEFAULT_SUBSTRATEGY)
         def _on_tracking_change(*args):
             v = self.tracking_strategy_type.get()
-            PerceptionSettings.c12_tracking_strategy = "" if v == "Default Perception Model" else v
+            PerceptionSettings.c12_tracking_strategy = "" if is_default_substrategy(v) else v
         self.tracking_strategy_type.trace_add("write", _on_tracking_change)
 
-        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy or "None")
+        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy or DEFAULT_SUBSTRATEGY)
         def _on_prediction_change(*args):
             v = self.prediction_strategy_type.get()
-            PerceptionSettings.c12_prediction_strategy = "" if v == "Default Perception Model" else v
+            PerceptionSettings.c12_prediction_strategy = "" if is_default_substrategy(v) else v
         self.prediction_strategy_type.trace_add("write", _on_prediction_change)
 
         # localization
-        self.localization_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "Default Perception Model")
+        self.localization_type = tk.StringVar(value=ExecutionSettings.c40_localization or DEFAULT_SUBSTRATEGY)
         def _on_localization_change(*args):
             v = self.localization_type.get()
-            ExecutionSettings.c40_localization = "" if v == "Default Perception Model" else v
+            ExecutionSettings.c40_localization = "" if is_default_substrategy(v) else v
         self.localization_type.trace_add("write", _on_localization_change)
         self.localization_dt = tk.DoubleVar(value=ExecutionSettings.c40_localization_dt)
         def _on_localization_dt_change(*args):
@@ -97,10 +106,10 @@ class VisualizationSettings:
         self.localization_dt.trace_add("write", _on_localization_dt_change)
 
         # mapping
-        self.mapping_type = tk.StringVar(value=list(MappingStrategy.registry.keys())[0] if MappingStrategy.registry else "Default Perception Model")
+        self.mapping_type = tk.StringVar(value=ExecutionSettings.c40_mapping or DEFAULT_SUBSTRATEGY)
         def _on_mapping_change(*args):
             v = self.mapping_type.get()
-            ExecutionSettings.c40_mapping = "" if v == "Default Perception Model" else v
+            ExecutionSettings.c40_mapping = "" if is_default_substrategy(v) else v
         self.mapping_type.trace_add("write", _on_mapping_change)
 
         # planning
@@ -257,20 +266,110 @@ class VisualizationSettings:
     )
 
     def normalize_gt_sentinels(self):
-        """Convert empty-string values to 'Ground Truth' display label after profile load."""
+        """Map empty or legacy labels to DEFAULT_SUBSTRATEGY after profile load."""
+        legacy = {"", "Ground Truth", "Default Perception Model"}
         for name in self._GT_SENTINEL_VARS:
             var = getattr(self, name, None)
-            if var is not None and isinstance(var, tk.StringVar) and var.get() == "":
-                var.set("Ground Truth")
+            if var is not None and isinstance(var, tk.StringVar) and var.get() in legacy:
+                var.set(DEFAULT_SUBSTRATEGY)
+        for attr in ("c40_localization", "c40_mapping"):
+            if getattr(ExecutionSettings, attr, None) in ("Ground Truth", "Default Perception Model"):
+                setattr(ExecutionSettings, attr, "")
 
 
 def _sync_exec_dt(attr: str, value: float) -> None:
     """Persist dt change to the ROS extension YAML so it takes effect on next launch."""
     try:
         from avlite.extensions.e40_executer_ROS2.settings import ExtensionSettings as ROSSettings
-        from avlite.c60_common.c61_setting_utils import save_setting
+        from avlite.c60_common.c69_setting_utils import save_setting
         setattr(ROSSettings, attr, float(value))
         save_setting(ROSSettings)
     except Exception:
         pass
+
+
+from pydantic import Field
+from avlite.c60_common.c68_settings_schema import SettingsSchema
+
+
+class VisualizationSettingsSchema(SettingsSchema):
+    shortcut_mode: bool = Field(default=False, description="Enable keyboard shortcut mode in the visualizer.")
+    dark_mode: bool = Field(default=True, description="Use dark UI theme.")
+    hide_menubar: bool = Field(default=False, description="Hide the application menu bar.")
+    selected_profile: str = Field(default="default", description="Active settings profile name.")
+    next_profile: str = Field(default="default", description="Profile to switch to with shortcut F.")
+    load_extensions: bool = Field(default=True, description="Load built-in and community extensions on startup.")
+    mouse_drag_slowdown_factor: float = Field(default=0.5, description="Slowdown factor when dragging plots with mouse.")
+
+    show_legend: bool = Field(default=False, description="Show plot legend (may reduce performance).")
+    show_past_locations: bool = Field(default=True, description="Show historical ego positions on plots.")
+    show_global_plan: bool = Field(default=True, description="Draw global plan on plots.")
+    show_local_plan: bool = Field(default=True, description="Draw local plan on plots.")
+    show_local_lattice: bool = Field(default=True, description="Draw local lattice on plots.")
+    show_state: bool = Field(default=True, description="Show ego state overlay on plots.")
+    global_view_follow_planner: bool = Field(default=False, description="Follow planner in global XY view.")
+    frenet_view_follow_planner: bool = Field(default=False, description="Follow planner in Frenet view.")
+    show_local_global_view: bool = Field(default=True, description="Show local global (XY) sub-view.")
+    show_local_frenet_view: bool = Field(default=True, description="Show local Frenet sub-view.")
+    show_lidar_global: bool = Field(default=True, description="Show LiDAR points in global XY view.")
+    show_lidar_frenet: bool = Field(default=False, description="Show LiDAR points in Frenet view.")
+    show_lidar_clusters: bool = Field(default=True, description="Highlight clustered LiDAR points.")
+    show_race_boundary: bool = Field(default=True, description="Show race boundary on plots.")
+    xy_zoom: float = Field(default=30, description="XY plot zoom level.")
+    frenet_zoom: float = Field(default=30, description="Frenet plot zoom level.")
+    global_zoom: float = Field(default=30, description="Global plot zoom level.")
+
+    show_occupancy_flow: bool = Field(default=False, description="Show occupancy flow visualization.")
+    show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
+    perception_type: str = Field(default="", description="Selected perception strategy class name.")
+    perception_dt: float = Field(default=0.5, description="UI-linked perception dt (seconds).")
+    detection_strategy_type: str = Field(default="", description="Detection sub-strategy display name.")
+    tracking_strategy_type: str = Field(default="", description="Tracking sub-strategy display name.")
+    prediction_strategy_type: str = Field(default="", description="Prediction sub-strategy display name.")
+    localization_type: str = Field(default="", description="Localization strategy display name.")
+    localization_dt: float = Field(default=0.1, description="UI-linked localization dt (seconds).")
+    mapping_type: str = Field(default="", description="Mapping strategy display name.")
+    global_planner_type: str = Field(default="", description="Global planner class name.")
+    local_planner_type: str = Field(default="", description="Local planner class name.")
+    controller_type: str = Field(default="", description="Controller class name.")
+    enable_joystick: bool = Field(default=True, description="Enable joystick/gamepad input.")
+    global_plan_view: bool = Field(default=False, description="Show global plan panel.")
+    local_plan_view: bool = Field(default=False, description="Show local plan panel.")
+    executer_type: str = Field(default="", description="Executer class name.")
+    exec_plan: bool = Field(default=True, description="Enable planning step in execution.")
+    exec_control: bool = Field(default=True, description="Enable control step in execution.")
+    exec_perceive: bool = Field(default=True, description="Enable perception step in execution.")
+    exec_localize: bool = Field(default=True, description="Enable localization step in execution.")
+    control_dt: float = Field(default=0.01, description="UI-linked control dt (seconds).")
+    replan_dt: float = Field(default=0.5, description="UI-linked replan dt (seconds).")
+    sim_dt: float = Field(default=0.01, description="UI-linked simulation dt (seconds).")
+    execution_bridge: str = Field(default="BasicSim", description="World bridge class name.")
+    default_global_plan_file: str = Field(default="", description="Default global plan file path.")
+    bridge_provide_ground_truth_detection: bool = Field(default=False, description="Request ground truth from bridge.")
+    bridge_provide_rgb_image: bool = Field(default=False, description="Request RGB from bridge.")
+    bridge_provide_depth_image: bool = Field(default=False, description="Request depth from bridge.")
+    bridge_provide_lidar_data: bool = Field(default=False, description="Request LiDAR from bridge.")
+    log_level: str = Field(default="INFO", description="UI logging level filter.")
+    show_core_logs: bool = Field(default=True, description="Show core module logs.")
+    show_perceive_logs: bool = Field(default=True, description="Show perception logs.")
+    show_plan_logs: bool = Field(default=True, description="Show planning logs.")
+    show_control_logs: bool = Field(default=True, description="Show control logs.")
+    show_execute_logs: bool = Field(default=True, description="Show execution logs.")
+    show_vis_logs: bool = Field(default=True, description="Show visualization logs.")
+    show_common_logs: bool = Field(default=True, description="Show common module logs.")
+    show_extensions_logs: bool = Field(default=True, description="Show extension logs.")
+    disable_log: bool = Field(default=False, description="Disable log panel updates.")
+    max_log_lines: int = Field(default=1000, description="Max log lines retained in UI.")
+    log_view_expanded: bool = Field(default=False, description="Use expanded log panel height.")
+    log_view_default_height: int = Field(default=12, description="Default log panel height in lines.")
+    log_view_expended_height: int = Field(default=35, description="Expanded log panel height in lines.")
+    log_font: str = Field(default="Courier", description="Log panel font family.")
+    log_font_size: int = Field(default=11, description="Log panel font size.")
+    log_to_file: bool = Field(default=False, description="Write logs to file.")
+    log_pull_time: int = Field(default=50, description="Log refresh interval (ms).")
+    bg_color: str = Field(default="#333333", description="UI background color.")
+    fg_color: str = Field(default="white", description="UI foreground/text color.")
+
+
+VisualizationSettings.schema = VisualizationSettingsSchema
 

@@ -13,9 +13,9 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c60_common.c62_capabilities import satisfies_requirements
+from avlite.c60_common.c61_capabilities import satisfies_requirements
 from avlite.c60_common.c65_fps_tracker import FpsTracker
-from avlite.c60_common.c67_sensor_data import SensorFrame
+from avlite.c60_common.c62_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
 

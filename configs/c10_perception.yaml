@@ -6,7 +6,6 @@ Carla_Town10:
   c12_prediction_strategy: ConstantVelocityPrediction
   c12_tracking_strategy: ''
   c15_prediction_horizon: 2.0
-  filepath: configs/c10_perception.yaml
 async:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
@@ -14,13 +13,12 @@ async:
   c12_detection_strategy: ''
   c12_prediction_strategy: ''
   c12_tracking_strategy: ''
-  filepath: configs/c10_perception.yaml
 default:
-  c11_max_agents: 12
+  c11_max_agents: 13
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
   c12_detection_strategy: ''
-  c12_prediction_strategy: ''
+  c12_prediction_strategy: ConstantVelocityPrediction
   c12_tracking_strategy: ''
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0
@@ -45,7 +43,6 @@ default:
   c16_localization_lidar_z_max: 2.0
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
-  filepath: configs/c10_perception.yaml
 perception:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
@@ -76,12 +73,10 @@ perception:
   c16_localization_lidar_z_max: 2.0
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
-  filepath: configs/c10_perception.yaml
 ros:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
-  filepath: configs/c10_perception.yaml
 sync:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
@@ -89,4 +84,3 @@ sync:
   c12_detection_strategy: ''
   c12_prediction_strategy: ''
   c12_tracking_strategy: ''
-  filepath: configs/c10_perception.yaml

@@ -1,6 +1,6 @@
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c60_common.c62_capabilities import WorldCapability
-from avlite.c60_common.c67_sensor_data import DepthImage, LidarCloud, RgbImage, SensorFrame
+from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c60_common.c62_sensor_data import DepthImage, LidarCloud, RgbImage, SensorFrame
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy

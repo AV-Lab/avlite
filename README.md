@@ -149,6 +149,17 @@ pip install rich
 The same YAML profiles drive both the GUI and headless mode, so what you
 see in the visualizer is what the robot will run.
 
+## Configuration files
+
+Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filenames; load prefers the user copy when present. Set `AVLITE_CONFIG_DIR` to use a different user config directory.
+
+```bash
+python -m avlite config help
+python -m avlite config validate --profile default
+```
+
+See [Configuration](docs/index.md#configuration) in the docs for paths, CLI, and resetting to repo defaults.
+
 ## Community Plugins
 
 AVLite has a community plugin system that lets anyone publish perception,
@@ -237,11 +248,14 @@ avlite/
 │   ├── c58_ui_lib.py
 │   └── c59_settings.py
 ├── c60_common/            # Utilities
-│   ├── c61_setting_utils.py
-│   ├── c62_capabilities.py
+│   ├── c61_capabilities.py
+│   ├── c62_sensor_data.py
 │   ├── c63_trajectory_tracker.py
 │   ├── c64_collision_checking.py
-│   └── c68_hdmap.py              # HDMap (OpenDRIVE parsing)
+│   ├── c65_fps_tracker.py
+│   ├── c67_hdmap.py              # HDMap (OpenDRIVE parsing)
+│   ├── c68_settings_schema.py
+│   └── c69_setting_utils.py
 └── extensions/            # Built-in extensions
     ├── bridge_carla/
     ├── bridge_gazebo/

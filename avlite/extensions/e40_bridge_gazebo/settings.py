@@ -1,3 +1,11 @@
+from avlite.c60_common.c68_settings_schema import SettingsSchema
+
+
+class ExtensionSettingsSchema(SettingsSchema):
+    pass
+
+
 class ExtensionSettings:
-    exclude = ["exclude", "filepath"]  # attributes to exclude from saving/loading
+    schema = ExtensionSettingsSchema
+    exclude = ["exclude", "filepath", "schema"]
     filepath: str = "configs/ext_gazebo_worldbridge.yaml"
