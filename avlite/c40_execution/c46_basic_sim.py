@@ -6,10 +6,13 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c30_control.c32_control_strategy import ControlComand
-from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability, ExecutionSettings
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c61_setting_utils import get_absolute_path
+from avlite.c60_common.c67_sensor_data import LidarCloud, lidar_2d_to_4
 
 
 import logging
@@ -156,14 +159,19 @@ class BasicSim(WorldBridge):
                 segments.append(np.stack([corners, rolled], axis=1))
         return np.concatenate(segments, axis=0) if segments else np.empty((0, 2, 2))
 
-    def get_lidar_data(self) -> Optional[np.ndarray]:
-        """Simulate a 2D LiDAR scan, returning ordered world-frame hits (N, 2).
+    def get_lidar_data(self) -> Optional[LidarCloud]:
+        """Simulate a 2D LiDAR scan, returning world-frame hits as (N, 4) float32.
 
         Casts ``num_beams`` rays over ``fov_deg`` (centred on the ego heading)
         against agent bounding boxes and road boundaries, keeping the nearest
         intersection per beam within ``range``.  Beams that hit nothing are
-        skipped, producing the angular gaps that segmentation relies on.
+        skipped.  z and intensity columns are zero (2D scanner).
         """
+        points_2d = self._simulate_lidar_2d()
+        return lidar_2d_to_4(points_2d)
+
+    def _simulate_lidar_2d(self) -> np.ndarray:
+        """Return ordered world-frame 2D hits (N, 2)."""
         segments = self.__collect_segments()
         if len(segments) == 0:
             return np.empty((0, 2))

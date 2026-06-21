@@ -27,14 +27,15 @@ class ExecutionSettings:
     c40_log_level = "INFO"
     c40_log_to_file = False
 
-    # c41 execution model / bridge sensor flags
+    # c41 world bridge sensor flags
     c41_provide_ground_truth = False
     c41_provide_rgb = False
     c41_provide_lidar = False
+    c41_provide_depth = False
 
-    # c42 factory fallback global planner
-    c42_race_boundary_map: str = "data/race_boundary_yas_marina.json"
-    c42_race_boundary_margin: float = 0.0
+    # c43 factory fallback global planner
+    c43_race_boundary_map: str = "data/race_boundary_yas_marina.json"
+    c43_race_boundary_margin: float = 0.0
 
     # c46 BasicSim bridge
     c46_default_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"

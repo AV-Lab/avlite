@@ -1,21 +1,27 @@
 Carla_Town10:
-  c12_detection_strategy: ''
-  filepath: configs/c10_perception.yaml
   c11_max_agents: 12
   c11_prediction_grid_size: 100
-  c15_prediction_horizon: 2.0
-  c12_prediction_strategy: ConstantVelocityPrediction
   c11_state_default_heading: 0
+  c12_detection_strategy: ''
+  c12_prediction_strategy: ConstantVelocityPrediction
   c12_tracking_strategy: ''
+  c15_prediction_horizon: 2.0
+  filepath: configs/c10_perception.yaml
 async:
-  c12_detection_strategy: ''
-  filepath: configs/c10_perception.yaml
   c11_max_agents: 12
   c11_prediction_grid_size: 100
-  c12_prediction_strategy: ''
   c11_state_default_heading: 0
+  c12_detection_strategy: ''
+  c12_prediction_strategy: ''
   c12_tracking_strategy: ''
+  filepath: configs/c10_perception.yaml
 default:
+  c11_max_agents: 12
+  c11_prediction_grid_size: 100
+  c11_state_default_heading: 0
+  c12_detection_strategy: ''
+  c12_prediction_strategy: ''
+  c12_tracking_strategy: ''
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0
   c15_detection_delta_max: 6.0
@@ -23,21 +29,9 @@ default:
   c15_detection_min_length: 0.5
   c15_detection_min_width: 0.5
   c15_detection_mu: 0.5
-  c12_detection_strategy: ''
   c15_detection_z_max: 0.5
   c15_detection_z_min: -1.5
-  filepath: configs/c10_perception.yaml
-  c16_localization_icp_max_correspondence_dist: 5.0
-  c16_localization_icp_max_iterations: 30
-  c16_localization_icp_tolerance: 0.0001
-  c16_localization_lidar_z_max: 2.0
-  c16_localization_lidar_z_min: -1.5
-  c16_localization_map_subsample: 1
-  c11_max_agents: 12
-  c11_prediction_grid_size: 100
   c15_prediction_horizon: 2.0
-  c12_prediction_strategy: ConstantVelocityPrediction
-  c11_state_default_heading: 0
   c15_tracking_dt: 0.1
   c15_tracking_gate_distance: 4.0
   c15_tracking_init_velocity_var: 25.0
@@ -45,8 +39,20 @@ default:
   c15_tracking_measurement_noise: 0.5
   c15_tracking_min_speed: 0.5
   c15_tracking_process_noise: 1.0
-  c12_tracking_strategy: ''
+  c16_localization_icp_max_correspondence_dist: 5.0
+  c16_localization_icp_max_iterations: 30
+  c16_localization_icp_tolerance: 0.0001
+  c16_localization_lidar_z_max: 2.0
+  c16_localization_lidar_z_min: -1.5
+  c16_localization_map_subsample: 1
+  filepath: configs/c10_perception.yaml
 perception:
+  c11_max_agents: 12
+  c11_prediction_grid_size: 100
+  c11_state_default_heading: 0
+  c12_detection_strategy: ''
+  c12_prediction_strategy: ''
+  c12_tracking_strategy: ''
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0
   c15_detection_delta_max: 6.0
@@ -54,21 +60,9 @@ perception:
   c15_detection_min_length: 0.5
   c15_detection_min_width: 0.5
   c15_detection_mu: 0.5
-  c12_detection_strategy: ''
   c15_detection_z_max: 0.5
   c15_detection_z_min: -1.5
-  filepath: configs/c10_perception.yaml
-  c16_localization_icp_max_correspondence_dist: 5.0
-  c16_localization_icp_max_iterations: 30
-  c16_localization_icp_tolerance: 0.0001
-  c16_localization_lidar_z_max: 2.0
-  c16_localization_lidar_z_min: -1.5
-  c16_localization_map_subsample: 1
-  c11_max_agents: 12
-  c11_prediction_grid_size: 100
   c15_prediction_horizon: 2.0
-  c12_prediction_strategy: ''
-  c11_state_default_heading: 0
   c15_tracking_dt: 0.1
   c15_tracking_gate_distance: 4.0
   c15_tracking_init_velocity_var: 25.0
@@ -76,17 +70,23 @@ perception:
   c15_tracking_measurement_noise: 0.5
   c15_tracking_min_speed: 0.5
   c15_tracking_process_noise: 1.0
-  c12_tracking_strategy: ''
+  c16_localization_icp_max_correspondence_dist: 5.0
+  c16_localization_icp_max_iterations: 30
+  c16_localization_icp_tolerance: 0.0001
+  c16_localization_lidar_z_max: 2.0
+  c16_localization_lidar_z_min: -1.5
+  c16_localization_map_subsample: 1
+  filepath: configs/c10_perception.yaml
 ros:
-  filepath: configs/c10_perception.yaml
   c11_max_agents: 12
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
+  filepath: configs/c10_perception.yaml
 sync:
-  c12_detection_strategy: ''
-  filepath: configs/c10_perception.yaml
   c11_max_agents: 12
   c11_prediction_grid_size: 100
-  c12_prediction_strategy: ''
   c11_state_default_heading: 0
+  c12_detection_strategy: ''
+  c12_prediction_strategy: ''
   c12_tracking_strategy: ''
+  filepath: configs/c10_perception.yaml

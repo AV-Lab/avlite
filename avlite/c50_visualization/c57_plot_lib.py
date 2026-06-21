@@ -6,7 +6,7 @@ from avlite.c60_common.c68_hdmap import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c27_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c40_execution.c43_sync_executer import SyncExecuter
+from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 

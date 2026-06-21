@@ -4,7 +4,8 @@ import math
 from typing import Optional
 import numpy as np
 
-from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c60_common.c62_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
 

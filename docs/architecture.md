@@ -153,9 +153,10 @@ Includes built-in controllers: `StanleyController`, `PIDController`.
 
 ### c40_execution
 
-- `Executer` - Main execution loop (sync/async variants)
-- `WorldBridge` - Simulator abstraction
-- `Factory` - Component assembly
+- `WorldBridge` (`c41_world_bridge.py`) — simulator/ROS interface and sensor getters
+- `Executer` (`c42_executer.py`) — base orchestration loop and pipeline steps
+- `executor_factory` (`c43_factory.py`) — component assembly
+- `SyncExecuter` / `AsyncThreadedExecuter` (`c44` / `c45`) — concrete scheduling
 - `ExecutionSettings` - Runtime settings including `log_level` (DEBUG/INFO/WARNING/ERROR/CRITICAL) and `log_to_file` (write logs to `./logs/avlite_<timestamp>.log`)
 
 Built-in bridges: `BasicSim` (c46_basic_sim.py) — includes 2-D LiDAR simulation via raycasting, `CarlaBridge` (bridge_carla), `GazeboIgnitionBridge` (bridge_gazebo), `ROS2WorldBridge` (bridge_ROS2).
@@ -177,9 +178,18 @@ Tkinter-based GUI with:
 - Capability enums (`WorldCapability`, `PerceptionCapability`, `LocalizationCapability`, `MappingCapability`)
 - `AnyOf` — requirement satisfied by any one of several capabilities; `satisfies_requirements()` helper used by the execution layer
 - `HDMap` (`c68_hdmap.py`) — OpenDRIVE map parsing and routing (used by `HDMapGlobalPlanner` and `PerceptionModel`)
+- `SensorFrame` (`c67_sensor_data.py`) — canonical sensor formats between WorldBridge and perception/localization (authoritative spec for rgb, depth, lidar, imu, gnss, wheel odometry)
 - `rename_setting_profile()` — rename saved YAML profiles
 
+### Sensor data conventions
+
+Raw sensor layouts are defined in [`avlite/c60_common/c67_sensor_data.py`](../avlite/c60_common/c67_sensor_data.py). WorldBridge implementations convert simulator/ROS messages into these formats before passing a `SensorFrame` to perception and localization. Array fields use semantic aliases `RgbImage`, `DepthImage`, and `LidarCloud` (all `np.ndarray` with layouts documented in c67). Key fields: `rgb` `(H,W,3)` uint8 RGB; `depth` `(H,W)` float32 metres; `lidar` `(N,4)` float32 `[x,y,z,intensity]` in map frame; `GnssReading` with WGS84 lat/lon/alt plus optional map-frame `map_x/y/z`.
+
 ## Data Flow
+
+```
+World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
+```
 
 ```
 World Bridge

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from enum import Enum
 import numpy as np
-from numpy.matlib import ndarray
 from shapely.geometry import Polygon
 from typing import Optional, Dict, Any
 import copy
@@ -18,7 +17,7 @@ log = logging.getLogger(__name__)
 class PredictionMode(Enum):
     TRAJECTORY = 1 # Outputs a single predicted trajectory for each agent, represented as a sequence of future positions and velocities over a specified prediction horizon.
     GMM = 2 # Gaussian Mixture Model - outputs a set of weighted trajectories
-    OCCUPANCY_FLOW = 2 # Outputs a time sequence of occupancy grids representing the predicted positions of the agent over time. Each grid cell contains a probability of occupancy, and the flow aspect captures how these probabilities evolve across the prediction horizon.
+    OCCUPANCY_FLOW = 5 # Outputs a time sequence of occupancy grids representing the predicted positions of the agent over time. Each grid cell contains a probability of occupancy, and the flow aspect captures how these probabilities evolve across the prediction horizon.
     OCCUPANCY_FLOW_PER_AGENT = 3 # Similar to OCCUPANCY_FLOW but provides separate occupancy flow predictions for each individual agent, allowing for more granular and agent-specific future state estimations. Each entry in the list corresponds to a specific agent and contains its own sequence of occupancy grids, enabling the model to capture distinct movement patterns and interactions between agents in the environment.
     NONE = 4
 

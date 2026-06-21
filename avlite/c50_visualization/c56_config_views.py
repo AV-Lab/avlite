@@ -454,7 +454,7 @@ class SettingWindow:
         from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
         from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
         from avlite.c30_control.c32_control_strategy import ControlStrategy
-        from avlite.c40_execution.c41_execution_model import Executer
+        from avlite.c40_execution.c42_executer import Executer
 
         ext_module_prefix = f"avlite.extensions.{ext_name}"
         for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,

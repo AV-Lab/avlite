@@ -91,7 +91,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.detection_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.detection_strategy_type, state="readonly")
         self.detection_dropdown_menu["values"] = (
-            (("Ground Truth",) if WorldCapability.GT_DETECTION in self.root.exec.world.capabilities else ())
+            (("Default Perception Model",) if WorldCapability.GT_DETECTION in self.root.exec.world.capabilities else ())
             + tuple(DetectionStrategy.registry.keys())
         )
         self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
@@ -102,7 +102,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.tracking_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
         self.tracking_dropdown_menu["values"] = (
-            (("Ground Truth",) if WorldCapability.GT_TRACKING in self.root.exec.world.capabilities else ())
+            (("Default Perception Model",) if WorldCapability.GT_TRACKING in self.root.exec.world.capabilities else ())
             + tuple(TrackingStrategy.registry.keys())
         )
         self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
@@ -112,7 +112,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self._lbl_predict.grid(row=3, column=0, sticky="e", padx=(5, 0))
         self.prediction_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.prediction_strategy_type, state="readonly")
-        self.prediction_dropdown_menu["values"] = ("Ground Truth",) + tuple(PredictionStrategy.registry.keys())
+        self.prediction_dropdown_menu["values"] = ("Default Perception Model",) + tuple(PredictionStrategy.registry.keys())
         self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=2, sticky="ew")
 

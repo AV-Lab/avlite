@@ -22,9 +22,10 @@ from avlite.c30_control.c33_pid import PIDController
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
 from avlite.c10_perception.c16_localization_algs import LidarLocalization  # noqa: F401 — registers in LocalizationStrategy.registry
-from avlite.c40_execution.c41_execution_model import Executer, WorldBridge
-from avlite.c40_execution.c43_sync_executer import SyncExecuter
-from avlite.c40_execution.c44_async_threaded_executer import AsyncThreadedExecuter
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c42_executer import Executer
+from avlite.c40_execution.c44_sync_executer import SyncExecuter
+from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim
 from avlite.extensions.e40_bridge_carla.carla_bridge import CarlaBridge
 
@@ -73,8 +74,8 @@ def executor_factory(
             "Falling back to race boundary centerline."
         )
         _fallback_planner = GlobalCenterlineRacePlanner(
-            get_absolute_path(ExecutionSettings.c42_race_boundary_map),
-            margin=ExecutionSettings.c42_race_boundary_margin,
+            get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+            margin=ExecutionSettings.c43_race_boundary_margin,
         )
         default_global_plan = _fallback_planner.plan()
 
@@ -94,8 +95,8 @@ def executor_factory(
             log.debug("GlobalHDMapPlanner loaded")
         elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
             gp = GlobalCenterlineRacePlanner(
-                get_absolute_path(ExecutionSettings.c42_race_boundary_map),
-                margin=ExecutionSettings.c42_race_boundary_margin,
+                get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+                margin=ExecutionSettings.c43_race_boundary_margin,
             )
             gp.plan()
         elif global_planner_strategy_name in GlobalPlannerStrategy.registry:
@@ -105,16 +106,16 @@ def executor_factory(
         else:
             log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
             gp = GlobalCenterlineRacePlanner(
-                get_absolute_path(ExecutionSettings.c42_race_boundary_map),
-                margin=ExecutionSettings.c42_race_boundary_margin,
+                get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+                margin=ExecutionSettings.c43_race_boundary_margin,
             )
             gp.plan()
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
         gp = GlobalCenterlineRacePlanner(
-            get_absolute_path(ExecutionSettings.c42_race_boundary_map),
-            margin=ExecutionSettings.c42_race_boundary_margin,
+            get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+            margin=ExecutionSettings.c43_race_boundary_margin,
         )
         gp.plan()
         

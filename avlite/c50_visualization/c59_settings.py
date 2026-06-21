@@ -12,7 +12,7 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c40_execution.c41_execution_model import Executer
+from avlite.c40_execution.c42_executer import Executer
 
 log = logging.getLogger(__name__)
 
@@ -67,29 +67,29 @@ class VisualizationSettings:
         self.perception_type.trace_add("write", _on_perception_change)
         self.perception_dt = tk.DoubleVar(value=ExecutionSettings.c40_perception_dt)
 
-        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy or "Ground Truth")
+        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy or "Default Perception Model")
         def _on_detection_change(*args):
             v = self.detection_strategy_type.get()
-            PerceptionSettings.c12_detection_strategy = "" if v == "Ground Truth" else v
+            PerceptionSettings.c12_detection_strategy = "" if v == "Default Perception Model" else v
         self.detection_strategy_type.trace_add("write", _on_detection_change)
 
-        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy or "Ground Truth")
+        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy or "Default Perception Model")
         def _on_tracking_change(*args):
             v = self.tracking_strategy_type.get()
-            PerceptionSettings.c12_tracking_strategy = "" if v == "Ground Truth" else v
+            PerceptionSettings.c12_tracking_strategy = "" if v == "Default Perception Model" else v
         self.tracking_strategy_type.trace_add("write", _on_tracking_change)
 
-        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy or "Ground Truth")
+        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy or "None")
         def _on_prediction_change(*args):
             v = self.prediction_strategy_type.get()
-            PerceptionSettings.c12_prediction_strategy = "" if v == "Ground Truth" else v
+            PerceptionSettings.c12_prediction_strategy = "" if v == "Default Perception Model" else v
         self.prediction_strategy_type.trace_add("write", _on_prediction_change)
 
         # localization
-        self.localization_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "Ground Truth")
+        self.localization_type = tk.StringVar(value=list(LocalizationStrategy.registry.keys())[0] if LocalizationStrategy.registry else "Default Perception Model")
         def _on_localization_change(*args):
             v = self.localization_type.get()
-            ExecutionSettings.c40_localization = "" if v == "Ground Truth" else v
+            ExecutionSettings.c40_localization = "" if v == "Default Perception Model" else v
         self.localization_type.trace_add("write", _on_localization_change)
         self.localization_dt = tk.DoubleVar(value=ExecutionSettings.c40_localization_dt)
         def _on_localization_dt_change(*args):
@@ -97,10 +97,10 @@ class VisualizationSettings:
         self.localization_dt.trace_add("write", _on_localization_dt_change)
 
         # mapping
-        self.mapping_type = tk.StringVar(value=list(MappingStrategy.registry.keys())[0] if MappingStrategy.registry else "Ground Truth")
+        self.mapping_type = tk.StringVar(value=list(MappingStrategy.registry.keys())[0] if MappingStrategy.registry else "Default Perception Model")
         def _on_mapping_change(*args):
             v = self.mapping_type.get()
-            ExecutionSettings.c40_mapping = "" if v == "Ground Truth" else v
+            ExecutionSettings.c40_mapping = "" if v == "Default Perception Model" else v
         self.mapping_type.trace_add("write", _on_mapping_change)
 
         # planning

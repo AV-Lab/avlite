@@ -1,105 +1,28 @@
 from __future__ import annotations
-from typing import Optional
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
+
 import logging
 import threading
-import time
-import numpy as np
-from enum import Enum, auto
+from abc import ABC, abstractmethod
+from typing import Optional
 
-
-from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from avlite.c30_control.c31_control_model import  ControlComand
-from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c61_setting_utils import reload_lib, get_absolute_path, import_all_modules
-from avlite.c60_common.c62_capabilities import WorldCapability, satisfies_requirements
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c60_common.c62_capabilities import satisfies_requirements
 from avlite.c60_common.c65_fps_tracker import FpsTracker
+from avlite.c60_common.c67_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class WorldBridge(ABC):
-    """
-    Abstract class for the world interface. This class is used to control the ego vehicle and spawn agents in the world.
-    It provides an interface for the simulator or ROS bridge to implement its own world logic.
-    """
-    
-    ego_state: EgoState
-    perception_model: Optional[PerceptionModel] = None # Simulators can provide ground truth perception model
-
-    registry = {}
-
-    
-    @property
-    @abstractmethod
-    def capabilities(self) -> set[WorldCapability]:
-        """Set of supported capabilities (must be implemented by subclass)."""
-        pass
-
-    @abstractmethod
-    def control_ego_state(self, cmd: ControlComand, dt:Optional[float]=0.01):
-        """
-        Update the ego state.
-
-        Parameters
-        cmd (ControlCommand): The control command containing acceleration and steering angle.
-        dt (float): Time delta for the update if supported. Default is 0.01.
-        """
-        pass
-
-    def get_ego_state(self) -> EgoState:
-        return self.ego_state
-
-    def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
-        """
-        Teleport the ego vehicle to a new position and orientation.
-
-        Parameters
-        x (float): The new x-coordinate.
-        y (float): The new y-coordinate.
-        theta (float): The new orientation in radians.
-        """
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
-
-    def spawn_agent(self, agent_state: AgentState):
-        """ Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that. """
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
-
-    def get_ground_truth_perception_model(self) -> PerceptionModel:
-        """ Returns the perception model of the world. This method should be implemented by simulators  """
-        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
-
-    def get_rgb_image(self) -> np.ndarray | None:
-        """ Returns the RGB image of the world. This method should be implemented by simulators """
-        return None
-
-    def get_depth_image(self) -> np.ndarray | None:
-        """ Returns the depth image of the world. This method should be implemented by simulators """
-        return None
-    
-    def get_lidar_data(self) -> np.ndarray | None:
-        """ Returns the lidar data of the world. This method should be implemented by simulators """
-        return None
-
-    def reset(self):
-        pass
-    
-    def __init_subclass__(cls, abstract=False, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if not abstract:  
-            WorldBridge.registry[cls.__name__] = cls
-
-
 class Executer(ABC):
     registry = {}
-    
+
     def __init__(
         self,
         perception_model: PerceptionModel,
@@ -118,7 +41,7 @@ class Executer(ABC):
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         self.pm: PerceptionModel = perception_model
-        self.perception: Optional[PerceptionStrategy] = perception  
+        self.perception: Optional[PerceptionStrategy] = perception
         self.localization: Optional[LocalizationStrategy] = localization
         self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: GlobalPlannerStrategy = global_planner
@@ -217,16 +140,25 @@ class Executer(ABC):
         self._control_fps_tracker.reset()
         self._localization_fps_tracker.reset()
 
+    def _fetch_sensor_frame(self) -> SensorFrame:
+        """Build SensorFrame from world bridge, respecting c41_provide_* flags."""
+        frame = self.world.get_sensor_frame()
+        if not ExecutionSettings.c41_provide_rgb:
+            frame.rgb = None
+        if not ExecutionSettings.c41_provide_lidar:
+            frame.lidar = None
+        if not ExecutionSettings.c41_provide_depth:
+            frame.depth = None
+        return frame
+
     def _localization_step(self) -> None:
         """Run one localization iteration using the current world capabilities."""
         if not self.localization:
             return
 
         if satisfies_requirements(self.localization.requirements, self.world.capabilities):
-            self.localization.localize(
-                lidar=self.world.get_lidar_data() if ExecutionSettings.c41_provide_lidar else None,
-                rgb_img=self.world.get_rgb_image() if ExecutionSettings.c41_provide_rgb else None,
-            )
+            sensors = self._fetch_sensor_frame()
+            self.localization.localize(sensors=sensors)
             self.localization_fps = self._localization_fps_tracker.tick()
         else:
             log.warning(
@@ -260,12 +192,8 @@ class Executer(ABC):
         else:
             self.pm.agent_vehicles = []
 
-        self.perception.perceive(
-            perception_model=self.pm,
-            rgb_img=self.world.get_rgb_image() if ExecutionSettings.c41_provide_rgb else None,
-            depth_img=self.world.get_depth_image(),
-            lidar_data=self.world.get_lidar_data() if ExecutionSettings.c41_provide_lidar else None,
-        )
+        sensors = self._fetch_sensor_frame()
+        self.perception.perceive(perception_model=self.pm, sensors=sensors)
 
         self.perception_fps = self._perception_fps_tracker.tick()
 
@@ -303,8 +231,5 @@ class Executer(ABC):
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)
-        if not abstract:  
+        if not abstract:
             Executer.registry[cls.__name__] = cls
-
-
-    

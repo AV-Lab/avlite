@@ -16,6 +16,7 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c60_common.c67_sensor_data import SensorFrame
 from avlite.c60_common.c62_capabilities import (
     AnyOf,
     LocalizationCapability,
@@ -95,13 +96,9 @@ class LidarLocalization(LocalizationStrategy):
     # Main estimation step
     # ------------------------------------------------------------------
 
-    def localize(
-        self,
-        imu: Optional[np.ndarray] = None,
-        lidar: Optional[np.ndarray] = None,
-        rgb_img: Optional[np.ndarray] = None,
-    ) -> None:
-        scan = self._squash(lidar)
+    def localize(self, sensors: SensorFrame | None = None) -> None:
+        lidar_data = sensors.lidar if sensors is not None else None
+        scan = self._squash(lidar_data)
         if scan is None or len(scan) < 3:
             return
 

@@ -1,4 +1,6 @@
-from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c67_sensor_data import DepthImage, LidarCloud, RgbImage, SensorFrame
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
@@ -303,18 +305,28 @@ class CarlaBridge(WorldBridge):
     # ------------------------------------------------------------------
     # WorldBridge sensor overrides
     # ------------------------------------------------------------------
-    def get_lidar_data(self) -> Optional[np.ndarray]:
+    def get_lidar_data(self) -> Optional[LidarCloud]:
         """Return latest LiDAR point cloud as (N,4) [x,y,z,intensity] in AVLite world frame."""
         with self._lidar_lock:
             return self._lidar_buffer
 
-    def get_rgb_image(self) -> Optional[np.ndarray]:
+    def get_rgb_image(self) -> Optional[RgbImage]:
         with self._rgb_lock:
             return self._rgb_buffer
 
-    def get_depth_image(self) -> Optional[np.ndarray]:
+    def get_depth_image(self) -> Optional[DepthImage]:
         with self._depth_lock:
             return self._depth_buffer
+
+    def get_sensor_frame(self) -> SensorFrame:
+        """Return an atomic snapshot of buffered sensor data."""
+        with self._rgb_lock:
+            rgb = self._rgb_buffer
+        with self._depth_lock:
+            depth = self._depth_buffer
+        with self._lidar_lock:
+            lidar = self._lidar_buffer
+        return SensorFrame(rgb=rgb, depth=depth, lidar=lidar)
 
     def control_ego_state(self, cmd: ControlComand, dt=0.01):
         """Update the ego state with the given command.

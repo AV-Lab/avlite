@@ -5,8 +5,8 @@ import tkinter as tk
 from tkinter import ttk
 import time
 
-from avlite.c40_execution.c41_execution_model import WorldBridge
-from avlite.c40_execution.c41_execution_model import Executer
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c42_executer import Executer
 from avlite.c60_common.c62_capabilities import WorldCapability
 
 

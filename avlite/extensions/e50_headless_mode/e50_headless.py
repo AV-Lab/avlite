@@ -289,7 +289,7 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
     from datetime import datetime
     from pathlib import Path
 
-    from avlite.c40_execution.c42_factory import executor_factory
+    from avlite.c40_execution.c43_factory import executor_factory
     from avlite.c40_execution.c49_settings import ExecutionSettings
     from avlite.c60_common.c61_setting_utils import load_all_stack_settings
     from avlite.extensions.e50_headless_mode.settings import ExtensionSettings

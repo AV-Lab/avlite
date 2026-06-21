@@ -5,9 +5,9 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c41_execution_model import Executer
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c42_executer import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c40_execution.c43_sync_executer import WorldBridge
 
 import threading
 import time

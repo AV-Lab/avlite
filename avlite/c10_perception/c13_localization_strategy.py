@@ -2,11 +2,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Type, Optional
 
-import numpy as np
-
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c60_common.c62_capabilities import WorldCapability, LocalizationCapability
+from avlite.c60_common.c67_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
 
@@ -50,27 +49,8 @@ class LocalizationStrategy(ABC):
         pass
 
     @abstractmethod
-    def localize(
-        self,
-        imu: Optional[np.ndarray] = None,
-        lidar: Optional[np.ndarray] = None,
-        rgb_img: Optional[np.ndarray] = None,
-    ) -> None:
-        """
-        Run one localization step.
-
-        The method must update ``self.perception_model.ego_vehicle`` in-place
-        (x, y, theta, velocity, …).  It does **not** return a value.
-
-        Parameters
-        ----------
-        imu : np.ndarray, optional
-            IMU measurement array.
-        lidar : np.ndarray, optional
-            LiDAR point cloud (N×3 or N×4).
-        rgb_img : np.ndarray, optional
-            RGB camera image (H×W×3).
-        """
+    def localize(self, sensors: SensorFrame | None = None) -> None:
+        """Run one localization step; update ``self.perception_model.ego_vehicle`` in-place."""
         pass
 
     # ------------------------------------------------------------------

@@ -5,8 +5,9 @@ from os import wait
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.extensions.e10_perception_MO_prediction.settings import ExtensionSettings
-from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
-from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c10_perception.c12_perception_strategy import PredictionStrategy, PerceptionStrategy
+from avlite.c60_common.c62_capabilities import WorldCapability, PerceptionCapability
+from avlite.c60_common.c67_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
 
@@ -170,3 +171,41 @@ class MultiObjectPredictor(PredictionStrategy):
         log.info("Reset Perception")
         self.initialize_models()
         self.frame = 0
+
+
+class MultiObjectPredictorStrategy(PerceptionStrategy):
+    """PerceptionStrategy wrapper for legacy ``c40_perception: MultiObjectPredictor`` configs.
+
+    Runs prediction only (GT agents expected from the world bridge). Sensor data
+    is not consumed.
+    """
+
+    def __init__(self, perception_model: PerceptionModel, setting=PerceptionSettings):
+        super().__init__(perception_model, setting)
+        self._predictor = MultiObjectPredictor()
+
+    @property
+    def requirements(self) -> set[WorldCapability]:
+        return self._predictor.requirements
+
+    @property
+    def capabilities(self) -> set[PerceptionCapability]:
+        return {PerceptionCapability.PREDICTION}
+
+    def perceive(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> PerceptionModel | None:
+        if perception_model is not None:
+            self.perception_model = perception_model
+        self._predictor.pm = self.perception_model
+        return self._predictor.predict(self.perception_model)
+
+    def reset(self):
+        super().reset()
+        self._predictor.reset()
+
+
+# Legacy execution config uses c40_perception: MultiObjectPredictor
+PerceptionStrategy.registry["MultiObjectPredictor"] = MultiObjectPredictorStrategy

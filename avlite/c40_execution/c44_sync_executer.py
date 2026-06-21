@@ -7,9 +7,9 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c42_executer import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c40_execution.c41_execution_model import Executer
-from avlite.c40_execution.c41_execution_model import WorldBridge
 from avlite.c60_common.c62_capabilities import WorldCapability
 
 log = logging.getLogger(__name__)
@@ -101,5 +101,4 @@ class SyncExecuter(Executer):
         super().reset()
         self.__prev_exec_time = None
         self.__time_since_last_replan = 0
-
 

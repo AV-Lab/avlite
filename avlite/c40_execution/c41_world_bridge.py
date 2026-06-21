@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Optional
+
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c67_sensor_data import (
+    GnssReading,
+    ImuReading,
+    SensorFrame,
+    WheelOdometry,
+    DepthImage,
+    LidarCloud,
+    RgbImage,
+)
+
+
+@dataclass
+class WorldBridge(ABC):
+    """
+    Abstract class for the world interface. This class is used to control the ego vehicle and spawn agents in the world.
+    It provides an interface for the simulator or ROS bridge to implement its own world logic.
+    """
+
+    ego_state: EgoState
+    perception_model: Optional[PerceptionModel] = None  # Simulators can provide ground truth perception model
+
+    registry = {}
+
+    @property
+    @abstractmethod
+    def capabilities(self) -> set[WorldCapability]:
+        """Set of supported capabilities (must be implemented by subclass)."""
+        pass
+
+    @abstractmethod
+    def control_ego_state(self, cmd: ControlCommand, dt: Optional[float] = 0.01):
+        """
+        Update the ego state.
+
+        Parameters
+        cmd (ControlCommand): The control command containing acceleration and steering angle.
+        dt (float): Time delta for the update if supported. Default is 0.01.
+        """
+        pass
+
+    def get_ego_state(self) -> EgoState:
+        return self.ego_state
+
+    def teleport_ego(self, x: float, y: float, theta: Optional[float] = None):
+        """
+        Teleport the ego vehicle to a new position and orientation.
+
+        Parameters
+        x (float): The new x-coordinate.
+        y (float): The new y-coordinate.
+        theta (float): The new orientation in radians.
+        """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+
+    def spawn_agent(self, agent_state: AgentState):
+        """ Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that. """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+
+    def get_ground_truth_perception_model(self) -> PerceptionModel:
+        """ Returns the perception model of the world. This method should be implemented by simulators  """
+        raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
+
+    def get_rgb_image(self) -> RgbImage | None:
+        """Returns the RGB image. Layout: ``RgbImage`` in c67_sensor_data."""
+        return None
+
+    def get_depth_image(self) -> DepthImage | None:
+        """Returns the depth image. Layout: ``DepthImage`` in c67_sensor_data."""
+        return None
+
+    def get_lidar_data(self) -> LidarCloud | None:
+        """Returns the lidar point cloud. Layout: ``LidarCloud`` in c67_sensor_data."""
+        return None
+
+    def get_imu(self) -> ImuReading | None:
+        return None
+
+    def get_gnss(self) -> GnssReading | None:
+        return None
+
+    def get_wheel_odometry(self) -> WheelOdometry | None:
+        return None
+
+    def get_sensor_frame(self) -> SensorFrame:
+        """Compose a sensor snapshot from individual getters. Override for atomic reads."""
+        return SensorFrame(
+            rgb=self.get_rgb_image(),
+            depth=self.get_depth_image(),
+            lidar=self.get_lidar_data(),
+            imu=self.get_imu(),
+            gnss=self.get_gnss(),
+            wheel_odometry=self.get_wheel_odometry(),
+        )
+
+    def reset(self):
+        pass
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            WorldBridge.registry[cls.__name__] = cls

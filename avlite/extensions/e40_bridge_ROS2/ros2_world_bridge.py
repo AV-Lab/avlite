@@ -15,8 +15,8 @@ Then the executer calls:
   - ``world.control_ego_state(cmd)``→ publishes cmd to control_out_topic
   - ``world.get_ground_truth_perception_model()`` → returns perception model populated
                                                     from the perception topic
-  - ``world.get_rgb_image()``       → returns latest RGB frame as (H, W, 3) uint8 ndarray
-  - ``world.get_lidar_data()``      → returns latest point cloud as (N, 4) [x,y,z,intensity]
+  - ``world.get_rgb_image()``       → returns latest ``RgbImage`` (see c67_sensor_data)
+  - ``world.get_lidar_data()``      → returns latest ``LidarCloud`` (see c67_sensor_data)
 
 Capabilities advertised depend on which sensor topics are configured in settings.
 """
@@ -32,7 +32,9 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c30_control.c31_control_model import ControlComand
-from avlite.c40_execution.c41_execution_model import WorldBridge, WorldCapability
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c60_common.c62_capabilities import WorldCapability
+from avlite.c60_common.c67_sensor_data import LidarCloud, RgbImage, SensorFrame
 
 from .settings import ExtensionSettings
 
@@ -386,15 +388,23 @@ class ROS2WorldBridge(WorldBridge, Node if ROS_AVAILABLE else object):
         with self._lock:
             return self.perception_model
 
-    def get_rgb_image(self) -> Optional[np.ndarray]:
-        """Return the latest RGB frame as (H, W, 3) uint8, or None if not yet received."""
+    def get_rgb_image(self) -> Optional[RgbImage]:
+        """Return the latest RGB frame, or None if not yet received."""
         with self._rgb_lock:
             return self._rgb_buffer
 
-    def get_lidar_data(self) -> Optional[np.ndarray]:
-        """Return the latest point cloud as (N, 4) float32 [x, y, z, intensity], or None."""
+    def get_lidar_data(self) -> Optional[LidarCloud]:
+        """Return the latest point cloud, or None."""
         with self._lidar_lock:
             return self._lidar_buffer
+
+    def get_sensor_frame(self) -> SensorFrame:
+        """Return an atomic snapshot of buffered sensor data."""
+        with self._rgb_lock:
+            rgb = self._rgb_buffer
+        with self._lidar_lock:
+            lidar = self._lidar_buffer
+        return SensorFrame(rgb=rgb, lidar=lidar)
 
     # ------------------------------------------------------------------
     # Internal
