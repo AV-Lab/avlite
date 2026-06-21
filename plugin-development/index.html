@@ -13,7 +13,7 @@
       
       
       
-        <link rel="prev" href="../architecture/">
+        <link rel="prev" href="../settings-naming/">
       
       
       
@@ -225,6 +225,23 @@
         
   
   
+  
+    <li class="md-tabs__item">
+      <a href="../settings-naming/" class="md-tabs__link">
+        
+  
+    
+  
+  Settings Naming
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
     
   
   
@@ -320,6 +337,26 @@
   
   <span class="md-ellipsis">
     Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-naming/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Settings Naming
   </span>
   
 
@@ -645,10 +682,11 @@ selected by name in the <code>PerceptionSettings</code>.</p>
 2. Go to Config tab
 3. Add entry to Community Extensions: <code>my_plugin</code> -&gt; <code>/path/to/my_plugin</code>
 4. Save profile</p>
-<p><strong>Via settings file</strong> (<code>configs/c40_execution.yaml</code>):
-<div class="highlight"><pre><span></span><code><span class="nt">community_plugins</span><span class="p">:</span>
+<p><strong>Via settings file</strong> (<code>configs/c40_execution.yaml</code> or your saved copy under <code>~/.config/avlite/</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="nt">c40_community_plugins</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/my_plugin</span>
-</code></pre></div></p>
+</code></pre></div>
+<p>When a plugin is installed through <code>python -m avlite plugins</code>, its path is stored under <code>~/.local/share/avlite/plugins/</code> (override with <code>AVLITE_PLUGINS_DIR</code>).</p>
 <p>Your classes will now appear in the UI dropdowns.</p>
 <h2 id="base-classes-reference">Base Classes Reference<a class="headerlink" href="#base-classes-reference" title="Permanent link">&para;</a></h2>
 <table>
@@ -691,7 +729,7 @@ selected by name in the <code>PerceptionSettings</code>.</p>
 <td>TBD</td>
 </tr>
 <tr>
-<td><code>LocalPlannerStrategy</code></td>
+<td><code>LocalPlanningStrategy</code></td>
 <td>Local planning</td>
 <td><code>replan()</code></td>
 </tr>

@@ -229,6 +229,23 @@
   
   
     <li class="md-tabs__item">
+      <a href="settings-naming/" class="md-tabs__link">
+        
+  
+    
+  
+  Settings Naming
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="plugin-development/" class="md-tabs__link">
         
   
@@ -495,6 +512,42 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#where-files-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where files live
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stack-config-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stack config files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gui-profiles-and-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      GUI: profiles and reset
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      CLI validation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example-switching-simulators" class="md-nav__link">
     <span class="md-ellipsis">
       Example: Switching Simulators
@@ -564,6 +617,26 @@
   
   <span class="md-ellipsis">
     Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="settings-naming/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Settings Naming
   </span>
   
 
@@ -739,11 +812,11 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 <tbody>
 <tr>
 <td><strong>c10_perception</strong></td>
-<td>Interfaces for detection, tracking, prediction, localization (optional), mapping</td>
+<td>Interfaces + built-in algorithms: <code>FastBEVLidarDetection</code>, <code>KalmanTracker</code>, <code>LidarLocalization</code>; prediction and mapping interfaces</td>
 </tr>
 <tr>
 <td><strong>c20_planning</strong></td>
-<td>Global planning (A*, HD maps) and local planning (lattice-based)</td>
+<td>Global planning (<code>GlobalCenterlineRacePlanner</code>, <code>HDMapGlobalPlanner</code>) and local planning (<code>GreedyLatticePlanner</code>, lattice-based)</td>
 </tr>
 <tr>
 <td><strong>c30_control</strong></td>
@@ -751,7 +824,7 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 </tr>
 <tr>
 <td><strong>c40_execution</strong></td>
-<td>Execution orchestration, simulator bridges (BasicSim, CARLA, Gazebo)</td>
+<td>Execution orchestration, <code>replan_global()</code>, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo)</td>
 </tr>
 <tr>
 <td><strong>c50_visualization</strong></td>
@@ -759,19 +832,75 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 </tr>
 <tr>
 <td><strong>c60_common</strong></td>
-<td>Settings management, utilities, capability definitions</td>
+<td>Settings management, <code>HDMap</code> (OpenDRIVE), capability definitions (<code>AnyOf</code>), utilities</td>
 </tr>
 </tbody>
 </table>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
-<p>AVLite uses YAML-based configuration with profile support. Configuration files are in the <code>configs/</code> directory:</p>
+<p>AVLite uses YAML-based configuration with <strong>profile support</strong> (multiple named profiles per file, e.g. <code>default</code>, <code>ros</code>, <code>perception</code>).</p>
+<h3 id="where-files-live">Where files live<a class="headerlink" href="#where-files-live" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>Location</th>
+<th>Override env var</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Shipped defaults</strong> (read-only in git)</td>
+<td><code>{repo}/configs/*.yaml</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>User profiles</strong> (written on Save)</td>
+<td><code>~/.config/avlite/*.yaml</code></td>
+<td><code>AVLITE_CONFIG_DIR</code></td>
+</tr>
+<tr>
+<td><strong>Community plugins</strong> (installed clones)</td>
+<td><code>~/.local/share/avlite/plugins/</code></td>
+<td><code>AVLITE_PLUGINS_DIR</code></td>
+</tr>
+<tr>
+<td><strong>Maps &amp; trajectories</strong> (bundled assets)</td>
+<td><code>{repo}/data/</code></td>
+<td>— (repo-relative today)</td>
+</tr>
+<tr>
+<td><strong>Log files</strong> (when enabled)</td>
+<td><code>./logs/</code> (cwd at runtime)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>User and repo config files share the <strong>same basenames</strong> (<code>c10_perception.yaml</code>, <code>c40_execution.yaml</code>, <code>ext_ros_executer.yaml</code>, …).</p>
+<p><strong>Load order:</strong> for each settings file, AVLite reads <code>~/.config/avlite/&lt;name&gt;.yaml</code> if it exists; otherwise it falls back to <code>{repo}/configs/&lt;name&gt;.yaml</code>.</p>
+<p><strong>Save:</strong> GUI and settings window writes always go to <code>~/.config/avlite/</code> (creating the directory if needed). The repository <code>configs/</code> tree is never modified by Save.</p>
+<h3 id="stack-config-files">Stack config files<a class="headerlink" href="#stack-config-files" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>c10_perception.yaml</code> - Perception settings</li>
-<li><code>c20_planning.yaml</code> - Planning parameters</li>
-<li><code>c30_control.yaml</code> - Controller tuning</li>
-<li><code>c40_execution.yaml</code> - Execution and simulator settings</li>
-<li><code>c50_visualization.yaml</code> - GUI preferences</li>
+<li><code>c10_perception.yaml</code> — Perception settings</li>
+<li><code>c20_planning.yaml</code> — Planning parameters</li>
+<li><code>c30_control.yaml</code> — Controller tuning</li>
+<li><code>c40_execution.yaml</code> — Execution and simulator settings</li>
+<li><code>c50_visualization.yaml</code> — GUI preferences</li>
+<li><code>ext_*.yaml</code> — Built-in extension settings (same names as in repo <code>configs/</code>)</li>
 </ul>
+<h3 id="gui-profiles-and-reset">GUI: profiles and reset<a class="headerlink" href="#gui-profiles-and-reset" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Config tab</strong> — profile dropdown, Save Config (visualization + execution layers).</li>
+<li><strong>Settings window</strong> (<code>T</code>) — full stack editor, New/Delete/Rename profile, Save.</li>
+<li><strong>Use repository configs</strong> (settings window) — deletes local copies under <code>~/.config/avlite/</code> for all repo config basenames and reloads from <code>{repo}/configs/</code>. Use this to discard local overrides and go back to shipped defaults.</li>
+</ul>
+<h3 id="cli-validation">CLI validation<a class="headerlink" href="#cli-validation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>validate
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>validate<span class="w"> </span>--profile<span class="w"> </span>default
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution<span class="w"> </span>--field<span class="w"> </span>c40_control_dt
+</code></pre></div>
+<p>Schema field descriptions appear as <strong>tooltips</strong> in the settings window and on main-page controls (dropdowns, Δt fields).</p>
+<p>See <a href="settings-naming/">Settings naming</a> for key prefixes and validation details.</p>
 <h3 id="example-switching-simulators">Example: Switching Simulators<a class="headerlink" href="#example-switching-simulators" title="Permanent link">&para;</a></h3>
 <p>In the GUI Config tab, change the <strong>Bridge</strong> dropdown:
 - <code>BasicSim</code> - Built-in 2D simulation (no external dependencies)

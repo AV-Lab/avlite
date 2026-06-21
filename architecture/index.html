@@ -16,7 +16,7 @@
         <link rel="prev" href="..">
       
       
-        <link rel="next" href="../plugin-development/">
+        <link rel="next" href="../settings-naming/">
       
       
       <link rel="icon" href="../imgs/logo-black-bg.png">
@@ -220,6 +220,23 @@
     
   
   Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../settings-naming/" class="md-tabs__link">
+        
+  
+    
+  
+  Settings Naming
 
       </a>
     </li>
@@ -477,6 +494,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#sensor-data-conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sensor data conventions
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -504,6 +530,26 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-naming/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Settings Naming
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -657,12 +703,15 @@
 <p>Both <code>PerceptionStrategy</code> and <code>LocalizationStrategy</code> are optional in the execution pipeline. Implementations come from extensions/plugins.</p>
 <h3 id="c20_planning">c20_planning<a class="headerlink" href="#c20_planning" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>GlobalPlannerStrategy</code> - Route planning (A*, HD map routing)</li>
-<li><code>LocalPlannerStrategy</code> - Reactive planning</li>
+<li><code>GlobalPlannerStrategy</code> - Route planning interface</li>
+<li><code>LocalPlanningStrategy</code> - Reactive planning interface</li>
 <li><code>Lattice</code> - Frenet frame lattice for local planning</li>
 <li><code>Trajectory</code> - Path + velocity profile</li>
 </ul>
-<p>Includes built-in planners: <code>RaceGlobalPlanner</code>, <code>HDMapGlobalPlanner</code>, <code>GreedyLatticePlanner</code>.</p>
+<p>Built-in planners:
+- <code>GlobalCenterlineRacePlanner</code> (<code>c25_global_race_planners.py</code>) - Race-line planner from a JSON left/right boundary file; curvature-adapted target velocities
+- <code>HDMapGlobalPlanner</code> (<code>c24_global_hdmap_planners.py</code>) - OpenDRIVE HD map A* route planner
+- <code>GreedyLatticePlanner</code> - Greedy lattice-based local planner with collision avoidance</p>
 <h3 id="c30_control">c30_control<a class="headerlink" href="#c30_control" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>ControlStrategy</code> - Vehicle control interface</li>
@@ -671,27 +720,38 @@
 <p>Includes built-in controllers: <code>StanleyController</code>, <code>PIDController</code>.</p>
 <h3 id="c40_execution">c40_execution<a class="headerlink" href="#c40_execution" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>Executer</code> - Main execution loop (sync/async variants)</li>
-<li><code>WorldBridge</code> - Simulator abstraction</li>
-<li><code>Factory</code> - Component assembly</li>
+<li><code>WorldBridge</code> (<code>c41_world_bridge.py</code>) — simulator/ROS interface and sensor getters</li>
+<li><code>Executer</code> (<code>c42_executer.py</code>) — base orchestration loop and pipeline steps</li>
+<li><code>executor_factory</code> (<code>c43_factory.py</code>) — component assembly</li>
+<li><code>SyncExecuter</code> / <code>AsyncThreadedExecuter</code> (<code>c44</code> / <code>c45</code>) — concrete scheduling</li>
 <li><code>ExecutionSettings</code> - Runtime settings including <code>log_level</code> (DEBUG/INFO/WARNING/ERROR/CRITICAL) and <code>log_to_file</code> (write logs to <code>./logs/avlite_&lt;timestamp&gt;.log</code>)</li>
 </ul>
-<p>Built-in bridges: <code>BasicSim</code> (c46_basic_sim.py), <code>CarlaBridge</code> (bridge_carla), <code>GazeboIgnitionBridge</code> (bridge_gazebo), <code>ROS2WorldBridge</code> (bridge_ROS2).</p>
+<p>Built-in bridges: <code>BasicSim</code> (c46_basic_sim.py) — includes 2-D LiDAR simulation via raycasting, <code>CarlaBridge</code> (bridge_carla), <code>GazeboIgnitionBridge</code> (bridge_gazebo), <code>ROS2WorldBridge</code> (bridge_ROS2).</p>
 <h3 id="c50_visualization">c50_visualization<a class="headerlink" href="#c50_visualization" title="Permanent link">&para;</a></h3>
 <p>Tkinter-based GUI with:
 - Real-time plotting (XY, Frenet views)
-- Component configuration
-- Profile management
+- Component configuration with schema tooltips on main-page controls
+- Profile management (Config tab Save; settings window <code>T</code> for full stack)
+- <strong>Use repository configs</strong> — discard <code>~/.config/avlite/</code> overrides and reload repo YAML
 - Log viewer
 - Extension settings</p>
 <h3 id="c60_common">c60_common<a class="headerlink" href="#c60_common" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Settings load/save (YAML profiles)</li>
+<li>Settings load/save (YAML profiles): repo defaults in <code>{repo}/configs/</code>, user overrides in <code>~/.config/avlite/</code> (or <code>AVLITE_CONFIG_DIR</code>); <code>effective_config_path()</code> resolves read path, Save always writes user copy</li>
 <li>Hot reloading</li>
-<li>Extension discovery</li>
-<li>Capability enums</li>
+<li>Extension discovery; community plugins under <code>~/.local/share/avlite/plugins/</code> (<code>AVLITE_PLUGINS_DIR</code>)</li>
+<li>Capability enums (<code>WorldCapability</code>, <code>PerceptionCapability</code>, <code>LocalizationCapability</code>, <code>MappingCapability</code>)</li>
+<li><code>AnyOf</code> — requirement satisfied by any one of several capabilities; <code>satisfies_requirements()</code> helper used by the execution layer</li>
+<li><code>HDMap</code> (<code>c68_hdmap.py</code>) — OpenDRIVE map parsing and routing (used by <code>HDMapGlobalPlanner</code> and <code>PerceptionModel</code>)</li>
+<li><code>SensorFrame</code> (<code>c67_sensor_data.py</code>) — canonical sensor formats between WorldBridge and perception/localization (authoritative spec for rgb, depth, lidar, imu, gnss, wheel odometry)</li>
+<li><code>rename_setting_profile()</code> — rename saved YAML profiles</li>
+<li><code>clear_user_configs()</code> — remove local YAML overrides so the next load uses repo defaults (settings window <strong>Use repository configs</strong>)</li>
 </ul>
+<h3 id="sensor-data-conventions">Sensor data conventions<a class="headerlink" href="#sensor-data-conventions" title="Permanent link">&para;</a></h3>
+<p>Raw sensor layouts are defined in <a href="../avlite/c60_common/c67_sensor_data.py"><code>avlite/c60_common/c67_sensor_data.py</code></a>. WorldBridge implementations convert simulator/ROS messages into these formats before passing a <code>SensorFrame</code> to perception and localization. Array fields use semantic aliases <code>RgbImage</code>, <code>DepthImage</code>, and <code>LidarCloud</code> (all <code>np.ndarray</code> with layouts documented in c67). Key fields: <code>rgb</code> <code>(H,W,3)</code> uint8 RGB; <code>depth</code> <code>(H,W)</code> float32 metres; <code>lidar</code> <code>(N,4)</code> float32 <code>[x,y,z,intensity]</code> in map frame; <code>GnssReading</code> with WGS84 lat/lon/alt plus optional map-frame <code>map_x/y/z</code>.</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
+</code></pre></div>
 <div class="highlight"><pre><span></span><code>World Bridge
     │
     ├─► Sensor Data ──► Localization ──► Ego Pose (updated in-place)
