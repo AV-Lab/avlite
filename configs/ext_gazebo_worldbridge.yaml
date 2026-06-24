@@ -1,5 +1,6 @@
 Carla_Town10: {}
 async: {}
 default: {}
+joystick: {}
 perception: {}
 sync: {}

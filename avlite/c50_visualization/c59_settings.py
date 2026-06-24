@@ -134,8 +134,6 @@ class VisualizationSettings:
             ExecutionSettings.c40_controller = self.controller_type.get()
         self.controller_type.trace_add("write", _on_controller_change)
 
-
-        self.enable_joystick = tk.BooleanVar(value=True)
         self.global_plan_view = tk.BooleanVar(value=False)
         self.local_plan_view = tk.BooleanVar(value=False)
         
@@ -332,7 +330,6 @@ class VisualizationSettingsSchema(SettingsSchema):
     global_planner_type: str = Field(default="", description="Global planner class name.")
     local_planner_type: str = Field(default="", description="Local planner class name.")
     controller_type: str = Field(default="", description="Controller class name.")
-    enable_joystick: bool = Field(default=True, description="Enable joystick/gamepad input.")
     global_plan_view: bool = Field(default=False, description="Show global plan panel.")
     local_plan_view: bool = Field(default=False, description="Show local plan panel.")
     executer_type: str = Field(default="", description="Executer class name.")
