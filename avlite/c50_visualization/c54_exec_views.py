@@ -212,8 +212,9 @@ class ExecView(ttk.Frame):
         self.root.update_ui()
 
     def update_data(self):
-        """Refresh the executer dropdown from the registry."""
+        """Refresh the executer and bridge dropdowns from the registries."""
         self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
+        self.bridge_frame.update_data()
 
     def reset_exec(self):
         self.root.exec.reset()
@@ -241,12 +242,12 @@ class BridgeFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
         super().__init__(view, text="Bridge Setting")
         self.root = root
-        world_bridge_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.execution_bridge, width=10, state="readonly",)
-        world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())
-        world_bridge_dropdown_menu.state(["readonly"])
-        world_bridge_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        world_bridge_dropdown_menu.grid(row=0, column=0, pady=0, sticky="we")
-        attach_schema_tooltip(world_bridge_dropdown_menu, ExecutionSettings, "c40_bridge")
+        self.world_bridge_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.execution_bridge, width=10, state="readonly",)
+        self.world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())
+        self.world_bridge_dropdown_menu.state(["readonly"])
+        self.world_bridge_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.world_bridge_dropdown_menu.grid(row=0, column=0, pady=0, sticky="we")
+        attach_schema_tooltip(self.world_bridge_dropdown_menu, ExecutionSettings, "c40_bridge")
 
         self.chk_ground_truth = ttk.Checkbutton(self, text="Ground Truth", variable=self.root.setting.bridge_provide_ground_truth_detection)
         self.chk_ground_truth.grid(row=1, column=0, sticky="w")
@@ -264,6 +265,10 @@ class BridgeFrame(ttk.LabelFrame):
         attach_schema_tooltip(self.chk_lidar_data, ExecutionSettings, "c41_provide_lidar")
 
 
+
+    def update_data(self):
+        """Refresh the bridge dropdown from the registry."""
+        self.world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())
 
     def update_for_bridge(self, capabilities: set):
         """Enable / disable checkboxes based on the active bridge's capabilities."""

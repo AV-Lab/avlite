@@ -12,15 +12,17 @@ from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrate
 
 log = logging.getLogger(__name__)
 
-try: 
+try:
     import rclpy
     from geometry_msgs.msg import Twist
     from rclpy.node import Node
+    ROS_AVAILABLE = True
 except ImportError:
     log.warning("ROS2 Python packages not found. Make sure ROS2 is installed and sourced.")
+    ROS_AVAILABLE = False
 
 
-class GazeboIgnitionBridge(WorldBridge, Node):
+class GazeboIgnitionBridge(WorldBridge, Node if ROS_AVAILABLE else object):
     @property
     def capabilities(self) -> set[WorldCapability]:
         return {
