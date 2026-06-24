@@ -1,12 +1,9 @@
 from __future__ import annotations
-from os import wait
 from pathlib import Path
 from typing import TYPE_CHECKING
 import importlib
-import importlib.util
 import tkinter as tk
 from tkinter import ttk, messagebox
-import tkinter.font as tkfont
 
 
 from avlite.c60_common.c69_setting_utils import (
@@ -530,11 +527,13 @@ class SettingWindow:
         from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
         from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
         from avlite.c30_control.c32_control_strategy import ControlStrategy
+        from avlite.c40_execution.c41_world_bridge import WorldBridge
         from avlite.c40_execution.c42_executer import Executer
 
         ext_module_prefix = f"avlite.extensions.{ext_name}"
         for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
-                         LocalPlanningStrategy.registry, ControlStrategy.registry, Executer.registry]:
+                         LocalPlanningStrategy.registry, ControlStrategy.registry,
+                         Executer.registry, WorldBridge.registry]:
             to_remove = [name for name, cls in registry.items()
                          if cls.__module__.startswith(ext_module_prefix)]
             for name in to_remove:

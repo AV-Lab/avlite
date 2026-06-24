@@ -14,7 +14,6 @@ from avlite.c60_common.c69_setting_utils import (
     get_absolute_path,
     import_all_modules,
     resolve_plugin_path,
-    runtime_extensions_filter,
 )
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
@@ -33,7 +32,6 @@ from avlite.c40_execution.c42_executer import Executer
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim
-from avlite.extensions.e40_bridge_carla.carla_bridge import CarlaBridge
 
 
 
@@ -63,7 +61,7 @@ def executor_factory(
 
     
     if load_extensions:
-        import_all_modules(extensions_filter=runtime_extensions_filter())
+        import_all_modules(extensions_filter=list(ExecutionSettings.c40_default_extensions))
         # loading community extensions
         for k, v in ExecutionSettings.c40_community_plugins.items():
             path = resolve_plugin_path(k, v)
@@ -202,15 +200,7 @@ def executor_factory(
     # agents. Both share the same ego_state.
     world_pm = PerceptionModel(ego_vehicle=ego_state)
     try:
-        if bridge == "CarlaBridge": # string for lazy loading, beause it could have dependencies that are not available
-            log.info("Loading Carla bridge...")
-            from avlite.extensions.e40_bridge_carla.carla_bridge import CarlaBridge
-            world = CarlaBridge(ego_state=ego_state)
-        elif bridge == "GazeboIgnitionBridge":
-            log.info("Loading Gazebo bridge...")
-            from avlite.c40_execution.c48_gazebo_bridge import GazeboIgnitionBridge
-            world = GazeboIgnitionBridge(ego_state=ego_state)
-        elif bridge in WorldBridge.registry:
+        if bridge in WorldBridge.registry:
             log.info(f"Loading registered world bridge {bridge}...")
             cls = WorldBridge.registry[bridge]
             world = cls(ego_state=ego_state, pm=world_pm)

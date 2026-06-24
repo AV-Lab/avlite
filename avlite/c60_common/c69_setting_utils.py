@@ -512,35 +512,6 @@ def load_extension_settings_class(ext: str):
         return None
 
 
-_BRIDGE_EXTENSIONS = {
-    "ROS2WorldBridge": "e40_bridge_ROS2",
-    "GazeboIgnitionBridge": "e40_bridge_gazebo",
-    "CarlaBridge": "e40_bridge_carla",
-}
-_EXECUTER_EXTENSIONS = {
-    "ROSExecuter": "e40_executer_ROS2",
-}
-
-
-def runtime_extensions_filter(default_extensions: list[str] | None = None) -> list[str]:
-    """Return extension names safe to import for the current bridge/executer selection."""
-    from avlite.c40_execution.c49_settings import ExecutionSettings
-
-    ext_filter = list(default_extensions if default_extensions is not None else ExecutionSettings.c40_default_extensions)
-    bridge = ExecutionSettings.c40_bridge or ""
-    executer = ExecutionSettings.c40_executer_type or ""
-
-    optional = set(_BRIDGE_EXTENSIONS.values()) | set(_EXECUTER_EXTENSIONS.values())
-    # Always load executer extensions so subclasses register for the UI dropdown.
-    needed: set[str] = set(_EXECUTER_EXTENSIONS.values())
-    if bridge in _BRIDGE_EXTENSIONS:
-        needed.add(_BRIDGE_EXTENSIONS[bridge])
-    if executer in _EXECUTER_EXTENSIONS:
-        needed.add(_EXECUTER_EXTENSIONS[executer])
-
-    return [ext for ext in ext_filter if ext not in optional or ext in needed]
-
-
 def load_all_stack_settings(profile="default", load_extensions=True): 
     """Load all stack settings and extension settings."""
     from avlite.c10_perception.c19_settings import PerceptionSettings
