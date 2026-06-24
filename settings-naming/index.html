@@ -418,9 +418,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#extensions" class="md-nav__link">
+  <a href="#plugins" class="md-nav__link">
     <span class="md-ellipsis">
-      Extensions
+      Plugins
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migrating-from-ext_yaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      Migrating from ext_*.yaml
     </span>
   </a>
   
@@ -557,9 +566,46 @@
 </tr>
 </tbody>
 </table>
-<p>Built-in extensions use <code>configs/ext_*.yaml</code> in the repo and the same basename under <code>~/.config/avlite/</code> when saved.</p>
-<h2 id="extensions">Extensions<a class="headerlink" href="#extensions" title="Permanent link">&para;</a></h2>
-<p>Community and built-in extensions keep <code>ExtensionSettings</code> in <code>settings.py</code> with unprefixed snake_case parameters. See <a href="../plugin-development/">Plugin Development</a>.</p>
+<p>Built-in plugins use <code>configs/plugin_*.yaml</code> in the repo and the same basename under <code>~/.config/avlite/</code> when saved.</p>
+<h2 id="plugins">Plugins<a class="headerlink" href="#plugins" title="Permanent link">&para;</a></h2>
+<p>Community and built-in plugins keep <code>PluginSettings</code> in <code>settings.py</code> with unprefixed snake_case parameters. See <a href="../plugin-development/">Plugin Development</a>.</p>
+<h2 id="migrating-from-ext_yaml">Migrating from <code>ext_*.yaml</code><a class="headerlink" href="#migrating-from-ext_yaml" title="Permanent link">&para;</a></h2>
+<p>If you have saved plugin configs from an older AVLite version, rename files under <code>~/.config/avlite/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Old</th>
+<th>New</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ext_ros_executer.yaml</code></td>
+<td><code>plugin_ros_executer.yaml</code></td>
+</tr>
+<tr>
+<td><code>ext_ROS2_worldbridge.yaml</code></td>
+<td><code>plugin_ROS2_worldbridge.yaml</code></td>
+</tr>
+<tr>
+<td><code>ext_carla.yaml</code></td>
+<td><code>plugin_carla.yaml</code></td>
+</tr>
+<tr>
+<td><code>ext_gazebo_worldbridge.yaml</code></td>
+<td><code>plugin_gazebo_worldbridge.yaml</code></td>
+</tr>
+<tr>
+<td><code>ext_headless_mode.yaml</code></td>
+<td><code>plugin_headless_mode.yaml</code></td>
+</tr>
+<tr>
+<td><code>ext_multi_object_predictor.yaml</code></td>
+<td><code>plugin_multi_object_predictor.yaml</code></td>
+</tr>
+</tbody>
+</table>
+<p>Alternatively, use <strong>Copy repository configs</strong> in the settings window to copy shipped <code>configs/*.yaml</code> into <code>~/.config/avlite/</code> and reload.</p>
 <h2 id="validation-and-field-docs">Validation and field docs<a class="headerlink" href="#validation-and-field-docs" title="Permanent link">&para;</a></h2>
 <p>Each settings module defines a Pydantic <code>*SettingsSchema</code> with types, defaults, and <code>Field(description=...)</code>. YAML profiles are validated on load/save.</p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span><span class="nb">help</span>

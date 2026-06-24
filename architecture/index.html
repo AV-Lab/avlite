@@ -431,73 +431,64 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#core-modules" class="md-nav__link">
+  <a href="#layers" class="md-nav__link">
     <span class="md-ellipsis">
-      Core Modules
+      Layers
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Core Modules">
+    <nav class="md-nav" aria-label="Layers">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#c10_perception" class="md-nav__link">
+  <a href="#perception" class="md-nav__link">
     <span class="md-ellipsis">
-      c10_perception
+      Perception
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#c20_planning" class="md-nav__link">
+  <a href="#planning" class="md-nav__link">
     <span class="md-ellipsis">
-      c20_planning
+      Planning
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#c30_control" class="md-nav__link">
+  <a href="#control" class="md-nav__link">
     <span class="md-ellipsis">
-      c30_control
+      Control
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#c40_execution" class="md-nav__link">
+  <a href="#execution" class="md-nav__link">
     <span class="md-ellipsis">
-      c40_execution
+      Execution
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#c50_visualization" class="md-nav__link">
+  <a href="#visualization" class="md-nav__link">
     <span class="md-ellipsis">
-      c50_visualization
+      Visualization
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#c60_common" class="md-nav__link">
+  <a href="#common" class="md-nav__link">
     <span class="md-ellipsis">
-      c60_common
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sensor-data-conventions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sensor data conventions
+      Common
     </span>
   </a>
   
@@ -518,9 +509,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#extension-system" class="md-nav__link">
+  <a href="#plugin-system" class="md-nav__link">
     <span class="md-ellipsis">
-      Extension System
+      Plugin System
     </span>
   </a>
   
@@ -598,23 +589,23 @@
 <pre class="mermaid"><code>flowchart TB
     subgraph ENTRY[" "]
         direction LR
-        VIZ["🖥️ Visualization · c50\nReal-time Tkinter GUI"]
-        HL["⌨️ Headless Mode\nTerminal dashboard · rich"]
+        VIZ["Visualization\nReal-time Tkinter GUI"]
+        HL["Headless Mode\nTerminal dashboard"]
         VIZ ~~~ HL
     end
 
-    EXEC["⚙️ Execution Layer · c40\nSyncExecuter · AsyncThreadedExecuter · Factory"]
+    EXEC["Execution\nSync/async executer and factory"]
 
     subgraph COMPONENTS[" "]
         direction LR
-        PERC["Perception · c10 (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
-        PLAN["Planning · c20\nGlobal · Local · Lattice"]
-        CTRL["Control · c30\nStanley · PID"]
-        WB["World Bridge · c40\nBasicSim · Carla · Gazebo · ROS2"]
+        PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
+        PLAN["Planning\nGlobal · Local · Lattice"]
+        CTRL["Control\nStanley · PID"]
+        WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
 
-    COMMON["🔧 Common · c60\nSettings · Capabilities · TrajectoryTracker · CollisionChecker"]
+    COMMON["Common\nSettings · Capabilities · Trajectories · Collision checking"]
 
     ENTRY --&gt; EXEC
     EXEC --&gt; COMPONENTS
@@ -688,67 +679,20 @@
     <span class="n">controller_strategy_name</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
 <span class="p">)</span>
 </code></pre></div>
-<p>It loads extensions, instantiates strategies from registries, and wires everything together. Both <code>perception_strategy_name</code> and <code>localization_strategy_name</code> are optional — pass an empty string or omit them to run without that component.</p>
-<h2 id="core-modules">Core Modules<a class="headerlink" href="#core-modules" title="Permanent link">&para;</a></h2>
-<h3 id="c10_perception">c10_perception<a class="headerlink" href="#c10_perception" title="Permanent link">&para;</a></h3>
-<p>Provides <strong>interfaces</strong> for:
-- <code>PerceptionStrategy</code> (optional) - Monolithic detect/track/predict interface; subclasses auto-register and appear in the UI dropdown
-- <code>DetectionStrategy</code> - Detection-only sub-strategy with its own registry; used by <code>PerceptionPipeline</code>
-- <code>TrackingStrategy</code> - Tracking-only sub-strategy with its own registry; used by <code>PerceptionPipeline</code>
-- <code>PredictionStrategy</code> - Prediction-only sub-strategy with its own registry; used by <code>PerceptionPipeline</code>
-- <code>PerceptionPipeline</code> - Built-in <code>PerceptionStrategy</code> that composes a <code>DetectionStrategy</code>, <code>TrackingStrategy</code>, and <code>PredictionStrategy</code> selected by name; missing stages fall back to ground truth from the bridge
-- <code>LocalizationStrategy</code> (optional) - Ego-vehicle pose estimation. Updates <code>PerceptionModel.ego_vehicle</code> in-place.
-- <code>MappingStrategy</code> - Environment mapping
-- <code>HDMap</code> - OpenDRIVE map parsing and routing</p>
-<p>Both <code>PerceptionStrategy</code> and <code>LocalizationStrategy</code> are optional in the execution pipeline. Implementations come from extensions/plugins.</p>
-<h3 id="c20_planning">c20_planning<a class="headerlink" href="#c20_planning" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>GlobalPlannerStrategy</code> - Route planning interface</li>
-<li><code>LocalPlanningStrategy</code> - Reactive planning interface</li>
-<li><code>Lattice</code> - Frenet frame lattice for local planning</li>
-<li><code>Trajectory</code> - Path + velocity profile</li>
-</ul>
-<p>Built-in planners:
-- <code>GlobalCenterlineRacePlanner</code> (<code>c25_global_race_planners.py</code>) - Race-line planner from a JSON left/right boundary file; curvature-adapted target velocities
-- <code>HDMapGlobalPlanner</code> (<code>c24_global_hdmap_planners.py</code>) - OpenDRIVE HD map A* route planner
-- <code>GreedyLatticePlanner</code> - Greedy lattice-based local planner with collision avoidance</p>
-<h3 id="c30_control">c30_control<a class="headerlink" href="#c30_control" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>ControlStrategy</code> - Vehicle control interface</li>
-<li><code>ControlCommand</code> - Throttle/brake + steering output</li>
-</ul>
-<p>Includes built-in controllers: <code>StanleyController</code>, <code>PIDController</code>.</p>
-<h3 id="c40_execution">c40_execution<a class="headerlink" href="#c40_execution" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>WorldBridge</code> (<code>c41_world_bridge.py</code>) — simulator/ROS interface and sensor getters</li>
-<li><code>Executer</code> (<code>c42_executer.py</code>) — base orchestration loop and pipeline steps</li>
-<li><code>executor_factory</code> (<code>c43_factory.py</code>) — component assembly</li>
-<li><code>SyncExecuter</code> / <code>AsyncThreadedExecuter</code> (<code>c44</code> / <code>c45</code>) — concrete scheduling</li>
-<li><code>ExecutionSettings</code> - Runtime settings including <code>log_level</code> (DEBUG/INFO/WARNING/ERROR/CRITICAL) and <code>log_to_file</code> (write logs to <code>./logs/avlite_&lt;timestamp&gt;.log</code>)</li>
-</ul>
-<p>Built-in bridges: <code>BasicSim</code> (c46_basic_sim.py) — includes 2-D LiDAR simulation via raycasting, <code>CarlaBridge</code> (bridge_carla), <code>GazeboIgnitionBridge</code> (bridge_gazebo), <code>ROS2WorldBridge</code> (bridge_ROS2).</p>
-<h3 id="c50_visualization">c50_visualization<a class="headerlink" href="#c50_visualization" title="Permanent link">&para;</a></h3>
-<p>Tkinter-based GUI with:
-- Real-time plotting (XY, Frenet views)
-- Component configuration with schema tooltips on main-page controls
-- Profile management (Config tab Save; settings window <code>T</code> for full stack)
-- <strong>Use repository configs</strong> — discard <code>~/.config/avlite/</code> overrides and reload repo YAML
-- Log viewer
-- Extension settings</p>
-<h3 id="c60_common">c60_common<a class="headerlink" href="#c60_common" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Settings load/save (YAML profiles): repo defaults in <code>{repo}/configs/</code>, user overrides in <code>~/.config/avlite/</code> (or <code>AVLITE_CONFIG_DIR</code>); <code>effective_config_path()</code> resolves read path, Save always writes user copy</li>
-<li>Hot reloading</li>
-<li>Extension discovery; community plugins under <code>~/.local/share/avlite/plugins/</code> (<code>AVLITE_PLUGINS_DIR</code>)</li>
-<li>Capability enums (<code>WorldCapability</code>, <code>PerceptionCapability</code>, <code>LocalizationCapability</code>, <code>MappingCapability</code>)</li>
-<li><code>AnyOf</code> — requirement satisfied by any one of several capabilities; <code>satisfies_requirements()</code> helper used by the execution layer</li>
-<li><code>HDMap</code> (<code>c68_hdmap.py</code>) — OpenDRIVE map parsing and routing (used by <code>HDMapGlobalPlanner</code> and <code>PerceptionModel</code>)</li>
-<li><code>SensorFrame</code> (<code>c67_sensor_data.py</code>) — canonical sensor formats between WorldBridge and perception/localization (authoritative spec for rgb, depth, lidar, imu, gnss, wheel odometry)</li>
-<li><code>rename_setting_profile()</code> — rename saved YAML profiles</li>
-<li><code>clear_user_configs()</code> — remove local YAML overrides so the next load uses repo defaults (settings window <strong>Use repository configs</strong>)</li>
-</ul>
-<h3 id="sensor-data-conventions">Sensor data conventions<a class="headerlink" href="#sensor-data-conventions" title="Permanent link">&para;</a></h3>
-<p>Raw sensor layouts are defined in <a href="../avlite/c60_common/c67_sensor_data.py"><code>avlite/c60_common/c67_sensor_data.py</code></a>. WorldBridge implementations convert simulator/ROS messages into these formats before passing a <code>SensorFrame</code> to perception and localization. Array fields use semantic aliases <code>RgbImage</code>, <code>DepthImage</code>, and <code>LidarCloud</code> (all <code>np.ndarray</code> with layouts documented in c67). Key fields: <code>rgb</code> <code>(H,W,3)</code> uint8 RGB; <code>depth</code> <code>(H,W)</code> float32 metres; <code>lidar</code> <code>(N,4)</code> float32 <code>[x,y,z,intensity]</code> in map frame; <code>GnssReading</code> with WGS84 lat/lon/alt plus optional map-frame <code>map_x/y/z</code>.</p>
+<p>It loads plugins, instantiates strategies from registries, and wires everything together. Both <code>perception_strategy_name</code> and <code>localization_strategy_name</code> are optional — pass an empty string or omit them to run without that component.</p>
+<h2 id="layers">Layers<a class="headerlink" href="#layers" title="Permanent link">&para;</a></h2>
+<h3 id="perception"><strong>Perception</strong><a class="headerlink" href="#perception" title="Permanent link">&para;</a></h3>
+<p>Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
+<h3 id="planning"><strong>Planning</strong><a class="headerlink" href="#planning" title="Permanent link">&para;</a></h3>
+<p>Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller.</p>
+<h3 id="control"><strong>Control</strong><a class="headerlink" href="#control" title="Permanent link">&para;</a></h3>
+<p>Vehicle control strategies (Stanley, PID) output throttle/brake and steering.</p>
+<h3 id="execution"><strong>Execution</strong><a class="headerlink" href="#execution" title="Permanent link">&para;</a></h3>
+<p>World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. Built-in bridges include BasicSim, CARLA, Gazebo, and ROS2 (via plugins).</p>
+<h3 id="visualization"><strong>Visualization</strong><a class="headerlink" href="#visualization" title="Permanent link">&para;</a></h3>
+<p>Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.</p>
+<h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
+<p>YAML profile load/save, hot reload, plugin discovery, capability enums, HD map and OpenDRIVE parsing, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), and settings validation.</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
 </code></pre></div>
@@ -776,23 +720,25 @@
 <li><strong>Controller</strong> computes steering and throttle</li>
 <li><strong>World Bridge</strong> executes control command</li>
 </ol>
-<h2 id="extension-system">Extension System<a class="headerlink" href="#extension-system" title="Permanent link">&para;</a></h2>
+<h2 id="plugin-system">Plugin System<a class="headerlink" href="#plugin-system" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>avlite/
-└── extensions/           # Built-in (core team)
-    ├── bridge_carla/
-    ├── bridge_gazebo/
-    ├── bridge_ROS2/
-    ├── executer_ROS2/
-    └── multi_object_prediction/
+└── plugins/              # Built-in (core team)
+    ├── p10_perception_MO_prediction/
+    ├── p30_controller_joystick/
+    ├── p40_bridge_carla/
+    ├── p40_bridge_gazebo/
+    ├── p40_bridge_ROS2/
+    ├── p40_executer_ROS2/
+    └── p50_headless_mode/
 
-/path/to/                 # Community plugins
+~/.local/share/avlite/plugins/   # Community (installed)
 └── my_plugin/
     ├── __init__.py
     ├── settings.py
     └── ...
 </code></pre></div>
-<p>Extensions are loaded at startup. Classes inheriting from base strategies auto-register.</p>
-<p>See <a href="../plugin-development/">Plugin Development</a> for creating community plugins.</p>
+<p>Plugins are loaded at startup. Classes inheriting from base strategies auto-register.</p>
+<p>See <a href="../plugin-development/">Plugin Development</a> for creating community plugins, pNx naming, and log filtering.</p>
 
 
 

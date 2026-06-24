@@ -418,6 +418,39 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#what-you-can-extend" class="md-nav__link">
+    <span class="md-ellipsis">
+      What you can extend
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What you can extend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#perception-monolithic-vs-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Perception: monolithic vs pipeline
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#planning-control-and-world-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      Planning, control, and world bridge
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#community-plugin-structure" class="md-nav__link">
     <span class="md-ellipsis">
       Community Plugin Structure
@@ -427,27 +460,27 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-settings-file-required" class="md-nav__link">
+  <a href="#1-settings-file-optional" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Settings File (Required)
+      1. Settings File (Optional)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-example-custom-perception" class="md-nav__link">
+  <a href="#2-example-custom-perception-monolithic" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Example: Custom Perception
+      2. Example: Custom Perception (Monolithic)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-example-custom-detection-tracking-or-prediction-sub-strategy" class="md-nav__link">
+  <a href="#3-example-detection-tracking-or-prediction-sub-strategy" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Example: Custom Detection, Tracking, or Prediction Sub-Strategy
+      3. Example: Detection, Tracking, or Prediction Sub-Strategy
     </span>
   </a>
   
@@ -463,27 +496,63 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-example-custom-controller" class="md-nav__link">
+  <a href="#5-example-custom-planner" class="md-nav__link">
     <span class="md-ellipsis">
-      5. Example: Custom Controller
+      5. Example: Custom Planner
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#6-export-classes" class="md-nav__link">
+  <a href="#6-example-custom-controller" class="md-nav__link">
     <span class="md-ellipsis">
-      6. Export Classes
+      6. Example: Custom Controller
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#7-register-your-community-plugin" class="md-nav__link">
+  <a href="#7-example-custom-world-bridge" class="md-nav__link">
     <span class="md-ellipsis">
-      7. Register Your Community Plugin
+      7. Example: Custom World Bridge
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-export-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Export Classes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-register-your-community-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Register Your Community Plugin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-built-in-plugin-naming-pnx" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. Built-in plugin naming (pNx)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-log-panel-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      11. Log panel filtering
     </span>
   </a>
   
@@ -534,30 +603,118 @@
 
 
 <h1 id="plugin-development">Plugin Development<a class="headerlink" href="#plugin-development" title="Permanent link">&para;</a></h1>
-<p>AVLite supports two types of extensions:
-- <strong>Built-in extensions</strong> (<code>avlite/extensions/</code>): Maintained by the core team
+<p>AVLite supports two types of plugins:
+- <strong>Built-in plugins</strong> (<code>avlite/plugins/</code>): Maintained by the core team
 - <strong>Community plugins</strong>: External directories you create and register</p>
 <p>This guide covers creating community plugins. Classes inheriting from base strategies automatically register and appear in the UI.</p>
+<h2 id="what-you-can-extend">What you can extend<a class="headerlink" href="#what-you-can-extend" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Base classes</th>
+<th>UI / config</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Perception</strong></td>
+<td><code>PerceptionStrategy</code> <strong>or</strong> <code>DetectionStrategy</code> / <code>TrackingStrategy</code> / <code>PredictionStrategy</code> via <code>PerceptionPipeline</code></td>
+<td>Main <strong>Perception</strong> dropdown; pipeline sub-dropdowns (Detect / Track / Predict) appear only when <code>PerceptionPipeline</code> is selected</td>
+</tr>
+<tr>
+<td><strong>Localization</strong></td>
+<td><code>LocalizationStrategy</code></td>
+<td>Separate <strong>Localization</strong> dropdown (optional; independent of perception)</td>
+</tr>
+<tr>
+<td><strong>Mapping</strong></td>
+<td><code>MappingStrategy</code></td>
+<td>Extendable via plugin; registry-based like other strategies</td>
+</tr>
+<tr>
+<td><strong>Planning</strong></td>
+<td><code>GlobalPlannerStrategy</code>, <code>LocalPlanningStrategy</code></td>
+<td>Global / local planner dropdowns</td>
+</tr>
+<tr>
+<td><strong>Control</strong></td>
+<td><code>ControlStrategy</code></td>
+<td>Controller dropdown</td>
+</tr>
+<tr>
+<td><strong>Execution</strong></td>
+<td><code>WorldBridge</code></td>
+<td><strong>Bridge</strong> dropdown (BasicSim, Carla, Gazebo, ROS2, or custom)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="perception-monolithic-vs-pipeline">Perception: monolithic vs pipeline<a class="headerlink" href="#perception-monolithic-vs-pipeline" title="Permanent link">&para;</a></h3>
+<p>Perception is the most flexible layer — you can replace the whole stack in one class, or plug in individual stages.</p>
+<pre class="mermaid"><code>flowchart TB
+  subgraph mono ["Monolithic PerceptionStrategy"]
+    M1["MyPerception.perceive()"]
+    M1 --&gt; M2["detect + track + predict in one class"]
+  end
+  subgraph pipe ["PerceptionPipeline composes sub-strategies"]
+    P1["DetectionStrategy.detect()"]
+    P2["TrackingStrategy.track()"]
+    P3["PredictionStrategy.predict()"]
+    P1 --&gt; P2 --&gt; P3
+  end
+  Exec["Execution selects perception by class name"]
+  Exec --&gt; mono
+  Exec --&gt; pipe</code></pre>
+<p><strong>Monolithic (<code>PerceptionStrategy</code>):</strong></p>
+<ul>
+<li>Implement all stages in one <code>perceive()</code> method.</li>
+<li>Select your class name in the main <strong>Perception</strong> dropdown, or set <code>c40_perception</code> in <code>c40_execution.yaml</code> / <code>perception_type</code> in the visualization profile.</li>
+<li>Example built-in: <code>MultiObjectPredictor</code> (<code>p10_perception_MO_prediction</code>).</li>
+</ul>
+<p><strong>Pipelined (<code>PerceptionPipeline</code> + sub-strategies):</strong></p>
+<ul>
+<li>Set perception to <strong><code>PerceptionPipeline</code></strong> in the main dropdown.</li>
+<li>The GUI shows <strong>Detect</strong>, <strong>Track</strong>, and <strong>Predict</strong> sub-dropdowns (only visible in pipeline mode).</li>
+<li>Configure sub-strategies in <code>configs/c10_perception.yaml</code>:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="nt">c12_detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span><span class="w">      </span><span class="c1"># empty → ground truth from bridge</span>
+<span class="nt">c12_tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span><span class="w">        </span><span class="c1"># empty → ground truth from bridge</span>
+<span class="nt">c12_prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span><span class="w">    </span><span class="c1"># empty → prediction stage skipped</span>
+</code></pre></div>
+<ul>
+<li>Each sub-strategy has its <strong>own registry</strong>; plugin classes auto-register like monolithic strategies.</li>
+<li>Empty or unknown name: detection/tracking fall back to <strong>ground truth</strong> from the world bridge when available; prediction is skipped if unset.</li>
+<li>Mix core and plugin sub-strategies freely (e.g. core <code>FastBEVLidarDetection</code> + plugin <code>MyPredictor</code>).</li>
+</ul>
+<p><strong>Localization</strong> is separate from <code>PerceptionPipeline</code>: optional <code>LocalizationStrategy</code> in its own dropdown; updates <code>PerceptionModel.ego_vehicle</code> in-place.</p>
+<h3 id="planning-control-and-world-bridge">Planning, control, and world bridge<a class="headerlink" href="#planning-control-and-world-bridge" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Planning</strong> — subclass <code>GlobalPlannerStrategy</code> (<code>plan()</code>) or <code>LocalPlanningStrategy</code> (<code>replan()</code>); selected via global/local planner dropdowns; configured in <code>c40_execution.yaml</code> (<code>c40_global_planner</code>, <code>c40_local_planner</code>).</li>
+<li><strong>Control</strong> — subclass <code>ControlStrategy</code> (<code>control()</code>); selected via controller dropdown (<code>c40_controller</code>).</li>
+<li><strong>World bridge</strong> — subclass <code>WorldBridge</code>; implement sensor getters and <code>control_ego_state()</code>; selected via <strong>Bridge</strong> dropdown (<code>c40_bridge</code>). See built-in <code>p40_bridge_*</code> plugins for reference.</li>
+</ul>
 <h2 id="community-plugin-structure">Community Plugin Structure<a class="headerlink" href="#community-plugin-structure" title="Permanent link">&para;</a></h2>
 <p>Create your plugin anywhere on your system:</p>
 <div class="highlight"><pre><span></span><code>/path/to/my_plugin/
 ├── __init__.py      # Export classes
-├── settings.py      # ExtensionSettings class
+├── settings.py      # Optional: PluginSettings if you have tunable params
+├── config/          # Created on Save: my_plugin.yaml profiles
 └── my_strategy.py   # Your implementation
 </code></pre></div>
-<h2 id="1-settings-file-required">1. Settings File (Required)<a class="headerlink" href="#1-settings-file-required" title="Permanent link">&para;</a></h2>
+<p>Do not commit a <code>.venv</code> inside your plugin directory — AVLite scans all <code>.py</code> files under the plugin path and skips common vendor folders (<code>.venv</code>, <code>site-packages</code>, etc.), but keeping the venv outside the plugin tree is cleaner.</p>
+<h2 id="1-settings-file-optional">1. Settings File (Optional)<a class="headerlink" href="#1-settings-file-optional" title="Permanent link">&para;</a></h2>
+<p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>&lt;plugin_path&gt;/config/&lt;plugin_name&gt;.yaml</code> — you do <strong>not</strong> need <code>exclude</code> or <code>filepath</code>; those are injected when the plugin is registered.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># settings.py</span>
-<span class="k">class</span> <span class="nc">ExtensionSettings</span><span class="p">:</span>
-    <span class="n">exclude</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;exclude&quot;</span><span class="p">,</span> <span class="s2">&quot;filepath&quot;</span><span class="p">]</span>
-    <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;configs/my_plugin.yaml&quot;</span>
-
+<span class="k">class</span> <span class="nc">PluginSettings</span><span class="p">:</span>
     <span class="c1"># Your parameters (appear in UI automatically)</span>
     <span class="n">my_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
 </code></pre></div>
-<h2 id="2-example-custom-perception">2. Example: Custom Perception<a class="headerlink" href="#2-example-custom-perception" title="Permanent link">&para;</a></h2>
+<p>Optionally add a <code>PluginSettingsSchema</code> (Pydantic) with <code>Field(description=...)</code> for tooltips in the settings window, same as built-in plugins.</p>
+<p>Built-in plugins under <code>avlite/plugins/</code> are different: they set <code>filepath = "configs/plugin_*.yaml"</code> explicitly so shipped defaults live in the repository <code>configs/</code> directory.</p>
+<h2 id="2-example-custom-perception-monolithic">2. Example: Custom Perception (Monolithic)<a class="headerlink" href="#2-example-custom-perception-monolithic" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PerceptionStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">PerceptionCapability</span>
-<span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">ExtensionSettings</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">PerceptionCapability</span>
+<span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">PluginSettings</span>
 
 <span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -578,12 +735,12 @@
         <span class="c1"># Update self.perception_model.agents in-place, then return it</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span>
 </code></pre></div>
-<h2 id="3-example-custom-detection-tracking-or-prediction-sub-strategy">3. Example: Custom Detection, Tracking, or Prediction Sub-Strategy<a class="headerlink" href="#3-example-custom-detection-tracking-or-prediction-sub-strategy" title="Permanent link">&para;</a></h2>
+<h2 id="3-example-detection-tracking-or-prediction-sub-strategy">3. Example: Detection, Tracking, or Prediction Sub-Strategy<a class="headerlink" href="#3-example-detection-tracking-or-prediction-sub-strategy" title="Permanent link">&para;</a></h2>
 <p>Use <code>DetectionStrategy</code>, <code>TrackingStrategy</code>, or <code>PredictionStrategy</code> when you only need
 to implement one stage of the pipeline. These plug into <code>PerceptionPipeline</code> and are
-selected by name in the <code>PerceptionSettings</code>.</p>
+selected by name when <strong>Perception</strong> is set to <code>PerceptionPipeline</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">DetectionStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
 <span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
 
 <span class="k">class</span> <span class="nc">MyDetector</span><span class="p">(</span><span class="n">DetectionStrategy</span><span class="p">):</span>
@@ -597,7 +754,7 @@ selected by name in the <code>PerceptionSettings</code>.</p>
         <span class="k">return</span> <span class="n">perception_model</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">TrackingStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
 <span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
 
 <span class="k">class</span> <span class="nc">MyTracker</span><span class="p">(</span><span class="n">TrackingStrategy</span><span class="p">):</span>
@@ -610,7 +767,7 @@ selected by name in the <code>PerceptionSettings</code>.</p>
         <span class="k">return</span> <span class="n">perception_model</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PredictionStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
 <span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
 
 <span class="k">class</span> <span class="nc">MyPredictor</span><span class="p">(</span><span class="n">PredictionStrategy</span><span class="p">):</span>
@@ -622,17 +779,16 @@ selected by name in the <code>PerceptionSettings</code>.</p>
         <span class="c1"># Your prediction logic here</span>
         <span class="k">return</span> <span class="n">perception_model</span>
 </code></pre></div>
-<p>To use these sub-strategies with <code>PerceptionPipeline</code>, set the appropriate fields in
-<code>configs/c10_perception.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="nt">detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span>
-<span class="nt">tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span>
-<span class="nt">prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span>
+<p>Configure pipeline sub-strategies in <code>configs/c10_perception.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">c12_detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span>
+<span class="nt">c12_tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span>
+<span class="nt">c12_prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span>
 </code></pre></div>
 <h2 id="4-example-custom-localization">4. Example: Custom Localization<a class="headerlink" href="#4-example-custom-localization" title="Permanent link">&para;</a></h2>
 <p>Localization strategies estimate the ego vehicle’s pose and update
 <code>self.perception_model.ego_vehicle</code> <strong>in-place</strong> (no return value).</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c13_localization_strategy</span> <span class="kn">import</span> <span class="n">LocalizationStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c62_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">LocalizationCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">LocalizationCapability</span>
 
 <span class="k">class</span> <span class="nc">MyLocalization</span><span class="p">(</span><span class="n">LocalizationStrategy</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -657,7 +813,15 @@ selected by name in the <code>PerceptionSettings</code>.</p>
     <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 </code></pre></div>
-<h2 id="5-example-custom-controller">5. Example: Custom Controller<a class="headerlink" href="#5-example-custom-controller" title="Permanent link">&para;</a></h2>
+<h2 id="5-example-custom-planner">5. Example: Custom Planner<a class="headerlink" href="#5-example-custom-planner" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c20_planning.c23_local_planning_strategy</span> <span class="kn">import</span> <span class="n">LocalPlanningStrategy</span>
+
+<span class="k">class</span> <span class="nc">MyLocalPlanner</span><span class="p">(</span><span class="n">LocalPlanningStrategy</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">replan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">global_trajectory</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># Your local planning logic; return a Trajectory or None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_trajectory</span>
+</code></pre></div>
+<h2 id="6-example-custom-controller">6. Example: Custom Controller<a class="headerlink" href="#6-example-custom-controller" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c30_control.c32_control_strategy</span> <span class="kn">import</span> <span class="n">ControlStrategy</span>
 <span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlComand</span>
 
@@ -669,18 +833,32 @@ selected by name in the <code>PerceptionSettings</code>.</p>
     <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 </code></pre></div>
-<h2 id="6-export-classes">6. Export Classes<a class="headerlink" href="#6-export-classes" title="Permanent link">&para;</a></h2>
+<h2 id="7-example-custom-world-bridge">7. Example: Custom World Bridge<a class="headerlink" href="#7-example-custom-world-bridge" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c40_execution.c41_world_bridge</span> <span class="kn">import</span> <span class="n">WorldBridge</span>
+<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+
+<span class="k">class</span> <span class="nc">MyBridge</span><span class="p">(</span><span class="n">WorldBridge</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_2D</span><span class="p">,</span> <span class="n">WorldCapability</span><span class="o">.</span><span class="n">GT_LOCALIZATION</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">control_ego_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">throttle</span><span class="p">,</span> <span class="n">brake</span><span class="p">,</span> <span class="n">steer</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+        <span class="c1"># Send control to your simulator or robot</span>
+        <span class="k">pass</span>
+</code></pre></div>
+<h2 id="8-export-classes">8. Export Classes<a class="headerlink" href="#8-export-classes" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="c1"># __init__.py</span>
 <span class="kn">from</span> <span class="nn">.my_strategy</span> <span class="kn">import</span> <span class="n">MyPerception</span><span class="p">,</span> <span class="n">MyLocalization</span><span class="p">,</span> <span class="n">MyController</span>
-<span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">ExtensionSettings</span>
+<span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">PluginSettings</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MyPerception&quot;</span><span class="p">,</span> <span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span> <span class="s2">&quot;MyController&quot;</span><span class="p">,</span> <span class="s2">&quot;ExtensionSettings&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MyPerception&quot;</span><span class="p">,</span> <span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span> <span class="s2">&quot;MyController&quot;</span><span class="p">,</span> <span class="s2">&quot;PluginSettings&quot;</span><span class="p">]</span>
 </code></pre></div>
-<h2 id="7-register-your-community-plugin">7. Register Your Community Plugin<a class="headerlink" href="#7-register-your-community-plugin" title="Permanent link">&para;</a></h2>
+<p>When you rename a module file, update the import path in <code>__init__.py</code> to match (e.g. <code>from .p31_joystick_controller import JoystickController</code>).</p>
+<h2 id="9-register-your-community-plugin">9. Register Your Community Plugin<a class="headerlink" href="#9-register-your-community-plugin" title="Permanent link">&para;</a></h2>
 <p><strong>Via GUI</strong> (recommended):
 1. Open AVLite
 2. Go to Config tab
-3. Add entry to Community Extensions: <code>my_plugin</code> -&gt; <code>/path/to/my_plugin</code>
+3. Add entry under community plugins: <code>my_plugin</code> -&gt; <code>/path/to/my_plugin</code>
 4. Save profile</p>
 <p><strong>Via settings file</strong> (<code>configs/c40_execution.yaml</code> or your saved copy under <code>~/.config/avlite/</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="nt">c40_community_plugins</span><span class="p">:</span>
@@ -688,6 +866,95 @@ selected by name in the <code>PerceptionSettings</code>.</p>
 </code></pre></div>
 <p>When a plugin is installed through <code>python -m avlite plugins</code>, its path is stored under <code>~/.local/share/avlite/plugins/</code> (override with <code>AVLITE_PLUGINS_DIR</code>).</p>
 <p>Your classes will now appear in the UI dropdowns.</p>
+<h2 id="10-built-in-plugin-naming-pnx">10. Built-in plugin naming (<code>pNx</code>)<a class="headerlink" href="#10-built-in-plugin-naming-pnx" title="Permanent link">&para;</a></h2>
+<p>Built-in plugins under <code>avlite/plugins/</code> use a <strong>directory name</strong> and optional <strong>module file names</strong> with a <code>pNx</code> prefix:</p>
+<ul>
+<li><strong>Directory:</strong> <code>p{layer}{variant}_{description}</code> — e.g. <code>p30_controller_joystick</code>, <code>p40_executer_ROS2</code></li>
+<li><strong>Module files:</strong> use the same convention when the file belongs to a specific layer — e.g. <code>p31_joystick_controller.py</code>, <code>p42_perception_node.py</code></li>
+</ul>
+<p>The <strong>first digit after <code>p</code></strong> maps to the log-panel layer toggle:</p>
+<table>
+<thead>
+<tr>
+<th>Digit</th>
+<th>Layer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Perception</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Planning</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Control</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Execution</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Visualization</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Common</td>
+</tr>
+</tbody>
+</table>
+<p>The plugin <strong>directory name</strong> and <strong>module file name</strong> can differ. For example, package <code>p30_controller_joystick</code> may contain module <code>p31_joystick_controller.py</code>.</p>
+<p>Logger names follow Python's <code>__name__</code>, e.g. <code>avlite.plugins.p30_controller_joystick.p31_joystick_controller</code>. Log routing uses the <strong>first module segment</strong> under the package (<code>p31_joystick_controller</code>) before falling back to the directory name.</p>
+<h2 id="11-log-panel-filtering">11. Log panel filtering<a class="headerlink" href="#11-log-panel-filtering" title="Permanent link">&para;</a></h2>
+<p>The visualizer log toolbar provides:</p>
+<ul>
+<li><strong>Core</strong> — master toggle for all core stack logs (<code>avlite.c10_*</code> … <code>avlite.c60_*</code>). Does not change the per-layer checkbox states.</li>
+<li><strong>Plugins</strong> — master toggle for all <code>avlite.plugins.*</code> logs.</li>
+<li><strong>Per-layer checkboxes</strong> (Perception, Planning, Control, Execution, Visualization, Common) — filter core logs and plugin logs routed to that layer.</li>
+</ul>
+<p>Plugin logs are routed to a layer toggle as follows:</p>
+<ol>
+<li>Take the <strong>first module segment</strong> under the plugin package (e.g. <code>p31_joystick_controller</code> from <code>avlite.plugins.p30_controller_joystick.p31_joystick_controller</code>).</li>
+<li>If it matches <code>pNx</code>, use that digit for the layer.</li>
+<li>Otherwise fall back to the <strong>plugin directory name</strong> (e.g. <code>p40_bridge_carla</code> for <code>carla_bridge</code> module).</li>
+<li>If still no <code>pNx</code> match (typical community plugins), the log is shown whenever <strong>Plugins</strong> is on.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Logger</th>
+<th>Module segment</th>
+<th>Layer source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>...p30_controller_joystick.p31_joystick_controller</code></td>
+<td><code>p31_joystick_controller</code></td>
+<td>module → Control</td>
+</tr>
+<tr>
+<td><code>...p40_bridge_carla.carla_bridge</code></td>
+<td><code>carla_bridge</code></td>
+<td>package fallback → Execution</td>
+</tr>
+<tr>
+<td><code>...p40_executer_ROS2.p42_perception_node</code></td>
+<td><code>p42_perception_node</code></td>
+<td>module → Execution</td>
+</tr>
+<tr>
+<td><code>...sample_avlite_plugin.test_plugin</code></td>
+<td><code>test_plugin</code></td>
+<td>no pNx → Plugins master only</td>
+</tr>
+</tbody>
+</table>
+<p>Filtering reads a thread-safe snapshot updated on the main thread only (safe when worker threads emit logs during execution).</p>
 <h2 id="base-classes-reference">Base Classes Reference<a class="headerlink" href="#base-classes-reference" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -751,12 +1018,15 @@ selected by name in the <code>PerceptionSettings</code>.</p>
 </tbody>
 </table>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
-<p>Built-in extensions in <code>avlite/extensions/</code> (maintained by core team):
-- <code>bridge_carla</code> - CARLA simulator world bridge
-- <code>bridge_gazebo</code> - Gazebo Ignition world bridge
-- <code>bridge_ROS2</code> - ROS2 world bridge
-- <code>executer_ROS2</code> - ROS2 executor with Autoware message support
-- <code>multi_object_prediction</code> - Multi-object prediction perception</p>
+<p>Built-in plugins in <code>avlite/plugins/</code> (maintained by core team):
+- <code>p40_bridge_carla</code> — CARLA simulator world bridge
+- <code>p40_bridge_gazebo</code> — Gazebo Ignition world bridge
+- <code>p40_bridge_ROS2</code> — ROS2 world bridge
+- <code>p40_executer_ROS2</code> — ROS2 executor with Autoware message support
+- <code>p10_perception_MO_prediction</code> — Multi-object prediction perception
+- <code>p30_controller_joystick</code> — Xbox-style joystick controller
+- <code>p50_headless_mode</code> — Headless runner and config CLI</p>
+<p>Settings for built-in plugins: <code>configs/plugin_*.yaml</code> in the repo (same basename under <code>~/.config/avlite/</code> when saved).</p>
 
 
 
