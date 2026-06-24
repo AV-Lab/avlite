@@ -13,3 +13,7 @@ site/
 .hypothesis/
 graphify-out/
 .pytest_cache/
+.cursorignore
+avlite/extensions/e30_controller_joystick/
+configs/ext_controller_joystick.yaml
+research-link/

@@ -394,37 +394,10 @@ class ControlFrame(ttk.LabelFrame):
         self.gauge_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
         # ----
 
-
-        self.setup_joystick()
-    
     def update_data(self):
         """Update data in the control frame."""
         self.controller_dropdown_menu.delete(0, tk.END)  # Clear existing values
         self.controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
-
-    def setup_joystick(self):
-        try:
-            # Joystick
-            if self.root.setting.enable_joystick:
-                import pygame
-
-                pygame.init()
-                pygame.joystick.init()
-
-                # Check for joystick
-                if pygame.joystick.get_count() == 0:
-                    log.warning("No joystick connected")
-                    return
-
-                # Initialize the first joystick
-                self.joystick = pygame.joystick.Joystick(0)
-                self.joystick.init()
-
-                self.__controller_check_id = None
-                self.start_controller_polling()
-        except Exception as e:
-            log.error(f"Error initializing joystick: {e}")
-
 
     def step_control(self):
         cmd = self.root.exec.controller.control(
@@ -468,51 +441,3 @@ class ControlFrame(ttk.LabelFrame):
         self.root.exec.world.control_ego_state(
             cmd=ControlComand(acceleration=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
-
-    def start_controller_polling(self):
-        """Start regular polling of the controller"""
-        self.process_controller_input()
-        # Schedule next check (every 50ms = 20fps)
-        self.__controller_check_id = self.after(50, self.start_controller_polling)
-
-    def stop_controller_polling(self):
-        """Stop controller polling"""
-        if self.__controller_check_id:
-            self.after_cancel(self.__controller_check_id)
-            self.__controller_check_id = None
-
-    def process_controller_input(self):
-        """Process Xbox controller input for steering and acceleration"""
-        if not hasattr(self, "joystick") or self.joystick is None:
-            return
-
-        import pygame
-
-        pygame.event.pump()  # Process pygame events
-
-        left_stick_x = self.joystick.get_axis(0)
-        right_trigger = self.joystick.get_axis(4)
-        left_trigger = self.joystick.get_axis(5)
-
-        # Apply deadzone to avoid drift
-        if abs(left_stick_x) < 0.02:
-            left_stick_x = 0
-
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug(
-                f"Left stick x: {left_stick_x}, Right trigger: {right_trigger}, Left trigger: {left_trigger}")
-
-        # Scale inputs to control values
-        # Negative for correct direction
-        steering = -left_stick_x * self.root.exec.controller.ego_max_steering
-        acceleration = (right_trigger + 1) / 2 * \
-            self.root.exec.controller.ego_max_acceleration
-        braking = (left_trigger + 1) / 2 * \
-            self.root.exec.controller.ego_min_acceleration
-
-        # Apply controls if needed
-        if abs(steering) > 0.01 or abs(acceleration) > 0.01 or abs(braking) > 0.01:
-            cmd = ControlComand(steer=steering, acceleration=acceleration + braking)
-            log.debug(f"Controller Command: {cmd}")
-            self.root.exec.world.control_ego_state(
-                cmd=cmd, dt=self.root.setting.sim_dt.get())
