@@ -277,33 +277,33 @@ joystick:
   bg_color: '#333333'
   bridge_provide_depth_image: false
   bridge_provide_ground_truth_detection: true
-  bridge_provide_lidar_data: true
+  bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
   controller_type: JoystickController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  detection_strategy_type: None
+  detection_strategy_type: FastBEVLidarDetection
   disable_log: false
   exec_control: true
   exec_localize: true
   exec_perceive: true
   exec_plan: true
   executer_type: AsyncThreadedExecuter
-  execution_bridge: BasicSim
+  execution_bridge: CarlaBridge
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 50.0
+  frenet_zoom: 30.0
   global_plan_view: false
   global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false
-  global_zoom: 800.0
+  global_zoom: 240.0
   hide_menubar: false
   load_plugins: true
   local_plan_view: true
-  local_planner_type: GreedyLatticePlanner
+  local_planner_type: RNDPlanner
   localization_dt: 0.1
-  localization_type: None
+  localization_type: Localization
   log_font: Courier
   log_font_size: 11
   log_level: DEBUG
@@ -315,11 +315,11 @@ joystick:
   mapping_type: None
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
-  next_profile: perception
-  perception_dt: 0.05
+  next_profile: perception exp
+  perception_dt: 0.01
   perception_type: PerceptionPipeline
   prediction_strategy_type: ConstantVelocityPrediction
-  replan_dt: 0.01
+  replan_dt: 0.1
   selected_profile: joystick
   shortcut_mode: false
   show_common_logs: false
@@ -329,10 +329,10 @@ joystick:
   show_global_plan: true
   show_legend: false
   show_lidar_clusters: true
-  show_lidar_frenet: true
+  show_lidar_frenet: false
   show_lidar_global: true
-  show_local_frenet_view: false
-  show_local_global_view: true
+  show_local_frenet_view: true
+  show_local_global_view: false
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
@@ -345,8 +345,8 @@ joystick:
   show_state: true
   show_vis_logs: false
   sim_dt: 0.01
-  tracking_strategy_type: None
-  xy_zoom: 110.0
+  tracking_strategy_type: KalmanTracker
+  xy_zoom: 30.0
 perception:
   bg_color: '#333333'
   bridge_provide_depth_image: false

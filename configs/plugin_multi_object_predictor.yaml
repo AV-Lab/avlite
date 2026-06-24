@@ -37,7 +37,7 @@ joystick:
   pred_horizon: 3
   prediction_mode: grid
   predictor: AttentionGMM
-  tracker: null
+  tracker: None
 perception:
   detector: ground_truth
   device: cuda:0

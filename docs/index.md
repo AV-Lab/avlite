@@ -32,7 +32,8 @@ cd avlite
 pip install -r requirements-minimal.txt
 ```
 
-### Full (includes joystick, dev tools, docs)
+### Full 
+It includes support for ROS 2, CARLA 5, Autwoware Messages, dev tools, docs, among others.
 
 ```bash
 pip install -r requirements-full.txt
@@ -120,22 +121,26 @@ override with the `AVLITE_PLUGINS_DIR` environment variable.
 
 ### Publish your plugin
 
-1. Build a plugin following the [Plugin Development Guide](plugin-development.md).
-2. Push it to a public Git repository.
+See [Plugin Development — Publish to the community registry](plugin-development.md#10-publish-to-the-community-registry-pull-request) for the full checklist. Summary:
+
+1. Build and test locally ([Plugin Development Guide](plugin-development.md)).
+2. Push your plugin to a **public** Git repository.
 3. Fork [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)
    and add an entry to `plugins.yaml`:
 
     ```yaml
     plugins:
-      - name: my_cool_planner
-        repository: https://github.com/<you>/my_cool_planner
+      - name: my_perception_plugin
+        description: One-line summary of what the plugin does
+        repository: https://github.com/your-org/your-plugin-repo
         version: latest        # or a tag/commit SHA
-        description: One-line summary
-        author: Your Name
+        author: your-org
+        category:
+          - PerceptionStrategy
     ```
 
-4. Open a pull request. Once merged the plugin appears automatically in
-   every user's `avlite plugins` browser.
+4. Open a pull request. Once merged, the plugin appears in every user's
+   `python -m avlite plugins` browser for install and register.
 
 ## Core Components
 

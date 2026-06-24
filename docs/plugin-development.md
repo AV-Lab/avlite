@@ -290,7 +290,90 @@ When a plugin is installed through `python -m avlite plugins`, its path is store
 
 Your classes will now appear in the UI dropdowns.
 
-## 10. Built-in plugin naming (`pNx`)
+## 10. Publish to the community registry (pull request)
+
+To list your plugin in every user's **Plugins** browser (`python -m avlite plugins`), add it to the official registry via pull request.
+
+Registry repository: [github.com/AV-Lab/avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)
+
+### Before you open a PR
+
+1. **Test locally** — register the plugin on a profile (section 9) and confirm your strategies appear in the GUI dropdowns and the stack runs.
+2. **Public Git repository** — the registry clones your repo; private repos will not install for other users.
+3. **Plugin layout** — at minimum:
+   ```
+   my_cool_planner/
+   ├── __init__.py       # exports strategy classes (required for discovery)
+   ├── my_planner.py     # your implementation
+   └── README.md         # shown in the Plugins browser (recommended)
+   ```
+4. **Optional** — `settings.py` with `PluginSettings` if you have tunable parameters; `requirements.txt` if you depend on extra pip packages (users install these into their AVLite environment).
+5. **Do not commit** a `.venv` inside the plugin repo.
+
+### Registry entry
+
+Fork [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins), add one item under `plugins:` in `plugins.yaml`, and open a pull request:
+
+```yaml
+plugins:
+  - name: my_perception_plugin
+    description: One-line summary of what the plugin does
+    repository: https://github.com/your-org/your-plugin-repo
+    version: latest              # or a git tag / commit SHA
+    author: your-org
+    category:
+      - PerceptionStrategy
+```
+
+| Field | Notes |
+|-------|-------|
+| `name` | Unique registry id; also the install folder name under `~/.local/share/avlite/plugins/`. Use lowercase with underscores. |
+| `description` | Short text in the plugin list. |
+| `repository` | HTTPS Git URL (GitHub is supported for README preview in the browser). |
+| `version` | `latest` clones the default branch; pin a tag or SHA for reproducible installs. |
+| `author` | Display name, handle, or organization. |
+| `category` | List of strategy types this plugin provides (see table below). Shown in the Plugins browser **Category** column. |
+
+**Category values** (use the names from [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)):
+
+| Category | Use when your plugin implements… |
+|----------|----------------------------------|
+| `PerceptionStrategy` | Sensing, detection, tracking, segmentation, fusion (includes monolithic perception and pipeline sub-strategies such as `DetectionStrategy`) |
+| `LocalizationStrategy` | Pose estimation, SLAM-based localization |
+| `MappingStrategy` | Map building, SLAM mapping, environment representation |
+| `PlanningStrategy` | Global/local planners, behavior planning, decision-making |
+| `ControlStrategy` | Vehicle controllers, actuation |
+| `Executer` | Runtime execution, scheduling, orchestration |
+| `WorldBridge` | Bridges to simulators, middleware, or external world interfaces |
+
+A plugin can list **multiple** categories if it exports more than one strategy type, e.g. `[PerceptionStrategy, LocalizationStrategy]`.
+
+Keep entries sorted alphabetically by `name` if the registry already follows that convention.
+
+### Pull request checklist
+
+- [ ] Plugin works when registered manually (section 9)
+- [ ] Repository is public and cloneable
+- [ ] `__init__.py` exports all strategy classes users should select
+- [ ] README explains what the plugin provides and any extra setup
+- [ ] Registry `name` matches how you refer to the plugin in docs
+- [ ] Registry `category` matches the base class(es) you export
+- [ ] No secrets, large binaries, or committed virtualenv in the plugin repo
+
+In the PR description, briefly state what layer(s) the plugin extends (perception, planning, control, bridge, etc.) and link to an example profile or usage steps if helpful.
+
+### After merge
+
+Once the PR is merged to `main`, AVLite fetches the updated registry automatically the next time a user opens **Plugins** (`python -m avlite plugins`). They can **Install**, then **Register** to add the plugin to their active execution profile (`c40_community_plugins`).
+
+You do not need a new AVLite release for registry-only changes.
+
+### Updating your listing
+
+- **New plugin version** — push to your repo; users click **Update** in the Plugins browser (or reinstall). Bump `version` in `plugins.yaml` if you want to pin a new tag/SHA for fresh installs.
+- **Change metadata** — open another PR on avlite-community-plugins to edit `description`, `author`, `category`, or `version`.
+
+## 11. Built-in plugin naming (`pNx`)
 
 Built-in plugins under `avlite/plugins/` use a **directory name** and optional **module file names** with a `pNx` prefix:
 
@@ -312,7 +395,7 @@ The plugin **directory name** and **module file name** can differ. For example, 
 
 Logger names follow Python's `__name__`, e.g. `avlite.plugins.p30_controller_joystick.p31_joystick_controller`. Log routing uses the **first module segment** under the package (`p31_joystick_controller`) before falling back to the directory name.
 
-## 11. Log panel filtering
+## 12. Log panel filtering
 
 The visualizer log toolbar provides:
 

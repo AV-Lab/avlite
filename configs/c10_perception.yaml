@@ -48,7 +48,7 @@ joystick:
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
   c12_detection_strategy: ''
-  c12_prediction_strategy: ''
+  c12_prediction_strategy: ConstantVelocityPrediction
   c12_tracking_strategy: ''
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0

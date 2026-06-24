@@ -111,7 +111,7 @@ default:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
+    sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -152,18 +152,16 @@ default:
 joystick:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    sample_avlite_plugin: sample_avlite_plugin
-  c40_control_dt: 0.01
+  c40_community_plugins: {}
+  c40_control_dt: 0.05
   c40_controller: JoystickController
   c40_default_plugins:
-  - p30_controller_joystick
-  - p40_executer_ROS2
-  - p40_bridge_gazebo
   - p10_perception_MO_prediction
+  - p40_bridge_gazebo
   - p50_headless_mode
   - p40_bridge_carla
   - p40_bridge_ROS2
+  - p40_executer_ROS2
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -175,12 +173,12 @@ joystick:
   c40_log_to_file: false
   c40_mapping: ''
   c40_perception: PerceptionPipeline
-  c40_perception_dt: 0.05
-  c40_replan_dt: 0.01
+  c40_perception_dt: 0.01
+  c40_replan_dt: 0.1
   c40_sim_dt: 0.01
   c41_provide_depth: false
-  c41_provide_ground_truth: true
-  c41_provide_lidar: true
+  c41_provide_ground_truth: false
+  c41_provide_lidar: false
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.json
   c43_race_boundary_margin: 0.0

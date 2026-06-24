@@ -180,6 +180,8 @@ Installed plugins live under `$XDG_DATA_HOME/avlite/plugins`
 
 **Publish your own plugin**:
 
+See the [Plugin Development Guide — Publish via pull request](docs/plugin-development.md#10-publish-to-the-community-registry-pull-request) for prerequisites, registry fields, and a PR checklist. Summary:
+
 1. Build a plugin following the [Plugin Development Guide](docs/plugin-development.md).
 2. Push it to a public Git repository.
 3. Fork <https://github.com/AV-Lab/avlite-community-plugins>, add an entry
@@ -187,15 +189,17 @@ Installed plugins live under `$XDG_DATA_HOME/avlite/plugins`
 
    ```yaml
    plugins:
-     - name: my_cool_planner
-       repository: https://github.com/<you>/my_cool_planner
+     - name: my_perception_plugin
+       description: One-line summary of what the plugin does
+       repository: https://github.com/your-org/your-plugin-repo
        version: latest        # or a tag/commit SHA
-       description: One-line summary
-       author: Your Name
+       author: your-org
+       category:
+         - PerceptionStrategy
    ```
 
-4. Open a pull request. Once merged it shows up automatically in every
-   user's `avlite plugins` browser.
+4. Open a pull request. Once merged it shows up in every user's
+   `python -m avlite plugins` browser for install and register.
 
 ## Project Structure
 
