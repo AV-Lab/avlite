@@ -6,6 +6,68 @@ AVLite supports two types of plugins:
 
 This guide covers creating community plugins. Classes inheriting from base strategies automatically register and appear in the UI.
 
+## What you can extend
+
+| Layer | Base classes | UI / config |
+|-------|--------------|-------------|
+| **Perception** | `PerceptionStrategy` **or** `DetectionStrategy` / `TrackingStrategy` / `PredictionStrategy` via `PerceptionPipeline` | Main **Perception** dropdown; pipeline sub-dropdowns (Detect / Track / Predict) appear only when `PerceptionPipeline` is selected |
+| **Localization** | `LocalizationStrategy` | Separate **Localization** dropdown (optional; independent of perception) |
+| **Mapping** | `MappingStrategy` | Extendable via plugin; registry-based like other strategies |
+| **Planning** | `GlobalPlannerStrategy`, `LocalPlanningStrategy` | Global / local planner dropdowns |
+| **Control** | `ControlStrategy` | Controller dropdown |
+| **Execution** | `WorldBridge` | **Bridge** dropdown (BasicSim, Carla, Gazebo, ROS2, or custom) |
+
+### Perception: monolithic vs pipeline
+
+Perception is the most flexible layer — you can replace the whole stack in one class, or plug in individual stages.
+
+```mermaid
+flowchart TB
+  subgraph mono ["Monolithic PerceptionStrategy"]
+    M1["MyPerception.perceive()"]
+    M1 --> M2["detect + track + predict in one class"]
+  end
+  subgraph pipe ["PerceptionPipeline composes sub-strategies"]
+    P1["DetectionStrategy.detect()"]
+    P2["TrackingStrategy.track()"]
+    P3["PredictionStrategy.predict()"]
+    P1 --> P2 --> P3
+  end
+  Exec["Execution selects perception by class name"]
+  Exec --> mono
+  Exec --> pipe
+```
+
+**Monolithic (`PerceptionStrategy`):**
+
+- Implement all stages in one `perceive()` method.
+- Select your class name in the main **Perception** dropdown, or set `c40_perception` in `c40_execution.yaml` / `perception_type` in the visualization profile.
+- Example built-in: `MultiObjectPredictor` (`p10_perception_MO_prediction`).
+
+**Pipelined (`PerceptionPipeline` + sub-strategies):**
+
+- Set perception to **`PerceptionPipeline`** in the main dropdown.
+- The GUI shows **Detect**, **Track**, and **Predict** sub-dropdowns (only visible in pipeline mode).
+- Configure sub-strategies in `configs/c10_perception.yaml`:
+
+```yaml
+c12_detection_strategy: MyDetector      # empty → ground truth from bridge
+c12_tracking_strategy: MyTracker        # empty → ground truth from bridge
+c12_prediction_strategy: MyPredictor    # empty → prediction stage skipped
+```
+
+- Each sub-strategy has its **own registry**; plugin classes auto-register like monolithic strategies.
+- Empty or unknown name: detection/tracking fall back to **ground truth** from the world bridge when available; prediction is skipped if unset.
+- Mix core and plugin sub-strategies freely (e.g. core `FastBEVLidarDetection` + plugin `MyPredictor`).
+
+**Localization** is separate from `PerceptionPipeline`: optional `LocalizationStrategy` in its own dropdown; updates `PerceptionModel.ego_vehicle` in-place.
+
+### Planning, control, and world bridge
+
+- **Planning** — subclass `GlobalPlannerStrategy` (`plan()`) or `LocalPlanningStrategy` (`replan()`); selected via global/local planner dropdowns; configured in `c40_execution.yaml` (`c40_global_planner`, `c40_local_planner`).
+- **Control** — subclass `ControlStrategy` (`control()`); selected via controller dropdown (`c40_controller`).
+- **World bridge** — subclass `WorldBridge`; implement sensor getters and `control_ego_state()`; selected via **Bridge** dropdown (`c40_bridge`). See built-in `p40_bridge_*` plugins for reference.
+
 ## Community Plugin Structure
 
 Create your plugin anywhere on your system:
@@ -13,25 +75,29 @@ Create your plugin anywhere on your system:
 ```
 /path/to/my_plugin/
 ├── __init__.py      # Export classes
-├── settings.py      # PluginSettings class
+├── settings.py      # Optional: PluginSettings if you have tunable params
+├── config/          # Created on Save: my_plugin.yaml profiles
 └── my_strategy.py   # Your implementation
 ```
 
 Do not commit a `.venv` inside your plugin directory — AVLite scans all `.py` files under the plugin path and skips common vendor folders (`.venv`, `site-packages`, etc.), but keeping the venv outside the plugin tree is cleaner.
 
-## 1. Settings File (Required)
+## 1. Settings File (Optional)
+
+If your plugin has tunable parameters, add `settings.py` with a `PluginSettings` class. AVLite creates settings widgets automatically and saves profiles to `<plugin_path>/config/<plugin_name>.yaml` — you do **not** need `exclude` or `filepath`; those are injected when the plugin is registered.
 
 ```python
 # settings.py
 class PluginSettings:
-    exclude = ["exclude", "filepath"]
-    filepath: str = "configs/plugin_my_plugin.yaml"
-    
     # Your parameters (appear in UI automatically)
     my_param: float = 1.0
 ```
 
-## 2. Example: Custom Perception
+Optionally add a `PluginSettingsSchema` (Pydantic) with `Field(description=...)` for tooltips in the settings window, same as built-in plugins.
+
+Built-in plugins under `avlite/plugins/` are different: they set `filepath = "configs/plugin_*.yaml"` explicitly so shipped defaults live in the repository `configs/` directory.
+
+## 2. Example: Custom Perception (Monolithic)
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -58,11 +124,11 @@ class MyPerception(PerceptionStrategy):
         return self.perception_model
 ```
 
-## 3. Example: Custom Detection, Tracking, or Prediction Sub-Strategy
+## 3. Example: Detection, Tracking, or Prediction Sub-Strategy
 
 Use `DetectionStrategy`, `TrackingStrategy`, or `PredictionStrategy` when you only need
 to implement one stage of the pipeline. These plug into `PerceptionPipeline` and are
-selected by name in the `PerceptionSettings`.
+selected by name when **Perception** is set to `PerceptionPipeline`.
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import DetectionStrategy
@@ -110,13 +176,12 @@ class MyPredictor(PredictionStrategy):
         return perception_model
 ```
 
-To use these sub-strategies with `PerceptionPipeline`, set the appropriate fields in
-`configs/c10_perception.yaml`:
+Configure pipeline sub-strategies in `configs/c10_perception.yaml`:
 
 ```yaml
-detection_strategy: MyDetector
-tracking_strategy: MyTracker
-prediction_strategy: MyPredictor
+c12_detection_strategy: MyDetector
+c12_tracking_strategy: MyTracker
+c12_prediction_strategy: MyPredictor
 ```
 
 ## 4. Example: Custom Localization
@@ -152,7 +217,18 @@ class MyLocalization(LocalizationStrategy):
         pass
 ```
 
-## 5. Example: Custom Controller
+## 5. Example: Custom Planner
+
+```python
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+
+class MyLocalPlanner(LocalPlanningStrategy):
+    def replan(self, perception_model, global_trajectory=None):
+        # Your local planning logic; return a Trajectory or None
+        return self.local_trajectory
+```
+
+## 6. Example: Custom Controller
 
 ```python
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -167,7 +243,23 @@ class MyController(ControlStrategy):
         pass
 ```
 
-## 6. Export Classes
+## 7. Example: Custom World Bridge
+
+```python
+from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c60_common.c61_capabilities import WorldCapability
+
+class MyBridge(WorldBridge):
+    @property
+    def capabilities(self) -> set[WorldCapability]:
+        return {WorldCapability.LIDAR_2D, WorldCapability.GT_LOCALIZATION}
+
+    def control_ego_state(self, throttle, brake, steer, dt):
+        # Send control to your simulator or robot
+        pass
+```
+
+## 8. Export Classes
 
 ```python
 # __init__.py
@@ -179,7 +271,7 @@ __all__ = ["MyPerception", "MyLocalization", "MyController", "PluginSettings"]
 
 When you rename a module file, update the import path in `__init__.py` to match (e.g. `from .p31_joystick_controller import JoystickController`).
 
-## 7. Register Your Community Plugin
+## 9. Register Your Community Plugin
 
 **Via GUI** (recommended):
 1. Open AVLite
@@ -198,7 +290,7 @@ When a plugin is installed through `python -m avlite plugins`, its path is store
 
 Your classes will now appear in the UI dropdowns.
 
-## 8. Built-in plugin naming (`pNx`)
+## 10. Built-in plugin naming (`pNx`)
 
 Built-in plugins under `avlite/plugins/` use a **directory name** and optional **module file names** with a `pNx` prefix:
 
@@ -220,9 +312,9 @@ The plugin **directory name** and **module file name** can differ. For example, 
 
 Logger names follow Python's `__name__`, e.g. `avlite.plugins.p30_controller_joystick.p31_joystick_controller`. Log routing uses the **first module segment** under the package (`p31_joystick_controller`) before falling back to the directory name.
 
-## 9. Log panel filtering
+## 11. Log panel filtering
 
-The visualizer log toolbar (`c55_log_view`) provides:
+The visualizer log toolbar provides:
 
 - **Core** — master toggle for all core stack logs (`avlite.c10_*` … `avlite.c60_*`). Does not change the per-layer checkbox states.
 - **Plugins** — master toggle for all `avlite.plugins.*` logs.

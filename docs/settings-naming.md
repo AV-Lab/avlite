@@ -29,11 +29,26 @@ Shipped defaults live in the repository `configs/` directory. When you save from
 | Execution | `avlite/c40_execution/c49_settings.py` | `configs/c40_execution.yaml` | `~/.config/avlite/c40_execution.yaml` |
 | Visualization | `avlite/c50_visualization/c59_settings.py` | `configs/c50_visualization.yaml` | `~/.config/avlite/c50_visualization.yaml` |
 
-Built-in extensions use `configs/ext_*.yaml` in the repo and the same basename under `~/.config/avlite/` when saved.
+Built-in plugins use `configs/plugin_*.yaml` in the repo and the same basename under `~/.config/avlite/` when saved.
 
-## Extensions
+## Plugins
 
-Community and built-in extensions keep `ExtensionSettings` in `settings.py` with unprefixed snake_case parameters. See [Plugin Development](plugin-development.md).
+Community and built-in plugins keep `PluginSettings` in `settings.py` with unprefixed snake_case parameters. See [Plugin Development](plugin-development.md).
+
+## Migrating from `ext_*.yaml`
+
+If you have saved plugin configs from an older AVLite version, rename files under `~/.config/avlite/`:
+
+| Old | New |
+|-----|-----|
+| `ext_ros_executer.yaml` | `plugin_ros_executer.yaml` |
+| `ext_ROS2_worldbridge.yaml` | `plugin_ROS2_worldbridge.yaml` |
+| `ext_carla.yaml` | `plugin_carla.yaml` |
+| `ext_gazebo_worldbridge.yaml` | `plugin_gazebo_worldbridge.yaml` |
+| `ext_headless_mode.yaml` | `plugin_headless_mode.yaml` |
+| `ext_multi_object_predictor.yaml` | `plugin_multi_object_predictor.yaml` |
+
+Alternatively, use **Copy repository configs** in the settings window to copy shipped `configs/*.yaml` into `~/.config/avlite/` and reload.
 
 ## Validation and field docs
 

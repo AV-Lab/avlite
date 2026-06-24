@@ -8,23 +8,23 @@ AVLite follows a layered architecture with clear separation between interfaces a
 flowchart TB
     subgraph ENTRY[" "]
         direction LR
-        VIZ["🖥️ Visualization · c50\nReal-time Tkinter GUI"]
-        HL["⌨️ Headless Mode\nTerminal dashboard · rich"]
+        VIZ["Visualization\nReal-time Tkinter GUI"]
+        HL["Headless Mode\nTerminal dashboard"]
         VIZ ~~~ HL
     end
 
-    EXEC["⚙️ Execution Layer · c40\nSyncExecuter · AsyncThreadedExecuter · Factory"]
+    EXEC["Execution\nSync/async executer and factory"]
 
     subgraph COMPONENTS[" "]
         direction LR
-        PERC["Perception · c10 (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
-        PLAN["Planning · c20\nGlobal · Local · Lattice"]
-        CTRL["Control · c30\nStanley · PID"]
-        WB["World Bridge · c40\nBasicSim · Carla · Gazebo · ROS2"]
+        PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
+        PLAN["Planning\nGlobal · Local · Lattice"]
+        CTRL["Control\nStanley · PID"]
+        WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
 
-    COMMON["🔧 Common · c60\nSettings · Capabilities · TrajectoryTracker · CollisionChecker"]
+    COMMON["Common\nSettings · Capabilities · Trajectories · Collision checking"]
 
     ENTRY --> EXEC
     EXEC --> COMPONENTS
@@ -114,79 +114,33 @@ executer = executor_factory(
 )
 ```
 
-It loads extensions, instantiates strategies from registries, and wires everything together. Both `perception_strategy_name` and `localization_strategy_name` are optional — pass an empty string or omit them to run without that component.
+It loads plugins, instantiates strategies from registries, and wires everything together. Both `perception_strategy_name` and `localization_strategy_name` are optional — pass an empty string or omit them to run without that component.
 
-## Core Modules
+## Layers
 
-### c10_perception
+### **Perception**
 
-Provides **interfaces** for:
-- `PerceptionStrategy` (optional) - Monolithic detect/track/predict interface; subclasses auto-register and appear in the UI dropdown
-- `DetectionStrategy` - Detection-only sub-strategy with its own registry; used by `PerceptionPipeline`
-- `TrackingStrategy` - Tracking-only sub-strategy with its own registry; used by `PerceptionPipeline`
-- `PredictionStrategy` - Prediction-only sub-strategy with its own registry; used by `PerceptionPipeline`
-- `PerceptionPipeline` - Built-in `PerceptionStrategy` that composes a `DetectionStrategy`, `TrackingStrategy`, and `PredictionStrategy` selected by name; missing stages fall back to ground truth from the bridge
-- `LocalizationStrategy` (optional) - Ego-vehicle pose estimation. Updates `PerceptionModel.ego_vehicle` in-place.
-- `MappingStrategy` - Environment mapping
-- `HDMap` - OpenDRIVE map parsing and routing
+Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
 
-Both `PerceptionStrategy` and `LocalizationStrategy` are optional in the execution pipeline. Implementations come from extensions/plugins.
+### **Planning**
 
-### c20_planning
+Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller.
 
-- `GlobalPlannerStrategy` - Route planning interface
-- `LocalPlanningStrategy` - Reactive planning interface
-- `Lattice` - Frenet frame lattice for local planning
-- `Trajectory` - Path + velocity profile
+### **Control**
 
-Built-in planners:
-- `GlobalCenterlineRacePlanner` (`c25_global_race_planners.py`) - Race-line planner from a JSON left/right boundary file; curvature-adapted target velocities
-- `HDMapGlobalPlanner` (`c24_global_hdmap_planners.py`) - OpenDRIVE HD map A\* route planner
-- `GreedyLatticePlanner` - Greedy lattice-based local planner with collision avoidance
+Vehicle control strategies (Stanley, PID) output throttle/brake and steering.
 
-### c30_control
+### **Execution**
 
-- `ControlStrategy` - Vehicle control interface
-- `ControlCommand` - Throttle/brake + steering output
+World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. Built-in bridges include BasicSim, CARLA, Gazebo, and ROS2 (via plugins).
 
-Includes built-in controllers: `StanleyController`, `PIDController`.
+### **Visualization**
 
-### c40_execution
+Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.
 
-- `WorldBridge` (`c41_world_bridge.py`) — simulator/ROS interface and sensor getters
-- `Executer` (`c42_executer.py`) — base orchestration loop and pipeline steps
-- `executor_factory` (`c43_factory.py`) — component assembly
-- `SyncExecuter` / `AsyncThreadedExecuter` (`c44` / `c45`) — concrete scheduling
-- `ExecutionSettings` - Runtime settings including `log_level` (DEBUG/INFO/WARNING/ERROR/CRITICAL) and `log_to_file` (write logs to `./logs/avlite_<timestamp>.log`)
+### **Common**
 
-Built-in bridges: `BasicSim` (c46_basic_sim.py) — includes 2-D LiDAR simulation via raycasting, `CarlaBridge` (bridge_carla), `GazeboIgnitionBridge` (bridge_gazebo), `ROS2WorldBridge` (bridge_ROS2).
-
-### c50_visualization
-
-Tkinter-based GUI with:
-- Real-time plotting (XY, Frenet views)
-- Component configuration with schema tooltips on main-page controls
-- Profile management (Config tab Save; settings window `T` for full stack)
-- **Use repository configs** — discard `~/.config/avlite/` overrides and reload repo YAML
-- Log viewer — thread-safe filter snapshot (`Core` / `Plugins` masters plus per-layer checkboxes); plugin logs route to layer toggles by **module** `pNx` name first, then plugin directory fallback via [`c60_plugins.py`](../avlite/c60_common/c60_plugins.py) (`plugin_module_from_logger`, `layer_key_for_plugin_log_record`)
-- Plugin settings
-
-### c60_common
-
-- Settings load/save (YAML profiles): repo defaults in `{repo}/configs/`, user overrides in `~/.config/avlite/` (or `AVLITE_CONFIG_DIR`); `effective_config_path()` resolves read path, Save always writes user copy
-- Hot reloading
-- Plugin discovery and log routing (`c60_plugins.py`); community plugins under `~/.local/share/avlite/plugins/` (`AVLITE_PLUGINS_DIR`); `plugin_module_from_logger` / `layer_key_for_plugin_log_record` for module-first log filtering
-- Capability enums in `c61_capabilities.py` (`WorldCapability`, `PerceptionCapability`, `LocalizationCapability`, `MappingCapability`)
-- `AnyOf` — requirement satisfied by any one of several capabilities; `satisfies_requirements()` helper used by the execution layer
-- `HDMap` (`c67_hdmap.py`) — OpenDRIVE map parsing and routing (used by `HDMapGlobalPlanner` and `PerceptionModel`)
-- `SensorFrame` (`c62_sensor_data.py`) — canonical sensor formats between WorldBridge and perception/localization (authoritative spec for rgb, depth, lidar, imu, gnss, wheel odometry)
-- Pydantic settings schemas (`c68_settings_schema.py`); YAML load/save helpers (`c69_setting_utils.py`)
-- `rename_setting_profile()` — rename saved YAML profiles
-- `clear_user_configs()` — remove local YAML overrides so the next load uses repo defaults (settings window **Use repository configs**)
-
-### Sensor data conventions
-
-Raw sensor layouts are defined in [`avlite/c60_common/c62_sensor_data.py`](../avlite/c60_common/c62_sensor_data.py). WorldBridge implementations convert simulator/ROS messages into these formats before passing a `SensorFrame` to perception and localization. Array fields use semantic aliases `RgbImage`, `DepthImage`, and `LidarCloud` (all `np.ndarray` with layouts documented in c62). Key fields: `rgb` `(H,W,3)` uint8 RGB; `depth` `(H,W)` float32 metres; `lidar` `(N,4)` float32 `[x,y,z,intensity]` in map frame; `GnssReading` with WGS84 lat/lon/alt plus optional map-frame `map_x/y/z`.
+YAML profile load/save, hot reload, plugin discovery, capability enums, HD map and OpenDRIVE parsing, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), and settings validation.
 
 ## Data Flow
 
@@ -219,24 +173,26 @@ World Bridge
 5. **Controller** computes steering and throttle
 6. **World Bridge** executes control command
 
-## Extension System
+## Plugin System
 
 ```
 avlite/
-└── extensions/           # Built-in (core team)
-    ├── bridge_carla/
-    ├── bridge_gazebo/
-    ├── bridge_ROS2/
-    ├── executer_ROS2/
-    └── multi_object_prediction/
+└── plugins/              # Built-in (core team)
+    ├── p10_perception_MO_prediction/
+    ├── p30_controller_joystick/
+    ├── p40_bridge_carla/
+    ├── p40_bridge_gazebo/
+    ├── p40_bridge_ROS2/
+    ├── p40_executer_ROS2/
+    └── p50_headless_mode/
 
-/path/to/                 # Community plugins
+~/.local/share/avlite/plugins/   # Community (installed)
 └── my_plugin/
     ├── __init__.py
     ├── settings.py
     └── ...
 ```
 
-Extensions are loaded at startup. Classes inheriting from base strategies auto-register.
+Plugins are loaded at startup. Classes inheriting from base strategies auto-register.
 
-See [Plugin Development](plugin-development.md) for creating community plugins.
+See [Plugin Development](plugin-development.md) for creating community plugins, pNx naming, and log filtering.

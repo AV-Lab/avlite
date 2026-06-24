@@ -6,7 +6,7 @@
 
 AVLite is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
 
-**ROS2 & Autoware Ready**: Built-in ROS2 executor extension (`executer_ROS2`) with native Autoware message support (Trajectory, ControlCommand, etc.).
+**ROS2 & Autoware Ready**: Built-in ROS2 executor plugin (`p40_executer_ROS2`) with native Autoware message support (Trajectory, ControlCommand, etc.).
 
 ![](docs/imgs/tk_visualizer.png)
 
@@ -49,7 +49,7 @@ flowchart TB
 - **c40_execution**: Execution orchestration with support for sync/async modes, simulator bridges, and `replan_global()`
 - **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
 - **c60_common**: Utilities, settings management, capability definitions (`AnyOf`, `satisfies_requirements`), and `HDMap` (OpenDRIVE parsing)
-- **extensions**: Plugin system for custom components (includes ROS2 executor with Autoware messages)
+- **plugins** (`avlite/plugins/`): Built-in and community plugin system (includes ROS2 executor with Autoware messages)
 
 ### Key Features
 
@@ -70,7 +70,7 @@ flowchart TB
 ## Why AVLite?
 
 - **Lightweight**: Small codebase focused on clarity over production complexity
-- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via built-in extension
+- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via built-in plugin
 - **Multi-simulator**: Same code runs on BasicSim, Carla, or Gazebo
 - **Rapid iteration**: Hot-reload code and tune parameters without restarting
 - **Minimal dependencies**: Core needs only NumPy, Matplotlib, Tkinter
@@ -90,7 +90,7 @@ pip install -r requirements-full.txt
 
 **Optional integrations** (install separately as needed):
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `executer_ROS2` extension provides ROS2 nodes and Autoware message converters out of the box.
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `p40_executer_ROS2` plugin provides ROS2 nodes and Autoware message converters out of the box (`configs/plugin_ros_executer.yaml`).
 
 Run from source:
 ```bash
@@ -253,15 +253,19 @@ avlite/
 │   ├── c63_trajectory_tracker.py
 │   ├── c64_collision_checking.py
 │   ├── c65_fps_tracker.py
-│   ├── c67_hdmap.py              # HDMap (OpenDRIVE parsing)
+│   ├── c60_plugins.py            # Plugin discovery, loading, log routing
+│   ├── c66_hdmap.py              # HDMap (OpenDRIVE parsing)
+│   ├── c67_paths.py              # Config, data, and plugin paths
 │   ├── c68_settings_schema.py
 │   └── c69_setting_utils.py
-└── extensions/            # Built-in extensions
-    ├── bridge_carla/
-    ├── bridge_gazebo/
-    ├── bridge_ROS2/
-    ├── executer_ROS2/
-    └── multi_object_prediction/
+└── plugins/               # Built-in plugins
+    ├── p10_perception_MO_prediction/
+    ├── p30_controller_joystick/
+    ├── p40_bridge_carla/
+    ├── p40_bridge_gazebo/
+    ├── p40_bridge_ROS2/
+    ├── p40_executer_ROS2/
+    └── p50_headless_mode/
 ```
 
 The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley controller, etc.

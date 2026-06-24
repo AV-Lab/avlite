@@ -7,7 +7,7 @@
 AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.
 
 !!! tip "ROS2 & Autoware Ready"
-    AVLite includes a built-in ROS2 executor extension (`executer_ROS2`) with native Autoware message support. Publish and subscribe to `autoware_auto_msgs` types like Trajectory and ControlCommand out of the box.
+    AVLite includes a built-in ROS2 executor plugin (`p40_executer_ROS2`) with native Autoware message support. Publish and subscribe to `autoware_auto_msgs` types like Trajectory and ControlCommand out of the box.
 
 **Repository**: [github.com/AV-Lab/avlite](https://github.com/AV-Lab/avlite)
 
@@ -15,7 +15,7 @@ AVLite is a lightweight, extensible autonomous vehicle software stack for rapid 
 
 - **Modular Architecture**: Swap perception, localization, planning, and control algorithms at runtime
 - **Multi-Simulator Support**: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2
-- **ROS2 & Autoware Integration**: Built-in extension for ROS2 with native Autoware message types
+- **ROS2 & Autoware Integration**: Built-in plugin for ROS2 with native Autoware message types
 - **Optional Perception & Localization**: Both perception and localization are optional — run with ground truth or plug in your own strategies
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
 - **Hot Reloading**: Modify code without restarting the application
@@ -41,7 +41,7 @@ pip install -r requirements-full.txt
 ### Optional Integrations
 
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. The built-in `executer_ROS2` extension provides:
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. The built-in `p40_executer_ROS2` plugin provides:
     - `ROSExecuter`: Synchronize AVLite with ROS2 ecosystem
     - `PlannerNode`: Publishes Autoware Trajectory messages
     - `ControllerNode`: Publishes Autoware ControlCommand messages
@@ -164,7 +164,7 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 
 Paths stored as `data/...` in YAML are resolved against the user data directory first, then the repository `data/` folder. Saved global plans and other writes never go into the repo tree.
 
-User and repo config files share the **same basenames** (`c10_perception.yaml`, `c40_execution.yaml`, `ext_ros_executer.yaml`, …).
+User and repo config files share the **same basenames** (`c10_perception.yaml`, `c40_execution.yaml`, `plugin_ros_executer.yaml`, …).
 
 **Load order:** for each settings file, AVLite reads `~/.config/avlite/<name>.yaml` if it exists; otherwise it falls back to `{repo}/configs/<name>.yaml`.
 
@@ -179,7 +179,7 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 - `c30_control.yaml` — Controller tuning
 - `c40_execution.yaml` — Execution and simulator settings
 - `c50_visualization.yaml` — GUI preferences
-- `ext_*.yaml` — Built-in extension settings (same names as in repo `configs/`)
+- `plugin_*.yaml` — Built-in plugin settings (same names as in repo `configs/`)
 
 ### GUI: profiles and reset
 
@@ -205,9 +205,9 @@ See [Settings naming](settings-naming.md) for key prefixes and validation detail
 
 In the GUI Config tab, change the **Bridge** dropdown:
 - `BasicSim` - Built-in 2D simulation (no external dependencies)
-- `CarlaBridge` - Connect to a running CARLA simulator (`bridge_carla` extension)
-- `GazeboIgnitionBridge` - Connect to Gazebo Ignition via ROS2 (`bridge_gazebo` extension)
-- `ROS2WorldBridge` - Use a ROS2 topic-based world bridge (`bridge_ROS2` extension)
+- `CarlaBridge` - Connect to a running CARLA simulator (`p40_bridge_carla` plugin)
+- `GazeboIgnitionBridge` - Connect to Gazebo Ignition via ROS2 (`p40_bridge_gazebo` plugin)
+- `ROS2WorldBridge` - Use a ROS2 topic-based world bridge (`p40_bridge_ROS2` plugin)
 
 ## Project Structure
 
@@ -219,12 +219,14 @@ avlite/
 ├── c40_execution/      # Execution and bridges
 ├── c50_visualization/  # GUI components
 ├── c60_common/         # Shared utilities
-└── extensions/         # Built-in extensions
-    ├── bridge_carla/       # CARLA simulator bridge
-    ├── bridge_gazebo/      # Gazebo Ignition bridge
-    ├── bridge_ROS2/        # ROS2 world bridge
-    ├── executer_ROS2/      # ROS2 executor with Autoware msgs
-    └── multi_object_prediction/  # Multi-object prediction
+└── plugins/            # Built-in plugins
+    ├── p10_perception_MO_prediction/
+    ├── p30_controller_joystick/
+    ├── p40_bridge_carla/       # CARLA simulator bridge
+    ├── p40_bridge_gazebo/      # Gazebo Ignition bridge
+    ├── p40_bridge_ROS2/        # ROS2 world bridge
+    ├── p40_executer_ROS2/      # ROS2 executor with Autoware msgs
+    └── p50_headless_mode/
 ```
 
 Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.
