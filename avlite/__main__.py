@@ -8,7 +8,8 @@ def _setup_dpi() -> None:
     import os
 
     if platform.system() == "Linux":
-        os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
+        os.environ.setdefault("TK_WINDOWS_FORCE_OPENGL", "1")
+        # GDK_SCALE (when set by the desktop) is read by get_dpi_scale() in c58.
     else:
         import ctypes
 

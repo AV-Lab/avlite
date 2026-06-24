@@ -38,6 +38,8 @@ from avlite.c50_visualization.c58_ui_lib import (
     ThemedTwoInputDialog,
     TkSettingsBinder,
     attach_schema_tooltip,
+    get_dpi_scale,
+    scaled,
 )
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c60_common.c68_settings_schema import field_tooltip_text
@@ -191,8 +193,14 @@ class ConfigShortcutView(ttk.LabelFrame):
         # Shortcut frame
         # ------------------------------------------------------
         # TODO: this is a dirty trick because its parent is root
+        _s = getattr(root, "_dpi_scale", 1.0)
         self.shortcut_frame = ttk.LabelFrame(root, text="Shortcuts")
-        self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=7)
+        self.help_text = tk.Text(
+            self.shortcut_frame,
+            wrap=tk.WORD,
+            width=max(30, scaled(50, _s)),
+            height=max(5, scaled(7, _s)),
+        )
         key_binding_info = """
 App:      Q - Quit             S - Toggle shortcut          F - Switch to next Profile  R - Reload imports     
           T - Open Settings    E - Expand/collapse log      ↑/↓- use Up/Down or vim motion to scroll log   
@@ -258,8 +266,8 @@ class SettingWindow:
         self.setting = root.setting
         self.window = tk.Toplevel(root)
         # settings_window.title("Settings")
-        _s = getattr(root, '_dpi_scale', 1.0)
-        self.window.geometry(f"{round(400 * _s)}x{round(300 * _s)}")
+        _s = get_dpi_scale(self.window, parent=root)
+        self.window.geometry(f"{scaled(550, _s)}x{scaled(450, _s)}")
         # self.root.bind("Q", lambda e: settings_window.destroy())
 
         self.frame = ttk.Frame(self.window)
@@ -336,14 +344,22 @@ class SettingWindow:
         ##############################################
         plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
         plugin_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
+        plugin_frame.rowconfigure(2, weight=1)
+        plugin_frame.rowconfigure(5, weight=1)
+        plugin_frame.columnconfigure(0, weight=1)
+        plugin_frame.columnconfigure(1, weight=1)
+
+        listbox_height = max(6, scaled(10, _s))
 
         ttk.Checkbutton(plugin_frame, text="Load Plugins" , variable=self.root.setting.load_plugins,
             command=self.recreate_plugin_widgets).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
 
         # built-in plugins
-        ttk.Label(plugin_frame, text="Plugins").grid(row=3, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_default_plugins = tk.Listbox(plugin_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
-        self.listbox_default_plugins.grid(row=2, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
+        ttk.Label(plugin_frame, text="Plugins").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        self.listbox_default_plugins = tk.Listbox(
+            plugin_frame, height=listbox_height, selectmode=tk.SINGLE, exportselection=False, width=30,
+        )
+        self.listbox_default_plugins.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
         for plugin in ExecutionSettings.c40_default_plugins:
@@ -354,9 +370,11 @@ class SettingWindow:
 
 
         # community plugins
-        ttk.Label(plugin_frame, text="Community Plugins").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_community_plugins = tk.Listbox(plugin_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
-        self.listbox_community_plugins.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
+        ttk.Label(plugin_frame, text="Community Plugins").grid(row=4, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        self.listbox_community_plugins = tk.Listbox(
+            plugin_frame, height=listbox_height, selectmode=tk.SINGLE, exportselection=False, width=30,
+        )
+        self.listbox_community_plugins.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
         for plugin in ExecutionSettings.c40_community_plugins.keys() if self.root.setting.load_plugins.get() else []:
@@ -417,7 +435,7 @@ class SettingWindow:
         ########
         # Set minimum width/height for the container
         self.window.update_idletasks()  # Force layout update
-        self.window.minsize(500, 400)  # Set minimum window size
+        self.window.minsize(scaled(500, _s), scaled(400, _s))
         # to prevent killing the window afte close
         self.window.protocol("WM_DELETE_WINDOW", self.hide) 
 

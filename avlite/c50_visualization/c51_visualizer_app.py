@@ -11,7 +11,11 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from avlite.c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
 from avlite.c50_visualization.c54_exec_views import ExecView
-from avlite.c50_visualization.c58_ui_lib import TkSettingsBinder
+from avlite.c50_visualization.c58_ui_lib import (
+    TkSettingsBinder,
+    get_dpi_scale,
+    scaled,
+)
 from avlite.c50_visualization.c59_settings import VisualizationSettings, load_stack_plugins
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
@@ -29,9 +33,7 @@ class VisualizerApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        # Pixels-per-inch reported by this screen, normalised to a 96 dpi baseline.
-        # Used to scale any hardcoded pixel geometry so windows feel right on all devices.
-        self._dpi_scale: float = max(1.0, min(3.0, self.winfo_fpixels('1i') / 96.0))
+        self._dpi_scale: float = get_dpi_scale(self)
         self.exec = None
         self.loading_overlay = None
         self.ui_initialized = False
@@ -47,7 +49,8 @@ class VisualizerApp(tk.Tk):
         self.set_dark_mode_themed()
 
         self.title("AVlite Visualizer")
-        # self.geometry("1200x1100")
+        s = self._dpi_scale
+        self.geometry(f"{scaled(1200, s)}x{scaled(900, s)}")
         self.small_font = ("Courier", 10)
 
         # self.set_dark_mode()
@@ -246,7 +249,10 @@ class VisualizerApp(tk.Tk):
             log.error("Failed to load logo image.")
             
         # Add loading message
-        tk.Label(frame, text=message, fg="#10bfe8", bg="black", font=("Arial", 12)).pack(pady=10)
+        tk.Label(
+            frame, text=message, fg="#10bfe8", bg="black",
+            font=("Arial", 12),
+        ).pack(pady=10)
         
         # Update the window to make it visible
         self.loading_window.update_idletasks()
@@ -409,27 +415,29 @@ class VisualizerApp(tk.Tk):
         win.title("About AVLite")
         win.resizable(False, False)
         win.configure(bg="black")
+        s = self._dpi_scale
 
-        inner = tk.Frame(win, bg="black", padx=40, pady=0)
+        inner = tk.Frame(win, bg="black", padx=scaled(40, s), pady=0)
         inner.pack(fill="both", expand=True)
 
         try:
             from PIL import Image, ImageTk
             logo_img = Image.open("data/imgs/logo.png")
-            logo_img = logo_img.resize((200, 200), Image.LANCZOS)
+            logo_size = scaled(200, s)
+            logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
             win._logo_photo = ImageTk.PhotoImage(logo_img)
-            tk.Label(inner, image=win._logo_photo, bg="black").pack(pady=(24, 8))
+            tk.Label(inner, image=win._logo_photo, bg="black").pack(pady=(scaled(24, s), scaled(8, s)))
         except Exception:
             log.warning("Failed to load logo for About dialog.")
 
         tk.Label(inner, text="AVLite", fg="#10bfe8", bg="black",
                  font=("Arial", 16, "bold")).pack()
         tk.Label(inner, text="Version 0.1.0", fg="#10bfe8", bg="black",
-                 font=("Arial", 11)).pack(pady=(4, 0))
+                 font=("Arial", 11)).pack(pady=(scaled(4, s), 0))
         tk.Label(inner, text="A lightweight autonomous driving software stack.",
-                 fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(6, 24))
+                 fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(scaled(6, s), scaled(24, s)))
 
-        ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, 20))
+        ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, scaled(20, s)))
         win.grab_set()
         win.focus_set()
 

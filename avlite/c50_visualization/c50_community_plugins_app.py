@@ -25,6 +25,13 @@ from typing import Optional
 
 import yaml
 
+from avlite.c50_visualization.c58_ui_lib import (
+    configure_treeview_style,
+    get_dpi_scale,
+    scaled,
+    scaled_font,
+)
+
 log = logging.getLogger(__name__)
 
 REGISTRY_URL = (
@@ -429,15 +436,16 @@ def _insert_inline_md(text: tk.Text, line: str, base_tag: Optional[str]) -> None
         text.insert(tk.END, line[pos:], base_tag if base_tag else ())
 
 
-def _render_markdown(text: tk.Text, content: str) -> None:
+def _render_markdown(text: tk.Text, content: str, dpi_scale: float = 1.0) -> None:
     """Apply basic markdown formatting to a Tk Text widget."""
-    text.tag_configure("md_h1", font=("Helvetica", 16, "bold"))
-    text.tag_configure("md_h2", font=("Helvetica", 14, "bold"))
-    text.tag_configure("md_h3", font=("Helvetica", 12, "bold"))
-    text.tag_configure("md_bold", font=("Helvetica", 10, "bold"))
-    text.tag_configure("md_italic", font=("Helvetica", 10, "italic"))
-    text.tag_configure("md_code", font=("Courier", 10), background="#f0f0f0")
-    text.tag_configure("md_codeblock", font=("Courier", 10), background="#f0f0f0")
+    text.tag_configure("md_h1", font=scaled_font(dpi_scale, "Helvetica", 16, weight="bold"))
+    text.tag_configure("md_h2", font=scaled_font(dpi_scale, "Helvetica", 14, weight="bold"))
+    text.tag_configure("md_h3", font=scaled_font(dpi_scale, "Helvetica", 12, weight="bold"))
+    text.tag_configure("md_bold", font=scaled_font(dpi_scale, "Helvetica", 10, weight="bold"))
+    _base10 = scaled_font(dpi_scale, "Helvetica", 10)
+    text.tag_configure("md_italic", font=(_base10[0], _base10[1], "italic"))
+    text.tag_configure("md_code", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
+    text.tag_configure("md_codeblock", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
     text.tag_configure("md_link", underline=True)
 
     in_code_block = False
@@ -483,11 +491,12 @@ class _PluginDetailsWindow:
         self.install_path = install_path
         entry = registry_entry or {}
         self._repo_url = get_plugin_repository_url(registry_entry, install_path)
+        self._dpi_scale = dpi_scale
         self.window = tk.Toplevel(app.window)
         self.window.title(name)
         self.window.transient(app.window)
-        self.window.geometry(f"{round(700 * dpi_scale)}x{round(500 * dpi_scale)}")
-        self.window.minsize(round(400 * dpi_scale), round(300 * dpi_scale))
+        self.window.geometry(f"{scaled(700, dpi_scale)}x{scaled(500, dpi_scale)}")
+        self.window.minsize(scaled(400, dpi_scale), scaled(300, dpi_scale))
         self.window.bind("<Escape>", lambda _e: self._on_close())
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -503,7 +512,7 @@ class _PluginDetailsWindow:
             row.pack(fill=tk.X, anchor=tk.W, pady=1)
             ttk.Label(row, text=f"{label}:", width=12).pack(side=tk.LEFT)
             value = entry.get(key, "") or "\u2014"
-            ttk.Label(row, text=value, wraplength=round(620 * dpi_scale)).pack(
+            ttk.Label(row, text=value, wraplength=scaled(620, dpi_scale)).pack(
                 side=tk.LEFT, fill=tk.X, expand=True
             )
 
@@ -511,7 +520,7 @@ class _PluginDetailsWindow:
         text_frame.grid(row=1, column=0, sticky="nsew")
         text_frame.rowconfigure(0, weight=1)
         text_frame.columnconfigure(0, weight=1)
-        self.text = ScrolledText(text_frame, wrap=tk.WORD, state=tk.DISABLED, height=12)
+        self.text = ScrolledText(text_frame, wrap=tk.WORD, state=tk.DISABLED, height=max(8, scaled(12, dpi_scale)))
         self.text.grid(row=0, column=0, sticky="nsew")
 
         footer = ttk.Frame(outer)
@@ -600,7 +609,7 @@ class _PluginDetailsWindow:
         self.text.configure(state=tk.NORMAL)
         self.text.delete("1.0", tk.END)
         if rendered:
-            _render_markdown(self.text, content)
+            _render_markdown(self.text, content, self._dpi_scale)
         else:
             self.text.insert(tk.END, content)
         self.text.configure(state=tk.DISABLED)
@@ -666,11 +675,11 @@ class CommunityPluginsApp:
             except tk.TclError:
                 pass
 
-        _s = max(1.0, min(3.0, self.window.winfo_fpixels('1i') / 96.0))
-        self._dpi_scale = _s
+        self._dpi_scale = get_dpi_scale(self.window, parent=parent)
         self.window.title("AVLite Community Plugins")
-        self.window.geometry(f"{round(900 * _s)}x{round(500 * _s)}")
-        self.window.minsize(round(700 * _s), round(350 * _s))
+        s = self._dpi_scale
+        self.window.geometry(f"{scaled(1100, s)}x{scaled(560, s)}")
+        self.window.minsize(scaled(800, s), scaled(420, s))
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         self.window.bind("<Escape>", lambda _e: self._on_close())
 
@@ -704,8 +713,15 @@ class CommunityPluginsApp:
         tree_frame = ttk.Frame(outer)
         tree_frame.pack(fill=tk.BOTH, expand=True)
 
+        tree_style = ttk.Style(self.window)
+        configure_treeview_style(tree_style, "CP", self._dpi_scale)
+
         self.tree = ttk.Treeview(
-            tree_frame, columns=self.COLUMNS, show="headings", selectmode="browse"
+            tree_frame,
+            columns=self.COLUMNS,
+            show="headings",
+            selectmode="browse",
+            style="CP.Treeview",
         )
         headings = {
             "name": ("Name", 160),
@@ -716,14 +732,24 @@ class CommunityPluginsApp:
             "update_status": ("Update", 100),
             "path": ("Repository / Path", 220),
         }
+        s = self._dpi_scale
         for col, (label, width) in headings.items():
             self.tree.heading(col, text=label)
-            self.tree.column(col, width=width, anchor=tk.W, stretch=(col == "path"))
+            col_width = scaled(width, s)
+            self.tree.column(
+                col,
+                width=col_width,
+                minwidth=col_width,
+                anchor=tk.W,
+                stretch=(col == "path"),
+            )
 
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
         tree_frame.rowconfigure(0, weight=1)
         tree_frame.columnconfigure(0, weight=1)
         self.tree.bind("<<TreeviewSelect>>", lambda _e: self._update_buttons())
@@ -732,19 +758,24 @@ class CommunityPluginsApp:
         # Toolbar
         toolbar = ttk.Frame(outer)
         toolbar.pack(fill=tk.X, pady=(8, 0))
+        toolbar_row1 = ttk.Frame(toolbar)
+        toolbar_row1.pack(fill=tk.X)
+        toolbar_row2 = ttk.Frame(toolbar)
+        toolbar_row2.pack(fill=tk.X, pady=(4, 0))
 
-        self.btn_refresh = ttk.Button(toolbar, text="Refresh", command=self._refresh_async)
-        self.btn_github = ttk.Button(toolbar, text="Open on GitHub", command=self._on_open_github)
-        self.btn_install = ttk.Button(toolbar, text="Install", command=self._on_install)
-        self.btn_uninstall = ttk.Button(toolbar, text="Uninstall", command=self._on_uninstall)
-        self.btn_update = ttk.Button(toolbar, text="Update", command=self._on_update)
-        self.btn_update_all = ttk.Button(toolbar, text="Update All", command=self._on_update_all)
-        self.btn_open = ttk.Button(toolbar, text="Open Folder", command=self._open_folder)
-        self.btn_close = ttk.Button(toolbar, text="Close", command=self._on_close)
+        self.btn_refresh = ttk.Button(toolbar_row1, text="Refresh", command=self._refresh_async)
+        self.btn_install = ttk.Button(toolbar_row1, text="Install", command=self._on_install)
+        self.btn_uninstall = ttk.Button(toolbar_row1, text="Uninstall", command=self._on_uninstall)
+        self.btn_update = ttk.Button(toolbar_row1, text="Update", command=self._on_update)
+        self.btn_update_all = ttk.Button(toolbar_row1, text="Update All", command=self._on_update_all)
+        self.btn_github = ttk.Button(toolbar_row2, text="Open on GitHub", command=self._on_open_github)
+        self.btn_open = ttk.Button(toolbar_row2, text="Open Folder", command=self._open_folder)
+        self.btn_close = ttk.Button(toolbar_row2, text="Close", command=self._on_close)
 
-        for b in (self.btn_refresh, self.btn_github, self.btn_install,
-                  self.btn_uninstall, self.btn_update, self.btn_update_all, self.btn_open):
+        for b in (self.btn_refresh, self.btn_install, self.btn_uninstall, self.btn_update, self.btn_update_all):
             b.pack(side=tk.LEFT, padx=(0, 6))
+        self.btn_github.pack(side=tk.LEFT, padx=(0, 6))
+        self.btn_open.pack(side=tk.LEFT, padx=(0, 6))
         self.btn_close.pack(side=tk.RIGHT)
 
         # Status bar

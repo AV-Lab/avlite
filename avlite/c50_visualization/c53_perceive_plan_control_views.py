@@ -371,10 +371,10 @@ class ControlFrame(ttk.LabelFrame):
         self.cte_gauge_frame.pack(side=tk.LEFT, padx=5)
         ttk.Label(self.cte_gauge_frame, text="Vel CTE", font=self.root.small_font).pack(side=tk.TOP)
         ttk.Label(self.cte_gauge_frame, text="Pos CTE", font=self.root.small_font).pack(side=tk.TOP)
-        self.gauge_cte_vel = ValueGauge( self.cte_frame, min_value=-20, max_value=20)
+        self.gauge_cte_vel = ValueGauge(self.cte_frame, min_value=-20, max_value=20, dpi_scale=self.root._dpi_scale)
         self.gauge_cte_vel.pack(side=tk.TOP, fill=tk.X, expand=True)
 
-        self.gauge_cte_steer = ValueGauge( self.cte_frame, min_value=-20, max_value=20)
+        self.gauge_cte_steer = ValueGauge(self.cte_frame, min_value=-20, max_value=20, dpi_scale=self.root._dpi_scale)
         self.gauge_cte_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
         self.progress_frame = ttk.Frame(self)
         self.progress_frame.pack(fill=tk.X)
@@ -384,16 +384,20 @@ class ControlFrame(ttk.LabelFrame):
         ttk.Label(self.progress_label_frame, text="Accel", font=self.root.small_font).pack(side=tk.TOP)
         ttk.Label(self.progress_label_frame, text="Steer", font=self.root.small_font).pack(side=tk.TOP)
 
-        self.gauge_acc = ValueGauge( self.progress_frame,
+        self.gauge_acc = ValueGauge(
+            self.progress_frame,
             min_value=ControlSettings.c32_ego_min_acceleration,
             max_value=ControlSettings.c32_ego_max_acceleration,
+            dpi_scale=self.root._dpi_scale,
         )
         self.gauge_acc.pack(side=tk.TOP, fill=tk.X, expand=True)
         # self.progressbar_acc.set_marker(0)
 
-        self.gauge_steer = ValueGauge( self.progress_frame,
+        self.gauge_steer = ValueGauge(
+            self.progress_frame,
             min_value=ControlSettings.c32_ego_min_steering,
             max_value=ControlSettings.c32_ego_max_steering,
+            dpi_scale=self.root._dpi_scale,
         )
         # self.progressbar_steer.set_marker(0)
         self.gauge_steer.pack(side=tk.TOP, fill=tk.X, expand=True)

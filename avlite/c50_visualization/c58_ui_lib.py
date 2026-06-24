@@ -1,9 +1,26 @@
-from tkinter import ttk
+import os
 import tkinter as tk
+import tkinter.font as tkfont
+from tkinter import ttk
 
 class ValueGauge(ttk.Frame):
-    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=12, **kwargs):
+    def __init__(
+        self,
+        parent,
+        name: str = "",
+        min_value: float = 0,
+        max_value: float = 100,
+        variable=None,
+        height=12,
+        dpi_scale: float | None = None,
+        **kwargs,
+    ):
         super().__init__(parent, **kwargs)
+        if dpi_scale is None:
+            dpi_scale = getattr(parent, "_dpi_scale", None)
+        if dpi_scale is None:
+            dpi_scale = get_dpi_scale(parent)
+
         self.min_value = min_value
         self.max_value = max_value
         self.current_value = 0
@@ -11,25 +28,22 @@ class ValueGauge(ttk.Frame):
         self.variable = variable
         self.pack_propagate(False)
         self.font = ("Helvetica", 7, "bold")
-        self._old_value = 0 # used to not draw if value is same
+        self._old_value = 0  # used to not draw if value is same
+        gauge_height = scaled(height, dpi_scale)
 
         if name != "":
             tk.Label(self, text=name, font=self.font).pack(side=tk.LEFT, padx=0)
 
         min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font)
         min_label.pack(side=tk.LEFT, padx=0)
-        
+
         max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font)
         max_label.pack(side=tk.RIGHT, padx=0)
 
-
-        self.canvas = tk.Canvas(self, height=height, bg="gray", highlightthickness=0)
+        self.canvas = tk.Canvas(self, height=gauge_height, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
-        # self.bind("<Configure>", lambda e: self.after_idle(self._draw))
-        
-        # label_height = min_label.winfo_reqheight()
-        # canvas_height = self.canvas.winfo_reqheight()
-        total_height = height
+
+        total_height = gauge_height
         self.config(height=total_height)
 
         self.bind("<Configure>", lambda e: self.__draw())
@@ -97,12 +111,13 @@ class ValueGauge(ttk.Frame):
 class ThemedInputDialog:
     def __init__(self, parent, title, prompt, initial=""):
         self.result = None
-        
+
         # Create the dialog
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        self.dialog.minsize(300, 100)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.minsize(scaled(300, s), scaled(100, s))
         
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
 
@@ -116,7 +131,7 @@ class ThemedInputDialog:
 
         # Add prompt and entry field
         ttk.Label(top_frame, text=prompt).pack(side=tk.LEFT, padx=10)
-        self.entry = ttk.Entry(top_frame, width=20)
+        self.entry = ttk.Entry(top_frame, width=max(10, scaled(20, s)))
         self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10, pady=5)
         if initial:
             self.entry.insert(0, initial)
@@ -144,11 +159,13 @@ class ThemedInputDialog:
 class ThemedTwoInputDialog:
     def __init__(self, parent, title, prompt1="", prompt2="", initial1="", initial2=""):
         self.result = None
-        
+
         # Create the dialog
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.minsize(scaled(360, s), scaled(140, s))
         
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
         
@@ -171,7 +188,7 @@ class ThemedTwoInputDialog:
         self.first_entry.insert(0, initial1)
         
         ttk.Label(frame, text=prompt2).grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
-        self.second_entry = ttk.Entry(frame, width=30)
+        self.second_entry = ttk.Entry(frame, width=max(20, scaled(30, s)))
         self.second_entry.grid(row=1, column=1, padx=10, pady=5, sticky=tk.EW)
         self.second_entry.insert(0, initial2)
         
@@ -220,8 +237,10 @@ class HoverTooltip:
         self._after_id = None
         if self._tip is not None:
             return
-        x = self.widget.winfo_rootx() + 20
-        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+
+        s = get_dpi_scale(self.widget)
+        x = self.widget.winfo_rootx() + scaled(20, s)
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + scaled(4, s)
         tip = tk.Toplevel(self.widget)
         tip.wm_overrideredirect(True)
         tip.wm_geometry(f"+{x}+{y}")
@@ -232,9 +251,9 @@ class HoverTooltip:
             background="#ffffe0",
             relief=tk.SOLID,
             borderwidth=1,
-            wraplength=360,
-            padx=6,
-            pady=4,
+            wraplength=scaled(360, s),
+            padx=scaled(6, s),
+            pady=scaled(4, s),
         )
         label.pack()
         self._tip = tip
@@ -279,4 +298,75 @@ class TkSettingsBinder:
             from avlite.c60_common.c68_settings_schema import PlainBinder
 
             PlainBinder().set_value(setting, attr_name, value)
+
+
+_DPI_MIN = 1.0
+_DPI_MAX = 3.0
+
+
+def scaled(n: float, scale: float) -> int:
+    """Scale a pixel value and round to int."""
+    return round(n * scale)
+
+
+def scaled_font(scale: float, family: str, size: int, **kwargs) -> tuple:
+    """Return a font tuple scaled for geometry scale (plugin README rendering only)."""
+    font_size = max(1, scaled(size, scale))
+    parts: list = [family, font_size]
+    if "weight" in kwargs:
+        parts.append(kwargs["weight"])
+    if "slant" in kwargs:
+        parts.append(kwargs["slant"])
+    return tuple(parts)
+
+
+def _font_scale_from_default() -> float:
+    """Estimate scale from TkDefaultFont when PPI alone is insufficient (common on Linux)."""
+    try:
+        font = tkfont.nametofont("TkDefaultFont")
+        size = font.cget("size")
+        if isinstance(size, str):
+            size = int(size)
+        size = abs(int(size))
+        if size <= 0:
+            return _DPI_MIN
+        # Negative size is pixels; positive is points. Baseline ~10 pt / 12 px.
+        baseline = 12 if font.cget("size") < 0 else 10
+        return max(_DPI_MIN, min(_DPI_MAX, size / baseline))
+    except (tk.TclError, ValueError, TypeError):
+        return _DPI_MIN
+
+
+def get_dpi_scale(widget: tk.Misc, parent: tk.Misc | None = None) -> float:
+    """Pixels-per-inch normalised to 96 dpi, with font and GDK fallbacks."""
+    if parent is not None:
+        inherited = getattr(parent, "_dpi_scale", None)
+        if inherited is not None:
+            return float(inherited)
+
+    ppi_scale = _DPI_MIN
+    try:
+        widget.update_idletasks()
+        ppi_scale = max(_DPI_MIN, min(_DPI_MAX, widget.winfo_fpixels("1i") / 96.0))
+    except tk.TclError:
+        pass
+
+    gdk_scale = os.environ.get("GDK_SCALE")
+    env_scale = _DPI_MIN
+    if gdk_scale:
+        try:
+            env_scale = max(_DPI_MIN, min(_DPI_MAX, float(gdk_scale)))
+        except ValueError:
+            pass
+
+    font_scale = _font_scale_from_default()
+    return max(ppi_scale, env_scale, font_scale)
+
+
+def configure_treeview_style(style: ttk.Style, name: str, scale: float = 1.0) -> None:
+    """Set Treeview row height and heading font to match the default UI font."""
+    font = tkfont.nametofont("TkDefaultFont")
+    rowheight = font.metrics("linespace") + scaled(4, scale)
+    style.configure(f"{name}.Treeview", rowheight=rowheight)
+    style.configure(f"{name}.Treeview.Heading", font=font)
 

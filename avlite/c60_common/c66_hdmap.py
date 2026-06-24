@@ -11,6 +11,8 @@ log = logging.getLogger(__name__)
 @dataclass
 class HDMap:
     """Compact HD map representation for global planning"""
+
+    # reference_point: tuple[float, float] | None = None
     
     @dataclass
     class Lane:
