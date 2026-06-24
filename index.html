@@ -386,9 +386,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#full-includes-joystick-dev-tools-docs" class="md-nav__link">
+  <a href="#full" class="md-nav__link">
     <span class="md-ellipsis">
-      Full (includes joystick, dev tools, docs)
+      Full
     </span>
   </a>
   
@@ -711,7 +711,8 @@
 <span class="nb">cd</span><span class="w"> </span>avlite
 pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-minimal.txt
 </code></pre></div>
-<h3 id="full-includes-joystick-dev-tools-docs">Full (includes joystick, dev tools, docs)<a class="headerlink" href="#full-includes-joystick-dev-tools-docs" title="Permanent link">&para;</a></h3>
+<h3 id="full">Full<a class="headerlink" href="#full" title="Permanent link">&para;</a></h3>
+<p>It includes support for ROS 2, CARLA 5, Autwoware Messages, dev tools, docs, among others.</p>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-full.txt
 </code></pre></div>
 <h3 id="optional-integrations">Optional Integrations<a class="headerlink" href="#optional-integrations" title="Permanent link">&para;</a></h3>
@@ -782,23 +783,26 @@ active profile. Installed plugins live under
 <code>$XDG_DATA_HOME/avlite/plugins</code> (or <code>~/.local/share/avlite/plugins</code>);
 override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 <h3 id="publish-your-plugin">Publish your plugin<a class="headerlink" href="#publish-your-plugin" title="Permanent link">&para;</a></h3>
+<p>See <a href="plugin-development/#10-publish-to-the-community-registry-pull-request">Plugin Development — Publish to the community registry</a> for the full checklist. Summary:</p>
 <ol>
-<li>Build a plugin following the <a href="plugin-development/">Plugin Development Guide</a>.</li>
-<li>Push it to a public Git repository.</li>
+<li>Build and test locally (<a href="plugin-development/">Plugin Development Guide</a>).</li>
+<li>Push your plugin to a <strong>public</strong> Git repository.</li>
 <li>
 <p>Fork <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>
    and add an entry to <code>plugins.yaml</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">plugins</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_cool_planner</span>
-<span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/&lt;you&gt;/my_cool_planner</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_perception_plugin</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
+<span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
 <span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">        </span><span class="c1"># or a tag/commit SHA</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary</span>
-<span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Your Name</span>
+<span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
+<span class="w">    </span><span class="nt">category</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
 </code></pre></div>
 </li>
 <li>
-<p>Open a pull request. Once merged the plugin appears automatically in
-   every user's <code>avlite plugins</code> browser.</p>
+<p>Open a pull request. Once merged, the plugin appears in every user's
+   <code>python -m avlite plugins</code> browser for install and register.</p>
 </li>
 </ol>
 <h2 id="core-components">Core Components<a class="headerlink" href="#core-components" title="Permanent link">&para;</a></h2>

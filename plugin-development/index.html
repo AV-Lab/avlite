@@ -541,18 +541,78 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#10-built-in-plugin-naming-pnx" class="md-nav__link">
+  <a href="#10-publish-to-the-community-registry-pull-request" class="md-nav__link">
     <span class="md-ellipsis">
-      10. Built-in plugin naming (pNx)
+      10. Publish to the community registry (pull request)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Publish to the community registry (pull request)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-you-open-a-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before you open a PR
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registry-entry" class="md-nav__link">
+    <span class="md-ellipsis">
+      Registry entry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pull-request-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pull request checklist
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#after-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      After merge
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#updating-your-listing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updating your listing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-built-in-plugin-naming-pnx" class="md-nav__link">
+    <span class="md-ellipsis">
+      11. Built-in plugin naming (pNx)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#11-log-panel-filtering" class="md-nav__link">
+  <a href="#12-log-panel-filtering" class="md-nav__link">
     <span class="md-ellipsis">
-      11. Log panel filtering
+      12. Log panel filtering
     </span>
   </a>
   
@@ -866,7 +926,128 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 </code></pre></div>
 <p>When a plugin is installed through <code>python -m avlite plugins</code>, its path is stored under <code>~/.local/share/avlite/plugins/</code> (override with <code>AVLITE_PLUGINS_DIR</code>).</p>
 <p>Your classes will now appear in the UI dropdowns.</p>
-<h2 id="10-built-in-plugin-naming-pnx">10. Built-in plugin naming (<code>pNx</code>)<a class="headerlink" href="#10-built-in-plugin-naming-pnx" title="Permanent link">&para;</a></h2>
+<h2 id="10-publish-to-the-community-registry-pull-request">10. Publish to the community registry (pull request)<a class="headerlink" href="#10-publish-to-the-community-registry-pull-request" title="Permanent link">&para;</a></h2>
+<p>To list your plugin in every user's <strong>Plugins</strong> browser (<code>python -m avlite plugins</code>), add it to the official registry via pull request.</p>
+<p>Registry repository: <a href="https://github.com/AV-Lab/avlite-community-plugins">github.com/AV-Lab/avlite-community-plugins</a></p>
+<h3 id="before-you-open-a-pr">Before you open a PR<a class="headerlink" href="#before-you-open-a-pr" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Test locally</strong> — register the plugin on a profile (section 9) and confirm your strategies appear in the GUI dropdowns and the stack runs.</li>
+<li><strong>Public Git repository</strong> — the registry clones your repo; private repos will not install for other users.</li>
+<li><strong>Plugin layout</strong> — at minimum:
+   <div class="highlight"><pre><span></span><code>my_cool_planner/
+├── __init__.py       # exports strategy classes (required for discovery)
+├── my_planner.py     # your implementation
+└── README.md         # shown in the Plugins browser (recommended)
+</code></pre></div></li>
+<li><strong>Optional</strong> — <code>settings.py</code> with <code>PluginSettings</code> if you have tunable parameters; <code>requirements.txt</code> if you depend on extra pip packages (users install these into their AVLite environment).</li>
+<li><strong>Do not commit</strong> a <code>.venv</code> inside the plugin repo.</li>
+</ol>
+<h3 id="registry-entry">Registry entry<a class="headerlink" href="#registry-entry" title="Permanent link">&para;</a></h3>
+<p>Fork <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>, add one item under <code>plugins:</code> in <code>plugins.yaml</code>, and open a pull request:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">plugins</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_perception_plugin</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
+<span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
+<span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">              </span><span class="c1"># or a git tag / commit SHA</span>
+<span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
+<span class="w">    </span><span class="nt">category</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Unique registry id; also the install folder name under <code>~/.local/share/avlite/plugins/</code>. Use lowercase with underscores.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>Short text in the plugin list.</td>
+</tr>
+<tr>
+<td><code>repository</code></td>
+<td>HTTPS Git URL (GitHub is supported for README preview in the browser).</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td><code>latest</code> clones the default branch; pin a tag or SHA for reproducible installs.</td>
+</tr>
+<tr>
+<td><code>author</code></td>
+<td>Display name, handle, or organization.</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>List of strategy types this plugin provides (see table below). Shown in the Plugins browser <strong>Category</strong> column.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Category values</strong> (use the names from <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>):</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Use when your plugin implements…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PerceptionStrategy</code></td>
+<td>Sensing, detection, tracking, segmentation, fusion (includes monolithic perception and pipeline sub-strategies such as <code>DetectionStrategy</code>)</td>
+</tr>
+<tr>
+<td><code>LocalizationStrategy</code></td>
+<td>Pose estimation, SLAM-based localization</td>
+</tr>
+<tr>
+<td><code>MappingStrategy</code></td>
+<td>Map building, SLAM mapping, environment representation</td>
+</tr>
+<tr>
+<td><code>PlanningStrategy</code></td>
+<td>Global/local planners, behavior planning, decision-making</td>
+</tr>
+<tr>
+<td><code>ControlStrategy</code></td>
+<td>Vehicle controllers, actuation</td>
+</tr>
+<tr>
+<td><code>Executer</code></td>
+<td>Runtime execution, scheduling, orchestration</td>
+</tr>
+<tr>
+<td><code>WorldBridge</code></td>
+<td>Bridges to simulators, middleware, or external world interfaces</td>
+</tr>
+</tbody>
+</table>
+<p>A plugin can list <strong>multiple</strong> categories if it exports more than one strategy type, e.g. <code>[PerceptionStrategy, LocalizationStrategy]</code>.</p>
+<p>Keep entries sorted alphabetically by <code>name</code> if the registry already follows that convention.</p>
+<h3 id="pull-request-checklist">Pull request checklist<a class="headerlink" href="#pull-request-checklist" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] Plugin works when registered manually (section 9)</li>
+<li>[ ] Repository is public and cloneable</li>
+<li>[ ] <code>__init__.py</code> exports all strategy classes users should select</li>
+<li>[ ] README explains what the plugin provides and any extra setup</li>
+<li>[ ] Registry <code>name</code> matches how you refer to the plugin in docs</li>
+<li>[ ] Registry <code>category</code> matches the base class(es) you export</li>
+<li>[ ] No secrets, large binaries, or committed virtualenv in the plugin repo</li>
+</ul>
+<p>In the PR description, briefly state what layer(s) the plugin extends (perception, planning, control, bridge, etc.) and link to an example profile or usage steps if helpful.</p>
+<h3 id="after-merge">After merge<a class="headerlink" href="#after-merge" title="Permanent link">&para;</a></h3>
+<p>Once the PR is merged to <code>main</code>, AVLite fetches the updated registry automatically the next time a user opens <strong>Plugins</strong> (<code>python -m avlite plugins</code>). They can <strong>Install</strong>, then <strong>Register</strong> to add the plugin to their active execution profile (<code>c40_community_plugins</code>).</p>
+<p>You do not need a new AVLite release for registry-only changes.</p>
+<h3 id="updating-your-listing">Updating your listing<a class="headerlink" href="#updating-your-listing" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New plugin version</strong> — push to your repo; users click <strong>Update</strong> in the Plugins browser (or reinstall). Bump <code>version</code> in <code>plugins.yaml</code> if you want to pin a new tag/SHA for fresh installs.</li>
+<li><strong>Change metadata</strong> — open another PR on avlite-community-plugins to edit <code>description</code>, <code>author</code>, <code>category</code>, or <code>version</code>.</li>
+</ul>
+<h2 id="11-built-in-plugin-naming-pnx">11. Built-in plugin naming (<code>pNx</code>)<a class="headerlink" href="#11-built-in-plugin-naming-pnx" title="Permanent link">&para;</a></h2>
 <p>Built-in plugins under <code>avlite/plugins/</code> use a <strong>directory name</strong> and optional <strong>module file names</strong> with a <code>pNx</code> prefix:</p>
 <ul>
 <li><strong>Directory:</strong> <code>p{layer}{variant}_{description}</code> — e.g. <code>p30_controller_joystick</code>, <code>p40_executer_ROS2</code></li>
@@ -909,7 +1090,7 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 </table>
 <p>The plugin <strong>directory name</strong> and <strong>module file name</strong> can differ. For example, package <code>p30_controller_joystick</code> may contain module <code>p31_joystick_controller.py</code>.</p>
 <p>Logger names follow Python's <code>__name__</code>, e.g. <code>avlite.plugins.p30_controller_joystick.p31_joystick_controller</code>. Log routing uses the <strong>first module segment</strong> under the package (<code>p31_joystick_controller</code>) before falling back to the directory name.</p>
-<h2 id="11-log-panel-filtering">11. Log panel filtering<a class="headerlink" href="#11-log-panel-filtering" title="Permanent link">&para;</a></h2>
+<h2 id="12-log-panel-filtering">12. Log panel filtering<a class="headerlink" href="#12-log-panel-filtering" title="Permanent link">&para;</a></h2>
 <p>The visualizer log toolbar provides:</p>
 <ul>
 <li><strong>Core</strong> — master toggle for all core stack logs (<code>avlite.c10_*</code> … <code>avlite.c60_*</code>). Does not change the per-layer checkbox states.</li>
