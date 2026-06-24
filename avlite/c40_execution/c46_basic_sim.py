@@ -5,7 +5,7 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c30_control.c32_control_strategy import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings
@@ -64,7 +64,7 @@ class BasicSim(WorldBridge):
         )
 
 
-    def control_ego_state(self, cmd:ControlComand, dt=0.01):
+    def control_ego_state(self, cmd:ControlCommand, dt=0.01):
         acceleration = cmd.acceleration
         steering_angle = cmd.steer
 

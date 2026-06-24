@@ -3,7 +3,8 @@ from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c60_common.c62_sensor_data import DepthImage, LidarCloud, RgbImage, SensorFrame
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c10_perception.c11_perception_model import PerceptionModel
-from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
+from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c32_control_strategy import ControlStrategy
 from typing import Union
 import math
 import logging
@@ -328,7 +329,7 @@ class Carla5Bridge(WorldBridge):
             lidar = self._lidar_buffer
         return SensorFrame(rgb=rgb, depth=depth, lidar=lidar)
 
-    def control_ego_state(self, cmd: ControlComand, dt=0.01):
+    def control_ego_state(self, cmd: ControlCommand, dt=0.01):
         """Update the ego state with the given command.
         This method applies control commands to the vehicle and updates the state.
         If the vehicle doesn't exist yet, it will be spawned.

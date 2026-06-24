@@ -45,7 +45,7 @@ perception:
   pred_horizon: 3
   prediction_mode: grid
   predictor: AttentionGMM
-  tracker: None
+  tracker: null
 ros:
   detector: ground_truth
   device: cuda:0

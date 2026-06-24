@@ -20,7 +20,7 @@ from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
-from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
@@ -42,7 +42,7 @@ class _StubWorldBridge(WorldBridge):
     def capabilities(self):
         return set()
 
-    def control_ego_state(self, cmd: ControlComand, dt: float = 0.01):
+    def control_ego_state(self, cmd: ControlCommand, dt: float = 0.01):
         if self.delay > 0.0:
             time.sleep(self.delay)
 
@@ -77,8 +77,8 @@ class _StubLocalPlanner(LocalPlanningStrategy):
 
 
 class _StubController(ControlStrategy, abstract=True):
-    def control(self, ego, tj=None, control_dt=None) -> ControlComand:
-        return ControlComand()
+    def control(self, ego, tj=None, control_dt=None) -> ControlCommand:
+        return ControlCommand()
 
     def reset(self):
         pass

@@ -3,7 +3,6 @@ import logging
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
 from avlite.c60_common.c66_hdmap import HDMap
-from avlite.c30_control.c31_control_model import  ControlComand
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy

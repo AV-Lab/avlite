@@ -12,7 +12,7 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 log = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class ProxyController(ControlStrategy):
     
     def __init__(self, tj: Optional[TrajectoryTracker] = None):
         super().__init__(tj)
-        self.last_command: Optional[ControlComand] = None
+        self.last_command: Optional[ControlCommand] = None
         log.info("ProxyController initialized - will receive commands from ROS")
     
     def control(
@@ -72,7 +72,7 @@ class ProxyController(ControlStrategy):
         ego: EgoState,
         plan: Optional[LocalPlan] = None,
         control_dt: float = None
-    ) -> ControlComand:
+    ) -> ControlCommand:
         """
         Return the last received control command (no actual control computation).
         
@@ -85,7 +85,7 @@ class ProxyController(ControlStrategy):
     
     def reset(self):
         """Reset the proxy controller."""
-        self.cmd = ControlComand()
+        self.cmd = ControlCommand()
         self.last_command = None
         self.cte_steer = 0
         self.cte_velocity = 0

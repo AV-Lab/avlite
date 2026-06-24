@@ -31,7 +31,7 @@ from typing import Optional
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
-from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c60_common.c62_sensor_data import LidarCloud, RgbImage, SensorFrame
@@ -97,7 +97,7 @@ def _agents_from_bounding_boxes(msg) -> list[AgentState]:
     return agents
 
 
-def _control_to_vehicle_cmd(cmd: ControlComand, stamp=None) -> "VehicleControlCommand":
+def _control_to_vehicle_cmd(cmd: ControlCommand, stamp=None) -> "VehicleControlCommand":
     msg = VehicleControlCommand()
     if stamp is not None:
         msg.stamp = stamp
@@ -368,7 +368,7 @@ class ROS2WorldBridge(WorldBridge, Node if ROS_AVAILABLE else object):
     # WorldBridge interface
     # ------------------------------------------------------------------
 
-    def control_ego_state(self, cmd: ControlComand, dt: Optional[float] = 0.01) -> None:
+    def control_ego_state(self, cmd: ControlCommand, dt: Optional[float] = 0.01) -> None:
         """Publish the control command to the ROS control topic."""
         if self.use_autoware:
             stamp = self.get_clock().now().to_msg()

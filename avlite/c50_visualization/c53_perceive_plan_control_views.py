@@ -14,7 +14,8 @@ from avlite.c10_perception.c12_perception_strategy import (
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
+from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c58_ui_lib import ValueGauge, ThemedInputDialog, attach_schema_tooltip
@@ -418,30 +419,30 @@ class ControlFrame(ttk.LabelFrame):
 
     def step_steer_left(self):
         log.debug("Steer right")
-        self.root.exec.world.control_ego_state(cmd=ControlComand(
+        self.root.exec.world.control_ego_state(cmd=ControlCommand(
             steer=0.7), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_steer_right(self):
         log.debug("Steer right")
-        self.root.exec.world.control_ego_state(cmd=ControlComand(
+        self.root.exec.world.control_ego_state(cmd=ControlCommand(
             steer=-0.7), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def reset_steer(self):
         log.debug("Reset steer")
-        self.root.exec.world.control_ego_state(cmd=ControlComand(
+        self.root.exec.world.control_ego_state(cmd=ControlCommand(
             steer=0), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_acc(self):
         acc = 3
         self.root.exec.world.control_ego_state(
-            cmd=ControlComand(acceleration=acc), dt=self.root.setting.sim_dt.get())
+            cmd=ControlCommand(acceleration=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_dec(self):
         acc = -3
         self.root.exec.world.control_ego_state(
-            cmd=ControlComand(acceleration=acc), dt=self.root.setting.sim_dt.get())
+            cmd=ControlCommand(acceleration=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()

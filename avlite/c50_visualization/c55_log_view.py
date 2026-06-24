@@ -16,55 +16,33 @@ from avlite.c60_common.c60_plugins import (
 
 log = logging.getLogger(__name__)
 
-_LAYER_TOGGLES = (
-    ("perception", "avlite.c10_perception", "show_perceive_logs"),
-    ("planning", "avlite.c20_planning", "show_plan_logs"),
-    ("control", "avlite.c30_control", "show_control_logs"),
-    ("execution", "avlite.c40_execution", "show_execute_logs"),
-    ("visualization", "avlite.c50_visualization", "show_vis_logs"),
-    ("common", "avlite.c60_common", "show_common_logs"),
-)
-
-_DEFAULT_FILTER_STATE: dict[str, bool] = {
-    "show_perceive_logs": True,
-    "show_plan_logs": True,
-    "show_control_logs": True,
-    "show_execute_logs": True,
-    "show_vis_logs": True,
-    "show_common_logs": True,
-    "show_core_logs": True,
-    "show_plugins_logs": True,
-    "disable_log": False,
-    "log_to_file": False,
-}
-
-
-def should_show_log(record_name: str, filter_state: dict[str, bool]) -> bool:
-    """Return whether *record_name* should be shown (thread-safe: plain bools only)."""
-    for _key, prefix, attr in _LAYER_TOGGLES:
-        if record_name.startswith(prefix + "."):
-            if not filter_state.get("show_core_logs", True):
-                return False
-            return filter_state.get(attr, True)
-
-    pkg = plugin_package_from_logger(record_name)
-    if pkg is not None:
-        if not filter_state.get("show_plugins_logs", True):
-            return False
-        layer = layer_key_for_plugin_log_record(record_name)
-        if layer is None:
-            return True
-        for key, _prefix, attr in _LAYER_TOGGLES:
-            if key == layer:
-                return filter_state.get(attr, True)
-        return False
-
-    return True
-
 if TYPE_CHECKING:
     from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
 
+
 class LogView(ttk.LabelFrame):
+    _LAYER_TOGGLES = (
+        ("perception", "avlite.c10_perception", "show_perceive_logs"),
+        ("planning", "avlite.c20_planning", "show_plan_logs"),
+        ("control", "avlite.c30_control", "show_control_logs"),
+        ("execution", "avlite.c40_execution", "show_execute_logs"),
+        ("visualization", "avlite.c50_visualization", "show_vis_logs"),
+        ("common", "avlite.c60_common", "show_common_logs"),
+    )
+
+    _DEFAULT_FILTER_STATE: dict[str, bool] = {
+        "show_perceive_logs": True,
+        "show_plan_logs": True,
+        "show_control_logs": True,
+        "show_execute_logs": True,
+        "show_vis_logs": True,
+        "show_common_logs": True,
+        "show_core_logs": True,
+        "show_plugins_logs": True,
+        "disable_log": False,
+        "log_to_file": False,
+    }
+
     def __init__(self, root: VisualizerApp):
         super().__init__(root, text="Log")
         self.root = root
@@ -74,7 +52,7 @@ class LogView(ttk.LabelFrame):
         # self.after(50, self.process_log_queue)
 
         self.log_blacklist = set()
-        self._filter_state = dict(_DEFAULT_FILTER_STATE)
+        self._filter_state = dict(self._DEFAULT_FILTER_STATE)
 
         self.controls_frame = ttk.Frame(self)
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
@@ -378,10 +356,32 @@ class LogView(ttk.LabelFrame):
             for bl in self.log_view.log_blacklist:
                 if record.name.startswith(bl + "."):
                     return
-            if not should_show_log(record.name, self.log_view._filter_state):
+            if not LogView.should_show_log(record.name, self.log_view._filter_state):
                 return
             self.log_queue.put((record, record.levelno))
- 
+
+    @staticmethod
+    def should_show_log(record_name: str, filter_state: dict[str, bool]) -> bool:
+        """Return whether *record_name* should be shown (thread-safe: plain bools only)."""
+        for _key, prefix, attr in LogView._LAYER_TOGGLES:
+            if record_name.startswith(prefix + "."):
+                if not filter_state.get("show_core_logs", True):
+                    return False
+                return filter_state.get(attr, True)
+
+        pkg = plugin_package_from_logger(record_name)
+        if pkg is not None:
+            if not filter_state.get("show_plugins_logs", True):
+                return False
+            layer = layer_key_for_plugin_log_record(record_name)
+            if layer is None:
+                return True
+            for key, _prefix, attr in LogView._LAYER_TOGGLES:
+                if key == layer:
+                    return filter_state.get(attr, True)
+            return False
+
+        return True
 
     #     def emit(self, record):
     #         """ Emit a log record to the text widget """

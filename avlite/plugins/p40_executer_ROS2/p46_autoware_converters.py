@@ -14,7 +14,7 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 
 log = logging.getLogger(__name__)
 
@@ -186,7 +186,7 @@ def trajectory_to_autoware(traj: TrajectoryTracker, header: Optional['Header'] =
 # ControlCommand <-> VehicleControlCommand
 # -----------------------------------------------------------------------------
 
-def control_from_vehicle_cmd(msg) -> ControlComand:
+def control_from_vehicle_cmd(msg) -> ControlCommand:
     """
     Convert Autoware VehicleControlCommand to AVLite ControlCommand.
     
@@ -197,15 +197,15 @@ def control_from_vehicle_cmd(msg) -> ControlComand:
         AVLite ControlCommand
     """
     if not AUTOWARE_AVAILABLE:
-        return ControlComand()
+        return ControlCommand()
     
-    return ControlComand(
+    return ControlCommand(
         steer=msg.front_wheel_angle_rad,
         acceleration=msg.long_accel_mps2
     )
 
 
-def control_to_vehicle_cmd(cmd: ControlComand, header: Optional['Header'] = None) -> 'VehicleControlCommand':
+def control_to_vehicle_cmd(cmd: ControlCommand, header: Optional['Header'] = None) -> 'VehicleControlCommand':
     """
     Convert AVLite ControlCommand to Autoware VehicleControlCommand.
     

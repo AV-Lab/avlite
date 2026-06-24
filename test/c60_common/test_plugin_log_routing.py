@@ -1,6 +1,6 @@
 """Tests for plugin log routing helpers."""
 
-from avlite.c50_visualization.c55_log_view import should_show_log
+from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c60_common.c60_plugins import (
     layer_key_for_plugin_log_record,
     layer_key_for_plugin_package,
@@ -70,24 +70,24 @@ def test_layer_key_for_plugin_log_record_package_fallback():
 
 def test_should_show_log_core_layer():
     name = "avlite.c30_control.c32_control_strategy"
-    assert should_show_log(name, _filters(show_control_logs=True))
-    assert not should_show_log(name, _filters(show_control_logs=False))
-    assert not should_show_log(name, _filters(show_core_logs=False, show_control_logs=True))
+    assert LogView.should_show_log(name, _filters(show_control_logs=True))
+    assert not LogView.should_show_log(name, _filters(show_control_logs=False))
+    assert not LogView.should_show_log(name, _filters(show_core_logs=False, show_control_logs=True))
 
 
 def test_should_show_log_plugins_master_toggle():
     name = "avlite.plugins.p30_controller_joystick.p31_joystick_controller"
-    assert should_show_log(name, _filters(show_plugins_logs=True))
-    assert not should_show_log(name, _filters(show_plugins_logs=False))
+    assert LogView.should_show_log(name, _filters(show_plugins_logs=True))
+    assert not LogView.should_show_log(name, _filters(show_plugins_logs=False))
 
 
 def test_should_show_log_pnx_routes_to_layer():
     name = "avlite.plugins.p30_controller_joystick.p31_joystick_controller"
-    assert should_show_log(name, _filters(show_plugins_logs=True, show_control_logs=True))
-    assert not should_show_log(name, _filters(show_plugins_logs=True, show_control_logs=False))
+    assert LogView.should_show_log(name, _filters(show_plugins_logs=True, show_control_logs=True))
+    assert not LogView.should_show_log(name, _filters(show_plugins_logs=True, show_control_logs=False))
 
 
 def test_should_show_log_community_plugin_bucket():
     name = "avlite.plugins.sample_avlite_plugin.handler"
-    assert should_show_log(name, _filters(show_plugins_logs=True))
-    assert not should_show_log(name, _filters(show_plugins_logs=False))
+    assert LogView.should_show_log(name, _filters(show_plugins_logs=True))
+    assert not LogView.should_show_log(name, _filters(show_plugins_logs=False))

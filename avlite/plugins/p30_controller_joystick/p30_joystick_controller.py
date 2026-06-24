@@ -3,7 +3,8 @@ from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import LocalPlan
-from avlite.c30_control.c32_control_strategy import ControlStrategy, ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.plugins.p30_controller_joystick.settings import PluginSettings
 
@@ -76,7 +77,7 @@ class JoystickController(ControlStrategy):
         ego: EgoState,
         plan: Optional[LocalPlan] = None,
         control_dt: float = None,
-    ) -> ControlComand:
+    ) -> ControlCommand:
         if self._joystick is None:
             if not self._warned_on_control:
                 self._warned_on_control = True
@@ -84,7 +85,7 @@ class JoystickController(ControlStrategy):
                     "JoystickController: no gamepad available (%s); returning zero command",
                     self._unavailable_reason or "unknown",
                 )
-            return ControlComand()
+            return ControlCommand()
 
         pygame.event.pump()
 
@@ -115,7 +116,7 @@ class JoystickController(ControlStrategy):
         acceleration = accel * self.ego_max_acceleration
         braking = brake * self.ego_min_acceleration
 
-        cmd = ControlComand(steer=steering, acceleration=acceleration + braking)
+        cmd = ControlCommand(steer=steering, acceleration=acceleration + braking)
         self.cmd = cmd
         return cmd
 

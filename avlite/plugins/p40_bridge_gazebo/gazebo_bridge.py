@@ -7,7 +7,8 @@ import numpy as np
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
-from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
+from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 
 log = logging.getLogger(__name__)
@@ -338,7 +339,7 @@ class GazeboIgnitionBridge(WorldBridge, Node if ROS_AVAILABLE else object):
     def spawn_agent(self, agent_state: AgentState):
         pass
     
-    def control_ego_state(self, cmd: ControlComand, dt=0.01):
+    def control_ego_state(self, cmd: ControlCommand, dt=0.01):
         """Update the ego state with the given command.
         This method applies control commands to the vehicle and updates the state.
         If the vehicle doesn't exist yet, it will be spawned.

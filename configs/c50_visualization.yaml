@@ -242,7 +242,7 @@ default:
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception
-  perception_dt: 0.05
+  perception_dt: 0.01
   perception_type: PerceptionPipeline
   prediction_strategy_type: ConstantVelocityPrediction
   replan_dt: 0.01
@@ -367,11 +367,11 @@ perception:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 40
+  frenet_zoom: 110.0
   global_plan_view: false
   global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false
-  global_zoom: 80
+  global_zoom: 80.0
   hide_menubar: false
   load_plugins: true
   local_plan_view: true
@@ -380,7 +380,7 @@ perception:
   localization_type: None
   log_font: Courier
   log_font_size: 11
-  log_level: INFO
+  log_level: DEBUG
   log_pull_time: 50
   log_to_file: false
   log_view_default_height: 12
@@ -396,7 +396,7 @@ perception:
   replan_dt: 0.01
   selected_profile: perception
   shortcut_mode: false
-  show_common_logs: true
+  show_common_logs: false
   show_control_logs: false
   show_core_logs: true
   show_execute_logs: false
@@ -415,11 +415,12 @@ perception:
   show_perception_extras: true
   show_plan_logs: false
   show_plugins_logs: true
+  show_race_boundary: true
   show_state: true
   show_vis_logs: false
   sim_dt: 0.01
   tracking_strategy_type: KalmanTracker
-  xy_zoom: 60
+  xy_zoom: 60.0
 ros:
   bg_color: '#333333'
   bridge_provide_depth_image: false

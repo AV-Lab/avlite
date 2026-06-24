@@ -30,7 +30,7 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c11_perception_model import EgoState, AgentState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c60_common.c69_setting_utils import load_setting
-from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 
 from .settings import PluginSettings
 from .p46_autoware_converters import (
@@ -58,7 +58,7 @@ class ROSData:
     # Latest received data
     ego_state: Optional[EgoState] = None
     local_plan: Optional[TrajectoryTracker] = None
-    control_cmd: Optional[ControlComand] = None
+    control_cmd: Optional[ControlCommand] = None
     agents: list[AgentState] = field(default_factory=list)
     
     # Prediction/heatmap data from perception
@@ -239,7 +239,7 @@ class CollectorNode(Node):
         try:
             data = json.loads(msg.data)
             with self.ros_data.lock:
-                self.ros_data.control_cmd = ControlComand(
+                self.ros_data.control_cmd = ControlCommand(
                     steer=data.get('steer', 0),
                     acceleration=data.get('acceleration', 0)
                 )

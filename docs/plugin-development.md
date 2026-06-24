@@ -232,12 +232,12 @@ class MyLocalPlanner(LocalPlanningStrategy):
 
 ```python
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 
 class MyController(ControlStrategy):
-    def control(self, ego, tj=None, control_dt=None) -> ControlComand:
+    def control(self, ego, tj=None, control_dt=None) -> ControlCommand:
         # Your logic here
-        return ControlComand(throttle=1.0, steer=0.0)
+        return ControlCommand(throttle=1.0, steer=0.0)
     
     def reset(self):
         pass

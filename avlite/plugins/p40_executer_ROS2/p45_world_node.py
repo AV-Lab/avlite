@@ -20,7 +20,7 @@ from std_msgs.msg import String, Header
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c30_control.c31_control_model import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 
 from .p46_autoware_converters import (
     AUTOWARE_AVAILABLE,
@@ -57,7 +57,7 @@ class WorldNode(Node):
         self.settings = PluginSettings()
         self.world = world
         self.ros_data = ros_data
-        self.last_cmd: ControlComand = None
+        self.last_cmd: ControlCommand = None
         # Use Autoware messages only if available AND enabled in settings
         self.use_autoware = AUTOWARE_AVAILABLE and self.settings.use_autoware_msgs
         
@@ -134,7 +134,7 @@ class WorldNode(Node):
         """Handle JSON control command."""
         try:
             data = json.loads(msg.data)
-            self.last_cmd = ControlComand(
+            self.last_cmd = ControlCommand(
                 steer=data.get('steer', 0),
                 acceleration=data.get('acceleration', 0)
             )

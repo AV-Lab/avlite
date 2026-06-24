@@ -133,7 +133,7 @@ default:
   c40_log_to_file: false
   c40_mapping: ''
   c40_perception: PerceptionPipeline
-  c40_perception_dt: 0.05
+  c40_perception_dt: 0.01
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
   c41_provide_depth: false
@@ -196,12 +196,13 @@ perception:
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
-  - p10_perception_MO_prediction
+  - p30_controller_joystick
+  - p40_executer_ROS2
   - p40_bridge_gazebo
+  - p10_perception_MO_prediction
   - p50_headless_mode
   - p40_bridge_carla
   - p40_bridge_ROS2
-  - p40_executer_ROS2
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -209,17 +210,19 @@ perception:
   c40_local_planner: GreedyLatticePlanner
   c40_localization: ''
   c40_localization_dt: 0.1
-  c40_log_level: INFO
+  c40_log_level: DEBUG
   c40_log_to_file: false
   c40_mapping: ''
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
+  c41_provide_depth: false
   c41_provide_ground_truth: false
   c41_provide_lidar: true
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.json
+  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/race_boundary_yas_marina.json
   c46_lidar_fov_deg: 360.0
