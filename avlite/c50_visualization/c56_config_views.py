@@ -6,50 +6,53 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 
-from avlite.c60_common.c69_setting_utils import (
-    save_setting,
-    load_setting,
-    delete_setting_profile,
-    rename_setting_profile,
-    reload_lib,
-    load_all_stack_settings,
-    load_plugin_settings_class,
-    patch_plugin_settings,
+from avlite.c60_common.c67_paths import (
     bundled_config_dir,
     can_edit_repo_configs,
     copy_repo_configs_to_user,
     get_config_dir,
+    installed_community_plugins_map,
     is_repo_config_target,
-    list_profiles,
     set_repo_config_target,
     set_startup_profile,
 )
-from avlite.c50_visualization.c58_ui_lib import ThemedInputDialog, ThemedTwoInputDialog, HoverTooltip, attach_schema_tooltip
+from avlite.c60_common.c60_plugins import (
+    import_plugin_modules,
+    list_plugins,
+    load_all_stack_settings,
+    load_plugin_settings_class,
+    patch_plugin_settings,
+    plugin_module_prefix,
+    reload_lib,
+)
+from avlite.c60_common.c69_setting_utils import (
+    delete_setting_profile,
+    list_profiles,
+    load_setting,
+    rename_setting_profile,
+    save_setting,
+)
+from avlite.c50_visualization.c58_ui_lib import (
+    HoverTooltip,
+    ThemedInputDialog,
+    ThemedTwoInputDialog,
+    TkSettingsBinder,
+    attach_schema_tooltip,
+)
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c60_common.c68_settings_schema import field_tooltip_text
-if TYPE_CHECKING:
-    from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c60_common.c69_setting_utils import list_extensions
-
 
 import logging
 
 log = logging.getLogger(__name__)
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from c50_visualization.c51_visualizer_app import VisualizerApp
-
-
-# Aliases kept for readability within this module
-_load_plugin_settings_class = load_plugin_settings_class
-_patch_plugin_settings = patch_plugin_settings
+    from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
 
 
 def _setting_window_edit_repo_configs_toggle(win: "SettingWindow") -> None:
@@ -215,8 +218,10 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.set_dark_mode_themed() if self.root.setting.dark_mode.get() else self.root.set_light_mode()
 
     def save_config(self):
-        save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
-        save_setting(ExecutionSettings, profile=self.root.setting.selected_profile.get())
+        profile = self.root.setting.selected_profile.get()
+        binder = TkSettingsBinder()
+        save_setting(self.root.setting, profile=profile, binder=binder)
+        save_setting(ExecutionSettings, profile=profile, binder=binder)
 
 
     def open_settings_window(self):
@@ -234,7 +239,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         """Update the settings window with the latest settings."""
         if hasattr(self, "setting_view") and hasattr(self.setting_view, "window") and self.setting_view.window.winfo_exists():
             self.setting_view.update_core_widgets()
-            self.setting_view.update_extensions_widgets()
+            self.setting_view.update_plugins_widgets()
             self.setting_view.update_community_plugin_list()
             log.info("Updated existing settings window")
 
@@ -285,7 +290,7 @@ class SettingWindow:
         additional_setting_frame.grid(row=1, column=0, columnspan=2, sticky="sew", padx=5, pady=5)
 
         ##########
-        # Profiles & Extensions
+        # Profiles & Plugins
         ##########
         profile_ext_frame.rowconfigure(8, weight=1)
 
@@ -327,48 +332,50 @@ class SettingWindow:
             text="Copy repository configs",
             command=lambda: _setting_window_copy_repository_configs(self),
         ).grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        ## Extensions
+        ## Plugins
         ##############################################
-        extension_frame = ttk.LabelFrame(profile_ext_frame, text="Extensions")
-        extension_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
+        plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
+        plugin_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
 
-        ttk.Checkbutton(extension_frame, text="Load Extensions" , variable=self.root.setting.load_extensions,
-            command=self.recreate_extensions_widgets).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
+        ttk.Checkbutton(plugin_frame, text="Load Plugins" , variable=self.root.setting.load_plugins,
+            command=self.recreate_plugin_widgets).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
 
-        # internal extensions 
-        ttk.Label(extension_frame, text="Extensions").grid(row=3, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_default_extensions = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
-        self.listbox_default_extensions.grid(row=2, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
+        # built-in plugins
+        ttk.Label(plugin_frame, text="Plugins").grid(row=3, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
+        self.listbox_default_plugins = tk.Listbox(plugin_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
+        self.listbox_default_plugins.grid(row=2, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for ext in ExecutionSettings.c40_default_extensions:
-            self.listbox_default_extensions.insert(tk.END, ext)
+        for plugin in ExecutionSettings.c40_default_plugins:
+            self.listbox_default_plugins.insert(tk.END, plugin)
         
-        ttk.Button(extension_frame, text="Reset Extensions", command=self.reset_default_extensions).grid(row=3, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Remove Extension", command=self.remove_default_extension).grid(row=3, column=1, sticky="we", padx=5, pady=5)
+        ttk.Button(plugin_frame, text="Reset Plugins", command=self.reset_default_plugins).grid(row=3, column=0, sticky="we", padx=5, pady=5)
+        ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin).grid(row=3, column=1, sticky="we", padx=5, pady=5)
 
 
-        # community extensions
-        ttk.Label(extension_frame, text="Community Plugins").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_community_plugins = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
+        # community plugins
+        ttk.Label(plugin_frame, text="Community Plugins").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
+        self.listbox_community_plugins = tk.Listbox(plugin_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
         self.listbox_community_plugins.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for ext in ExecutionSettings.c40_community_plugins.keys() if self.root.setting.load_extensions.get() else []:
-            self.listbox_community_plugins.insert(tk.END, ext)
+        for plugin in ExecutionSettings.c40_community_plugins.keys() if self.root.setting.load_plugins.get() else []:
+            self.listbox_community_plugins.insert(tk.END, plugin)
 
         self.listbox_community_plugins.bind("<Double-Button-1>", lambda e: self.edit_community_plugin())
         self.listbox_community_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_plugin())
-        self.listbox_default_extensions.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_extension())
+        self.listbox_default_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_builtin_plugin())
 
 
 
-        ttk.Button(extension_frame, text="Add Plugin", command=self.add_community_plugin).grid(row=6, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Delete Plugin", command=self.delete_community_plugin
-                   ).grid(row=6, column=1, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Browse Community Plugins…",
+        ttk.Button(plugin_frame, text="Reset to Installed", command=self.reset_community_plugins
+                   ).grid(row=6, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        ttk.Button(plugin_frame, text="Add Plugin", command=self.add_community_plugin).grid(row=7, column=0, sticky="we", padx=5, pady=5)
+        ttk.Button(plugin_frame, text="Remove Plugin", command=self.delete_community_plugin
+                   ).grid(row=7, column=1, sticky="we", padx=5, pady=5)
+        ttk.Button(plugin_frame, text="Browse Community Plugins…",
                    command=self.open_plugins_window
-                   ).grid(row=7, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+                   ).grid(row=8, column=0, columnspan=2, sticky="we", padx=5, pady=5)
 
 
         #############################################
@@ -427,10 +434,10 @@ class SettingWindow:
         self.create_widgets(ExecutionSettings, "Execution Settings")
         #######
         #######
-        if self.root.setting.load_extensions.get():
+        if self.root.setting.load_plugins.get():
             ttk.Separator(self.settings_frame, orient='horizontal').pack(fill='x', pady=10)
-            ttk.Label(self.settings_frame, text="Extensions Settings",style="Big.TLabel").pack(anchor=tk.W, padx=5, pady=5)
-            self.create_ext_widgets()
+            ttk.Label(self.settings_frame, text="Plugin Settings",style="Big.TLabel").pack(anchor=tk.W, padx=5, pady=5)
+            self.create_plugin_widgets()
 
         # Pre-create separator and label for community plugin settings section;
         # they are pack()ed lazily inside create_community_plugin_widgets().
@@ -487,41 +494,47 @@ class SettingWindow:
         ttk.Button(additional_setting_row_2, text="Close",width=5, underline=0, command=self.hide).pack(side=tk.RIGHT, padx=5)
         ttk.Button(additional_setting_row_2, text="Save",width=5, underline=0, command=self.save_profile).pack(side=tk.RIGHT, padx=5)
 
-    def reset_default_extensions(self):
-        """ Reset the default extensions to the source code defaults. """
-        from avlite.c60_common.c69_setting_utils import import_all_modules
+    def reset_community_plugins(self):
+        """Reset community plugins to all plugins installed under the plugins directory."""
+        log.info("Resetting community plugins to installed set.")
+        ExecutionSettings.c40_community_plugins = installed_community_plugins_map()
+        self.update_community_plugin_list()
+        if self.root.setting.load_plugins.get():
+            self.update_community_plugin_widgets()
 
-        log.info("Resetting default extensions to source code defaults.")
+    def reset_default_plugins(self):
+        """ Reset the default plugins to the source code defaults. """
+        log.info("Resetting default plugins to source code defaults.")
 
-        self.listbox_default_extensions.delete(0, tk.END)
-        ExecutionSettings.c40_default_extensions = list_extensions()
+        self.listbox_default_plugins.delete(0, tk.END)
+        ExecutionSettings.c40_default_plugins = list_plugins()
 
-        for ext in ExecutionSettings.c40_default_extensions:
-            self.listbox_default_extensions.insert(tk.END, ext)
+        for plugin in ExecutionSettings.c40_default_plugins:
+            self.listbox_default_plugins.insert(tk.END, plugin)
 
-        import_all_modules(extensions_filter=ExecutionSettings.c40_default_extensions)
+        import_plugin_modules(plugins_filter=ExecutionSettings.c40_default_plugins)
         self.root.perceive_plan_control_view.reset()
         self.root.exec_visualize_view.update_data()
 
-    def remove_default_extension(self):
-        """ Remove the selected default extension from the list. """
-        selected = self.listbox_default_extensions.curselection()
+    def remove_default_plugin(self):
+        """ Remove the selected default plugin from the list. """
+        selected = self.listbox_default_plugins.curselection()
         if selected:
-            ext_name = self.listbox_default_extensions.get(selected)
-            if ext_name in ExecutionSettings.c40_default_extensions:
-                ExecutionSettings.c40_default_extensions.remove(ext_name)
-                self.listbox_default_extensions.delete(selected)
-                self._unregister_extension(ext_name)
+            plugin_name = self.listbox_default_plugins.get(selected)
+            if plugin_name in ExecutionSettings.c40_default_plugins:
+                ExecutionSettings.c40_default_plugins.remove(plugin_name)
+                self.listbox_default_plugins.delete(selected)
+                self._unregister_plugin(plugin_name)
                 self.root.perceive_plan_control_view.reset()
                 self.root.exec_visualize_view.update_data()
-                log.info(f"Removed and unloaded extension: {ext_name}")
+                log.info(f"Removed and unloaded plugin: {plugin_name}")
             else:
-                log.warning(f"Extension {ext_name} not found in default extensions.")
+                log.warning(f"Plugin {plugin_name} not found in default plugins.")
         else:
-            log.warning("No extension selected to remove.")
+            log.warning("No plugin selected to remove.")
 
-    def _unregister_extension(self, ext_name: str):
-        """Remove all strategy classes registered by an extension from all registries and sys.modules."""
+    def _unregister_plugin(self, plugin_name: str):
+        """Remove all strategy classes registered by a plugin from all registries and sys.modules."""
         import sys
         from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
         from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
@@ -530,19 +543,19 @@ class SettingWindow:
         from avlite.c40_execution.c41_world_bridge import WorldBridge
         from avlite.c40_execution.c42_executer import Executer
 
-        ext_module_prefix = f"avlite.extensions.{ext_name}"
+        plugin_module_prefix_str = plugin_module_prefix(plugin_name)
         for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
                          LocalPlanningStrategy.registry, ControlStrategy.registry,
                          Executer.registry, WorldBridge.registry]:
             to_remove = [name for name, cls in registry.items()
-                         if cls.__module__.startswith(ext_module_prefix)]
+                         if cls.__module__.startswith(plugin_module_prefix_str)]
             for name in to_remove:
                 del registry[name]
-                log.info(f"Unregistered {name} from {ext_module_prefix}")
+                log.info(f"Unregistered {name} from {plugin_module_prefix_str}")
 
-        # Purge extension modules from sys.modules so reload_lib won't re-register them
+        # Purge plugin modules from sys.modules so reload_lib won't re-register them
         for mod_name in list(sys.modules.keys()):
-            if mod_name.startswith(ext_module_prefix):
+            if mod_name.startswith(plugin_module_prefix_str):
                 del sys.modules[mod_name]
                 log.debug(f"Removed {mod_name} from sys.modules")
 
@@ -553,39 +566,41 @@ class SettingWindow:
         if not name:
             return
 
-        log.info(f"Adding Extension: {name}")
+        log.info(f"Adding plugin: {name}")
         ExecutionSettings.c40_community_plugins[name] = dir
         self.listbox_community_plugins.insert(tk.END, name)
         
     def delete_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
         if selected:
-            ext_name = self.listbox_community_plugins.get(selected)
-            ExecutionSettings.c40_community_plugins.pop(ext_name, None)
+            plugin_name = self.listbox_community_plugins.get(selected)
+            ExecutionSettings.c40_community_plugins.pop(plugin_name, None)
             self.listbox_community_plugins.delete(selected)
-        log.warning(f"Deleted extension: {ExecutionSettings.c40_community_plugins}")
+            log.info(f"Deleted community plugin: {plugin_name}")
+        else:
+            log.warning("No community plugin selected to delete.")
 
     def edit_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
         if not selected:
-            log.warning("No extension selected to edit.")
+            log.warning("No community plugin selected to edit.")
             return
         
-        ext_name = self.listbox_community_plugins.get(selected)
-        current_dir = ExecutionSettings.c40_community_plugins.get(ext_name, "")
+        plugin_name = self.listbox_community_plugins.get(selected)
+        current_dir = ExecutionSettings.c40_community_plugins.get(plugin_name, "")
         
-        dialog = ThemedTwoInputDialog(self.root, "Edit Community Plugin", "Package Name", "Package Directory", ext_name, current_dir)
+        dialog = ThemedTwoInputDialog(self.root, "Edit Community Plugin", "Package Name", "Package Directory", plugin_name, current_dir)
         
         if dialog.result:
             new_name, new_dir = dialog.result
             if new_name and new_dir:
                 ExecutionSettings.c40_community_plugins[new_name] = new_dir
-                if new_name != ext_name:
-                    ExecutionSettings.c40_community_plugins.pop(ext_name, None)
+                if new_name != plugin_name:
+                    ExecutionSettings.c40_community_plugins.pop(plugin_name, None)
                 self.update_community_plugin_list()
 
     def update_community_plugin_list(self):
-        """ Load the extensions from the settings. """
+        """ Load the community plugins from the settings. """
 
         self.listbox_community_plugins.delete(0, tk.END)
         for name, dir in ExecutionSettings.c40_community_plugins.items():
@@ -628,14 +643,14 @@ class SettingWindow:
             delete_setting_profile(ControlSettings, profile=self.root.setting.selected_profile.get())
             delete_setting_profile(ExecutionSettings, profile=self.root.setting.selected_profile.get())
             delete_setting_profile(self.root.setting, profile=self.root.setting.selected_profile.get())
-            if self.root.setting.load_extensions.get():
-                for ext in ExecutionSettings.c40_default_extensions:
+            if self.root.setting.load_plugins.get():
+                for plugin in ExecutionSettings.c40_default_plugins:
                     try:
-                        module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                        ExtensionSettings = getattr(module, "ExtensionSettings")
-                        delete_setting_profile(ExtensionSettings, profile=self.root.setting.selected_profile.get())
+                        module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                        PluginSettings = getattr(module, "PluginSettings")
+                        delete_setting_profile(PluginSettings, profile=self.root.setting.selected_profile.get())
                     except Exception as e:
-                        log.error(f"Failed to delete extension settings for {ext}: {e}")
+                        log.error(f"Failed to delete plugin settings for {plugin}: {e}")
 
             self.root.setting.profile_list.remove(self.root.setting.selected_profile.get())
             self.profile_dropdown_menu["values"] = self.root.setting.profile_list
@@ -668,14 +683,14 @@ class SettingWindow:
         rename_setting_profile(ControlSettings, old_name, new_name)
         rename_setting_profile(ExecutionSettings, old_name, new_name)
         rename_setting_profile(self.root.setting, old_name, new_name)
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    rename_setting_profile(ExtensionSettings, old_name, new_name)
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    rename_setting_profile(PluginSettings, old_name, new_name)
                 except Exception as e:
-                    log.error(f"Failed to rename extension settings for {ext}: {e}")
+                    log.error(f"Failed to rename plugin settings for {plugin}: {e}")
 
         idx = self.root.setting.profile_list.index(old_name)
         self.root.setting.profile_list[idx] = new_name
@@ -690,56 +705,59 @@ class SettingWindow:
         """ Save the current settings to the selected profile. """
 
         log.info(f"Saving profile: {self.root.setting.selected_profile.get()}")
+        profile = self.root.setting.selected_profile.get()
+        binder = TkSettingsBinder()
         self.save_from_widgets(PerceptionSettings)
-        save_setting(PerceptionSettings, profile=self.root.setting.selected_profile.get())
+        save_setting(PerceptionSettings, profile=profile, binder=binder)
         self.save_from_widgets(PlanningSettings) 
-        save_setting(PlanningSettings, profile=self.root.setting.selected_profile.get())
+        save_setting(PlanningSettings, profile=profile, binder=binder)
         self.save_from_widgets(ControlSettings)
-        save_setting(ControlSettings, profile=self.root.setting.selected_profile.get())
+        save_setting(ControlSettings, profile=profile, binder=binder)
         self.save_from_widgets(ExecutionSettings)
-        save_setting(ExecutionSettings, profile=self.root.setting.selected_profile.get())
+        save_setting(ExecutionSettings, profile=profile, binder=binder)
 
-        save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
+        save_setting(self.root.setting, profile=profile, binder=binder)
 
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    self.save_from_widgets(ExtensionSettings, extension_name=ext)
-                    save_setting(ExtensionSettings, profile=self.root.setting.selected_profile.get())
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    self.save_from_widgets(PluginSettings, plugin_name=plugin)
+                    save_setting(PluginSettings, profile=profile, binder=binder)
                 except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}")
+                    log.error(f"Failed to save plugin settings for {plugin}: {e}")
 
         # Save community plugin settings
-        if self.root.setting.load_extensions.get():
+        if self.root.setting.load_plugins.get():
             for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
                 try:
-                    cls = _load_plugin_settings_class(name, plugin_path)
+                    cls = load_plugin_settings_class(name, plugin_path)
                     if cls is None:
                         continue
-                    _patch_plugin_settings(cls, name, plugin_path)
-                    self.save_from_widgets(cls, extension_name=f"community_{name}")
+                    patch_plugin_settings(cls, name, plugin_path)
+                    self.save_from_widgets(cls, plugin_name=f"community_{name}")
                     Path(cls.filepath).parent.mkdir(parents=True, exist_ok=True)
-                    save_setting(cls, profile=self.root.setting.selected_profile.get())
+                    save_setting(cls, profile=profile, binder=binder)
                 except Exception as e:
                     log.error("Failed to save plugin settings for '%s': %s", name, e)
 
         # just to save the profile 
-        save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
+        save_setting(self.root.setting, profile=profile, binder=binder)
     
 
     def load_profile(self, profile="default"):
         """ Load a profile from the settings. """
 
         log.info(f"loading profile: {profile}")
-        load_all_stack_settings(profile=profile, load_extensions=self.root.setting.load_extensions.get())
-        load_setting(self.root.setting, profile=profile)
+        binder = TkSettingsBinder()
+        load_all_stack_settings(profile=profile, load_plugins=self.root.setting.load_plugins.get())
+        load_setting(self.root.setting, profile=profile, binder=binder)
         self.root.setting.selected_profile.set(profile)
         set_startup_profile(profile)
 
         self.update_core_widgets()
-        self.update_extensions_widgets()
+        self.update_plugins_widgets()
         self.update_community_plugin_list()
 
     def update_core_widgets(self):
@@ -748,46 +766,46 @@ class SettingWindow:
         self.update_widgets(ControlSettings)
         self.update_widgets(ExecutionSettings)
         
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    load_setting(ExtensionSettings, profile=self.root.setting.selected_profile.get())
-                    self.update_widgets(ExtensionSettings, extension_name=ext)
-                    log.debug(f"loaded extension settings for {ext}")
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    load_setting(PluginSettings, profile=self.root.setting.selected_profile.get(), binder=TkSettingsBinder())
+                    self.update_widgets(PluginSettings, plugin_name=plugin)
+                    log.debug(f"loaded plugin settings for {plugin}")
                 except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}")
+                    log.error(f"Failed to load plugin settings for {plugin}: {e}")
 
         self.update_community_plugin_widgets()
 
     def update_community_plugin_widgets(self):
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
-        if not self.root.setting.load_extensions.get():
+        if not self.root.setting.load_plugins.get():
             return
         for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
-            ext_name = f"community_{name}"
-            cls = _load_plugin_settings_class(name, plugin_path)
+            plugin_name = f"community_{name}"
+            cls = load_plugin_settings_class(name, plugin_path)
             if cls is None:
                 continue
-            _patch_plugin_settings(cls, name, plugin_path)
+            patch_plugin_settings(cls, name, plugin_path)
             try:
-                load_setting(cls, profile=self.root.setting.selected_profile.get())
+                load_setting(cls, profile=self.root.setting.selected_profile.get(), binder=TkSettingsBinder())
             except Exception as e:
                 log.warning("Could not reload plugin settings for '%s': %s", name, e)
-            self.update_widgets(cls, extension_name=ext_name)
+            self.update_widgets(cls, plugin_name=plugin_name)
 
-    def update_extensions_widgets(self):
-        """ Update the extension widgets with the current settings. """ 
+    def update_plugins_widgets(self):
+        """ Update the plugin widgets with the current settings. """ 
 
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    self.update_widgets(ExtensionSettings, extension_name=ext)
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    self.update_widgets(PluginSettings, plugin_name=plugin)
                 except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}")
+                    log.error(f"Failed to update plugin settings for {plugin}: {e}")
 
     def __on_profile_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
@@ -797,7 +815,7 @@ class SettingWindow:
         """ Reset the stack settings to the source code defaults, except for the UI as it is using some 
             some instant variables for tkinter.
         """
-        reload_lib(exclude_stack=True, reload_extensions=True)
+        reload_lib(exclude_stack=True, reload_plugins=True)
         from avlite.c10_perception.c19_settings import PerceptionSettings
         from avlite.c20_planning.c29_settings import PlanningSettings
         from avlite.c30_control.c39_settings import ControlSettings
@@ -810,29 +828,29 @@ class SettingWindow:
             self.update_widgets(ExecutionSettings)
 
 
-        self.update_extensions_widgets()
+        self.update_plugins_widgets()
         
 
-    def recreate_extensions_widgets(self):
-        """ Recreate the extension widgets based on the current setting."""
+    def recreate_plugin_widgets(self):
+        """ Recreate the plugin widgets based on the current setting."""
 
-        if self.root.setting.load_extensions.get():
-            self.create_ext_widgets()
+        if self.root.setting.load_plugins.get():
+            self.create_plugin_widgets()
             self.create_community_plugin_widgets()
         else:
-            # Clear existing extension widgets
-            for ext in ExecutionSettings.c40_default_extensions:
-                ext_key = f"ExtensionSettings{ext}"
-                if ext_key in self.widget_entries:
-                    entry_dict = self.widget_entries[ext_key]
+            # Clear existing plugin widgets
+            for plugin in ExecutionSettings.c40_default_plugins:
+                plugin_key = f"PluginSettings{plugin}"
+                if plugin_key in self.widget_entries:
+                    entry_dict = self.widget_entries[plugin_key]
                     if entry_dict:
                         first_widget = next(iter(entry_dict.values()))
                         parent_frame = first_widget.master
                         parent_frame.pack_forget()  # or grid_forget() if using grid
-                    del self.widget_entries[ext_key]
-                    log.debug(f"Removed widgets for {ext_key}")
+                    del self.widget_entries[plugin_key]
+                    log.debug(f"Removed widgets for {plugin_key}")
 
-            self.ext_widget_created = False
+            self.plugin_widget_created = False
 
             # Clear community plugin widgets
             for name in list(ExecutionSettings.c40_community_plugins.keys()):
@@ -852,19 +870,19 @@ class SettingWindow:
             self._cp_widget_created = False
 
 
-    def create_ext_widgets(self):
-        if hasattr(self, "ext_widget_created") and self.ext_widget_created:
-            log.warning("Extension widgets already created, skipping.")
+    def create_plugin_widgets(self):
+        if hasattr(self, "plugin_widget_created") and self.plugin_widget_created:
+            log.warning("Plugin widgets already created, skipping.")
             return
 
-        for ext in ExecutionSettings.c40_default_extensions:
+        for plugin in ExecutionSettings.c40_default_plugins:
             try:
-                module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                ExtensionSettings = getattr(module, "ExtensionSettings")
-                self.create_widgets(ExtensionSettings, f"{ext}", extension_name=ext)
-                self.ext_widget_created = True
+                module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                PluginSettings = getattr(module, "PluginSettings")
+                self.create_widgets(PluginSettings, f"{plugin}", plugin_name=plugin)
+                self.plugin_widget_created = True
             except Exception as e:
-                log.error(f"Failed to load extension settings for {ext}: {e}")
+                log.error(f"Failed to load plugin settings for {plugin}: {e}")
 
     def create_community_plugin_widgets(self):
         """Create settings widgets for community plugins that expose a ``PluginSettings`` class."""
@@ -873,9 +891,9 @@ class SettingWindow:
             return
 
         found = []
-        if self.root.setting.load_extensions.get():
+        if self.root.setting.load_plugins.get():
             for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
-                cls = _load_plugin_settings_class(name, plugin_path)
+                cls = load_plugin_settings_class(name, plugin_path)
                 if cls is not None:
                     found.append((name, plugin_path, cls))
 
@@ -885,23 +903,23 @@ class SettingWindow:
         self._cp_sep.pack(fill='x', pady=10)
         self._cp_label.pack(anchor=tk.W, padx=5, pady=5)
         for name, plugin_path, cls in found:
-            _patch_plugin_settings(cls, name, plugin_path)
+            patch_plugin_settings(cls, name, plugin_path)
             try:
-                load_setting(cls, profile=self.root.setting.selected_profile.get())
+                load_setting(cls, profile=self.root.setting.selected_profile.get(), binder=TkSettingsBinder())
             except Exception as e:
                 log.warning("Could not load plugin settings for '%s': %s", name, e)
-            self.create_widgets(cls, f"Plugin: {name}", extension_name=f"community_{name}")
+            self.create_widgets(cls, f"Plugin: {name}", plugin_name=f"community_{name}")
 
         self._cp_widget_created = True
 
 
-    def create_widgets(self, setting, setting_name="Settings", extension_name=""):
+    def create_widgets(self, setting, setting_name="Settings", plugin_name=""):
         """ Create widgets for the settings view. """
 
         frame = ttk.Labelframe(self.settings_frame, text=setting_name)
         frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        key = setting.__name__ + extension_name
+        key = setting.__name__ + plugin_name
         self.widget_entries[key] = {}
         self.settings_section_frames[key] = frame
         row = 0
@@ -925,15 +943,15 @@ class SettingWindow:
 
 
 
-    def save_from_widgets(self, setting, extension_name=""):
+    def save_from_widgets(self, setting, plugin_name=""):
         """ Save the settings from the widgets to the setting class. """
 
-        if setting.__name__+extension_name not in self.widget_entries:
-            log.warning(f"No widgets found for setting: {setting.__name__}+{extension_name}")
+        if setting.__name__+plugin_name not in self.widget_entries:
+            log.warning(f"No widgets found for setting: {setting.__name__}+{plugin_name}")
             return
 
         # log.warning(f"keys in widget_entries: {self.widget_entries.keys()}")
-        for field, entry in self.widget_entries[setting.__name__+extension_name].items():
+        for field, entry in self.widget_entries[setting.__name__+plugin_name].items():
             if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
                 continue
             
@@ -959,13 +977,13 @@ class SettingWindow:
             else:
                 setattr(setting, field, val)
 
-    def update_widgets(self, setting, extension_name=""):
+    def update_widgets(self, setting, plugin_name=""):
         """ Update the widgets with the current settings. """
-        if setting.__name__+extension_name not in self.widget_entries:
-            log.warning(f"No widgets found for setting: {extension_name} {setting.__name__}")
+        if setting.__name__+plugin_name not in self.widget_entries:
+            log.warning(f"No widgets found for setting: {plugin_name} {setting.__name__}")
             return
 
-        for field, entry in self.widget_entries[setting.__name__+extension_name].items():
+        for field, entry in self.widget_entries[setting.__name__+plugin_name].items():
             if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
                 continue
             
@@ -994,11 +1012,11 @@ class SettingWindow:
         if total > 0:
             self.canvas.yview_moveto(frame.winfo_y() / total)
 
-    def _scroll_to_selected_extension(self) -> None:
-        sel = self.listbox_default_extensions.curselection()
+    def _scroll_to_selected_builtin_plugin(self) -> None:
+        sel = self.listbox_default_plugins.curselection()
         if sel:
-            ext = self.listbox_default_extensions.get(sel[0])
-            self._scroll_to_settings(f"ExtensionSettings{ext}")
+            plugin = self.listbox_default_plugins.get(sel[0])
+            self._scroll_to_settings(f"PluginSettings{plugin}")
 
     def _scroll_to_selected_plugin(self) -> None:
         sel = self.listbox_community_plugins.curselection()

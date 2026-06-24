@@ -252,3 +252,31 @@ def attach_schema_tooltip(widget, settings_cls, field_name: str) -> None:
     tip = field_tooltip_text(settings_cls, field_name)
     if tip:
         HoverTooltip(widget, tip)
+
+
+class TkSettingsBinder:
+    """Read/write settings backed by ``tk.Variable`` attributes."""
+
+    def get_value(self, setting, attr_name: str):
+        from avlite.c60_common.c68_settings_schema import PlainBinder
+
+        attr_value = getattr(setting if not isinstance(setting, type) else setting, attr_name)
+        if isinstance(attr_value, tk.Variable):
+            return attr_value.get()
+        return PlainBinder().get_value(setting, attr_name)
+
+    def set_value(self, setting, attr_name: str, value) -> None:
+        attr_value = getattr(setting if not isinstance(setting, type) else setting, attr_name)
+        if isinstance(attr_value, tk.BooleanVar):
+            attr_value.set(bool(value))
+        elif isinstance(attr_value, tk.IntVar):
+            attr_value.set(int(value))
+        elif isinstance(attr_value, tk.DoubleVar):
+            attr_value.set(float(value))
+        elif isinstance(attr_value, tk.Variable):
+            attr_value.set(value)
+        else:
+            from avlite.c60_common.c68_settings_schema import PlainBinder
+
+            PlainBinder().set_value(setting, attr_name, value)
+

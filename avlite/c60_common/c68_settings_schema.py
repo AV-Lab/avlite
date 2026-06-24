@@ -2,14 +2,41 @@
 
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any, Protocol, Type
 
 import numpy as np
-import tkinter as tk
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.fields import FieldInfo
 
 SETTINGS_META = frozenset({"exclude", "filepath", "schema"})
+
+
+class SettingsBinder(Protocol):
+    def get_value(self, setting: Any, field_name: str) -> Any: ...
+    def set_value(self, setting: Any, field_name: str, value: Any) -> None: ...
+
+
+class PlainBinder:
+    """Read/write settings attributes as plain Python values (no Tk)."""
+
+    def get_value(self, setting: Any, field_name: str) -> Any:
+        attr_value = _resolve_attr(setting, field_name)
+        if callable(attr_value) or field_name.startswith("_"):
+            raise ValueError(f"Cannot read {field_name}")
+        val = attr_value
+        if isinstance(val, (np.floating, np.integer)):
+            return val.item()
+        return val
+
+    def set_value(self, setting: Any, field_name: str, value: Any) -> None:
+        attr_value = _resolve_attr(setting, field_name)
+        if callable(attr_value):
+            return
+        coerced = _coerce_numpy_scalar(value)
+        if value is None and isinstance(attr_value, (list, dict)):
+            setattr(setting, field_name, type(attr_value)())
+        else:
+            setattr(setting, field_name, coerced)
 
 
 class SettingsSchema(BaseModel):
@@ -83,32 +110,30 @@ def _resolve_attr(setting: Any, field_name: str) -> Any:
     return getattr(setting, field_name)
 
 
-def apply_validated_to_setting(setting: Any, validated: BaseModel) -> None:
+def apply_validated_to_setting(
+    setting: Any,
+    validated: BaseModel,
+    *,
+    binder: SettingsBinder | None = None,
+) -> None:
     """Apply validated schema fields onto a settings class or instance."""
+    bind = binder or PlainBinder()
     for field_name, value in validated.model_dump().items():
         if field_name in SETTINGS_META:
             continue
         if not hasattr(setting, field_name):
             continue
         attr_value = _resolve_attr(setting, field_name)
-        if isinstance(attr_value, tk.Variable):
-            if isinstance(attr_value, tk.BooleanVar):
-                attr_value.set(bool(value))
-            elif isinstance(attr_value, tk.IntVar):
-                attr_value.set(int(value))
-            elif isinstance(attr_value, tk.DoubleVar):
-                attr_value.set(float(value))
-            else:
-                attr_value.set(value)
-        elif not callable(attr_value):
-            coerced = _coerce_numpy_scalar(value)
-            if value is None and isinstance(attr_value, (list, dict)):
-                setattr(setting, field_name, type(attr_value)())
-            else:
-                setattr(setting, field_name, coerced)
+        if callable(attr_value):
+            continue
+        bind.set_value(setting, field_name, value)
 
 
-def _collect_field_values(setting: Any, schema: Type[BaseModel]) -> dict[str, Any]:
+def _collect_field_values(
+    setting: Any,
+    schema: Type[BaseModel],
+    binder: SettingsBinder,
+) -> dict[str, Any]:
     data: dict[str, Any] = {}
     for field_name in schema.model_fields:
         if field_name in SETTINGS_META:
@@ -118,13 +143,7 @@ def _collect_field_values(setting: Any, schema: Type[BaseModel]) -> dict[str, An
         attr_value = _resolve_attr(setting, field_name)
         if callable(attr_value) or field_name.startswith("_"):
             continue
-        if isinstance(attr_value, tk.Variable):
-            data[field_name] = attr_value.get()
-        else:
-            val = attr_value
-            if isinstance(val, (np.floating, np.integer)):
-                val = val.item()
-            data[field_name] = val
+        data[field_name] = binder.get_value(setting, field_name)
     return data
 
 
@@ -134,9 +153,11 @@ def dump_from_setting(
     *,
     filepath: str = "",
     profile: str = "default",
+    binder: SettingsBinder | None = None,
 ) -> dict[str, Any]:
     """Read current settings, validate round-trip, return YAML-safe dict."""
-    raw = _collect_field_values(setting, schema)
+    bind = binder or PlainBinder()
+    raw = _collect_field_values(setting, schema, bind)
     validated = validate_profile(schema, raw, filepath=filepath, profile=profile)
     return validated.model_dump()
 

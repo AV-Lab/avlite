@@ -1,7 +1,7 @@
 # Plugin Development
 
-AVLite supports two types of extensions:
-- **Built-in extensions** (`avlite/extensions/`): Maintained by the core team
+AVLite supports two types of plugins:
+- **Built-in plugins** (`avlite/plugins/`): Maintained by the core team
 - **Community plugins**: External directories you create and register
 
 This guide covers creating community plugins. Classes inheriting from base strategies automatically register and appear in the UI.
@@ -13,17 +13,19 @@ Create your plugin anywhere on your system:
 ```
 /path/to/my_plugin/
 ├── __init__.py      # Export classes
-├── settings.py      # ExtensionSettings class
+├── settings.py      # PluginSettings class
 └── my_strategy.py   # Your implementation
 ```
+
+Do not commit a `.venv` inside your plugin directory — AVLite scans all `.py` files under the plugin path and skips common vendor folders (`.venv`, `site-packages`, etc.), but keeping the venv outside the plugin tree is cleaner.
 
 ## 1. Settings File (Required)
 
 ```python
 # settings.py
-class ExtensionSettings:
+class PluginSettings:
     exclude = ["exclude", "filepath"]
-    filepath: str = "configs/my_plugin.yaml"
+    filepath: str = "configs/plugin_my_plugin.yaml"
     
     # Your parameters (appear in UI automatically)
     my_param: float = 1.0
@@ -34,7 +36,7 @@ class ExtensionSettings:
 ```python
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c60_common.c61_capabilities import WorldCapability, PerceptionCapability
-from .settings import ExtensionSettings
+from .settings import PluginSettings
 
 class MyPerception(PerceptionStrategy):
     def __init__(self, perception_model, setting=None):
@@ -170,17 +172,19 @@ class MyController(ControlStrategy):
 ```python
 # __init__.py
 from .my_strategy import MyPerception, MyLocalization, MyController
-from .settings import ExtensionSettings
+from .settings import PluginSettings
 
-__all__ = ["MyPerception", "MyLocalization", "MyController", "ExtensionSettings"]
+__all__ = ["MyPerception", "MyLocalization", "MyController", "PluginSettings"]
 ```
+
+When you rename a module file, update the import path in `__init__.py` to match (e.g. `from .p31_joystick_controller import JoystickController`).
 
 ## 7. Register Your Community Plugin
 
 **Via GUI** (recommended):
 1. Open AVLite
 2. Go to Config tab
-3. Add entry to Community Extensions: `my_plugin` -> `/path/to/my_plugin`
+3. Add entry under community plugins: `my_plugin` -> `/path/to/my_plugin`
 4. Save profile
 
 **Via settings file** (`configs/c40_execution.yaml` or your saved copy under `~/.config/avlite/`):
@@ -193,6 +197,52 @@ c40_community_plugins:
 When a plugin is installed through `python -m avlite plugins`, its path is stored under `~/.local/share/avlite/plugins/` (override with `AVLITE_PLUGINS_DIR`).
 
 Your classes will now appear in the UI dropdowns.
+
+## 8. Built-in plugin naming (`pNx`)
+
+Built-in plugins under `avlite/plugins/` use a **directory name** and optional **module file names** with a `pNx` prefix:
+
+- **Directory:** `p{layer}{variant}_{description}` — e.g. `p30_controller_joystick`, `p40_executer_ROS2`
+- **Module files:** use the same convention when the file belongs to a specific layer — e.g. `p31_joystick_controller.py`, `p42_perception_node.py`
+
+The **first digit after `p`** maps to the log-panel layer toggle:
+
+| Digit | Layer |
+|-------|-------|
+| 1 | Perception |
+| 2 | Planning |
+| 3 | Control |
+| 4 | Execution |
+| 5 | Visualization |
+| 6 | Common |
+
+The plugin **directory name** and **module file name** can differ. For example, package `p30_controller_joystick` may contain module `p31_joystick_controller.py`.
+
+Logger names follow Python's `__name__`, e.g. `avlite.plugins.p30_controller_joystick.p31_joystick_controller`. Log routing uses the **first module segment** under the package (`p31_joystick_controller`) before falling back to the directory name.
+
+## 9. Log panel filtering
+
+The visualizer log toolbar (`c55_log_view`) provides:
+
+- **Core** — master toggle for all core stack logs (`avlite.c10_*` … `avlite.c60_*`). Does not change the per-layer checkbox states.
+- **Plugins** — master toggle for all `avlite.plugins.*` logs.
+- **Per-layer checkboxes** (Perception, Planning, Control, Execution, Visualization, Common) — filter core logs and plugin logs routed to that layer.
+
+Plugin logs are routed to a layer toggle as follows:
+
+1. Take the **first module segment** under the plugin package (e.g. `p31_joystick_controller` from `avlite.plugins.p30_controller_joystick.p31_joystick_controller`).
+2. If it matches `pNx`, use that digit for the layer.
+3. Otherwise fall back to the **plugin directory name** (e.g. `p40_bridge_carla` for `carla_bridge` module).
+4. If still no `pNx` match (typical community plugins), the log is shown whenever **Plugins** is on.
+
+| Logger | Module segment | Layer source |
+|--------|----------------|--------------|
+| `...p30_controller_joystick.p31_joystick_controller` | `p31_joystick_controller` | module → Control |
+| `...p40_bridge_carla.carla_bridge` | `carla_bridge` | package fallback → Execution |
+| `...p40_executer_ROS2.p42_perception_node` | `p42_perception_node` | module → Execution |
+| `...sample_avlite_plugin.test_plugin` | `test_plugin` | no pNx → Plugins master only |
+
+Filtering reads a thread-safe snapshot updated on the main thread only (safe when worker threads emit logs during execution).
 
 ## Base Classes Reference
 
@@ -211,9 +261,13 @@ Your classes will now appear in the UI dropdowns.
 
 ## See Also
 
-Built-in extensions in `avlite/extensions/` (maintained by core team):
-- `bridge_carla` - CARLA simulator world bridge
-- `bridge_gazebo` - Gazebo Ignition world bridge
-- `bridge_ROS2` - ROS2 world bridge
-- `executer_ROS2` - ROS2 executor with Autoware message support
-- `multi_object_prediction` - Multi-object prediction perception
+Built-in plugins in `avlite/plugins/` (maintained by core team):
+- `p40_bridge_carla` — CARLA simulator world bridge
+- `p40_bridge_gazebo` — Gazebo Ignition world bridge
+- `p40_bridge_ROS2` — ROS2 world bridge
+- `p40_executer_ROS2` — ROS2 executor with Autoware message support
+- `p10_perception_MO_prediction` — Multi-object prediction perception
+- `p30_controller_joystick` — Xbox-style joystick controller
+- `p50_headless_mode` — Headless runner and config CLI
+
+Settings for built-in plugins: `configs/plugin_*.yaml` in the repo (same basename under `~/.config/avlite/` when saved).

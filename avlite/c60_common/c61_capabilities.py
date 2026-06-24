@@ -22,7 +22,7 @@ class PerceptionCapability(Enum):
     PREDICTION = auto() # Whether the perception strategy supports prediction
 
 class LocalizationCapability(Enum):
-    LOCALIZATION_2D = auto() # Whether the localization strategy provides 2D pose (x, y)
+    LOCALIZATION_2D = auto() # Whether the localization strategy provides 2D pose (x, y) - BridEye View
     LOCALIZATION_3D = auto() # Whether the localization strategy provides 3D pose (x, y, z)
     LOCALIZATION_HEADING = auto() # Whether the localization strategy provides heading estimation
     LOCALIZATION_HEADING_3D = auto() # Whether the localization strategy provides 3D heading estimation (e.g. roll, pitch, yaw)

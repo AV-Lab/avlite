@@ -16,13 +16,13 @@ Carla_Town10:
   c40_community_plugins: {}
   c40_control_dt: 0.05
   c40_controller: StanleyController
-  c40_default_extensions:
-  - e10_perception_MO_prediction
-  - e40_bridge_gazebo
-  - e50_headless_mode
-  - e40_bridge_carla
-  - e40_bridge_ROS2
-  - e40_executer_ROS2
+  c40_default_plugins:
+  - p10_perception_MO_prediction
+  - p40_bridge_gazebo
+  - p50_headless_mode
+  - p40_bridge_carla
+  - p40_bridge_ROS2
+  - p40_executer_ROS2
   c40_executer_type: SyncExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -54,7 +54,7 @@ SAN:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_extensions:
+  c40_default_plugins:
   - test_ext
   - multi_object_prediction
   c40_executer_type: ROSExecuter
@@ -81,7 +81,7 @@ async:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_extensions:
+  c40_default_plugins:
   - bridge_carla
   - executer_ROS2
   - bridge_ROS2
@@ -114,14 +114,14 @@ default:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_extensions:
-  - e30_controller_joystick
-  - e10_perception_MO_prediction
-  - e40_bridge_gazebo
-  - e50_headless_mode
-  - e40_bridge_carla
-  - e40_bridge_ROS2
-  - e40_executer_ROS2
+  c40_default_plugins:
+  - p30_controller_joystick
+  - p40_executer_ROS2
+  - p40_bridge_gazebo
+  - p10_perception_MO_prediction
+  - p50_headless_mode
+  - p40_bridge_carla
+  - p40_bridge_ROS2
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -153,17 +153,17 @@ joystick:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
+    sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: JoystickController
-  c40_default_extensions:
-  - e30_controller_joystick
-  - e10_perception_MO_prediction
-  - e40_bridge_gazebo
-  - e50_headless_mode
-  - e40_bridge_carla
-  - e40_bridge_ROS2
-  - e40_executer_ROS2
+  c40_default_plugins:
+  - p30_controller_joystick
+  - p40_executer_ROS2
+  - p40_bridge_gazebo
+  - p10_perception_MO_prediction
+  - p50_headless_mode
+  - p40_bridge_carla
+  - p40_bridge_ROS2
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -197,13 +197,13 @@ perception:
   c40_community_plugins: {}
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_extensions:
-  - e10_perception_MO_prediction
-  - e40_bridge_gazebo
-  - e50_headless_mode
-  - e40_bridge_carla
-  - e40_bridge_ROS2
-  - e40_executer_ROS2
+  c40_default_plugins:
+  - p10_perception_MO_prediction
+  - p40_bridge_gazebo
+  - p50_headless_mode
+  - p40_bridge_carla
+  - p40_bridge_ROS2
+  - p40_executer_ROS2
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -236,7 +236,7 @@ ros:
     delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_extensions:
+  c40_default_plugins:
   - executer_multi_processing
   - test_ext
   - executer_ros
@@ -268,12 +268,12 @@ sync:
     sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_extensions:
-  - e10_perception_MO_prediction
-  - e40_bridge_gazebo
-  - e40_bridge_carla
-  - e40_bridge_ROS2
-  - e40_executer_ROS2
+  c40_default_plugins:
+  - p10_perception_MO_prediction
+  - p40_bridge_gazebo
+  - p40_bridge_carla
+  - p40_bridge_ROS2
+  - p40_executer_ROS2
   c40_executer_type: SyncExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json

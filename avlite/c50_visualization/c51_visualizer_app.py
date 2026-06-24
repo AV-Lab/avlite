@@ -11,18 +11,13 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from avlite.c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
 from avlite.c50_visualization.c54_exec_views import ExecView
-from avlite.c50_visualization.c59_settings import VisualizationSettings
+from avlite.c50_visualization.c58_ui_lib import TkSettingsBinder
+from avlite.c50_visualization.c59_settings import VisualizationSettings, load_stack_plugins
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c69_setting_utils import (
-    load_setting,
-    list_profiles,
-    list_extensions,
-    load_all_stack_settings,
-    reload_lib,
-    get_startup_profile,
-    set_startup_profile,
-)
+from avlite.c60_common.c60_plugins import list_plugins, reload_lib
+from avlite.c60_common.c67_paths import get_startup_profile, set_startup_profile
+from avlite.c60_common.c69_setting_utils import load_setting, list_profiles
     
 
 log = logging.getLogger(__name__)
@@ -30,14 +25,14 @@ logging.getLogger("PIL").setLevel(logging.WARNING)
 
 
 class VisualizerApp(tk.Tk):
-    exec: SyncExecuter
+    exec: SyncExecuter | None
 
     def __init__(self):
         super().__init__()
         # Pixels-per-inch reported by this screen, normalised to a 96 dpi baseline.
         # Used to scale any hardcoded pixel geometry so windows feel right on all devices.
         self._dpi_scale: float = max(1.0, min(3.0, self.winfo_fpixels('1i') / 96.0))
-        self.exec = executor_factory()
+        self.exec = None
         self.loading_overlay = None
         self.ui_initialized = False
         self.show_loading_overlay()
@@ -64,7 +59,7 @@ class VisualizerApp(tk.Tk):
         startup = get_startup_profile()
         if startup and startup in self.setting.profile_list:
             self.setting.selected_profile.set(startup)
-        ExecutionSettings.c40_default_extensions = list_extensions()
+        ExecutionSettings.c40_default_plugins = list_plugins()
         
         # ----------------------------------------------------------------------
         # UI Views
@@ -89,7 +84,7 @@ class VisualizerApp(tk.Tk):
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_configs()
         log.warning(f"map is {ExecutionSettings.c40_hd_map}")
-        self.reload_stack()
+        self.reload_stack(reload_code=False)
         log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
 
         # Bind to window resize to maintain ratio
@@ -459,6 +454,8 @@ class VisualizerApp(tk.Tk):
 
     
     def update_ui(self):
+        if self.exec is None:
+            return
         t1 = time.time()
         _plot_dt = t1 - getattr(self, '_last_plot_time', 0)
         _do_plot = _plot_dt >= 0.033  # cap plot redraws at ~30 Hz
@@ -501,9 +498,10 @@ class VisualizerApp(tk.Tk):
         # load_setting(PlanningSettings, profile=profile)
         # load_setting(ControlSettings, profile=profile)
         # load_setting(ExecutionSettings, profile=profile)
-        load_all_stack_settings(profile=profile, load_extensions=self.setting.load_extensions.get())
+        binder = TkSettingsBinder()
+        load_stack_plugins(profile=profile, load_plugins=self.setting.load_plugins.get())
         if not only_stack:
-            load_setting(self.setting, profile=profile)
+            load_setting(self.setting, profile=profile, binder=binder)
             self.setting.normalize_gt_sentinels()
         self.config_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
@@ -544,7 +542,7 @@ class VisualizerApp(tk.Tk):
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
                 # reload_code=reload_code,
                 # exclude_reload_settings=True,
-                load_extensions=self.setting.load_extensions.get(),
+                load_plugins=self.setting.load_plugins.get(),
                 async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
 
@@ -552,7 +550,7 @@ class VisualizerApp(tk.Tk):
             log.error(f"Error reloading stack: {e}", exc_info=True)
             messagebox.showerror(
                 "Reload failed",
-                f"Failed to rebuild the stack. The previous configuration is still active.\n\n{e}",
+                f"Failed to rebuild the stack. \n\n{e}",
             )
 
 
@@ -563,7 +561,8 @@ class VisualizerApp(tk.Tk):
         self.update_views()
         self.update_ui()
         self.enable_frame(self)
-        self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
+        if self.exec is not None:
+            self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
         self.focus_set()  # unfocus any entry fields including widgets. Useful to avoid typing shortcut keys 
         self.hide_loading_overlay()
             

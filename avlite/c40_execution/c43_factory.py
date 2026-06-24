@@ -2,19 +2,15 @@ import logging
 
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from avlite.c60_common.c67_hdmap import HDMap
+from avlite.c60_common.c66_hdmap import HDMap
 from avlite.c30_control.c31_control_model import  ControlComand
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c69_setting_utils import (
-    reload_lib,
-    get_absolute_path,
-    import_all_modules,
-    resolve_plugin_path,
-)
+from avlite.c60_common.c60_plugins import import_plugin_modules, reload_lib
+from avlite.c60_common.c67_paths import get_absolute_path, resolve_plugin_path
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -51,7 +47,7 @@ def executor_factory(
     control_dt = ExecutionSettings.c40_control_dt,
     default_global_trajectory_file = ExecutionSettings.c40_global_trajectory,
     hd_map = ExecutionSettings.c40_hd_map,
-    load_extensions=True,
+    load_plugins=True,
     async_combined_perception_planning: bool = ExecutionSettings.c40_async_combined_perception_planning,
 ) -> "Executer":
     """
@@ -60,13 +56,12 @@ def executor_factory(
 
 
     
-    if load_extensions:
-        import_all_modules(extensions_filter=list(ExecutionSettings.c40_default_extensions))
-        # loading community extensions
+    if load_plugins:
+        import_plugin_modules(plugins_filter=list(ExecutionSettings.c40_default_plugins))
         for k, v in ExecutionSettings.c40_community_plugins.items():
             path = resolve_plugin_path(k, v)
-            log.warning(f"Loading external extension: {k} from {path}")
-            import_all_modules(str(path), pkg_name=k)
+            log.warning("Loading external plugin: %s from %s", k, path)
+            import_plugin_modules(str(path), pkg_name=k)
 
 
     try:

@@ -31,24 +31,7 @@ REGISTRY_URL = (
     "https://raw.githubusercontent.com/AV-Lab/avlite-community-plugins/main/plugins.yaml"
 )
 REGISTRY_REPO_URL = "https://github.com/AV-Lab/avlite-community-plugins"
-DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
-
-
-# ---------------------------------------------------------------------------
-# Core (Tk-free) helpers
-# ---------------------------------------------------------------------------
-def get_plugins_dir() -> Path:
-    """Return the directory where community plugins are installed.
-
-    Honors ``AVLITE_PLUGINS_DIR`` if set, else ``$XDG_DATA_HOME/avlite/plugins``,
-    else ``~/.local/share/avlite/plugins``.
-    """
-    env = os.environ.get("AVLITE_PLUGINS_DIR")
-    if env:
-        return Path(env).expanduser().resolve()
-    xdg = os.environ.get("XDG_DATA_HOME")
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".local" / "share"
-    return (base / DEFAULT_PLUGINS_SUBDIR).resolve()
+from avlite.c60_common.c67_paths import get_plugins_dir
 
 
 def fetch_registry(timeout: float = 10.0) -> list[dict]:

@@ -376,6 +376,8 @@ class LocalPlanPlotView(ttk.Frame):
 
     def plot(self):
         """Plot the local plan and update the canvas."""
+        if self.root.exec is None:
+            return
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()

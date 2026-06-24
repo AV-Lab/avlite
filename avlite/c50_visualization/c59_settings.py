@@ -28,7 +28,7 @@ def is_default_substrategy(value: str) -> bool:
 class VisualizationSettings:
     schema = None  # set after VisualizationSettingsSchema is defined below
     exclude = ["exclude", "filepath", "schema", "vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
-                         "control_fps", "perception_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "extension_list"]
+                         "control_fps", "perception_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "plugin_list"]
     filepath: str="configs/c50_visualization.yaml"
 
     def __init__(self):
@@ -38,7 +38,7 @@ class VisualizationSettings:
         self.hide_menubar = tk.BooleanVar(value=False)
         self.selected_profile = tk.StringVar(value="default")
         self.next_profile = tk.StringVar(value="default")
-        self.load_extensions = tk.BooleanVar(value=True)  # Load extensions on startup
+        self.load_plugins = tk.BooleanVar(value=True)
         self.mouse_drag_slowdown_factor = 0.5
 
         # Plot options
@@ -229,7 +229,7 @@ class VisualizationSettings:
         self.show_execute_logs = tk.BooleanVar(value=True)
         self.show_vis_logs = tk.BooleanVar(value=True)
         self.show_common_logs = tk.BooleanVar(value=True)
-        self.show_extensions_logs = tk.BooleanVar(value=True)
+        self.show_plugins_logs = tk.BooleanVar(value=True)
         self.disable_log = tk.BooleanVar(value=False)
         
         self.max_log_lines = 1000  # Maximum number of log lines to keep
@@ -276,12 +276,14 @@ class VisualizationSettings:
 
 
 def _sync_exec_dt(attr: str, value: float) -> None:
-    """Persist dt change to the ROS extension YAML so it takes effect on next launch."""
+    """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
     try:
-        from avlite.extensions.e40_executer_ROS2.settings import ExtensionSettings as ROSSettings
+        from avlite.plugins.p40_executer_ROS2.settings import PluginSettings as ROSSettings
+        from avlite.c50_visualization.c58_ui_lib import TkSettingsBinder
         from avlite.c60_common.c69_setting_utils import save_setting
+
         setattr(ROSSettings, attr, float(value))
-        save_setting(ROSSettings)
+        save_setting(ROSSettings, binder=TkSettingsBinder())
     except Exception:
         pass
 
@@ -296,7 +298,7 @@ class VisualizationSettingsSchema(SettingsSchema):
     hide_menubar: bool = Field(default=False, description="Hide the application menu bar.")
     selected_profile: str = Field(default="default", description="Active settings profile name.")
     next_profile: str = Field(default="default", description="Profile to switch to with shortcut F.")
-    load_extensions: bool = Field(default=True, description="Load built-in and community extensions on startup.")
+    load_plugins: bool = Field(default=True, description="Load built-in and community plugins on startup.")
     mouse_drag_slowdown_factor: float = Field(default=0.5, description="Slowdown factor when dragging plots with mouse.")
 
     show_legend: bool = Field(default=False, description="Show plot legend (may reduce performance).")
@@ -354,7 +356,7 @@ class VisualizationSettingsSchema(SettingsSchema):
     show_execute_logs: bool = Field(default=True, description="Show execution logs.")
     show_vis_logs: bool = Field(default=True, description="Show visualization logs.")
     show_common_logs: bool = Field(default=True, description="Show common module logs.")
-    show_extensions_logs: bool = Field(default=True, description="Show extension logs.")
+    show_plugins_logs: bool = Field(default=True, description="Show plugin logs.")
     disable_log: bool = Field(default=False, description="Disable log panel updates.")
     max_log_lines: int = Field(default=1000, description="Max log lines retained in UI.")
     log_view_expanded: bool = Field(default=False, description="Use expanded log panel height.")
@@ -366,6 +368,13 @@ class VisualizationSettingsSchema(SettingsSchema):
     log_pull_time: int = Field(default=50, description="Log refresh interval (ms).")
     bg_color: str = Field(default="#333333", description="UI background color.")
     fg_color: str = Field(default="white", description="UI foreground/text color.")
+
+
+def load_stack_plugins(profile: str = "default", load_plugins: bool = True) -> None:
+    """Load stack and built-in plugin settings for the GUI."""
+    from avlite.c60_common.c60_plugins import load_all_stack_settings
+
+    load_all_stack_settings(profile=profile, load_plugins=load_plugins)
 
 
 VisualizationSettings.schema = VisualizationSettingsSchema

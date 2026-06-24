@@ -168,14 +168,14 @@ Tkinter-based GUI with:
 - Component configuration with schema tooltips on main-page controls
 - Profile management (Config tab Save; settings window `T` for full stack)
 - **Use repository configs** — discard `~/.config/avlite/` overrides and reload repo YAML
-- Log viewer
-- Extension settings
+- Log viewer — thread-safe filter snapshot (`Core` / `Plugins` masters plus per-layer checkboxes); plugin logs route to layer toggles by **module** `pNx` name first, then plugin directory fallback via [`c60_plugins.py`](../avlite/c60_common/c60_plugins.py) (`plugin_module_from_logger`, `layer_key_for_plugin_log_record`)
+- Plugin settings
 
 ### c60_common
 
 - Settings load/save (YAML profiles): repo defaults in `{repo}/configs/`, user overrides in `~/.config/avlite/` (or `AVLITE_CONFIG_DIR`); `effective_config_path()` resolves read path, Save always writes user copy
 - Hot reloading
-- Extension discovery; community plugins under `~/.local/share/avlite/plugins/` (`AVLITE_PLUGINS_DIR`)
+- Plugin discovery and log routing (`c60_plugins.py`); community plugins under `~/.local/share/avlite/plugins/` (`AVLITE_PLUGINS_DIR`); `plugin_module_from_logger` / `layer_key_for_plugin_log_record` for module-first log filtering
 - Capability enums in `c61_capabilities.py` (`WorldCapability`, `PerceptionCapability`, `LocalizationCapability`, `MappingCapability`)
 - `AnyOf` — requirement satisfied by any one of several capabilities; `satisfies_requirements()` helper used by the execution layer
 - `HDMap` (`c67_hdmap.py`) — OpenDRIVE map parsing and routing (used by `HDMapGlobalPlanner` and `PerceptionModel`)

@@ -36,7 +36,7 @@ def _run_plugins() -> None:
 
 def main(argv: list[str] | None = None) -> None:
     """Main entry point for the AVLite application."""
-    from avlite.extensions.e50_headless_mode import (
+    from avlite.plugins.p50_headless_mode import (
         register_parser,
         run_headless,
         register_config_parser,

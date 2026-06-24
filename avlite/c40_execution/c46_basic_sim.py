@@ -11,7 +11,7 @@ from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c69_setting_utils import get_absolute_path
+from avlite.c60_common.c67_paths import get_absolute_path
 from avlite.c60_common.c62_sensor_data import LidarCloud, lidar_2d_to_4
 
 

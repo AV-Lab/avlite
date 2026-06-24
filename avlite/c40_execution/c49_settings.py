@@ -20,7 +20,7 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_global_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="Default global plan JSON path.")
     c40_hd_map: str = Field(default="data/san_campus.xodr", description="HD map OpenDRIVE file path.")
     c40_community_plugins: dict[str, str] = Field(default_factory=dict, description="Community plugin name to directory map.")
-    c40_default_extensions: list[str] = Field(default_factory=list, description="Built-in extensions to load on startup.")
+    c40_default_plugins: list[str] = Field(default_factory=list, description="Built-in plugins to load on startup.")
     c40_async_combined_perception_planning: bool = Field(default=True, description="Run perception and planning concurrently.")
     c40_log_level: str = Field(default="INFO", description="Python logging level.")
     c40_log_to_file: bool = Field(default=False, description="Write logs to file.")
@@ -63,7 +63,7 @@ class ExecutionSettings:
     c40_global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
     c40_hd_map = "data/san_campus.xodr"
     c40_community_plugins: dict[str, str] = {}
-    c40_default_extensions: list[str] = []
+    c40_default_plugins: list[str] = []
     c40_async_combined_perception_planning: bool = True
     c40_log_level = "INFO"
     c40_log_to_file = False

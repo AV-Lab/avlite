@@ -190,7 +190,8 @@ class ExecView(ttk.Frame):
             self.root.after(int(next_frame_delay * 1000), self._exec_loop)
 
     def stop_exec(self):
-        self.root.exec.stop()
+        if self.root.exec is not None:
+            self.root.exec.stop()
         # self.start_exec_button.config(state=tk.NORMAL)
         self.start_exec_button.state(['!disabled'])
         self.root.update_ui()

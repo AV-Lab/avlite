@@ -24,7 +24,7 @@ Carla_Town10:
   global_view_follow_planner: false
   global_zoom: 240
   hide_menubar: false
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: RNDPlanner
   localization_dt: 0.1
@@ -51,7 +51,6 @@ Carla_Town10:
   show_control_logs: false
   show_core_logs: true
   show_execute_logs: true
-  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_frenet_view: true
@@ -63,6 +62,7 @@ Carla_Town10:
   show_perceive_logs: true
   show_perception_extras: true
   show_plan_logs: false
+  show_plugins_logs: true
   show_state: true
   show_vis_logs: true
   sim_dt: 0.011
@@ -92,7 +92,7 @@ SAN:
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
   global_zoom: 110
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: RNDPlanner
   localization_dt: 0.1
@@ -118,7 +118,6 @@ SAN:
   show_control_logs: true
   show_core_logs: true
   show_execute_logs: true
-  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
@@ -127,6 +126,7 @@ SAN:
   show_past_locations: true
   show_perceive_logs: true
   show_plan_logs: true
+  show_plugins_logs: true
   show_state: true
   show_vis_logs: true
   sim_dt: 0.01
@@ -157,7 +157,7 @@ async:
   global_view_follow_planner: false
   global_zoom: 280
   hide_menubar: false
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
   localization_dt: 0.1
@@ -184,7 +184,6 @@ async:
   show_control_logs: true
   show_core_logs: true
   show_execute_logs: true
-  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
@@ -194,6 +193,7 @@ async:
   show_perceive_logs: true
   show_perception_extras: true
   show_plan_logs: true
+  show_plugins_logs: true
   show_state: true
   show_vis_logs: true
   sim_dt: 0.011
@@ -225,7 +225,7 @@ default:
   global_view_follow_planner: false
   global_zoom: 800.0
   hide_menubar: false
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
   localization_dt: 0.1
@@ -252,7 +252,6 @@ default:
   show_control_logs: true
   show_core_logs: true
   show_execute_logs: true
-  show_extensions_logs: false
   show_global_plan: true
   show_legend: false
   show_lidar_clusters: true
@@ -265,8 +264,9 @@ default:
   show_occupancy_flow: true
   show_past_locations: true
   show_perceive_logs: true
-  show_perception_extras: true
+  show_perception_extras: false
   show_plan_logs: true
+  show_plugins_logs: true
   show_race_boundary: true
   show_state: true
   show_vis_logs: true
@@ -299,7 +299,7 @@ joystick:
   global_view_follow_planner: false
   global_zoom: 800.0
   hide_menubar: false
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
   localization_dt: 0.1
@@ -323,10 +323,9 @@ joystick:
   selected_profile: joystick
   shortcut_mode: false
   show_common_logs: false
-  show_control_logs: false
+  show_control_logs: true
   show_core_logs: false
   show_execute_logs: false
-  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_lidar_clusters: true
@@ -341,6 +340,7 @@ joystick:
   show_perceive_logs: false
   show_perception_extras: true
   show_plan_logs: false
+  show_plugins_logs: true
   show_race_boundary: true
   show_state: true
   show_vis_logs: false
@@ -373,7 +373,7 @@ perception:
   global_view_follow_planner: false
   global_zoom: 80
   hide_menubar: false
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
   localization_dt: 0.1
@@ -400,7 +400,6 @@ perception:
   show_control_logs: false
   show_core_logs: true
   show_execute_logs: false
-  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_lidar_clusters: true
@@ -415,6 +414,7 @@ perception:
   show_perceive_logs: true
   show_perception_extras: true
   show_plan_logs: false
+  show_plugins_logs: true
   show_state: true
   show_vis_logs: false
   sim_dt: 0.01
@@ -446,7 +446,7 @@ ros:
   global_view_follow_planner: false
   global_zoom: 80
   hide_menubar: false
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
   localization_dt: 0.1
@@ -473,7 +473,6 @@ ros:
   show_control_logs: false
   show_core_logs: true
   show_execute_logs: true
-  show_extensions_logs: true
   show_global_plan: true
   show_legend: false
   show_local_lattice: true
@@ -483,6 +482,7 @@ ros:
   show_perceive_logs: false
   show_perception_extras: true
   show_plan_logs: false
+  show_plugins_logs: true
   show_state: true
   show_vis_logs: false
   sim_dt: 0.011
@@ -514,7 +514,7 @@ sync:
   global_view_follow_planner: false
   global_zoom: 800
   hide_menubar: false
-  load_extensions: true
+  load_plugins: true
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
   localization_dt: 0.1
@@ -541,7 +541,6 @@ sync:
   show_control_logs: false
   show_core_logs: true
   show_execute_logs: false
-  show_extensions_logs: false
   show_global_plan: true
   show_legend: false
   show_local_frenet_view: true
@@ -553,6 +552,7 @@ sync:
   show_perceive_logs: false
   show_perception_extras: true
   show_plan_logs: true
+  show_plugins_logs: false
   show_state: true
   show_vis_logs: false
   sim_dt: 0.05

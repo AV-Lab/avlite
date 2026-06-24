@@ -2,16 +2,64 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 from tkinter.scrolledtext import ScrolledText
-import sys
+import logging
 import queue
+import sys
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import logging
-
+from avlite.c60_common.c60_plugins import (
+    layer_key_for_plugin_log_record,
+    plugin_package_from_logger,
+)
 
 log = logging.getLogger(__name__)
-from typing import TYPE_CHECKING
+
+_LAYER_TOGGLES = (
+    ("perception", "avlite.c10_perception", "show_perceive_logs"),
+    ("planning", "avlite.c20_planning", "show_plan_logs"),
+    ("control", "avlite.c30_control", "show_control_logs"),
+    ("execution", "avlite.c40_execution", "show_execute_logs"),
+    ("visualization", "avlite.c50_visualization", "show_vis_logs"),
+    ("common", "avlite.c60_common", "show_common_logs"),
+)
+
+_DEFAULT_FILTER_STATE: dict[str, bool] = {
+    "show_perceive_logs": True,
+    "show_plan_logs": True,
+    "show_control_logs": True,
+    "show_execute_logs": True,
+    "show_vis_logs": True,
+    "show_common_logs": True,
+    "show_core_logs": True,
+    "show_plugins_logs": True,
+    "disable_log": False,
+    "log_to_file": False,
+}
+
+
+def should_show_log(record_name: str, filter_state: dict[str, bool]) -> bool:
+    """Return whether *record_name* should be shown (thread-safe: plain bools only)."""
+    for _key, prefix, attr in _LAYER_TOGGLES:
+        if record_name.startswith(prefix + "."):
+            if not filter_state.get("show_core_logs", True):
+                return False
+            return filter_state.get(attr, True)
+
+    pkg = plugin_package_from_logger(record_name)
+    if pkg is not None:
+        if not filter_state.get("show_plugins_logs", True):
+            return False
+        layer = layer_key_for_plugin_log_record(record_name)
+        if layer is None:
+            return True
+        for key, _prefix, attr in _LAYER_TOGGLES:
+            if key == layer:
+                return filter_state.get(attr, True)
+        return False
+
+    return True
 
 if TYPE_CHECKING:
     from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
@@ -25,12 +73,14 @@ class LogView(ttk.LabelFrame):
         # self.log_queue = queue.Queue()
         # self.after(50, self.process_log_queue)
 
-        self.log_blacklist = set()  # used to filter 'excute', 'plan', 'control' subpackage logs
+        self.log_blacklist = set()
+        self._filter_state = dict(_DEFAULT_FILTER_STATE)
 
         self.controls_frame = ttk.Frame(self)
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
 
-        ttk.Checkbutton( self.controls_frame, text="Core", variable=self.root.setting.show_core_logs, command=self.update_core_toggle,).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Core", variable=self.root.setting.show_core_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
+        ttk.Checkbutton( self.controls_frame, text="Plugins", variable=self.root.setting.show_plugins_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
         self.cb_perceive = ttk.Checkbutton( self.controls_frame, text="Perception", variable=self.root.setting.show_perceive_logs, command=self.update_log_filter,)
         self.cb_perceive.pack(side=tk.LEFT)
         self.cb_plan = ttk.Checkbutton( self.controls_frame, text="Planning", variable=self.root.setting.show_plan_logs, command=self.update_log_filter,)
@@ -43,8 +93,6 @@ class LogView(ttk.LabelFrame):
         self.cb_vis.pack(side=tk.LEFT)
         self.cb_common = ttk.Checkbutton( self.controls_frame, text="Common", variable=self.root.setting.show_common_logs, command=self.update_log_filter,)
         self.cb_common.pack(side=tk.LEFT)
-        ttk.Checkbutton( self.controls_frame, text="Extensions", variable=self.root.setting.show_extensions_logs, command=self.update_log_filter,).pack(side=tk.LEFT)
-
 
         ttk.Checkbutton(self.controls_frame, text="File", variable=self.root.setting.log_to_file, command=self.update_log_to_file).pack(side=tk.RIGHT)
 
@@ -61,7 +109,13 @@ class LogView(ttk.LabelFrame):
         self.rb_db_debug.pack(side=tk.RIGHT)
         
         ttk.Button(self.controls_frame, text="Clear", command=self.clear_log, width=4).pack(side=tk.RIGHT)
+        self.root.setting.log_view_expanded.trace_add("write", lambda *_: self._sync_expand_button())
         ttk.Button(self.controls_frame, text="Copy", command=self.copy_log, width=4).pack(side=tk.RIGHT)
+        self._btn_expand = ttk.Button( self.controls_frame, text="▾", width=3,
+            command=lambda: self.update_log_view_height(reverse=True),
+        )
+        self._btn_expand.pack(side=tk.RIGHT, padx=(0, 2))
+        self._sync_expand_button()
 
         
         self.rb_db_debug.pack(side=tk.RIGHT)
@@ -71,7 +125,6 @@ class LogView(ttk.LabelFrame):
         self._file_handler: logging.FileHandler | None = None
 
         self.after(100, self.update_log_level)
-        self.after(100, self.update_core_toggle)
         self.after(100, self.update_log_filter)
 
         # -------------------------------------------
@@ -89,6 +142,7 @@ class LogView(ttk.LabelFrame):
 
         ## Redirect stdout and stderr to the log area
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
+        self._sync_filter_state()
         log.info("Log initialized.")
         self.after(self.root.setting.log_pull_time, self.poll_log_queue)
 
@@ -115,6 +169,7 @@ class LogView(ttk.LabelFrame):
 
     def update_log_to_file(self):
         log_dir = Path.cwd() / "logs"
+        self._sync_filter_state()
 
         if self.root.setting.log_to_file.get():
             log_dir.mkdir(parents=True, exist_ok=True)
@@ -135,6 +190,7 @@ class LogView(ttk.LabelFrame):
                 self._file_handler = None
                 log.info("File logging stopped.")
             self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
+        self._sync_filter_state()
 
     def update_log_view_height(self, reverse: bool = False):
         """ update the log view height based on the setting """
@@ -148,76 +204,49 @@ class LogView(ttk.LabelFrame):
         else:
             self.log_area.configure(height=self.root.setting.log_view_default_height.get())
             log.debug("Log view collapsed.")
+        self._sync_expand_button()
 
-
-    def update_core_toggle(self):
-        """ Master toggle: when Core is checked, enable & check the 6 child checkbuttons;
-        when unchecked, uncheck & disable them. Extensions is unaffected. """
-        core_on = self.root.setting.show_core_logs.get()
-        child_vars = (
-            self.root.setting.show_perceive_logs,
-            self.root.setting.show_plan_logs,
-            self.root.setting.show_control_logs,
-            self.root.setting.show_execute_logs,
-            self.root.setting.show_vis_logs,
-            self.root.setting.show_common_logs,
-        )
-        child_widgets = (
-            self.cb_perceive, self.cb_plan, self.cb_control,
-            self.cb_execute, self.cb_vis, self.cb_common,
-        )
-        new_state = "normal" if core_on else "disabled"
-        if not core_on:
-            self._core_saved_child_values = [v.get() for v in child_vars]
-            for var in child_vars:
-                var.set(False)
+    def _sync_expand_button(self) -> None:
+        if not hasattr(self, "_btn_expand"):
+            return
+        if self.root.setting.log_view_expanded.get():
+            self._btn_expand.configure(text="▾")
         else:
-            saved = getattr(self, "_core_saved_child_values", None)
-            if saved:
-                for var, val in zip(child_vars, saved):
-                    var.set(val)
-        for w in child_widgets:
-            w.configure(state=new_state)
-        self.update_log_filter()
+            self._btn_expand.configure(text="▴")
+
+
+    def _sync_filter_state(self) -> None:
+        """Copy Tk checkbox state into plain bools (main thread only)."""
+        s = self.root.setting
+        self._filter_state = {
+            "show_perceive_logs": bool(s.show_perceive_logs.get()),
+            "show_plan_logs": bool(s.show_plan_logs.get()),
+            "show_control_logs": bool(s.show_control_logs.get()),
+            "show_execute_logs": bool(s.show_execute_logs.get()),
+            "show_vis_logs": bool(s.show_vis_logs.get()),
+            "show_common_logs": bool(s.show_common_logs.get()),
+            "show_core_logs": bool(s.show_core_logs.get()),
+            "show_plugins_logs": bool(s.show_plugins_logs.get()),
+            "disable_log": bool(s.disable_log.get()),
+            "log_to_file": bool(s.log_to_file.get()),
+        }
 
     def update_log_filter(self):
         log.info("Log filter updated.")
-        # based on blacklist, LogTextHandler will filter out the logs
-        (
-            self.log_blacklist.discard("avlite.c10_perception")
-            if self.root.setting.show_perceive_logs.get()
-            else self.log_blacklist.add("avlite.c10_perception")
-        )
-        (
-            self.log_blacklist.discard("avlite.c20_planning")
-            if self.root.setting.show_plan_logs.get()
-            else self.log_blacklist.add("avlite.c20_planning")
-        )
-        (
-            self.log_blacklist.discard("avlite.c30_control")
-            if self.root.setting.show_control_logs.get()
-            else self.log_blacklist.add("avlite.c30_control")
-        )
-        (
-            self.log_blacklist.discard("avlite.c40_execution")
-            if self.root.setting.show_execute_logs.get()
-            else self.log_blacklist.add("avlite.c40_execution")
-        )
-        (
-            self.log_blacklist.discard("avlite.c50_visualization")
-            if self.root.setting.show_vis_logs.get()
-            else self.log_blacklist.add("avlite.c50_visualization")
-        )
-        (
-            self.log_blacklist.discard("avlite.c60_common")
-            if self.root.setting.show_common_logs.get()
-            else self.log_blacklist.add("avlite.c60_common")
-        )
-        (
-            self.log_blacklist.discard("avlite.extensions")
-            if self.root.setting.show_extensions_logs.get()
-            else self.log_blacklist.add("avlite.extensions")
-        )
+        self._sync_filter_state()
+        self.log_blacklist.clear()
+        if not self._filter_state["show_perceive_logs"]:
+            self.log_blacklist.add("avlite.c10_perception")
+        if not self._filter_state["show_plan_logs"]:
+            self.log_blacklist.add("avlite.c20_planning")
+        if not self._filter_state["show_control_logs"]:
+            self.log_blacklist.add("avlite.c30_control")
+        if not self._filter_state["show_execute_logs"]:
+            self.log_blacklist.add("avlite.c40_execution")
+        if not self._filter_state["show_vis_logs"]:
+            self.log_blacklist.add("avlite.c50_visualization")
+        if not self._filter_state["show_common_logs"]:
+            self.log_blacklist.add("avlite.c60_common")
 
     def update_log_level(self):
         logger = logging.getLogger()
@@ -276,7 +305,7 @@ class LogView(ttk.LabelFrame):
         except queue.Empty:
             pass
 
-        if messages and not self.root.setting.log_to_file.get():
+        if messages and not self._filter_state.get("log_to_file") and not self._filter_state.get("disable_log"):
             self.log_area.configure(state="normal")
             # Batch consecutive same-tag records into a single insert call
             # to minimise the number of Tkinter operations per poll.
@@ -345,12 +374,12 @@ class LogView(ttk.LabelFrame):
 
 
         def emit(self, record):
-            """ Emit a log record to the text widget """
-            # Blacklist check only — no formatting here so calling threads (planner, etc.) are not stalled.
-            # Formatting is deferred to poll_log_queue() on the UI thread.
+            """Emit a log record to the text widget."""
             for bl in self.log_view.log_blacklist:
                 if record.name.startswith(bl + "."):
                     return
+            if not should_show_log(record.name, self.log_view._filter_state):
+                return
             self.log_queue.put((record, record.levelno))
  
 

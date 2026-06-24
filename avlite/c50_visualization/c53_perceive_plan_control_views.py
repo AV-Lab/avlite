@@ -15,12 +15,14 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c30_control.c32_control_strategy import ControlComand, ControlStrategy
+from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c58_ui_lib import ValueGauge, ThemedInputDialog, attach_schema_tooltip
 from avlite.c50_visualization.c59_settings import VisualizationSettings, DEFAULT_SUBSTRATEGY
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
-from avlite.c60_common.c69_setting_utils import get_absolute_path, list_extensions
+from avlite.c60_common.c60_plugins import plugin_module_prefix
+from avlite.c60_common.c67_paths import get_absolute_path
 from avlite.c60_common.c61_capabilities import WorldCapability
 
 if TYPE_CHECKING:
@@ -61,6 +63,12 @@ class PerceivePlanControlView(ttk.Frame):
     def reset(self):
         """Update data in the view."""
         self.perceive_frame.update_data()
+        if self.root.exec is not None:
+            caps = self.root.exec.world.capabilities
+            self.perception_extras_frame.localization_dropdown_menu["values"] = (
+                ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_LOCALIZATION in caps else ())
+                + tuple(LocalizationStrategy.registry.keys())
+            )
         self.plan_frame.update_data()
         self.control_frame.update_data()
 
@@ -96,10 +104,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self._lbl_detect.grid(row=1, column=0, sticky="e", padx=(5, 0))
         self.detection_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.detection_strategy_type, state="readonly")
-        self.detection_dropdown_menu["values"] = (
-            ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_DETECTION in self.root.exec.world.capabilities else ())
-            + tuple(DetectionStrategy.registry.keys())
-        )
+        self.detection_dropdown_menu["values"] = tuple(DetectionStrategy.registry.keys())
         self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.detection_dropdown_menu.grid(row=1, column=1, columnspan=2, sticky="ew")
 
@@ -107,10 +112,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self._lbl_track.grid(row=2, column=0, sticky="e", padx=(5, 0))
         self.tracking_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
-        self.tracking_dropdown_menu["values"] = (
-            ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_TRACKING in self.root.exec.world.capabilities else ())
-            + tuple(TrackingStrategy.registry.keys())
-        )
+        self.tracking_dropdown_menu["values"] = tuple(TrackingStrategy.registry.keys())
         self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.tracking_dropdown_menu.grid(row=2, column=1, columnspan=2, sticky="ew")
 
@@ -154,17 +156,19 @@ class PerceptionFrame(ttk.LabelFrame):
     def update_data(self):
         """Update data in the perception frame."""
         core_strategies = set(PerceptionStrategy.registry.keys())
-        allowed_default_extensions = set(PerceptionStrategy.registry.keys()) & set(ExecutionSettings.c40_default_extensions)
-        community_prefixes = tuple(f"avlite.extensions.{a}" for a in ExecutionSettings.c40_community_plugins.keys())
-        allowed_community_extensions = {
+        allowed_default_plugins = set(PerceptionStrategy.registry.keys()) & set(ExecutionSettings.c40_default_plugins)
+        community_prefixes = tuple(plugin_module_prefix(a) for a in ExecutionSettings.c40_community_plugins.keys())
+        allowed_community_plugins = {
             n for n, c in PerceptionStrategy.registry.items()
             if community_prefixes and c.__module__.startswith(community_prefixes)
         }
-        data = sorted(core_strategies | allowed_default_extensions | allowed_community_extensions)
-        log.warning(f"allowed_default_extensions: {allowed_default_extensions}, allowed_community_extensions: {allowed_community_extensions}")
+        data = sorted(core_strategies | allowed_default_plugins | allowed_community_plugins)
+        log.warning("allowed_default_plugins: %s, allowed_community_plugins: %s", allowed_default_plugins, allowed_community_plugins)
         log.warning(f"final Strategies: {data}")
 
         self.perception_dropdown_menu["values"] = tuple(data)
+        if self.root.exec is None:
+            return
         _caps = self.root.exec.world.capabilities
         self.detection_dropdown_menu["values"] = (
             ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_DETECTION in _caps else ())
@@ -186,10 +190,7 @@ class PerceptionExtrasFrame(ttk.LabelFrame):
         ttk.Label(self, text="Localization:").pack(side=tk.LEFT, padx=(5, 2))
         self.localization_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
-        self.localization_dropdown_menu["values"] = (
-            ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_LOCALIZATION in self.root.exec.world.capabilities else ())
-            + tuple(LocalizationStrategy.registry.keys())
-        )
+        self.localization_dropdown_menu["values"] = tuple(LocalizationStrategy.registry.keys())
         self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or DEFAULT_SUBSTRATEGY)
         self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
@@ -252,9 +253,8 @@ class PlanFrame(ttk.LabelFrame):
         global_tj_wp_entry = ttk.Entry( wp_frame, width=6, textvariable=self.root.setting.current_wp)
         global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
         global_tj_wp_entry.bind("<Return>", self.text_on_enter)
-        ttk.Label(wp_frame, text=f"{len(self.root.exec.local_planner.global_trajectory.path_x)-1}").pack(
-            side=tk.LEFT, padx=5
-        )
+        self._wp_count_label = ttk.Label(wp_frame, text="0")
+        self._wp_count_label.pack(side=tk.LEFT, padx=5)
         ttk.Label(self, text="Lap: ").pack(side=tk.LEFT, padx=5)
         ttk.Label(self, font=self.root.small_font,
                   textvariable=self.root.setting.lap).pack(side=tk.LEFT, padx=5)
@@ -270,6 +270,10 @@ class PlanFrame(ttk.LabelFrame):
         self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
         self.global_planner_dropdown_menu.delete(0, tk.END)  # Clear existing values
         self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
+        if self.root.exec is not None:
+            self._wp_count_label.config(
+                text=f"{len(self.root.exec.local_planner.global_trajectory.path_x) - 1}"
+            )
 
     def set_waypoint(self):
         self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
@@ -380,15 +384,15 @@ class ControlFrame(ttk.LabelFrame):
         ttk.Label(self.progress_label_frame, text="Steer", font=self.root.small_font).pack(side=tk.TOP)
 
         self.gauge_acc = ValueGauge( self.progress_frame,
-            min_value=self.root.exec.controller.ego_min_acceleration,
-            max_value=self.root.exec.controller.ego_max_acceleration,
+            min_value=ControlSettings.c32_ego_min_acceleration,
+            max_value=ControlSettings.c32_ego_max_acceleration,
         )
         self.gauge_acc.pack(side=tk.TOP, fill=tk.X, expand=True)
         # self.progressbar_acc.set_marker(0)
 
         self.gauge_steer = ValueGauge( self.progress_frame,
-            min_value=self.root.exec.controller.ego_min_steering,
-            max_value=self.root.exec.controller.ego_max_steering,
+            min_value=ControlSettings.c32_ego_min_steering,
+            max_value=ControlSettings.c32_ego_max_steering,
         )
         # self.progressbar_steer.set_marker(0)
         self.gauge_steer.pack(side=tk.TOP, fill=tk.X, expand=True)

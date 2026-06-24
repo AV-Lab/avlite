@@ -125,7 +125,7 @@ def test_save_setting_round_trip(tmp_path):
 
 
 def _parse_config_args(argv: list[str]) -> argparse.Namespace:
-    from avlite.extensions.e50_headless_mode.e52_config_cli import register_config_parser
+    from avlite.plugins.p50_headless_mode.p52_config_cli import register_config_parser
 
     parser = argparse.ArgumentParser(prog="avlite")
     sub = parser.add_subparsers(dest="command")
@@ -134,7 +134,7 @@ def _parse_config_args(argv: list[str]) -> argparse.Namespace:
 
 
 def test_run_config_command_bare_config_shows_help(capsys):
-    from avlite.extensions.e50_headless_mode.e52_config_cli import run_config_command
+    from avlite.plugins.p50_headless_mode.p52_config_cli import run_config_command
 
     args = _parse_config_args(["config"])
     assert run_config_command(args) == 0
@@ -144,7 +144,7 @@ def test_run_config_command_bare_config_shows_help(capsys):
 
 
 def test_run_config_command_help_subcommand(capsys):
-    from avlite.extensions.e50_headless_mode.e52_config_cli import run_config_command
+    from avlite.plugins.p50_headless_mode.p52_config_cli import run_config_command
 
     args = _parse_config_args(["config", "help"])
     assert run_config_command(args) == 0
