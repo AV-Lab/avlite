@@ -10,7 +10,7 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c60_plugins import import_plugin_modules, reload_lib, sync_builtin_plugins, unregister_plugin_package
-from avlite.c60_common.c67_paths import get_absolute_path, resolve_plugin_path
+from avlite.c60_common.c67_paths import resolve_picker_data_path, resolve_plugin_path
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -70,7 +70,7 @@ def executor_factory(
 
 
     try:
-        global_plan_path = get_absolute_path(default_global_trajectory_file)
+        global_plan_path = resolve_picker_data_path(default_global_trajectory_file)
         default_global_plan = GlobalPlan.from_file(global_plan_path)
         log.debug(f"Default global trajectory loaded from {global_plan_path}")
     except Exception as e:
@@ -79,7 +79,7 @@ def executor_factory(
             "Falling back to race boundary centerline."
         )
         _fallback_planner = GlobalCenterlineRacePlanner(
-            get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+            resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
         )
         default_global_plan = _fallback_planner.plan()
 
@@ -93,13 +93,13 @@ def executor_factory(
     
     try:
         if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
-            hdmap = HDMap(xodr_file_name=get_absolute_path(hd_map))
+            hdmap = HDMap(xodr_file_name=resolve_picker_data_path(hd_map))
             pm.hd_map = hdmap
             gp = HDMapGlobalPlanner(hdmap)
             log.debug("GlobalHDMapPlanner loaded")
         elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
             gp = GlobalCenterlineRacePlanner(
-                get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+                resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
             )
             gp.global_plan = default_global_plan
         elif global_planner_strategy_name in GlobalPlannerStrategy.registry:
@@ -109,14 +109,14 @@ def executor_factory(
         else:
             log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
             gp = GlobalCenterlineRacePlanner(
-                get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+                resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
             )
             gp.global_plan = default_global_plan
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
         gp = GlobalCenterlineRacePlanner(
-            get_absolute_path(ExecutionSettings.c43_race_boundary_map),
+            resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
         )
         gp.global_plan = default_global_plan
 
@@ -153,17 +153,27 @@ def executor_factory(
     # Loading local planner
     #######################
 
+    local_global_plan = default_global_plan
+    if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
+        local_global_plan = GlobalPlan(
+            start_point=default_global_plan.start_point,
+            goal_point=default_global_plan.goal_point,
+            path=default_global_plan.path,
+            velocity=default_global_plan.velocity,
+            trajectory=default_global_plan.trajectory,
+        )
+
     try:
         if local_planner_strategy_name in LocalPlanningStrategy.registry:
             cls = LocalPlanningStrategy.registry[local_planner_strategy_name]
-            pl = cls(global_plan=default_global_plan, env=pm)
+            pl = cls(global_plan=local_global_plan, env=pm)
         else:
             log.error(f"Unable to load local planner {local_planner_strategy_name}. Switching to default.")
-            pl = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
+            pl = GreedyLatticePlanner(global_plan=local_global_plan, env=pm)
 
     except Exception as e:
         log.error(f"Failed to load local planner: {e}. Switching to default.")
-        pl = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
+        pl = GreedyLatticePlanner(global_plan=local_global_plan, env=pm)
 
     #################
     # Loading controller

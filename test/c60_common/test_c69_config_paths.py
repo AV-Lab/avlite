@@ -9,9 +9,12 @@ from pathlib import Path
 import pytest
 import yaml
 
+from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_common.c67_paths import (
+    apply_map_selection,
     clear_user_configs,
     community_plugin_settings_display_path,
+    data_picker_path_for_setting,
     effective_config_path,
     format_user_path,
     get_absolute_path,
@@ -21,7 +24,9 @@ from avlite.c60_common.c67_paths import (
     get_user_configs_dir,
     installed_community_plugins_map,
     is_repo_config_target,
+    list_map_file_candidates,
     normalize_community_plugin_stored,
+    resolve_picker_data_path,
     resolve_plugin_path,
     set_repo_config_target,
     set_startup_profile,
@@ -163,6 +168,83 @@ def test_get_absolute_path_write_targets_user_dir(monkeypatch, tmp_path):
     path = get_absolute_path("data/20260101_120000_global_plan.json", for_write=True)
     assert Path(path) == user_data / "20260101_120000_global_plan.json"
     assert user_data.is_dir()
+
+
+def _home_test_user_data(name: str) -> Path:
+    return Path.home() / ".avlite_test" / name
+
+
+def test_list_map_candidates_show_user_and_repo(monkeypatch):
+    user_data = _home_test_user_data("list_maps")
+    user_data.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AVLITE_DATA_DIR", str(user_data))
+    try:
+        user_file = user_data / "san_campus.xodr"
+        user_file.write_text("user copy")
+        candidates = list_map_file_candidates()
+        user_picker = "~/" + user_file.resolve().relative_to(Path.home()).as_posix()
+        assert "data/san_campus.xodr" in candidates
+        assert user_picker in candidates
+        assert candidates.index(user_picker) < candidates.index("data/san_campus.xodr")
+    finally:
+        import shutil
+        shutil.rmtree(user_data.parent, ignore_errors=True)
+
+
+def test_resolve_picker_data_path_user_explicit(monkeypatch):
+    user_data = _home_test_user_data("resolve_user")
+    user_data.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AVLITE_DATA_DIR", str(user_data))
+    try:
+        user_file = user_data / "test_map.xodr"
+        user_file.write_text("x")
+        stored = "~/" + user_file.resolve().relative_to(Path.home()).as_posix()
+        assert Path(resolve_picker_data_path(stored)) == user_file.resolve()
+    finally:
+        import shutil
+        shutil.rmtree(user_data.parent, ignore_errors=True)
+
+
+def test_resolve_picker_data_path_data_prefix_prefers_user(monkeypatch):
+    user_data = _home_test_user_data("resolve_legacy")
+    user_data.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AVLITE_DATA_DIR", str(user_data))
+    try:
+        user_file = user_data / "san_campus.xodr"
+        user_file.write_text("user copy")
+        assert Path(resolve_picker_data_path("data/san_campus.xodr")) == user_file.resolve()
+    finally:
+        import shutil
+        shutil.rmtree(user_data.parent, ignore_errors=True)
+
+
+def test_data_picker_path_for_setting_shows_user_when_override_exists(monkeypatch):
+    user_data = _home_test_user_data("display_user")
+    user_data.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("AVLITE_DATA_DIR", str(user_data))
+    try:
+        user_file = user_data / "san_campus.xodr"
+        user_file.write_text("user copy")
+        display = data_picker_path_for_setting("data/san_campus.xodr")
+        assert display.startswith("~/")
+        assert display.endswith("san_campus.xodr")
+    finally:
+        import shutil
+        shutil.rmtree(user_data.parent, ignore_errors=True)
+
+
+def test_apply_map_selection_xodr_clears_lidar_boundary():
+    ExecutionSettings.c46_lidar_boundary_file = "data/yasmarina.track.json"
+    apply_map_selection("data/san_campus.xodr")
+    assert ExecutionSettings.c46_lidar_boundary_file == ""
+    assert ExecutionSettings.c40_hd_map == "data/san_campus.xodr"
+
+
+def test_apply_map_selection_race_json_sets_lidar_boundary():
+    path = "data/race_boundary_yas_marina.map.json"
+    apply_map_selection(path)
+    assert ExecutionSettings.c43_race_boundary_map == path
+    assert ExecutionSettings.c46_lidar_boundary_file == path
 
 
 def test_get_startup_profile_missing(monkeypatch, tmp_path):

@@ -365,7 +365,7 @@ def extract_reference_point_from_xodr(abs_path: Path | str) -> tuple[float, floa
 
 def extract_reference_point_from_map(rel_path: str) -> tuple[float, float] | None:
     """Extract WGS84 (lat_deg, lon_deg) from a repo/user ``data/...`` map path."""
-    abs_path = Path(get_absolute_path(rel_path))
+    abs_path = Path(resolve_picker_data_path(rel_path))
     if rel_path.endswith(".xodr"):
         return extract_reference_point_from_xodr(abs_path)
     if is_race_boundary_json(abs_path):
@@ -381,6 +381,56 @@ def _relative_data_path(file_path: Path, data_root: Path) -> str | None:
     return "data/" + rel.as_posix()
 
 
+def format_user_data_picker_path(abs_path: Path) -> str:
+    """Format an absolute user-data file for picker display/storage."""
+    try:
+        rel = abs_path.resolve().relative_to(Path.home())
+        return "~/" + rel.as_posix()
+    except ValueError:
+        return str(abs_path.resolve())
+
+
+def format_repo_data_picker_path(abs_path: Path) -> str:
+    """Format an absolute repo-data file as ``data/...``."""
+    rel = abs_path.relative_to(_repo_data_dir())
+    return "data/" + rel.as_posix()
+
+
+def _data_picker_path_for_file(file_path: Path, data_root: Path) -> str:
+    if data_root.resolve() == get_data_dir().resolve():
+        return format_user_data_picker_path(file_path)
+    return format_repo_data_picker_path(file_path)
+
+
+def resolve_picker_data_path(stored: str, *, for_write: bool = False) -> str:
+    """Resolve a picker or settings data path to an absolute filesystem path."""
+    if stored.startswith("~/"):
+        path = Path(stored).expanduser().resolve()
+        if for_write:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        return str(path)
+    return get_absolute_path(stored, for_write=for_write)
+
+
+def data_picker_path_for_setting(stored: str) -> str:
+    """Format a stored settings path for picker display based on resolved location."""
+    if stored.startswith("~/"):
+        return stored
+    abs_path = Path(get_absolute_path(stored)).resolve()
+    user_root = get_data_dir().resolve()
+    repo_root = _repo_data_dir().resolve()
+    try:
+        abs_path.relative_to(user_root)
+        return format_user_data_picker_path(abs_path)
+    except ValueError:
+        pass
+    try:
+        rel = abs_path.relative_to(repo_root)
+        return "data/" + rel.as_posix()
+    except ValueError:
+        return stored
+
+
 def _iter_data_files(*roots: Path):
     for root in roots:
         if not root.is_dir():
@@ -390,53 +440,55 @@ def _iter_data_files(*roots: Path):
                 yield path, root
 
 
-def list_map_file_candidates() -> list[str]:
-    """Sorted ``data/...`` paths for OpenDRIVE maps and race-boundary JSON files."""
+def _collect_data_picker_candidates(predicate) -> list[str]:
+    """Return sorted picker paths (user dir first, then repo) passing *predicate*."""
     repo_data = _repo_data_dir()
     user_data = get_data_dir()
     seen: set[str] = set()
-    candidates: list[str] = []
+    user_candidates: list[str] = []
+    repo_candidates: list[str] = []
 
     for path, root in _iter_data_files(user_data, repo_data):
-        rel = _relative_data_path(path, root)
-        if rel is None or rel in seen:
+        if not predicate(path):
             continue
-        if path.suffix.lower() == ".xodr":
-            seen.add(rel)
-            candidates.append(rel)
-        elif is_race_boundary_json(path):
-            seen.add(rel)
-            candidates.append(rel)
+        picker_path = _data_picker_path_for_file(path, root)
+        if picker_path in seen:
+            continue
+        seen.add(picker_path)
+        if root.resolve() == user_data.resolve():
+            user_candidates.append(picker_path)
+        else:
+            repo_candidates.append(picker_path)
 
-    return sorted(candidates)
+    return sorted(user_candidates) + sorted(repo_candidates)
+
+
+def list_map_file_candidates() -> list[str]:
+    """Sorted picker paths for OpenDRIVE maps and race-boundary JSON files."""
+    def _is_map(path: Path) -> bool:
+        if path.suffix.lower() == ".xodr":
+            return True
+        return is_race_boundary_json(path)
+
+    return _collect_data_picker_candidates(_is_map)
 
 
 def list_global_plan_file_candidates() -> list[str]:
-    """Sorted ``data/...`` paths for global-plan trajectory JSON files."""
-    repo_data = _repo_data_dir()
-    user_data = get_data_dir()
-    seen: set[str] = set()
-    candidates: list[str] = []
-
-    for path, root in _iter_data_files(user_data, repo_data):
-        rel = _relative_data_path(path, root)
-        if rel is None or rel in seen:
-            continue
-        if is_global_plan_json(path):
-            seen.add(rel)
-            candidates.append(rel)
-
-    return sorted(candidates)
+    """Sorted picker paths for global-plan trajectory JSON files."""
+    return _collect_data_picker_candidates(is_global_plan_json)
 
 
 def apply_map_selection(rel_path: str) -> None:
     """Route *rel_path* to execution map settings and update reference point."""
     from avlite.c40_execution.c49_settings import ExecutionSettings
 
+    abs_path = resolve_picker_data_path(rel_path)
     if rel_path.endswith(".xodr"):
         ExecutionSettings.c40_hd_map = rel_path
-    elif is_race_boundary_json(get_absolute_path(rel_path)):
+        ExecutionSettings.c46_lidar_boundary_file = ""
+    elif is_race_boundary_json(abs_path):
         ExecutionSettings.c43_race_boundary_map = rel_path
+        ExecutionSettings.c46_lidar_boundary_file = rel_path
     ref = extract_reference_point_from_map(rel_path)
     ExecutionSettings.c40_reference_point = list(ref) if ref else None
 
@@ -445,7 +497,7 @@ def apply_global_plan_selection(rel_path: str) -> None:
     """Set ``c40_global_trajectory`` when *rel_path* is a valid global-plan JSON."""
     from avlite.c40_execution.c49_settings import ExecutionSettings
 
-    if is_global_plan_json(get_absolute_path(rel_path)):
+    if is_global_plan_json(resolve_picker_data_path(rel_path)):
         ExecutionSettings.c40_global_trajectory = rel_path
 
 
