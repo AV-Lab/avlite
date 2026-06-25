@@ -10,6 +10,8 @@ from avlite.c60_common.c67_paths import (
     bundled_config_dir,
     can_edit_repo_configs,
     community_plugin_settings_display_path,
+    effective_config_path,
+    format_user_path,
     get_config_dir,
     installed_community_plugins_map,
     is_repo_config_target,
@@ -22,6 +24,7 @@ from avlite.c60_common.c60_plugins import (
     import_plugin_modules,
     list_plugins,
     load_all_stack_settings,
+    load_builtin_plugin_settings,
     load_community_plugin_setting,
     plugin_module_prefix,
     reload_lib,
@@ -379,6 +382,7 @@ class SettingWindow:
 
         self.listbox_community_plugins.bind("<Double-Button-1>", lambda e: self.edit_community_plugin())
         self.listbox_community_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_plugin())
+        self.listbox_default_plugins.bind("<Double-Button-1>", lambda e: self.edit_default_plugin())
         self.listbox_default_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_builtin_plugin())
 
 
@@ -595,6 +599,29 @@ class SettingWindow:
             log.info(f"Deleted community plugin: {plugin_name}")
         else:
             log.warning("No community plugin selected to delete.")
+
+    def edit_default_plugin(self):
+        selected = self.listbox_default_plugins.curselection()
+        if not selected:
+            log.warning("No plugin selected to edit.")
+            return
+
+        plugin_name = self.listbox_default_plugins.get(selected[0])
+        cls = load_builtin_plugin_settings(plugin_name)
+        if cls is not None and getattr(cls, "filepath", None):
+            settings_path = format_user_path(
+                effective_config_path(cls.filepath, for_write=False)
+            )
+        else:
+            settings_path = "\u2014"
+        ThemedReadOnlyTwoFieldDialog(
+            self.root,
+            "Plugin",
+            "Package Name",
+            "Settings file",
+            plugin_name,
+            settings_path,
+        )
 
     def edit_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
