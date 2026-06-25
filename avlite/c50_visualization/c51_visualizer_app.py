@@ -11,18 +11,17 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from avlite.c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
 from avlite.c50_visualization.c54_exec_views import ExecView
-from avlite.c50_visualization.c59_settings import VisualizationSettings
+from avlite.c50_visualization.c58_ui_lib import (
+    TkSettingsBinder,
+    get_dpi_scale,
+    scaled,
+)
+from avlite.c50_visualization.c59_settings import VisualizationSettings, load_stack_plugins
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c69_setting_utils import (
-    load_setting,
-    list_profiles,
-    list_extensions,
-    load_all_stack_settings,
-    reload_lib,
-    get_startup_profile,
-    set_startup_profile,
-)
+from avlite.c60_common.c60_plugins import reload_lib
+from avlite.c60_common.c67_paths import get_startup_profile, set_startup_profile
+from avlite.c60_common.c69_setting_utils import load_setting, list_profiles
     
 
 log = logging.getLogger(__name__)
@@ -30,14 +29,12 @@ logging.getLogger("PIL").setLevel(logging.WARNING)
 
 
 class VisualizerApp(tk.Tk):
-    exec: SyncExecuter
+    exec: SyncExecuter | None
 
     def __init__(self):
         super().__init__()
-        # Pixels-per-inch reported by this screen, normalised to a 96 dpi baseline.
-        # Used to scale any hardcoded pixel geometry so windows feel right on all devices.
-        self._dpi_scale: float = max(1.0, min(3.0, self.winfo_fpixels('1i') / 96.0))
-        self.exec = executor_factory()
+        self._dpi_scale: float = get_dpi_scale(self)
+        self.exec = None
         self.loading_overlay = None
         self.ui_initialized = False
         self.show_loading_overlay()
@@ -52,7 +49,8 @@ class VisualizerApp(tk.Tk):
         self.set_dark_mode_themed()
 
         self.title("AVlite Visualizer")
-        # self.geometry("1200x1100")
+        s = self._dpi_scale
+        self.geometry(f"{scaled(1200, s)}x{scaled(900, s)}")
         self.small_font = ("Courier", 10)
 
         # self.set_dark_mode()
@@ -64,8 +62,7 @@ class VisualizerApp(tk.Tk):
         startup = get_startup_profile()
         if startup and startup in self.setting.profile_list:
             self.setting.selected_profile.set(startup)
-        ExecutionSettings.c40_default_extensions = list_extensions()
-        
+
         # ----------------------------------------------------------------------
         # UI Views
         # ---------------------------------------------------------------------
@@ -89,7 +86,7 @@ class VisualizerApp(tk.Tk):
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_configs()
         log.warning(f"map is {ExecutionSettings.c40_hd_map}")
-        self.reload_stack()
+        self.reload_stack(reload_code=False)
         log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
 
         # Bind to window resize to maintain ratio
@@ -251,7 +248,10 @@ class VisualizerApp(tk.Tk):
             log.error("Failed to load logo image.")
             
         # Add loading message
-        tk.Label(frame, text=message, fg="#10bfe8", bg="black", font=("Arial", 12)).pack(pady=10)
+        tk.Label(
+            frame, text=message, fg="#10bfe8", bg="black",
+            font=("Arial", 12),
+        ).pack(pady=10)
         
         # Update the window to make it visible
         self.loading_window.update_idletasks()
@@ -414,27 +414,29 @@ class VisualizerApp(tk.Tk):
         win.title("About AVLite")
         win.resizable(False, False)
         win.configure(bg="black")
+        s = self._dpi_scale
 
-        inner = tk.Frame(win, bg="black", padx=40, pady=0)
+        inner = tk.Frame(win, bg="black", padx=scaled(40, s), pady=0)
         inner.pack(fill="both", expand=True)
 
         try:
             from PIL import Image, ImageTk
             logo_img = Image.open("data/imgs/logo.png")
-            logo_img = logo_img.resize((200, 200), Image.LANCZOS)
+            logo_size = scaled(200, s)
+            logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
             win._logo_photo = ImageTk.PhotoImage(logo_img)
-            tk.Label(inner, image=win._logo_photo, bg="black").pack(pady=(24, 8))
+            tk.Label(inner, image=win._logo_photo, bg="black").pack(pady=(scaled(24, s), scaled(8, s)))
         except Exception:
             log.warning("Failed to load logo for About dialog.")
 
         tk.Label(inner, text="AVLite", fg="#10bfe8", bg="black",
                  font=("Arial", 16, "bold")).pack()
         tk.Label(inner, text="Version 0.1.0", fg="#10bfe8", bg="black",
-                 font=("Arial", 11)).pack(pady=(4, 0))
+                 font=("Arial", 11)).pack(pady=(scaled(4, s), 0))
         tk.Label(inner, text="A lightweight autonomous driving software stack.",
-                 fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(6, 24))
+                 fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(scaled(6, s), scaled(24, s)))
 
-        ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, 20))
+        ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, scaled(20, s)))
         win.grab_set()
         win.focus_set()
 
@@ -459,6 +461,8 @@ class VisualizerApp(tk.Tk):
 
     
     def update_ui(self):
+        if self.exec is None:
+            return
         t1 = time.time()
         _plot_dt = t1 - getattr(self, '_last_plot_time', 0)
         _do_plot = _plot_dt >= 0.033  # cap plot redraws at ~30 Hz
@@ -501,10 +505,14 @@ class VisualizerApp(tk.Tk):
         # load_setting(PlanningSettings, profile=profile)
         # load_setting(ControlSettings, profile=profile)
         # load_setting(ExecutionSettings, profile=profile)
-        load_all_stack_settings(profile=profile, load_extensions=self.setting.load_extensions.get())
+        binder = TkSettingsBinder()
         if not only_stack:
-            load_setting(self.setting, profile=profile)
-            self.setting.normalize_gt_sentinels()
+            load_setting(self.setting, profile=profile, binder=binder)
+        load_stack_plugins(profile=profile, load_plugins=self.setting.load_plugins.get())
+        from avlite.c50_visualization.c59_settings import default_map_display_path, default_global_plan_display_path
+        self.setting.default_map_file.set(default_map_display_path())
+        self.setting.default_global_plan_file.set(default_global_plan_display_path())
+        self.exec_visualize_view.refresh_default_map_tooltips()
         self.config_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 
@@ -526,7 +534,7 @@ class VisualizerApp(tk.Tk):
             # if reload_code:
                 # self.load_configs()
             if reload_code:
-                reload_lib(exclude_settings=True)
+                reload_lib(exclude_settings=True, reload_plugins=self.setting.load_plugins.get())
             self.exec = executor_factory(
                 executer_type=self.setting.executer_type.get(),
                 # async_mode=self.setting.async_exec.get(),
@@ -544,15 +552,19 @@ class VisualizerApp(tk.Tk):
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
                 # reload_code=reload_code,
                 # exclude_reload_settings=True,
-                load_extensions=self.setting.load_extensions.get(),
+                load_plugins=self.setting.load_plugins.get(),
                 async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
+
+            from avlite.c50_visualization.c59_settings import default_map_display_path
+            self.setting.default_map_file.set(default_map_display_path())
+            self.exec_visualize_view.refresh_default_map_tooltips()
 
         except Exception as e:
             log.error(f"Error reloading stack: {e}", exc_info=True)
             messagebox.showerror(
                 "Reload failed",
-                f"Failed to rebuild the stack. The previous configuration is still active.\n\n{e}",
+                f"Failed to rebuild the stack. \n\n{e}",
             )
 
 
@@ -563,7 +575,8 @@ class VisualizerApp(tk.Tk):
         self.update_views()
         self.update_ui()
         self.enable_frame(self)
-        self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
+        if self.exec is not None:
+            self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
         self.focus_set()  # unfocus any entry fields including widgets. Useful to avoid typing shortcut keys 
         self.hide_loading_overlay()
             

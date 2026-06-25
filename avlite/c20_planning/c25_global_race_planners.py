@@ -2,9 +2,12 @@ import json
 import logging
 
 import numpy as np
+from shapely.geometry import LineString, Point
+from shapely.ops import nearest_points
 
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 
 log = logging.getLogger(__name__)
@@ -20,10 +23,11 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
         {
             "LeftBound":      [[x, y, z], ...],
             "RightBound":     [[x, y, z], ...],
-            "ReferencePoint": [x, y, z]         # optional
+            "ReferencePoint": [lat, lon, alt]   # required WGS84 degrees
         }
 
-    The path is the element-wise midpoint of the two boundary arrays.
+    The path is the corridor centre between the left and right boundary polylines,
+    refined from an index-wise midpoint so tight corners stay equidistant to both sides.
     Target speed at each waypoint is capped by the lateral-acceleration limit:
 
         a_lat = v² · κ  →  v = min(v_max, sqrt(a_lat / κ))
@@ -34,7 +38,7 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
         filepath: str,
         max_velocity: float = 10.0,
         max_lateral_accel: float = 5.0,
-        margin: float = 1.0,
+        margin: float | None = None,
     ):
         super().__init__()
         self.filepath = filepath
@@ -43,6 +47,12 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
         self.margin = margin
 
     def plan(self) -> GlobalPlan:
+        margin = (
+            self.margin
+            if self.margin is not None
+            else PlanningSettings.c20_boundary_margin
+        )
+
         with open(self.filepath) as f:
             data = json.load(f)
 
@@ -60,10 +70,11 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
         diff = right - left
         norms = np.linalg.norm(diff, axis=1, keepdims=True)
         dir_unit = diff / np.maximum(norms, eps)
-        eff_left = left + self.margin * dir_unit
-        eff_right = right - self.margin * dir_unit
+        eff_left = left + margin * dir_unit
+        eff_right = right - margin * dir_unit
 
         path_np = (eff_left + eff_right) / 2.0
+        path_np = self._refine_centerline_to_corridor(path_np, eff_left, eff_right)
         path = [tuple(p) for p in path_np]
         velocity = self._curvature_velocity(path_np)
         trajectory = TrajectoryTracker(path=path, velocity=velocity)
@@ -82,11 +93,26 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
             trajectory=trajectory,
             race_mode=True,
         )
+        log.debug(f"GlobalCenterlineRacePlanner: planned {len(path)} waypoints from {self.filepath}")
         return self.global_plan
 
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _refine_centerline_to_corridor(
+        path_np: np.ndarray, left_np: np.ndarray, right_np: np.ndarray
+    ) -> np.ndarray:
+        """Re-center path so each point is midway between nearest boundary points."""
+        left_ls = LineString(left_np)
+        right_ls = LineString(right_np)
+        refined = np.empty_like(path_np)
+        for i, p in enumerate(path_np):
+            pl = nearest_points(Point(p), left_ls)[1]
+            pr = nearest_points(Point(p), right_ls)[1]
+            refined[i] = [(pl.x + pr.x) / 2.0, (pl.y + pr.y) / 2.0]
+        return refined
 
     def _curvature_velocity(self, path_np: np.ndarray) -> list[float]:
         """Compute per-waypoint speed limited by lateral acceleration.

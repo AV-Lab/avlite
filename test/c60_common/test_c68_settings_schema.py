@@ -72,7 +72,7 @@ def test_field_tooltip_text_description_first():
     tip = field_tooltip_text(ExecutionSettings, "c40_control_dt")
     assert tip is not None
     assert tip.startswith("Control loop period")
-    assert tip.endswith("(float, default=0.05)")
+    assert tip.endswith("(float, default=0.05, config_name: c40_control_dt)")
 
 
 def test_load_setting_valid_profile(tmp_path):
@@ -125,7 +125,7 @@ def test_save_setting_round_trip(tmp_path):
 
 
 def _parse_config_args(argv: list[str]) -> argparse.Namespace:
-    from avlite.extensions.e50_headless_mode.e52_config_cli import register_config_parser
+    from avlite.plugins.p50_headless_mode.p52_config_cli import register_config_parser
 
     parser = argparse.ArgumentParser(prog="avlite")
     sub = parser.add_subparsers(dest="command")
@@ -134,7 +134,7 @@ def _parse_config_args(argv: list[str]) -> argparse.Namespace:
 
 
 def test_run_config_command_bare_config_shows_help(capsys):
-    from avlite.extensions.e50_headless_mode.e52_config_cli import run_config_command
+    from avlite.plugins.p50_headless_mode.p52_config_cli import run_config_command
 
     args = _parse_config_args(["config"])
     assert run_config_command(args) == 0
@@ -143,8 +143,32 @@ def test_run_config_command_bare_config_shows_help(capsys):
     assert "describe" in out
 
 
+def test_default_map_settings_field_race_planner():
+    from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
+    from avlite.c50_visualization.c59_settings import default_map_settings_field
+
+    original = ExecutionSettings.c40_global_planner
+    try:
+        ExecutionSettings.c40_global_planner = GlobalCenterlineRacePlanner.__name__
+        assert default_map_settings_field() == "c43_race_boundary_map"
+    finally:
+        ExecutionSettings.c40_global_planner = original
+
+
+def test_default_map_settings_field_hd_planner():
+    from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+    from avlite.c50_visualization.c59_settings import default_map_settings_field
+
+    original = ExecutionSettings.c40_global_planner
+    try:
+        ExecutionSettings.c40_global_planner = HDMapGlobalPlanner.__name__
+        assert default_map_settings_field() == "c40_hd_map"
+    finally:
+        ExecutionSettings.c40_global_planner = original
+
+
 def test_run_config_command_help_subcommand(capsys):
-    from avlite.extensions.e50_headless_mode.e52_config_cli import run_config_command
+    from avlite.plugins.p50_headless_mode.p52_config_cli import run_config_command
 
     args = _parse_config_args(["config", "help"])
     assert run_config_command(args) == 0

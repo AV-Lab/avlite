@@ -1,20 +1,16 @@
+import inspect
 import logging
 
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from avlite.c60_common.c67_hdmap import HDMap
-from avlite.c30_control.c31_control_model import  ControlComand
+from avlite.c60_common.c66_hdmap import HDMap
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c69_setting_utils import (
-    reload_lib,
-    get_absolute_path,
-    import_all_modules,
-    resolve_plugin_path,
-)
+from avlite.c60_common.c60_plugins import import_plugin_modules, reload_lib, sync_builtin_plugins, unregister_plugin_package
+from avlite.c60_common.c67_paths import resolve_picker_data_path, resolve_plugin_path
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
@@ -37,6 +33,7 @@ from avlite.c40_execution.c46_basic_sim import BasicSim
 
 log = logging.getLogger(__name__)
 
+
 def executor_factory(
     executer_type = ExecutionSettings.c40_executer_type,
     bridge = ExecutionSettings.c40_bridge,
@@ -51,7 +48,7 @@ def executor_factory(
     control_dt = ExecutionSettings.c40_control_dt,
     default_global_trajectory_file = ExecutionSettings.c40_global_trajectory,
     hd_map = ExecutionSettings.c40_hd_map,
-    load_extensions=True,
+    load_plugins=True,
     async_combined_perception_planning: bool = ExecutionSettings.c40_async_combined_perception_planning,
 ) -> "Executer":
     """
@@ -60,17 +57,20 @@ def executor_factory(
 
 
     
-    if load_extensions:
-        import_all_modules(extensions_filter=list(ExecutionSettings.c40_default_extensions))
-        # loading community extensions
+    if load_plugins:
+        sync_builtin_plugins(list(ExecutionSettings.c40_default_plugins))
         for k, v in ExecutionSettings.c40_community_plugins.items():
             path = resolve_plugin_path(k, v)
-            log.warning(f"Loading external extension: {k} from {path}")
-            import_all_modules(str(path), pkg_name=k)
+            log.warning("Loading external plugin: %s from %s", k, path)
+            import_plugin_modules(str(path), pkg_name=k)
+    else:
+        sync_builtin_plugins([])
+        for k in ExecutionSettings.c40_community_plugins:
+            unregister_plugin_package(k)
 
 
     try:
-        global_plan_path = get_absolute_path(default_global_trajectory_file)
+        global_plan_path = resolve_picker_data_path(default_global_trajectory_file)
         default_global_plan = GlobalPlan.from_file(global_plan_path)
         log.debug(f"Default global trajectory loaded from {global_plan_path}")
     except Exception as e:
@@ -79,8 +79,7 @@ def executor_factory(
             "Falling back to race boundary centerline."
         )
         _fallback_planner = GlobalCenterlineRacePlanner(
-            get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-            margin=ExecutionSettings.c43_race_boundary_margin,
+            resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
         )
         default_global_plan = _fallback_planner.plan()
 
@@ -94,16 +93,15 @@ def executor_factory(
     
     try:
         if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
-            hdmap = HDMap(xodr_file_name=get_absolute_path(hd_map))
+            hdmap = HDMap(xodr_file_name=resolve_picker_data_path(hd_map))
             pm.hd_map = hdmap
             gp = HDMapGlobalPlanner(hdmap)
             log.debug("GlobalHDMapPlanner loaded")
         elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
             gp = GlobalCenterlineRacePlanner(
-                get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-                margin=ExecutionSettings.c43_race_boundary_margin,
+                resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
             )
-            gp.plan()
+            gp.global_plan = default_global_plan
         elif global_planner_strategy_name in GlobalPlannerStrategy.registry:
             cls = GlobalPlannerStrategy.registry[global_planner_strategy_name]
             gp = cls()
@@ -111,19 +109,16 @@ def executor_factory(
         else:
             log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
             gp = GlobalCenterlineRacePlanner(
-                get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-                margin=ExecutionSettings.c43_race_boundary_margin,
+                resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
             )
-            gp.plan()
+            gp.global_plan = default_global_plan
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
         gp = GlobalCenterlineRacePlanner(
-            get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-            margin=ExecutionSettings.c43_race_boundary_margin,
+            resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
         )
-        gp.plan()
-        
+        gp.global_plan = default_global_plan
 
     ##############################
     # Loading perception strategy
@@ -158,17 +153,27 @@ def executor_factory(
     # Loading local planner
     #######################
 
+    local_global_plan = default_global_plan
+    if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
+        local_global_plan = GlobalPlan(
+            start_point=default_global_plan.start_point,
+            goal_point=default_global_plan.goal_point,
+            path=default_global_plan.path,
+            velocity=default_global_plan.velocity,
+            trajectory=default_global_plan.trajectory,
+        )
+
     try:
         if local_planner_strategy_name in LocalPlanningStrategy.registry:
             cls = LocalPlanningStrategy.registry[local_planner_strategy_name]
-            pl = cls(global_plan=default_global_plan, env=pm)
+            pl = cls(global_plan=local_global_plan, env=pm)
         else:
             log.error(f"Unable to load local planner {local_planner_strategy_name}. Switching to default.")
-            pl = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
+            pl = GreedyLatticePlanner(global_plan=local_global_plan, env=pm)
 
     except Exception as e:
         log.error(f"Failed to load local planner: {e}. Switching to default.")
-        pl = GreedyLatticePlanner(global_plan=default_global_plan, env=pm)
+        pl = GreedyLatticePlanner(global_plan=local_global_plan, env=pm)
 
     #################
     # Loading controller
@@ -203,12 +208,12 @@ def executor_factory(
         if bridge in WorldBridge.registry:
             log.info(f"Loading registered world bridge {bridge}...")
             cls = WorldBridge.registry[bridge]
-            world = cls(ego_state=ego_state, pm=world_pm)
+            world = cls(**_bridge_kwargs(cls, ego_state, world_pm))
         else:
-            world = BasicSim(ego_state=ego_state, pm = world_pm)
+            world = BasicSim(**_bridge_kwargs(BasicSim, ego_state, world_pm))
     except Exception as e:
         log.error(f"Error loading world bridge {bridge}: {e}")
-        world = BasicSim(ego_state=ego_state, pm = world_pm)  # fallback to BasicSim
+        world = BasicSim(**_bridge_kwargs(BasicSim, ego_state, world_pm))  # fallback to BasicSim
 
 
 
@@ -246,3 +251,22 @@ def executor_factory(
     if executer is not None:
         executer._requested_executer_type = executer_type
     return executer
+
+
+def _reference_point_tuple() -> tuple[float, float] | None:
+    ref = ExecutionSettings.c40_reference_point
+    if ref and len(ref) >= 2:
+        return float(ref[0]), float(ref[1])
+    return None
+
+
+def _bridge_kwargs(cls, ego_state: EgoState, world_pm: PerceptionModel) -> dict:
+    params = inspect.signature(cls.__init__).parameters
+    kwargs: dict = {}
+    if "ego_state" in params:
+        kwargs["ego_state"] = ego_state
+    if "pm" in params:
+        kwargs["pm"] = world_pm
+    if "reference_point" in params:
+        kwargs["reference_point"] = _reference_point_tuple()
+    return kwargs

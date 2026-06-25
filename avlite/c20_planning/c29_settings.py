@@ -25,6 +25,10 @@ class PlanningSettingsSchema(SettingsSchema):
     c26_fallback_deceleration: float = Field(default=3.0, description="Fallback deceleration (m/s²).")
     c26_stopping_safety_buffer: float = Field(default=2.0, description="Safety buffer distance when stopping (m).")
 
+    c20_boundary_margin: float = Field(
+        default=0.0,
+        description="Inset applied to global plan boundaries from race boundary or HD map lane borders (m).",
+    )
     c20_collision_safety_margin: float = Field(default=0.3, description="Inflation margin for collision checks (m).")
     c20_obstacle_inflation_margin: float = Field(default=0.5, description="Obstacle inflation for lattice planning (m).")
     c20_min_velocity_threshold: float = Field(default=0.5, description="Speed below which ego is treated as stopped (m/s).")
@@ -57,6 +61,7 @@ class PlanningSettings:
     c26_fallback_deceleration = 3.0
     c26_stopping_safety_buffer = 2.0
 
+    c20_boundary_margin = 0.0
     c20_collision_safety_margin = 0.3
     c20_obstacle_inflation_margin = 0.5
     c20_min_velocity_threshold = 0.5

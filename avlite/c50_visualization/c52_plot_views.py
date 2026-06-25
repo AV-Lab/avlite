@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
 
+_CONTROL_GRACE_S = 0.5  # late Control after click still counts as drag
+
 class GlobalPlanPlotView(ttk.Frame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root)
@@ -42,7 +44,9 @@ class GlobalPlanPlotView(ttk.Frame):
         self.left_mouse_button_pressed = False  
         self.teleport_x = 0.0
         self.teleport_y = 0.0
-        self.teleport_orientation = 0.0  
+        self.teleport_orientation = 0.0
+        self._left_press_time = 0.0
+        self._ego_orient_active = False
         
 
     def __config_canvas(self):  
@@ -64,10 +68,30 @@ class GlobalPlanPlotView(ttk.Frame):
         aspect_ratio = width / height if height > 0 else 4.0
         return aspect_ratio
 
+    def _clamp_center_delta(self):
+        gp = self.global_plot
+        if gp.map_min_x is None:
+            return
+        pad = 100
+        cx = self.root.exec.ego_state.x + self._center_delta[0]
+        cy = self.root.exec.ego_state.y + self._center_delta[1]
+        cx = np.clip(cx, gp.map_min_x - pad, gp.map_max_x + pad)
+        cy = np.clip(cy, gp.map_min_y - pad, gp.map_max_y + pad)
+        self._center_delta = (cx - self.root.exec.ego_state.x, cy - self.root.exec.ego_state.y)
+
+    def _max_zoom_out(self, aspect_ratio: float) -> float | None:
+        gp = self.global_plot
+        if gp.map_min_x is None:
+            return None
+        map_width = gp.map_max_x - gp.map_min_x
+        map_height = gp.map_max_y - gp.map_min_y
+        return min(map_width, map_height * aspect_ratio)
+
     def plot(self):
         t1 = time.time()
         try:
             aspect_ratio = self.__get_aspect_ratio()
+            self._clamp_center_delta()
 
             self.global_plot.plot(
                 exec=self.root.exec,
@@ -125,9 +149,18 @@ class GlobalPlanPlotView(ttk.Frame):
                     dx =-(x - self._init_drag_mouse_pos[0])*self.root.setting.mouse_drag_slowdown_factor
                     dy =-(y - self._init_drag_mouse_pos[1])*self.root.setting.mouse_drag_slowdown_factor
                     self._center_delta = (self._center_delta[0]+dx, self._center_delta[1]+dy)
+                    self._init_drag_mouse_pos = (x, y)
                     self.plot()
 
                 if self.left_mouse_button_pressed and not self._drag_mode:
+                    if event.key and 'control' in event.key:
+                        if (not self._ego_orient_active
+                                or time.time() - self._left_press_time < _CONTROL_GRACE_S):
+                            self._drag_mode = True
+                            self._init_drag_mouse_pos = (x, y)
+                            self.global_plot.clear_tmp_plots()
+                            return
+                    self._ego_orient_active = True
                     self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
                     self.global_plot.show_vehicle_orientation(self.teleport_x, self.teleport_y, self.teleport_orientation) 
                     self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
@@ -138,6 +171,7 @@ class GlobalPlanPlotView(ttk.Frame):
                 self.global_plot.clear_tmp_plots()
                 self._drag_mode = False
                 self._init_drag_mouse_pos = None
+                self._ego_orient_active = False
         except Exception as e:
             log.error(f"Error in mouse move event: {e}", exc_info=True)
 
@@ -152,12 +186,11 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.global_plot.clear_tmp_plots()
                 else:
                     x, y = event.xdata, event.ydata
-                    self.root.exec.world.teleport_ego(x=x, y=y)
                     self.teleport_x = x
                     self.teleport_y = y
+                    self._left_press_time = time.time()
+                    self._ego_orient_active = False
                     self.global_plot.clear_tmp_plots()
-
-                    self.root.update_ui()
             elif event.button == 3: # Right click
                 if self.start_point:
                     self.global_plot.set_goal(event.xdata, event.ydata)
@@ -189,9 +222,13 @@ class GlobalPlanPlotView(ttk.Frame):
     def on_mouse_release(self, event):
         if event.inaxes == self.ax:
             if event.button == 1:
+                if not self._drag_mode and not self._ego_orient_active:
+                    self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y)
+                    self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())
                 self.left_mouse_button_pressed = False
                 self._drag_mode = False
                 self._init_drag_mouse_pos = None
+                self._ego_orient_active = False
                 self.global_plot.clear_tmp_plots()
                 self.root.exec.controller.reset()
                 self.root.update_ui()
@@ -202,7 +239,11 @@ class GlobalPlanPlotView(ttk.Frame):
         if event.button == "up":
             self.root.setting.global_zoom -= increment if self.root.setting.global_zoom > increment else 0
         elif event.button == "down":
-            self.root.setting.global_zoom += increment
+            max_zoom = self._max_zoom_out(self.__get_aspect_ratio())
+            if max_zoom is None or self.root.setting.global_zoom < max_zoom:
+                self.root.setting.global_zoom += increment
+                if max_zoom is not None:
+                    self.root.setting.global_zoom = min(self.root.setting.global_zoom, max_zoom)
         threshold = 0.01
         if (self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold) and not self.root.setting.exec_running:
             # self.root.update_ui()
@@ -376,6 +417,8 @@ class LocalPlanPlotView(ttk.Frame):
 
     def plot(self):
         """Plot the local plan and update the canvas."""
+        if self.root.exec is None:
+            return
         canvas_widget = self.canvas.get_tk_widget()
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()

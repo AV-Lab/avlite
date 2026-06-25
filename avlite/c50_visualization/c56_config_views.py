@@ -3,97 +3,106 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 import importlib
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import filedialog, ttk, messagebox
 
 
-from avlite.c60_common.c69_setting_utils import (
-    save_setting,
-    load_setting,
-    delete_setting_profile,
-    rename_setting_profile,
-    reload_lib,
-    load_all_stack_settings,
-    load_plugin_settings_class,
-    patch_plugin_settings,
+from avlite.c60_common.c67_paths import (
     bundled_config_dir,
     can_edit_repo_configs,
-    copy_repo_configs_to_user,
+    community_plugin_settings_display_path,
+    effective_config_path,
+    format_user_path,
     get_config_dir,
+    installed_community_plugins_map,
     is_repo_config_target,
-    list_profiles,
+    normalize_community_plugin_stored,
+    normalize_community_plugins_map,
     set_repo_config_target,
     set_startup_profile,
 )
-from avlite.c50_visualization.c58_ui_lib import ThemedInputDialog, ThemedTwoInputDialog, HoverTooltip, attach_schema_tooltip
+from avlite.c60_common.c60_plugins import (
+    import_plugin_modules,
+    list_plugins,
+    load_all_stack_settings,
+    load_builtin_plugin_settings,
+    load_community_plugin_setting,
+    plugin_module_prefix,
+    reload_lib,
+)
+from avlite.c60_common.c69_setting_utils import (
+    delete_setting_profile,
+    export_profile,
+    import_profile,
+    list_profiles,
+    load_setting,
+    rename_setting_profile,
+    save_setting,
+)
+from avlite.c50_visualization.c58_ui_lib import (
+    BUTTON_TOOLTIPS,
+    HoverTooltip,
+    ThemedInputDialog,
+    ThemedReadOnlyTwoFieldDialog,
+    ThemedTwoInputDialog,
+    TkSettingsBinder,
+    attach_schema_tooltip,
+    attach_tooltip,
+    get_dpi_scale,
+    scaled,
+)
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c60_common.c68_settings_schema import field_tooltip_text
-if TYPE_CHECKING:
-    from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c60_common.c69_setting_utils import list_extensions
-
 
 import logging
 
 log = logging.getLogger(__name__)
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from c50_visualization.c51_visualizer_app import VisualizerApp
+    from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
 
 
-# Aliases kept for readability within this module
-_load_plugin_settings_class = load_plugin_settings_class
-_patch_plugin_settings = patch_plugin_settings
+def _refresh_profile_dropdowns(win: "SettingWindow", *, select: str | None = None) -> str:
+    """Re-read profile names from the active config target; update all comboboxes."""
+    profiles = list_profiles(win.root.setting)
+    win.root.setting.profile_list = profiles
+    for combo in (
+        win.profile_dropdown_menu,
+        win.next_profile_dropdown_menu,
+        win.root.config_shortcut_view.profile_dropdown_menu,
+    ):
+        combo["values"] = profiles
+    if select and select in profiles:
+        current = select
+        win.root.setting.selected_profile.set(current)
+    else:
+        current = win.root.setting.selected_profile.get()
+        if current not in profiles:
+            current = "default" if "default" in profiles else (profiles[0] if profiles else "default")
+            win.root.setting.selected_profile.set(current)
+    if win.root.setting.next_profile.get() not in profiles:
+        win.root.setting.next_profile.set(current)
+    return current
 
 
 def _setting_window_edit_repo_configs_toggle(win: "SettingWindow") -> None:
     enabled = win._edit_repo_configs_var.get()
     if enabled and not messagebox.askyesno(
         "Edit repository configs",
-        f"Save and load will modify files under\n{bundled_config_dir()}\n\nContinue?",
+        f"Save and load will use files under\n{bundled_config_dir()}\n"
+        f"instead of your user config dir ({get_config_dir()}).\n\nContinue?",
         parent=win.window,
     ):
         win._edit_repo_configs_var.set(False)
         return
     set_repo_config_target(enabled)
-    profile = win.root.setting.selected_profile.get()
+    profile = _refresh_profile_dropdowns(win)
     win.root.load_configs(profile=profile)
     win.load_profile(profile)
-
-
-def _setting_window_copy_repository_configs(win: "SettingWindow") -> None:
-    user_dir = get_config_dir()
-    if not messagebox.askyesno(
-        "Copy repository configs",
-        f"Copy repository defaults into\n{user_dir}\nand reload the current profile?",
-        parent=win.window,
-    ):
-        return
-    try:
-        copied = copy_repo_configs_to_user()
-    except FileNotFoundError as e:
-        messagebox.showerror("Copy repository configs", str(e), parent=win.window)
-        return
-    profile = win.root.setting.selected_profile.get()
-    win.root.load_configs(profile=profile)
-    win.load_profile(profile)
-    win.root.setting.normalize_gt_sentinels()
-    win.root.setting.profile_list = list_profiles(win.root.setting)
-    win.profile_dropdown_menu["values"] = win.root.setting.profile_list
-    win.next_profile_dropdown_menu["values"] = win.root.setting.profile_list
-    win.root.config_shortcut_view.profile_dropdown_menu["values"] = win.root.setting.profile_list
-    win.root.reload_stack(reload_code=False)
-    messagebox.showinfo(
-        "Copy repository configs",
-        f"Copied {len(copied)} file(s) into {user_dir}.",
-        parent=win.window,
-    )
 
 
 class ConfigShortcutView(ttk.LabelFrame):
@@ -158,11 +167,21 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("<Escape>", lambda e: self.root.focus_set()) # Unfocus any entry fields including widgets.
         # ----------------------------------------------------------------------
 
-        ttk.Button(self, text="⚙" , command=self.open_settings_window, width=2).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Plugins", command=self.open_plugins_window).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Reload Stack", command=self.root.reload_stack).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Reset Config", command=self.root.load_configs).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Save Config", command=self.save_config).pack(side=tk.RIGHT)
+        btn_settings = ttk.Button(self, text="⚙", command=self.open_settings_window, width=2)
+        btn_settings.pack(side=tk.RIGHT)
+        attach_tooltip(btn_settings, BUTTON_TOOLTIPS["toolbar_settings"])
+        btn_plugins = ttk.Button(self, text="Plugins", command=self.open_plugins_window)
+        btn_plugins.pack(side=tk.RIGHT)
+        attach_tooltip(btn_plugins, BUTTON_TOOLTIPS["toolbar_plugins"])
+        btn_reload = ttk.Button(self, text="Reload Stack", command=self.root.reload_stack)
+        btn_reload.pack(side=tk.RIGHT)
+        attach_tooltip(btn_reload, BUTTON_TOOLTIPS["toolbar_reload_stack"])
+        btn_reset = ttk.Button(self, text="Reset Config", command=self.root.load_configs)
+        btn_reset.pack(side=tk.RIGHT)
+        attach_tooltip(btn_reset, BUTTON_TOOLTIPS["toolbar_reset_config"])
+        btn_save = ttk.Button(self, text="Save Config", command=self.save_config)
+        btn_save.pack(side=tk.RIGHT)
+        attach_tooltip(btn_save, BUTTON_TOOLTIPS["toolbar_save_config"])
 
 
         self.profile_dropdown_menu = ttk.Combobox(self, width=10, textvariable=self.root.setting.selected_profile, state="readonly",
@@ -188,8 +207,14 @@ class ConfigShortcutView(ttk.LabelFrame):
         # Shortcut frame
         # ------------------------------------------------------
         # TODO: this is a dirty trick because its parent is root
+        _s = getattr(root, "_dpi_scale", 1.0)
         self.shortcut_frame = ttk.LabelFrame(root, text="Shortcuts")
-        self.help_text = tk.Text(self.shortcut_frame, wrap=tk.WORD, width=50, height=7)
+        self.help_text = tk.Text(
+            self.shortcut_frame,
+            wrap=tk.WORD,
+            width=max(30, scaled(50, _s)),
+            height=max(5, scaled(7, _s)),
+        )
         key_binding_info = """
 App:      Q - Quit             S - Toggle shortcut          F - Switch to next Profile  R - Reload imports     
           T - Open Settings    E - Expand/collapse log      ↑/↓- use Up/Down or vim motion to scroll log   
@@ -215,8 +240,13 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.set_dark_mode_themed() if self.root.setting.dark_mode.get() else self.root.set_light_mode()
 
     def save_config(self):
-        save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
-        save_setting(ExecutionSettings, profile=self.root.setting.selected_profile.get())
+        profile = self.root.setting.selected_profile.get()
+        binder = TkSettingsBinder()
+        save_setting(self.root.setting, profile=profile, binder=binder)
+        ExecutionSettings.c40_community_plugins = normalize_community_plugins_map(
+            ExecutionSettings.c40_community_plugins
+        )
+        save_setting(ExecutionSettings, profile=profile, binder=binder)
 
 
     def open_settings_window(self):
@@ -234,7 +264,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         """Update the settings window with the latest settings."""
         if hasattr(self, "setting_view") and hasattr(self.setting_view, "window") and self.setting_view.window.winfo_exists():
             self.setting_view.update_core_widgets()
-            self.setting_view.update_extensions_widgets()
+            self.setting_view.update_plugins_widgets()
             self.setting_view.update_community_plugin_list()
             log.info("Updated existing settings window")
 
@@ -253,8 +283,8 @@ class SettingWindow:
         self.setting = root.setting
         self.window = tk.Toplevel(root)
         # settings_window.title("Settings")
-        _s = getattr(root, '_dpi_scale', 1.0)
-        self.window.geometry(f"{round(400 * _s)}x{round(300 * _s)}")
+        _s = get_dpi_scale(self.window, parent=root)
+        self.window.geometry(f"{scaled(550, _s)}x{scaled(450, _s)}")
         # self.root.bind("Q", lambda e: settings_window.destroy())
 
         self.frame = ttk.Frame(self.window)
@@ -285,7 +315,7 @@ class SettingWindow:
         additional_setting_frame.grid(row=1, column=0, columnspan=2, sticky="sew", padx=5, pady=5)
 
         ##########
-        # Profiles & Extensions
+        # Profiles & Plugins
         ##########
         profile_ext_frame.rowconfigure(8, weight=1)
 
@@ -297,78 +327,120 @@ class SettingWindow:
         # self.global_planner_dropdown_menu.current(0)  
         self.profile_dropdown_menu.state(["readonly"])
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
-        self.profile_dropdown_menu.grid(row=1, column=1, columnspan=2, padx=5, pady=5, sticky="we")
+        self.profile_dropdown_menu.grid(row=1, column=1, columnspan=2, padx=5, pady=5)
 
-        ttk.Button(profile_ext_frame, text="New", width=5, command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Delete",width=5, command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Save",width=5, underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="✎", width=2, command=self.rename_profile).grid(row=1, column=3, padx=5, pady=5)
-        ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        btn_profile_new = ttk.Button(profile_ext_frame, text="New", command=self.create_profile)
+        btn_profile_new.grid(row=2, column=0, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_new, BUTTON_TOOLTIPS["profile_new"])
+        btn_profile_delete = ttk.Button(profile_ext_frame, text="Delete", command=self.delete_profile)
+        btn_profile_delete.grid(row=2, column=1, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_delete, BUTTON_TOOLTIPS["profile_delete"])
+        btn_profile_save = ttk.Button(profile_ext_frame, text="Save", underline=0, command=self.save_profile)
+        btn_profile_save.grid(row=2, column=2, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_save, BUTTON_TOOLTIPS["profile_save"])
+        btn_profile_export = ttk.Button(profile_ext_frame, text="Export", command=self.export_profile_zip)
+        btn_profile_export.grid(row=3, column=0, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_export, BUTTON_TOOLTIPS["profile_export"])
+        btn_profile_import = ttk.Button(profile_ext_frame, text="Import", command=self.import_profile_zip)
+        btn_profile_import.grid(row=3, column=1, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_import, BUTTON_TOOLTIPS["profile_import"])
+        btn_profile_rename = ttk.Button(profile_ext_frame, text="Rename", command=self.rename_profile)
+        btn_profile_rename.grid(row=3, column=2, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_rename, BUTTON_TOOLTIPS["profile_rename"])
+
+        ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
         self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.next_profile_dropdown_menu.state(["readonly"])
         # next_profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
-        self.next_profile_dropdown_menu.grid(row=3, column=2, padx=5, pady=5, sticky="we")
+        self.next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
         
-        ttk.Button( profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
-        ).grid(row=4, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        ttk.Button( profile_ext_frame, text="Reset all except Exectution", command= lambda: self.reset_to_to_source_stack_values(exclude_execution=True)
-        ).grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        btn_reset_all = ttk.Button(
+            profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
+        )
+        btn_reset_all.grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_reset_all, BUTTON_TOOLTIPS["profile_reset_all"])
+        btn_reset_non_exec = ttk.Button(
+            profile_ext_frame, text="Reset all except Exectution",
+            command=lambda: self.reset_to_to_source_stack_values(exclude_execution=True),
+        )
+        btn_reset_non_exec.grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_reset_non_exec, BUTTON_TOOLTIPS["profile_reset_non_exec"])
         if can_edit_repo_configs():
             self._edit_repo_configs_var = tk.BooleanVar(value=is_repo_config_target())
-            ttk.Checkbutton(
-                profile_ext_frame,
-                text="Edit repository configs",
-                variable=self._edit_repo_configs_var,
+            cb_edit_repo = ttk.Checkbutton(
+                profile_ext_frame, text="Edit repository configs", variable=self._edit_repo_configs_var,
                 command=lambda: _setting_window_edit_repo_configs_toggle(self),
-            ).grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="w")
-        ttk.Button(
-            profile_ext_frame,
-            text="Copy repository configs",
-            command=lambda: _setting_window_copy_repository_configs(self),
-        ).grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        ## Extensions
+            )
+            cb_edit_repo.grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
+            attach_tooltip(cb_edit_repo, BUTTON_TOOLTIPS["edit_repo_configs"])
+        ## Plugins
         ##############################################
-        extension_frame = ttk.LabelFrame(profile_ext_frame, text="Extensions")
-        extension_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
+        plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
+        plugin_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
+        plugin_frame.rowconfigure(2, weight=1)
+        plugin_frame.rowconfigure(5, weight=1)
+        plugin_frame.columnconfigure(0, weight=1)
+        plugin_frame.columnconfigure(1, weight=1)
 
-        ttk.Checkbutton(extension_frame, text="Load Extensions" , variable=self.root.setting.load_extensions,
-            command=self.recreate_extensions_widgets).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
+        listbox_height = max(6, scaled(10, _s))
 
-        # internal extensions 
-        ttk.Label(extension_frame, text="Extensions").grid(row=3, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_default_extensions = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
-        self.listbox_default_extensions.grid(row=2, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
+        cb_load_plugins = ttk.Checkbutton(
+            plugin_frame, text="Load Plugins", variable=self.root.setting.load_plugins,
+            command=self._on_load_plugins_toggle,
+        )
+        cb_load_plugins.grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        attach_schema_tooltip(cb_load_plugins, VisualizationSettings, "load_plugins")
+
+        # built-in plugins
+        ttk.Label(plugin_frame, text="Plugins").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        self.listbox_default_plugins = tk.Listbox(
+            plugin_frame, height=listbox_height, selectmode=tk.SINGLE, exportselection=False, width=30,
+        )
+        self.listbox_default_plugins.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for ext in ExecutionSettings.c40_default_extensions:
-            self.listbox_default_extensions.insert(tk.END, ext)
+        for plugin in ExecutionSettings.c40_default_plugins:
+            self.listbox_default_plugins.insert(tk.END, plugin)
         
-        ttk.Button(extension_frame, text="Reset Extensions", command=self.reset_default_extensions).grid(row=3, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Remove Extension", command=self.remove_default_extension).grid(row=3, column=1, sticky="we", padx=5, pady=5)
+        btn_reset_plugins = ttk.Button(plugin_frame, text="Reset Plugins", command=self.reset_default_plugins)
+        btn_reset_plugins.grid(row=3, column=0, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_reset_plugins, BUTTON_TOOLTIPS["plugins_reset_builtin"])
+        btn_remove_builtin = ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin)
+        btn_remove_builtin.grid(row=3, column=1, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_remove_builtin, BUTTON_TOOLTIPS["plugins_remove_builtin"])
 
 
-        # community extensions
-        ttk.Label(extension_frame, text="Community Plugins").grid(row=4, column=0,columnspan=2,  sticky="w", padx=5, pady=5)
-        self.listbox_community_plugins = tk.Listbox(extension_frame, height=10, selectmode=tk.SINGLE, exportselection=False, width=30,)
-        self.listbox_community_plugins.grid(row=5, column=0,columnspan=2,  sticky="nsew", padx=5, pady=5)
+        # community plugins
+        ttk.Label(plugin_frame, text="Community Plugins").grid(row=4, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        self.listbox_community_plugins = tk.Listbox(
+            plugin_frame, height=listbox_height, selectmode=tk.SINGLE, exportselection=False, width=30,
+        )
+        self.listbox_community_plugins.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for ext in ExecutionSettings.c40_community_plugins.keys() if self.root.setting.load_extensions.get() else []:
-            self.listbox_community_plugins.insert(tk.END, ext)
+        for plugin in ExecutionSettings.c40_community_plugins.keys() if self.root.setting.load_plugins.get() else []:
+            self.listbox_community_plugins.insert(tk.END, plugin)
 
         self.listbox_community_plugins.bind("<Double-Button-1>", lambda e: self.edit_community_plugin())
         self.listbox_community_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_plugin())
-        self.listbox_default_extensions.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_extension())
+        self.listbox_default_plugins.bind("<Double-Button-1>", lambda e: self.edit_default_plugin())
+        self.listbox_default_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_builtin_plugin())
 
 
 
-        ttk.Button(extension_frame, text="Add Plugin", command=self.add_community_plugin).grid(row=6, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Delete Plugin", command=self.delete_community_plugin
-                   ).grid(row=6, column=1, sticky="we", padx=5, pady=5)
-        ttk.Button(extension_frame, text="Browse Community Plugins…",
-                   command=self.open_plugins_window
-                   ).grid(row=7, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        btn_reset_community = ttk.Button(plugin_frame, text="Reset to Installed", command=self.reset_community_plugins)
+        btn_reset_community.grid(row=6, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_reset_community, BUTTON_TOOLTIPS["plugins_reset_community"])
+        btn_add_plugin = ttk.Button(plugin_frame, text="Add Plugin", command=self.add_community_plugin)
+        btn_add_plugin.grid(row=7, column=0, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_add_plugin, BUTTON_TOOLTIPS["plugins_add"])
+        btn_remove_community = ttk.Button(plugin_frame, text="Remove Plugin", command=self.delete_community_plugin)
+        btn_remove_community.grid(row=7, column=1, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_remove_community, BUTTON_TOOLTIPS["plugins_remove_community"])
+        btn_browse_plugins = ttk.Button(plugin_frame, text="Browse Community Plugins…", command=self.open_plugins_window)
+        btn_browse_plugins.grid(row=8, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
 
 
         #############################################
@@ -379,6 +451,7 @@ class SettingWindow:
         
         def _on_mousewheel(event):
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         settings_frame.bind_all("<MouseWheel>", _on_mousewheel)  # Windows/macOS
         settings_frame.bind_all("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))  # Linux
         settings_frame.bind_all("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))   # Linux
@@ -410,7 +483,7 @@ class SettingWindow:
         ########
         # Set minimum width/height for the container
         self.window.update_idletasks()  # Force layout update
-        self.window.minsize(500, 400)  # Set minimum window size
+        self.window.minsize(scaled(500, _s), scaled(400, _s))
         # to prevent killing the window afte close
         self.window.protocol("WM_DELETE_WINDOW", self.hide) 
 
@@ -427,10 +500,10 @@ class SettingWindow:
         self.create_widgets(ExecutionSettings, "Execution Settings")
         #######
         #######
-        if self.root.setting.load_extensions.get():
+        if self.root.setting.load_plugins.get():
             ttk.Separator(self.settings_frame, orient='horizontal').pack(fill='x', pady=10)
-            ttk.Label(self.settings_frame, text="Extensions Settings",style="Big.TLabel").pack(anchor=tk.W, padx=5, pady=5)
-            self.create_ext_widgets()
+            ttk.Label(self.settings_frame, text="Plugin Settings",style="Big.TLabel").pack(anchor=tk.W, padx=5, pady=5)
+            self.create_plugin_widgets()
 
         # Pre-create separator and label for community plugin settings section;
         # they are pack()ed lazily inside create_community_plugin_widgets().
@@ -446,31 +519,54 @@ class SettingWindow:
         additional_setting_row_1 = ttk.Frame(additional_setting_frame)
         ttk.Label(additional_setting_row_1, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         additional_setting_row_1.pack(fill=tk.X)
-        ttk.Checkbutton(additional_setting_row_1, text="Legend", variable=self.root.setting.show_legend, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Locations", variable=self.root.setting.show_past_locations, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Global Plan", variable=self.root.setting.show_global_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Local Plan", variable=self.root.setting.show_local_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Local Lattice", variable=self.root.setting.show_local_lattice, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="State", variable=self.root.setting.show_state, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        for text, field in (
+            ("Legend", "show_legend"),
+            ("Locations", "show_past_locations"),
+            ("Global Plan", "show_global_plan"),
+            ("Local Plan", "show_local_plan"),
+            ("Local Lattice", "show_local_lattice"),
+            ("State", "show_state"),
+        ):
+            cb = ttk.Checkbutton(
+                additional_setting_row_1, text=text,
+                variable=getattr(self.root.setting, field), command=self.root.update_ui,
+            )
+            cb.pack(anchor=tk.W, side=tk.LEFT)
+            attach_schema_tooltip(cb, VisualizationSettings, field)
 
-        ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Global", variable=self.root.setting.global_view_follow_planner).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Frenet", variable=self.root.setting.frenet_view_follow_planner).pack(side=tk.LEFT)
+        for text, field in (
+            ("Follow Planner in Global", "global_view_follow_planner"),
+            ("Follow Planner in Frenet", "frenet_view_follow_planner"),
+        ):
+            cb = ttk.Checkbutton(additional_setting_row_1, text=text, variable=getattr(self.root.setting, field))
+            cb.pack(side=tk.LEFT)
+            attach_schema_tooltip(cb, VisualizationSettings, field)
 
         additional_setting_row_1b = ttk.Frame(additional_setting_frame)
         additional_setting_row_1b.pack(fill=tk.X)
         ttk.Label(additional_setting_row_1b, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
-        ttk.Checkbutton(additional_setting_row_1b, text="Local Global View", variable=self.root.setting.show_local_global_view, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="Local Frenet View", variable=self.root.setting.show_local_frenet_view, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Global", variable=self.root.setting.show_lidar_global, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Frenet", variable=self.root.setting.show_lidar_frenet, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="Clustered Pts", variable=self.root.setting.show_lidar_clusters, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="Race Boundary", variable=self.root.setting.show_race_boundary, command=self.root.update_ui).pack(side=tk.LEFT)
+        for text, field in (
+            ("Local Global View", "show_local_global_view"),
+            ("Local Frenet View", "show_local_frenet_view"),
+            ("LiDAR in Global", "show_lidar_global"),
+            ("LiDAR in Frenet", "show_lidar_frenet"),
+            ("Clustered Pts", "show_lidar_clusters"),
+            ("Race Boundary", "show_race_boundary"),
+        ):
+            cb = ttk.Checkbutton(
+                additional_setting_row_1b, text=text,
+                variable=getattr(self.root.setting, field), command=self.root.update_ui,
+            )
+            cb.pack(side=tk.LEFT)
+            attach_schema_tooltip(cb, VisualizationSettings, field)
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
 
         ttk.Label(additional_setting_row_2, text="Log View:").pack(anchor=tk.W, side=tk.LEFT, padx=0)
-        ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.root.setting.log_view_expanded).pack(side=tk.LEFT)
+        cb_expand_log = ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.root.setting.log_view_expanded)
+        cb_expand_log.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_expand_log, VisualizationSettings, "log_view_expanded")
         
         ttk.Label(additional_setting_row_2, text="Default Log Height:").pack(side=tk.LEFT, padx=5)
         ttk.Entry(additional_setting_row_2, textvariable=self.root.setting.log_view_default_height, width=5,
@@ -483,45 +579,57 @@ class SettingWindow:
         additional_setting_row_3 = ttk.Frame(additional_setting_frame)
         additional_setting_row_3.pack(fill=tk.X, padx=0)
         ttk.Label(additional_setting_row_3, text="Menu bar:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
-        ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.root.setting.hide_menubar).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(additional_setting_row_2, text="Close",width=5, underline=0, command=self.hide).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(additional_setting_row_2, text="Save",width=5, underline=0, command=self.save_profile).pack(side=tk.RIGHT, padx=5)
+        cb_hide_menubar = ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.root.setting.hide_menubar)
+        cb_hide_menubar.pack(anchor=tk.W, side=tk.LEFT)
+        attach_schema_tooltip(cb_hide_menubar, VisualizationSettings, "hide_menubar")
+        btn_settings_close = ttk.Button(additional_setting_row_2, text="Close", width=5, underline=0, command=self.hide)
+        btn_settings_close.pack(side=tk.RIGHT, padx=5)
+        attach_tooltip(btn_settings_close, BUTTON_TOOLTIPS["settings_close"])
+        btn_settings_save = ttk.Button(additional_setting_row_2, text="Save", width=5, underline=0, command=self.save_profile)
+        btn_settings_save.pack(side=tk.RIGHT, padx=5)
+        attach_tooltip(btn_settings_save, BUTTON_TOOLTIPS["settings_save"])
 
-    def reset_default_extensions(self):
-        """ Reset the default extensions to the source code defaults. """
-        from avlite.c60_common.c69_setting_utils import import_all_modules
+    def reset_community_plugins(self):
+        """Reset community plugins to all plugins installed under the plugins directory."""
+        log.info("Resetting community plugins to installed set.")
+        ExecutionSettings.c40_community_plugins = installed_community_plugins_map()
+        self.update_community_plugin_list()
+        if self.root.setting.load_plugins.get():
+            self.update_community_plugin_widgets()
 
-        log.info("Resetting default extensions to source code defaults.")
+    def reset_default_plugins(self):
+        """ Reset the default plugins to the source code defaults. """
+        log.info("Resetting default plugins to source code defaults.")
 
-        self.listbox_default_extensions.delete(0, tk.END)
-        ExecutionSettings.c40_default_extensions = list_extensions()
+        self.listbox_default_plugins.delete(0, tk.END)
+        ExecutionSettings.c40_default_plugins = list_plugins()
 
-        for ext in ExecutionSettings.c40_default_extensions:
-            self.listbox_default_extensions.insert(tk.END, ext)
+        for plugin in ExecutionSettings.c40_default_plugins:
+            self.listbox_default_plugins.insert(tk.END, plugin)
 
-        import_all_modules(extensions_filter=ExecutionSettings.c40_default_extensions)
+        import_plugin_modules(plugins_filter=ExecutionSettings.c40_default_plugins)
         self.root.perceive_plan_control_view.reset()
         self.root.exec_visualize_view.update_data()
 
-    def remove_default_extension(self):
-        """ Remove the selected default extension from the list. """
-        selected = self.listbox_default_extensions.curselection()
+    def remove_default_plugin(self):
+        """ Remove the selected default plugin from the list. """
+        selected = self.listbox_default_plugins.curselection()
         if selected:
-            ext_name = self.listbox_default_extensions.get(selected)
-            if ext_name in ExecutionSettings.c40_default_extensions:
-                ExecutionSettings.c40_default_extensions.remove(ext_name)
-                self.listbox_default_extensions.delete(selected)
-                self._unregister_extension(ext_name)
+            plugin_name = self.listbox_default_plugins.get(selected)
+            if plugin_name in ExecutionSettings.c40_default_plugins:
+                ExecutionSettings.c40_default_plugins.remove(plugin_name)
+                self.listbox_default_plugins.delete(selected)
+                self._unregister_plugin(plugin_name)
                 self.root.perceive_plan_control_view.reset()
                 self.root.exec_visualize_view.update_data()
-                log.info(f"Removed and unloaded extension: {ext_name}")
+                log.info(f"Removed and unloaded plugin: {plugin_name}")
             else:
-                log.warning(f"Extension {ext_name} not found in default extensions.")
+                log.warning(f"Plugin {plugin_name} not found in default plugins.")
         else:
-            log.warning("No extension selected to remove.")
+            log.warning("No plugin selected to remove.")
 
-    def _unregister_extension(self, ext_name: str):
-        """Remove all strategy classes registered by an extension from all registries and sys.modules."""
+    def _unregister_plugin(self, plugin_name: str):
+        """Remove all strategy classes registered by a plugin from all registries and sys.modules."""
         import sys
         from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
         from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
@@ -530,19 +638,19 @@ class SettingWindow:
         from avlite.c40_execution.c41_world_bridge import WorldBridge
         from avlite.c40_execution.c42_executer import Executer
 
-        ext_module_prefix = f"avlite.extensions.{ext_name}"
+        plugin_module_prefix_str = plugin_module_prefix(plugin_name)
         for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
                          LocalPlanningStrategy.registry, ControlStrategy.registry,
                          Executer.registry, WorldBridge.registry]:
             to_remove = [name for name, cls in registry.items()
-                         if cls.__module__.startswith(ext_module_prefix)]
+                         if cls.__module__.startswith(plugin_module_prefix_str)]
             for name in to_remove:
                 del registry[name]
-                log.info(f"Unregistered {name} from {ext_module_prefix}")
+                log.info(f"Unregistered {name} from {plugin_module_prefix_str}")
 
-        # Purge extension modules from sys.modules so reload_lib won't re-register them
+        # Purge plugin modules from sys.modules so reload_lib won't re-register them
         for mod_name in list(sys.modules.keys()):
-            if mod_name.startswith(ext_module_prefix):
+            if mod_name.startswith(plugin_module_prefix_str):
                 del sys.modules[mod_name]
                 log.debug(f"Removed {mod_name} from sys.modules")
 
@@ -553,39 +661,61 @@ class SettingWindow:
         if not name:
             return
 
-        log.info(f"Adding Extension: {name}")
-        ExecutionSettings.c40_community_plugins[name] = dir
+        log.info(f"Adding plugin: {name}")
+        ExecutionSettings.c40_community_plugins[name] = normalize_community_plugin_stored(name, dir)
         self.listbox_community_plugins.insert(tk.END, name)
         
     def delete_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
         if selected:
-            ext_name = self.listbox_community_plugins.get(selected)
-            ExecutionSettings.c40_community_plugins.pop(ext_name, None)
+            plugin_name = self.listbox_community_plugins.get(selected)
+            ExecutionSettings.c40_community_plugins.pop(plugin_name, None)
             self.listbox_community_plugins.delete(selected)
-        log.warning(f"Deleted extension: {ExecutionSettings.c40_community_plugins}")
+            log.info(f"Deleted community plugin: {plugin_name}")
+        else:
+            log.warning("No community plugin selected to delete.")
+
+    def edit_default_plugin(self):
+        selected = self.listbox_default_plugins.curselection()
+        if not selected:
+            log.warning("No plugin selected to edit.")
+            return
+
+        plugin_name = self.listbox_default_plugins.get(selected[0])
+        cls = load_builtin_plugin_settings(plugin_name)
+        if cls is not None and getattr(cls, "filepath", None):
+            settings_path = format_user_path(
+                effective_config_path(cls.filepath, for_write=False)
+            )
+        else:
+            settings_path = "\u2014"
+        ThemedReadOnlyTwoFieldDialog(
+            self.root,
+            "Plugin",
+            "Package Name",
+            "Settings file",
+            plugin_name,
+            settings_path,
+        )
 
     def edit_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
         if not selected:
-            log.warning("No extension selected to edit.")
+            log.warning("No community plugin selected to edit.")
             return
-        
-        ext_name = self.listbox_community_plugins.get(selected)
-        current_dir = ExecutionSettings.c40_community_plugins.get(ext_name, "")
-        
-        dialog = ThemedTwoInputDialog(self.root, "Edit Community Plugin", "Package Name", "Package Directory", ext_name, current_dir)
-        
-        if dialog.result:
-            new_name, new_dir = dialog.result
-            if new_name and new_dir:
-                ExecutionSettings.c40_community_plugins[new_name] = new_dir
-                if new_name != ext_name:
-                    ExecutionSettings.c40_community_plugins.pop(ext_name, None)
-                self.update_community_plugin_list()
+
+        plugin_name = self.listbox_community_plugins.get(selected)
+        ThemedReadOnlyTwoFieldDialog(
+            self.root,
+            "Community Plugin",
+            "Package Name",
+            "Settings file",
+            plugin_name,
+            community_plugin_settings_display_path(plugin_name),
+        )
 
     def update_community_plugin_list(self):
-        """ Load the extensions from the settings. """
+        """ Load the community plugins from the settings. """
 
         self.listbox_community_plugins.delete(0, tk.END)
         for name, dir in ExecutionSettings.c40_community_plugins.items():
@@ -616,6 +746,99 @@ class SettingWindow:
         self.save_profile()
 
 
+    def export_profile_zip(self):
+        """Export the selected profile to a zip file."""
+        profile = self.root.setting.selected_profile.get()
+        if not messagebox.askyesno(
+            "Export profile",
+            f"Export reads from saved files on disk.\nSave profile '{profile}' first if you have unsaved changes.\n\nContinue?",
+            parent=self.window,
+        ):
+            return
+        zip_path = filedialog.asksaveasfilename(
+            parent=self.window,
+            title="Export profile",
+            defaultextension=".zip",
+            initialfile=f"{profile}.zip",
+            filetypes=[("AVLite profile", "*.zip"), ("All files", "*.*")],
+        )
+        if not zip_path:
+            return
+        try:
+            load_setting(ExecutionSettings, profile=profile)
+            count = export_profile(
+                profile,
+                zip_path,
+                community_plugins=ExecutionSettings.c40_community_plugins,
+            )
+        except ValueError as e:
+            messagebox.showerror("Export profile", str(e), parent=self.window)
+            return
+        except OSError as e:
+            messagebox.showerror("Export profile", f"Failed to write zip: {e}", parent=self.window)
+            return
+        messagebox.showinfo(
+            "Export profile",
+            f"Exported profile '{profile}' ({count} file(s)) to\n{zip_path}",
+            parent=self.window,
+        )
+
+    def import_profile_zip(self):
+        """Import a profile from a zip file."""
+        zip_path = filedialog.askopenfilename(
+            parent=self.window,
+            title="Import profile",
+            filetypes=[("AVLite profile", "*.zip"), ("All files", "*.*")],
+        )
+        if not zip_path:
+            return
+        overwrite = False
+        try:
+            import zipfile
+            import yaml as _yaml
+
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                for name in zf.namelist():
+                    if not name.endswith(".yaml"):
+                        continue
+                    snippet = _yaml.safe_load(zf.read(name)) or {}
+                    if isinstance(snippet, dict) and len(snippet) == 1:
+                        imported_name = next(iter(snippet.keys()))
+                        break
+                else:
+                    messagebox.showerror("Import profile", "No profile found in zip.", parent=self.window)
+                    return
+        except (OSError, _yaml.YAMLError) as e:
+            messagebox.showerror("Import profile", str(e), parent=self.window)
+            return
+
+        if imported_name in self.root.setting.profile_list:
+            if not messagebox.askyesno(
+                "Import profile",
+                f"Profile '{imported_name}' already exists.\nOverwrite it?",
+                parent=self.window,
+            ):
+                return
+            overwrite = True
+
+        try:
+            profile_name = import_profile(zip_path, overwrite=overwrite)
+        except ValueError as e:
+            messagebox.showerror("Import profile", str(e), parent=self.window)
+            return
+        except OSError as e:
+            messagebox.showerror("Import profile", f"Failed to import: {e}", parent=self.window)
+            return
+
+        profile_name = _refresh_profile_dropdowns(self, select=profile_name)
+        self.load_profile(profile_name)
+        messagebox.showinfo(
+            "Import profile",
+            f"Imported profile '{profile_name}'.",
+            parent=self.window,
+        )
+
+
     def delete_profile(self):
         """ Delete a profile from the settings. """
 
@@ -628,14 +851,14 @@ class SettingWindow:
             delete_setting_profile(ControlSettings, profile=self.root.setting.selected_profile.get())
             delete_setting_profile(ExecutionSettings, profile=self.root.setting.selected_profile.get())
             delete_setting_profile(self.root.setting, profile=self.root.setting.selected_profile.get())
-            if self.root.setting.load_extensions.get():
-                for ext in ExecutionSettings.c40_default_extensions:
+            if self.root.setting.load_plugins.get():
+                for plugin in ExecutionSettings.c40_default_plugins:
                     try:
-                        module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                        ExtensionSettings = getattr(module, "ExtensionSettings")
-                        delete_setting_profile(ExtensionSettings, profile=self.root.setting.selected_profile.get())
+                        module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                        PluginSettings = getattr(module, "PluginSettings")
+                        delete_setting_profile(PluginSettings, profile=self.root.setting.selected_profile.get())
                     except Exception as e:
-                        log.error(f"Failed to delete extension settings for {ext}: {e}")
+                        log.error(f"Failed to delete plugin settings for {plugin}: {e}")
 
             self.root.setting.profile_list.remove(self.root.setting.selected_profile.get())
             self.profile_dropdown_menu["values"] = self.root.setting.profile_list
@@ -668,14 +891,14 @@ class SettingWindow:
         rename_setting_profile(ControlSettings, old_name, new_name)
         rename_setting_profile(ExecutionSettings, old_name, new_name)
         rename_setting_profile(self.root.setting, old_name, new_name)
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    rename_setting_profile(ExtensionSettings, old_name, new_name)
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    rename_setting_profile(PluginSettings, old_name, new_name)
                 except Exception as e:
-                    log.error(f"Failed to rename extension settings for {ext}: {e}")
+                    log.error(f"Failed to rename plugin settings for {plugin}: {e}")
 
         idx = self.root.setting.profile_list.index(old_name)
         self.root.setting.profile_list[idx] = new_name
@@ -690,57 +913,68 @@ class SettingWindow:
         """ Save the current settings to the selected profile. """
 
         log.info(f"Saving profile: {self.root.setting.selected_profile.get()}")
+        profile = self.root.setting.selected_profile.get()
+        binder = TkSettingsBinder()
         self.save_from_widgets(PerceptionSettings)
-        save_setting(PerceptionSettings, profile=self.root.setting.selected_profile.get())
+        save_setting(PerceptionSettings, profile=profile, binder=binder)
         self.save_from_widgets(PlanningSettings) 
-        save_setting(PlanningSettings, profile=self.root.setting.selected_profile.get())
+        save_setting(PlanningSettings, profile=profile, binder=binder)
         self.save_from_widgets(ControlSettings)
-        save_setting(ControlSettings, profile=self.root.setting.selected_profile.get())
+        save_setting(ControlSettings, profile=profile, binder=binder)
         self.save_from_widgets(ExecutionSettings)
-        save_setting(ExecutionSettings, profile=self.root.setting.selected_profile.get())
+        ExecutionSettings.c40_community_plugins = normalize_community_plugins_map(
+            ExecutionSettings.c40_community_plugins
+        )
+        save_setting(ExecutionSettings, profile=profile, binder=binder)
 
-        save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
+        save_setting(self.root.setting, profile=profile, binder=binder)
 
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    self.save_from_widgets(ExtensionSettings, extension_name=ext)
-                    save_setting(ExtensionSettings, profile=self.root.setting.selected_profile.get())
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    self.save_from_widgets(PluginSettings, plugin_name=plugin)
+                    save_setting(PluginSettings, profile=profile, binder=binder)
                 except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}")
+                    log.error(f"Failed to save plugin settings for {plugin}: {e}")
 
         # Save community plugin settings
-        if self.root.setting.load_extensions.get():
-            for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
+        if self.root.setting.load_plugins.get():
+            profile = self.root.setting.selected_profile.get()
+            for name, stored in ExecutionSettings.c40_community_plugins.items():
                 try:
-                    cls = _load_plugin_settings_class(name, plugin_path)
+                    cls = load_community_plugin_setting(
+                        name, stored, profile=profile, binder=TkSettingsBinder()
+                    )
                     if cls is None:
                         continue
-                    _patch_plugin_settings(cls, name, plugin_path)
-                    self.save_from_widgets(cls, extension_name=f"community_{name}")
-                    Path(cls.filepath).parent.mkdir(parents=True, exist_ok=True)
-                    save_setting(cls, profile=self.root.setting.selected_profile.get())
+                    self.save_from_widgets(cls, plugin_name=f"community_{name}")
+                    save_setting(cls, profile=profile, binder=binder)
                 except Exception as e:
                     log.error("Failed to save plugin settings for '%s': %s", name, e)
 
         # just to save the profile 
-        save_setting(self.root.setting, profile=self.root.setting.selected_profile.get())
+        save_setting(self.root.setting, profile=profile, binder=binder)
     
 
     def load_profile(self, profile="default"):
         """ Load a profile from the settings. """
 
         log.info(f"loading profile: {profile}")
-        load_all_stack_settings(profile=profile, load_extensions=self.root.setting.load_extensions.get())
-        load_setting(self.root.setting, profile=profile)
+        binder = TkSettingsBinder()
+        load_all_stack_settings(profile=profile, load_plugins=self.root.setting.load_plugins.get())
+        load_setting(self.root.setting, profile=profile, binder=binder)
         self.root.setting.selected_profile.set(profile)
         set_startup_profile(profile)
 
         self.update_core_widgets()
-        self.update_extensions_widgets()
+        self.update_plugins_widgets()
         self.update_community_plugin_list()
+
+        self.listbox_default_plugins.delete(0, tk.END)
+        for plugin in ExecutionSettings.c40_default_plugins:
+            self.listbox_default_plugins.insert(tk.END, plugin)
 
     def update_core_widgets(self):
         self.update_widgets(PerceptionSettings)
@@ -748,46 +982,47 @@ class SettingWindow:
         self.update_widgets(ControlSettings)
         self.update_widgets(ExecutionSettings)
         
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    load_setting(ExtensionSettings, profile=self.root.setting.selected_profile.get())
-                    self.update_widgets(ExtensionSettings, extension_name=ext)
-                    log.debug(f"loaded extension settings for {ext}")
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    load_setting(PluginSettings, profile=self.root.setting.selected_profile.get(), binder=TkSettingsBinder())
+                    self.update_widgets(PluginSettings, plugin_name=plugin)
+                    log.debug(f"loaded plugin settings for {plugin}")
                 except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}")
+                    log.error(f"Failed to load plugin settings for {plugin}: {e}")
 
         self.update_community_plugin_widgets()
 
     def update_community_plugin_widgets(self):
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
-        if not self.root.setting.load_extensions.get():
+        if not self.root.setting.load_plugins.get():
             return
-        for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
-            ext_name = f"community_{name}"
-            cls = _load_plugin_settings_class(name, plugin_path)
+        profile = self.root.setting.selected_profile.get()
+        for name, stored in ExecutionSettings.c40_community_plugins.items():
+            plugin_name = f"community_{name}"
+            cls = load_community_plugin_setting(
+                name, stored, profile=profile, binder=TkSettingsBinder()
+            )
             if cls is None:
                 continue
-            _patch_plugin_settings(cls, name, plugin_path)
             try:
-                load_setting(cls, profile=self.root.setting.selected_profile.get())
+                self.update_widgets(cls, plugin_name=plugin_name)
             except Exception as e:
                 log.warning("Could not reload plugin settings for '%s': %s", name, e)
-            self.update_widgets(cls, extension_name=ext_name)
 
-    def update_extensions_widgets(self):
-        """ Update the extension widgets with the current settings. """ 
+    def update_plugins_widgets(self):
+        """ Update the plugin widgets with the current settings. """ 
 
-        if self.root.setting.load_extensions.get():
-            for ext in ExecutionSettings.c40_default_extensions:
+        if self.root.setting.load_plugins.get():
+            for plugin in ExecutionSettings.c40_default_plugins:
                 try:
-                    module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                    ExtensionSettings = getattr(module, "ExtensionSettings")
-                    self.update_widgets(ExtensionSettings, extension_name=ext)
+                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                    PluginSettings = getattr(module, "PluginSettings")
+                    self.update_widgets(PluginSettings, plugin_name=plugin)
                 except Exception as e:
-                    log.error(f"Failed to save extension settings for {ext}: {e}")
+                    log.error(f"Failed to update plugin settings for {plugin}: {e}")
 
     def __on_profile_dropdown_change(self, event):
         log.info(f"Selected profile: {event.widget.get()}")
@@ -797,7 +1032,7 @@ class SettingWindow:
         """ Reset the stack settings to the source code defaults, except for the UI as it is using some 
             some instant variables for tkinter.
         """
-        reload_lib(exclude_stack=True, reload_extensions=True)
+        reload_lib(exclude_stack=True, reload_plugins=True)
         from avlite.c10_perception.c19_settings import PerceptionSettings
         from avlite.c20_planning.c29_settings import PlanningSettings
         from avlite.c30_control.c39_settings import ControlSettings
@@ -810,29 +1045,33 @@ class SettingWindow:
             self.update_widgets(ExecutionSettings)
 
 
-        self.update_extensions_widgets()
+        self.update_plugins_widgets()
         
 
-    def recreate_extensions_widgets(self):
-        """ Recreate the extension widgets based on the current setting."""
+    def _on_load_plugins_toggle(self):
+        self.recreate_plugin_widgets()
+        self.root.reload_stack(reload_code=False)
 
-        if self.root.setting.load_extensions.get():
-            self.create_ext_widgets()
+    def recreate_plugin_widgets(self):
+        """ Recreate the plugin widgets based on the current setting."""
+
+        if self.root.setting.load_plugins.get():
+            self.create_plugin_widgets()
             self.create_community_plugin_widgets()
         else:
-            # Clear existing extension widgets
-            for ext in ExecutionSettings.c40_default_extensions:
-                ext_key = f"ExtensionSettings{ext}"
-                if ext_key in self.widget_entries:
-                    entry_dict = self.widget_entries[ext_key]
+            # Clear existing plugin widgets
+            for plugin in ExecutionSettings.c40_default_plugins:
+                plugin_key = f"PluginSettings{plugin}"
+                if plugin_key in self.widget_entries:
+                    entry_dict = self.widget_entries[plugin_key]
                     if entry_dict:
                         first_widget = next(iter(entry_dict.values()))
                         parent_frame = first_widget.master
                         parent_frame.pack_forget()  # or grid_forget() if using grid
-                    del self.widget_entries[ext_key]
-                    log.debug(f"Removed widgets for {ext_key}")
+                    del self.widget_entries[plugin_key]
+                    log.debug(f"Removed widgets for {plugin_key}")
 
-            self.ext_widget_created = False
+            self.plugin_widget_created = False
 
             # Clear community plugin widgets
             for name in list(ExecutionSettings.c40_community_plugins.keys()):
@@ -852,19 +1091,19 @@ class SettingWindow:
             self._cp_widget_created = False
 
 
-    def create_ext_widgets(self):
-        if hasattr(self, "ext_widget_created") and self.ext_widget_created:
-            log.warning("Extension widgets already created, skipping.")
+    def create_plugin_widgets(self):
+        if hasattr(self, "plugin_widget_created") and self.plugin_widget_created:
+            log.warning("Plugin widgets already created, skipping.")
             return
 
-        for ext in ExecutionSettings.c40_default_extensions:
+        for plugin in ExecutionSettings.c40_default_plugins:
             try:
-                module = importlib.import_module(f"avlite.extensions.{ext}.settings")
-                ExtensionSettings = getattr(module, "ExtensionSettings")
-                self.create_widgets(ExtensionSettings, f"{ext}", extension_name=ext)
-                self.ext_widget_created = True
+                module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
+                PluginSettings = getattr(module, "PluginSettings")
+                self.create_widgets(PluginSettings, f"{plugin}", plugin_name=plugin)
+                self.plugin_widget_created = True
             except Exception as e:
-                log.error(f"Failed to load extension settings for {ext}: {e}")
+                log.error(f"Failed to load plugin settings for {plugin}: {e}")
 
     def create_community_plugin_widgets(self):
         """Create settings widgets for community plugins that expose a ``PluginSettings`` class."""
@@ -873,35 +1112,33 @@ class SettingWindow:
             return
 
         found = []
-        if self.root.setting.load_extensions.get():
-            for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
-                cls = _load_plugin_settings_class(name, plugin_path)
+        if self.root.setting.load_plugins.get():
+            profile = self.root.setting.selected_profile.get()
+            for name, stored in ExecutionSettings.c40_community_plugins.items():
+                cls = load_community_plugin_setting(
+                    name, stored, profile=profile, binder=TkSettingsBinder()
+                )
                 if cls is not None:
-                    found.append((name, plugin_path, cls))
+                    found.append((name, cls))
 
         if not found:
             return
 
         self._cp_sep.pack(fill='x', pady=10)
         self._cp_label.pack(anchor=tk.W, padx=5, pady=5)
-        for name, plugin_path, cls in found:
-            _patch_plugin_settings(cls, name, plugin_path)
-            try:
-                load_setting(cls, profile=self.root.setting.selected_profile.get())
-            except Exception as e:
-                log.warning("Could not load plugin settings for '%s': %s", name, e)
-            self.create_widgets(cls, f"Plugin: {name}", extension_name=f"community_{name}")
+        for name, cls in found:
+            self.create_widgets(cls, f"Plugin: {name}", plugin_name=f"community_{name}")
 
         self._cp_widget_created = True
 
 
-    def create_widgets(self, setting, setting_name="Settings", extension_name=""):
+    def create_widgets(self, setting, setting_name="Settings", plugin_name=""):
         """ Create widgets for the settings view. """
 
         frame = ttk.Labelframe(self.settings_frame, text=setting_name)
         frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        key = setting.__name__ + extension_name
+        key = setting.__name__ + plugin_name
         self.widget_entries[key] = {}
         self.settings_section_frames[key] = frame
         row = 0
@@ -925,15 +1162,15 @@ class SettingWindow:
 
 
 
-    def save_from_widgets(self, setting, extension_name=""):
+    def save_from_widgets(self, setting, plugin_name=""):
         """ Save the settings from the widgets to the setting class. """
 
-        if setting.__name__+extension_name not in self.widget_entries:
-            log.warning(f"No widgets found for setting: {setting.__name__}+{extension_name}")
+        if setting.__name__+plugin_name not in self.widget_entries:
+            log.warning(f"No widgets found for setting: {setting.__name__}+{plugin_name}")
             return
 
         # log.warning(f"keys in widget_entries: {self.widget_entries.keys()}")
-        for field, entry in self.widget_entries[setting.__name__+extension_name].items():
+        for field, entry in self.widget_entries[setting.__name__+plugin_name].items():
             if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
                 continue
             
@@ -959,13 +1196,13 @@ class SettingWindow:
             else:
                 setattr(setting, field, val)
 
-    def update_widgets(self, setting, extension_name=""):
+    def update_widgets(self, setting, plugin_name=""):
         """ Update the widgets with the current settings. """
-        if setting.__name__+extension_name not in self.widget_entries:
-            log.warning(f"No widgets found for setting: {extension_name} {setting.__name__}")
+        if setting.__name__+plugin_name not in self.widget_entries:
+            log.warning(f"No widgets found for setting: {plugin_name} {setting.__name__}")
             return
 
-        for field, entry in self.widget_entries[setting.__name__+extension_name].items():
+        for field, entry in self.widget_entries[setting.__name__+plugin_name].items():
             if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
                 continue
             
@@ -994,11 +1231,11 @@ class SettingWindow:
         if total > 0:
             self.canvas.yview_moveto(frame.winfo_y() / total)
 
-    def _scroll_to_selected_extension(self) -> None:
-        sel = self.listbox_default_extensions.curselection()
+    def _scroll_to_selected_builtin_plugin(self) -> None:
+        sel = self.listbox_default_plugins.curselection()
         if sel:
-            ext = self.listbox_default_extensions.get(sel[0])
-            self._scroll_to_settings(f"ExtensionSettings{ext}")
+            plugin = self.listbox_default_plugins.get(sel[0])
+            self._scroll_to_settings(f"PluginSettings{plugin}")
 
     def _scroll_to_selected_plugin(self) -> None:
         sel = self.listbox_community_plugins.curselection()

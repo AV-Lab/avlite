@@ -6,7 +6,7 @@
 
 AVLite is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
 
-**ROS2 & Autoware Ready**: Built-in ROS2 executor extension (`executer_ROS2`) with native Autoware message support (Trajectory, ControlCommand, etc.).
+**ROS2 & Autoware Ready**: Built-in ROS2 executor plugin (`p40_executer_ROS2`) with native Autoware message support (Trajectory, ControlCommand, etc.).
 
 ![](docs/imgs/tk_visualizer.png)
 
@@ -49,7 +49,7 @@ flowchart TB
 - **c40_execution**: Execution orchestration with support for sync/async modes, simulator bridges, and `replan_global()`
 - **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
 - **c60_common**: Utilities, settings management, capability definitions (`AnyOf`, `satisfies_requirements`), and `HDMap` (OpenDRIVE parsing)
-- **extensions**: Plugin system for custom components (includes ROS2 executor with Autoware messages)
+- **plugins** (`avlite/plugins/`): Built-in and community plugin system (includes ROS2 executor with Autoware messages)
 
 ### Key Features
 
@@ -70,7 +70,7 @@ flowchart TB
 ## Why AVLite?
 
 - **Lightweight**: Small codebase focused on clarity over production complexity
-- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via built-in extension
+- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via built-in plugin
 - **Multi-simulator**: Same code runs on BasicSim, Carla, or Gazebo
 - **Rapid iteration**: Hot-reload code and tune parameters without restarting
 - **Minimal dependencies**: Core needs only NumPy, Matplotlib, Tkinter
@@ -90,7 +90,7 @@ pip install -r requirements-full.txt
 
 **Optional integrations** (install separately as needed):
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `executer_ROS2` extension provides ROS2 nodes and Autoware message converters out of the box.
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `p40_executer_ROS2` plugin provides ROS2 nodes and Autoware message converters out of the box (`configs/plugin_ros_executer.yaml`).
 
 Run from source:
 ```bash
@@ -143,7 +143,10 @@ pip install rich
 1. **Configure** with the visualizer (`python -m avlite`): pick the bridge,
    strategies, and tune parameters until it behaves the way you want.
 2. **Save** the result as a named profile from the Config tab.
-3. **Deploy** that profile on your robot/server with
+3. **Transfer** (optional): export the profile as a zip from the settings window
+   (`T`) or with `python -m avlite config export-profile <name>`, then import
+   on the target machine with **Import profile** or `config import-profile`.
+4. **Deploy** that profile on your robot/server with
    `python -m avlite headless -p <profile>`.
 
 The same YAML profiles drive both the GUI and headless mode, so what you
@@ -151,11 +154,13 @@ see in the visualizer is what the robot will run.
 
 ## Configuration files
 
-Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filenames; load prefers the user copy when present. Set `AVLITE_CONFIG_DIR` to use a different user config directory.
+Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filenames; load prefers the user copy when present. User maps and trajectories live under `~/.config/avlite/data/`; the Planning panel **Save Global Plan** button (⬇) opens a file picker there. Set `AVLITE_CONFIG_DIR` or `AVLITE_DATA_DIR` to use different directories.
 
 ```bash
 python -m avlite config help
 python -m avlite config validate --profile default
+python -m avlite config export-profile myprofile -o myprofile.zip
+python -m avlite config import-profile myprofile.zip --force
 ```
 
 See [Configuration](docs/index.md#configuration) in the docs for paths, CLI, and resetting to repo defaults.
@@ -180,6 +185,8 @@ Installed plugins live under `$XDG_DATA_HOME/avlite/plugins`
 
 **Publish your own plugin**:
 
+See the [Plugin Development Guide — Publish via pull request](docs/plugin-development.md#10-publish-to-the-community-registry-pull-request) for prerequisites, registry fields, and a PR checklist. Summary:
+
 1. Build a plugin following the [Plugin Development Guide](docs/plugin-development.md).
 2. Push it to a public Git repository.
 3. Fork <https://github.com/AV-Lab/avlite-community-plugins>, add an entry
@@ -187,15 +194,17 @@ Installed plugins live under `$XDG_DATA_HOME/avlite/plugins`
 
    ```yaml
    plugins:
-     - name: my_cool_planner
-       repository: https://github.com/<you>/my_cool_planner
+     - name: my_perception_plugin
+       description: One-line summary of what the plugin does
+       repository: https://github.com/your-org/your-plugin-repo
        version: latest        # or a tag/commit SHA
-       description: One-line summary
-       author: Your Name
+       author: your-org
+       category:
+         - PerceptionStrategy
    ```
 
-4. Open a pull request. Once merged it shows up automatically in every
-   user's `avlite plugins` browser.
+4. Open a pull request. Once merged it shows up in every user's
+   `python -m avlite plugins` browser for install and register.
 
 ## Project Structure
 
@@ -217,7 +226,6 @@ avlite/
 │   ├── c22_global_planning_strategy.py
 │   ├── c23_local_planning_strategy.py
 │   ├── c24_global_hdmap_planners.py  # HDMapGlobalPlanner
-│   ├── c24_global_planners.py
 │   ├── c25_global_race_planners.py   # GlobalCenterlineRacePlanner
 │   ├── c26_local_lattice_planners.py
 │   ├── c27_lattice.py
@@ -253,15 +261,19 @@ avlite/
 │   ├── c63_trajectory_tracker.py
 │   ├── c64_collision_checking.py
 │   ├── c65_fps_tracker.py
-│   ├── c67_hdmap.py              # HDMap (OpenDRIVE parsing)
+│   ├── c60_plugins.py            # Plugin discovery, loading, log routing
+│   ├── c66_hdmap.py              # HDMap (OpenDRIVE parsing)
+│   ├── c67_paths.py              # Config, data, and plugin paths
 │   ├── c68_settings_schema.py
 │   └── c69_setting_utils.py
-└── extensions/            # Built-in extensions
-    ├── bridge_carla/
-    ├── bridge_gazebo/
-    ├── bridge_ROS2/
-    ├── executer_ROS2/
-    └── multi_object_prediction/
+└── plugins/               # Built-in plugins
+    ├── p10_perception_MO_prediction/
+    ├── p30_controller_joystick/
+    ├── p40_bridge_carla/
+    ├── p40_bridge_gazebo/
+    ├── p40_bridge_ROS2/
+    ├── p40_executer_ROS2/
+    └── p50_headless_mode/
 ```
 
 The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley controller, etc.

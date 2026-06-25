@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 import logging
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c60_common.c67_hdmap import HDMap
+from avlite.c60_common.c66_hdmap import HDMap
 
 
 log = logging.getLogger(__name__)

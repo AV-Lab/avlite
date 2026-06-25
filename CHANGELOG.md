@@ -9,12 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - GUI startup profile: last selected profile saved in `~/.config/avlite/startup_profile` and restored on launch
-- **Copy repository configs** (settings window): copies shipped `{repo}/configs/*.yaml` into `~/.config/avlite/` and reloads
-- **Edit repository configs** (settings window, git clone only): optional dev mode to read/write `{repo}/configs/` directly; preference in `~/.config/avlite/config_target`
+- Settings window **Export profile** / **Import profile**: zip of per-file profile slices (including community plugin YAMLs when referenced); validated against Pydantic schemas on export and import
+- `avlite config export-profile` and `avlite config import-profile` CLI subcommands
+- **Edit repository configs** (settings window, git clone only): optional dev mode to switch read/write between user dir and `{repo}/configs/`; preference in `~/.config/avlite/config_target`
+- `c60_plugins.py` (plugin discovery, loading, log routing) and `c67_paths.py` (config/XDG paths)
+- Thread-safe log filter snapshots in the visualizer (Core / Plugins / per-layer toggles)
+- Community plugin import skips `.venv`, `site-packages`, and similar vendor directories
 
 ### Changed
-- Renamed `c60_common` modules: `c61_capabilities`, `c62_sensor_data`, `c67_hdmap`, `c68_settings_schema`, `c69_setting_utils` (update imports if you extend AVLite)
-- **Use repository configs** superseded by **Copy repository configs** (copy to home instead of deleting local YAML)
+- User data directory for maps and trajectories is now `~/.config/avlite/data/` (override with `AVLITE_DATA_DIR`)
+- **Save Global Plan** (Planning panel ⬇) opens a native save dialog in `~/.config/avlite/data/` instead of a typed path prompt
+- **Breaking:** Renamed `avlite/extensions/` → `avlite/plugins/` with `pNx` package naming (e.g. `p40_executer_ROS2`, `p40_bridge_carla`)
+- **Breaking:** Renamed `configs/ext_*.yaml` → `configs/plugin_*.yaml`; `ExtensionSettings` → `PluginSettings`; `load_extensions` → `load_plugins`; `c40_default_extensions` → `c40_default_plugins`
+- Renamed `c60_common` modules: `c61_capabilities`, `c62_sensor_data`, `c66_hdmap`, `c68_settings_schema`, `c69_setting_utils` (update imports if you extend AVLite)
+- **Use repository configs** superseded by **Edit repository configs** (path switch instead of deleting local YAML)
+
+### Removed
+- **Copy repository configs** button and `copy_repo_configs_to_user()` (use **Edit repository configs** to work on repo YAML, or import a profile zip to populate the user dir)
 
 ### Fixed
 - Settings window (`T`) no longer crashes when opening the repository-config controls after a partial code reload

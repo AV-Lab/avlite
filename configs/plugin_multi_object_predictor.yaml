@@ -1,0 +1,72 @@
+Carla_Town10:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: None
+SAN:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: None
+async:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: null
+default:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: null
+global planning:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: null
+joystick:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: None
+perception:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: null
+ros:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: None
+sync:
+  detector: ground_truth
+  device: cuda:0
+  max_agent_distance: 50.0
+  pred_horizon: 3
+  prediction_mode: grid
+  predictor: AttentionGMM
+  tracker: null

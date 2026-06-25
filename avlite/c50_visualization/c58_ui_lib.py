@@ -1,9 +1,26 @@
-from tkinter import ttk
+import os
 import tkinter as tk
+import tkinter.font as tkfont
+from tkinter import ttk
 
 class ValueGauge(ttk.Frame):
-    def __init__(self, parent, name:str = "", min_value:float=0, max_value:float=100, variable=None, height=12, **kwargs):
+    def __init__(
+        self,
+        parent,
+        name: str = "",
+        min_value: float = 0,
+        max_value: float = 100,
+        variable=None,
+        height=12,
+        dpi_scale: float | None = None,
+        **kwargs,
+    ):
         super().__init__(parent, **kwargs)
+        if dpi_scale is None:
+            dpi_scale = getattr(parent, "_dpi_scale", None)
+        if dpi_scale is None:
+            dpi_scale = get_dpi_scale(parent)
+
         self.min_value = min_value
         self.max_value = max_value
         self.current_value = 0
@@ -11,25 +28,22 @@ class ValueGauge(ttk.Frame):
         self.variable = variable
         self.pack_propagate(False)
         self.font = ("Helvetica", 7, "bold")
-        self._old_value = 0 # used to not draw if value is same
+        self._old_value = 0  # used to not draw if value is same
+        gauge_height = scaled(height, dpi_scale)
 
         if name != "":
             tk.Label(self, text=name, font=self.font).pack(side=tk.LEFT, padx=0)
 
         min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font)
         min_label.pack(side=tk.LEFT, padx=0)
-        
+
         max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font)
         max_label.pack(side=tk.RIGHT, padx=0)
 
-
-        self.canvas = tk.Canvas(self, height=height, bg="gray", highlightthickness=0)
+        self.canvas = tk.Canvas(self, height=gauge_height, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
-        # self.bind("<Configure>", lambda e: self.after_idle(self._draw))
-        
-        # label_height = min_label.winfo_reqheight()
-        # canvas_height = self.canvas.winfo_reqheight()
-        total_height = height
+
+        total_height = gauge_height
         self.config(height=total_height)
 
         self.bind("<Configure>", lambda e: self.__draw())
@@ -97,12 +111,13 @@ class ValueGauge(ttk.Frame):
 class ThemedInputDialog:
     def __init__(self, parent, title, prompt, initial=""):
         self.result = None
-        
+
         # Create the dialog
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        self.dialog.minsize(300, 100)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.minsize(scaled(300, s), scaled(100, s))
         
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
 
@@ -116,7 +131,7 @@ class ThemedInputDialog:
 
         # Add prompt and entry field
         ttk.Label(top_frame, text=prompt).pack(side=tk.LEFT, padx=10)
-        self.entry = ttk.Entry(top_frame, width=20)
+        self.entry = ttk.Entry(top_frame, width=max(10, scaled(20, s)))
         self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10, pady=5)
         if initial:
             self.entry.insert(0, initial)
@@ -144,11 +159,13 @@ class ThemedInputDialog:
 class ThemedTwoInputDialog:
     def __init__(self, parent, title, prompt1="", prompt2="", initial1="", initial2=""):
         self.result = None
-        
+
         # Create the dialog
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.minsize(scaled(360, s), scaled(140, s))
         
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
         
@@ -171,7 +188,7 @@ class ThemedTwoInputDialog:
         self.first_entry.insert(0, initial1)
         
         ttk.Label(frame, text=prompt2).grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
-        self.second_entry = ttk.Entry(frame, width=30)
+        self.second_entry = ttk.Entry(frame, width=max(20, scaled(30, s)))
         self.second_entry.grid(row=1, column=1, padx=10, pady=5, sticky=tk.EW)
         self.second_entry.insert(0, initial2)
         
@@ -192,6 +209,123 @@ class ThemedTwoInputDialog:
     
     def on_cancel(self):
         self.dialog.destroy()
+
+
+class ThemedListPickerDialog:
+    """Modal list picker; returns selected item text or None."""
+
+    def __init__(
+        self,
+        parent,
+        title: str,
+        items: list[str],
+        *,
+        initial: str | None = None,
+    ):
+        self.result: str | None = None
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.transient(parent)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.bind("<Escape>", lambda _e: self.on_cancel())
+
+        frame = ttk.Frame(self.dialog)
+        frame.pack(fill=tk.X)
+
+        list_frame = ttk.Frame(frame)
+        list_frame.pack(side=tk.TOP, fill=tk.X)
+
+        listbox_height = max(1, min(16, len(items)))
+        self.listbox = tk.Listbox(
+            list_frame,
+            height=listbox_height,
+            selectmode=tk.SINGLE,
+            exportselection=False,
+            width=max(30, scaled(40, s)),
+        )
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.listbox.yview)
+        self.listbox.configure(yscrollcommand=scrollbar.set)
+        self.listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        if len(items) > listbox_height:
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for item in items:
+            self.listbox.insert(tk.END, item)
+
+        if initial and initial in items:
+            idx = items.index(initial)
+            self.listbox.selection_set(idx)
+            self.listbox.see(idx)
+
+        self.listbox.bind("<Double-Button-1>", lambda _e: self.on_ok())
+        self.listbox.bind("<Return>", lambda _e: self.on_ok())
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=4)
+        ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT, padx=4)
+
+        self.dialog.update_idletasks()
+        self.dialog.minsize(self.dialog.winfo_reqwidth(), self.dialog.winfo_reqheight())
+        self.dialog.resizable(False, False)
+        self.dialog.deiconify()
+        self.dialog.wait_visibility()
+        self.dialog.grab_set()
+        self.dialog.wait_window()
+
+    def on_ok(self):
+        sel = self.listbox.curselection()
+        if sel:
+            self.result = self.listbox.get(sel[0])
+        self.dialog.destroy()
+
+    def on_cancel(self):
+        self.dialog.destroy()
+
+
+class ThemedReadOnlyTwoFieldDialog:
+    """Show two read-only label/value pairs (view-only)."""
+
+    def __init__(
+        self,
+        parent,
+        title: str,
+        label1: str = "",
+        label2: str = "",
+        value1: str = "",
+        value2: str = "",
+    ):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.transient(parent)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.minsize(scaled(360, s), scaled(120, s))
+        self.dialog.bind("<Escape>", lambda _e: self.dialog.destroy())
+
+        frame = ttk.Frame(self.dialog)
+        frame.grid(row=0, column=0, sticky="nsew")
+        self.dialog.grid_rowconfigure(0, weight=1)
+        self.dialog.grid_columnconfigure(0, weight=1)
+        frame.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(frame, text=label1).grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
+        ttk.Label(frame, text=value1, wraplength=scaled(280, s)).grid(
+            row=0, column=1, padx=10, pady=10, sticky=tk.W
+        )
+        ttk.Label(frame, text=label2).grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
+        ttk.Label(frame, text=value2, wraplength=scaled(280, s)).grid(
+            row=1, column=1, padx=10, pady=10, sticky=tk.W
+        )
+        ttk.Button(frame, text="OK", command=self.dialog.destroy).grid(
+            row=2, column=0, columnspan=2, padx=5, pady=10, sticky=tk.E
+        )
+
+        self.dialog.transient(parent)
+        self.dialog.update_idletasks()
+        self.dialog.deiconify()
+        self.dialog.wait_visibility()
+        self.dialog.grab_set()
+        self.dialog.wait_window()
 
 
 class HoverTooltip:
@@ -220,8 +354,10 @@ class HoverTooltip:
         self._after_id = None
         if self._tip is not None:
             return
-        x = self.widget.winfo_rootx() + 20
-        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+
+        s = get_dpi_scale(self.widget)
+        x = self.widget.winfo_rootx() + scaled(20, s)
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + scaled(4, s)
         tip = tk.Toplevel(self.widget)
         tip.wm_overrideredirect(True)
         tip.wm_geometry(f"+{x}+{y}")
@@ -232,9 +368,9 @@ class HoverTooltip:
             background="#ffffe0",
             relief=tk.SOLID,
             borderwidth=1,
-            wraplength=360,
-            padx=6,
-            pady=4,
+            wraplength=scaled(360, s),
+            padx=scaled(6, s),
+            pady=scaled(4, s),
         )
         label.pack()
         self._tip = tip
@@ -246,9 +382,187 @@ class HoverTooltip:
             self._tip = None
 
 
+def attach_tooltip(widget, text: str) -> HoverTooltip | None:
+    if text:
+        tooltip = HoverTooltip(widget, text)
+        widget._hover_tooltip = tooltip
+        return tooltip
+    return None
+
+
 def attach_schema_tooltip(widget, settings_cls, field_name: str) -> None:
     from avlite.c60_common.c68_settings_schema import field_tooltip_text
 
-    tip = field_tooltip_text(settings_cls, field_name)
-    if tip:
-        HoverTooltip(widget, tip)
+    attach_tooltip(widget, field_tooltip_text(settings_cls, field_name) or "")
+
+
+def update_schema_tooltip(widget, settings_cls, field_name: str) -> None:
+    from avlite.c60_common.c68_settings_schema import field_tooltip_text
+
+    text = field_tooltip_text(settings_cls, field_name) or ""
+    tooltip = getattr(widget, "_hover_tooltip", None)
+    if tooltip is not None:
+        tooltip.text = text
+    else:
+        attach_tooltip(widget, text)
+
+
+BUTTON_TOOLTIPS: dict[str, str] = {
+    # Toolbar
+    "toolbar_settings": "Open settings to edit profiles, plugins, and visualization options.",
+    "toolbar_plugins": "Browse and install community plugins from GitHub.",
+    "toolbar_reload_stack": "Rebuild the perception, planning, control, and execution stack with current settings.",
+    "toolbar_reset_config": "Reload configuration from disk and discard unsaved UI changes.",
+    "toolbar_save_config": "Save the current settings to the active profile YAML files.",
+    # Execution
+    "exec_start": "Run the simulation loop continuously at the configured rates.",
+    "exec_stop": "Stop the loop and halt the world bridge.",
+    "exec_step": "Advance one execution tick without continuous run.",
+    "exec_reset": "Reset the executer and world to the initial state.",
+    # Planning
+    "plan_global_replan": "Recompute the global route from the map and planner.",
+    "plan_save_global": "Save the current global plan to a JSON file.",
+    "plan_set_waypoint": "Jump the local planner to the waypoint index in the field.",
+    "plan_wp_back": "Move to the previous waypoint on the global plan.",
+    "plan_step": "Advance the local planner to the next waypoint.",
+    "plan_align": "Snap the planned path to the current ego pose.",
+    "plan_local_replan": "Replan the local trajectory from the current waypoint.",
+    # Control
+    "control_step": "Run one control cycle and update the gauges.",
+    "control_align": "Re-align the controller with the current ego state.",
+    "control_steer_left": "Nudge steering left (manual override).",
+    "control_steer_right": "Nudge steering right (manual override).",
+    "control_accel": "Apply a short acceleration pulse (manual override).",
+    "control_decel": "Apply a short brake pulse (manual override).",
+    # Log
+    "log_clear": "Clear the log output.",
+    "log_copy": "Copy log text to the clipboard.",
+    "log_toggle_height": "Expand or collapse the log panel.",
+    # Settings window — profiles
+    "profile_new": "Create a new execution profile folder.",
+    "profile_delete": "Delete the selected profile.",
+    "profile_save": "Save all settings into the selected profile.",
+    "profile_export": "Export the profile as a zip archive.",
+    "profile_import": "Import a profile from a zip archive.",
+    "profile_rename": "Rename the selected profile.",
+    "profile_reset_all": "Reset every module setting to source-code defaults.",
+    "profile_reset_non_exec": "Reset all settings except execution to defaults.",
+    # Settings window — plugins
+    "plugins_reset_builtin": "Restore the built-in plugin list to defaults.",
+    "plugins_remove_builtin": "Remove the selected built-in plugin entry.",
+    "plugins_reset_community": "Sync community plugin list with installed packages.",
+    "plugins_add": "Add a community plugin entry manually.",
+    "plugins_remove_community": "Remove the selected community plugin entry.",
+    "plugins_browse": "Open the community plugins browser.",
+    "settings_close": "Close the settings window without saving.",
+    "settings_save": "Save profile and close the settings window.",
+    "edit_repo_configs": "Write profile changes to repository config files instead of user data.",
+    # Community plugins
+    "cp_refresh": "Refresh the plugin list from the registry.",
+    "cp_install": "Install the selected plugin.",
+    "cp_uninstall": "Uninstall the selected plugin.",
+    "cp_update": "Update the selected plugin to the latest version.",
+    "cp_update_all": "Update all installed plugins that have updates.",
+    "cp_github": "Open the plugin repository on GitHub.",
+    "cp_open_folder": "Open the plugin install folder in the file manager.",
+    "cp_close": "Close this window.",
+}
+
+
+class TkSettingsBinder:
+    """Read/write settings backed by ``tk.Variable`` attributes."""
+
+    def get_value(self, setting, attr_name: str):
+        from avlite.c60_common.c68_settings_schema import PlainBinder
+
+        attr_value = getattr(setting if not isinstance(setting, type) else setting, attr_name)
+        if isinstance(attr_value, tk.Variable):
+            return attr_value.get()
+        return PlainBinder().get_value(setting, attr_name)
+
+    def set_value(self, setting, attr_name: str, value) -> None:
+        attr_value = getattr(setting if not isinstance(setting, type) else setting, attr_name)
+        if isinstance(attr_value, tk.BooleanVar):
+            attr_value.set(bool(value))
+        elif isinstance(attr_value, tk.IntVar):
+            attr_value.set(int(value))
+        elif isinstance(attr_value, tk.DoubleVar):
+            attr_value.set(float(value))
+        elif isinstance(attr_value, tk.Variable):
+            attr_value.set(value)
+        else:
+            from avlite.c60_common.c68_settings_schema import PlainBinder
+
+            PlainBinder().set_value(setting, attr_name, value)
+
+
+_DPI_MIN = 1.0
+_DPI_MAX = 3.0
+
+
+def scaled(n: float, scale: float) -> int:
+    """Scale a pixel value and round to int."""
+    return round(n * scale)
+
+
+def scaled_font(scale: float, family: str, size: int, **kwargs) -> tuple:
+    """Return a font tuple scaled for geometry scale (plugin README rendering only)."""
+    font_size = max(1, scaled(size, scale))
+    parts: list = [family, font_size]
+    if "weight" in kwargs:
+        parts.append(kwargs["weight"])
+    if "slant" in kwargs:
+        parts.append(kwargs["slant"])
+    return tuple(parts)
+
+
+def _font_scale_from_default() -> float:
+    """Estimate scale from TkDefaultFont when PPI alone is insufficient (common on Linux)."""
+    try:
+        font = tkfont.nametofont("TkDefaultFont")
+        size = font.cget("size")
+        if isinstance(size, str):
+            size = int(size)
+        size = abs(int(size))
+        if size <= 0:
+            return _DPI_MIN
+        # Negative size is pixels; positive is points. Baseline ~10 pt / 12 px.
+        baseline = 12 if font.cget("size") < 0 else 10
+        return max(_DPI_MIN, min(_DPI_MAX, size / baseline))
+    except (tk.TclError, ValueError, TypeError):
+        return _DPI_MIN
+
+
+def get_dpi_scale(widget: tk.Misc, parent: tk.Misc | None = None) -> float:
+    """Pixels-per-inch normalised to 96 dpi, with font and GDK fallbacks."""
+    if parent is not None:
+        inherited = getattr(parent, "_dpi_scale", None)
+        if inherited is not None:
+            return float(inherited)
+
+    ppi_scale = _DPI_MIN
+    try:
+        widget.update_idletasks()
+        ppi_scale = max(_DPI_MIN, min(_DPI_MAX, widget.winfo_fpixels("1i") / 96.0))
+    except tk.TclError:
+        pass
+
+    gdk_scale = os.environ.get("GDK_SCALE")
+    env_scale = _DPI_MIN
+    if gdk_scale:
+        try:
+            env_scale = max(_DPI_MIN, min(_DPI_MAX, float(gdk_scale)))
+        except ValueError:
+            pass
+
+    font_scale = _font_scale_from_default()
+    return max(ppi_scale, env_scale, font_scale)
+
+
+def configure_treeview_style(style: ttk.Style, name: str, scale: float = 1.0) -> None:
+    """Set Treeview row height and heading font to match the default UI font."""
+    font = tkfont.nametofont("TkDefaultFont")
+    rowheight = font.metrics("linespace") + scaled(4, scale)
+    style.configure(f"{name}.Treeview", rowheight=rowheight)
+    style.configure(f"{name}.Treeview.Heading", font=font)
+

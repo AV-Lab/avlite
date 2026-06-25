@@ -1,5 +1,4 @@
 from __future__ import annotations
-from os import wait
 from typing import TYPE_CHECKING
 import tkinter as tk
 from tkinter import ttk
@@ -8,8 +7,13 @@ import time
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_executer import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_visualization.c58_ui_lib import attach_schema_tooltip
-from avlite.c50_visualization.c59_settings import VisualizationSettings
+from avlite.c50_visualization.c58_ui_lib import attach_schema_tooltip, attach_tooltip, BUTTON_TOOLTIPS, ThemedListPickerDialog, update_schema_tooltip
+from avlite.c60_common.c67_paths import (
+    list_map_file_candidates,
+    list_global_plan_file_candidates,
+    data_picker_path_for_setting,
+)
+from avlite.c50_visualization.c59_settings import VisualizationSettings, default_map_settings_field
 from avlite.c60_common.c61_capabilities import WorldCapability
 
 
@@ -104,10 +108,17 @@ class ExecView(ttk.Frame):
         ## Second frame
         self.start_exec_button = ttk.Button( exec_second_frame, text="Start", command=self.toggle_exec, style="Start.TButton", width=10,)
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
+        attach_tooltip(self.start_exec_button, BUTTON_TOOLTIPS["exec_start"])
 
-        ttk.Button( exec_second_frame, text="Stop", command=self.stop_exec, style="Stop.TButton",).pack(side=tk.LEFT, padx=1)
-        ttk.Button(exec_second_frame, text="Step", width=4, command=self.step_exec).pack(side=tk.LEFT)
-        ttk.Button(exec_second_frame, text="Reset", width=4, command=self.reset_exec).pack(side=tk.LEFT)
+        btn_stop = ttk.Button( exec_second_frame, text="Stop", command=self.stop_exec, style="Stop.TButton",)
+        btn_stop.pack(side=tk.LEFT, padx=1)
+        attach_tooltip(btn_stop, BUTTON_TOOLTIPS["exec_stop"])
+        btn_step = ttk.Button(exec_second_frame, text="Step", width=4, command=self.step_exec)
+        btn_step.pack(side=tk.LEFT)
+        attach_tooltip(btn_step, BUTTON_TOOLTIPS["exec_step"])
+        btn_reset = ttk.Button(exec_second_frame, text="Reset", width=4, command=self.reset_exec)
+        btn_reset.pack(side=tk.LEFT)
+        attach_tooltip(btn_reset, BUTTON_TOOLTIPS["exec_reset"])
 
 
         ## Third frame 
@@ -125,13 +136,59 @@ class ExecView(ttk.Frame):
         vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
 
 
-        global_tj_file = ttk.Entry(exec_second_frame, textvariable=self.root.setting.default_global_plan_file, width=15,)
-        global_tj_file.pack(side=tk.RIGHT, padx=5, pady=5)
-        global_tj_file.bind("<Return>", self.text_on_enter)
-        lbl = ttk.Label(exec_second_frame, text="Default Global Plan")
-        lbl.pack(side=tk.RIGHT, padx=5, pady=5)
+        right_opts = ttk.Frame(exec_second_frame)
+        right_opts.pack(side=tk.RIGHT, padx=5, pady=5)
+
+        global_plan_row = ttk.Frame(right_opts)
+        global_plan_row.pack(side=tk.TOP, anchor=tk.E)
+        global_tj_file = ttk.Entry(
+            global_plan_row,
+            textvariable=self.root.setting.default_global_plan_file,
+            width=15,
+            state="readonly",
+        )
+        global_tj_file.pack(side=tk.RIGHT, padx=(5, 0))
+        global_tj_file.bind("<Button-1>", self._pick_default_global_plan)
+        lbl = ttk.Label(global_plan_row, text="Default Global Plan")
+        lbl.pack(side=tk.RIGHT, padx=(5, 0))
         attach_schema_tooltip(lbl, ExecutionSettings, "c40_global_trajectory")
         attach_schema_tooltip(global_tj_file, ExecutionSettings, "c40_global_trajectory")
+
+        map_row = ttk.Frame(right_opts)
+        map_row.pack(side=tk.TOP, anchor=tk.E, pady=(4, 0))
+        default_map_entry = ttk.Entry(
+            map_row, textvariable=self.root.setting.default_map_file, width=15, state="readonly",
+        )
+        default_map_entry.pack(side=tk.RIGHT, padx=(5, 0))
+        default_map_entry.bind("<Button-1>", self._pick_default_map)
+        map_lbl = ttk.Label(map_row, text="Default Map")
+        map_lbl.pack(side=tk.RIGHT, padx=(5, 0))
+        self._default_map_lbl = map_lbl
+        self._default_map_entry = default_map_entry
+        self.refresh_default_map_tooltips()
+
+
+    def refresh_default_map_tooltips(self):
+        field = default_map_settings_field()
+        update_schema_tooltip(self._default_map_lbl, ExecutionSettings, field)
+        update_schema_tooltip(self._default_map_entry, ExecutionSettings, field)
+
+
+    def _pick_default_global_plan(self, _event=None):
+        current = data_picker_path_for_setting(self.root.setting.default_global_plan_file.get())
+        items = list_global_plan_file_candidates()
+        dialog = ThemedListPickerDialog(self.root, "Default Global Plan", items, initial=current)
+        if dialog.result:
+            self.root.setting.default_global_plan_file.set(dialog.result)
+            self.root.reload_stack(reload_code=False)
+
+    def _pick_default_map(self, _event=None):
+        current = data_picker_path_for_setting(self.root.setting.default_map_file.get())
+        items = list_map_file_candidates()
+        dialog = ThemedListPickerDialog(self.root, "Default Map", items, initial=current)
+        if dialog.result:
+            self.root.setting.default_map_file.set(dialog.result)
+            self.root.reload_stack(reload_code=False)
 
 
     def text_on_enter(self, event):
@@ -190,7 +247,8 @@ class ExecView(ttk.Frame):
             self.root.after(int(next_frame_delay * 1000), self._exec_loop)
 
     def stop_exec(self):
-        self.root.exec.stop()
+        if self.root.exec is not None:
+            self.root.exec.stop()
         # self.start_exec_button.config(state=tk.NORMAL)
         self.start_exec_button.state(['!disabled'])
         self.root.update_ui()

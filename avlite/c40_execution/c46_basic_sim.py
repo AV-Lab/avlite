@@ -5,13 +5,13 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c30_control.c32_control_strategy import ControlComand
+from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c69_setting_utils import get_absolute_path
+from avlite.c60_common.c67_paths import get_absolute_path, resolve_picker_data_path
 from avlite.c60_common.c62_sensor_data import LidarCloud, lidar_2d_to_4
 
 
@@ -31,10 +31,12 @@ class BasicSim(WorldBridge):
 
     def __init__(self,ego_state:EgoState, pm:Optional[PerceptionModel] = None,
                  controller: Optional[ControlStrategy] = None,
-                 setting: Type[ExecutionSettings] = ExecutionSettings):
+                 setting: Type[ExecutionSettings] = ExecutionSettings,
+                 reference_point: tuple[float, float] | None = None):
         self.setting = setting
         self.ego_state = ego_state
         self.pm = pm
+        self.reference_point = reference_point
         self.ego_controller = controller
         self.supports_ground_truth_detection = True
         self.supports_ground_truth_localization = True
@@ -64,7 +66,7 @@ class BasicSim(WorldBridge):
         )
 
 
-    def control_ego_state(self, cmd:ControlComand, dt=0.01):
+    def control_ego_state(self, cmd:ControlCommand, dt=0.01):
         acceleration = cmd.acceleration
         steering_angle = cmd.steer
 
@@ -136,7 +138,7 @@ class BasicSim(WorldBridge):
             return np.empty((0, 2, 2))
         try:
             import json
-            with open(get_absolute_path(boundary_file)) as f:
+            with open(resolve_picker_data_path(boundary_file)) as f:
                 data = json.load(f)
             segments = []
             for key in ("LeftBound", "RightBound"):
