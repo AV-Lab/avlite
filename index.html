@@ -539,6 +539,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#profile-transfer-zip" class="md-nav__link">
+    <span class="md-ellipsis">
+      Profile transfer (zip)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cli-validation" class="md-nav__link">
     <span class="md-ellipsis">
       CLI validation
@@ -737,6 +746,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <li><strong>Start Stack</strong>: Click "Start/Stop Stack" to begin simulation</li>
 <li><strong>Spawn NPCs</strong>: Right-click on the plot to add vehicles</li>
 <li><strong>Adjust Parameters</strong>: Modify settings in real-time through the GUI panels</li>
+<li><strong>Save Global Plan</strong>: Use ⬇ in the Planning panel to export the current plan as JSON (save dialog opens in <code>~/.config/avlite/data/</code>)</li>
 </ol>
 <h3 id="3-basic-workflow">3. Basic Workflow<a class="headerlink" href="#3-basic-workflow" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>Load Profile → Configure Components → Start Stack → Monitor/Debug → Save Profile
@@ -869,7 +879,7 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 </tr>
 <tr>
 <td><strong>Maps &amp; trajectories</strong></td>
-<td>Read: <code>~/.local/share/avlite/data/</code> then <code>{repo}/data/</code>; save: user dir only</td>
+<td>Read: <code>~/.config/avlite/data/</code> then <code>{repo}/data/</code>; save: user dir only (GUI save dialog opens in user data dir)</td>
 <td><code>AVLITE_DATA_DIR</code></td>
 </tr>
 <tr>
@@ -879,7 +889,7 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 </tr>
 </tbody>
 </table>
-<p>Paths stored as <code>data/...</code> in YAML are resolved against the user data directory first, then the repository <code>data/</code> folder. Saved global plans and other writes never go into the repo tree.</p>
+<p>Paths stored as <code>data/...</code> in YAML are resolved against the user data directory first, then the repository <code>data/</code> folder. Saved global plans and other writes never go into the repo tree. In the GUI, <strong>Save Global Plan</strong> (Planning panel ⬇) opens a file picker in <code>~/.config/avlite/data/</code> with a timestamped default filename.</p>
 <p>User and repo config files share the <strong>same basenames</strong> (<code>c10_perception.yaml</code>, <code>c40_execution.yaml</code>, <code>plugin_ros_executer.yaml</code>, …).</p>
 <p><strong>Load order:</strong> for each settings file, AVLite reads <code>~/.config/avlite/&lt;name&gt;.yaml</code> if it exists; otherwise it falls back to <code>{repo}/configs/&lt;name&gt;.yaml</code>.</p>
 <p><strong>Save:</strong> GUI and settings window writes go to <code>~/.config/avlite/</code> unless <strong>Edit repository configs</strong> is enabled (then <code>{repo}/configs/</code>).</p>
@@ -896,13 +906,22 @@ override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 <h3 id="gui-profiles-and-reset">GUI: profiles and reset<a class="headerlink" href="#gui-profiles-and-reset" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Config tab</strong> — profile dropdown, Save Config (visualization + execution layers).</li>
-<li><strong>Settings window</strong> (<code>T</code>) — full stack editor, New/Delete/Rename profile, Save.</li>
-<li><strong>Copy repository configs</strong> (settings window) — copies shipped <code>{repo}/configs/*.yaml</code> into <code>~/.config/avlite/</code> (overwrite) and reloads. Requires a git clone; plain <code>pip install</code> has no bundled configs directory.</li>
-<li><strong>Edit repository configs</strong> (settings window, dev only) — when enabled, Save/load YAML from <code>{repo}/configs/</code> instead of home. Preference stored in <code>~/.config/avlite/config_target</code>. Hidden when bundled configs are unavailable.</li>
+<li><strong>Settings window</strong> (<code>T</code>) — full stack editor, New/Delete/Rename profile, Save, <strong>Export profile</strong>, <strong>Import profile</strong>.</li>
+<li><strong>Export profile</strong> — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in <code>c40_execution.yaml</code>.</li>
+<li><strong>Import profile</strong> — merges a profile zip into your config directory; confirms overwrite if the profile name already exists.</li>
+<li><strong>Edit repository configs</strong> (settings window, dev only) — switches read/write between <code>~/.config/avlite/</code> and <code>{repo}/configs/</code> (no file copy) and refreshes the profile dropdown from the active target. Preference stored in <code>~/.config/avlite/config_target</code>. Hidden when bundled configs are unavailable. Uncheck to return to the user config dir.</li>
 </ul>
+<h3 id="profile-transfer-zip">Profile transfer (zip)<a class="headerlink" href="#profile-transfer-zip" title="Permanent link">&para;</a></h3>
+<p>Export a profile on one machine and import it on another (e.g. robot with <code>AVLITE_CONFIG_DIR</code> or <code>~/.config/avlite</code>), then run <code>python -m avlite headless -p &lt;profile&gt;</code>.</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span><span class="o">[</span>-o<span class="w"> </span>myprofile.zip<span class="o">]</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>import-profile<span class="w"> </span>myprofile.zip<span class="w"> </span><span class="o">[</span>--force<span class="o">]</span>
+</code></pre></div>
+<p>Each zip entry is validated against Pydantic schemas on export and import; invalid profiles are rejected with field-level errors (same rules as <code>config validate</code>).</p>
 <h3 id="cli-validation">CLI validation<a class="headerlink" href="#cli-validation" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>validate
 python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>validate<span class="w"> </span>--profile<span class="w"> </span>default
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span>-o<span class="w"> </span>myprofile.zip
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>import-profile<span class="w"> </span>myprofile.zip<span class="w"> </span>--force
 python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution
 python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution<span class="w"> </span>--field<span class="w"> </span>c40_control_dt
 </code></pre></div>

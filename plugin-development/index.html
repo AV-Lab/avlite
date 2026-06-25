@@ -763,7 +763,7 @@
 </code></pre></div>
 <p>Do not commit a <code>.venv</code> inside your plugin directory — AVLite scans all <code>.py</code> files under the plugin path and skips common vendor folders (<code>.venv</code>, <code>site-packages</code>, etc.), but keeping the venv outside the plugin tree is cleaner.</p>
 <h2 id="1-settings-file-optional">1. Settings File (Optional)<a class="headerlink" href="#1-settings-file-optional" title="Permanent link">&para;</a></h2>
-<p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>&lt;plugin_path&gt;/config/&lt;plugin_name&gt;.yaml</code> — you do <strong>not</strong> need <code>exclude</code> or <code>filepath</code>; those are injected when the plugin is registered.</p>
+<p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> — you do <strong>not</strong> need <code>exclude</code>, <code>filepath</code>, or a <code>config/</code> folder in your plugin package; those are handled when the plugin is registered.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># settings.py</span>
 <span class="k">class</span> <span class="nc">PluginSettings</span><span class="p">:</span>
     <span class="c1"># Your parameters (appear in UI automatically)</span>
@@ -883,12 +883,12 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 </code></pre></div>
 <h2 id="6-example-custom-controller">6. Example: Custom Controller<a class="headerlink" href="#6-example-custom-controller" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c30_control.c32_control_strategy</span> <span class="kn">import</span> <span class="n">ControlStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlComand</span>
+<span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlCommand</span>
 
 <span class="k">class</span> <span class="nc">MyController</span><span class="p">(</span><span class="n">ControlStrategy</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">control</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ego</span><span class="p">,</span> <span class="n">tj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control_dt</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ControlComand</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">control</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ego</span><span class="p">,</span> <span class="n">tj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control_dt</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ControlCommand</span><span class="p">:</span>
         <span class="c1"># Your logic here</span>
-        <span class="k">return</span> <span class="n">ControlComand</span><span class="p">(</span><span class="n">throttle</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">steer</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ControlCommand</span><span class="p">(</span><span class="n">throttle</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">steer</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
