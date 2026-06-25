@@ -93,6 +93,7 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
             trajectory=trajectory,
             race_mode=True,
         )
+        log.debug(f"GlobalCenterlineRacePlanner: planned {len(path)} waypoints from {self.filepath}")
         return self.global_plan
 
     # ------------------------------------------------------------------

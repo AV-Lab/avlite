@@ -382,15 +382,29 @@ class HoverTooltip:
             self._tip = None
 
 
-def attach_tooltip(widget, text: str) -> None:
+def attach_tooltip(widget, text: str) -> HoverTooltip | None:
     if text:
-        HoverTooltip(widget, text)
+        tooltip = HoverTooltip(widget, text)
+        widget._hover_tooltip = tooltip
+        return tooltip
+    return None
 
 
 def attach_schema_tooltip(widget, settings_cls, field_name: str) -> None:
     from avlite.c60_common.c68_settings_schema import field_tooltip_text
 
     attach_tooltip(widget, field_tooltip_text(settings_cls, field_name) or "")
+
+
+def update_schema_tooltip(widget, settings_cls, field_name: str) -> None:
+    from avlite.c60_common.c68_settings_schema import field_tooltip_text
+
+    text = field_tooltip_text(settings_cls, field_name) or ""
+    tooltip = getattr(widget, "_hover_tooltip", None)
+    if tooltip is not None:
+        tooltip.text = text
+    else:
+        attach_tooltip(widget, text)
 
 
 BUTTON_TOOLTIPS: dict[str, str] = {

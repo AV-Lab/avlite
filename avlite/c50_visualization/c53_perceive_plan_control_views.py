@@ -1,6 +1,6 @@
 from __future__ import annotations
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import filedialog, ttk, messagebox
 import time
 import logging
 from datetime import datetime
@@ -18,12 +18,12 @@ from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_visualization.c58_ui_lib import ValueGauge, ThemedInputDialog, attach_schema_tooltip
-from avlite.c50_visualization.c59_settings import VisualizationSettings, DEFAULT_SUBSTRATEGY
+from avlite.c50_visualization.c58_ui_lib import ValueGauge, attach_schema_tooltip, attach_tooltip, BUTTON_TOOLTIPS
+from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c60_common.c60_plugins import plugin_module_prefix
-from avlite.c60_common.c67_paths import get_absolute_path
+from avlite.c60_common.c67_paths import get_data_dir
 from avlite.c60_common.c61_capabilities import WorldCapability
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ class PerceivePlanControlView(ttk.Frame):
         if self.root.exec is not None:
             caps = self.root.exec.world.capabilities
             self.perception_extras_frame.localization_dropdown_menu["values"] = (
-                ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_LOCALIZATION in caps else ())
+                (("",) if WorldCapability.GT_LOCALIZATION in caps else ())
                 + tuple(LocalizationStrategy.registry.keys())
             )
         self.plan_frame.update_data()
@@ -121,7 +121,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self._lbl_predict.grid(row=3, column=0, sticky="e", padx=(5, 0))
         self.prediction_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.prediction_strategy_type, state="readonly")
-        self.prediction_dropdown_menu["values"] = (DEFAULT_SUBSTRATEGY,) + tuple(PredictionStrategy.registry.keys())
+        self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
         self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=2, sticky="ew")
         attach_schema_tooltip(self.detection_dropdown_menu, PerceptionSettings, "c12_detection_strategy")
@@ -172,14 +172,14 @@ class PerceptionFrame(ttk.LabelFrame):
             return
         _caps = self.root.exec.world.capabilities
         self.detection_dropdown_menu["values"] = (
-            ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_DETECTION in _caps else ())
+            (("",) if WorldCapability.GT_DETECTION in _caps else ())
             + tuple(DetectionStrategy.registry.keys())
         )
         self.tracking_dropdown_menu["values"] = (
-            ((DEFAULT_SUBSTRATEGY,) if WorldCapability.GT_TRACKING in _caps else ())
+            (("",) if WorldCapability.GT_TRACKING in _caps else ())
             + tuple(TrackingStrategy.registry.keys())
         )
-        self.prediction_dropdown_menu["values"] = (DEFAULT_SUBSTRATEGY,) + tuple(PredictionStrategy.registry.keys())
+        self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
         self._update_pipeline_visibility()
 
 
@@ -192,7 +192,6 @@ class PerceptionExtrasFrame(ttk.LabelFrame):
         self.localization_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
         self.localization_dropdown_menu["values"] = tuple(LocalizationStrategy.registry.keys())
-        self.localization_dropdown_menu.set(self.root.setting.localization_type.get() or DEFAULT_SUBSTRATEGY)
         self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
         attach_schema_tooltip(self.localization_dropdown_menu, ExecutionSettings, "c40_localization")
@@ -200,8 +199,7 @@ class PerceptionExtrasFrame(ttk.LabelFrame):
         ttk.Label(self, text="Mapping:").pack(side=tk.LEFT, padx=(5, 2))
         self.mapping_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.mapping_type, state="readonly", width=12)
-        self.mapping_dropdown_menu["values"] = (DEFAULT_SUBSTRATEGY,) + tuple(MappingStrategy.registry.keys())
-        self.mapping_dropdown_menu.set(self.root.setting.mapping_type.get() or DEFAULT_SUBSTRATEGY)
+        self.mapping_dropdown_menu["values"] = ("",) + tuple(MappingStrategy.registry.keys())
         self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.mapping_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
         attach_schema_tooltip(self.mapping_dropdown_menu, ExecutionSettings, "c40_mapping")
@@ -230,8 +228,12 @@ class PlanFrame(ttk.LabelFrame):
         self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
         attach_schema_tooltip(self.global_planner_dropdown_menu, ExecutionSettings, "c40_global_planner")
 
-        ttk.Button(global_frame, text="Global Replan", command=self.replan_global).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(global_frame, text="⬇", command=self.save_global_plan, width=3).pack(side=tk.LEFT)
+        btn_global_replan = ttk.Button(global_frame, text="Global Replan", command=self.replan_global)
+        btn_global_replan.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        attach_tooltip(btn_global_replan, BUTTON_TOOLTIPS["plan_global_replan"])
+        btn_save_global = ttk.Button(global_frame, text="⬇", command=self.save_global_plan, width=3)
+        btn_save_global.pack(side=tk.LEFT)
+        attach_tooltip(btn_save_global, BUTTON_TOOLTIPS["plan_save_global"])
 
         # - Local -----
         wp_frame = ttk.Frame(self)
@@ -254,7 +256,9 @@ class PlanFrame(ttk.LabelFrame):
         self.local_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
         attach_schema_tooltip(self.local_planner_dropdown_menu, ExecutionSettings, "c40_local_planner")
 
-        ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint).pack(side=tk.LEFT)
+        btn_set_wp = ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint)
+        btn_set_wp.pack(side=tk.LEFT)
+        attach_tooltip(btn_set_wp, BUTTON_TOOLTIPS["plan_set_waypoint"])
         global_tj_wp_entry = ttk.Entry( wp_frame, width=6, textvariable=self.root.setting.current_wp)
         global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
         global_tj_wp_entry.bind("<Return>", self.text_on_enter)
@@ -264,10 +268,18 @@ class PlanFrame(ttk.LabelFrame):
         ttk.Label(self, font=self.root.small_font,
                   textvariable=self.root.setting.lap).pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(self, text="◀️", command=self.step_waypoint_back, width=2).pack(side=tk.LEFT)
-        ttk.Button(self, text="▶", command=self.step_plan, width=2).pack(side=tk.LEFT)
-        ttk.Button(self, text="Align", command=self.align_plan, width=4).pack(side=tk.LEFT)
-        ttk.Button(self, text="Local Replan", command=self.replan).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        btn_wp_back = ttk.Button(self, text="◀️", command=self.step_waypoint_back, width=2)
+        btn_wp_back.pack(side=tk.LEFT)
+        attach_tooltip(btn_wp_back, BUTTON_TOOLTIPS["plan_wp_back"])
+        btn_plan_step = ttk.Button(self, text="▶", command=self.step_plan, width=2)
+        btn_plan_step.pack(side=tk.LEFT)
+        attach_tooltip(btn_plan_step, BUTTON_TOOLTIPS["plan_step"])
+        btn_plan_align = ttk.Button(self, text="Align", command=self.align_plan, width=4)
+        btn_plan_align.pack(side=tk.LEFT)
+        attach_tooltip(btn_plan_align, BUTTON_TOOLTIPS["plan_align"])
+        btn_local_replan = ttk.Button(self, text="Local Replan", command=self.replan)
+        btn_local_replan.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        attach_tooltip(btn_local_replan, BUTTON_TOOLTIPS["plan_local_replan"])
 
     def update_data(self):
         """Update data in the plan frame."""
@@ -315,13 +327,21 @@ class PlanFrame(ttk.LabelFrame):
 
     def save_global_plan(self):
         self.root.exec_visualize_view.stop_exec()
-        default_name = f"data/{datetime.now().strftime('%Y%m%d_%H%M%S')}_global_plan.json"
-        dialog = ThemedInputDialog(self.root, "Save Global Plan", "File name:", initial=default_name)
-        fname = dialog.result
-        if not fname:
+        data_dir = get_data_dir()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        default_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_global_plan.json"
+        path = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Save Global Plan",
+            initialdir=str(data_dir),
+            initialfile=default_name,
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        )
+        if not path:
             return
         try:
-            self.root.exec.local_planner.global_plan.to_file(get_absolute_path(fname, for_write=True))
+            self.root.exec.local_planner.global_plan.to_file(path)
         except OSError as e:
             messagebox.showerror("Save Failed", str(e), parent=self)
 
@@ -358,12 +378,24 @@ class ControlFrame(ttk.LabelFrame):
         self.controller_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
         attach_schema_tooltip(self.controller_dropdown_menu, ExecutionSettings, "c40_controller")
 
-        ttk.Button(control_button_frame, text="Step", command=self.step_control).pack( side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(control_button_frame, text="Align", width=4, command=self.align_control).pack(side=tk.LEFT)
-        ttk.Button(control_button_frame, text="◀️ ", width=2, command=self.step_steer_left).pack(side=tk.LEFT)
-        ttk.Button(control_button_frame, text="▶", width=2, command=self.step_steer_right).pack(side=tk.LEFT)
-        ttk.Button(control_button_frame, text="▲", width=2, command=self.step_acc).pack(side=tk.LEFT)
-        ttk.Button(control_button_frame, text="▼", width=2, command=self.step_dec).pack(side=tk.LEFT)
+        btn_control_step = ttk.Button(control_button_frame, text="Step", command=self.step_control)
+        btn_control_step.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        attach_tooltip(btn_control_step, BUTTON_TOOLTIPS["control_step"])
+        btn_control_align = ttk.Button(control_button_frame, text="Align", width=4, command=self.align_control)
+        btn_control_align.pack(side=tk.LEFT)
+        attach_tooltip(btn_control_align, BUTTON_TOOLTIPS["control_align"])
+        btn_steer_left = ttk.Button(control_button_frame, text="◀️ ", width=2, command=self.step_steer_left)
+        btn_steer_left.pack(side=tk.LEFT)
+        attach_tooltip(btn_steer_left, BUTTON_TOOLTIPS["control_steer_left"])
+        btn_steer_right = ttk.Button(control_button_frame, text="▶", width=2, command=self.step_steer_right)
+        btn_steer_right.pack(side=tk.LEFT)
+        attach_tooltip(btn_steer_right, BUTTON_TOOLTIPS["control_steer_right"])
+        btn_accel = ttk.Button(control_button_frame, text="▲", width=2, command=self.step_acc)
+        btn_accel.pack(side=tk.LEFT)
+        attach_tooltip(btn_accel, BUTTON_TOOLTIPS["control_accel"])
+        btn_decel = ttk.Button(control_button_frame, text="▼", width=2, command=self.step_dec)
+        btn_decel.pack(side=tk.LEFT)
+        attach_tooltip(btn_decel, BUTTON_TOOLTIPS["control_decel"])
 
         #################
         # Progress bars

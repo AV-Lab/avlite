@@ -185,7 +185,7 @@ global planning:
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_hd_map: data/san_campus.xodr
   c40_local_planner: GreedyLatticePlanner
   c40_localization: ''
   c40_localization_dt: 0.1
@@ -205,7 +205,7 @@ global planning:
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_boundary_file: data/race_boundary_yas_marina.map.json
   c46_lidar_fov_deg: 360.0
   c46_lidar_num_beams: 360
   c46_lidar_range: 50.0

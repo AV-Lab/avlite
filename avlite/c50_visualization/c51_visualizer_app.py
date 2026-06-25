@@ -508,11 +508,11 @@ class VisualizerApp(tk.Tk):
         binder = TkSettingsBinder()
         if not only_stack:
             load_setting(self.setting, profile=profile, binder=binder)
-            self.setting.normalize_gt_sentinels()
         load_stack_plugins(profile=profile, load_plugins=self.setting.load_plugins.get())
         from avlite.c50_visualization.c59_settings import default_map_display_path, default_global_plan_display_path
         self.setting.default_map_file.set(default_map_display_path())
         self.setting.default_global_plan_file.set(default_global_plan_display_path())
+        self.exec_visualize_view.refresh_default_map_tooltips()
         self.config_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 
@@ -555,6 +555,10 @@ class VisualizerApp(tk.Tk):
                 load_plugins=self.setting.load_plugins.get(),
                 async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
+
+            from avlite.c50_visualization.c59_settings import default_map_display_path
+            self.setting.default_map_file.set(default_map_display_path())
+            self.exec_visualize_view.refresh_default_map_tooltips()
 
         except Exception as e:
             log.error(f"Error reloading stack: {e}", exc_info=True)

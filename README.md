@@ -154,7 +154,7 @@ see in the visualizer is what the robot will run.
 
 ## Configuration files
 
-Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filenames; load prefers the user copy when present. Set `AVLITE_CONFIG_DIR` to use a different user config directory.
+Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filenames; load prefers the user copy when present. User maps and trajectories live under `~/.config/avlite/data/`; the Planning panel **Save Global Plan** button (⬇) opens a file picker there. Set `AVLITE_CONFIG_DIR` or `AVLITE_DATA_DIR` to use different directories.
 
 ```bash
 python -m avlite config help
@@ -226,7 +226,6 @@ avlite/
 │   ├── c22_global_planning_strategy.py
 │   ├── c23_local_planning_strategy.py
 │   ├── c24_global_hdmap_planners.py  # HDMapGlobalPlanner
-│   ├── c24_global_planners.py
 │   ├── c25_global_race_planners.py   # GlobalCenterlineRacePlanner
 │   ├── c26_local_lattice_planners.py
 │   ├── c27_lattice.py

@@ -9,20 +9,14 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c42_executer import Executer
+from avlite.c60_common.c67_paths import apply_map_selection, apply_global_plan_selection, data_picker_path_for_setting
 
 log = logging.getLogger(__name__)
-
-DEFAULT_SUBSTRATEGY = "None"
-_LEGACY_SUBSTRATEGY_LABELS = frozenset({"", "Ground Truth", "Default Perception Model", DEFAULT_SUBSTRATEGY})
-
-
-def is_default_substrategy(value: str) -> bool:
-    """True when UI label means use the built-in / empty backend strategy."""
-    return value in _LEGACY_SUBSTRATEGY_LABELS
 
 
 class VisualizationSettings:
@@ -76,29 +70,25 @@ class VisualizationSettings:
         self.perception_type.trace_add("write", _on_perception_change)
         self.perception_dt = tk.DoubleVar(value=ExecutionSettings.c40_perception_dt)
 
-        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy or DEFAULT_SUBSTRATEGY)
+        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy)
         def _on_detection_change(*args):
-            v = self.detection_strategy_type.get()
-            PerceptionSettings.c12_detection_strategy = "" if is_default_substrategy(v) else v
+            PerceptionSettings.c12_detection_strategy = self.detection_strategy_type.get()
         self.detection_strategy_type.trace_add("write", _on_detection_change)
 
-        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy or DEFAULT_SUBSTRATEGY)
+        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy)
         def _on_tracking_change(*args):
-            v = self.tracking_strategy_type.get()
-            PerceptionSettings.c12_tracking_strategy = "" if is_default_substrategy(v) else v
+            PerceptionSettings.c12_tracking_strategy = self.tracking_strategy_type.get()
         self.tracking_strategy_type.trace_add("write", _on_tracking_change)
 
-        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy or DEFAULT_SUBSTRATEGY)
+        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy)
         def _on_prediction_change(*args):
-            v = self.prediction_strategy_type.get()
-            PerceptionSettings.c12_prediction_strategy = "" if is_default_substrategy(v) else v
+            PerceptionSettings.c12_prediction_strategy = self.prediction_strategy_type.get()
         self.prediction_strategy_type.trace_add("write", _on_prediction_change)
 
         # localization
-        self.localization_type = tk.StringVar(value=ExecutionSettings.c40_localization or DEFAULT_SUBSTRATEGY)
+        self.localization_type = tk.StringVar(value=ExecutionSettings.c40_localization)
         def _on_localization_change(*args):
-            v = self.localization_type.get()
-            ExecutionSettings.c40_localization = "" if is_default_substrategy(v) else v
+            ExecutionSettings.c40_localization = self.localization_type.get()
         self.localization_type.trace_add("write", _on_localization_change)
         self.localization_dt = tk.DoubleVar(value=ExecutionSettings.c40_localization_dt)
         def _on_localization_dt_change(*args):
@@ -106,10 +96,9 @@ class VisualizationSettings:
         self.localization_dt.trace_add("write", _on_localization_dt_change)
 
         # mapping
-        self.mapping_type = tk.StringVar(value=ExecutionSettings.c40_mapping or DEFAULT_SUBSTRATEGY)
+        self.mapping_type = tk.StringVar(value=ExecutionSettings.c40_mapping)
         def _on_mapping_change(*args):
-            v = self.mapping_type.get()
-            ExecutionSettings.c40_mapping = "" if is_default_substrategy(v) else v
+            ExecutionSettings.c40_mapping = self.mapping_type.get()
         self.mapping_type.trace_add("write", _on_mapping_change)
 
         # planning
@@ -183,10 +172,15 @@ class VisualizationSettings:
         self.execution_bridge.trace_add("write", _on_execution_bridge_change)
         
 
-        self.default_global_plan_file = tk.StringVar(value=ExecutionSettings.c40_global_trajectory)
+        self.default_global_plan_file = tk.StringVar(value=default_global_plan_display_path())
         def _on_default_global_plan_file_change(*args):
-            ExecutionSettings.c40_global_trajectory = self.default_global_plan_file.get()
+            apply_global_plan_selection(self.default_global_plan_file.get())
         self.default_global_plan_file.trace_add("write", _on_default_global_plan_file_change)
+
+        self.default_map_file = tk.StringVar(value=default_map_display_path())
+        def _on_default_map_file_change(*args):
+            apply_map_selection(self.default_map_file.get())
+        self.default_map_file.trace_add("write", _on_default_map_file_change)
         
         self.elapsed_real_time = tk.StringVar(value="0")
         self.elapsed_sim_time = tk.StringVar(value="0")
@@ -254,25 +248,6 @@ class VisualizationSettings:
 
         self.profile_list = []
         ############################
-
-    _GT_SENTINEL_VARS = (
-        "detection_strategy_type",
-        "tracking_strategy_type",
-        "prediction_strategy_type",
-        "localization_type",
-        "mapping_type",
-    )
-
-    def normalize_gt_sentinels(self):
-        """Map empty or legacy labels to DEFAULT_SUBSTRATEGY after profile load."""
-        legacy = {"", "Ground Truth", "Default Perception Model"}
-        for name in self._GT_SENTINEL_VARS:
-            var = getattr(self, name, None)
-            if var is not None and isinstance(var, tk.StringVar) and var.get() in legacy:
-                var.set(DEFAULT_SUBSTRATEGY)
-        for attr in ("c40_localization", "c40_mapping"):
-            if getattr(ExecutionSettings, attr, None) in ("Ground Truth", "Default Perception Model"):
-                setattr(ExecutionSettings, attr, "")
 
 
 def _sync_exec_dt(attr: str, value: float) -> None:
@@ -344,6 +319,7 @@ class VisualizationSettingsSchema(SettingsSchema):
     sim_dt: float = Field(default=0.01, description="UI-linked simulation dt (seconds).")
     execution_bridge: str = Field(default="BasicSim", description="World bridge class name.")
     default_global_plan_file: str = Field(default="", description="Default global plan file path.")
+    default_map_file: str = Field(default="", description="Default map file path (HD map or race boundary).")
     bridge_provide_ground_truth_detection: bool = Field(default=False, description="Request ground truth from bridge.")
     bridge_provide_rgb_image: bool = Field(default=False, description="Request RGB from bridge.")
     bridge_provide_depth_image: bool = Field(default=False, description="Request depth from bridge.")
@@ -375,6 +351,22 @@ def load_stack_plugins(profile: str = "default", load_plugins: bool = True) -> N
     from avlite.c60_common.c60_plugins import load_all_stack_settings
 
     load_all_stack_settings(profile=profile, load_plugins=load_plugins)
+
+
+def default_map_display_path() -> str:
+    if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
+        return data_picker_path_for_setting(ExecutionSettings.c40_hd_map)
+    return data_picker_path_for_setting(ExecutionSettings.c43_race_boundary_map)
+
+
+def default_map_settings_field() -> str:
+    if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
+        return "c40_hd_map"
+    return "c43_race_boundary_map"
+
+
+def default_global_plan_display_path() -> str:
+    return data_picker_path_for_setting(ExecutionSettings.c40_global_trajectory)
 
 
 VisualizationSettings.schema = VisualizationSettingsSchema

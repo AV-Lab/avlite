@@ -36,7 +36,7 @@ default:
   control_out_topic: /avlite/control/control_cmd
   localization_topic: /localization/kinematic_state
   map_frame: map
-  perception_dt: 0.5
+  perception_dt: 0.01
   perception_topic: /perception/object_recognition/tracking/objects
   replan_dt: 0.01
   sim_dt: 0.02

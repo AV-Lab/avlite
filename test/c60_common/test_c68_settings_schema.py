@@ -143,6 +143,30 @@ def test_run_config_command_bare_config_shows_help(capsys):
     assert "describe" in out
 
 
+def test_default_map_settings_field_race_planner():
+    from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
+    from avlite.c50_visualization.c59_settings import default_map_settings_field
+
+    original = ExecutionSettings.c40_global_planner
+    try:
+        ExecutionSettings.c40_global_planner = GlobalCenterlineRacePlanner.__name__
+        assert default_map_settings_field() == "c43_race_boundary_map"
+    finally:
+        ExecutionSettings.c40_global_planner = original
+
+
+def test_default_map_settings_field_hd_planner():
+    from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+    from avlite.c50_visualization.c59_settings import default_map_settings_field
+
+    original = ExecutionSettings.c40_global_planner
+    try:
+        ExecutionSettings.c40_global_planner = HDMapGlobalPlanner.__name__
+        assert default_map_settings_field() == "c40_hd_map"
+    finally:
+        ExecutionSettings.c40_global_planner = original
+
+
 def test_run_config_command_help_subcommand(capsys):
     from avlite.plugins.p50_headless_mode.p52_config_cli import run_config_command
 
