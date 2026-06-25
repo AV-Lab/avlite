@@ -12,9 +12,9 @@ B:
   c40_sim_dt: 0.01
 Carla_Town10:
   c40_async_combined_perception_planning: true
-  c40_bridge: BasicSim
+  c40_bridge: CarlaBridge
   c40_community_plugins: {}
-  c40_control_dt: 0.05
+  c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
   - p10_perception_MO_prediction
@@ -23,24 +23,26 @@ Carla_Town10:
   - p40_bridge_carla
   - p40_bridge_ROS2
   - p40_executer_ROS2
-  c40_executer_type: SyncExecuter
-  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_executer_type: ROSExecuter
+  c40_global_planner: HDMapGlobalPlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c40_hd_map: data/Town10HD_Opt.xodr
-  c40_local_planner: GreedyLatticePlanner
-  c40_localization: ''
+  c40_local_planner: RNDPlanner
+  c40_localization: Localization
   c40_localization_dt: 0.1
   c40_log_level: INFO
   c40_log_to_file: false
   c40_mapping: ''
   c40_perception: TestPerceptionStrategy
   c40_perception_dt: 0.5
-  c40_replan_dt: 0.5
-  c40_sim_dt: 0.01
-  c41_provide_ground_truth: false
+  c40_replan_dt: 5.0
+  c40_sim_dt: 0.011
+  c41_provide_depth: false
+  c41_provide_ground_truth: true
   c41_provide_lidar: false
   c41_provide_rgb: false
-  c43_race_boundary_map: data/race_boundary_yas_marina.json
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
+  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -49,9 +51,10 @@ Carla_Town10:
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
 SAN:
+  c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
+    delete_me: ~/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -64,31 +67,43 @@ SAN:
   c40_local_planner: RNDPlanner
   c40_localization: Localization
   c40_localization_dt: 0.1
+  c40_log_level: INFO
+  c40_log_to_file: false
+  c40_mapping: ''
   c40_perception: MultiObjectPredictor
   c40_perception_dt: 0.5
   c40_replan_dt: 0.5
   c40_sim_dt: 0.01
+  c41_provide_depth: false
   c41_provide_ground_truth: true
   c41_provide_lidar: false
   c41_provide_rgb: false
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
+  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
 async:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
+    sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
-  - bridge_carla
-  - executer_ROS2
-  - bridge_ROS2
-  - bridge_gazebo
-  - multi_object_prediction
+  - p30_controller_joystick
+  - p40_executer_ROS2
+  - p40_bridge_gazebo
+  - p10_perception_MO_prediction
+  - p50_headless_mode
+  - p40_bridge_carla
+  - p40_bridge_ROS2
   c40_executer_type: AsyncThreadedExecuter
-  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_planner: RaceGlobalPlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c40_hd_map: data/Town10HD_Opt.xodr
   c40_local_planner: GreedyLatticePlanner
@@ -101,10 +116,17 @@ async:
   c40_perception_dt: 0.01
   c40_replan_dt: 0.01
   c40_sim_dt: 0.011
+  c41_provide_depth: false
   c41_provide_ground_truth: true
   c41_provide_lidar: true
   c41_provide_rgb: false
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
+  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
 default:
@@ -140,7 +162,7 @@ default:
   c41_provide_ground_truth: true
   c41_provide_lidar: true
   c41_provide_rgb: false
-  c43_race_boundary_map: data/race_boundary_yas_marina.json
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
@@ -149,19 +171,21 @@ default:
   c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
-joystick:
+global planning:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins: {}
-  c40_control_dt: 0.05
-  c40_controller: JoystickController
+  c40_community_plugins:
+    sample_avlite_plugin: sample_avlite_plugin
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
   c40_default_plugins:
-  - p10_perception_MO_prediction
+  - p30_controller_joystick
+  - p40_executer_ROS2
   - p40_bridge_gazebo
+  - p10_perception_MO_prediction
   - p50_headless_mode
   - p40_bridge_carla
   - p40_bridge_ROS2
-  - p40_executer_ROS2
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -174,13 +198,53 @@ joystick:
   c40_mapping: ''
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.01
+  c41_provide_depth: false
+  c41_provide_ground_truth: true
+  c41_provide_lidar: true
+  c41_provide_rgb: false
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
+  c43_race_boundary_margin: 0.0
+  c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
+joystick:
+  c40_async_combined_perception_planning: true
+  c40_bridge: CarlaBridge
+  c40_community_plugins: {}
+  c40_control_dt: 0.01
+  c40_controller: JoystickController
+  c40_default_plugins:
+  - p10_perception_MO_prediction
+  - p40_bridge_gazebo
+  - p50_headless_mode
+  - p40_bridge_carla
+  - p40_bridge_ROS2
+  - p40_executer_ROS2
+  c40_executer_type: AsyncThreadedExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/Town10HD_Opt.xodr
+  c40_local_planner: RNDPlanner
+  c40_localization: Localization
+  c40_localization_dt: 0.1
+  c40_log_level: DEBUG
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: PerceptionPipeline
+  c40_perception_dt: 0.01
   c40_replan_dt: 0.1
   c40_sim_dt: 0.01
   c41_provide_depth: false
-  c41_provide_ground_truth: false
+  c41_provide_ground_truth: true
   c41_provide_lidar: false
   c41_provide_rgb: false
-  c43_race_boundary_map: data/race_boundary_yas_marina.json
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
@@ -192,7 +256,8 @@ joystick:
 perception:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins: {}
+  c40_community_plugins:
+    sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -221,7 +286,7 @@ perception:
   c41_provide_ground_truth: false
   c41_provide_lidar: true
   c41_provide_rgb: false
-  c43_race_boundary_map: data/race_boundary_yas_marina.json
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/race_boundary_yas_marina.json
@@ -230,11 +295,14 @@ perception:
   c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
+robot:
+  c40_bridge: BasicSim
+  c40_community_plugins: {}
 ros:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    delete_me: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
+    delete_me: ~/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-plugins/delete_me
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -256,17 +324,24 @@ ros:
   c40_perception_dt: 0.5
   c40_replan_dt: 0.01
   c40_sim_dt: 0.011
+  c41_provide_depth: false
   c41_provide_ground_truth: true
   c41_provide_lidar: false
   c41_provide_rgb: false
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
+  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
 sync:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    sample_avlite_plugin: /home/mkhonji/.local/share/avlite/plugins/sample_avlite_plugin
+    sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -276,7 +351,7 @@ sync:
   - p40_bridge_ROS2
   - p40_executer_ROS2
   c40_executer_type: SyncExecuter
-  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_planner: RaceGlobalPlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c40_hd_map: data/Town10HD_Opt.xodr
   c40_local_planner: GreedyLatticePlanner
@@ -289,9 +364,16 @@ sync:
   c40_perception_dt: 0.5
   c40_replan_dt: 0.01
   c40_sim_dt: 0.05
+  c41_provide_depth: false
   c41_provide_ground_truth: true
   c41_provide_lidar: true
   c41_provide_rgb: false
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
+  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
   c46_npc_control: true
   c46_npc_speed_factor: 0.8

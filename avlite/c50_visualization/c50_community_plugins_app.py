@@ -38,7 +38,7 @@ REGISTRY_URL = (
     "https://raw.githubusercontent.com/AV-Lab/avlite-community-plugins/main/plugins.yaml"
 )
 REGISTRY_REPO_URL = "https://github.com/AV-Lab/avlite-community-plugins"
-from avlite.c60_common.c67_paths import get_plugins_dir
+from avlite.c60_common.c67_paths import effective_config_path, get_plugins_dir
 
 
 def fetch_registry(timeout: float = 10.0) -> list[dict]:
@@ -250,7 +250,7 @@ def _current_profile() -> str:
     try:
         from avlite.c50_visualization.c59_settings import VisualizationSettings
 
-        path = Path(VisualizationSettings.filepath)
+        path = Path(effective_config_path(VisualizationSettings.filepath, for_write=False))
         if path.exists():
             with open(path, "r") as f:
                 cfg = yaml.safe_load(f) or {}
@@ -268,18 +268,14 @@ def _current_profile() -> str:
 def register_in_profile(name: str, path: Path, profile: Optional[str] = None) -> None:
     """Add ``name -> path`` to ``ExecutionSettings.c40_community_plugins`` and persist."""
     from avlite.c40_execution.c49_settings import ExecutionSettings
+    from avlite.c60_common.c67_paths import normalize_community_plugin_stored
     from avlite.c60_common.c69_setting_utils import load_setting, save_setting
 
     profile = profile or _current_profile()
-    # Load existing profile state so we don't overwrite unrelated entries.
     load_setting(ExecutionSettings, profile=profile)
-    path = path.resolve()
-    try:
-        path.relative_to(get_plugins_dir())
-        stored = name
-    except ValueError:
-        stored = str(path)
-    ExecutionSettings.c40_community_plugins[name] = stored
+    ExecutionSettings.c40_community_plugins[name] = normalize_community_plugin_stored(
+        name, str(path)
+    )
     save_setting(ExecutionSettings, profile=profile)
     log.info("Registered plugin '%s' in profile '%s'", name, profile)
 

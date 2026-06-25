@@ -211,6 +211,51 @@ class ThemedTwoInputDialog:
         self.dialog.destroy()
 
 
+class ThemedReadOnlyTwoFieldDialog:
+    """Show two read-only label/value pairs (view-only)."""
+
+    def __init__(
+        self,
+        parent,
+        title: str,
+        label1: str = "",
+        label2: str = "",
+        value1: str = "",
+        value2: str = "",
+    ):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.transient(parent)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.minsize(scaled(360, s), scaled(120, s))
+        self.dialog.bind("<Escape>", lambda _e: self.dialog.destroy())
+
+        frame = ttk.Frame(self.dialog)
+        frame.grid(row=0, column=0, sticky="nsew")
+        self.dialog.grid_rowconfigure(0, weight=1)
+        self.dialog.grid_columnconfigure(0, weight=1)
+        frame.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(frame, text=label1).grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
+        ttk.Label(frame, text=value1, wraplength=scaled(280, s)).grid(
+            row=0, column=1, padx=10, pady=10, sticky=tk.W
+        )
+        ttk.Label(frame, text=label2).grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
+        ttk.Label(frame, text=value2, wraplength=scaled(280, s)).grid(
+            row=1, column=1, padx=10, pady=10, sticky=tk.W
+        )
+        ttk.Button(frame, text="OK", command=self.dialog.destroy).grid(
+            row=2, column=0, columnspan=2, padx=5, pady=10, sticky=tk.E
+        )
+
+        self.dialog.transient(parent)
+        self.dialog.update_idletasks()
+        self.dialog.deiconify()
+        self.dialog.wait_visibility()
+        self.dialog.grab_set()
+        self.dialog.wait_window()
+
+
 class HoverTooltip:
     """Show *text* in a small popup while the pointer is over *widget*."""
 

@@ -189,15 +189,29 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 ### GUI: profiles and reset
 
 - **Config tab** — profile dropdown, Save Config (visualization + execution layers).
-- **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save.
-- **Copy repository configs** (settings window) — copies shipped `{repo}/configs/*.yaml` into `~/.config/avlite/` (overwrite) and reloads. Requires a git clone; plain `pip install` has no bundled configs directory.
-- **Edit repository configs** (settings window, dev only) — when enabled, Save/load YAML from `{repo}/configs/` instead of home. Preference stored in `~/.config/avlite/config_target`. Hidden when bundled configs are unavailable.
+- **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save, **Export profile**, **Import profile**.
+- **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c40_execution.yaml`.
+- **Import profile** — merges a profile zip into your config directory; confirms overwrite if the profile name already exists.
+- **Edit repository configs** (settings window, dev only) — switches read/write between `~/.config/avlite/` and `{repo}/configs/` (no file copy) and refreshes the profile dropdown from the active target. Preference stored in `~/.config/avlite/config_target`. Hidden when bundled configs are unavailable. Uncheck to return to the user config dir.
+
+### Profile transfer (zip)
+
+Export a profile on one machine and import it on another (e.g. robot with `AVLITE_CONFIG_DIR` or `~/.config/avlite`), then run `python -m avlite headless -p <profile>`.
+
+```bash
+python -m avlite config export-profile myprofile [-o myprofile.zip]
+python -m avlite config import-profile myprofile.zip [--force]
+```
+
+Each zip entry is validated against Pydantic schemas on export and import; invalid profiles are rejected with field-level errors (same rules as `config validate`).
 
 ### CLI validation
 
 ```bash
 python -m avlite config validate
 python -m avlite config validate --profile default
+python -m avlite config export-profile myprofile -o myprofile.zip
+python -m avlite config import-profile myprofile.zip --force
 python -m avlite config describe --layer execution
 python -m avlite config describe --layer execution --field c40_control_dt
 ```

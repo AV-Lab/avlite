@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
+import zipfile
+from pathlib import Path
 from typing import Any, Protocol
 
 import yaml
 
+from avlite.c60_common.c60_plugins import list_plugins, load_builtin_plugin_settings, load_plugin_settings_class
 from avlite.c60_common.c68_settings_schema import (
     SETTINGS_META,
     PlainBinder,
@@ -16,7 +20,13 @@ from avlite.c60_common.c68_settings_schema import (
     dump_from_setting,
     validate_profile,
 )
-from avlite.c60_common.c67_paths import effective_config_path
+from avlite.c60_common.c67_paths import (
+    community_plugin_settings_basename,
+    community_plugin_settings_filepath,
+    effective_config_path,
+    get_config_dir,
+    resolve_plugin_path,
+)
 
 log = logging.getLogger(__name__)
 
@@ -215,3 +225,297 @@ def list_profiles(setting) -> list:
     except Exception as e:
         log.error("Failed to list profiles: %s", e)
         return []
+
+
+def _all_settings_classes() -> list[Any]:
+    """Stack layer and built-in plugin settings classes (same set as config CLI)."""
+    from avlite.c10_perception.c19_settings import PerceptionSettings
+    from avlite.c20_planning.c29_settings import PlanningSettings
+    from avlite.c30_control.c39_settings import ControlSettings
+    from avlite.c40_execution.c49_settings import ExecutionSettings
+
+    vis_mod = importlib.import_module("avlite.c50_visualization.c59_settings")
+    VisualizationSettings = vis_mod.VisualizationSettings
+
+    classes: list[Any] = [
+        PerceptionSettings,
+        PlanningSettings,
+        ControlSettings,
+        ExecutionSettings,
+        VisualizationSettings,
+    ]
+    for plugin in list_plugins():
+        cls = load_builtin_plugin_settings(plugin)
+        if cls is not None:
+            classes.append(cls)
+    return classes
+
+
+_settings_by_basename: dict[str, Any] | None = None
+
+
+def _settings_class_for_basename(basename: str) -> Any | None:
+    global _settings_by_basename
+    if _settings_by_basename is None:
+        _settings_by_basename = {}
+        for cls in _all_settings_classes():
+            _settings_by_basename[Path(cls.filepath).name] = cls
+    return _settings_by_basename.get(basename)
+
+
+def _validated_profile_dict(
+    settings_cls: Any | None,
+    profile: str,
+    prof_data: dict,
+    *,
+    filepath: str,
+) -> dict:
+    if settings_cls is None:
+        return prof_data
+    schema = _get_schema(settings_cls)
+    if schema is None:
+        return prof_data
+    try:
+        validated = validate_profile(schema, prof_data, filepath=filepath, profile=profile)
+    except SettingsValidationError as exc:
+        raise ValueError(str(exc)) from exc
+    return validated.model_dump()
+
+
+def _profile_dict_in_file(path: Path, profile: str) -> dict | None:
+    if not path.is_file():
+        return None
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    prof = data.get(profile)
+    if not isinstance(prof, dict):
+        return None
+    return prof
+
+
+def _community_sources_for_profile(
+    profile: str,
+    community_plugins: dict[str, str],
+) -> dict[str, Path]:
+    sources: dict[str, Path] = {}
+    for name in community_plugins:
+        read_path = Path(
+            effective_config_path(community_plugin_settings_filepath(name), for_write=False)
+        )
+        if _profile_dict_in_file(read_path, profile) is not None:
+            sources[community_plugin_settings_basename(name)] = read_path
+    return sources
+
+
+def iter_profile_sources(
+    profile: str,
+    *,
+    community_plugins: dict[str, str] | None = None,
+) -> list[tuple[str, Path]]:
+    """Return ``(zip_entry_name, read_path)`` for every YAML containing *profile*."""
+    sources: dict[str, Path] = {}
+
+    for cls in _all_settings_classes():
+        read_path = Path(effective_config_path(cls.filepath, for_write=False))
+        if _profile_dict_in_file(read_path, profile) is not None:
+            sources[read_path.name] = read_path
+
+    config_dir = get_config_dir()
+    if config_dir.is_dir():
+        for path in sorted(config_dir.glob("*.yaml")):
+            if path.name not in sources and _profile_dict_in_file(path, profile) is not None:
+                sources[path.name] = path
+
+    if community_plugins:
+        for basename, read_path in _community_sources_for_profile(profile, community_plugins).items():
+            sources.setdefault(basename, read_path)
+    return sorted(sources.items())
+
+
+def export_profile(
+    profile: str,
+    zip_path: Path | str,
+    *,
+    community_plugins: dict[str, str] | None = None,
+) -> int:
+    """Export *profile* from all YAML sources into a zip file. Returns entry count."""
+    sources = iter_profile_sources(profile, community_plugins=community_plugins)
+    if not sources:
+        raise ValueError(f"Profile '{profile}' not found in any configuration file")
+
+    community_basenames = {
+        community_plugin_settings_basename(name): name
+        for name in (community_plugins or {})
+    }
+
+    out = Path(zip_path)
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        for entry_name, read_path in sources:
+            with open(read_path, encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            prof_data = data[profile]
+            if entry_name in community_basenames:
+                plugin_name = community_basenames[entry_name]
+                stored = community_plugins[plugin_name]
+                cls = load_plugin_settings_class(
+                    plugin_name, str(resolve_plugin_path(plugin_name, stored))
+                )
+            else:
+                cls = _settings_class_for_basename(read_path.name)
+            snippet_data = _validated_profile_dict(
+                cls, profile, prof_data, filepath=str(read_path)
+            )
+            snippet = {profile: snippet_data}
+            zf.writestr(entry_name, yaml.dump(snippet, default_flow_style=False))
+    log.info("Exported profile '%s' to %s (%d file(s))", profile, out, len(sources))
+    return len(sources)
+
+
+def _merge_profile_into_file(
+    filepath: str | Path,
+    profile: str,
+    prof_data: dict,
+    *,
+    overwrite: bool,
+) -> None:
+    path = Path(filepath)
+    if path.is_file():
+        with open(path, encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    else:
+        config = {}
+
+    if profile in config and not overwrite:
+        raise ValueError(f"Profile '{profile}' already exists in {path}")
+
+    config[profile] = prof_data
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, default_flow_style=False)
+    log.info("Merged profile '%s' into %s", profile, path)
+
+
+def _community_settings_dest(name: str) -> Path:
+    return Path(
+        effective_config_path(community_plugin_settings_filepath(name), for_write=True)
+    )
+
+
+def _community_plugin_name_for_basename(
+    basename: str,
+    community_plugins: dict[str, str],
+) -> str | None:
+    for name in community_plugins:
+        if community_plugin_settings_basename(name) == basename:
+            return name
+    return None
+
+
+def import_profile(zip_path: Path | str, *, overwrite: bool = False) -> str:
+    """Import a profile zip; merge each entry into the corresponding YAML. Returns profile name."""
+    src = Path(zip_path)
+    standard_entries: list[tuple[str, dict]] = []
+    community_entries: list[tuple[str, dict]] = []
+    profile_name: str | None = None
+
+    with zipfile.ZipFile(src, "r") as zf:
+        for name in zf.namelist():
+            if not name.endswith(".yaml"):
+                continue
+            snippet = yaml.safe_load(zf.read(name)) or {}
+            if not isinstance(snippet, dict) or len(snippet) != 1:
+                raise ValueError(f"Invalid profile entry in zip: {name}")
+            prof, prof_data = next(iter(snippet.items()))
+            if not isinstance(prof_data, dict):
+                raise ValueError(f"Invalid profile data in zip: {name}")
+            if profile_name is None:
+                profile_name = prof
+            elif profile_name != prof:
+                raise ValueError(
+                    f"Inconsistent profile names in zip: expected '{profile_name}', got '{prof}' in {name}"
+                )
+            if name.startswith("community/"):
+                community_entries.append((name, prof_data))
+            else:
+                standard_entries.append((Path(name).name, prof_data))
+
+    if profile_name is None:
+        raise ValueError("No YAML entries found in zip")
+
+    standard_entries.sort(key=lambda item: (0 if item[0] == "c40_execution.yaml" else 1, item[0]))
+
+    exec_prof_data: dict | None = None
+    for basename, prof_data in standard_entries:
+        if basename == "c40_execution.yaml":
+            exec_prof_data = prof_data
+            break
+
+    community_plugins_map: dict[str, str] = {}
+    if isinstance(exec_prof_data, dict):
+        raw = exec_prof_data.get("c40_community_plugins") or {}
+        if isinstance(raw, dict):
+            community_plugins_map = raw
+
+    validated_standard: list[tuple[str, dict]] = []
+    deferred_community_standard: list[tuple[str, dict]] = []
+    for basename, prof_data in standard_entries:
+        plugin_name = _community_plugin_name_for_basename(basename, community_plugins_map)
+        if plugin_name is not None:
+            deferred_community_standard.append((plugin_name, prof_data))
+            continue
+        dest = effective_config_path(f"configs/{basename}", for_write=True)
+        cls = _settings_class_for_basename(basename)
+        validated_standard.append(
+            (dest, _validated_profile_dict(cls, profile_name, prof_data, filepath=dest))
+        )
+
+    validated_community: list[tuple[Path, dict]] = []
+    for entry_name, prof_data in community_entries:
+        plugin_name = Path(entry_name).stem
+        if plugin_name not in community_plugins_map:
+            log.warning(
+                "Skipping legacy community plugin '%s': not referenced in execution profile '%s'",
+                plugin_name,
+                profile_name,
+            )
+            continue
+        stored = community_plugins_map[plugin_name]
+        dest = _community_settings_dest(plugin_name)
+        cls = load_plugin_settings_class(
+            plugin_name, str(resolve_plugin_path(plugin_name, stored))
+        )
+        validated_community.append(
+            (
+                dest,
+                _validated_profile_dict(cls, profile_name, prof_data, filepath=str(dest)),
+            )
+        )
+
+    for plugin_name, prof_data in deferred_community_standard:
+        if plugin_name not in community_plugins_map:
+            log.warning(
+                "Skipping community plugin '%s': not referenced in execution profile '%s'",
+                plugin_name,
+                profile_name,
+            )
+            continue
+        stored = community_plugins_map[plugin_name]
+        dest = _community_settings_dest(plugin_name)
+        cls = load_plugin_settings_class(
+            plugin_name, str(resolve_plugin_path(plugin_name, stored))
+        )
+        validated_community.append(
+            (
+                dest,
+                _validated_profile_dict(cls, profile_name, prof_data, filepath=str(dest)),
+            )
+        )
+
+    for dest, validated in validated_standard:
+        _merge_profile_into_file(dest, profile_name, validated, overwrite=overwrite)
+
+    for dest, validated in validated_community:
+        _merge_profile_into_file(dest, profile_name, validated, overwrite=overwrite)
+
+    log.info("Imported profile '%s' from %s", profile_name, src)
+    return profile_name

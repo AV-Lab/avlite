@@ -18,11 +18,11 @@ Carla_Town10:
   execution_bridge: CarlaBridge
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 30
+  frenet_zoom: 30.0
   global_plan_view: true
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 240
+  global_zoom: 240.0
   hide_menubar: false
   load_plugins: true
   local_plan_view: true
@@ -53,6 +53,9 @@ Carla_Town10:
   show_execute_logs: true
   show_global_plan: true
   show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: false
+  show_lidar_global: true
   show_local_frenet_view: true
   show_local_global_view: false
   show_local_lattice: true
@@ -63,11 +66,12 @@ Carla_Town10:
   show_perception_extras: true
   show_plan_logs: false
   show_plugins_logs: true
+  show_race_boundary: true
   show_state: true
   show_vis_logs: true
   sim_dt: 0.011
   tracking_strategy_type: None
-  xy_zoom: 30
+  xy_zoom: 30.0
 SAN:
   bg_color: '#333333'
   bridge_provide_depth_image: false
@@ -78,6 +82,7 @@ SAN:
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  detection_strategy_type: ''
   disable_log: false
   exec_control: true
   exec_localize: true
@@ -87,11 +92,12 @@ SAN:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 10
+  frenet_zoom: 10.0
   global_plan_view: true
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 110
+  global_zoom: 110.0
+  hide_menubar: false
   load_plugins: true
   local_plan_view: true
   local_planner_type: RNDPlanner
@@ -105,12 +111,13 @@ SAN:
   log_view_default_height: 12
   log_view_expanded: false
   log_view_expended_height: 35
+  mapping_type: ''
   max_log_lines: 1000
   mouse_drag_slowdown_factor: 0.5
   next_profile: perception exp
   perception_dt: 0.5
-  perception_fps: '0'
   perception_type: MultiObjectPredictor
+  prediction_strategy_type: ''
   replan_dt: 0.5
   selected_profile: SAN
   shortcut_mode: false
@@ -120,17 +127,25 @@ SAN:
   show_execute_logs: true
   show_global_plan: true
   show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: false
+  show_lidar_global: true
+  show_local_frenet_view: true
+  show_local_global_view: true
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: false
   show_past_locations: true
   show_perceive_logs: true
+  show_perception_extras: false
   show_plan_logs: true
   show_plugins_logs: true
+  show_race_boundary: true
   show_state: true
   show_vis_logs: true
   sim_dt: 0.01
-  xy_zoom: 30
+  tracking_strategy_type: ''
+  xy_zoom: 30.0
 async:
   bg_color: '#333333'
   bridge_provide_depth_image: false
@@ -151,13 +166,13 @@ async:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 90
+  frenet_zoom: 90.0
   global_plan_view: false
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 280
+  global_zoom: 280.0
   hide_menubar: false
-  load_plugins: true
+  load_plugins: false
   local_plan_view: true
   local_planner_type: GreedyLatticePlanner
   localization_dt: 0.1
@@ -186,6 +201,11 @@ async:
   show_execute_logs: true
   show_global_plan: true
   show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: false
+  show_lidar_global: true
+  show_local_frenet_view: true
+  show_local_global_view: true
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
@@ -194,11 +214,12 @@ async:
   show_perception_extras: true
   show_plan_logs: true
   show_plugins_logs: true
+  show_race_boundary: true
   show_state: true
   show_vis_logs: true
   sim_dt: 0.011
   tracking_strategy_type: None
-  xy_zoom: 80
+  xy_zoom: 80.0
 default:
   bg_color: '#333333'
   bridge_provide_depth_image: false
@@ -223,7 +244,7 @@ default:
   global_plan_view: true
   global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false
-  global_zoom: 800.0
+  global_zoom: 170.0
   hide_menubar: false
   load_plugins: true
   local_plan_view: true
@@ -270,6 +291,80 @@ default:
   show_race_boundary: true
   show_state: true
   show_vis_logs: true
+  sim_dt: 0.01
+  tracking_strategy_type: None
+  xy_zoom: 110.0
+global planning:
+  bg_color: '#333333'
+  bridge_provide_depth_image: false
+  bridge_provide_ground_truth_detection: true
+  bridge_provide_lidar_data: true
+  bridge_provide_rgb_image: false
+  control_dt: 0.01
+  controller_type: StanleyController
+  dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  detection_strategy_type: None
+  disable_log: false
+  exec_control: true
+  exec_localize: true
+  exec_perceive: true
+  exec_plan: true
+  executer_type: AsyncThreadedExecuter
+  execution_bridge: BasicSim
+  fg_color: white
+  frenet_view_follow_planner: false
+  frenet_zoom: 90.0
+  global_plan_view: true
+  global_planner_type: GlobalCenterlineRacePlanner
+  global_view_follow_planner: false
+  global_zoom: 170.0
+  hide_menubar: false
+  load_plugins: true
+  local_plan_view: true
+  local_planner_type: GreedyLatticePlanner
+  localization_dt: 0.1
+  localization_type: None
+  log_font: Courier
+  log_font_size: 11
+  log_level: DEBUG
+  log_pull_time: 50
+  log_to_file: false
+  log_view_default_height: 12
+  log_view_expanded: false
+  log_view_expended_height: 35
+  mapping_type: None
+  max_log_lines: 1000
+  mouse_drag_slowdown_factor: 0.5
+  next_profile: perception
+  perception_dt: 0.01
+  perception_type: PerceptionPipeline
+  prediction_strategy_type: ConstantVelocityPrediction
+  replan_dt: 0.01
+  selected_profile: global planning
+  shortcut_mode: false
+  show_common_logs: false
+  show_control_logs: false
+  show_core_logs: true
+  show_execute_logs: false
+  show_global_plan: true
+  show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: true
+  show_lidar_global: true
+  show_local_frenet_view: true
+  show_local_global_view: false
+  show_local_lattice: true
+  show_local_plan: true
+  show_occupancy_flow: true
+  show_past_locations: true
+  show_perceive_logs: false
+  show_perception_extras: false
+  show_plan_logs: true
+  show_plugins_logs: false
+  show_race_boundary: true
+  show_state: true
+  show_vis_logs: false
   sim_dt: 0.01
   tracking_strategy_type: None
   xy_zoom: 110.0
@@ -441,11 +536,11 @@ ros:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 170
+  frenet_zoom: 170.0
   global_plan_view: false
   global_planner_type: HDMapGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 80
+  global_zoom: 80.0
   hide_menubar: false
   load_plugins: true
   local_plan_view: true
@@ -476,6 +571,11 @@ ros:
   show_execute_logs: true
   show_global_plan: true
   show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: false
+  show_lidar_global: true
+  show_local_frenet_view: true
+  show_local_global_view: true
   show_local_lattice: true
   show_local_plan: true
   show_occupancy_flow: true
@@ -484,11 +584,12 @@ ros:
   show_perception_extras: true
   show_plan_logs: false
   show_plugins_logs: true
+  show_race_boundary: true
   show_state: true
   show_vis_logs: false
   sim_dt: 0.011
   tracking_strategy_type: None
-  xy_zoom: 60
+  xy_zoom: 60.0
 sync:
   bg_color: '#333333'
   bridge_provide_depth_image: false
@@ -509,11 +610,11 @@ sync:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 90
+  frenet_zoom: 90.0
   global_plan_view: false
   global_planner_type: RaceGlobalPlanner
   global_view_follow_planner: false
-  global_zoom: 800
+  global_zoom: 800.0
   hide_menubar: false
   load_plugins: true
   local_plan_view: true
@@ -544,6 +645,9 @@ sync:
   show_execute_logs: false
   show_global_plan: true
   show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: false
+  show_lidar_global: true
   show_local_frenet_view: true
   show_local_global_view: false
   show_local_lattice: true
@@ -554,8 +658,9 @@ sync:
   show_perception_extras: true
   show_plan_logs: true
   show_plugins_logs: false
+  show_race_boundary: true
   show_state: true
   show_vis_logs: false
   sim_dt: 0.05
   tracking_strategy_type: None
-  xy_zoom: 340
+  xy_zoom: 340.0

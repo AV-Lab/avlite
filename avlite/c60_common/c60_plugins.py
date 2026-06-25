@@ -10,7 +10,13 @@ import sys
 import types
 from pathlib import Path
 
-from avlite.c60_common.c67_paths import builtin_plugins_dir
+from avlite.c60_common.c67_paths import (
+    builtin_plugins_dir,
+    community_plugin_settings_filepath,
+    effective_config_path,
+    legacy_community_plugin_settings_path,
+    resolve_plugin_path,
+)
 
 log = logging.getLogger(__name__)
 
@@ -146,8 +152,7 @@ def load_plugin_settings_class(name: str, plugin_path: str):
 
 def patch_plugin_settings(cls, name: str, plugin_path: str) -> None:
     """Inject ``filepath`` and ``exclude`` onto *cls* so save/load_setting work."""
-    config_dir = Path(plugin_path) / "config"
-    cls.filepath = str(config_dir / f"{name}.yaml")
+    cls.filepath = community_plugin_settings_filepath(name)
     if not hasattr(cls, "exclude"):
         cls.exclude = ["exclude", "filepath", "schema"]
     else:
@@ -155,6 +160,33 @@ def patch_plugin_settings(cls, name: str, plugin_path: str) -> None:
         for key in ("filepath", "schema"):
             if key not in cls.exclude:
                 cls.exclude.append(key)
+
+
+def load_community_plugin_setting(
+    name: str,
+    stored: str,
+    profile: str = "default",
+    *,
+    binder=None,
+):
+    """Load ``PluginSettings`` for a community plugin (user config, legacy install-dir fallback)."""
+    from avlite.c60_common.c69_setting_utils import load_setting
+
+    install_path = str(resolve_plugin_path(name, stored))
+    cls = load_plugin_settings_class(name, install_path)
+    if cls is None:
+        return None
+    patch_plugin_settings(cls, name, install_path)
+    user_filepath = community_plugin_settings_filepath(name)
+    user_path = Path(effective_config_path(user_filepath, for_write=False))
+    if not user_path.is_file():
+        legacy = legacy_community_plugin_settings_path(name, stored)
+        if legacy.is_file():
+            cls.filepath = str(legacy)
+    load_setting(cls, profile=profile, binder=binder)
+    if cls.filepath != user_filepath:
+        patch_plugin_settings(cls, name, install_path)
+    return cls
 
 
 def load_all_stack_settings(profile: str = "default", load_plugins: bool = True) -> None:
@@ -173,11 +205,54 @@ def load_all_stack_settings(profile: str = "default", load_plugins: bool = True)
     if not load_plugins:
         return
 
-    for plugin in list_plugins():
+    for plugin in ExecutionSettings.c40_default_plugins:
         cls = load_builtin_plugin_settings(plugin)
         if cls is None:
             continue
         load_setting(cls, profile=profile)
+
+
+def unregister_plugin_package(plugin_name: str) -> None:
+    """Remove strategy classes registered by a plugin and purge its modules."""
+    from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
+    from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+    from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+    from avlite.c30_control.c32_control_strategy import ControlStrategy
+    from avlite.c40_execution.c41_world_bridge import WorldBridge
+    from avlite.c40_execution.c42_executer import Executer
+
+    prefix = plugin_module_prefix(plugin_name)
+    for registry in (
+        PerceptionStrategy.registry,
+        GlobalPlannerStrategy.registry,
+        LocalPlanningStrategy.registry,
+        ControlStrategy.registry,
+        Executer.registry,
+        WorldBridge.registry,
+    ):
+        to_remove = [
+            name
+            for name, cls in registry.items()
+            if cls.__module__.startswith(prefix)
+        ]
+        for name in to_remove:
+            del registry[name]
+            log.info("Unregistered %s from %s", name, prefix)
+
+    for mod_name in list(sys.modules.keys()):
+        if mod_name.startswith(prefix):
+            del sys.modules[mod_name]
+            log.debug("Removed %s from sys.modules", mod_name)
+
+
+def sync_builtin_plugins(allowed: list[str]) -> None:
+    """Unload built-in plugins not in *allowed*, then import those that are."""
+    allowed_set = set(allowed)
+    for name in list_plugins():
+        if name not in allowed_set:
+            unregister_plugin_package(name)
+    if allowed:
+        import_plugin_modules(plugins_filter=allowed)
 
 
 def _ensure_plugins_package(plugins_directory: Path) -> None:

@@ -8,7 +8,7 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c60_plugins import import_plugin_modules, reload_lib
+from avlite.c60_common.c60_plugins import import_plugin_modules, reload_lib, sync_builtin_plugins, unregister_plugin_package
 from avlite.c60_common.c67_paths import get_absolute_path, resolve_plugin_path
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
@@ -56,11 +56,15 @@ def executor_factory(
 
     
     if load_plugins:
-        import_plugin_modules(plugins_filter=list(ExecutionSettings.c40_default_plugins))
+        sync_builtin_plugins(list(ExecutionSettings.c40_default_plugins))
         for k, v in ExecutionSettings.c40_community_plugins.items():
             path = resolve_plugin_path(k, v)
             log.warning("Loading external plugin: %s from %s", k, path)
             import_plugin_modules(str(path), pkg_name=k)
+    else:
+        sync_builtin_plugins([])
+        for k in ExecutionSettings.c40_community_plugins:
+            unregister_plugin_package(k)
 
 
     try:

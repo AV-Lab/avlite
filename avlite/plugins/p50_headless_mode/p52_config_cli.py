@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from avlite.c60_common.c67_paths import effective_config_path
+from avlite.c60_common.c69_setting_utils import export_profile, import_profile
 from avlite.c60_common.c60_plugins import list_plugins, load_builtin_plugin_settings
 from avlite.c60_common.c68_settings_schema import (
     SettingsValidationError,
@@ -132,6 +133,41 @@ def cmd_help(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_profile(args: argparse.Namespace) -> int:
+    output = args.output or f"{args.profile}.zip"
+    try:
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+        from avlite.c60_common.c69_setting_utils import load_setting
+
+        load_setting(ExecutionSettings, profile=args.profile)
+        count = export_profile(
+            args.profile,
+            output,
+            community_plugins=ExecutionSettings.c40_community_plugins,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"Failed to write zip: {exc}", file=sys.stderr)
+        return 1
+    print(f"Exported profile '{args.profile}' ({count} file(s)) to {output}")
+    return 0
+
+
+def cmd_import_profile(args: argparse.Namespace) -> int:
+    try:
+        profile_name = import_profile(args.zip_path, overwrite=args.force)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"Failed to import profile: {exc}", file=sys.stderr)
+        return 1
+    print(f"Imported profile '{profile_name}'")
+    return 0
+
+
 def register_config_parser(subparsers: argparse._SubParsersAction) -> None:
     global _config_parser
     config = subparsers.add_parser("config", help="Validate or describe settings profiles")
@@ -149,6 +185,16 @@ def register_config_parser(subparsers: argparse._SubParsersAction) -> None:
     describe.add_argument("--layer", help="Stack layer: perception, planning, control, execution, visualization")
     describe.add_argument("--field", help="Single field name to describe (requires --layer)")
     describe.set_defaults(config_handler=cmd_describe)
+
+    export_p = config_sub.add_parser("export-profile", help="Export a profile to a zip file")
+    export_p.add_argument("profile", help="Profile name to export")
+    export_p.add_argument("-o", "--output", help="Output zip path (default: {profile}.zip)")
+    export_p.set_defaults(config_handler=cmd_export_profile)
+
+    import_p = config_sub.add_parser("import-profile", help="Import a profile from a zip file")
+    import_p.add_argument("zip_path", help="Path to profile zip file")
+    import_p.add_argument("--force", action="store_true", help="Overwrite existing profile keys")
+    import_p.set_defaults(config_handler=cmd_import_profile)
 
 
 def run_config_command(args: argparse.Namespace) -> int:

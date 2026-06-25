@@ -84,7 +84,7 @@ Do not commit a `.venv` inside your plugin directory — AVLite scans all `.py` 
 
 ## 1. Settings File (Optional)
 
-If your plugin has tunable parameters, add `settings.py` with a `PluginSettings` class. AVLite creates settings widgets automatically and saves profiles to `<plugin_path>/config/<plugin_name>.yaml` — you do **not** need `exclude` or `filepath`; those are injected when the plugin is registered.
+If your plugin has tunable parameters, add `settings.py` with a `PluginSettings` class. AVLite creates settings widgets automatically and saves profiles to `~/.config/avlite/plugin_<plugin_name>.yaml` — you do **not** need `exclude`, `filepath`, or a `config/` folder in your plugin package; those are handled when the plugin is registered.
 
 ```python
 # settings.py

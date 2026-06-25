@@ -73,7 +73,7 @@ class ExecutionSettings:
     c41_provide_lidar = False
     c41_provide_depth = False
 
-    c43_race_boundary_map: str = "data/race_boundary_yas_marina.json"
+    c43_race_boundary_map: str = "data/race_boundary_yas_marina.map.json"
     c43_race_boundary_margin: float = 0.0
 
     c46_default_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"

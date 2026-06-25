@@ -1,4 +1,30 @@
+async:
+  accel_axis: 5
+  accel_deadzone: 0.02
+  brake_axis: 2
+  brake_deadzone: 0.02
+  deadzone: 0.02
+  device_index: 0
+  fail_if_missing: false
+  steer_axis: 0
+  steer_full_gain_below: 3.0
+  steer_invert: true
+  steer_min_gain: 0.25
+  steer_speed_scale: true
 default:
+  accel_axis: 5
+  accel_deadzone: 0.02
+  brake_axis: 2
+  brake_deadzone: 0.02
+  deadzone: 0.02
+  device_index: 0
+  fail_if_missing: false
+  steer_axis: 0
+  steer_full_gain_below: 3.0
+  steer_invert: true
+  steer_min_gain: 0.25
+  steer_speed_scale: true
+global planning:
   accel_axis: 5
   accel_deadzone: 0.02
   brake_axis: 2

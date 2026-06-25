@@ -19,7 +19,7 @@ from avlite.c50_visualization.c58_ui_lib import (
 from avlite.c50_visualization.c59_settings import VisualizationSettings, load_stack_plugins
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c60_plugins import list_plugins, reload_lib
+from avlite.c60_common.c60_plugins import reload_lib
 from avlite.c60_common.c67_paths import get_startup_profile, set_startup_profile
 from avlite.c60_common.c69_setting_utils import load_setting, list_profiles
     
@@ -62,8 +62,7 @@ class VisualizerApp(tk.Tk):
         startup = get_startup_profile()
         if startup and startup in self.setting.profile_list:
             self.setting.selected_profile.set(startup)
-        ExecutionSettings.c40_default_plugins = list_plugins()
-        
+
         # ----------------------------------------------------------------------
         # UI Views
         # ---------------------------------------------------------------------
@@ -507,10 +506,10 @@ class VisualizerApp(tk.Tk):
         # load_setting(ControlSettings, profile=profile)
         # load_setting(ExecutionSettings, profile=profile)
         binder = TkSettingsBinder()
-        load_stack_plugins(profile=profile, load_plugins=self.setting.load_plugins.get())
         if not only_stack:
             load_setting(self.setting, profile=profile, binder=binder)
             self.setting.normalize_gt_sentinels()
+        load_stack_plugins(profile=profile, load_plugins=self.setting.load_plugins.get())
         self.config_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 
@@ -532,7 +531,7 @@ class VisualizerApp(tk.Tk):
             # if reload_code:
                 # self.load_configs()
             if reload_code:
-                reload_lib(exclude_settings=True)
+                reload_lib(exclude_settings=True, reload_plugins=self.setting.load_plugins.get())
             self.exec = executor_factory(
                 executer_type=self.setting.executer_type.get(),
                 # async_mode=self.setting.async_exec.get(),

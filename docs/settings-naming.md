@@ -2,7 +2,7 @@
 
 Each stack layer has one settings module (`c19`, `c29`, `c39`, `c49`) with a class used as a singleton (`PerceptionSettings`, `PlanningSettings`, `ControlSettings`, `ExecutionSettings`). YAML profiles mirror attribute names exactly.
 
-Shipped defaults live in the repository `configs/` directory. When you save from the GUI or settings window, profiles are written to `~/.config/avlite/` using the **same filenames**. On load, each file is read from the user directory if present, otherwise from the repo. Override the user directory with `AVLITE_CONFIG_DIR` (YAML files sit directly in that path, not in a nested `configs/` folder). Use **Use repository configs** in the settings window to delete local overrides and reload repo defaults.
+Shipped defaults live in the repository `configs/` directory. When you save from the GUI or settings window, profiles are written to `~/.config/avlite/` using the **same filenames**. On load, each file is read from the user directory if present, otherwise from the repo. Override the user directory with `AVLITE_CONFIG_DIR` (YAML files sit directly in that path, not in a nested `configs/` folder). Enable **Edit repository configs** in the settings window (git clone only) to switch read/write to `{repo}/configs/` instead of the user dir.
 
 ## Prefix rules
 
@@ -48,16 +48,18 @@ If you have saved plugin configs from an older AVLite version, rename files unde
 | `ext_headless_mode.yaml` | `plugin_headless_mode.yaml` |
 | `ext_multi_object_predictor.yaml` | `plugin_multi_object_predictor.yaml` |
 
-Alternatively, use **Copy repository configs** in the settings window to copy shipped `configs/*.yaml` into `~/.config/avlite/` and reload.
+Alternatively, enable **Edit repository configs** in the settings window to switch read/write to shipped `configs/` directly (git clone only), or copy files manually into `~/.config/avlite/`.
 
 ## Validation and field docs
 
-Each settings module defines a Pydantic `*SettingsSchema` with types, defaults, and `Field(description=...)`. YAML profiles are validated on load/save.
+Each settings module defines a Pydantic `*SettingsSchema` with types, defaults, and `Field(description=...)`. YAML profiles are validated on load/save and on profile zip export/import.
 
 ```bash
 python -m avlite config help
 python -m avlite config validate              # check all profiles
 python -m avlite config validate --profile default
+python -m avlite config export-profile myprofile [-o myprofile.zip]
+python -m avlite config import-profile myprofile.zip [--force]
 python -m avlite config describe --layer execution
 python -m avlite config describe --layer execution --field c40_control_dt
 ```

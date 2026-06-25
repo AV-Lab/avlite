@@ -143,7 +143,10 @@ pip install rich
 1. **Configure** with the visualizer (`python -m avlite`): pick the bridge,
    strategies, and tune parameters until it behaves the way you want.
 2. **Save** the result as a named profile from the Config tab.
-3. **Deploy** that profile on your robot/server with
+3. **Transfer** (optional): export the profile as a zip from the settings window
+   (`T`) or with `python -m avlite config export-profile <name>`, then import
+   on the target machine with **Import profile** or `config import-profile`.
+4. **Deploy** that profile on your robot/server with
    `python -m avlite headless -p <profile>`.
 
 The same YAML profiles drive both the GUI and headless mode, so what you
@@ -156,6 +159,8 @@ Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped
 ```bash
 python -m avlite config help
 python -m avlite config validate --profile default
+python -m avlite config export-profile myprofile -o myprofile.zip
+python -m avlite config import-profile myprofile.zip --force
 ```
 
 See [Configuration](docs/index.md#configuration) in the docs for paths, CLI, and resetting to repo defaults.

@@ -73,7 +73,7 @@ class LocalPlanningStrategy(ABC):
         self.traversed_s, self.traversed_d = [s0], [d0]
         self.location_xy = (ref_xy[0], ref_xy[1])
         self.location_sd = (s0, d0)
-        log.info(f"Global plan set: ego Frenet s={s0:.2f} d={d0:.2f}")
+        log.info(f"Global plan set: ego Frenet s={s0:.2f} d={d0:.2f}. Ego xy={ref_xy}. Global plan start={global_plan.start_point}")
 
     def reset(self, wp: int = 0):
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]

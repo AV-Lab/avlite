@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 from pathlib import Path
 
 DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
@@ -52,21 +51,6 @@ def set_repo_config_target(enabled: bool) -> None:
     _user_meta_dir().mkdir(parents=True, exist_ok=True)
     value = "repo" if enabled else "user"
     (_user_meta_dir() / "config_target").write_text(value + "\n", encoding="utf-8")
-
-
-def copy_repo_configs_to_user() -> list[str]:
-    """Copy bundled ``configs/*.yaml`` into ``get_config_dir()``; overwrite existing."""
-    src_dir = bundled_config_dir()
-    if not can_edit_repo_configs():
-        raise FileNotFoundError(f"No bundled configs in {src_dir}")
-    dest_dir = get_config_dir()
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    copied: list[str] = []
-    for src in sorted(src_dir.glob("*.yaml")):
-        dest = dest_dir / src.name
-        shutil.copy2(src, dest)
-        copied.append(str(dest))
-    return copied
 
 
 def get_user_configs_dir() -> Path:
@@ -161,10 +145,67 @@ def resolve_plugin_path(name: str, stored: str) -> Path:
     """Resolve a community plugin install path (name-only, relative, or legacy absolute)."""
     if not stored or stored == name:
         return get_plugins_dir() / name
-    path = Path(stored)
+    path = Path(stored).expanduser()
     if path.is_absolute():
-        return path
+        return path.resolve()
     return get_plugins_dir() / stored
+
+
+def format_user_path(path: Path | str) -> str:
+    """Display a path with ``~`` when it lies under the user home directory."""
+    resolved = Path(path).expanduser().resolve()
+    try:
+        rel = resolved.relative_to(Path.home())
+        return "~/" + rel.as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
+def community_plugin_settings_display_path(name: str) -> str:
+    """Human-readable settings file path for a community plugin."""
+    return format_user_path(
+        effective_config_path(community_plugin_settings_filepath(name), for_write=False)
+    )
+
+
+def community_plugin_settings_basename(name: str) -> str:
+    """YAML basename for community plugin profiles under the user config dir."""
+    return f"plugin_{name}.yaml"
+
+
+def community_plugin_settings_filepath(name: str) -> str:
+    """Stored filepath token for community plugin settings (via ``effective_config_path``)."""
+    return f"configs/{community_plugin_settings_basename(name)}"
+
+
+def legacy_community_plugin_settings_path(name: str, stored: str) -> Path:
+    """Legacy install-dir settings path (``<install>/config/<name>.yaml``)."""
+    return resolve_plugin_path(name, stored) / "config" / f"{name}.yaml"
+
+
+def normalize_community_plugin_stored(name: str, path_or_stored: str) -> str:
+    """Normalize install locator for YAML: name sentinel, ``~/...``, or absolute."""
+    if not path_or_stored or path_or_stored == name:
+        return name
+    path = Path(path_or_stored).expanduser().resolve()
+    try:
+        path.relative_to(get_plugins_dir())
+        return name
+    except ValueError:
+        pass
+    try:
+        rel = path.relative_to(Path.home())
+        return "~/" + rel.as_posix()
+    except ValueError:
+        return str(path)
+
+
+def normalize_community_plugins_map(plugins: dict[str, str]) -> dict[str, str]:
+    """Return a copy of *plugins* with portable stored paths."""
+    return {
+        name: normalize_community_plugin_stored(name, stored)
+        for name, stored in plugins.items()
+    }
 
 
 def get_data_dir() -> Path:

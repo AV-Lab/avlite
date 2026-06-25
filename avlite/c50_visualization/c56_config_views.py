@@ -3,16 +3,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 import importlib
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import filedialog, ttk, messagebox
 
 
 from avlite.c60_common.c67_paths import (
     bundled_config_dir,
     can_edit_repo_configs,
-    copy_repo_configs_to_user,
+    community_plugin_settings_display_path,
     get_config_dir,
     installed_community_plugins_map,
     is_repo_config_target,
+    normalize_community_plugin_stored,
+    normalize_community_plugins_map,
     set_repo_config_target,
     set_startup_profile,
 )
@@ -20,13 +22,14 @@ from avlite.c60_common.c60_plugins import (
     import_plugin_modules,
     list_plugins,
     load_all_stack_settings,
-    load_plugin_settings_class,
-    patch_plugin_settings,
+    load_community_plugin_setting,
     plugin_module_prefix,
     reload_lib,
 )
 from avlite.c60_common.c69_setting_utils import (
     delete_setting_profile,
+    export_profile,
+    import_profile,
     list_profiles,
     load_setting,
     rename_setting_profile,
@@ -35,6 +38,7 @@ from avlite.c60_common.c69_setting_utils import (
 from avlite.c50_visualization.c58_ui_lib import (
     HoverTooltip,
     ThemedInputDialog,
+    ThemedReadOnlyTwoFieldDialog,
     ThemedTwoInputDialog,
     TkSettingsBinder,
     attach_schema_tooltip,
@@ -57,48 +61,43 @@ if TYPE_CHECKING:
     from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
 
 
+def _refresh_profile_dropdowns(win: "SettingWindow", *, select: str | None = None) -> str:
+    """Re-read profile names from the active config target; update all comboboxes."""
+    profiles = list_profiles(win.root.setting)
+    win.root.setting.profile_list = profiles
+    for combo in (
+        win.profile_dropdown_menu,
+        win.next_profile_dropdown_menu,
+        win.root.config_shortcut_view.profile_dropdown_menu,
+    ):
+        combo["values"] = profiles
+    if select and select in profiles:
+        current = select
+        win.root.setting.selected_profile.set(current)
+    else:
+        current = win.root.setting.selected_profile.get()
+        if current not in profiles:
+            current = "default" if "default" in profiles else (profiles[0] if profiles else "default")
+            win.root.setting.selected_profile.set(current)
+    if win.root.setting.next_profile.get() not in profiles:
+        win.root.setting.next_profile.set(current)
+    return current
+
+
 def _setting_window_edit_repo_configs_toggle(win: "SettingWindow") -> None:
     enabled = win._edit_repo_configs_var.get()
     if enabled and not messagebox.askyesno(
         "Edit repository configs",
-        f"Save and load will modify files under\n{bundled_config_dir()}\n\nContinue?",
+        f"Save and load will use files under\n{bundled_config_dir()}\n"
+        f"instead of your user config dir ({get_config_dir()}).\n\nContinue?",
         parent=win.window,
     ):
         win._edit_repo_configs_var.set(False)
         return
     set_repo_config_target(enabled)
-    profile = win.root.setting.selected_profile.get()
+    profile = _refresh_profile_dropdowns(win)
     win.root.load_configs(profile=profile)
     win.load_profile(profile)
-
-
-def _setting_window_copy_repository_configs(win: "SettingWindow") -> None:
-    user_dir = get_config_dir()
-    if not messagebox.askyesno(
-        "Copy repository configs",
-        f"Copy repository defaults into\n{user_dir}\nand reload the current profile?",
-        parent=win.window,
-    ):
-        return
-    try:
-        copied = copy_repo_configs_to_user()
-    except FileNotFoundError as e:
-        messagebox.showerror("Copy repository configs", str(e), parent=win.window)
-        return
-    profile = win.root.setting.selected_profile.get()
-    win.root.load_configs(profile=profile)
-    win.load_profile(profile)
-    win.root.setting.normalize_gt_sentinels()
-    win.root.setting.profile_list = list_profiles(win.root.setting)
-    win.profile_dropdown_menu["values"] = win.root.setting.profile_list
-    win.next_profile_dropdown_menu["values"] = win.root.setting.profile_list
-    win.root.config_shortcut_view.profile_dropdown_menu["values"] = win.root.setting.profile_list
-    win.root.reload_stack(reload_code=False)
-    messagebox.showinfo(
-        "Copy repository configs",
-        f"Copied {len(copied)} file(s) into {user_dir}.",
-        parent=win.window,
-    )
 
 
 class ConfigShortcutView(ttk.LabelFrame):
@@ -229,6 +228,9 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         profile = self.root.setting.selected_profile.get()
         binder = TkSettingsBinder()
         save_setting(self.root.setting, profile=profile, binder=binder)
+        ExecutionSettings.c40_community_plugins = normalize_community_plugins_map(
+            ExecutionSettings.c40_community_plugins
+        )
         save_setting(ExecutionSettings, profile=profile, binder=binder)
 
 
@@ -310,36 +312,31 @@ class SettingWindow:
         # self.global_planner_dropdown_menu.current(0)  
         self.profile_dropdown_menu.state(["readonly"])
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
-        self.profile_dropdown_menu.grid(row=1, column=1, columnspan=2, padx=5, pady=5, sticky="we")
+        self.profile_dropdown_menu.grid(row=1, column=1, columnspan=2, padx=5, pady=5)
 
-        ttk.Button(profile_ext_frame, text="New", width=5, command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Delete",width=5, command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Save",width=5, underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="✎", width=2, command=self.rename_profile).grid(row=1, column=3, padx=5, pady=5)
-        ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        ttk.Button(profile_ext_frame, text="New", command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="Delete", command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="Save", underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="Export", command=self.export_profile_zip).grid(row=3, column=0, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="Import", command=self.import_profile_zip).grid(row=3, column=1, padx=5, pady=5, sticky="we")
+        ttk.Button(profile_ext_frame, text="Rename", command=self.rename_profile).grid(row=3, column=2, padx=5, pady=5, sticky="we")
+
+        ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
         self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.next_profile_dropdown_menu.state(["readonly"])
         # next_profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
-        self.next_profile_dropdown_menu.grid(row=3, column=2, padx=5, pady=5, sticky="we")
+        self.next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
         
         ttk.Button( profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
-        ).grid(row=4, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        ttk.Button( profile_ext_frame, text="Reset all except Exectution", command= lambda: self.reset_to_to_source_stack_values(exclude_execution=True)
         ).grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        ttk.Button( profile_ext_frame, text="Reset all except Exectution", command= lambda: self.reset_to_to_source_stack_values(exclude_execution=True)
+        ).grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="we")
         if can_edit_repo_configs():
             self._edit_repo_configs_var = tk.BooleanVar(value=is_repo_config_target())
-            ttk.Checkbutton(
-                profile_ext_frame,
-                text="Edit repository configs",
-                variable=self._edit_repo_configs_var,
+            ttk.Checkbutton( profile_ext_frame, text="Edit repository configs", variable=self._edit_repo_configs_var,
                 command=lambda: _setting_window_edit_repo_configs_toggle(self),
-            ).grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="w")
-        ttk.Button(
-            profile_ext_frame,
-            text="Copy repository configs",
-            command=lambda: _setting_window_copy_repository_configs(self),
-        ).grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+            ).grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
         ## Plugins
         ##############################################
         plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
@@ -352,7 +349,7 @@ class SettingWindow:
         listbox_height = max(6, scaled(10, _s))
 
         ttk.Checkbutton(plugin_frame, text="Load Plugins" , variable=self.root.setting.load_plugins,
-            command=self.recreate_plugin_widgets).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
+            command=self._on_load_plugins_toggle).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
 
         # built-in plugins
         ttk.Label(plugin_frame, text="Plugins").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
@@ -404,6 +401,7 @@ class SettingWindow:
         
         def _on_mousewheel(event):
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         settings_frame.bind_all("<MouseWheel>", _on_mousewheel)  # Windows/macOS
         settings_frame.bind_all("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))  # Linux
         settings_frame.bind_all("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))   # Linux
@@ -585,7 +583,7 @@ class SettingWindow:
             return
 
         log.info(f"Adding plugin: {name}")
-        ExecutionSettings.c40_community_plugins[name] = dir
+        ExecutionSettings.c40_community_plugins[name] = normalize_community_plugin_stored(name, dir)
         self.listbox_community_plugins.insert(tk.END, name)
         
     def delete_community_plugin(self):
@@ -603,19 +601,16 @@ class SettingWindow:
         if not selected:
             log.warning("No community plugin selected to edit.")
             return
-        
+
         plugin_name = self.listbox_community_plugins.get(selected)
-        current_dir = ExecutionSettings.c40_community_plugins.get(plugin_name, "")
-        
-        dialog = ThemedTwoInputDialog(self.root, "Edit Community Plugin", "Package Name", "Package Directory", plugin_name, current_dir)
-        
-        if dialog.result:
-            new_name, new_dir = dialog.result
-            if new_name and new_dir:
-                ExecutionSettings.c40_community_plugins[new_name] = new_dir
-                if new_name != plugin_name:
-                    ExecutionSettings.c40_community_plugins.pop(plugin_name, None)
-                self.update_community_plugin_list()
+        ThemedReadOnlyTwoFieldDialog(
+            self.root,
+            "Community Plugin",
+            "Package Name",
+            "Settings file",
+            plugin_name,
+            community_plugin_settings_display_path(plugin_name),
+        )
 
     def update_community_plugin_list(self):
         """ Load the community plugins from the settings. """
@@ -647,6 +642,99 @@ class SettingWindow:
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
 
         self.save_profile()
+
+
+    def export_profile_zip(self):
+        """Export the selected profile to a zip file."""
+        profile = self.root.setting.selected_profile.get()
+        if not messagebox.askyesno(
+            "Export profile",
+            f"Export reads from saved files on disk.\nSave profile '{profile}' first if you have unsaved changes.\n\nContinue?",
+            parent=self.window,
+        ):
+            return
+        zip_path = filedialog.asksaveasfilename(
+            parent=self.window,
+            title="Export profile",
+            defaultextension=".zip",
+            initialfile=f"{profile}.zip",
+            filetypes=[("AVLite profile", "*.zip"), ("All files", "*.*")],
+        )
+        if not zip_path:
+            return
+        try:
+            load_setting(ExecutionSettings, profile=profile)
+            count = export_profile(
+                profile,
+                zip_path,
+                community_plugins=ExecutionSettings.c40_community_plugins,
+            )
+        except ValueError as e:
+            messagebox.showerror("Export profile", str(e), parent=self.window)
+            return
+        except OSError as e:
+            messagebox.showerror("Export profile", f"Failed to write zip: {e}", parent=self.window)
+            return
+        messagebox.showinfo(
+            "Export profile",
+            f"Exported profile '{profile}' ({count} file(s)) to\n{zip_path}",
+            parent=self.window,
+        )
+
+    def import_profile_zip(self):
+        """Import a profile from a zip file."""
+        zip_path = filedialog.askopenfilename(
+            parent=self.window,
+            title="Import profile",
+            filetypes=[("AVLite profile", "*.zip"), ("All files", "*.*")],
+        )
+        if not zip_path:
+            return
+        overwrite = False
+        try:
+            import zipfile
+            import yaml as _yaml
+
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                for name in zf.namelist():
+                    if not name.endswith(".yaml"):
+                        continue
+                    snippet = _yaml.safe_load(zf.read(name)) or {}
+                    if isinstance(snippet, dict) and len(snippet) == 1:
+                        imported_name = next(iter(snippet.keys()))
+                        break
+                else:
+                    messagebox.showerror("Import profile", "No profile found in zip.", parent=self.window)
+                    return
+        except (OSError, _yaml.YAMLError) as e:
+            messagebox.showerror("Import profile", str(e), parent=self.window)
+            return
+
+        if imported_name in self.root.setting.profile_list:
+            if not messagebox.askyesno(
+                "Import profile",
+                f"Profile '{imported_name}' already exists.\nOverwrite it?",
+                parent=self.window,
+            ):
+                return
+            overwrite = True
+
+        try:
+            profile_name = import_profile(zip_path, overwrite=overwrite)
+        except ValueError as e:
+            messagebox.showerror("Import profile", str(e), parent=self.window)
+            return
+        except OSError as e:
+            messagebox.showerror("Import profile", f"Failed to import: {e}", parent=self.window)
+            return
+
+        profile_name = _refresh_profile_dropdowns(self, select=profile_name)
+        self.load_profile(profile_name)
+        messagebox.showinfo(
+            "Import profile",
+            f"Imported profile '{profile_name}'.",
+            parent=self.window,
+        )
 
 
     def delete_profile(self):
@@ -732,6 +820,9 @@ class SettingWindow:
         self.save_from_widgets(ControlSettings)
         save_setting(ControlSettings, profile=profile, binder=binder)
         self.save_from_widgets(ExecutionSettings)
+        ExecutionSettings.c40_community_plugins = normalize_community_plugins_map(
+            ExecutionSettings.c40_community_plugins
+        )
         save_setting(ExecutionSettings, profile=profile, binder=binder)
 
         save_setting(self.root.setting, profile=profile, binder=binder)
@@ -748,14 +839,15 @@ class SettingWindow:
 
         # Save community plugin settings
         if self.root.setting.load_plugins.get():
-            for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
+            profile = self.root.setting.selected_profile.get()
+            for name, stored in ExecutionSettings.c40_community_plugins.items():
                 try:
-                    cls = load_plugin_settings_class(name, plugin_path)
+                    cls = load_community_plugin_setting(
+                        name, stored, profile=profile, binder=TkSettingsBinder()
+                    )
                     if cls is None:
                         continue
-                    patch_plugin_settings(cls, name, plugin_path)
                     self.save_from_widgets(cls, plugin_name=f"community_{name}")
-                    Path(cls.filepath).parent.mkdir(parents=True, exist_ok=True)
                     save_setting(cls, profile=profile, binder=binder)
                 except Exception as e:
                     log.error("Failed to save plugin settings for '%s': %s", name, e)
@@ -777,6 +869,10 @@ class SettingWindow:
         self.update_core_widgets()
         self.update_plugins_widgets()
         self.update_community_plugin_list()
+
+        self.listbox_default_plugins.delete(0, tk.END)
+        for plugin in ExecutionSettings.c40_default_plugins:
+            self.listbox_default_plugins.insert(tk.END, plugin)
 
     def update_core_widgets(self):
         self.update_widgets(PerceptionSettings)
@@ -801,17 +897,18 @@ class SettingWindow:
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
         if not self.root.setting.load_plugins.get():
             return
-        for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
+        profile = self.root.setting.selected_profile.get()
+        for name, stored in ExecutionSettings.c40_community_plugins.items():
             plugin_name = f"community_{name}"
-            cls = load_plugin_settings_class(name, plugin_path)
+            cls = load_community_plugin_setting(
+                name, stored, profile=profile, binder=TkSettingsBinder()
+            )
             if cls is None:
                 continue
-            patch_plugin_settings(cls, name, plugin_path)
             try:
-                load_setting(cls, profile=self.root.setting.selected_profile.get(), binder=TkSettingsBinder())
+                self.update_widgets(cls, plugin_name=plugin_name)
             except Exception as e:
                 log.warning("Could not reload plugin settings for '%s': %s", name, e)
-            self.update_widgets(cls, plugin_name=plugin_name)
 
     def update_plugins_widgets(self):
         """ Update the plugin widgets with the current settings. """ 
@@ -848,6 +945,10 @@ class SettingWindow:
 
         self.update_plugins_widgets()
         
+
+    def _on_load_plugins_toggle(self):
+        self.recreate_plugin_widgets()
+        self.root.reload_stack(reload_code=False)
 
     def recreate_plugin_widgets(self):
         """ Recreate the plugin widgets based on the current setting."""
@@ -910,22 +1011,20 @@ class SettingWindow:
 
         found = []
         if self.root.setting.load_plugins.get():
-            for name, plugin_path in ExecutionSettings.c40_community_plugins.items():
-                cls = load_plugin_settings_class(name, plugin_path)
+            profile = self.root.setting.selected_profile.get()
+            for name, stored in ExecutionSettings.c40_community_plugins.items():
+                cls = load_community_plugin_setting(
+                    name, stored, profile=profile, binder=TkSettingsBinder()
+                )
                 if cls is not None:
-                    found.append((name, plugin_path, cls))
+                    found.append((name, cls))
 
         if not found:
             return
 
         self._cp_sep.pack(fill='x', pady=10)
         self._cp_label.pack(anchor=tk.W, padx=5, pady=5)
-        for name, plugin_path, cls in found:
-            patch_plugin_settings(cls, name, plugin_path)
-            try:
-                load_setting(cls, profile=self.root.setting.selected_profile.get(), binder=TkSettingsBinder())
-            except Exception as e:
-                log.warning("Could not load plugin settings for '%s': %s", name, e)
+        for name, cls in found:
             self.create_widgets(cls, f"Plugin: {name}", plugin_name=f"community_{name}")
 
         self._cp_widget_created = True
