@@ -125,8 +125,10 @@ class GlobalPlot(ABC):
                         x_pad = 0
                         y_pad = (target_height - map_height) / 2
                     
-                    self.ax.set_xlim(self.map_min_x - x_pad, self.map_max_x + x_pad)
-                    self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
+                    dx = delta[0] if delta else 0.0
+                    dy = delta[1] if delta else 0.0
+                    self.ax.set_xlim(self.map_min_x - x_pad + dx, self.map_max_x + x_pad + dx)
+                    self.ax.set_ylim(self.map_min_y - y_pad + dy, self.map_max_y + y_pad + dy)
                     self.view_width = map_width + x_pad * 2
                     self.view_height = map_height + y_pad * 2
 
@@ -212,6 +214,13 @@ class GlobalRacePlot(GlobalPlot):
         
         # Adjust layout to align with LocalPlot
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
+
+    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
+             follow_vehicle=True, delta: Optional[tuple[float, float]] = None):
+        self.plot_map(exec.global_planner)
+        self.plot_vehicle(exec.ego_state)
+        self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
+        self.fig.canvas.draw()
 
     def clear_goal(self):
         """Clear the goal plot (no-op for race plot)."""
@@ -710,7 +719,14 @@ class LocalPlot:
             self.last_locs_ax2.set_data([], [])
             self.planner_loc_ax2.set_data([], [])
 
-        self.update_track_boundary_plot(exec.world, show_plot=plot_race_boundary, global_trajectory=exec.local_planner.global_trajectory)
+        show_race_boundaries = plot_race_boundary and not isinstance(
+            exec.global_planner, HDMapGlobalPlanner
+        )
+        self.update_track_boundary_plot(
+            exec.world,
+            show_plot=show_race_boundaries,
+            global_trajectory=exec.local_planner.global_trajectory,
+        )
         self.update_global_plan_plots(exec.local_planner, plot_global_plan)
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
@@ -766,26 +782,39 @@ class LocalPlot:
             self.reference_trajectory_ax2.set_data([], [])
             return
 
-        # Always refresh from the current plan so global replans are immediately visible.
-        self.left_boundry_x1.set_data(pl.global_plan.left_boundary_x, pl.global_plan.left_boundary_y)
-        self.right_boundry_x1.set_data(pl.global_plan.right_boundary_x, pl.global_plan.right_boundary_y)
-        # Insert NaN where s wraps backward (closed track: last point rejoins start),
-        # so the line plot doesn't draw a segment spanning the full s-axis.
+        if not pl.global_plan.left_boundary_x or not pl.global_plan.right_boundary_x:
+            self.left_boundry_x1.set_data([], [])
+            self.right_boundry_x1.set_data([], [])
+            self.left_boundry_ax2.set_data([], [])
+            self.right_boundry_ax2.set_data([], [])
+        else:
+            self.left_boundry_x1.set_data(pl.global_plan.left_boundary_x, pl.global_plan.left_boundary_y)
+            self.right_boundry_x1.set_data(pl.global_plan.right_boundary_x, pl.global_plan.right_boundary_y)
         _s = np.asarray(pl.global_trajectory.path_s, dtype=float)
         _gaps = np.where(np.diff(_s) < 0)[0] + 1
-        if len(_gaps):
-            _s   = np.insert(_s,   _gaps, np.nan)
-            _ld  = np.insert(np.asarray(pl.global_plan.left_boundary_d,  dtype=float), _gaps, np.nan)
-            _rd  = np.insert(np.asarray(pl.global_plan.right_boundary_d, dtype=float), _gaps, np.nan)
-            _ref = np.insert(np.asarray(pl.global_trajectory.path_d,     dtype=float), _gaps, np.nan)
+        if pl.global_plan.left_boundary_d and pl.global_plan.right_boundary_d:
+            if len(_gaps):
+                _s   = np.insert(_s,   _gaps, np.nan)
+                _ld  = np.insert(np.asarray(pl.global_plan.left_boundary_d,  dtype=float), _gaps, np.nan)
+                _rd  = np.insert(np.asarray(pl.global_plan.right_boundary_d, dtype=float), _gaps, np.nan)
+                _ref = np.insert(np.asarray(pl.global_trajectory.path_d,     dtype=float), _gaps, np.nan)
+            else:
+                _ld  = pl.global_plan.left_boundary_d
+                _rd  = pl.global_plan.right_boundary_d
+                _ref = pl.global_trajectory.path_d
+            self.left_boundry_ax2.set_data(_s, _ld)
+            self.right_boundry_ax2.set_data(_s, _rd)
+            self.reference_trajectory_ax2.set_data(_s, _ref)
         else:
-            _ld  = pl.global_plan.left_boundary_d
-            _rd  = pl.global_plan.right_boundary_d
-            _ref = pl.global_trajectory.path_d
-        self.left_boundry_ax2.set_data(_s, _ld)
-        self.right_boundry_ax2.set_data(_s, _rd)
+            self.left_boundry_ax2.set_data([], [])
+            self.right_boundry_ax2.set_data([], [])
+            if len(_gaps):
+                _s = np.insert(_s, _gaps, np.nan)
+                _ref = np.insert(np.asarray(pl.global_trajectory.path_d, dtype=float), _gaps, np.nan)
+            else:
+                _ref = pl.global_trajectory.path_d
+            self.reference_trajectory_ax2.set_data(_s, _ref)
         self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
-        self.reference_trajectory_ax2.set_data(_s, _ref)
 
         if pl.global_trajectory.next_wp is not None:
             self.g_wp_current_ax1.set_data(
