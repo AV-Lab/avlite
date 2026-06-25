@@ -42,7 +42,6 @@ Carla_Town10:
   c41_provide_lidar: false
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -79,7 +78,6 @@ SAN:
   c41_provide_lidar: false
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -121,7 +119,6 @@ async:
   c41_provide_lidar: true
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -163,7 +160,6 @@ default:
   c41_provide_lidar: true
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -198,14 +194,16 @@ global planning:
   c40_mapping: ''
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
+  c40_reference_point:
+  - 24.46992202098782
+  - 54.60522506805341
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
   c41_provide_depth: false
   c41_provide_ground_truth: true
-  c41_provide_lidar: true
+  c41_provide_lidar: false
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -245,7 +243,6 @@ joystick:
   c41_provide_lidar: false
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -287,7 +284,6 @@ perception:
   c41_provide_lidar: true
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/race_boundary_yas_marina.json
   c46_lidar_fov_deg: 360.0
@@ -329,7 +325,6 @@ ros:
   c41_provide_lidar: false
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0
@@ -369,7 +364,6 @@ sync:
   c41_provide_lidar: true
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c43_race_boundary_margin: 0.0
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c46_lidar_boundary_file: data/yasmarina.track.json
   c46_lidar_fov_deg: 360.0

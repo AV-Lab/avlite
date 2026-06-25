@@ -7,9 +7,14 @@ from scipy.signal import savgol_filter
 from avlite.c60_common.c66_hdmap import HDMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
+from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
+
+
+def _inset_d(left: float, right: float, margin: float) -> tuple[float, float]:
+    return left - margin, right + margin
 
 # Assumtpions
 # TODO: Lane sections are not handled properly
@@ -81,6 +86,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
        
         self.global_plan = GlobalPlan()
+        boundary_margin = PlanningSettings.c20_boundary_margin
 
         # Populating global_plan path
         if len(path2) == 1:
@@ -88,8 +94,9 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
             chopped_path = chop_path_from_two_sides(lane.center_line.T, lane.id, s_idx, g_idx)
             for point in chopped_path:
                 self.global_plan.path.append(point)
-                self.global_plan.left_boundary_d.append(lane.width/2)
-                self.global_plan.right_boundary_d.append(-lane.width/2)
+                left_d, right_d = _inset_d(lane.width / 2, -lane.width / 2, boundary_margin)
+                self.global_plan.left_boundary_d.append(left_d)
+                self.global_plan.right_boundary_d.append(right_d)
                 self.global_plan.velocity.append(self.max_velocity)
         else:
             for i, uid in enumerate(path2):
@@ -110,29 +117,47 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                     log.debug(f"Start lane: {lane.uid}, point IDX: {s_idx}")
                     for point in chop_path(lane.center_line.T, lane.id, s_idx, start=True):
                         self.global_plan.path.append(point)
-                        self.global_plan.left_boundary_d.append(lane.width/2 * lane_count_to_left +  lane.width/2)
-                        self.global_plan.right_boundary_d.append(-lane.width/2 - lane.width/2 * lane_count_to_right)
-                        
-                        self.global_plan.lane_left_boundary_d.append(lane.width/2)
-                        self.global_plan.lane_right_boundary_d.append(-lane.width/2)
+                        left_d, right_d = _inset_d(
+                            lane.width / 2 * lane_count_to_left + lane.width / 2,
+                            -lane.width / 2 - lane.width / 2 * lane_count_to_right,
+                            boundary_margin,
+                        )
+                        self.global_plan.left_boundary_d.append(left_d)
+                        self.global_plan.right_boundary_d.append(right_d)
+
+                        lane_left, lane_right = _inset_d(lane.width / 2, -lane.width / 2, boundary_margin)
+                        self.global_plan.lane_left_boundary_d.append(lane_left)
+                        self.global_plan.lane_right_boundary_d.append(lane_right)
                 elif i == len(path2) - 1:
                     log.debug(f"Goal lane: {lane.uid}, point IDX: {g_idx}")
                     for point in chop_path(lane.center_line.T, lane.id, g_idx, start=False):
                         self.global_plan.path.append(point)
-                        self.global_plan.left_boundary_d.append(lane.width/2 * lane_count_to_left +  lane.width/2)
-                        self.global_plan.right_boundary_d.append(-lane.width/2 - lane.width/2 * lane_count_to_right)
-                        
-                        self.global_plan.lane_left_boundary_d.append(lane.width/2)
-                        self.global_plan.lane_right_boundary_d.append(-lane.width/2)
+                        left_d, right_d = _inset_d(
+                            lane.width / 2 * lane_count_to_left + lane.width / 2,
+                            -lane.width / 2 - lane.width / 2 * lane_count_to_right,
+                            boundary_margin,
+                        )
+                        self.global_plan.left_boundary_d.append(left_d)
+                        self.global_plan.right_boundary_d.append(right_d)
+
+                        lane_left, lane_right = _inset_d(lane.width / 2, -lane.width / 2, boundary_margin)
+                        self.global_plan.lane_left_boundary_d.append(lane_left)
+                        self.global_plan.lane_right_boundary_d.append(lane_right)
                 else:
                     lane_path = lane.center_line.T if int(lane.id) < 0 else lane.center_line.T[::-1]
                     for point in lane_path:
                         self.global_plan.path.append(point)
-                        self.global_plan.left_boundary_d.append(lane.width/2 * lane_count_to_left +  lane.width/2)
-                        self.global_plan.right_boundary_d.append(-lane.width/2 - lane.width/2 * lane_count_to_right)
+                        left_d, right_d = _inset_d(
+                            lane.width / 2 * lane_count_to_left + lane.width / 2,
+                            -lane.width / 2 - lane.width / 2 * lane_count_to_right,
+                            boundary_margin,
+                        )
+                        self.global_plan.left_boundary_d.append(left_d)
+                        self.global_plan.right_boundary_d.append(right_d)
 
-                        self.global_plan.lane_left_boundary_d.append(lane.width/2)
-                        self.global_plan.lane_right_boundary_d.append(-lane.width/2)
+                        lane_left, lane_right = _inset_d(lane.width / 2, -lane.width / 2, boundary_margin)
+                        self.global_plan.lane_left_boundary_d.append(lane_left)
+                        self.global_plan.lane_right_boundary_d.append(lane_right)
        
         # setting velocity. It should start with zero to max vel for the first 20 points, then at max, then reduce to zero last 20 points
         n = len(self.global_plan.path)
