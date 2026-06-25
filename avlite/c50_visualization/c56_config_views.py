@@ -39,12 +39,14 @@ from avlite.c60_common.c69_setting_utils import (
     save_setting,
 )
 from avlite.c50_visualization.c58_ui_lib import (
+    BUTTON_TOOLTIPS,
     HoverTooltip,
     ThemedInputDialog,
     ThemedReadOnlyTwoFieldDialog,
     ThemedTwoInputDialog,
     TkSettingsBinder,
     attach_schema_tooltip,
+    attach_tooltip,
     get_dpi_scale,
     scaled,
 )
@@ -165,11 +167,21 @@ class ConfigShortcutView(ttk.LabelFrame):
         self.root.bind("<Escape>", lambda e: self.root.focus_set()) # Unfocus any entry fields including widgets.
         # ----------------------------------------------------------------------
 
-        ttk.Button(self, text="⚙" , command=self.open_settings_window, width=2).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Plugins", command=self.open_plugins_window).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Reload Stack", command=self.root.reload_stack).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Reset Config", command=self.root.load_configs).pack(side=tk.RIGHT)
-        ttk.Button(self, text="Save Config", command=self.save_config).pack(side=tk.RIGHT)
+        btn_settings = ttk.Button(self, text="⚙", command=self.open_settings_window, width=2)
+        btn_settings.pack(side=tk.RIGHT)
+        attach_tooltip(btn_settings, BUTTON_TOOLTIPS["toolbar_settings"])
+        btn_plugins = ttk.Button(self, text="Plugins", command=self.open_plugins_window)
+        btn_plugins.pack(side=tk.RIGHT)
+        attach_tooltip(btn_plugins, BUTTON_TOOLTIPS["toolbar_plugins"])
+        btn_reload = ttk.Button(self, text="Reload Stack", command=self.root.reload_stack)
+        btn_reload.pack(side=tk.RIGHT)
+        attach_tooltip(btn_reload, BUTTON_TOOLTIPS["toolbar_reload_stack"])
+        btn_reset = ttk.Button(self, text="Reset Config", command=self.root.load_configs)
+        btn_reset.pack(side=tk.RIGHT)
+        attach_tooltip(btn_reset, BUTTON_TOOLTIPS["toolbar_reset_config"])
+        btn_save = ttk.Button(self, text="Save Config", command=self.save_config)
+        btn_save.pack(side=tk.RIGHT)
+        attach_tooltip(btn_save, BUTTON_TOOLTIPS["toolbar_save_config"])
 
 
         self.profile_dropdown_menu = ttk.Combobox(self, width=10, textvariable=self.root.setting.selected_profile, state="readonly",
@@ -317,12 +329,24 @@ class SettingWindow:
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
         self.profile_dropdown_menu.grid(row=1, column=1, columnspan=2, padx=5, pady=5)
 
-        ttk.Button(profile_ext_frame, text="New", command=self.create_profile).grid(row=2, column=0, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Delete", command=self.delete_profile).grid(row=2, column=1, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Save", underline=0, command=self.save_profile).grid(row=2, column=2, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Export", command=self.export_profile_zip).grid(row=3, column=0, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Import", command=self.import_profile_zip).grid(row=3, column=1, padx=5, pady=5, sticky="we")
-        ttk.Button(profile_ext_frame, text="Rename", command=self.rename_profile).grid(row=3, column=2, padx=5, pady=5, sticky="we")
+        btn_profile_new = ttk.Button(profile_ext_frame, text="New", command=self.create_profile)
+        btn_profile_new.grid(row=2, column=0, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_new, BUTTON_TOOLTIPS["profile_new"])
+        btn_profile_delete = ttk.Button(profile_ext_frame, text="Delete", command=self.delete_profile)
+        btn_profile_delete.grid(row=2, column=1, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_delete, BUTTON_TOOLTIPS["profile_delete"])
+        btn_profile_save = ttk.Button(profile_ext_frame, text="Save", underline=0, command=self.save_profile)
+        btn_profile_save.grid(row=2, column=2, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_save, BUTTON_TOOLTIPS["profile_save"])
+        btn_profile_export = ttk.Button(profile_ext_frame, text="Export", command=self.export_profile_zip)
+        btn_profile_export.grid(row=3, column=0, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_export, BUTTON_TOOLTIPS["profile_export"])
+        btn_profile_import = ttk.Button(profile_ext_frame, text="Import", command=self.import_profile_zip)
+        btn_profile_import.grid(row=3, column=1, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_import, BUTTON_TOOLTIPS["profile_import"])
+        btn_profile_rename = ttk.Button(profile_ext_frame, text="Rename", command=self.rename_profile)
+        btn_profile_rename.grid(row=3, column=2, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_profile_rename, BUTTON_TOOLTIPS["profile_rename"])
 
         ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
         self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.root.setting.next_profile, state="readonly",)
@@ -331,15 +355,25 @@ class SettingWindow:
         # next_profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
         self.next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
         
-        ttk.Button( profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
-        ).grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        ttk.Button( profile_ext_frame, text="Reset all except Exectution", command= lambda: self.reset_to_to_source_stack_values(exclude_execution=True)
-        ).grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        btn_reset_all = ttk.Button(
+            profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
+        )
+        btn_reset_all.grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_reset_all, BUTTON_TOOLTIPS["profile_reset_all"])
+        btn_reset_non_exec = ttk.Button(
+            profile_ext_frame, text="Reset all except Exectution",
+            command=lambda: self.reset_to_to_source_stack_values(exclude_execution=True),
+        )
+        btn_reset_non_exec.grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="we")
+        attach_tooltip(btn_reset_non_exec, BUTTON_TOOLTIPS["profile_reset_non_exec"])
         if can_edit_repo_configs():
             self._edit_repo_configs_var = tk.BooleanVar(value=is_repo_config_target())
-            ttk.Checkbutton( profile_ext_frame, text="Edit repository configs", variable=self._edit_repo_configs_var,
+            cb_edit_repo = ttk.Checkbutton(
+                profile_ext_frame, text="Edit repository configs", variable=self._edit_repo_configs_var,
                 command=lambda: _setting_window_edit_repo_configs_toggle(self),
-            ).grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
+            )
+            cb_edit_repo.grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
+            attach_tooltip(cb_edit_repo, BUTTON_TOOLTIPS["edit_repo_configs"])
         ## Plugins
         ##############################################
         plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
@@ -351,8 +385,12 @@ class SettingWindow:
 
         listbox_height = max(6, scaled(10, _s))
 
-        ttk.Checkbutton(plugin_frame, text="Load Plugins" , variable=self.root.setting.load_plugins,
-            command=self._on_load_plugins_toggle).grid(row=0, column=0,columnspan=2, sticky="w", padx=5, pady=5)
+        cb_load_plugins = ttk.Checkbutton(
+            plugin_frame, text="Load Plugins", variable=self.root.setting.load_plugins,
+            command=self._on_load_plugins_toggle,
+        )
+        cb_load_plugins.grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        attach_schema_tooltip(cb_load_plugins, VisualizationSettings, "load_plugins")
 
         # built-in plugins
         ttk.Label(plugin_frame, text="Plugins").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
@@ -365,8 +403,12 @@ class SettingWindow:
         for plugin in ExecutionSettings.c40_default_plugins:
             self.listbox_default_plugins.insert(tk.END, plugin)
         
-        ttk.Button(plugin_frame, text="Reset Plugins", command=self.reset_default_plugins).grid(row=3, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin).grid(row=3, column=1, sticky="we", padx=5, pady=5)
+        btn_reset_plugins = ttk.Button(plugin_frame, text="Reset Plugins", command=self.reset_default_plugins)
+        btn_reset_plugins.grid(row=3, column=0, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_reset_plugins, BUTTON_TOOLTIPS["plugins_reset_builtin"])
+        btn_remove_builtin = ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin)
+        btn_remove_builtin.grid(row=3, column=1, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_remove_builtin, BUTTON_TOOLTIPS["plugins_remove_builtin"])
 
 
         # community plugins
@@ -387,14 +429,18 @@ class SettingWindow:
 
 
 
-        ttk.Button(plugin_frame, text="Reset to Installed", command=self.reset_community_plugins
-                   ).grid(row=6, column=0, columnspan=2, sticky="we", padx=5, pady=5)
-        ttk.Button(plugin_frame, text="Add Plugin", command=self.add_community_plugin).grid(row=7, column=0, sticky="we", padx=5, pady=5)
-        ttk.Button(plugin_frame, text="Remove Plugin", command=self.delete_community_plugin
-                   ).grid(row=7, column=1, sticky="we", padx=5, pady=5)
-        ttk.Button(plugin_frame, text="Browse Community Plugins…",
-                   command=self.open_plugins_window
-                   ).grid(row=8, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        btn_reset_community = ttk.Button(plugin_frame, text="Reset to Installed", command=self.reset_community_plugins)
+        btn_reset_community.grid(row=6, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_reset_community, BUTTON_TOOLTIPS["plugins_reset_community"])
+        btn_add_plugin = ttk.Button(plugin_frame, text="Add Plugin", command=self.add_community_plugin)
+        btn_add_plugin.grid(row=7, column=0, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_add_plugin, BUTTON_TOOLTIPS["plugins_add"])
+        btn_remove_community = ttk.Button(plugin_frame, text="Remove Plugin", command=self.delete_community_plugin)
+        btn_remove_community.grid(row=7, column=1, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_remove_community, BUTTON_TOOLTIPS["plugins_remove_community"])
+        btn_browse_plugins = ttk.Button(plugin_frame, text="Browse Community Plugins…", command=self.open_plugins_window)
+        btn_browse_plugins.grid(row=8, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        attach_tooltip(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
 
 
         #############################################
@@ -473,31 +519,54 @@ class SettingWindow:
         additional_setting_row_1 = ttk.Frame(additional_setting_frame)
         ttk.Label(additional_setting_row_1, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         additional_setting_row_1.pack(fill=tk.X)
-        ttk.Checkbutton(additional_setting_row_1, text="Legend", variable=self.root.setting.show_legend, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Locations", variable=self.root.setting.show_past_locations, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Global Plan", variable=self.root.setting.show_global_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Local Plan", variable=self.root.setting.show_local_plan, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Local Lattice", variable=self.root.setting.show_local_lattice, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="State", variable=self.root.setting.show_state, command=self.root.update_ui,).pack(anchor=tk.W, side=tk.LEFT)
+        for text, field in (
+            ("Legend", "show_legend"),
+            ("Locations", "show_past_locations"),
+            ("Global Plan", "show_global_plan"),
+            ("Local Plan", "show_local_plan"),
+            ("Local Lattice", "show_local_lattice"),
+            ("State", "show_state"),
+        ):
+            cb = ttk.Checkbutton(
+                additional_setting_row_1, text=text,
+                variable=getattr(self.root.setting, field), command=self.root.update_ui,
+            )
+            cb.pack(anchor=tk.W, side=tk.LEFT)
+            attach_schema_tooltip(cb, VisualizationSettings, field)
 
-        ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Global", variable=self.root.setting.global_view_follow_planner).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1, text="Follow Planner in Frenet", variable=self.root.setting.frenet_view_follow_planner).pack(side=tk.LEFT)
+        for text, field in (
+            ("Follow Planner in Global", "global_view_follow_planner"),
+            ("Follow Planner in Frenet", "frenet_view_follow_planner"),
+        ):
+            cb = ttk.Checkbutton(additional_setting_row_1, text=text, variable=getattr(self.root.setting, field))
+            cb.pack(side=tk.LEFT)
+            attach_schema_tooltip(cb, VisualizationSettings, field)
 
         additional_setting_row_1b = ttk.Frame(additional_setting_frame)
         additional_setting_row_1b.pack(fill=tk.X)
         ttk.Label(additional_setting_row_1b, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
-        ttk.Checkbutton(additional_setting_row_1b, text="Local Global View", variable=self.root.setting.show_local_global_view, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="Local Frenet View", variable=self.root.setting.show_local_frenet_view, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Global", variable=self.root.setting.show_lidar_global, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="LiDAR in Frenet", variable=self.root.setting.show_lidar_frenet, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="Clustered Pts", variable=self.root.setting.show_lidar_clusters, command=self.root.update_ui).pack(side=tk.LEFT)
-        ttk.Checkbutton(additional_setting_row_1b, text="Race Boundary", variable=self.root.setting.show_race_boundary, command=self.root.update_ui).pack(side=tk.LEFT)
+        for text, field in (
+            ("Local Global View", "show_local_global_view"),
+            ("Local Frenet View", "show_local_frenet_view"),
+            ("LiDAR in Global", "show_lidar_global"),
+            ("LiDAR in Frenet", "show_lidar_frenet"),
+            ("Clustered Pts", "show_lidar_clusters"),
+            ("Race Boundary", "show_race_boundary"),
+        ):
+            cb = ttk.Checkbutton(
+                additional_setting_row_1b, text=text,
+                variable=getattr(self.root.setting, field), command=self.root.update_ui,
+            )
+            cb.pack(side=tk.LEFT)
+            attach_schema_tooltip(cb, VisualizationSettings, field)
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
 
         ttk.Label(additional_setting_row_2, text="Log View:").pack(anchor=tk.W, side=tk.LEFT, padx=0)
-        ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.root.setting.log_view_expanded).pack(side=tk.LEFT)
+        cb_expand_log = ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.root.setting.log_view_expanded)
+        cb_expand_log.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_expand_log, VisualizationSettings, "log_view_expanded")
         
         ttk.Label(additional_setting_row_2, text="Default Log Height:").pack(side=tk.LEFT, padx=5)
         ttk.Entry(additional_setting_row_2, textvariable=self.root.setting.log_view_default_height, width=5,
@@ -510,9 +579,15 @@ class SettingWindow:
         additional_setting_row_3 = ttk.Frame(additional_setting_frame)
         additional_setting_row_3.pack(fill=tk.X, padx=0)
         ttk.Label(additional_setting_row_3, text="Menu bar:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
-        ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.root.setting.hide_menubar).pack(anchor=tk.W, side=tk.LEFT)
-        ttk.Button(additional_setting_row_2, text="Close",width=5, underline=0, command=self.hide).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(additional_setting_row_2, text="Save",width=5, underline=0, command=self.save_profile).pack(side=tk.RIGHT, padx=5)
+        cb_hide_menubar = ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.root.setting.hide_menubar)
+        cb_hide_menubar.pack(anchor=tk.W, side=tk.LEFT)
+        attach_schema_tooltip(cb_hide_menubar, VisualizationSettings, "hide_menubar")
+        btn_settings_close = ttk.Button(additional_setting_row_2, text="Close", width=5, underline=0, command=self.hide)
+        btn_settings_close.pack(side=tk.RIGHT, padx=5)
+        attach_tooltip(btn_settings_close, BUTTON_TOOLTIPS["settings_close"])
+        btn_settings_save = ttk.Button(additional_setting_row_2, text="Save", width=5, underline=0, command=self.save_profile)
+        btn_settings_save.pack(side=tk.RIGHT, padx=5)
+        attach_tooltip(btn_settings_save, BUTTON_TOOLTIPS["settings_save"])
 
     def reset_community_plugins(self):
         """Reset community plugins to all plugins installed under the plugins directory."""

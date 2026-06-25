@@ -190,10 +190,11 @@ def field_tooltip_text(schema_or_cls: Type[BaseModel] | Any, field_name: str) ->
         return None
     annotation = info.annotation
     type_name = getattr(annotation, "__name__", str(annotation))
-    if info.is_required():
-        return f"{desc} ({type_name})"
-    default = info.default
-    return f"{desc} ({type_name}, default={default!r})"
+    suffix = f"({type_name}"
+    if not info.is_required():
+        suffix += f", default={info.default!r}"
+    suffix += f", config_name: {field_name})"
+    return f"{desc} {suffix}"
 
 
 def describe_schema(

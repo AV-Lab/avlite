@@ -26,6 +26,8 @@ from typing import Optional
 import yaml
 
 from avlite.c50_visualization.c58_ui_lib import (
+    BUTTON_TOOLTIPS,
+    attach_tooltip,
     configure_treeview_style,
     get_dpi_scale,
     scaled,
@@ -525,18 +527,25 @@ class _PluginDetailsWindow:
         actions = ttk.Frame(footer)
         actions.pack(side=tk.LEFT)
         if self._repo_url:
-            ttk.Button(
+            btn_github = ttk.Button(
                 actions,
                 text="Open on GitHub",
                 command=lambda: webbrowser.open(self._repo_url),
-            ).pack(side=tk.LEFT, padx=(0, 6))
+            )
+            btn_github.pack(side=tk.LEFT, padx=(0, 6))
+            attach_tooltip(btn_github, BUTTON_TOOLTIPS["cp_github"])
         self.btn_install = ttk.Button(actions, text="Install", command=self._on_install)
         self.btn_install.pack(side=tk.LEFT, padx=(0, 6))
+        attach_tooltip(self.btn_install, BUTTON_TOOLTIPS["cp_install"])
         self.btn_uninstall = ttk.Button(actions, text="Uninstall", command=self._on_uninstall)
         self.btn_uninstall.pack(side=tk.LEFT, padx=(0, 6))
+        attach_tooltip(self.btn_uninstall, BUTTON_TOOLTIPS["cp_uninstall"])
         self.btn_update = ttk.Button(actions, text="Update", command=self._on_update)
         self.btn_update.pack(side=tk.LEFT, padx=(0, 6))
-        ttk.Button(footer, text="Close", command=self._on_close).pack(side=tk.RIGHT)
+        attach_tooltip(self.btn_update, BUTTON_TOOLTIPS["cp_update"])
+        btn_close = ttk.Button(footer, text="Close", command=self._on_close)
+        btn_close.pack(side=tk.RIGHT)
+        attach_tooltip(btn_close, BUTTON_TOOLTIPS["cp_close"])
 
         app._details_windows.append(self)
         self._sync_action_buttons()
@@ -768,11 +777,21 @@ class CommunityPluginsApp:
         self.btn_open = ttk.Button(toolbar_row2, text="Open Folder", command=self._open_folder)
         self.btn_close = ttk.Button(toolbar_row2, text="Close", command=self._on_close)
 
-        for b in (self.btn_refresh, self.btn_install, self.btn_uninstall, self.btn_update, self.btn_update_all):
+        for b, key in (
+            (self.btn_refresh, "cp_refresh"),
+            (self.btn_install, "cp_install"),
+            (self.btn_uninstall, "cp_uninstall"),
+            (self.btn_update, "cp_update"),
+            (self.btn_update_all, "cp_update_all"),
+        ):
             b.pack(side=tk.LEFT, padx=(0, 6))
+            attach_tooltip(b, BUTTON_TOOLTIPS[key])
         self.btn_github.pack(side=tk.LEFT, padx=(0, 6))
+        attach_tooltip(self.btn_github, BUTTON_TOOLTIPS["cp_github"])
         self.btn_open.pack(side=tk.LEFT, padx=(0, 6))
+        attach_tooltip(self.btn_open, BUTTON_TOOLTIPS["cp_open_folder"])
         self.btn_close.pack(side=tk.RIGHT)
+        attach_tooltip(self.btn_close, BUTTON_TOOLTIPS["cp_close"])
 
         # Status bar
         self.status_var = tk.StringVar(value="Ready")

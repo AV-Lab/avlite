@@ -72,7 +72,7 @@ def test_field_tooltip_text_description_first():
     tip = field_tooltip_text(ExecutionSettings, "c40_control_dt")
     assert tip is not None
     assert tip.startswith("Control loop period")
-    assert tip.endswith("(float, default=0.05)")
+    assert tip.endswith("(float, default=0.05, config_name: c40_control_dt)")
 
 
 def test_load_setting_valid_profile(tmp_path):

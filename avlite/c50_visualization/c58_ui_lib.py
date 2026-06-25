@@ -382,12 +382,77 @@ class HoverTooltip:
             self._tip = None
 
 
+def attach_tooltip(widget, text: str) -> None:
+    if text:
+        HoverTooltip(widget, text)
+
+
 def attach_schema_tooltip(widget, settings_cls, field_name: str) -> None:
     from avlite.c60_common.c68_settings_schema import field_tooltip_text
 
-    tip = field_tooltip_text(settings_cls, field_name)
-    if tip:
-        HoverTooltip(widget, tip)
+    attach_tooltip(widget, field_tooltip_text(settings_cls, field_name) or "")
+
+
+BUTTON_TOOLTIPS: dict[str, str] = {
+    # Toolbar
+    "toolbar_settings": "Open settings to edit profiles, plugins, and visualization options.",
+    "toolbar_plugins": "Browse and install community plugins from GitHub.",
+    "toolbar_reload_stack": "Rebuild the perception, planning, control, and execution stack with current settings.",
+    "toolbar_reset_config": "Reload configuration from disk and discard unsaved UI changes.",
+    "toolbar_save_config": "Save the current settings to the active profile YAML files.",
+    # Execution
+    "exec_start": "Run the simulation loop continuously at the configured rates.",
+    "exec_stop": "Stop the loop and halt the world bridge.",
+    "exec_step": "Advance one execution tick without continuous run.",
+    "exec_reset": "Reset the executer and world to the initial state.",
+    # Planning
+    "plan_global_replan": "Recompute the global route from the map and planner.",
+    "plan_save_global": "Save the current global plan to a JSON file.",
+    "plan_set_waypoint": "Jump the local planner to the waypoint index in the field.",
+    "plan_wp_back": "Move to the previous waypoint on the global plan.",
+    "plan_step": "Advance the local planner to the next waypoint.",
+    "plan_align": "Snap the planned path to the current ego pose.",
+    "plan_local_replan": "Replan the local trajectory from the current waypoint.",
+    # Control
+    "control_step": "Run one control cycle and update the gauges.",
+    "control_align": "Re-align the controller with the current ego state.",
+    "control_steer_left": "Nudge steering left (manual override).",
+    "control_steer_right": "Nudge steering right (manual override).",
+    "control_accel": "Apply a short acceleration pulse (manual override).",
+    "control_decel": "Apply a short brake pulse (manual override).",
+    # Log
+    "log_clear": "Clear the log output.",
+    "log_copy": "Copy log text to the clipboard.",
+    "log_toggle_height": "Expand or collapse the log panel.",
+    # Settings window — profiles
+    "profile_new": "Create a new execution profile folder.",
+    "profile_delete": "Delete the selected profile.",
+    "profile_save": "Save all settings into the selected profile.",
+    "profile_export": "Export the profile as a zip archive.",
+    "profile_import": "Import a profile from a zip archive.",
+    "profile_rename": "Rename the selected profile.",
+    "profile_reset_all": "Reset every module setting to source-code defaults.",
+    "profile_reset_non_exec": "Reset all settings except execution to defaults.",
+    # Settings window — plugins
+    "plugins_reset_builtin": "Restore the built-in plugin list to defaults.",
+    "plugins_remove_builtin": "Remove the selected built-in plugin entry.",
+    "plugins_reset_community": "Sync community plugin list with installed packages.",
+    "plugins_add": "Add a community plugin entry manually.",
+    "plugins_remove_community": "Remove the selected community plugin entry.",
+    "plugins_browse": "Open the community plugins browser.",
+    "settings_close": "Close the settings window without saving.",
+    "settings_save": "Save profile and close the settings window.",
+    "edit_repo_configs": "Write profile changes to repository config files instead of user data.",
+    # Community plugins
+    "cp_refresh": "Refresh the plugin list from the registry.",
+    "cp_install": "Install the selected plugin.",
+    "cp_uninstall": "Uninstall the selected plugin.",
+    "cp_update": "Update the selected plugin to the latest version.",
+    "cp_update_all": "Update all installed plugins that have updates.",
+    "cp_github": "Open the plugin repository on GitHub.",
+    "cp_open_folder": "Open the plugin install folder in the file manager.",
+    "cp_close": "Close this window.",
+}
 
 
 class TkSettingsBinder:
