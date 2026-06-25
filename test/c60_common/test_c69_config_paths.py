@@ -146,6 +146,33 @@ def test_get_data_dir_honors_env(monkeypatch, tmp_path):
     assert get_data_dir() == tmp_path.resolve()
 
 
+def test_get_data_dir_default_under_config_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("AVLITE_DATA_DIR", raising=False)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    assert get_data_dir() == get_config_dir() / "data"
+
+
+def test_get_data_dir_follows_config_dir(monkeypatch, tmp_path):
+    config_dir = tmp_path / "custom_config"
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.delenv("AVLITE_DATA_DIR", raising=False)
+    assert get_data_dir() == (config_dir / "data").resolve()
+
+
+def test_get_absolute_path_read_falls_back_to_legacy_share_data(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_DATA_DIR", raising=False)
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    legacy_data = tmp_path / ".local" / "share" / "avlite" / "data"
+    legacy_data.mkdir(parents=True)
+    legacy_file = legacy_data / "san_campus.xodr"
+    legacy_file.write_text("legacy copy")
+    path = get_absolute_path(SAMPLE_MAP)
+    assert Path(path) == legacy_file.resolve()
+
+
 def test_get_absolute_path_read_falls_back_to_repo(monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_DATA_DIR", str(tmp_path / "user_data"))
     path = get_absolute_path(SAMPLE_MAP)

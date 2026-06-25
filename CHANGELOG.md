@@ -17,9 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Community plugin import skips `.venv`, `site-packages`, and similar vendor directories
 
 ### Changed
+- User data directory for maps and trajectories is now `~/.config/avlite/data/` (override with `AVLITE_DATA_DIR`)
+- **Save Global Plan** (Planning panel ⬇) opens a native save dialog in `~/.config/avlite/data/` instead of a typed path prompt
 - **Breaking:** Renamed `avlite/extensions/` → `avlite/plugins/` with `pNx` package naming (e.g. `p40_executer_ROS2`, `p40_bridge_carla`)
 - **Breaking:** Renamed `configs/ext_*.yaml` → `configs/plugin_*.yaml`; `ExtensionSettings` → `PluginSettings`; `load_extensions` → `load_plugins`; `c40_default_extensions` → `c40_default_plugins`
-- **Migration:** Rename saved `ext_*.yaml` files under `~/.config/avlite/` to matching `plugin_*.yaml`, or reset user YAML manually / use **Edit repository configs** to edit repo defaults directly
 - Renamed `c60_common` modules: `c61_capabilities`, `c62_sensor_data`, `c66_hdmap`, `c68_settings_schema`, `c69_setting_utils` (update imports if you extend AVLite)
 - **Use repository configs** superseded by **Edit repository configs** (path switch instead of deleting local YAML)
 

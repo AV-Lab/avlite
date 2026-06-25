@@ -63,6 +63,7 @@ python -m avlite
 2. **Start Stack**: Click "Start/Stop Stack" to begin simulation
 3. **Spawn NPCs**: Right-click on the plot to add vehicles
 4. **Adjust Parameters**: Modify settings in real-time through the GUI panels
+5. **Save Global Plan**: Use ⬇ in the Planning panel to export the current plan as JSON (save dialog opens in `~/.config/avlite/data/`)
 
 ### 3. Basic Workflow
 
@@ -164,10 +165,10 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 | **Shipped defaults** (read-only in git) | `{repo}/configs/*.yaml` | — |
 | **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
 | **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/` | `AVLITE_PLUGINS_DIR` |
-| **Maps & trajectories** | Read: `~/.local/share/avlite/data/` then `{repo}/data/`; save: user dir only | `AVLITE_DATA_DIR` |
+| **Maps & trajectories** | Read: `~/.config/avlite/data/` then `{repo}/data/`; save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
 | **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
 
-Paths stored as `data/...` in YAML are resolved against the user data directory first, then the repository `data/` folder. Saved global plans and other writes never go into the repo tree.
+Paths stored as `data/...` in YAML are resolved against the user data directory first, then the repository `data/` folder. Saved global plans and other writes never go into the repo tree. In the GUI, **Save Global Plan** (Planning panel ⬇) opens a file picker in `~/.config/avlite/data/` with a timestamped default filename.
 
 User and repo config files share the **same basenames** (`c10_perception.yaml`, `c40_execution.yaml`, `plugin_ros_executer.yaml`, …).
 

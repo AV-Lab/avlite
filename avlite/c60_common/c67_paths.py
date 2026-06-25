@@ -12,21 +12,22 @@ from pathlib import Path
 DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
 
 
+def _xdg_config_base() -> Path:
+    xdg = os.environ.get("XDG_CONFIG_HOME", "").strip()
+    return Path(xdg).expanduser() if xdg else Path.home() / ".config"
+
+
 def get_config_dir() -> Path:
     """User AVLite config root (~/.config/avlite by default)."""
     env = os.environ.get("AVLITE_CONFIG_DIR", "").strip()
     if env:
         return Path(env).expanduser().resolve()
-    xdg = os.environ.get("XDG_CONFIG_HOME", "").strip()
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".config"
-    return (base / "avlite").resolve()
+    return (_xdg_config_base() / "avlite").resolve()
 
 
 def _user_meta_dir() -> Path:
     """Preferences always under ~/.config/avlite (ignores ``AVLITE_CONFIG_DIR``)."""
-    xdg = os.environ.get("XDG_CONFIG_HOME", "").strip()
-    base = Path(xdg).expanduser() if xdg else Path.home() / ".config"
-    return (base / "avlite").resolve()
+    return (_xdg_config_base() / "avlite").resolve()
 
 
 def bundled_config_dir() -> Path:
@@ -212,14 +213,18 @@ def normalize_community_plugins_map(plugins: dict[str, str]) -> dict[str, str]:
     }
 
 
-def get_data_dir() -> Path:
-    """User data directory (~/.local/share/avlite/data by default)."""
-    env = os.environ.get("AVLITE_DATA_DIR", "").strip()
-    if env:
-        return Path(env).expanduser().resolve()
+def _legacy_data_dir() -> Path:
     xdg = os.environ.get("XDG_DATA_HOME", "").strip()
     base = Path(xdg).expanduser() if xdg else Path.home() / ".local" / "share"
     return (base / "avlite" / "data").resolve()
+
+
+def get_data_dir() -> Path:
+    """User data directory (~/.config/avlite/data by default)."""
+    env = os.environ.get("AVLITE_DATA_DIR", "").strip()
+    if env:
+        return Path(env).expanduser().resolve()
+    return (get_config_dir() / "data").resolve()
 
 
 def get_absolute_path(relative_path: str, *, for_write: bool = False) -> str:
@@ -246,6 +251,9 @@ def get_absolute_path(relative_path: str, *, for_write: bool = False) -> str:
     user_path = get_data_dir() / rel
     if user_path.is_file():
         return str(user_path)
+    legacy_path = _legacy_data_dir() / rel
+    if legacy_path.is_file():
+        return str(legacy_path)
     return str(repo_path)
 
 

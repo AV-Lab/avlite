@@ -35,21 +35,6 @@ Built-in plugins use `configs/plugin_*.yaml` in the repo and the same basename u
 
 Community and built-in plugins keep `PluginSettings` in `settings.py` with unprefixed snake_case parameters. See [Plugin Development](plugin-development.md).
 
-## Migrating from `ext_*.yaml`
-
-If you have saved plugin configs from an older AVLite version, rename files under `~/.config/avlite/`:
-
-| Old | New |
-|-----|-----|
-| `ext_ros_executer.yaml` | `plugin_ros_executer.yaml` |
-| `ext_ROS2_worldbridge.yaml` | `plugin_ROS2_worldbridge.yaml` |
-| `ext_carla.yaml` | `plugin_carla.yaml` |
-| `ext_gazebo_worldbridge.yaml` | `plugin_gazebo_worldbridge.yaml` |
-| `ext_headless_mode.yaml` | `plugin_headless_mode.yaml` |
-| `ext_multi_object_predictor.yaml` | `plugin_multi_object_predictor.yaml` |
-
-Alternatively, enable **Edit repository configs** in the settings window to switch read/write to shipped `configs/` directly (git clone only), or copy files manually into `~/.config/avlite/`.
-
 ## Validation and field docs
 
 Each settings module defines a Pydantic `*SettingsSchema` with types, defaults, and `Field(description=...)`. YAML profiles are validated on load/save and on profile zip export/import.
@@ -65,13 +50,3 @@ python -m avlite config describe --layer execution --field c40_control_dt
 ```
 
 Hover a field in the settings window (`T`) or on main-page controls to see its schema description (type and default in parentheses).
-
-## Migrating saved profiles
-
-After the prefix refactor, run once:
-
-```bash
-python scripts/migrate_settings_keys.py
-```
-
-Use `--dry-run` to preview changes. Custom YAML profiles under `~/.config/avlite/` need the same key renames.
