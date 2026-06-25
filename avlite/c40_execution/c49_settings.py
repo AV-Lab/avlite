@@ -19,6 +19,10 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_sim_dt: float = Field(default=0.01, description="Simulation step period (seconds).", ge=0.001)
     c40_global_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="Default global plan JSON path.")
     c40_hd_map: str = Field(default="data/san_campus.xodr", description="HD map OpenDRIVE file path.")
+    c40_reference_point: list[float] | None = Field(
+        default=None,
+        description="WGS84 map origin (lat, lon) in degrees; derived from selected map or set manually.",
+    )
     c40_community_plugins: dict[str, str] = Field(default_factory=dict, description="Community plugin name to directory map.")
     c40_default_plugins: list[str] = Field(default_factory=list, description="Built-in plugins to load on startup.")
     c40_async_combined_perception_planning: bool = Field(default=True, description="Run perception and planning concurrently.")
@@ -31,7 +35,6 @@ class ExecutionSettingsSchema(SettingsSchema):
     c41_provide_depth: bool = Field(default=False, description="Bridge exposes depth camera data.")
 
     c43_race_boundary_map: str = Field(default="data/race_boundary_yas_marina.json", description="Race boundary JSON for centerline planner.")
-    c43_race_boundary_margin: float = Field(default=0.0, description="Inflation margin applied to race boundary (m).")
 
     c46_default_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="BasicSim default trajectory path.")
     c46_npc_speed_factor: float = Field(default=0.8, description="NPC speed as fraction of plan speed.")
@@ -62,6 +65,7 @@ class ExecutionSettings:
     c40_sim_dt = 0.01
     c40_global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
     c40_hd_map = "data/san_campus.xodr"
+    c40_reference_point: list[float] | None = [24.46992202098782, 54.60522506805341]
     c40_community_plugins: dict[str, str] = {}
     c40_default_plugins: list[str] = []
     c40_async_combined_perception_planning: bool = True
@@ -74,7 +78,6 @@ class ExecutionSettings:
     c41_provide_depth = False
 
     c43_race_boundary_map: str = "data/race_boundary_yas_marina.map.json"
-    c43_race_boundary_margin: float = 0.0
 
     c46_default_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
     c46_npc_speed_factor = 0.8

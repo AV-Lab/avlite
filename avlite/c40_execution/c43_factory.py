@@ -1,3 +1,4 @@
+import inspect
 import logging
 
 
@@ -31,6 +32,7 @@ from avlite.c40_execution.c46_basic_sim import BasicSim
 
 
 log = logging.getLogger(__name__)
+
 
 def executor_factory(
     executer_type = ExecutionSettings.c40_executer_type,
@@ -78,7 +80,6 @@ def executor_factory(
         )
         _fallback_planner = GlobalCenterlineRacePlanner(
             get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-            margin=ExecutionSettings.c43_race_boundary_margin,
         )
         default_global_plan = _fallback_planner.plan()
 
@@ -99,9 +100,8 @@ def executor_factory(
         elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
             gp = GlobalCenterlineRacePlanner(
                 get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-                margin=ExecutionSettings.c43_race_boundary_margin,
             )
-            gp.plan()
+            gp.global_plan = default_global_plan
         elif global_planner_strategy_name in GlobalPlannerStrategy.registry:
             cls = GlobalPlannerStrategy.registry[global_planner_strategy_name]
             gp = cls()
@@ -110,18 +110,15 @@ def executor_factory(
             log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
             gp = GlobalCenterlineRacePlanner(
                 get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-                margin=ExecutionSettings.c43_race_boundary_margin,
             )
-            gp.plan()
+            gp.global_plan = default_global_plan
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
         gp = GlobalCenterlineRacePlanner(
             get_absolute_path(ExecutionSettings.c43_race_boundary_map),
-            margin=ExecutionSettings.c43_race_boundary_margin,
         )
-        gp.plan()
-        
+        gp.global_plan = default_global_plan
 
     ##############################
     # Loading perception strategy
@@ -201,12 +198,12 @@ def executor_factory(
         if bridge in WorldBridge.registry:
             log.info(f"Loading registered world bridge {bridge}...")
             cls = WorldBridge.registry[bridge]
-            world = cls(ego_state=ego_state, pm=world_pm)
+            world = cls(**_bridge_kwargs(cls, ego_state, world_pm))
         else:
-            world = BasicSim(ego_state=ego_state, pm = world_pm)
+            world = BasicSim(**_bridge_kwargs(BasicSim, ego_state, world_pm))
     except Exception as e:
         log.error(f"Error loading world bridge {bridge}: {e}")
-        world = BasicSim(ego_state=ego_state, pm = world_pm)  # fallback to BasicSim
+        world = BasicSim(**_bridge_kwargs(BasicSim, ego_state, world_pm))  # fallback to BasicSim
 
 
 
@@ -244,3 +241,22 @@ def executor_factory(
     if executer is not None:
         executer._requested_executer_type = executer_type
     return executer
+
+
+def _reference_point_tuple() -> tuple[float, float] | None:
+    ref = ExecutionSettings.c40_reference_point
+    if ref and len(ref) >= 2:
+        return float(ref[0]), float(ref[1])
+    return None
+
+
+def _bridge_kwargs(cls, ego_state: EgoState, world_pm: PerceptionModel) -> dict:
+    params = inspect.signature(cls.__init__).parameters
+    kwargs: dict = {}
+    if "ego_state" in params:
+        kwargs["ego_state"] = ego_state
+    if "pm" in params:
+        kwargs["pm"] = world_pm
+    if "reference_point" in params:
+        kwargs["reference_point"] = _reference_point_tuple()
+    return kwargs

@@ -32,7 +32,8 @@ class GazeboIgnitionBridge(WorldBridge, Node if ROS_AVAILABLE else object):
             WorldCapability.CAMERA_RGB,
             WorldCapability.LIDAR_3D
         }
-    def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default", controller: Optional[ControlStrategy] = None):
+    def __init__(self, ego_state: Optional[EgoState], model_name: str = "gen0_model", world_name: str = "default", controller: Optional[ControlStrategy] = None, reference_point: tuple[float, float] | None = None):
+        self.reference_point = reference_point
         """
         Initialize Gazebo Ignition Bridge
         

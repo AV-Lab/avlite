@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import math
 import os
+import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
@@ -248,3 +252,214 @@ def get_absolute_path(relative_path: str, *, for_write: bool = False) -> str:
 def builtin_plugins_dir() -> Path:
     """Shipped built-in plugin packages under ``avlite/plugins/``."""
     return Path(__file__).resolve().parent.parent / "plugins"
+
+
+def _repo_data_dir() -> Path:
+    return Path(__file__).resolve().parent.parent.parent / "data"
+
+
+def _normalise_geo_degrees(lat: float, lon: float) -> tuple[float, float]:
+    """Return WGS84 lat/lon in degrees (OpenDRIVE PROJ may use radians)."""
+    if max(abs(lat), abs(lon)) <= math.pi:
+        lat, lon = math.degrees(lat), math.degrees(lon)
+    return lat, lon
+
+
+def _parse_proj_lat_lon(proj: str) -> tuple[float, float] | None:
+    lat_m = re.search(r"\+lat_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+    lon_m = re.search(r"\+lon_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+    if not lat_m or not lon_m:
+        return None
+    return _normalise_geo_degrees(float(lat_m.group(1)), float(lon_m.group(1)))
+
+
+def is_race_boundary_json(abs_path: Path | str) -> bool:
+    """True when *abs_path* is a race-boundary JSON with bounds and ReferencePoint."""
+    path = Path(abs_path)
+    if path.suffix.lower() != ".json" or not path.is_file():
+        return False
+    try:
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not all(k in data for k in ("LeftBound", "RightBound", "ReferencePoint")):
+        return False
+    left = data["LeftBound"]
+    right = data["RightBound"]
+    if not left or not right:
+        return False
+    if not isinstance(left[0], list) or not isinstance(right[0], list):
+        return False
+    ref = data["ReferencePoint"]
+    if not isinstance(ref, list) or len(ref) < 2:
+        return False
+    try:
+        float(ref[0])
+        float(ref[1])
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def is_global_plan_json(abs_path: Path | str) -> bool:
+    """True when *abs_path* is a trajectory JSON loadable by ``GlobalPlan.from_file``."""
+    path = Path(abs_path)
+    if path.suffix.lower() != ".json" or not path.is_file():
+        return False
+    try:
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not all(k in data for k in ("ReferenceLine", "ReferenceSpeed", "LeftBound", "RightBound")):
+        return False
+    ref_line = data["ReferenceLine"]
+    ref_speed = data["ReferenceSpeed"]
+    left = data["LeftBound"]
+    right = data["RightBound"]
+    if not ref_line or not ref_speed or not left or not right:
+        return False
+    if not isinstance(ref_line[0], list) or len(ref_line[0]) < 2:
+        return False
+    try:
+        float(ref_line[0][0])
+        float(ref_line[0][1])
+    except (TypeError, ValueError, IndexError):
+        return False
+    if isinstance(left[0], list) or isinstance(right[0], list):
+        return False
+    try:
+        float(left[0])
+        float(right[0])
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def extract_reference_point_from_race_json(abs_path: Path | str) -> tuple[float, float] | None:
+    path = Path(abs_path)
+    if not is_race_boundary_json(path):
+        return None
+    with path.open(encoding="utf-8") as f:
+        ref = json.load(f)["ReferencePoint"]
+    return float(ref[0]), float(ref[1])
+
+
+def extract_reference_point_from_xodr(abs_path: Path | str) -> tuple[float, float] | None:
+    path = Path(abs_path)
+    if path.suffix.lower() != ".xodr" or not path.is_file():
+        return None
+    try:
+        root = ET.parse(path).getroot()
+    except (ET.ParseError, OSError):
+        return None
+    header = root.find("header")
+    if header is None:
+        return None
+    geo = header.find("geoReference")
+    if geo is None or not (geo.text and geo.text.strip()):
+        return None
+    return _parse_proj_lat_lon(geo.text.strip())
+
+
+def extract_reference_point_from_map(rel_path: str) -> tuple[float, float] | None:
+    """Extract WGS84 (lat_deg, lon_deg) from a repo/user ``data/...`` map path."""
+    abs_path = Path(get_absolute_path(rel_path))
+    if rel_path.endswith(".xodr"):
+        return extract_reference_point_from_xodr(abs_path)
+    if is_race_boundary_json(abs_path):
+        return extract_reference_point_from_race_json(abs_path)
+    return None
+
+
+def _relative_data_path(file_path: Path, data_root: Path) -> str | None:
+    try:
+        rel = file_path.relative_to(data_root)
+    except ValueError:
+        return None
+    return "data/" + rel.as_posix()
+
+
+def _iter_data_files(*roots: Path):
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*"):
+            if path.is_file():
+                yield path, root
+
+
+def list_map_file_candidates() -> list[str]:
+    """Sorted ``data/...`` paths for OpenDRIVE maps and race-boundary JSON files."""
+    repo_data = _repo_data_dir()
+    user_data = get_data_dir()
+    seen: set[str] = set()
+    candidates: list[str] = []
+
+    for path, root in _iter_data_files(user_data, repo_data):
+        rel = _relative_data_path(path, root)
+        if rel is None or rel in seen:
+            continue
+        if path.suffix.lower() == ".xodr":
+            seen.add(rel)
+            candidates.append(rel)
+        elif is_race_boundary_json(path):
+            seen.add(rel)
+            candidates.append(rel)
+
+    return sorted(candidates)
+
+
+def list_global_plan_file_candidates() -> list[str]:
+    """Sorted ``data/...`` paths for global-plan trajectory JSON files."""
+    repo_data = _repo_data_dir()
+    user_data = get_data_dir()
+    seen: set[str] = set()
+    candidates: list[str] = []
+
+    for path, root in _iter_data_files(user_data, repo_data):
+        rel = _relative_data_path(path, root)
+        if rel is None or rel in seen:
+            continue
+        if is_global_plan_json(path):
+            seen.add(rel)
+            candidates.append(rel)
+
+    return sorted(candidates)
+
+
+def apply_map_selection(rel_path: str) -> None:
+    """Route *rel_path* to execution map settings and update reference point."""
+    from avlite.c40_execution.c49_settings import ExecutionSettings
+
+    if rel_path.endswith(".xodr"):
+        ExecutionSettings.c40_hd_map = rel_path
+    elif is_race_boundary_json(get_absolute_path(rel_path)):
+        ExecutionSettings.c43_race_boundary_map = rel_path
+    ref = extract_reference_point_from_map(rel_path)
+    ExecutionSettings.c40_reference_point = list(ref) if ref else None
+
+
+def apply_global_plan_selection(rel_path: str) -> None:
+    """Set ``c40_global_trajectory`` when *rel_path* is a valid global-plan JSON."""
+    from avlite.c40_execution.c49_settings import ExecutionSettings
+
+    if is_global_plan_json(get_absolute_path(rel_path)):
+        ExecutionSettings.c40_global_trajectory = rel_path
+
+
+def bootstrap_reference_point_from_maps() -> None:
+    """Fill ``c40_reference_point`` from configured maps when YAML omits it."""
+    from avlite.c40_execution.c49_settings import ExecutionSettings
+
+    if ExecutionSettings.c40_reference_point is not None:
+        return
+    for rel_path in (
+        ExecutionSettings.c43_race_boundary_map,
+        ExecutionSettings.c40_hd_map,
+    ):
+        ref = extract_reference_point_from_map(rel_path)
+        if ref is not None:
+            ExecutionSettings.c40_reference_point = list(ref)
+            return

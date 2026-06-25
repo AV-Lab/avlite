@@ -202,6 +202,10 @@ def load_all_stack_settings(profile: str = "default", load_plugins: bool = True)
     load_setting(ControlSettings, profile=profile)
     load_setting(ExecutionSettings, profile=profile)
 
+    from avlite.c60_common.c67_paths import bootstrap_reference_point_from_maps
+
+    bootstrap_reference_point_from_maps()
+
     if not load_plugins:
         return
 

@@ -27,6 +27,7 @@ class WorldBridge(ABC):
 
     ego_state: EgoState
     perception_model: Optional[PerceptionModel] = None  # Simulators can provide ground truth perception model
+    reference_point: tuple[float, float] | None = None  # WGS84 (lat_deg, lon_deg) map origin
 
     registry = {}
 

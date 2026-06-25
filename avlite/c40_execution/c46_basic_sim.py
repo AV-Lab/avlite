@@ -31,10 +31,12 @@ class BasicSim(WorldBridge):
 
     def __init__(self,ego_state:EgoState, pm:Optional[PerceptionModel] = None,
                  controller: Optional[ControlStrategy] = None,
-                 setting: Type[ExecutionSettings] = ExecutionSettings):
+                 setting: Type[ExecutionSettings] = ExecutionSettings,
+                 reference_point: tuple[float, float] | None = None):
         self.setting = setting
         self.ego_state = ego_state
         self.pm = pm
+        self.reference_point = reference_point
         self.ego_controller = controller
         self.supports_ground_truth_detection = True
         self.supports_ground_truth_localization = True

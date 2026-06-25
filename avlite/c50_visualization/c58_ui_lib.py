@@ -211,6 +211,78 @@ class ThemedTwoInputDialog:
         self.dialog.destroy()
 
 
+class ThemedListPickerDialog:
+    """Modal list picker; returns selected item text or None."""
+
+    def __init__(
+        self,
+        parent,
+        title: str,
+        items: list[str],
+        *,
+        initial: str | None = None,
+    ):
+        self.result: str | None = None
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.transient(parent)
+        s = get_dpi_scale(self.dialog, parent=parent)
+        self.dialog.bind("<Escape>", lambda _e: self.on_cancel())
+
+        frame = ttk.Frame(self.dialog)
+        frame.pack(fill=tk.X)
+
+        list_frame = ttk.Frame(frame)
+        list_frame.pack(side=tk.TOP, fill=tk.X)
+
+        listbox_height = max(1, min(16, len(items)))
+        self.listbox = tk.Listbox(
+            list_frame,
+            height=listbox_height,
+            selectmode=tk.SINGLE,
+            exportselection=False,
+            width=max(30, scaled(40, s)),
+        )
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.listbox.yview)
+        self.listbox.configure(yscrollcommand=scrollbar.set)
+        self.listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        if len(items) > listbox_height:
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for item in items:
+            self.listbox.insert(tk.END, item)
+
+        if initial and initial in items:
+            idx = items.index(initial)
+            self.listbox.selection_set(idx)
+            self.listbox.see(idx)
+
+        self.listbox.bind("<Double-Button-1>", lambda _e: self.on_ok())
+        self.listbox.bind("<Return>", lambda _e: self.on_ok())
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=4)
+        ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT, padx=4)
+
+        self.dialog.update_idletasks()
+        self.dialog.minsize(self.dialog.winfo_reqwidth(), self.dialog.winfo_reqheight())
+        self.dialog.resizable(False, False)
+        self.dialog.deiconify()
+        self.dialog.wait_visibility()
+        self.dialog.grab_set()
+        self.dialog.wait_window()
+
+    def on_ok(self):
+        sel = self.listbox.curselection()
+        if sel:
+            self.result = self.listbox.get(sel[0])
+        self.dialog.destroy()
+
+    def on_cancel(self):
+        self.dialog.destroy()
+
+
 class ThemedReadOnlyTwoFieldDialog:
     """Show two read-only label/value pairs (view-only)."""
 

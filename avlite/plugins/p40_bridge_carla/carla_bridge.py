@@ -41,10 +41,12 @@ class Carla5Bridge(WorldBridge):
 
     def __init__(
         self, ego_state: Optional[EgoState], host="localhost", port=2000, scene_name="/Game/Carla/Maps/Town10HD_Opt", timeout=10.0,
-        controller: Optional[ControlStrategy] = None
+        controller: Optional[ControlStrategy] = None,
+        reference_point: tuple[float, float] | None = None,
     ):
         self.supports_ground_truth_detection = True
         self.supports_ground_truth_localization = True
+        self.reference_point = reference_point
 
         self.client = None
         self.world = None

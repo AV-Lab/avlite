@@ -181,7 +181,7 @@ class ROS2WorldBridge(WorldBridge, Node if ROS_AVAILABLE else object):
             caps.add(WorldCapability.LIDAR_3D)
         return caps
 
-    def __init__(self, ego_state: Optional[EgoState] = None, pm: Optional[PerceptionModel] = None):
+    def __init__(self, ego_state: Optional[EgoState] = None, pm: Optional[PerceptionModel] = None, reference_point: tuple[float, float] | None = None):
         if not ROS_AVAILABLE:
             raise RuntimeError("rclpy is not available. Install and source ROS2 first.")
 
@@ -191,6 +191,7 @@ class ROS2WorldBridge(WorldBridge, Node if ROS_AVAILABLE else object):
             ego_state = EgoState(x=0.0, y=0.0, theta=0.0)
         self.ego_state = ego_state
         self.perception_model = pm if pm is not None else PerceptionModel(ego_vehicle=ego_state)
+        self.reference_point = reference_point
 
         self._lock = threading.Lock()
         self.settings = PluginSettings()
