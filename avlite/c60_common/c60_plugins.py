@@ -123,8 +123,8 @@ def load_builtin_plugin_settings(plugin: str):
         if cls is not None:
             # Built-in plugins do not declare a filepath; derive it from the
             # plugin directory name and wire the legacy name as a read fallback.
-            type(cls).filepath = plugin_settings_filepath(plugin)
-            type(cls).legacy_filepath = legacy_plugin_settings_filepath(plugin)
+            _set_settings_filepath(cls, plugin_settings_filepath(plugin))
+            _set_settings_legacy_filepath(cls, legacy_plugin_settings_filepath(plugin))
         return cls
     except Exception as e:
         log.warning("Could not load PluginSettings for '%s': %s", plugin, e)
@@ -149,13 +149,28 @@ def load_plugin_settings_class(name: str, plugin_path: str):
         return None
 
 
-def patch_plugin_settings(cls, name: str, plugin_path: str) -> None:
-    """Derive and set the settings ``filepath`` on *cls* so save/load_setting work.
+def _set_settings_filepath(setting, filepath: str) -> None:
+    """Assign ``filepath`` on a plugin settings class or singleton instance."""
+    if isinstance(setting, type):
+        setting.filepath = filepath
+    else:
+        type(setting).filepath = filepath
 
-    Plugins do not declare a filepath; it is derived from the plugin name. ``cls`` is
-    a settings singleton instance, so the path is set on its model class.
+
+def _set_settings_legacy_filepath(setting, legacy: str | None) -> None:
+    if isinstance(setting, type):
+        setting.legacy_filepath = legacy
+    else:
+        type(setting).legacy_filepath = legacy
+
+
+def patch_plugin_settings(setting, name: str, plugin_path: str) -> None:
+    """Derive and set the settings ``filepath`` so save/load_setting work.
+
+    *setting* may be a class singleton or a settings instance; the path is derived
+    from the plugin name.
     """
-    type(cls).filepath = community_plugin_settings_filepath(name)
+    _set_settings_filepath(setting, community_plugin_settings_filepath(name))
 
 
 def load_community_plugin_setting(
@@ -178,9 +193,9 @@ def load_community_plugin_setting(
     if not user_path.is_file():
         legacy = legacy_community_plugin_settings_path(name, stored)
         if legacy.is_file():
-            type(cls).filepath = str(legacy)
+            _set_settings_filepath(cls, str(legacy))
     load_setting(cls, profile=profile, binder=binder)
-    if type(cls).filepath != user_filepath:
+    if getattr(cls, "filepath", "") != user_filepath:
         patch_plugin_settings(cls, name, install_path)
     return cls
 

@@ -533,6 +533,23 @@ def _font_scale_from_default() -> float:
         return _DPI_MIN
 
 
+def setup_dpi() -> None:
+    """Configure process DPI awareness and Tk OpenGL before any window is created."""
+    import platform
+
+    if platform.system() == "Linux":
+        os.environ.setdefault("TK_WINDOWS_FORCE_OPENGL", "1")
+        # GDK_SCALE (when set by the desktop) is read by get_dpi_scale().
+    else:
+        import ctypes
+
+        try:  # >= win 8.
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except (AttributeError, OSError):  # win 8.0 or less
+            ctypes.windll.user32.SetProcessDPIAware()
+        os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
+
+
 def get_dpi_scale(widget: tk.Misc, parent: tk.Misc | None = None) -> float:
     """Pixels-per-inch normalised to 96 dpi, with font and GDK fallbacks."""
     if parent is not None:

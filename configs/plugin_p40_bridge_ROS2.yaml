@@ -1,0 +1,9 @@
+perception:
+  base_frame: base_link
+  control_out_topic: /control/command/control_cmd
+  lidar_topic: /sensing/lidar/concatenated/pointcloud
+  localization_topic: /localization/kinematic_state
+  map_frame: map
+  perception_topic: /perception/object_recognition/tracking/objects
+  rgb_topic: /sensing/camera/traffic_light/image_raw
+  use_autoware_msgs: true

@@ -15,6 +15,7 @@ from avlite.c50_visualization.c58_ui_lib import (
     TkSettingsBinder,
     get_dpi_scale,
     scaled,
+    setup_dpi,
 )
 from avlite.c50_visualization.c59_settings import VisualizationSettings, load_stack_plugins
 from avlite.c50_visualization.c55_log_view import LogView
@@ -32,6 +33,7 @@ class VisualizerApp(tk.Tk):
     exec: SyncExecuter | None
 
     def __init__(self):
+        setup_dpi()
         super().__init__()
         self._dpi_scale: float = get_dpi_scale(self)
         self.exec = None

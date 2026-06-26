@@ -32,6 +32,7 @@ from avlite.c50_visualization.c58_ui_lib import (
     get_dpi_scale,
     scaled,
     scaled_font,
+    setup_dpi,
 )
 
 log = logging.getLogger(__name__)
@@ -672,6 +673,7 @@ class CommunityPluginsApp:
         self._owns_root = parent is None
 
         if parent is None:
+            setup_dpi()
             self.window: tk.Misc = tk.Tk()
         else:
             self.window = tk.Toplevel(parent)

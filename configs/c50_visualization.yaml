@@ -453,6 +453,7 @@ perception:
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  default_map_file: data/race_boundary_yas_marina.map.json
   detection_strategy_type: FastBEVLidarDetection
   disable_log: false
   exec_control: true
