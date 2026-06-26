@@ -7,7 +7,7 @@ Closest Point (ICP).  It works with 2D scans ``(N, 2)`` and 3D point clouds
 ``(N, 3+)``; 3D input is "squashed" to 2D by keeping only points whose height
 lies within ``[z_min, z_max]`` and then dropping the z (and intensity) columns.
 """
-from typing import Optional, Type
+from typing import Optional
 
 import logging
 
@@ -15,7 +15,7 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
 from avlite.c60_common.c62_sensor_data import SensorFrame
 from avlite.c60_common.c61_capabilities import (
     AnyOf,
@@ -55,21 +55,15 @@ class LidarLocalization(LocalizationStrategy):
     def __init__(
         self,
         perception_model: PerceptionModel,
-        setting: Type[PerceptionSettings] = PerceptionSettings,
-        z_min: float = PerceptionSettings.c16_localization_lidar_z_min,
-        z_max: float = PerceptionSettings.c16_localization_lidar_z_max,
-        max_iterations: int = PerceptionSettings.c16_localization_icp_max_iterations,
-        tolerance: float = PerceptionSettings.c16_localization_icp_tolerance,
-        max_correspondence_dist: float = PerceptionSettings.c16_localization_icp_max_correspondence_dist,
-        map_subsample: int = PerceptionSettings.c16_localization_map_subsample,
+        setting: PerceptionSettingsSchema = PerceptionSettings,
     ):
         super().__init__(perception_model, setting)
-        self._z_min = z_min
-        self._z_max = z_max
-        self._max_iterations = max_iterations
-        self._tolerance = tolerance
-        self._max_correspondence_dist = max_correspondence_dist
-        self._map_subsample = max(1, int(map_subsample))
+        self._z_min = setting.c16_localization_lidar_z_min
+        self._z_max = setting.c16_localization_lidar_z_max
+        self._max_iterations = setting.c16_localization_icp_max_iterations
+        self._tolerance = setting.c16_localization_icp_tolerance
+        self._max_correspondence_dist = setting.c16_localization_icp_max_correspondence_dist
+        self._map_subsample = max(1, int(setting.c16_localization_map_subsample))
 
         # Running pose estimate (x, y, theta); reference map of 2D points.
         self._x: Optional[float] = None

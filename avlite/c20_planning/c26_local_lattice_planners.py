@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING, Type
+from typing import Optional, TYPE_CHECKING
 import math
 import time
 
@@ -10,7 +10,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c27_lattice import Lattice, Node, Edge
-from avlite.c20_planning.c29_settings import PlanningSettings
+from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
     def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel,
                  planning_horizon: int = 3, num_of_edge_points: int = 10,
                  controller: Optional['ControlStrategy'] = None,
-                 setting: Type[PlanningSettings] = PlanningSettings):
+                 setting: PlanningSettingsSchema = PlanningSettings):
         super().__init__(global_plan=global_plan, pm=pm, controller=controller, setting=setting)
 
         self.planning_horizon: int = planning_horizon
@@ -232,7 +232,7 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
 
 
 class GreedyLatticePlanner(LatticePlanningStrategy):
-    def __init__(self, global_plan: GlobalPlan, env: PerceptionModel, setting: Type[PlanningSettings] = PlanningSettings, controller=None):
+    def __init__(self, global_plan: GlobalPlan, env: PerceptionModel, setting: PlanningSettingsSchema = PlanningSettings, controller=None):
 
         super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.c26_num_of_edge_points, planning_horizon=setting.c26_planning_horizon, controller=controller, setting=setting)
         self.maneuver_distance: float = setting.c26_maneuver_distance

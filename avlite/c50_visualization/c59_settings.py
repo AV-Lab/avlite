@@ -16,6 +16,9 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c42_executer import Executer
 from avlite.c60_common.c67_paths import apply_map_selection, apply_global_plan_selection, data_picker_path_for_setting
 
+from pydantic import Field
+from avlite.c60_common.c68_settings_schema import SettingsSchema
+
 log = logging.getLogger(__name__)
 
 
@@ -263,8 +266,6 @@ def _sync_exec_dt(attr: str, value: float) -> None:
         pass
 
 
-from pydantic import Field
-from avlite.c60_common.c68_settings_schema import SettingsSchema
 
 
 class VisualizationSettingsSchema(SettingsSchema):

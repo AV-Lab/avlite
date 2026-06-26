@@ -15,6 +15,7 @@ from avlite.c60_common.c60_plugins import list_plugins, load_builtin_plugin_sett
 from avlite.c60_common.c68_settings_schema import (
     SettingsValidationError,
     describe_schema,
+    schema_of,
     validate_profile,
 )
 
@@ -72,7 +73,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     settings_classes = _stack_settings() + _plugin_settings()
 
     for settings_cls in settings_classes:
-        schema = getattr(settings_cls, "schema", None)
+        schema = schema_of(settings_cls)
         if schema is None:
             continue
         filepath = Path(effective_config_path(settings_cls.filepath))
@@ -107,7 +108,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
         if key not in layers:
             print(f"Unknown layer '{args.layer}'. Choose from: {', '.join(sorted(layers))}", file=sys.stderr)
             return 1
-        schema = layers[key].schema
+        schema = schema_of(layers[key])
         for line in describe_schema(schema, field_filter=args.field):
             print(line)
         return 0
@@ -117,7 +118,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
         return 1
 
     for name, settings_cls in sorted(layers.items()):
-        schema = getattr(settings_cls, "schema", None)
+        schema = schema_of(settings_cls)
         if schema is None:
             continue
         print(f"[{name}]")

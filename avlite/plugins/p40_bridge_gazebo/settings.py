@@ -5,7 +5,5 @@ class PluginSettingsSchema(SettingsSchema):
     pass
 
 
-class PluginSettings:
-    schema = PluginSettingsSchema
-    exclude = ["exclude", "filepath", "schema"]
-    filepath: str = "configs/plugin_gazebo_worldbridge.yaml"
+# Settings singleton; filepath is assigned by the plugin loader from the directory name.
+PluginSettings = PluginSettingsSchema()

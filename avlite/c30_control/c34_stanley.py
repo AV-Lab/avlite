@@ -7,36 +7,34 @@ from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import LocalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c30_control.c39_settings import ControlSettings
+from avlite.c30_control.c39_settings import ControlSettings, ControlSettingsSchema
 
 log = logging.getLogger(__name__)
 
 class StanleyController(ControlStrategy):
-    def __init__(self, tj:Optional[TrajectoryTracker]=None, k=ControlSettings.c34_stanley_k, k_soft=ControlSettings.c34_stanley_k_soft,
-                 lookahead=ControlSettings.c34_stanley_lookahead, valpha=ControlSettings.c34_stanley_valpha, vbeta=ControlSettings.c34_stanley_vbeta,
-                 vgamma=ControlSettings.c34_stanley_vgamma, slow_down_cte=ControlSettings.c34_stanley_slow_down_cte,
-                 slow_down_heading_cte=ControlSettings.c34_stanley_slow_down_heading_cte,
-                 slow_down_vel_threshold=ControlSettings.c34_stanley_slow_down_vel_threshold):
+    def __init__(self, tj:Optional[TrajectoryTracker]=None, setting: ControlSettingsSchema = ControlSettings):
         """
         Stanley Controller for trajectory following. The controller also slows down the vehicle if steer CTE is > 0.5
+
         :param tj: Trajectory to follow.
-        :param k: Gain for steering control.
-        :param k_soft: Softening factor for steering control (at low speed).
-        :param lookahead: Lookahead distance for trajectory following.
-        :param valpha, vbeta, vgamma: Parameters for velocity control (not used in this implementation).
-        :param slow_down_cte: Threshold for slowing down based on steering CTE.
-        :param slow_down_vel_threshold: Threshold for slowing down based on steering CTE.
+        :param setting: Control settings the gains/thresholds are read from (defaults to
+            the live ``ControlSettings`` singleton; inject a stub for tests).
+
+        Reads (from ``setting``): ``c34_stanley_k`` (steering gain), ``c34_stanley_k_soft``
+        (low-speed softening), ``c34_stanley_lookahead``, velocity gains
+        ``c34_stanley_valpha``/``vbeta``/``vgamma``, and the slow-down thresholds
+        ``c34_stanley_slow_down_cte``/``slow_down_heading_cte``/``slow_down_vel_threshold``.
         """
         super().__init__(tj)
-        self.lookahead = lookahead
-        self.k = k
-        self.k_soft = k_soft
+        self.lookahead = setting.c34_stanley_lookahead
+        self.k = setting.c34_stanley_k
+        self.k_soft = setting.c34_stanley_k_soft
         self.cte_steer = 0
-        self.slow_down_cte = slow_down_cte  # threshold for slowing down based on steering CTE
-        self.slow_down_heading_cte = slow_down_heading_cte
-        self.slow_down_vel_threshold = slow_down_vel_threshold # threshold for slowing down based on steering CTE
-        
-        self.valpha, self.vbeta, self.vgamma = valpha, vbeta, vgamma
+        self.slow_down_cte = setting.c34_stanley_slow_down_cte  # threshold for slowing down based on steering CTE
+        self.slow_down_heading_cte = setting.c34_stanley_slow_down_heading_cte
+        self.slow_down_vel_threshold = setting.c34_stanley_slow_down_vel_threshold # threshold for slowing down based on steering CTE
+
+        self.valpha, self.vbeta, self.vgamma = setting.c34_stanley_valpha, setting.c34_stanley_vbeta, setting.c34_stanley_vgamma
         self.cte_v_sum = 0
         self.cte_velocity = 0
         self.previous_cte_velocity = 0  # For D-term calculation

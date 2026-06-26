@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, Type
+from typing import Any, ClassVar, Protocol, Type
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.fields import FieldInfo
 
-SETTINGS_META = frozenset({"exclude", "filepath", "schema"})
+SETTINGS_META = frozenset({"exclude", "filepath", "legacy_filepath", "schema"})
 
 
 class SettingsBinder(Protocol):
@@ -41,6 +41,53 @@ class PlainBinder:
 
 class SettingsSchema(BaseModel):
     model_config = ConfigDict(extra="ignore")
+
+    # YAML location for this settings group. Core layers override with a fixed path;
+    # plugins leave it blank and the plugin loader fills it in from the plugin's
+    # directory name (see c67_paths.plugin_settings_filepath). ``legacy_filepath`` is
+    # an optional old basename used only as a read fallback during migrations.
+    filepath: ClassVar[str] = ""
+    legacy_filepath: ClassVar[str | None] = None
+
+
+def schema_of(setting: Any) -> Type[BaseModel] | None:
+    """Resolve the Pydantic schema class for a settings instance, model class, or legacy class.
+
+    - A ``SettingsSchema`` instance (the new singleton form) returns its own type.
+    - A ``BaseModel`` subclass returns itself.
+    - A legacy plain class (e.g. the Tk-backed visualization settings) returns its
+      ``schema`` attribute.
+    """
+    if isinstance(setting, type):
+        if issubclass(setting, BaseModel):
+            return setting
+        return getattr(setting, "schema", None)
+    if isinstance(setting, BaseModel):
+        return type(setting)
+    return getattr(type(setting), "schema", None)
+
+
+def setting_key(setting: Any) -> str:
+    """Stable identifier for a settings class or singleton instance.
+
+    Instances report their model class name with a trailing ``Schema`` stripped so
+    that, e.g., the ``ExecutionSettings`` singleton keys as ``"ExecutionSettings"``.
+    """
+    name = getattr(setting, "__name__", None) or type(setting).__name__
+    return name[:-6] if name.endswith("Schema") else name
+
+
+def reset_to_defaults(setting: Any) -> None:
+    """Re-apply each schema field's default onto *setting* in place (preserving identity)."""
+    schema = schema_of(setting)
+    if schema is None:
+        return
+    for name, info in schema.model_fields.items():
+        if name in SETTINGS_META:
+            continue
+        if not hasattr(setting, name):
+            continue
+        setattr(setting, name, info.get_default(call_default_factory=True))
 
 
 class SettingsValidationError(Exception):
@@ -164,9 +211,7 @@ def dump_from_setting(
 
 def field_description(schema_or_cls: Type[BaseModel] | Any, field_name: str) -> str | None:
     """Return Pydantic Field description for a settings field, if any."""
-    schema = schema_or_cls
-    if not isinstance(schema, type) or not issubclass(schema, BaseModel):
-        schema = getattr(schema_or_cls, "schema", None)
+    schema = schema_of(schema_or_cls)
     if schema is None:
         return None
     info: FieldInfo | None = schema.model_fields.get(field_name)
@@ -177,9 +222,7 @@ def field_description(schema_or_cls: Type[BaseModel] | Any, field_name: str) -> 
 
 def field_tooltip_text(schema_or_cls: Type[BaseModel] | Any, field_name: str) -> str | None:
     """Build tooltip text: description first, then type/default in brackets."""
-    schema = schema_or_cls
-    if not isinstance(schema, type) or not issubclass(schema, BaseModel):
-        schema = getattr(schema_or_cls, "schema", None)
+    schema = schema_of(schema_or_cls)
     if schema is None:
         return None
     info = schema.model_fields.get(field_name)

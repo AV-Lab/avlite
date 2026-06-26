@@ -18,6 +18,7 @@ from avlite.c60_common.c68_settings_schema import (
     SettingsValidationError,
     apply_validated_to_setting,
     dump_from_setting,
+    schema_of,
     validate_profile,
 )
 from avlite.c60_common.c67_paths import (
@@ -25,10 +26,45 @@ from avlite.c60_common.c67_paths import (
     community_plugin_settings_filepath,
     effective_config_path,
     get_config_dir,
+    legacy_plugin_settings_filepath,
+    plugin_settings_filepath,
     resolve_plugin_path,
 )
 
 log = logging.getLogger(__name__)
+
+
+def _setting_module(setting) -> str:
+    return setting.__module__ if isinstance(setting, type) else type(setting).__module__
+
+
+def _plugin_dir_from_module(setting) -> str | None:
+    """Return the plugin directory name if *setting* lives under ``avlite.plugins``."""
+    parts = _setting_module(setting).split(".")
+    if len(parts) >= 3 and parts[0] == "avlite" and parts[1] == "plugins":
+        return parts[2]
+    return None
+
+
+def stored_filepath(setting) -> str:
+    """Resolve the YAML filepath token for *setting*.
+
+    Uses an explicit ``filepath`` when set; otherwise, for plugin settings imported
+    directly (no loader patch), derives ``configs/plugin_<dir>.yaml`` from the module.
+    """
+    fp = getattr(setting, "filepath", "") or ""
+    if fp:
+        return fp
+    plugin_dir = _plugin_dir_from_module(setting)
+    return plugin_settings_filepath(plugin_dir) if plugin_dir else fp
+
+
+def _legacy_filepath(setting) -> str | None:
+    legacy = getattr(setting, "legacy_filepath", None)
+    if legacy:
+        return legacy
+    plugin_dir = _plugin_dir_from_module(setting)
+    return legacy_plugin_settings_filepath(plugin_dir) if plugin_dir else None
 
 
 class SettingsBinder(Protocol):
@@ -43,9 +79,7 @@ def _setting_exclude(setting) -> set[str]:
 
 
 def _get_schema(setting):
-    if isinstance(setting, type):
-        return getattr(setting, "schema", None)
-    return getattr(type(setting), "schema", None)
+    return schema_of(setting)
 
 
 def save_setting(
@@ -56,7 +90,7 @@ def save_setting(
 ) -> None:
     """Save current configuration to a YAML file."""
     bind = binder or PlainBinder()
-    stored = setting.filepath if not isinstance(setting, type) else setting.filepath
+    stored = stored_filepath(setting)
     filepath = effective_config_path(stored, for_write=True)
     schema = _get_schema(setting)
 
@@ -95,8 +129,17 @@ def load_setting(
 ) -> bool:
     """Load configuration from a YAML file. Returns True on success."""
     bind = binder or PlainBinder()
-    stored = setting.filepath if not isinstance(setting, type) else setting.filepath
+    stored = stored_filepath(setting)
     filepath = effective_config_path(stored, for_write=False)
+    # Migration read fallback: if the current (new) file is absent but a legacy
+    # filename exists, read from it. Writes still target the resolved filepath.
+    if not os.path.exists(filepath):
+        legacy = _legacy_filepath(setting)
+        if legacy:
+            legacy_path = effective_config_path(legacy, for_write=False)
+            if os.path.exists(legacy_path):
+                log.debug("Loading %s from legacy path %s", stored, legacy_path)
+                filepath = legacy_path
     schema = _get_schema(setting)
     try:
         with open(filepath, "r") as f:
@@ -154,7 +197,7 @@ def load_setting(
 
 def delete_setting_profile(setting, profile) -> bool:
     """Delete a profile from the configuration file."""
-    filepath = effective_config_path(setting.filepath, for_write=True)
+    filepath = effective_config_path(stored_filepath(setting), for_write=True)
     if profile == "default":
         log.warning("Cannot delete the 'default' profile.")
         return False
@@ -181,7 +224,7 @@ def delete_setting_profile(setting, profile) -> bool:
 
 def rename_setting_profile(setting, old_profile, new_profile) -> bool:
     """Rename a profile in the configuration file."""
-    filepath = effective_config_path(setting.filepath, for_write=True)
+    filepath = effective_config_path(stored_filepath(setting), for_write=True)
     if old_profile == "default":
         log.warning("Cannot rename the 'default' profile.")
         return False
@@ -211,7 +254,7 @@ def rename_setting_profile(setting, old_profile, new_profile) -> bool:
 
 def list_profiles(setting) -> list:
     """List all profiles in the configuration file."""
-    filepath = effective_config_path(setting.filepath, for_write=False)
+    filepath = effective_config_path(stored_filepath(setting), for_write=False)
     try:
         with open(filepath, "r") as f:
             config = yaml.safe_load(f)
@@ -259,7 +302,7 @@ def _settings_class_for_basename(basename: str) -> Any | None:
     if _settings_by_basename is None:
         _settings_by_basename = {}
         for cls in _all_settings_classes():
-            _settings_by_basename[Path(cls.filepath).name] = cls
+            _settings_by_basename[Path(stored_filepath(cls)).name] = cls
     return _settings_by_basename.get(basename)
 
 
@@ -316,7 +359,7 @@ def iter_profile_sources(
     sources: dict[str, Path] = {}
 
     for cls in _all_settings_classes():
-        read_path = Path(effective_config_path(cls.filepath, for_write=False))
+        read_path = Path(effective_config_path(stored_filepath(cls), for_write=False))
         if _profile_dict_in_file(read_path, profile) is not None:
             sources[read_path.name] = read_path
 

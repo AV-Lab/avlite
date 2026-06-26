@@ -173,14 +173,48 @@ def community_plugin_settings_display_path(name: str) -> str:
     )
 
 
+def plugin_settings_basename(name: str) -> str:
+    """YAML basename for a plugin's settings, derived from its directory name.
+
+    Used for both built-in and community plugins so the settings filename is always
+    ``plugin_<dir>.yaml`` (e.g. ``p40_bridge_carla`` -> ``plugin_p40_bridge_carla.yaml``).
+    """
+    return f"plugin_{name}.yaml"
+
+
+def plugin_settings_filepath(name: str) -> str:
+    """Stored filepath token for plugin settings (resolved via ``effective_config_path``)."""
+    return f"configs/{plugin_settings_basename(name)}"
+
+
+# Old, hand-chosen config filenames for built-in plugins, kept only as a read
+# fallback so existing user profiles keep loading after the rename to the
+# directory-name scheme. New writes always use ``plugin_settings_filepath``.
+_LEGACY_PLUGIN_CONFIG: dict[str, str] = {
+    "p40_executer_ROS2": "configs/plugin_ros_executer.yaml",
+    "p50_headless_mode": "configs/plugin_headless_mode.yaml",
+    "p40_bridge_ROS2": "configs/plugin_ROS2_worldbridge.yaml",
+    "p30_controller_joystick": "configs/plugin_controller_joystick.yaml",
+    "p10_perception_MO_prediction": "configs/plugin_multi_object_predictor.yaml",
+    "p40_bridge_gazebo": "configs/plugin_gazebo_worldbridge.yaml",
+    "p40_bridge_carla": "configs/plugin_carla.yaml",
+}
+
+
+def legacy_plugin_settings_filepath(name: str) -> str | None:
+    """Pre-rename config filepath for a built-in plugin, or ``None`` if unmapped."""
+    return _LEGACY_PLUGIN_CONFIG.get(name)
+
+
+# Backwards-compatible aliases (community plugins use the same scheme).
 def community_plugin_settings_basename(name: str) -> str:
     """YAML basename for community plugin profiles under the user config dir."""
-    return f"plugin_{name}.yaml"
+    return plugin_settings_basename(name)
 
 
 def community_plugin_settings_filepath(name: str) -> str:
     """Stored filepath token for community plugin settings (via ``effective_config_path``)."""
-    return f"configs/{community_plugin_settings_basename(name)}"
+    return plugin_settings_filepath(name)
 
 
 def legacy_community_plugin_settings_path(name: str, stored: str) -> Path:

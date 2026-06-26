@@ -80,13 +80,13 @@ def test_load_setting_valid_profile(tmp_path):
     filepath.write_text(yaml.dump({"default": {"c40_bridge": "BasicSim", "c40_control_dt": 0.01}}))
     original_bridge = ExecutionSettings.c40_bridge
     original_dt = ExecutionSettings.c40_control_dt
-    ExecutionSettings.filepath = str(filepath)
+    ExecutionSettingsSchema.filepath = str(filepath)
     try:
         assert load_setting(ExecutionSettings, profile="default") is True
         assert ExecutionSettings.c40_bridge == "BasicSim"
         assert ExecutionSettings.c40_control_dt == 0.01
     finally:
-        ExecutionSettings.filepath = "configs/c40_execution.yaml"
+        ExecutionSettingsSchema.filepath = "configs/c40_execution.yaml"
         ExecutionSettings.c40_bridge = original_bridge
         ExecutionSettings.c40_control_dt = original_dt
 
@@ -95,12 +95,12 @@ def test_load_setting_invalid_type(tmp_path):
     filepath = tmp_path / "exec.yaml"
     filepath.write_text(yaml.dump({"default": {"c40_control_dt": "bad"}}))
     original_dt = ExecutionSettings.c40_control_dt
-    ExecutionSettings.filepath = str(filepath)
+    ExecutionSettingsSchema.filepath = str(filepath)
     try:
         assert load_setting(ExecutionSettings, profile="default") is False
         assert ExecutionSettings.c40_control_dt == original_dt
     finally:
-        ExecutionSettings.filepath = "configs/c40_execution.yaml"
+        ExecutionSettingsSchema.filepath = "configs/c40_execution.yaml"
         ExecutionSettings.c40_control_dt = original_dt
 
 
@@ -108,7 +108,7 @@ def test_save_setting_round_trip(tmp_path):
     filepath = tmp_path / "exec.yaml"
     filepath.write_text(yaml.dump({"other": {"c40_bridge": "X"}}))
     original_bridge = ExecutionSettings.c40_bridge
-    ExecutionSettings.filepath = str(filepath)
+    ExecutionSettingsSchema.filepath = str(filepath)
     ExecutionSettings.c40_bridge = "RoundTripBridge"
     try:
         save_setting(ExecutionSettings, profile="testprof")
@@ -120,7 +120,7 @@ def test_save_setting_round_trip(tmp_path):
         model = validate_profile(ExecutionSettingsSchema, saved["testprof"])
         assert model.c40_bridge == "RoundTripBridge"
     finally:
-        ExecutionSettings.filepath = "configs/c40_execution.yaml"
+        ExecutionSettingsSchema.filepath = "configs/c40_execution.yaml"
         ExecutionSettings.c40_bridge = original_bridge
 
 
@@ -175,3 +175,45 @@ def test_run_config_command_help_subcommand(capsys):
     out = capsys.readouterr().out
     assert "validate" in out
     assert "describe" in out
+
+
+def test_reset_to_defaults_preserves_identity():
+    from avlite.c60_common.c68_settings_schema import reset_to_defaults
+
+    before_id = id(ExecutionSettings)
+    original = ExecutionSettings.c40_bridge
+    try:
+        ExecutionSettings.c40_bridge = "MutatedBridge"
+        reset_to_defaults(ExecutionSettings)
+        # Singleton identity must be preserved so injected references see the reset.
+        assert id(ExecutionSettings) is not None and id(ExecutionSettings) == before_id
+        assert ExecutionSettings.c40_bridge == ExecutionSettingsSchema.model_fields["c40_bridge"].default
+    finally:
+        ExecutionSettings.c40_bridge = original
+
+
+def test_tuning_knob_reaches_controller_without_code_reload():
+    """Regression: mutating the settings singleton (as a profile load does) must reach
+    a freshly built controller via a plain factory/constructor call, with no module reload."""
+    from avlite.c30_control.c34_stanley import StanleyController
+    from avlite.c30_control.c39_settings import ControlSettings
+
+    original = ControlSettings.c34_stanley_k
+    try:
+        ControlSettings.c34_stanley_k = original + 3.0
+        controller = StanleyController()
+        assert controller.k == original + 3.0
+    finally:
+        ControlSettings.c34_stanley_k = original
+
+
+def test_plugin_settings_filepath_from_directory_name():
+    from avlite.c60_common.c67_paths import (
+        legacy_plugin_settings_filepath,
+        plugin_settings_filepath,
+    )
+
+    assert plugin_settings_filepath("p40_bridge_carla") == "configs/plugin_p40_bridge_carla.yaml"
+    # Old hand-chosen name retained only as a read fallback for existing profiles.
+    assert legacy_plugin_settings_filepath("p40_bridge_carla") == "configs/plugin_carla.yaml"
+    assert legacy_plugin_settings_filepath("unmapped_plugin_dir") is None

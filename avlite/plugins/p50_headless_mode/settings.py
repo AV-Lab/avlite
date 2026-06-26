@@ -9,11 +9,5 @@ class PluginSettingsSchema(SettingsSchema):
     stats_panel_height: int = Field(default=18, description="Rows reserved for stats panel in dashboard.")
 
 
-class PluginSettings:
-    schema = PluginSettingsSchema
-    exclude = ["exclude", "filepath", "schema"]
-    filepath: str = "configs/plugin_headless_mode.yaml"
-
-    log_buffer_size: int = 500
-    dashboard_refresh_hz: float = 10.0
-    stats_panel_height: int = 18
+# Settings singleton; filepath is assigned by the plugin loader from the directory name.
+PluginSettings = PluginSettingsSchema()

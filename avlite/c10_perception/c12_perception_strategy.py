@@ -1,8 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Type
 from avlite.c10_perception.c11_perception_model import PerceptionModel
-from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
 from avlite.c60_common.c61_capabilities import WorldCapability, PerceptionCapability
 from avlite.c60_common.c62_sensor_data import SensorFrame
 
@@ -15,7 +14,7 @@ class PerceptionStrategy(ABC):
     This class defines the interface for perception strategies, including methods for detection, tracking, and prediction
     """
     registry = {}
-    def __init__(self, perception_model: PerceptionModel, setting:Type[PerceptionSettings] = PerceptionSettings):
+    def __init__(self, perception_model: PerceptionModel, setting: PerceptionSettingsSchema = PerceptionSettings):
         self.perception_model = perception_model
     
     @property
@@ -115,7 +114,7 @@ class PerceptionPipeline(PerceptionStrategy):
     Each stage is resolved by name from its registry at construction time.
     Empty name or unknown name means that stage is skipped.
     """
-    def __init__(self, perception_model: PerceptionModel, setting: Type[PerceptionSettings] = PerceptionSettings):
+    def __init__(self, perception_model: PerceptionModel, setting: PerceptionSettingsSchema = PerceptionSettings):
         super().__init__(perception_model, setting)
         self._detector = self._resolve(DetectionStrategy.registry, setting.c12_detection_strategy)
         self._tracker = self._resolve(TrackingStrategy.registry, setting.c12_tracking_strategy)

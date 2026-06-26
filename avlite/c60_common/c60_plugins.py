@@ -15,6 +15,8 @@ from avlite.c60_common.c67_paths import (
     community_plugin_settings_filepath,
     effective_config_path,
     legacy_community_plugin_settings_path,
+    legacy_plugin_settings_filepath,
+    plugin_settings_filepath,
     resolve_plugin_path,
 )
 
@@ -119,9 +121,10 @@ def load_builtin_plugin_settings(plugin: str):
         spec.loader.exec_module(module)
         cls = getattr(module, "PluginSettings", None)
         if cls is not None:
-            plugin_schema = getattr(module, "PluginSettingsSchema", None)
-            if plugin_schema is not None and not hasattr(cls, "schema"):
-                cls.schema = plugin_schema
+            # Built-in plugins do not declare a filepath; derive it from the
+            # plugin directory name and wire the legacy name as a read fallback.
+            type(cls).filepath = plugin_settings_filepath(plugin)
+            type(cls).legacy_filepath = legacy_plugin_settings_filepath(plugin)
         return cls
     except Exception as e:
         log.warning("Could not load PluginSettings for '%s': %s", plugin, e)
@@ -140,10 +143,6 @@ def load_plugin_settings_class(name: str, plugin_path: str):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         cls = getattr(module, "PluginSettings", None)
-        if cls is not None:
-            plugin_schema = getattr(module, "PluginSettingsSchema", None)
-            if plugin_schema is not None:
-                cls.schema = plugin_schema
         return cls
     except Exception as e:
         log.warning("Could not load PluginSettings for '%s': %s", name, e)
@@ -151,15 +150,12 @@ def load_plugin_settings_class(name: str, plugin_path: str):
 
 
 def patch_plugin_settings(cls, name: str, plugin_path: str) -> None:
-    """Inject ``filepath`` and ``exclude`` onto *cls* so save/load_setting work."""
-    cls.filepath = community_plugin_settings_filepath(name)
-    if not hasattr(cls, "exclude"):
-        cls.exclude = ["exclude", "filepath", "schema"]
-    else:
-        cls.exclude = list(cls.exclude)
-        for key in ("filepath", "schema"):
-            if key not in cls.exclude:
-                cls.exclude.append(key)
+    """Derive and set the settings ``filepath`` on *cls* so save/load_setting work.
+
+    Plugins do not declare a filepath; it is derived from the plugin name. ``cls`` is
+    a settings singleton instance, so the path is set on its model class.
+    """
+    type(cls).filepath = community_plugin_settings_filepath(name)
 
 
 def load_community_plugin_setting(
@@ -182,9 +178,9 @@ def load_community_plugin_setting(
     if not user_path.is_file():
         legacy = legacy_community_plugin_settings_path(name, stored)
         if legacy.is_file():
-            cls.filepath = str(legacy)
+            type(cls).filepath = str(legacy)
     load_setting(cls, profile=profile, binder=binder)
-    if cls.filepath != user_filepath:
+    if type(cls).filepath != user_filepath:
         patch_plugin_settings(cls, name, install_path)
     return cls
 

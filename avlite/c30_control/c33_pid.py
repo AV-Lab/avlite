@@ -8,18 +8,21 @@ from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import LocalPlan
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c31_control_model import ControlCommand
-from avlite.c30_control.c39_settings import ControlSettings
+from avlite.c30_control.c39_settings import ControlSettings, ControlSettingsSchema
 
 log = logging.getLogger(__name__)
 
 class PIDController(ControlStrategy):
-    def __init__(self, tj:Optional[TrajectoryTracker]=None, alpha=ControlSettings.c33_pid_alpha, beta=ControlSettings.c33_pid_beta, gamma=ControlSettings.c33_pid_gamma,
-                 valpha=ControlSettings.c33_pid_valpha, vbeta=ControlSettings.c33_pid_vbeta, vgamma=ControlSettings.c33_pid_vgamma, pid_lookahead=ControlSettings.c33_pid_lookahead):
+    def __init__(self, tj:Optional[TrajectoryTracker]=None, setting: ControlSettingsSchema = ControlSettings):
+        """PID controller. Gains are read live from *setting* (the ``ControlSettings``
+        singleton by default): steering gains ``c33_pid_alpha``/``beta``/``gamma``,
+        velocity gains ``c33_pid_valpha``/``vbeta``/``vgamma``, and ``c33_pid_lookahead``.
+        """
         super().__init__(tj)
-        self.alpha, self.beta, self.gamma = alpha, beta, gamma
+        self.alpha, self.beta, self.gamma = setting.c33_pid_alpha, setting.c33_pid_beta, setting.c33_pid_gamma
 
-        self.valpha, self.vbeta, self.vgamma = valpha, vbeta, vgamma
-        self.lookahead = pid_lookahead
+        self.valpha, self.vbeta, self.vgamma = setting.c33_pid_valpha, setting.c33_pid_vbeta, setting.c33_pid_vgamma
+        self.lookahead = setting.c33_pid_lookahead
         
         self.cte_steer = 0
         self.cte_velocity = 0  # Track velocity error

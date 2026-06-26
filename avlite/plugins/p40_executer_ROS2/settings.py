@@ -23,22 +23,6 @@ class PluginSettingsSchema(SettingsSchema):
     control_dt: float = Field(default=0.02, description="Control dt (seconds).")
 
 
-class PluginSettings:
-    schema = PluginSettingsSchema
-    exclude = ["exclude", "filepath", "schema"]
-    filepath: str = "configs/plugin_ros_executer.yaml"
-
-    use_autoware_msgs: bool = True
-    localization_topic: str = "/localization/kinematic_state"
-    perception_topic: str = "/perception/object_recognition/tracking/objects"
-    trajectory_topic: str = "/planning/scenario_planning/trajectory"
-    control_cmd_topic: str = "/control/command/control_cmd"
-    trajectory_out_topic: str = "/avlite/planning/trajectory"
-    control_out_topic: str = "/avlite/control/control_cmd"
-    map_frame: str = "map"
-    base_frame: str = "base_link"
-    collection_hz: float = 20.0
-    sim_dt: float = 0.02
-    perception_dt: float = 0.1
-    replan_dt: float = 0.1
-    control_dt: float = 0.02
+# Settings singleton. The plugin loader derives and assigns the YAML filepath from
+# the plugin directory name, so none is declared here.
+PluginSettings = PluginSettingsSchema()

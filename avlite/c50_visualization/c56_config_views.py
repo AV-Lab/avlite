@@ -51,7 +51,7 @@ from avlite.c50_visualization.c58_ui_lib import (
     scaled,
 )
 from avlite.c50_visualization.c59_settings import VisualizationSettings
-from avlite.c60_common.c68_settings_schema import field_tooltip_text
+from avlite.c60_common.c68_settings_schema import field_tooltip_text, setting_key
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
@@ -61,6 +61,11 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 import logging
 
 log = logging.getLogger(__name__)
+
+
+def _widget_key(setting, plugin_name: str = "") -> str:
+    return setting_key(setting) + plugin_name
+
 
 if TYPE_CHECKING:
     from avlite.c50_visualization.c51_visualizer_app import VisualizerApp
@@ -1138,7 +1143,7 @@ class SettingWindow:
         frame = ttk.Labelframe(self.settings_frame, text=setting_name)
         frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        key = setting.__name__ + plugin_name
+        key = _widget_key(setting, plugin_name)
         self.widget_entries[key] = {}
         self.settings_section_frames[key] = frame
         row = 0
@@ -1165,12 +1170,12 @@ class SettingWindow:
     def save_from_widgets(self, setting, plugin_name=""):
         """ Save the settings from the widgets to the setting class. """
 
-        if setting.__name__+plugin_name not in self.widget_entries:
-            log.warning(f"No widgets found for setting: {setting.__name__}+{plugin_name}")
+        if _widget_key(setting, plugin_name) not in self.widget_entries:
+            log.warning(f"No widgets found for setting: {setting_key(setting)}+{plugin_name}")
             return
 
         # log.warning(f"keys in widget_entries: {self.widget_entries.keys()}")
-        for field, entry in self.widget_entries[setting.__name__+plugin_name].items():
+        for field, entry in self.widget_entries[_widget_key(setting, plugin_name)].items():
             if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
                 continue
             
@@ -1180,7 +1185,7 @@ class SettingWindow:
 
             val = entry.get()
             orig = getattr(setting, field)
-            log.debug(f"Saving {field} with value {val} of type {type(val)} to setting {setting.__name__}")
+            log.debug(f"Saving {field} with value {val} of type {type(val)} to setting {setting_key(setting)}")
 
             if isinstance(orig, bool):
                 if val.lower() in ["true", "1", "yes"]:
@@ -1198,11 +1203,11 @@ class SettingWindow:
 
     def update_widgets(self, setting, plugin_name=""):
         """ Update the widgets with the current settings. """
-        if setting.__name__+plugin_name not in self.widget_entries:
-            log.warning(f"No widgets found for setting: {plugin_name} {setting.__name__}")
+        if _widget_key(setting, plugin_name) not in self.widget_entries:
+            log.warning(f"No widgets found for setting: {plugin_name} {setting_key(setting)}")
             return
 
-        for field, entry in self.widget_entries[setting.__name__+plugin_name].items():
+        for field, entry in self.widget_entries[_widget_key(setting, plugin_name)].items():
             if field.startswith("__") or callable(getattr(setting, field)) or field == "filepath":
                 continue
             
@@ -1210,7 +1215,7 @@ class SettingWindow:
                 log.error(f"Skipping unknown attribute: {field}")
                 continue
             value = getattr(setting, field)
-            log.debug(f"Updating {field} with value {value} of type {type(value)} in setting {setting.__name__}")
+            log.debug(f"Updating {field} with value {value} of type {type(value)} in setting {setting_key(setting)}")
             if isinstance(value, bool):
                 entry.delete(0, tk.END)
                 entry.insert(0, "True" if value else "False")

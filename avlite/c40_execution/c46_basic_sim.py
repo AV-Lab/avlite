@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Type
+from typing import Optional
 
 import numpy as np
 
@@ -8,7 +8,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c60_common.c61_capabilities import WorldCapability
-from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c67_paths import get_absolute_path, resolve_picker_data_path
@@ -31,7 +31,7 @@ class BasicSim(WorldBridge):
 
     def __init__(self,ego_state:EgoState, pm:Optional[PerceptionModel] = None,
                  controller: Optional[ControlStrategy] = None,
-                 setting: Type[ExecutionSettings] = ExecutionSettings,
+                 setting: ExecutionSettingsSchema = ExecutionSettings,
                  reference_point: tuple[float, float] | None = None):
         self.setting = setting
         self.ego_state = ego_state

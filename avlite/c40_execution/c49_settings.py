@@ -1,9 +1,13 @@
+from typing import ClassVar
+
 from pydantic import Field
 
 from avlite.c60_common.c68_settings_schema import SettingsSchema
 
 
 class ExecutionSettingsSchema(SettingsSchema):
+    filepath: ClassVar[str] = "configs/c40_execution.yaml"
+
     c40_executer_type: str = Field(default="SyncExecuter", description="Executer class name.")
     c40_bridge: str = Field(default="BasicSim", description="World bridge class name (e.g. BasicSim, CarlaBridge).")
     c40_perception: str = Field(default="", description="Perception strategy class; empty uses UI/registry default.")
@@ -20,7 +24,7 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_global_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="Default global plan JSON path.")
     c40_hd_map: str = Field(default="data/san_campus.xodr", description="HD map OpenDRIVE file path.")
     c40_reference_point: list[float] | None = Field(
-        default=None,
+        default_factory=lambda: [24.46992202098782, 54.60522506805341],
         description="WGS84 map origin (lat, lon) in degrees; derived from selected map or set manually.",
     )
     c40_community_plugins: dict[str, str] = Field(default_factory=dict, description="Community plugin name to directory map.")
@@ -34,7 +38,7 @@ class ExecutionSettingsSchema(SettingsSchema):
     c41_provide_lidar: bool = Field(default=False, description="Bridge exposes LiDAR data.")
     c41_provide_depth: bool = Field(default=False, description="Bridge exposes depth camera data.")
 
-    c43_race_boundary_map: str = Field(default="data/race_boundary_yas_marina.json", description="Race boundary JSON for centerline planner.")
+    c43_race_boundary_map: str = Field(default="data/race_boundary_yas_marina.map.json", description="Race boundary JSON for centerline planner.")
 
     c46_default_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="BasicSim default trajectory path.")
     c46_npc_speed_factor: float = Field(default=0.8, description="NPC speed as fraction of plan speed.")
@@ -45,44 +49,6 @@ class ExecutionSettingsSchema(SettingsSchema):
     c46_lidar_fov_deg: float = Field(default=360.0, description="Simulated LiDAR field of view (degrees).")
 
 
-class ExecutionSettings:
-    schema = ExecutionSettingsSchema
-    exclude = ["exclude", "filepath", "schema"]
-    filepath: str = "configs/c40_execution.yaml"
-
-    c40_executer_type = "SyncExecuter"
-    c40_bridge = "BasicSim"
-    c40_perception = ""
-    c40_localization = ""
-    c40_mapping = ""
-    c40_global_planner = "GlobalCenterlineRacePlanner"
-    c40_local_planner = "GreedyLatticePlanner"
-    c40_controller = "StanleyController"
-    c40_perception_dt = 0.5
-    c40_localization_dt = 0.1
-    c40_replan_dt = 0.5
-    c40_control_dt = 0.05
-    c40_sim_dt = 0.01
-    c40_global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
-    c40_hd_map = "data/san_campus.xodr"
-    c40_reference_point: list[float] | None = [24.46992202098782, 54.60522506805341]
-    c40_community_plugins: dict[str, str] = {}
-    c40_default_plugins: list[str] = []
-    c40_async_combined_perception_planning: bool = True
-    c40_log_level = "INFO"
-    c40_log_to_file = False
-
-    c41_provide_ground_truth = False
-    c41_provide_rgb = False
-    c41_provide_lidar = False
-    c41_provide_depth = False
-
-    c43_race_boundary_map: str = "data/race_boundary_yas_marina.map.json"
-
-    c46_default_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
-    c46_npc_speed_factor = 0.8
-    c46_npc_control = True
-    c46_lidar_boundary_file = "data/yasmarina.track.json"
-    c46_lidar_range = 50.0
-    c46_lidar_num_beams = 360
-    c46_lidar_fov_deg = 360.0
+# Singleton instance: the runtime settings object. Mutated in place by the YAML
+# loader and reset helpers — never rebind this name (see settings invariant).
+ExecutionSettings = ExecutionSettingsSchema()

@@ -30,6 +30,7 @@ class ProxyLocalPlanner(LocalPlanningStrategy):
         super().__init__(global_plan, pm, **kwargs)
         self.last_plan: Optional[TrajectoryTracker] = None
         log.info("ProxyLocalPlanner initialized - will receive plans from ROS")
+        # LocalPlanningStrategy.registry.pop("ProxyLocalPlanner", None)  # Remove from registry to avoid accidental use
     
     def replan(self) -> TrajectoryTracker:
         """

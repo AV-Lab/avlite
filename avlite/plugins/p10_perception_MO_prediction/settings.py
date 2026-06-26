@@ -13,15 +13,5 @@ class PluginSettingsSchema(SettingsSchema):
     pred_horizon: int = Field(default=3, description="Prediction horizon in seconds.")
 
 
-class PluginSettings:
-    schema = PluginSettingsSchema
-    exclude = ["exclude", "filepath", "schema"]
-    filepath: str = "configs/plugin_multi_object_predictor.yaml"
-
-    device: str = "cuda:0"
-    max_agent_distance: float = 50.0
-    detector: str = "ground_truth"
-    tracker: str | None = None
-    predictor: str = "AttentionGMM"
-    prediction_mode: str = "grid"
-    pred_horizon: int = 3
+# Settings singleton; filepath is assigned by the plugin loader from the directory name.
+PluginSettings = PluginSettingsSchema()

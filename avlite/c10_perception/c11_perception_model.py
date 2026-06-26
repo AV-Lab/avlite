@@ -26,7 +26,7 @@ class PerceptionModel:
     static_obstacles: list[State] = field(default_factory=list)
     agent_vehicles: list[AgentState] = field(default_factory=list)
     ego_vehicle: EgoState= field(default_factory=lambda: EgoState())
-    max_agent_vehicles: int = PerceptionSettings.c11_max_agents
+    max_agent_vehicles: int = field(default_factory=lambda: PerceptionSettings.c11_max_agents)
    
     # Optional HDMap
     hd_map: Optional[HDMap] = None
@@ -37,7 +37,7 @@ class PerceptionModel:
     occupancy_flow: Optional[list[np.ndarray]] = None # list of 2D grids. Each list corresponds to a timestep in the prediction
     grid_bounds: Optional[Dict[str, float]] = None # Dictionary with bounds of the grid (min_x, max_x, min_y, max_y, resolution)
     predict_delta_t: float = 0.1
-    grid_size: int = PerceptionSettings.c11_prediction_grid_size  # Size of the occupancy grid -> 100x100
+    grid_size: int = field(default_factory=lambda: PerceptionSettings.c11_prediction_grid_size)  # Size of the occupancy grid -> 100x100
 
     occupancy_flow_per_object:  Optional[list[tuple[int,list[np.ndarray]]]] = None # list(agent_id, list(2D grid))
 

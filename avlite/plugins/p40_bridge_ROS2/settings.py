@@ -17,16 +17,5 @@ class PluginSettingsSchema(SettingsSchema):
     rgb_topic: str = Field(default="/sensing/camera/traffic_light/image_raw", description="RGB camera topic; empty disables.")
 
 
-class PluginSettings:
-    schema = PluginSettingsSchema
-    exclude = ["exclude", "filepath", "schema"]
-    filepath: str = "configs/plugin_ROS2_worldbridge.yaml"
-
-    use_autoware_msgs: bool = True
-    localization_topic: str = "/localization/kinematic_state"
-    perception_topic: str = "/perception/object_recognition/tracking/objects"
-    control_out_topic: str = "/control/command/control_cmd"
-    map_frame: str = "map"
-    base_frame: str = "base_link"
-    lidar_topic: str = "/sensing/lidar/concatenated/pointcloud"
-    rgb_topic: str = "/sensing/camera/traffic_light/image_raw"
+# Settings singleton; filepath is assigned by the plugin loader from the directory name.
+PluginSettings = PluginSettingsSchema()

@@ -1,9 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Type, Optional
+from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
-from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
 from avlite.c60_common.c61_capabilities import WorldCapability, LocalizationCapability
 from avlite.c60_common.c62_sensor_data import SensorFrame
 
@@ -29,7 +29,7 @@ class LocalizationStrategy(ABC):
 
     registry = {}
 
-    def __init__(self, perception_model: PerceptionModel, setting: Type[PerceptionSettings] = PerceptionSettings):
+    def __init__(self, perception_model: PerceptionModel, setting: PerceptionSettingsSchema = PerceptionSettings):
         self.perception_model = perception_model
 
     # ------------------------------------------------------------------

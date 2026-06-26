@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Optional, TYPE_CHECKING, Type
+from typing import Optional, TYPE_CHECKING
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
-from avlite.c20_planning.c29_settings import PlanningSettings
+from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 
 if TYPE_CHECKING:
     from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -29,7 +29,7 @@ class LocalPlanningStrategy(ABC):
 
     def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel,
                  controller: Optional['ControlStrategy'] = None,
-                 setting: Type[PlanningSettings] = PlanningSettings):
+                 setting: PlanningSettingsSchema = PlanningSettings):
         """Initialize the local planner with a global plan and perception model."""
         self.global_plan: GlobalPlan = global_plan
         self.pm: PerceptionModel = pm

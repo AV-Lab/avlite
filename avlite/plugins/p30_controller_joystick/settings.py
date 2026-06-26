@@ -82,20 +82,5 @@ class PluginSettingsSchema(SettingsSchema):
     )
 
 
-class PluginSettings:
-    schema = PluginSettingsSchema
-    exclude = ["exclude", "filepath", "schema"]
-    filepath: str = "configs/plugin_controller_joystick.yaml"
-
-    device_index: int = 0
-    deadzone: float = 0.02
-    accel_deadzone: float = 0.02
-    brake_deadzone: float = 0.02
-    steer_axis: int = 0
-    accel_axis: int = 5
-    brake_axis: int = 2
-    steer_invert: bool = True
-    steer_speed_scale: bool = True
-    steer_full_gain_below: float = 3.0
-    steer_min_gain: float = 0.25
-    fail_if_missing: bool = False
+# Settings singleton; filepath is assigned by the plugin loader from the directory name.
+PluginSettings = PluginSettingsSchema()
