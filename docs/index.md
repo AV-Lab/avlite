@@ -105,7 +105,9 @@ lines. Press **Ctrl+C** to stop. Requires `pip install rich`.
 
 AVLite has a community plugin system that lets anyone publish perception,
 planning, control, executer, or world-bridge strategies as a small Git
-repository.
+repository. Community and member plugins are third-party or unverified code;
+AV-Lab does not guarantee their safety. Use for research and development at
+your own risk.
 
 ### Browse and install (GUI)
 
@@ -119,6 +121,23 @@ lets you install/uninstall plugins, and (de)registers them with the
 active profile. Installed plugins live under
 `$XDG_DATA_HOME/avlite/plugins` (or `~/.local/share/avlite/plugins`);
 override with the `AVLITE_PLUGINS_DIR` environment variable.
+
+### Member plugins
+
+The **Members** tab in `python -m avlite plugins` lists plugins from the
+[avlite-private-plugins](https://github.com/AV-Lab/avlite-private-plugins) registry.
+Sign in with GitHub (Device Flow) to browse and install them. Your account must
+have access to that repository and to each listed plugin repo.
+
+AVLite stores the OAuth token at `~/.config/avlite/github_oauth.json` (mode `0600`).
+Distribution builds must set `AVLITE_GITHUB_OAUTH_CLIENT_ID` to the AV-Lab GitHub
+OAuth app client id (Device Flow enabled, `repo` scope).
+
+If you see **403 Forbidden** after sign-in but can open the registry repo in a browser,
+authorize the token for AV-Lab SAML SSO (AVLite will offer the authorization link),
+then click **Refresh**. If the error mentions OAuth App access restrictions, an
+AV-Lab org admin must approve the OAuth app under **Organization Settings →
+Third-party access**.
 
 ### Publish your plugin
 

@@ -466,6 +466,10 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "cp_github": "Open the plugin repository on GitHub.",
     "cp_open_folder": "Open the plugin install folder in the file manager.",
     "cp_close": "Close this window.",
+    "cp_sign_in": "Sign in with GitHub to browse member-only plugins.",
+    "cp_sign_out": "Sign out of GitHub and clear saved credentials.",
+    "cp_sign_in_browser": "Open GitHub in your browser to authorize AVLite.",
+    "cp_copy_code": "Copy the GitHub sign-in code to the clipboard.",
 }
 
 

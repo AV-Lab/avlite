@@ -1,4 +1,20 @@
+default:
+  dashboard_refresh_hz: 10.0
+  log_buffer_size: 500
+  stats_panel_height: 18
+joystick:
+  dashboard_refresh_hz: 10.0
+  log_buffer_size: 500
+  stats_panel_height: 18
 perception:
+  dashboard_refresh_hz: 10.0
+  log_buffer_size: 500
+  stats_panel_height: 18
+ros:
+  dashboard_refresh_hz: 10.0
+  log_buffer_size: 500
+  stats_panel_height: 18
+sync:
   dashboard_refresh_hz: 10.0
   log_buffer_size: 500
   stats_panel_height: 18
