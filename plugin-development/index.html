@@ -541,6 +541,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#member-plugins-av-lab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Member plugins (AV-Lab)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#10-publish-to-the-community-registry-pull-request" class="md-nav__link">
     <span class="md-ellipsis">
       10. Publish to the community registry (pull request)
@@ -663,9 +672,10 @@
 
 
 <h1 id="plugin-development">Plugin Development<a class="headerlink" href="#plugin-development" title="Permanent link">&para;</a></h1>
-<p>AVLite supports two types of plugins:
+<p>AVLite supports three types of plugins:
 - <strong>Built-in plugins</strong> (<code>avlite/plugins/</code>): Maintained by the core team
-- <strong>Community plugins</strong>: External directories you create and register</p>
+- <strong>Community plugins</strong>: Public registry via pull request to <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>
+- <strong>Member plugins</strong>: AV-Lab private registry (<a href="https://github.com/AV-Lab/avlite-private-plugins">avlite-private-plugins</a>); browse/install via the <strong>Members</strong> tab after GitHub sign-in</p>
 <p>This guide covers creating community plugins. Classes inheriting from base strategies automatically register and appear in the UI.</p>
 <h2 id="what-you-can-extend">What you can extend<a class="headerlink" href="#what-you-can-extend" title="Permanent link">&para;</a></h2>
 <table>
@@ -926,8 +936,21 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 </code></pre></div>
 <p>When a plugin is installed through <code>python -m avlite plugins</code>, its path is stored under <code>~/.local/share/avlite/plugins/</code> (override with <code>AVLITE_PLUGINS_DIR</code>).</p>
 <p>Your classes will now appear in the UI dropdowns.</p>
+<h2 id="member-plugins-av-lab">Member plugins (AV-Lab)<a class="headerlink" href="#member-plugins-av-lab" title="Permanent link">&para;</a></h2>
+<p>The <strong>Members</strong> tab in <code>python -m avlite plugins</code> lists plugins from the
+<a href="https://github.com/AV-Lab/avlite-private-plugins">avlite-private-plugins</a> registry.
+This is separate from the public community registry.</p>
+<p><strong>Access requirements:</strong></p>
+<ul>
+<li>Sign in with GitHub (Device Flow) in the Members tab</li>
+<li>Your GitHub account must have access to <code>AV-Lab/avlite-private-plugins</code> and to each listed plugin repository</li>
+<li>If your org uses SAML SSO, authorize the token when AVLite prompts you (403 with SSO link)</li>
+<li>If OAuth App access restrictions apply, an AV-Lab org admin must approve the AVLite OAuth app under <strong>Organization Settings → Third-party access</strong></li>
+</ul>
+<p><strong>Publishing:</strong> Member plugins are listed by AV-Lab maintainers in the private registry (not via the community PR flow in section 10). Install and register work the same as community plugins once you are signed in; private repos use authenticated git clone.</p>
+<p>See <a href="../index.md#member-plugins">Member plugins</a> in the main docs for token storage and troubleshooting.</p>
 <h2 id="10-publish-to-the-community-registry-pull-request">10. Publish to the community registry (pull request)<a class="headerlink" href="#10-publish-to-the-community-registry-pull-request" title="Permanent link">&para;</a></h2>
-<p>To list your plugin in every user's <strong>Plugins</strong> browser (<code>python -m avlite plugins</code>), add it to the official registry via pull request.</p>
+<p>To list your plugin in every user's <strong>Community</strong> tab (<code>python -m avlite plugins</code>), add it to the official public registry via pull request.</p>
 <p>Registry repository: <a href="https://github.com/AV-Lab/avlite-community-plugins">github.com/AV-Lab/avlite-community-plugins</a></p>
 <h3 id="before-you-open-a-pr">Before you open a PR<a class="headerlink" href="#before-you-open-a-pr" title="Permanent link">&para;</a></h3>
 <ol>

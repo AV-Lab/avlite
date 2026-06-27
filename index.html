@@ -479,6 +479,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#member-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      Member plugins
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#publish-your-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       Publish your plugin
@@ -711,7 +720,7 @@
 <li><strong>Optional Perception &amp; Localization</strong>: Both perception and localization are optional — run with ground truth or plug in your own strategies</li>
 <li><strong>Real-time Visualization</strong>: Tkinter-based GUI for monitoring and debugging</li>
 <li><strong>Hot Reloading</strong>: Modify code without restarting the application</li>
-<li><strong>Plugin System</strong>: Extend functionality with community plugins</li>
+<li><strong>Plugin System</strong>: Extend functionality with community and member plugins</li>
 <li><strong>Profile Management</strong>: Save and load different configurations</li>
 </ul>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
@@ -782,7 +791,9 @@ lines. Press <strong>Ctrl+C</strong> to stop. Requires <code>pip install rich</c
 <h2 id="community-plugins">Community Plugins<a class="headerlink" href="#community-plugins" title="Permanent link">&para;</a></h2>
 <p>AVLite has a community plugin system that lets anyone publish perception,
 planning, control, executer, or world-bridge strategies as a small Git
-repository.</p>
+repository. Community and member plugins are third-party or unverified code;
+AV-Lab does not guarantee their safety. Use for research and development at
+your own risk.</p>
 <h3 id="browse-and-install-gui">Browse and install (GUI)<a class="headerlink" href="#browse-and-install-gui" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>plugins
 </code></pre></div>
@@ -792,6 +803,19 @@ lets you install/uninstall plugins, and (de)registers them with the
 active profile. Installed plugins live under
 <code>$XDG_DATA_HOME/avlite/plugins</code> (or <code>~/.local/share/avlite/plugins</code>);
 override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
+<h3 id="member-plugins">Member plugins<a class="headerlink" href="#member-plugins" title="Permanent link">&para;</a></h3>
+<p>The <strong>Members</strong> tab in <code>python -m avlite plugins</code> lists plugins from the
+<a href="https://github.com/AV-Lab/avlite-private-plugins">avlite-private-plugins</a> registry.
+Sign in with GitHub (Device Flow) to browse and install them. Your account must
+have access to that repository and to each listed plugin repo.</p>
+<p>AVLite stores the OAuth token at <code>~/.config/avlite/github_oauth.json</code> (mode <code>0600</code>).
+Distribution builds must set <code>AVLITE_GITHUB_OAUTH_CLIENT_ID</code> to the AV-Lab GitHub
+OAuth app client id (Device Flow enabled, <code>repo</code> scope).</p>
+<p>If you see <strong>403 Forbidden</strong> after sign-in but can open the registry repo in a browser,
+authorize the token for AV-Lab SAML SSO (AVLite will offer the authorization link),
+then click <strong>Refresh</strong>. If the error mentions OAuth App access restrictions, an
+AV-Lab org admin must approve the OAuth app under <strong>Organization Settings →
+Third-party access</strong>.</p>
 <h3 id="publish-your-plugin">Publish your plugin<a class="headerlink" href="#publish-your-plugin" title="Permanent link">&para;</a></h3>
 <p>See <a href="plugin-development/#10-publish-to-the-community-registry-pull-request">Plugin Development — Publish to the community registry</a> for the full checklist. Summary:</p>
 <ol>
