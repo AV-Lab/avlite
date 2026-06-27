@@ -129,8 +129,7 @@ async:
 default:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    sample_avlite_plugin: sample_avlite_plugin
+  c40_community_plugins: {}
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -152,7 +151,9 @@ default:
   c40_mapping: ''
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
-  c40_reference_point: null
+  c40_reference_point:
+  - 24.46992202098782
+  - 54.60522506805341
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
   c41_provide_depth: false
@@ -161,7 +162,7 @@ default:
   c41_provide_rgb: false
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c46_default_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
-  c46_lidar_boundary_file: data/yasmarina.track.json
+  c46_lidar_boundary_file: data/race_boundary_yas_marina.map.json
   c46_lidar_fov_deg: 360.0
   c46_lidar_num_beams: 360
   c46_lidar_range: 50.0
