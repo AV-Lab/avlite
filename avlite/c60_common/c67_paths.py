@@ -301,19 +301,11 @@ def _repo_data_dir() -> Path:
 
 
 def resolve_ui_asset_path(name: str) -> Path:
-    """Resolve a UI asset path (e.g. logo) independent of process CWD."""
-    repo_path = Path(get_absolute_path(f"data/imgs/{name}"))
-    if repo_path.is_file():
-        return repo_path
-    bundled = (
-        Path(__file__).resolve().parent.parent
-        / "c50_visualization"
-        / "assets"
-        / name
-    )
-    if bundled.is_file():
-        return bundled
-    raise FileNotFoundError(f"UI asset not found: {name}")
+    """Resolve a UI asset under repo ``data/imgs/`` (independent of process CWD)."""
+    path = _repo_data_dir() / "imgs" / name
+    if not path.is_file():
+        raise FileNotFoundError(f"UI asset not found: {name}")
+    return path
 
 
 def _normalise_geo_degrees(lat: float, lon: float) -> tuple[float, float]:

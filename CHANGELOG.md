@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SAML SSO authorize-link handling on 403; Copy button for device-flow user code
 - Safety disclaimers on both plugin tabs
 - Tests in `test/c50_visualization/test_community_plugins_github.py`
-- Bundled UI logo under `avlite/c50_visualization/assets/` for cwd-independent loading
+- UI logo resolved from repo `data/imgs/` independent of CWD
 
 ### Changed
 - User data directory for maps and trajectories is now `~/.config/avlite/data/` (override with `AVLITE_DATA_DIR`)
