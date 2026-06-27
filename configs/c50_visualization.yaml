@@ -230,6 +230,7 @@ default:
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  default_map_file: ''
   detection_strategy_type: ''
   disable_log: false
   exec_control: true
@@ -379,6 +380,7 @@ joystick:
   controller_type: JoystickController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  default_map_file: ''
   detection_strategy_type: FastBEVLidarDetection
   disable_log: false
   exec_control: true
@@ -528,6 +530,7 @@ ros:
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  default_map_file: ''
   detection_strategy_type: ''
   disable_log: false
   exec_control: true
@@ -602,6 +605,7 @@ sync:
   controller_type: StanleyController
   dark_mode: true
   default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  default_map_file: ''
   detection_strategy_type: ''
   disable_log: false
   exec_control: true
