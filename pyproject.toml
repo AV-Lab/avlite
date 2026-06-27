@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "avlite"
-version = "0.3.1"
+version = "0.3.2"
 description = "AVLite - Modular Autonomous Vehicle Stack for rapid prototyping, research, and education"
 readme = "README.md"
 license = { text = "MIT" }
@@ -26,6 +26,9 @@ avlite = "avlite.__main__:main"
 
 [tool.setuptools.packages.find]
 exclude = ["test*", "build*", "site*"]
+
+[tool.setuptools.package-data]
+"avlite.c50_visualization.assets" = ["*.png"]
 
 [tool.pytest.ini_options]
 filterwarnings = [

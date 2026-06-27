@@ -241,7 +241,7 @@ default:
   execution_bridge: BasicSim
   fg_color: white
   frenet_view_follow_planner: false
-  frenet_zoom: 90.0
+  frenet_zoom: 50.0
   global_plan_view: true
   global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false

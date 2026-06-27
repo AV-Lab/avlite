@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-27
+
 ### Added
 - GUI startup profile: last selected profile saved in `~/.config/avlite/startup_profile` and restored on launch
 - Settings window **Export profile** / **Import profile**: zip of per-file profile slices (including community plugin YAMLs when referenced); validated against Pydantic schemas on export and import
@@ -15,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `c60_plugins.py` (plugin discovery, loading, log routing) and `c67_paths.py` (config/XDG paths)
 - Thread-safe log filter snapshots in the visualizer (Core / Plugins / per-layer toggles)
 - Community plugin import skips `.venv`, `site-packages`, and similar vendor directories
+- Tabbed **Community** / **Members** plugin browser (`python -m avlite plugins`)
+- GitHub Device Flow sign-in for AV-Lab private registry (`AV-Lab/avlite-private-plugins`)
+- OAuth token persistence at `~/.config/avlite/github_oauth.json`; `AVLITE_GITHUB_OAUTH_CLIENT_ID` override
+- SAML SSO authorize-link handling on 403; Copy button for device-flow user code
+- Safety disclaimers on both plugin tabs
+- Tests in `test/c50_visualization/test_community_plugins_github.py`
+- Bundled UI logo under `avlite/c50_visualization/assets/` for cwd-independent loading
 
 ### Changed
 - User data directory for maps and trajectories is now `~/.config/avlite/data/` (override with `AVLITE_DATA_DIR`)
@@ -23,12 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Renamed `configs/ext_*.yaml` → `configs/plugin_*.yaml`; `ExtensionSettings` → `PluginSettings`; `load_extensions` → `load_plugins`; `c40_default_extensions` → `c40_default_plugins`
 - Renamed `c60_common` modules: `c61_capabilities`, `c62_sensor_data`, `c66_hdmap`, `c68_settings_schema`, `c69_setting_utils` (update imports if you extend AVLite)
 - **Use repository configs** superseded by **Edit repository configs** (path switch instead of deleting local YAML)
+- Authenticated git clone/update for private plugin repos (non-interactive git, Basic auth header, timeouts)
+- Shared `apply_ttk_theme()` helper for consistent dark/light styling across windows
 
 ### Removed
 - **Copy repository configs** button and `copy_repo_configs_to_user()` (use **Edit repository configs** to work on repo YAML, or import a profile zip to populate the user dir)
+- Bundled `p10_perception_MO_prediction` from `avlite/plugins/`; default configs updated
 
 ### Fixed
 - Settings window (`T`) no longer crashes when opening the repository-config controls after a partial code reload
+- Logo and About dialog load assets via repo/package path instead of process CWD
+- Dark theme consistent when launched from any directory; standalone plugins window uses equilux
+- Theme re-applied after profile load when `dark_mode` changes in YAML
+- `ControlComand` typo alias for `ControlCommand` (backward compatibility)
 
 ## [0.3.1] - 2026-06-21
 

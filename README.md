@@ -169,7 +169,9 @@ See [Configuration](docs/index.md#configuration) in the docs for paths, CLI, and
 
 AVLite has a community plugin system that lets anyone publish perception,
 planning, control, executer, or world-bridge strategies as a small Git
-repository.
+repository. Community and member plugins are third-party or unverified code;
+AV-Lab does not guarantee their safety. Use for research and development at
+your own risk.
 
 **Browse and install** from the GUI:
 
@@ -177,11 +179,20 @@ repository.
 python -m avlite plugins
 ```
 
-The browser fetches the official registry
+The browser has **Community** (public registry) and **Members** (AV-Lab private
+registry) tabs. It fetches the official community registry
 (<https://github.com/AV-Lab/avlite-community-plugins>) and lets you
 install, uninstall, and register plugins with the active profile.
 Installed plugins live under `$XDG_DATA_HOME/avlite/plugins`
 (or `~/.local/share/avlite/plugins`); override with `AVLITE_PLUGINS_DIR`.
+
+**Member plugins** (Members tab): sign in with GitHub (Device Flow) to browse
+plugins from [avlite-private-plugins](https://github.com/AV-Lab/avlite-private-plugins).
+Your account must have access to that registry and each listed plugin repo.
+OAuth token is stored at `~/.config/avlite/github_oauth.json`. Distribution
+builds set `AVLITE_GITHUB_OAUTH_CLIENT_ID`. See
+[docs/index.md — Member plugins](docs/index.md#member-plugins) for SSO and
+OAuth troubleshooting.
 
 **Publish your own plugin**:
 

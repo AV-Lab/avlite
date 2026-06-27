@@ -28,6 +28,7 @@ from avlite.c60_common.c67_paths import (
     normalize_community_plugin_stored,
     resolve_picker_data_path,
     resolve_plugin_path,
+    resolve_ui_asset_path,
     set_repo_config_target,
     set_startup_profile,
 )
@@ -505,3 +506,10 @@ def test_cli_export_import_profile(monkeypatch, tmp_path):
     (config_dir / "c40_execution.yaml").unlink()
     assert cmd_import_profile(argparse.Namespace(zip_path=str(zip_path), force=True)) == 0
     assert (config_dir / "c40_execution.yaml").is_file()
+
+
+def test_resolve_ui_asset_path_independent_of_cwd(monkeypatch):
+    monkeypatch.chdir("/tmp")
+    path = resolve_ui_asset_path("logo.png")
+    assert path.is_file()
+    assert path.name == "logo.png"

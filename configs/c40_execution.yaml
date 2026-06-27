@@ -129,7 +129,9 @@ async:
 default:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins: {}
+  c40_community_plugins:
+    basic_predictor: basic_predictor
+    sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:

@@ -1,7 +1,10 @@
+import logging
 import os
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
+
+log = logging.getLogger(__name__)
 
 class ValueGauge(ttk.Frame):
     def __init__(
@@ -498,6 +501,86 @@ class TkSettingsBinder:
             from avlite.c60_common.c68_settings_schema import PlainBinder
 
             PlainBinder().set_value(setting, attr_name, value)
+
+
+def apply_ttk_theme(root: tk.Misc, *, dark: bool) -> None:
+    """Apply equilux (dark) or default (light) ttk theme and Tk option_add overrides."""
+    if dark:
+        root.configure(bg="gray14")
+        try:
+            from ttkthemes import ThemedStyle
+
+            style = ThemedStyle(root)
+            style.set_theme("equilux")
+            style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+            style.configure("TLabelframe.Label", font=("Arial", 11, "bold"))
+            gruvbox_red = "#9d0006"
+            gruvbox_orange = "#d65d0e"
+
+            style.layout(
+                "Start.TButton",
+                [("Button.border", {"sticky": "nswe", "children": [
+                    ("Button.padding", {"sticky": "nswe", "children": [
+                        ("Button.label", {"sticky": "nswe"})
+                    ]})
+                ]})],
+            )
+            style.layout(
+                "Stop.TButton",
+                [("Button.border", {"sticky": "nswe", "children": [
+                    ("Button.padding", {"sticky": "nswe", "children": [
+                        ("Button.label", {"sticky": "nswe"})
+                    ]})
+                ]})],
+            )
+            style.configure("Start.TButton", background=gruvbox_orange, foreground="white")
+            style.configure("Stop.TButton", background=gruvbox_red, foreground="white")
+            style.map(
+                "Start.TButton",
+                background=[("active", "#ff8800")],
+                foreground=[("active", "white")],
+            )
+            style.map(
+                "Stop.TButton",
+                background=[("active", "#ff4444")],
+                foreground=[("active", "white")],
+            )
+        except ImportError:
+            log.error("Please install ttkthemes to use dark mode.")
+            return
+
+        root.option_add("*Listbox.background", "#222222")
+        root.option_add("*Listbox.foreground", "#ffffff")
+        root.option_add("*Listbox.selectBackground", "#444444")
+        root.option_add("*Listbox.selectForeground", "#dddddd")
+        root.option_add("*Listbox.highlightBackground", "#1a1a1a")
+        root.option_add("*Listbox.highlightColor", "#333333")
+        root.option_add("*Listbox.borderWidth", 1)
+        root.option_add("*selectBackground", "#666699")
+        root.option_add("*selectForeground", "#ffffff")
+        root.option_add("*Entry.selectBackground", "#444466")
+        root.option_add("*Entry.selectForeground", "#cccccc")
+        root.option_add("*Text.selectBackground", "#444466")
+        root.option_add("*Text.selectForeground", "#cccccc")
+        style = ttk.Style(root)
+        style.map(
+            "TEntry",
+            selectbackground=[("!disabled", "#444466")],
+            selectforeground=[("!disabled", "#cccccc")],
+        )
+    else:
+        root.configure(bg="white")
+        style = ttk.Style(root)
+        style.theme_use("default")
+        root.option_add("*Listbox.background", "white")
+        root.option_add("*Listbox.foreground", "black")
+        root.option_add("*Listbox.selectBackground", "#0078d7")
+        root.option_add("*Listbox.selectForeground", "white")
+        root.option_add("*Listbox.highlightBackground", "white")
+        root.option_add("*Listbox.highlightColor", "#0078d7")
+        root.option_add("*Listbox.borderWidth", 2)
+        style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+        style.configure("TLabelframe.Label", font=("Arial", 10, "bold"))
 
 
 _DPI_MIN = 1.0

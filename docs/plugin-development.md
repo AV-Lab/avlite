@@ -1,8 +1,9 @@
 # Plugin Development
 
-AVLite supports two types of plugins:
+AVLite supports three types of plugins:
 - **Built-in plugins** (`avlite/plugins/`): Maintained by the core team
-- **Community plugins**: External directories you create and register
+- **Community plugins**: Public registry via pull request to [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)
+- **Member plugins**: AV-Lab private registry ([avlite-private-plugins](https://github.com/AV-Lab/avlite-private-plugins)); browse/install via the **Members** tab after GitHub sign-in
 
 This guide covers creating community plugins. Classes inheriting from base strategies automatically register and appear in the UI.
 
@@ -290,9 +291,26 @@ When a plugin is installed through `python -m avlite plugins`, its path is store
 
 Your classes will now appear in the UI dropdowns.
 
+## Member plugins (AV-Lab)
+
+The **Members** tab in `python -m avlite plugins` lists plugins from the
+[avlite-private-plugins](https://github.com/AV-Lab/avlite-private-plugins) registry.
+This is separate from the public community registry.
+
+**Access requirements:**
+
+- Sign in with GitHub (Device Flow) in the Members tab
+- Your GitHub account must have access to `AV-Lab/avlite-private-plugins` and to each listed plugin repository
+- If your org uses SAML SSO, authorize the token when AVLite prompts you (403 with SSO link)
+- If OAuth App access restrictions apply, an AV-Lab org admin must approve the AVLite OAuth app under **Organization Settings → Third-party access**
+
+**Publishing:** Member plugins are listed by AV-Lab maintainers in the private registry (not via the community PR flow in section 10). Install and register work the same as community plugins once you are signed in; private repos use authenticated git clone.
+
+See [Member plugins](../index.md#member-plugins) in the main docs for token storage and troubleshooting.
+
 ## 10. Publish to the community registry (pull request)
 
-To list your plugin in every user's **Plugins** browser (`python -m avlite plugins`), add it to the official registry via pull request.
+To list your plugin in every user's **Community** tab (`python -m avlite plugins`), add it to the official public registry via pull request.
 
 Registry repository: [github.com/AV-Lab/avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)
 

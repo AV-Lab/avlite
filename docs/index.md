@@ -19,7 +19,7 @@ AVLite is a lightweight, extensible autonomous vehicle software stack for rapid 
 - **Optional Perception & Localization**: Both perception and localization are optional — run with ground truth or plug in your own strategies
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
 - **Hot Reloading**: Modify code without restarting the application
-- **Plugin System**: Extend functionality with community plugins
+- **Plugin System**: Extend functionality with community and member plugins
 - **Profile Management**: Save and load different configurations
 
 ## Installation

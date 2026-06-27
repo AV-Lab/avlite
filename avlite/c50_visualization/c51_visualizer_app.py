@@ -13,6 +13,7 @@ from avlite.c50_visualization.c53_perceive_plan_control_views import PerceivePla
 from avlite.c50_visualization.c54_exec_views import ExecView
 from avlite.c50_visualization.c58_ui_lib import (
     TkSettingsBinder,
+    apply_ttk_theme,
     get_dpi_scale,
     scaled,
     setup_dpi,
@@ -21,8 +22,9 @@ from avlite.c50_visualization.c59_settings import VisualizationSettings, load_st
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
 from avlite.c60_common.c60_plugins import reload_lib
-from avlite.c60_common.c67_paths import get_startup_profile, set_startup_profile
+from avlite.c60_common.c67_paths import get_startup_profile, resolve_ui_asset_path, set_startup_profile
 from avlite.c60_common.c69_setting_utils import load_setting, list_profiles
+from avlite import __version__
     
 
 log = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ class VisualizerApp(tk.Tk):
     def __init__(self):
         setup_dpi()
         super().__init__()
+        apply_ttk_theme(self, dark=True)
         self._dpi_scale: float = get_dpi_scale(self)
         self.exec = None
         self.loading_overlay = None
@@ -48,8 +51,6 @@ class VisualizerApp(tk.Tk):
         
 
     def __initialize_ui(self):
-        self.set_dark_mode_themed()
-
         self.title("AVlite Visualizer")
         s = self._dpi_scale
         self.geometry(f"{scaled(1200, s)}x{scaled(900, s)}")
@@ -93,7 +94,6 @@ class VisualizerApp(tk.Tk):
 
         # Bind to window resize to maintain ratio
         self.update_shortcut_mode()
-        self.config_shortcut_view.toggle_dark_mode()  
 
         self.validate_cmd = (self.register(self.validate_float_input), "%P")
         self.bind("<Configure>", self.__update_grid_column_sizes)
@@ -241,7 +241,7 @@ class VisualizerApp(tk.Tk):
         # Try to load and display logo
         try:
             from PIL import Image, ImageTk
-            logo_img = Image.open("data/imgs/logo.png")
+            logo_img = Image.open(resolve_ui_asset_path("logo.png"))
             logo_img = logo_img.resize((round(256 * s), round(256 * s)), Image.LANCZOS)
             self.logo_photo = ImageTk.PhotoImage(logo_img)
             logo_label = tk.Label(frame, image=self.logo_photo, bg="black")
@@ -267,8 +267,7 @@ class VisualizerApp(tk.Tk):
                 del self.logo_photo
 
     def set_dark_mode_themed(self):
-
-        # self.configure(bg="gray14")
+        apply_ttk_theme(self, dark=True)
 
         if hasattr(self, "setting"):
             self.setting.bg_color = "#333333"
@@ -276,111 +275,45 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
-        
+
         if hasattr(self, "log_view") and hasattr(self, "config_shortcut_view"):
             self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
             self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-    
-        if hasattr(self, 'menubar'):
-            bg = "#333333"; fg = "#bbbbbb"; activebg = "#555555"; activefg = "#bbbbbb"
+
+        if hasattr(self, "menubar"):
+            bg = "#333333"
+            fg = "#bbbbbb"
+            activebg = "#555555"
+            activefg = "#bbbbbb"
             self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
-        try:
-            from ttkthemes import ThemedStyle
-            style = ThemedStyle(self)
-            style.set_theme("equilux")
-            style.configure("Big.TLabel", font=("Arial", 16, "bold"))
-            style.configure("TLabelframe.Label", font=("Arial", 11, "bold"))
-            gruvbox_red = "#9d0006"
-            gruvbox_orange = "#d65d0e"
-
-            style.layout(
-                "Start.TButton",
-                [("Button.border", {"sticky": "nswe", "children": [
-                    ("Button.padding", {"sticky": "nswe", "children": [
-                        ("Button.label", {"sticky": "nswe"})
-                    ]})
-                ]})]
-            )
-            style.layout(
-                "Stop.TButton",
-                [("Button.border", {"sticky": "nswe", "children": [
-                    ("Button.padding", {"sticky": "nswe", "children": [
-                        ("Button.label", {"sticky": "nswe"})
-                    ]})
-                ]})]
-            )
-            
-            style.configure( "Start.TButton", background=gruvbox_orange, foreground="white",)
-            style.configure(
-                "Stop.TButton",
-                background=gruvbox_red,
-                foreground="white",
-            )
-            style.map(
-                "Start.TButton",
-                background=[("active", "#ff8800")],  # Lighter orange on click/hover
-                foreground=[("active", "white")],
-            )
-            style.map(
-                "Stop.TButton",
-                background=[("active", "#ff4444")],  # Lighter red on click/hover
-                foreground=[("active", "white")],
-            )
-            self.option_add('*Listbox.background', '#222222')
-            self.option_add('*Listbox.foreground', '#ffffff')
-            self.option_add('*Listbox.selectBackground', '#444444')
-            self.option_add('*Listbox.selectForeground', '#dddddd')
-            self.option_add('*Listbox.highlightBackground', '#1a1a1a')
-            self.option_add('*Listbox.highlightColor', '#333333')
-            self.option_add('*Listbox.borderWidth', 1)
-
-            self.option_add('*selectBackground', '#666699')  # Light purple-ish
-            self.option_add('*selectForeground', '#ffffff')  # White text
-
-            self.option_add('*Entry.selectBackground', '#b3b3ff')
-            self.option_add('*Entry.selectForeground', '#000000')
-            style.map('TEntry',
-                selectbackground=[('!disabled', '#b3b3ff')],
-                selectforeground=[('!disabled', '#000000')]
-            )
-
-        except ImportError:
-            log.error("Please install ttkthemes to use dark mode.")
-            # self.set_set_light_mode_darker()
-        
         log.info("Dark mode enabled.")
 
     def set_light_mode(self):
-        self.configure(bg="white")
-        self.log_view.log_area.config(bg="white", fg="black")
-        self.config_shortcut_view.help_text.config(bg="white", fg="black")
+        apply_ttk_theme(self, dark=False)
 
-        self.setting.bg_color = "white"
-        self.setting.fg_color = "black"
-        self.local_plan_plot_view.update_plot_theme()
-        self.global_plan_plot_view.update_plot_theme()
-        if hasattr(self, 'menubar'):
-            bg = "white"; fg = "black"; activebg = "#ececec"; activefg = "black"
+        if hasattr(self, "log_view") and hasattr(self, "config_shortcut_view"):
+            self.log_view.log_area.config(bg="white", fg="black")
+            self.config_shortcut_view.help_text.config(bg="white", fg="black")
+
+        if hasattr(self, "setting"):
+            self.setting.bg_color = "white"
+            self.setting.fg_color = "black"
+        if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
+            self.local_plan_plot_view.update_plot_theme()
+            self.global_plan_plot_view.update_plot_theme()
+        if hasattr(self, "menubar"):
+            bg = "white"
+            fg = "black"
+            activebg = "#ececec"
+            activefg = "black"
             self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
         log.info("Light mode enabled.")
-        style = ttk.Style(self)
-        style.theme_use('default')  # Reset to default theme
-        self.option_add('*Listbox.background', 'white')
-        self.option_add('*Listbox.foreground', 'black')
-        self.option_add('*Listbox.selectBackground', '#0078d7')  # Or 'lightblue' for a more neutral color
-        self.option_add('*Listbox.selectForeground', 'white')
-        self.option_add('*Listbox.highlightBackground', 'white')
-        self.option_add('*Listbox.highlightColor', '#0078d7')  # Or 'black' for a simple border
-        self.option_add('*Listbox.borderWidth', 2)
-       
-        style.configure("Big.TLabel", font=("Arial", 16, "bold"))
-        style.configure("TLabelframe.Label", font=("Arial", 10, "bold"))
 
     def _create_menubar(self):
         self.menubar = tk.Menu(self)
@@ -423,7 +356,7 @@ class VisualizerApp(tk.Tk):
 
         try:
             from PIL import Image, ImageTk
-            logo_img = Image.open("data/imgs/logo.png")
+            logo_img = Image.open(resolve_ui_asset_path("logo.png"))
             logo_size = scaled(200, s)
             logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
             win._logo_photo = ImageTk.PhotoImage(logo_img)
@@ -433,7 +366,7 @@ class VisualizerApp(tk.Tk):
 
         tk.Label(inner, text="AVLite", fg="#10bfe8", bg="black",
                  font=("Arial", 16, "bold")).pack()
-        tk.Label(inner, text="Version 0.1.0", fg="#10bfe8", bg="black",
+        tk.Label(inner, text=f"Version {__version__}", fg="#10bfe8", bg="black",
                  font=("Arial", 11)).pack(pady=(scaled(4, s), 0))
         tk.Label(inner, text="A lightweight autonomous driving software stack.",
                  fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(scaled(6, s), scaled(24, s)))
@@ -520,6 +453,8 @@ class VisualizerApp(tk.Tk):
 
         self.log_view.reset()
         set_startup_profile(profile)
+        if hasattr(self, "config_shortcut_view"):
+            self.config_shortcut_view.toggle_dark_mode()
 
     def reload_stack(self, reload_code:bool = True):
         if reload_code:

@@ -33,6 +33,7 @@ import yaml
 from avlite.c50_visualization.c58_ui_lib import (
     BUTTON_TOOLTIPS,
     attach_tooltip,
+    apply_ttk_theme,
     configure_treeview_style,
     get_dpi_scale,
     scaled,
@@ -1235,6 +1236,7 @@ class CommunityPluginsApp:
         if parent is None:
             setup_dpi()
             self.window: tk.Misc = tk.Tk()
+            apply_ttk_theme(self.window, dark=True)
         else:
             self.window = tk.Toplevel(parent)
             try:
