@@ -125,10 +125,8 @@ class GlobalPlot(ABC):
                         x_pad = 0
                         y_pad = (target_height - map_height) / 2
                     
-                    dx = delta[0] if delta else 0.0
-                    dy = delta[1] if delta else 0.0
-                    self.ax.set_xlim(self.map_min_x - x_pad + dx, self.map_max_x + x_pad + dx)
-                    self.ax.set_ylim(self.map_min_y - y_pad + dy, self.map_max_y + y_pad + dy)
+                    self.ax.set_xlim(self.map_min_x - x_pad, self.map_max_x + x_pad)
+                    self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
                     self.view_width = map_width + x_pad * 2
                     self.view_height = map_height + y_pad * 2
 

@@ -87,10 +87,19 @@ class GlobalPlanPlotView(ttk.Frame):
         map_height = gp.map_max_y - gp.map_min_y
         return min(map_width, map_height * aspect_ratio)
 
+    def _control_held(self, event) -> bool:
+        gui = getattr(event, "guiEvent", None)
+        if gui is not None and getattr(gui, "state", 0) & 0x0004:
+            return True
+        return bool(event.key and "control" in event.key)
+
     def plot(self):
         t1 = time.time()
         try:
             aspect_ratio = self.__get_aspect_ratio()
+            max_zoom = self._max_zoom_out(aspect_ratio)
+            if max_zoom is not None and self.root.setting.global_zoom >= max_zoom:
+                self._center_delta = (0, 0)
             self._clamp_center_delta()
 
             self.global_plot.plot(
@@ -145,7 +154,7 @@ class GlobalPlanPlotView(ttk.Frame):
                     if not self.left_mouse_button_pressed:
                         self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
                 
-                if event.key and 'control' in event.key and self._drag_mode:
+                if self._control_held(event) and self._drag_mode:
                     dx =-(x - self._init_drag_mouse_pos[0])*self.root.setting.mouse_drag_slowdown_factor
                     dy =-(y - self._init_drag_mouse_pos[1])*self.root.setting.mouse_drag_slowdown_factor
                     self._center_delta = (self._center_delta[0]+dx, self._center_delta[1]+dy)
@@ -153,7 +162,7 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.plot()
 
                 if self.left_mouse_button_pressed and not self._drag_mode:
-                    if event.key and 'control' in event.key:
+                    if self._control_held(event):
                         if (not self._ego_orient_active
                                 or time.time() - self._left_press_time < _CONTROL_GRACE_S):
                             self._drag_mode = True
@@ -180,7 +189,7 @@ class GlobalPlanPlotView(ttk.Frame):
         if event.inaxes == self.ax:
             if event.button == 1:  # Left click
                 self.left_mouse_button_pressed = True
-                if event.key and 'control' in event.key: # for dragging
+                if self._control_held(event):  # for dragging
                     self._init_drag_mouse_pos = (event.xdata, event.ydata)
                     self._drag_mode = True
                     self.global_plot.clear_tmp_plots()
