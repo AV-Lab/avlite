@@ -10,7 +10,7 @@ import pytest
 import urllib.error
 import yaml
 
-from avlite.c50_visualization import c50_community_plugins_app as cp
+from avlite.c50_visualization import c54_plugins as cp
 
 
 @pytest.fixture

@@ -11,7 +11,7 @@ def _run_visualizer() -> None:
 
 
 def _run_plugins() -> None:
-    from avlite.c50_visualization.c50_community_plugins_app import main as plugins_main
+    from avlite.c50_visualization.c54_plugins import main as plugins_main
 
     plugins_main()
 

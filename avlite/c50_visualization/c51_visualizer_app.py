@@ -9,8 +9,7 @@ from avlite.c40_execution.c43_factory import executor_factory
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
-from avlite.c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
-from avlite.c50_visualization.c54_exec_views import ExecView
+from avlite.c50_visualization.c53_stack_views import PerceivePlanControlView, ExecView
 from avlite.c50_visualization.c58_ui_lib import (
     TkSettingsBinder,
     apply_ttk_theme,

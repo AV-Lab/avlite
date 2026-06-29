@@ -256,11 +256,10 @@ avlite/
 │   ├── c46_basic_sim.py
 │   └── c49_settings.py
 ├── c50_visualization/      # GUI and plotting
-│   ├── c50_community_plugins_app.py
 │   ├── c51_visualizer_app.py
 │   ├── c52_plot_views.py
-│   ├── c53_perceive_plan_control_views.py
-│   ├── c54_exec_views.py
+│   ├── c53_stack_views.py
+│   ├── c54_plugins.py
 │   ├── c55_log_view.py
 │   ├── c56_config_views.py
 │   ├── c57_plot_lib.py

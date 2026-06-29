@@ -275,7 +275,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def open_plugins_window(self):
         """Open the community plugins manager window."""
-        from avlite.c50_visualization.c50_community_plugins_app import CommunityPluginsApp
+        from avlite.c50_visualization.c54_plugins import CommunityPluginsApp
         CommunityPluginsApp.open(parent=self.root)
 
 
@@ -728,7 +728,7 @@ class SettingWindow:
 
     def open_plugins_window(self):
         """Open the community plugins manager and refresh the list on close."""
-        from avlite.c50_visualization.c50_community_plugins_app import CommunityPluginsApp
+        from avlite.c50_visualization.c54_plugins import CommunityPluginsApp
         app = CommunityPluginsApp.open(parent=self.root)
         app.window.bind("<Destroy>", lambda _e: self.update_community_plugin_list(), add="+")
 
