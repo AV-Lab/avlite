@@ -898,8 +898,13 @@ Third-party access</strong>.</p>
 </tr>
 <tr>
 <td><strong>Community plugins</strong> (installed clones)</td>
-<td><code>~/.local/share/avlite/plugins/</code></td>
+<td><code>~/.local/share/avlite/plugins/&lt;name&gt;/</code> — code only; registered in <code>c40_execution.yaml</code></td>
 <td><code>AVLITE_PLUGINS_DIR</code></td>
+</tr>
+<tr>
+<td><strong>Community plugin settings</strong></td>
+<td><code>~/.config/avlite/plugin_&lt;name&gt;.yaml</code> — user-only; no repo default</td>
+<td><code>AVLITE_CONFIG_DIR</code></td>
 </tr>
 <tr>
 <td><strong>Maps &amp; trajectories</strong></td>
@@ -925,7 +930,7 @@ Third-party access</strong>.</p>
 <li><code>c30_control.yaml</code> — Controller tuning</li>
 <li><code>c40_execution.yaml</code> — Execution and simulator settings</li>
 <li><code>c50_visualization.yaml</code> — GUI preferences</li>
-<li><code>plugin_*.yaml</code> — Built-in plugin settings (same names as in repo <code>configs/</code>)</li>
+<li><code>plugin_*.yaml</code> — Plugin settings: built-in plugins ship repo defaults in <code>configs/</code> with user overrides under <code>~/.config/avlite/</code>; community plugins use the same <code>plugin_&lt;name&gt;.yaml</code> basename but only in the user config dir (one file per registered plugin name)</li>
 </ul>
 <h3 id="gui-profiles-and-reset">GUI: profiles and reset<a class="headerlink" href="#gui-profiles-and-reset" title="Permanent link">&para;</a></h3>
 <ul>

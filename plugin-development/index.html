@@ -768,19 +768,22 @@
 <div class="highlight"><pre><span></span><code>/path/to/my_plugin/
 ├── __init__.py      # Export classes
 ├── settings.py      # Optional: PluginSettings if you have tunable params
-├── config/          # Created on Save: my_plugin.yaml profiles
-└── my_strategy.py   # Your implementation
+├── my_strategy.py   # Your implementation
+├── README.md        # Optional: shown in the Plugins browser
+└── requirements.txt # Optional: extra pip dependencies
 </code></pre></div>
+<p>Tunable parameters are saved outside the plugin tree in <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> (see section 1). Do not ship a <code>config/</code> folder or plugin-local YAML profiles in your repository.</p>
 <p>Do not commit a <code>.venv</code> inside your plugin directory — AVLite scans all <code>.py</code> files under the plugin path and skips common vendor folders (<code>.venv</code>, <code>site-packages</code>, etc.), but keeping the venv outside the plugin tree is cleaner.</p>
 <h2 id="1-settings-file-optional">1. Settings File (Optional)<a class="headerlink" href="#1-settings-file-optional" title="Permanent link">&para;</a></h2>
-<p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> — you do <strong>not</strong> need <code>exclude</code>, <code>filepath</code>, or a <code>config/</code> folder in your plugin package; those are handled when the plugin is registered.</p>
+<p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> (or under <code>AVLITE_CONFIG_DIR</code> if set). The filename uses the registry key / <code>c40_community_plugins</code> entry name — you do <strong>not</strong> need <code>exclude</code>, <code>filepath</code>, or a <code>config/</code> folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># settings.py</span>
 <span class="k">class</span> <span class="nc">PluginSettings</span><span class="p">:</span>
     <span class="c1"># Your parameters (appear in UI automatically)</span>
     <span class="n">my_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
 </code></pre></div>
 <p>Optionally add a <code>PluginSettingsSchema</code> (Pydantic) with <code>Field(description=...)</code> for tooltips in the settings window, same as built-in plugins.</p>
-<p>Built-in plugins under <code>avlite/plugins/</code> are different: they set <code>filepath = "configs/plugin_*.yaml"</code> explicitly so shipped defaults live in the repository <code>configs/</code> directory.</p>
+<p>If <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> does not exist yet, AVLite may still <strong>read</strong> a legacy file at <code>&lt;install&gt;/config/&lt;plugin_name&gt;.yaml</code> from older setups; new saves always go to the user config directory.</p>
+<p>Built-in plugins under <code>avlite/plugins/</code> are different: they set <code>filepath = "configs/plugin_*.yaml"</code> explicitly so shipped defaults live in the repository <code>configs/</code> directory and fall back from the user config dir on load.</p>
 <h2 id="2-example-custom-perception-monolithic">2. Example: Custom Perception (Monolithic)<a class="headerlink" href="#2-example-custom-perception-monolithic" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PerceptionStrategy</span>
 <span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">PerceptionCapability</span>
@@ -928,13 +931,15 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 <p><strong>Via GUI</strong> (recommended):
 1. Open AVLite
 2. Go to Config tab
-3. Add entry under community plugins: <code>my_plugin</code> -&gt; <code>/path/to/my_plugin</code>
+3. Add entry under community plugins: <code>my_plugin</code> → install path (or use <strong>Install</strong> then <strong>Register</strong> from <code>python -m avlite plugins</code>)
 4. Save profile</p>
+<p>Double-click a community plugin in the list to view its <strong>Package Name</strong> and <strong>Settings file</strong> paths separately. <strong>Reset to Installed</strong> repopulates the list from everything under the plugins install directory.</p>
 <p><strong>Via settings file</strong> (<code>configs/c40_execution.yaml</code> or your saved copy under <code>~/.config/avlite/</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="nt">c40_community_plugins</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/my_plugin</span>
+<span class="w">  </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_plugin</span><span class="w">                    </span><span class="c1"># installed under ~/.local/share/avlite/plugins/</span>
+<span class="w">  </span><span class="nt">dev_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~/src/my_plugin</span><span class="w">             </span><span class="c1"># local dev checkout outside the plugins dir</span>
 </code></pre></div>
-<p>When a plugin is installed through <code>python -m avlite plugins</code>, its path is stored under <code>~/.local/share/avlite/plugins/</code> (override with <code>AVLITE_PLUGINS_DIR</code>).</p>
+<p>The map value is the <strong>install path</strong>, not the settings YAML path. When a plugin lives under <code>~/.local/share/avlite/plugins/</code> (override install root with <code>AVLITE_PLUGINS_DIR</code>), AVLite stores the name sentinel (<code>my_plugin: my_plugin</code>). Paths outside that directory are stored as <code>~/...</code> or an absolute path. Plugin settings always live in <code>~/.config/avlite/plugin_&lt;name&gt;.yaml</code>, independent of the install location.</p>
 <p>Your classes will now appear in the UI dropdowns.</p>
 <h2 id="member-plugins-av-lab">Member plugins (AV-Lab)<a class="headerlink" href="#member-plugins-av-lab" title="Permanent link">&para;</a></h2>
 <p>The <strong>Members</strong> tab in <code>python -m avlite plugins</code> lists plugins from the
@@ -1059,7 +1064,7 @@ This is separate from the public community registry.</p>
 <li>[ ] README explains what the plugin provides and any extra setup</li>
 <li>[ ] Registry <code>name</code> matches how you refer to the plugin in docs</li>
 <li>[ ] Registry <code>category</code> matches the base class(es) you export</li>
-<li>[ ] No secrets, large binaries, or committed virtualenv in the plugin repo</li>
+<li>[ ] No secrets, large binaries, committed virtualenv, or <code>config/</code> folder with plugin-local YAML profiles in the plugin repo</li>
 </ul>
 <p>In the PR description, briefly state what layer(s) the plugin extends (perception, planning, control, bridge, etc.) and link to an example profile or usage steps if helpful.</p>
 <h3 id="after-merge">After merge<a class="headerlink" href="#after-merge" title="Permanent link">&para;</a></h3>
@@ -1230,7 +1235,7 @@ This is separate from the public community registry.</p>
 - <code>p10_perception_MO_prediction</code> — Multi-object prediction perception
 - <code>p30_controller_joystick</code> — Xbox-style joystick controller
 - <code>p50_headless_mode</code> — Headless runner and config CLI</p>
-<p>Settings for built-in plugins: <code>configs/plugin_*.yaml</code> in the repo (same basename under <code>~/.config/avlite/</code> when saved).</p>
+<p>Settings for built-in plugins: <code>configs/plugin_*.yaml</code> in the repo (same basename under <code>~/.config/avlite/</code> when saved). Community plugin settings use the same <code>plugin_&lt;name&gt;.yaml</code> basename but live only under <code>~/.config/avlite/</code> (no repo default).</p>
 
 
 

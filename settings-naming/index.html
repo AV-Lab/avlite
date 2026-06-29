@@ -550,7 +550,31 @@
 </table>
 <p>Built-in plugins use <code>configs/plugin_*.yaml</code> in the repo and the same basename under <code>~/.config/avlite/</code> when saved.</p>
 <h2 id="plugins">Plugins<a class="headerlink" href="#plugins" title="Permanent link">&para;</a></h2>
-<p>Community and built-in plugins keep <code>PluginSettings</code> in <code>settings.py</code> with unprefixed snake_case parameters. See <a href="../plugin-development/">Plugin Development</a>.</p>
+<p>Community and built-in plugins keep <code>PluginSettings</code> in <code>settings.py</code> with unprefixed snake_case parameters. AVLite sets <code>filepath</code> automatically for community plugins at registration/load time. See <a href="../plugin-development/">Plugin Development</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Settings module</th>
+<th>Repo default</th>
+<th>User file (on Save)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Community plugin</td>
+<td><code>&lt;plugin&gt;/settings.py</code></td>
+<td>none</td>
+<td><code>~/.config/avlite/plugin_&lt;name&gt;.yaml</code></td>
+</tr>
+<tr>
+<td>Built-in plugin</td>
+<td><code>avlite/plugins/&lt;name&gt;/settings.py</code></td>
+<td><code>configs/plugin_&lt;name&gt;.yaml</code></td>
+<td>same basename under user config</td>
+</tr>
+</tbody>
+</table>
 <h2 id="validation-and-field-docs">Validation and field docs<a class="headerlink" href="#validation-and-field-docs" title="Permanent link">&para;</a></h2>
 <p>Each settings module defines a Pydantic <code>*SettingsSchema</code> with types, defaults, and <code>Field(description=...)</code>. YAML profiles are validated on load/save and on profile zip export/import.</p>
 <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span><span class="nb">help</span>
