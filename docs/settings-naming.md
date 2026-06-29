@@ -33,7 +33,12 @@ Built-in plugins use `configs/plugin_*.yaml` in the repo and the same basename u
 
 ## Plugins
 
-Community and built-in plugins keep `PluginSettings` in `settings.py` with unprefixed snake_case parameters. See [Plugin Development](plugin-development.md).
+Community and built-in plugins keep `PluginSettings` in `settings.py` with unprefixed snake_case parameters. AVLite sets `filepath` automatically for community plugins at registration/load time. See [Plugin Development](plugin-development.md).
+
+| Kind | Settings module | Repo default | User file (on Save) |
+|------|-----------------|--------------|---------------------|
+| Community plugin | `<plugin>/settings.py` | none | `~/.config/avlite/plugin_<name>.yaml` |
+| Built-in plugin | `avlite/plugins/<name>/settings.py` | `configs/plugin_<name>.yaml` | same basename under user config |
 
 ## Validation and field docs
 

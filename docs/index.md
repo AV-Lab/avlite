@@ -183,7 +183,8 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 |---------|----------|------------------|
 | **Shipped defaults** (read-only in git) | `{repo}/configs/*.yaml` | — |
 | **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
-| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/` | `AVLITE_PLUGINS_DIR` |
+| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in `c40_execution.yaml` | `AVLITE_PLUGINS_DIR` |
+| **Community plugin settings** | `~/.config/avlite/plugin_<name>.yaml` — user-only; no repo default | `AVLITE_CONFIG_DIR` |
 | **Maps & trajectories** | Read: `~/.config/avlite/data/` then `{repo}/data/`; save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
 | **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
 
@@ -204,7 +205,7 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 - `c30_control.yaml` — Controller tuning
 - `c40_execution.yaml` — Execution and simulator settings
 - `c50_visualization.yaml` — GUI preferences
-- `plugin_*.yaml` — Built-in plugin settings (same names as in repo `configs/`)
+- `plugin_*.yaml` — Plugin settings: built-in plugins ship repo defaults in `configs/` with user overrides under `~/.config/avlite/`; community plugins use the same `plugin_<name>.yaml` basename but only in the user config dir (one file per registered plugin name)
 
 ### GUI: profiles and reset
 

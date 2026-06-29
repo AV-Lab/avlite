@@ -191,6 +191,8 @@ avlite/
     ├── __init__.py
     ├── settings.py
     └── ...
+
+~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 ```
 
 Plugins are loaded at startup. Classes inheriting from base strategies auto-register.
