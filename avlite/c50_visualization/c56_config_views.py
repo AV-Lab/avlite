@@ -552,6 +552,18 @@ class SettingWindow:
             cb.pack(side=tk.LEFT)
             attach_schema_tooltip(cb, VisualizationSettings, field)
 
+        additional_setting_row_1c = ttk.Frame(additional_setting_frame)
+        additional_setting_row_1c.pack(fill=tk.X)
+        ttk.Label(additional_setting_row_1c, text="Global Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        cb_plan_boundaries = ttk.Checkbutton(
+            additional_setting_row_1c,
+            text="Plan boundaries",
+            variable=self.root.setting.show_global_plan_boundaries,
+            command=self.root.update_ui,
+        )
+        cb_plan_boundaries.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_plan_boundaries, VisualizationSettings, "show_global_plan_boundaries")
+
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
 

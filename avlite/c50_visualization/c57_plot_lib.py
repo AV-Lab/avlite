@@ -4,7 +4,7 @@ from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c18_hdmap_parser import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
-from avlite.c20_planning.c27_lattice import Edge
+from avlite.c20_planning.c28_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
@@ -16,11 +16,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.collections import LineCollection
+from matplotlib.colors import Normalize
 
 import logging
 
 log = logging.getLogger(__name__)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
 
 class GlobalPlot(ABC):
     def __init__(self, figsize=(8, 10), name="Global Plot"):
@@ -34,12 +36,12 @@ class GlobalPlot(ABC):
         # Disable the 'l' shortcut for toggling log scale
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-        self.start, = self.ax.plot([], [], 'bo', markersize=14, label="Start", zorder = 3)
-        self.start_text = self.ax.text(1000, 1000, 'S', fontsize=12, color='white', zorder=4, ha='center', va='center')
-        self.goal, = self.ax.plot([], [], 'go', markersize=14, label="Goal", zorder = 3)    
-        self.goal_text = self.ax.text(1000, 1000 , 'G', fontsize=12, color='white', zorder=4, ha='center', va='center')
-        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=5)
-        self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=6, ha='center', va='center')
+        self.start, = self.ax.plot([], [], 'bo', markersize=14, label="Start", zorder=7)
+        self.start_text = self.ax.text(1000, 1000, 'S', fontsize=12, color='white', zorder=9, ha='center', va='center')
+        self.goal, = self.ax.plot([], [], 'go', markersize=14, label="Goal", zorder=7)
+        self.goal_text = self.ax.text(1000, 1000 , 'G', fontsize=12, color='white', zorder=9, ha='center', va='center')
+        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=8)
+        self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=9, ha='center', va='center')
 
         self.orientation_arrow = None  # For the vehicle orientation arrow
         for tick in self.ax.xaxis.get_major_ticks():
@@ -58,7 +60,7 @@ class GlobalPlot(ABC):
         self.map_plotted = False
 
 
-    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, delta:Optional[tuple[float,float]]=None):
+    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, show_plan_boundaries=True, delta:Optional[tuple[float,float]]=None):
         if not self.map_plotted:
             self.plot_map(exec.global_planner)
 
@@ -164,7 +166,7 @@ class GlobalPlot(ABC):
         if self.orientation_arrow:
             self.orientation_arrow.remove()
         self.orientation_arrow = self.ax.annotate('', xy=(x2, y2), xytext=(x,y), arrowprops=dict(arrowstyle='->',
-                                                     mutation_scale=20, color="red", lw=5), zorder=5)
+                                                     mutation_scale=20, color="red", lw=5), zorder=9)
         
     def clear_tmp_plots(self):
         self.orientation_arrow.remove() if self.orientation_arrow else None
@@ -205,7 +207,8 @@ class GlobalRacePlot(GlobalPlot):
         # Create plot elements with empty data - they'll be updated later
         self.left_boundary, = self.ax.plot([], [], 'orange', linewidth=3, label="Left Boundary")
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
-        self.reference_trajectory, = self.ax.plot([], [], 'gray', linewidth=3, label="Global Trajectory")
+        self.reference_trajectory = LineCollection([], cmap='RdYlGn_r', linewidths=5, zorder=4)
+        self.ax.add_collection(self.reference_trajectory)
         
       
         # self.ax.legend()
@@ -214,8 +217,9 @@ class GlobalRacePlot(GlobalPlot):
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
     def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
-             follow_vehicle=True, delta: Optional[tuple[float, float]] = None):
-        self.plot_map(exec.global_planner)
+             follow_vehicle=True, show_plan_boundaries: bool = True,
+             delta: Optional[tuple[float, float]] = None):
+        self.plot_map(exec.global_planner, show_plan_boundaries=show_plan_boundaries)
         self.plot_vehicle(exec.ego_state)
         self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
         self.fig.canvas.draw()
@@ -236,22 +240,29 @@ class GlobalRacePlot(GlobalPlot):
         # Use the same colors as LocalPlot, not black/white specific colors
         self.left_boundary.set_color("orange")
         self.right_boundary.set_color("tan")
-        self.reference_trajectory.set_color("gray")
         self.vehicle_location.set_color("red")
         
         
-    def plot_map(self, global_planner: GlobalPlannerStrategy):
+    def plot_map(self, global_planner: GlobalPlannerStrategy, show_plan_boundaries: bool = True):
         """Update the plot with current data"""
 
         log.debug("Plotting Race Global Plot")
-        self.left_boundary.set_data(global_planner.global_plan.left_boundary_x, global_planner.global_plan.left_boundary_y)
-        self.right_boundary.set_data(global_planner.global_plan.right_boundary_x, global_planner.global_plan.right_boundary_y)
-        self.reference_trajectory.set_data(global_planner.global_plan.trajectory.path_x, global_planner.global_plan.trajectory.path_y)
+        plan = global_planner.global_plan
+        if show_plan_boundaries:
+            self.left_boundary.set_data(plan.left_boundary_x, plan.left_boundary_y)
+            self.right_boundary.set_data(plan.right_boundary_x, plan.right_boundary_y)
+        else:
+            self.left_boundary.set_data([], [])
+            self.right_boundary.set_data([], [])
+        traj = plan.trajectory
+        _update_velocity_colored_line(
+            self.reference_trajectory, traj.path_x, traj.path_y, traj.velocity,
+        )
         
-        self.map_min_x = min(global_planner.global_plan.left_boundary_x)
-        self.map_max_x = max(global_planner.global_plan.right_boundary_x)
-        self.map_min_y = min(global_planner.global_plan.left_boundary_y)
-        self.map_max_y = max(global_planner.global_plan.right_boundary_y)
+        self.map_min_x = min(plan.left_boundary_x)
+        self.map_max_x = max(plan.right_boundary_x)
+        self.map_min_y = min(plan.left_boundary_y)
+        self.map_max_y = max(plan.right_boundary_y)
         self.map_plotted = True
             
 
@@ -316,11 +327,27 @@ class GlobalHDMapPlot(GlobalPlot):
            pl , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Lane Path", zorder=2)
            self.lane_path_plots.append(pl)
 
-        self.global_plan_path , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Global Path", zorder=2)
+        self.global_plan_path = LineCollection([], cmap='RdYlGn_r', linewidths=5, zorder=4)
+        self.ax.add_collection(self.global_plan_path)
 
         self.road_arrow = None # for the road direction arrow
         self.lane_arrow = None # for the lane direction arrow
-        
+
+    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
+             follow_vehicle=True, show_plan_boundaries: bool = True,
+             delta: Optional[tuple[float, float]] = None):
+        if not self.map_plotted:
+            self.plot_map(exec.global_planner)
+        self.plot_vehicle(exec.ego_state)
+        self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
+        plan = exec.global_planner.global_plan
+        if len(plan.path) < 2:
+            plan = exec.local_planner.global_plan
+        if len(plan.path) >= 2:
+            path = np.array(plan.path).T
+            velocity = plan.velocity or plan.trajectory.velocity
+            _update_velocity_colored_line(self.global_plan_path, path[0], path[1], velocity)
+        self.fig.canvas.draw()
 
     def show_closest_road_and_lane(self,  x:int, y:int, map:HDMap):
         """Show the closest road and lane to the given coordinates"""
@@ -391,22 +418,22 @@ class GlobalHDMapPlot(GlobalPlot):
     def plot_global_plan(self, global_plan: GlobalPlan):
         """Plot the road path"""
         try:
-            lane_path = global_plan.lane_path
-            log.debug("Plotting Road Path: length = %d", len(lane_path))
+            log.debug("Plotting Road Path: length = %d", len(global_plan.path))
             self.clear_road_path_plots()
             path = np.array(global_plan.path).T
-            self.global_plan_path.set_data(path[0], path[1])
+            velocity = global_plan.velocity or global_plan.trajectory.velocity
+            _update_velocity_colored_line(self.global_plan_path, path[0], path[1], velocity)
             self.fig.canvas.draw()
         except Exception as e:
             log.error(f"Error plotting global plan: {e}")
-            self.global_plan_path.set_data([], [])
+            _update_velocity_colored_line(self.global_plan_path, [], [], [])
 
 
     def clear_road_path_plots(self):
         """Clear the road path plots"""
         for i in range(len(self.lane_path_plots)):
             self.lane_path_plots[i].set_data([], [])
-        self.global_plan_path.set_data([], [])
+        _update_velocity_colored_line(self.global_plan_path, [], [], [])
         self.__clear_closest_road_and_lane()
 
     
@@ -1004,7 +1031,7 @@ class LocalPlot:
         if use_prediction:
             n_steps = pm.trajectories.shape[1]
             from avlite.c20_planning.c29_settings import PlanningSettings
-            total_time = PlanningSettings.c26_maneuver_distance / PlanningSettings.c20_default_ego_velocity
+            total_time = PlanningSettings.c27_maneuver_distance / PlanningSettings.c20_default_ego_velocity
             step = min(int(total_time / pm.predict_delta_t), n_steps - 1)
             pred_xy = pm.trajectories[:n, step, :]  # (n, 2)
             pred_sd = global_trajectory.convert_xy_path_to_sd_path_np(pred_xy)  # (n, 2)
@@ -1136,3 +1163,27 @@ class LocalPlot:
 
     def reset(self):
         self.update_pm_occupancy_flow_plots(None, show_plot=False)
+
+
+# --- module helpers ---
+
+def _update_velocity_colored_line(collection, x, y, velocity):
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) < 2:
+        collection.set_segments([])
+        collection.set_array(np.array([]))
+        return
+    v = np.asarray(velocity, float)
+    if len(v) == 0:
+        v = np.full(len(x), 0.5)
+    n = min(len(x), len(v))
+    x, y, v = x[:n], y[:n], v[:n]
+    pts = np.column_stack([x, y]).reshape(-1, 1, 2)
+    segments = np.concatenate([pts[:-1], pts[1:]], axis=1)
+    seg_v = 0.5 * (v[:-1] + v[1:])
+    collection.set_segments(segments)
+    collection.set_array(seg_v)
+    vmin, vmax = float(seg_v.min()), float(seg_v.max())
+    if vmin == vmax:
+        vmax = vmin + 1e-9
+    collection.set_norm(Normalize(vmin=vmin, vmax=vmax))
