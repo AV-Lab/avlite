@@ -116,11 +116,17 @@ executer = executor_factory(
 
 It loads plugins, instantiates strategies from registries, and wires everything together. Both `perception_strategy_name` and `localization_strategy_name` are optional — pass an empty string or omit them to run without that component.
 
+Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c43_factory.py`](../avlite/c40_execution/c43_factory.py). That loads c10–c40 settings and built-in plugin settings; it does **not** load `c50_visualization.yaml` (the GUI loads the Tk `VisualizationSettings` binder separately).
+
+### Layer import rules
+
+`c40_execution`, `c60_common`, and `avlite/plugins` must not import `c50_visualization`. Profile zip export that includes visualization YAML is composed in c50 via `c59_settings.get_stack_settings_classes()`, which wraps the core list from c43.
+
 ## Layers
 
 ### **Perception**
 
-Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
+Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. Static map types (`Map`, `RaceMap`) live in c11; OpenDRIVE `HDMap` parsing is in c18. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
 
 ### **Planning**
 
@@ -140,7 +146,7 @@ Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread
 
 ### **Common**
 
-YAML profile load/save, hot reload, plugin discovery, capability enums, HD map and OpenDRIVE parsing, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), and settings validation.
+YAML profile load/save, hot reload, plugin discovery (`c66_plugins`), path resolution (`c67_paths`), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation.
 
 ## Data Flow
 

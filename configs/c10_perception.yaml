@@ -1,6 +1,7 @@
 Carla_Town10:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: ''
   c12_prediction_strategy: ConstantVelocityPrediction
@@ -31,6 +32,7 @@ Carla_Town10:
 SAN:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: ''
   c12_prediction_strategy: ''
@@ -61,6 +63,7 @@ SAN:
 async:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: ''
   c12_prediction_strategy: ''
@@ -91,6 +94,7 @@ async:
 default:
   c11_max_agents: 13
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: ''
   c12_prediction_strategy: ConstantVelocityPrediction
@@ -121,6 +125,7 @@ default:
 global planning:
   c11_max_agents: 13
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: ''
   c12_prediction_strategy: ConstantVelocityPrediction
@@ -151,6 +156,7 @@ global planning:
 joystick:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: FastBEVLidarDetection
   c12_prediction_strategy: ConstantVelocityPrediction
@@ -181,6 +187,7 @@ joystick:
 perception:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: FastBEVLidarDetection
   c12_prediction_strategy: ConstantVelocityPrediction
@@ -213,6 +220,7 @@ robot:
 ros:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: ''
   c12_prediction_strategy: ''
@@ -243,6 +251,7 @@ ros:
 sync:
   c11_max_agents: 12
   c11_prediction_grid_size: 100
+  c11_predict_delta_t: 0.1
   c11_state_default_heading: 0
   c12_detection_strategy: ''
   c12_prediction_strategy: ConstantVelocityPrediction

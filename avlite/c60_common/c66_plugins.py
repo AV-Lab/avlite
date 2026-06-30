@@ -11,13 +11,8 @@ import types
 from pathlib import Path
 
 from avlite.c60_common.c67_paths import (
-    builtin_plugins_dir,
-    community_plugin_settings_filepath,
-    effective_config_path,
-    legacy_community_plugin_settings_path,
-    legacy_plugin_settings_filepath,
-    plugin_settings_filepath,
-    resolve_plugin_path,
+    ConfigPaths,
+    PluginPaths,
 )
 
 log = logging.getLogger(__name__)
@@ -92,7 +87,7 @@ def layer_key_for_plugin_log_record(logger_name: str) -> str | None:
 
 def list_plugins() -> list[str]:
     """List built-in plugin package names under ``avlite/plugins/``."""
-    plugins_dir = builtin_plugins_dir()
+    plugins_dir = PluginPaths.builtin_dir()
     plugins: list[str] = []
     if plugins_dir.is_dir():
         for plugin_dir in plugins_dir.iterdir():
@@ -107,7 +102,7 @@ def list_plugins() -> list[str]:
 
 def load_builtin_plugin_settings(plugin: str):
     """Load ``PluginSettings`` from ``settings.py`` without importing the plugin package."""
-    plugin_dir = builtin_plugins_dir() / plugin
+    plugin_dir = PluginPaths.builtin_dir() / plugin
     settings_file = plugin_dir / "settings.py"
     if not settings_file.exists():
         return None
@@ -121,10 +116,7 @@ def load_builtin_plugin_settings(plugin: str):
         spec.loader.exec_module(module)
         cls = getattr(module, "PluginSettings", None)
         if cls is not None:
-            # Built-in plugins do not declare a filepath; derive it from the
-            # plugin directory name and wire the legacy name as a read fallback.
-            _set_settings_filepath(cls, plugin_settings_filepath(plugin))
-            _set_settings_legacy_filepath(cls, legacy_plugin_settings_filepath(plugin))
+            _set_settings_filepath(cls, PluginPaths.settings_filepath(plugin))
         return cls
     except Exception as e:
         log.warning("Could not load PluginSettings for '%s': %s", plugin, e)
@@ -157,20 +149,13 @@ def _set_settings_filepath(setting, filepath: str) -> None:
         type(setting).filepath = filepath
 
 
-def _set_settings_legacy_filepath(setting, legacy: str | None) -> None:
-    if isinstance(setting, type):
-        setting.legacy_filepath = legacy
-    else:
-        type(setting).legacy_filepath = legacy
-
-
 def patch_plugin_settings(setting, name: str, plugin_path: str) -> None:
     """Derive and set the settings ``filepath`` so save/load_setting work.
 
     *setting* may be a class singleton or a settings instance; the path is derived
     from the plugin name.
     """
-    _set_settings_filepath(setting, community_plugin_settings_filepath(name))
+    _set_settings_filepath(setting, PluginPaths.settings_filepath(name))
 
 
 def load_community_plugin_setting(
@@ -180,51 +165,16 @@ def load_community_plugin_setting(
     *,
     binder=None,
 ):
-    """Load ``PluginSettings`` for a community plugin (user config, legacy install-dir fallback)."""
+    """Load ``PluginSettings`` for a community plugin from user config."""
     from avlite.c60_common.c69_setting_utils import load_setting
 
-    install_path = str(resolve_plugin_path(name, stored))
+    install_path = str(PluginPaths.resolve(name, stored))
     cls = load_plugin_settings_class(name, install_path)
     if cls is None:
         return None
     patch_plugin_settings(cls, name, install_path)
-    user_filepath = community_plugin_settings_filepath(name)
-    user_path = Path(effective_config_path(user_filepath, for_write=False))
-    if not user_path.is_file():
-        legacy = legacy_community_plugin_settings_path(name, stored)
-        if legacy.is_file():
-            _set_settings_filepath(cls, str(legacy))
     load_setting(cls, profile=profile, binder=binder)
-    if getattr(cls, "filepath", "") != user_filepath:
-        patch_plugin_settings(cls, name, install_path)
     return cls
-
-
-def load_all_stack_settings(profile: str = "default", load_plugins: bool = True) -> None:
-    """Load all stack settings and built-in plugin settings."""
-    from avlite.c10_perception.c19_settings import PerceptionSettings
-    from avlite.c20_planning.c29_settings import PlanningSettings
-    from avlite.c30_control.c39_settings import ControlSettings
-    from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c60_common.c69_setting_utils import load_setting
-
-    load_setting(PerceptionSettings, profile=profile)
-    load_setting(PlanningSettings, profile=profile)
-    load_setting(ControlSettings, profile=profile)
-    load_setting(ExecutionSettings, profile=profile)
-
-    from avlite.c60_common.c67_paths import bootstrap_reference_point_from_maps
-
-    bootstrap_reference_point_from_maps()
-
-    if not load_plugins:
-        return
-
-    for plugin in ExecutionSettings.c40_default_plugins:
-        cls = load_builtin_plugin_settings(plugin)
-        if cls is None:
-            continue
-        load_setting(cls, profile=profile)
 
 
 def unregister_plugin_package(plugin_name: str) -> None:
@@ -303,7 +253,7 @@ def import_plugin_modules(
 ) -> None:
     """Import all Python modules from a built-in or community plugin directory."""
     if not directory:
-        plugins_directory = builtin_plugins_dir()
+        plugins_directory = PluginPaths.builtin_dir()
         if plugins_filter is not None:
             pkgs = plugins_filter
         else:

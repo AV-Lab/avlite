@@ -1,25 +1,29 @@
 from __future__ import annotations
 
-from enum import Enum
+from abc import ABC, abstractmethod
+from enum import Enum, auto
+import json
+import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import copy
 import numpy as np
 from shapely.geometry import Polygon
-from typing import Optional, Dict, Any
-import copy
-from dataclasses import dataclass, field
-import logging
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c60_common.c66_hdmap import HDMap
-
 
 log = logging.getLogger(__name__)
 
+
 class PredictionMode(Enum):
-    TRAJECTORY = 1 # Outputs a single predicted trajectory for each agent, represented as a sequence of future positions and velocities over a specified prediction horizon.
-    GMM = 2 # Gaussian Mixture Model - outputs a set of weighted trajectories
-    OCCUPANCY_FLOW = 5 # Outputs a time sequence of occupancy grids representing the predicted positions of the agent over time. Each grid cell contains a probability of occupancy, and the flow aspect captures how these probabilities evolve across the prediction horizon.
-    OCCUPANCY_FLOW_PER_AGENT = 3 # Similar to OCCUPANCY_FLOW but provides separate occupancy flow predictions for each individual agent, allowing for more granular and agent-specific future state estimations. Each entry in the list corresponds to a specific agent and contains its own sequence of occupancy grids, enabling the model to capture distinct movement patterns and interactions between agents in the environment.
-    NONE = 4
+    TRAJECTORY = auto() # Outputs a single predicted trajectory for each agent, represented as a sequence of future positions and velocities over a specified prediction horizon.
+    GMM = auto() # Gaussian Mixture Model - outputs a set of weighted trajectories
+    OCCUPANCY_FLOW = auto() # Outputs a time sequence of occupancy grids representing the predicted positions of the agent over time. Each grid cell contains a probability of occupancy, and the flow aspect captures how these probabilities evolve across the prediction horizon.
+    OCCUPANCY_FLOW_PER_AGENT = auto() # Similar to OCCUPANCY_FLOW but provides separate occupancy flow predictions for each individual agent, allowing for more granular and agent-specific future state estimations. Each entry in the list corresponds to a specific agent and contains its own sequence of occupancy grids, enabling the model to capture distinct movement patterns and interactions between agents in the environment.
+    NONE = auto()
+
 
 @dataclass
 class PerceptionModel:
@@ -28,15 +32,17 @@ class PerceptionModel:
     ego_vehicle: EgoState= field(default_factory=lambda: EgoState())
     max_agent_vehicles: int = field(default_factory=lambda: PerceptionSettings.c11_max_agents)
    
-    # Optional HDMap
-    hd_map: Optional[HDMap] = None
+    # Optional map (HDMap or RaceMap)
+    map: Optional[Map] = None
    
     # Optional Agent Prediction 
     prediction_mode: PredictionMode = PredictionMode.NONE
+    predict_delta_t: float = field(default_factory=lambda: PerceptionSettings.c11_predict_delta_t)
     trajectories : Optional[np.ndarray] = None # For single, multi,GMM results of predictor
+
+    # Other formats for prediction modes
     occupancy_flow: Optional[list[np.ndarray]] = None # list of 2D grids. Each list corresponds to a timestep in the prediction
     grid_bounds: Optional[Dict[str, float]] = None # Dictionary with bounds of the grid (min_x, max_x, min_y, max_y, resolution)
-    predict_delta_t: float = 0.1
     grid_size: int = field(default_factory=lambda: PerceptionSettings.c11_prediction_grid_size)  # Size of the occupancy grid -> 100x100
 
     occupancy_flow_per_object:  Optional[list[tuple[int,list[np.ndarray]]]] = None # list(agent_id, list(2D grid))
@@ -99,6 +105,7 @@ class PerceptionModel:
     def reset(self):
         self.static_obstacles = []
         self.agent_vehicles = []
+
 
 
 
@@ -188,4 +195,95 @@ class EgoState(AgentState):
     """Ego vehicle state with additional properties in future."""
     pass
 
+
+class Map(ABC):
+    """Static world geometry with an optional WGS84 reference point."""
+
+    source_path: str
+
+    @property
+    @abstractmethod
+    def reference_point(self) -> tuple[float, float] | None:
+        """WGS84 (lat_deg, lon_deg) when available."""
+
+    @staticmethod
+    @abstractmethod
+    def is_loadable(path: Path | str) -> bool:
+        """Return True when *path* is a supported map file."""
+
+    @classmethod
+    @abstractmethod
+    def from_path(cls, path: Path | str) -> Map:
+        """Load a map instance from *path*."""
+
+    @classmethod
+    def open(cls, path: Path | str) -> Map | None:
+        """Dispatch to ``HDMap`` or ``RaceMap`` based on file format."""
+        path = Path(path)
+        from avlite.c10_perception.c18_hdmap_parser import HDMap
+
+        if HDMap.is_loadable(path):
+            return HDMap.from_path(path)
+        if RaceMap.is_loadable(path):
+            return RaceMap.from_path(path)
+        return None
+
+
+@dataclass
+class RaceMap(Map):
+    """Race corridor map from left/right boundary JSON."""
+
+    source_path: str
+    left_bound: np.ndarray = field(default_factory=lambda: np.array([]))
+    right_bound: np.ndarray = field(default_factory=lambda: np.array([]))
+    _reference_point: tuple[float, float] | None = None
+
+    @property
+    def reference_point(self) -> tuple[float, float] | None:
+        return self._reference_point
+
+    @staticmethod
+    def is_loadable(path: Path | str) -> bool:
+        """True when *path* is a race-boundary JSON with bounds and ReferencePoint."""
+        path = Path(path)
+        if path.suffix.lower() != ".json" or not path.is_file():
+            return False
+        try:
+            with path.open(encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not all(k in data for k in ("LeftBound", "RightBound", "ReferencePoint")):
+            return False
+        left = data["LeftBound"]
+        right = data["RightBound"]
+        if not left or not right:
+            return False
+        if not isinstance(left[0], list) or not isinstance(right[0], list):
+            return False
+        ref = data["ReferencePoint"]
+        if not isinstance(ref, list) or len(ref) < 2:
+            return False
+        try:
+            float(ref[0])
+            float(ref[1])
+        except (TypeError, ValueError):
+            return False
+        return True
+
+    @classmethod
+    def from_path(cls, path: Path | str) -> RaceMap:
+        path = Path(path)
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+        left = np.array(data["LeftBound"])[:, :2]
+        right = np.array(data["RightBound"])[:, :2]
+        ref = data["ReferencePoint"]
+        ref_pt = (float(ref[0]), float(ref[1]))
+        return cls(
+            source_path=str(path),
+            left_bound=left,
+            right_bound=right,
+            _reference_point=ref_pt,
+        )
 

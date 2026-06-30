@@ -22,21 +22,17 @@ from avlite.c40_execution.c42_executer import Executer
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c58_ui_lib import (
     ValueGauge,
+    DataPicker,
     attach_schema_tooltip,
     attach_tooltip,
     BUTTON_TOOLTIPS,
     ThemedListPickerDialog,
     update_schema_tooltip,
 )
-from avlite.c50_visualization.c59_settings import VisualizationSettings, default_map_settings_field
-from avlite.c60_common.c60_plugins import plugin_module_prefix
+from avlite.c50_visualization.c59_settings import VisualizationSettings
+from avlite.c60_common.c66_plugins import plugin_module_prefix
 from avlite.c60_common.c61_capabilities import WorldCapability
-from avlite.c60_common.c67_paths import (
-    get_data_dir,
-    list_map_file_candidates,
-    list_global_plan_file_candidates,
-    data_picker_path_for_setting,
-)
+from avlite.c60_common.c67_paths import DataPaths
 
 if TYPE_CHECKING:
     from c50_visualization.c51_visualizer_app import VisualizerApp
@@ -338,7 +334,7 @@ class PlanFrame(ttk.LabelFrame):
 
     def save_global_plan(self):
         self.root.exec_visualize_view.stop_exec()
-        data_dir = get_data_dir()
+        data_dir = DataPaths.user_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
         default_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_global_plan.json"
         path = filedialog.asksaveasfilename(
@@ -646,22 +642,22 @@ class ExecView(ttk.Frame):
 
 
     def refresh_default_map_tooltips(self):
-        field = default_map_settings_field()
+        field = DataPicker.default_map_settings_field()
         update_schema_tooltip(self._default_map_lbl, ExecutionSettings, field)
         update_schema_tooltip(self._default_map_entry, ExecutionSettings, field)
 
 
     def _pick_default_global_plan(self, _event=None):
-        current = data_picker_path_for_setting(self.root.setting.default_global_plan_file.get())
-        items = list_global_plan_file_candidates()
+        current = DataPicker.display_path(self.root.setting.default_global_plan_file.get())
+        items = DataPicker.list_global_plan_candidates()
         dialog = ThemedListPickerDialog(self.root, "Default Global Plan", items, initial=current)
         if dialog.result:
             self.root.setting.default_global_plan_file.set(dialog.result)
             self.root.reload_stack(reload_code=False)
 
     def _pick_default_map(self, _event=None):
-        current = data_picker_path_for_setting(self.root.setting.default_map_file.get())
-        items = list_map_file_candidates()
+        current = DataPicker.display_path(self.root.setting.default_map_file.get())
+        items = DataPicker.list_map_candidates()
         dialog = ThemedListPickerDialog(self.root, "Default Map", items, initial=current)
         if dialog.result:
             self.root.setting.default_map_file.set(dialog.result)

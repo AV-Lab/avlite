@@ -1,9 +1,10 @@
+from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
 import logging
 import json
 
-from avlite.c60_common.c66_hdmap import HDMap
+from avlite.c10_perception.c18_hdmap_parser import HDMap
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,40 @@ class GlobalPlan:
     # Optional HDMap and lane path for global planning
     hdmap: Optional[HDMap] = None  
     lane_path: Optional[list[HDMap.Lane]] = None
+
+    @staticmethod
+    def is_loadable(path: str | Path) -> bool:
+        path = Path(path)
+        if path.suffix.lower() != ".json" or not path.is_file():
+            return False
+        try:
+            with path.open(encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not all(k in data for k in ("ReferenceLine", "ReferenceSpeed", "LeftBound", "RightBound")):
+            return False
+        ref_line = data["ReferenceLine"]
+        ref_speed = data["ReferenceSpeed"]
+        left = data["LeftBound"]
+        right = data["RightBound"]
+        if not ref_line or not ref_speed or not left or not right:
+            return False
+        if not isinstance(ref_line[0], list) or len(ref_line[0]) < 2:
+            return False
+        try:
+            float(ref_line[0][0])
+            float(ref_line[0][1])
+        except (TypeError, ValueError, IndexError):
+            return False
+        if isinstance(left[0], list) or isinstance(right[0], list):
+            return False
+        try:
+            float(left[0])
+            float(right[0])
+        except (TypeError, ValueError):
+            return False
+        return True
     
     @classmethod
     def from_file(cls, path_to_track: str) -> "GlobalPlan":

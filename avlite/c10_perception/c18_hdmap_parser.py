@@ -1,18 +1,25 @@
-import xml.etree.ElementTree as ET
-from scipy.spatial import KDTree
-import numpy as np
-import networkx as nx
-from typing import Optional
+from __future__ import annotations
+
 import logging
+import math
+import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+import networkx as nx
+import numpy as np
+from scipy.spatial import KDTree
+
+from avlite.c10_perception.c11_perception_model import Map
 
 log = logging.getLogger(__name__)
 
-@dataclass
-class HDMap:
-    """Compact HD map representation for global planning"""
 
-    # reference_point: tuple[float, float] | None = None
+@dataclass
+class HDMap(Map):
+    """Compact HD map representation for global planning."""
     
     @dataclass
     class Lane:
@@ -72,6 +79,47 @@ class HDMap:
     road_network: nx.DiGraph = field(default_factory=nx.DiGraph)
     lane_network: nx.DiGraph = field(default_factory=nx.DiGraph)
 
+    @property
+    def source_path(self) -> str:
+        return self.xodr_file_name
+
+    @property
+    def reference_point(self) -> tuple[float, float] | None:
+        def _normalise_geo_degrees(lat: float, lon: float) -> tuple[float, float]:
+            if max(abs(lat), abs(lon)) <= math.pi:
+                lat, lon = math.degrees(lat), math.degrees(lon)
+            return lat, lon
+
+        def _parse_proj_lat_lon(proj: str) -> tuple[float, float] | None:
+            lat_m = re.search(r"\+lat_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+            lon_m = re.search(r"\+lon_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+            if not lat_m or not lon_m:
+                return None
+            return _normalise_geo_degrees(float(lat_m.group(1)), float(lon_m.group(1)))
+
+        path = Path(self.xodr_file_name)
+        if path.suffix.lower() != ".xodr" or not path.is_file():
+            return None
+        try:
+            root = ET.parse(path).getroot()
+        except (ET.ParseError, OSError):
+            return None
+        header = root.find("header")
+        if header is None:
+            return None
+        geo = header.find("geoReference")
+        if geo is None or not (geo.text and geo.text.strip()):
+            return None
+        return _parse_proj_lat_lon(geo.text.strip())
+
+    @staticmethod
+    def is_loadable(path: Path | str) -> bool:
+        path = Path(path)
+        return path.suffix.lower() == ".xodr" and path.is_file()
+
+    @classmethod
+    def from_path(cls, path: Path | str) -> HDMap:
+        return cls(xodr_file_name=str(Path(path).resolve()))
 
     def __post_init__(self):
         if self.xodr_file_name == "":

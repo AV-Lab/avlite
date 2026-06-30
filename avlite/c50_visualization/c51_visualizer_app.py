@@ -10,18 +10,21 @@ from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from avlite.c50_visualization.c53_stack_views import PerceivePlanControlView, ExecView
+from avlite.c40_execution.c43_factory import load_stack_settings
+from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c50_visualization.c58_ui_lib import (
     TkSettingsBinder,
+    UiAssets,
     apply_ttk_theme,
     get_dpi_scale,
     scaled,
     setup_dpi,
 )
-from avlite.c50_visualization.c59_settings import VisualizationSettings, load_stack_plugins
+from avlite.c50_visualization.c58_ui_lib import DataPicker
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c60_plugins import reload_lib
-from avlite.c60_common.c67_paths import get_startup_profile, resolve_ui_asset_path, set_startup_profile
+from avlite.c60_common.c66_plugins import reload_lib
+from avlite.c60_common.c67_paths import ConfigPaths
 from avlite.c60_common.c69_setting_utils import load_setting, list_profiles
 from avlite import __version__
     
@@ -44,10 +47,18 @@ class VisualizerApp(tk.Tk):
         self.show_loading_overlay()
         self.update_idletasks()  # Force GUI to update and show the overlay
         self.update()            # Process all pending events
-        # self.after(500, self.__initialize_ui)  
-        self.__initialize_ui()
-        self.hide_loading_overlay()
-        
+        try:
+            self.__initialize_ui()
+        except Exception as e:
+            log.error("Startup failed: %s", e, exc_info=True)
+            messagebox.showerror(
+                "Startup failed",
+                f"Failed to start AVLite.\n\n{e}",
+                parent=self,
+            )
+        finally:
+            self.hide_loading_overlay()
+
 
     def __initialize_ui(self):
         self.title("AVlite Visualizer")
@@ -61,7 +72,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
-        startup = get_startup_profile()
+        startup = ConfigPaths.startup_profile()
         if startup and startup in self.setting.profile_list:
             self.setting.selected_profile.set(startup)
 
@@ -240,7 +251,7 @@ class VisualizerApp(tk.Tk):
         # Try to load and display logo
         try:
             from PIL import Image, ImageTk
-            logo_img = Image.open(resolve_ui_asset_path("logo.png"))
+            logo_img = Image.open(UiAssets.resolve("logo.png"))
             logo_img = logo_img.resize((round(256 * s), round(256 * s)), Image.LANCZOS)
             self.logo_photo = ImageTk.PhotoImage(logo_img)
             logo_label = tk.Label(frame, image=self.logo_photo, bg="black")
@@ -355,7 +366,7 @@ class VisualizerApp(tk.Tk):
 
         try:
             from PIL import Image, ImageTk
-            logo_img = Image.open(resolve_ui_asset_path("logo.png"))
+            logo_img = Image.open(UiAssets.resolve("logo.png"))
             logo_size = scaled(200, s)
             logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
             win._logo_photo = ImageTk.PhotoImage(logo_img)
@@ -442,16 +453,15 @@ class VisualizerApp(tk.Tk):
         binder = TkSettingsBinder()
         if not only_stack:
             load_setting(self.setting, profile=profile, binder=binder)
-        load_stack_plugins(profile=profile, load_plugins=self.setting.load_plugins.get())
-        from avlite.c50_visualization.c59_settings import default_map_display_path, default_global_plan_display_path
-        self.setting.default_map_file.set(default_map_display_path())
-        self.setting.default_global_plan_file.set(default_global_plan_display_path())
+        load_stack_settings(profile=profile, load_plugins=self.setting.load_plugins.get())
+        self.setting.default_map_file.set(DataPicker.default_map_display_path())
+        self.setting.default_global_plan_file.set(DataPicker.default_global_plan_display_path())
         self.exec_visualize_view.refresh_default_map_tooltips()
         self.config_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 
         self.log_view.reset()
-        set_startup_profile(profile)
+        ConfigPaths.set_startup_profile(profile)
         if hasattr(self, "config_shortcut_view"):
             self.config_shortcut_view.toggle_dark_mode()
 
@@ -466,14 +476,12 @@ class VisualizerApp(tk.Tk):
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
 
+        error = None
         try:
-            # if reload_code:
-                # self.load_configs()
             if reload_code:
                 reload_lib(exclude_settings=True, reload_plugins=self.setting.load_plugins.get())
             self.exec = executor_factory(
                 executer_type=self.setting.executer_type.get(),
-                # async_mode=self.setting.async_exec.get(),
                 bridge=self.setting.execution_bridge.get(),
                 perception_strategy_name=self.setting.perception_type.get(),
                 localization_strategy_name=self.setting.localization_type.get(),
@@ -486,35 +494,35 @@ class VisualizerApp(tk.Tk):
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.c40_hd_map,
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
-                # reload_code=reload_code,
-                # exclude_reload_settings=True,
                 load_plugins=self.setting.load_plugins.get(),
                 async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
 
-            from avlite.c50_visualization.c59_settings import default_map_display_path
-            self.setting.default_map_file.set(default_map_display_path())
+            self.setting.default_map_file.set(DataPicker.default_map_display_path())
             self.exec_visualize_view.refresh_default_map_tooltips()
 
         except Exception as e:
+            error = e
             log.error(f"Error reloading stack: {e}", exc_info=True)
+        finally:
+            self.local_plan_plot_view.reset()
+            self.global_plan_plot_view.reset()
+            self.perceive_plan_control_view.reset()
+            self.exec_visualize_view.update_data()
+            self.update_views()
+            self.update_ui()
+            self.enable_frame(self)
+            if self.exec is not None:
+                self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
+            self.focus_set()
+            self.hide_loading_overlay()
+
+        if error is not None:
             messagebox.showerror(
                 "Reload failed",
-                f"Failed to rebuild the stack. \n\n{e}",
+                f"Failed to rebuild the stack.\n\n{error}",
+                parent=self,
             )
-
-
-        self.local_plan_plot_view.reset()
-        self.global_plan_plot_view.reset()
-        self.perceive_plan_control_view.reset()
-        self.exec_visualize_view.update_data()
-        self.update_views()
-        self.update_ui()
-        self.enable_frame(self)
-        if self.exec is not None:
-            self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
-        self.focus_set()  # unfocus any entry fields including widgets. Useful to avoid typing shortcut keys 
-        self.hide_loading_overlay()
             
 
     def switch_profile(self):

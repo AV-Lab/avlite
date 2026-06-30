@@ -2,7 +2,7 @@
 
 import sys
 
-from avlite.c60_common.c60_plugins import import_plugin_modules, plugin_module_prefix
+from avlite.c60_common.c66_plugins import import_plugin_modules, plugin_module_prefix
 
 
 def test_import_plugin_modules_skips_venv(tmp_path):

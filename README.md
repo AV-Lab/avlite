@@ -43,12 +43,12 @@ flowchart TB
 
 ### Core Components
 
-- **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`)
+- **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`); `Map` / `RaceMap` in c11; OpenDRIVE `HDMap` parser in c18
 - **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (lattice-based `GreedyLatticePlanner`)
 - **c30_control**: Vehicle control algorithms (Stanley, PID)
-- **c40_execution**: Execution orchestration with support for sync/async modes, simulator bridges, and `replan_global()`
+- **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, `replan_global()`, and `c43_factory` (assembles the stack and loads c10–c40 YAML profiles)
 - **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
-- **c60_common**: Utilities, settings management, capability definitions (`AnyOf`, `satisfies_requirements`), and `HDMap` (OpenDRIVE parsing)
+- **c60_common**: Plugin discovery (`c66_plugins`), path resolution (`c67_paths`), settings schemas, capabilities, sensor layouts, and utilities
 - **plugins** (`avlite/plugins/`): Built-in and community plugin system (includes ROS2 executor with Autoware messages)
 
 ### Key Features
@@ -223,14 +223,14 @@ AVLite uses a numbered module system for easy navigation:
 
 ```
 avlite/
-├── c10_perception/         # Perception components
-│   ├── c11_perception_model.py
+├── c10_perception/         # Perception components (8 modules)
+│   ├── c11_perception_model.py   # PerceptionModel, Map, RaceMap
 │   ├── c12_perception_strategy.py
 │   ├── c13_localization_strategy.py
 │   ├── c14_mapping_strategy.py
 │   ├── c15_perception_algs.py    # FastBEVLidarDetection, KalmanTracker, ConstantVelocityPrediction
 │   ├── c16_localization_algs.py  # LidarLocalization (ICP)
-│   ├── c17_mapping_algs.py
+│   ├── c18_hdmap_parser.py       # HDMap (OpenDRIVE parsing)
 │   └── c19_settings.py
 ├── c20_planning/           # Planning components
 │   ├── c21_planning_model.py
@@ -250,12 +250,12 @@ avlite/
 ├── c40_execution/          # Execution and simulation
 │   ├── c41_world_bridge.py
 │   ├── c42_executer.py
-│   ├── c43_factory.py
+│   ├── c43_factory.py            # Executor factory + stack settings load
 │   ├── c44_sync_executer.py
 │   ├── c45_async_threaded_executer.py
 │   ├── c46_basic_sim.py
 │   └── c49_settings.py
-├── c50_visualization/      # GUI and plotting
+├── c50_visualization/      # GUI and plotting (9 modules)
 │   ├── c51_visualizer_app.py
 │   ├── c52_plot_views.py
 │   ├── c53_stack_views.py
@@ -263,17 +263,16 @@ avlite/
 │   ├── c55_log_view.py
 │   ├── c56_config_views.py
 │   ├── c57_plot_lib.py
-│   ├── c58_ui_lib.py
-│   └── c59_settings.py
+│   ├── c58_ui_lib.py             # DataPicker, UiAssets
+│   └── c59_settings.py             # VisualizationSettingsSchema + Tk VisualizationSettings
 ├── c60_common/            # Utilities
 │   ├── c61_capabilities.py
 │   ├── c62_sensor_data.py
 │   ├── c63_trajectory_tracker.py
 │   ├── c64_collision_checking.py
 │   ├── c65_fps_tracker.py
-│   ├── c60_plugins.py            # Plugin discovery, loading, log routing
-│   ├── c66_hdmap.py              # HDMap (OpenDRIVE parsing)
-│   ├── c67_paths.py              # Config, data, and plugin paths
+│   ├── c66_plugins.py            # Plugin discovery, loading, log routing
+│   ├── c67_paths.py              # ConfigPaths, PluginPaths, DataPaths
 │   ├── c68_settings_schema.py
 │   └── c69_setting_utils.py
 └── plugins/               # Built-in plugins
@@ -287,6 +286,29 @@ avlite/
 ```
 
 The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley controller, etc.
+
+## Testing
+
+Install dev dependencies and run the default fast suite (excludes slow and data-dependent tests):
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+Run the full suite including slow timing tests and repo `data/` regressions:
+
+```bash
+pytest -m ""
+```
+
+Run with coverage (advisory, no threshold enforced):
+
+```bash
+pytest --cov=avlite --cov-report=term-missing
+```
+
+Tests mirror the package layout under `test/`. Synthetic fixtures live in `test/fixtures/` so CI does not depend on large map assets. Markers: `slow` for timing-sensitive tests, `requires_data` for Yas Marina and similar repo data checks.
 
 ## Developing Custom Plugins
 

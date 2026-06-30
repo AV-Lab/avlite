@@ -1,7 +1,7 @@
 """Tests for plugin log routing helpers."""
 
 from avlite.c50_visualization.c55_log_view import LogView
-from avlite.c60_common.c60_plugins import (
+from avlite.c60_common.c66_plugins import (
     layer_key_for_plugin_log_record,
     layer_key_for_plugin_package,
     plugin_module_from_logger,

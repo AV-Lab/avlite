@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from avlite.c50_visualization.c58_ui_lib import attach_schema_tooltip, attach_tooltip, BUTTON_TOOLTIPS
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c60_common.c68_settings_schema import field_tooltip_text
-from avlite.c60_common.c60_plugins import (
+from avlite.c60_common.c66_plugins import (
     layer_key_for_plugin_log_record,
     plugin_package_from_logger,
 )

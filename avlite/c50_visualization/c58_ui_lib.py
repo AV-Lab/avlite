@@ -670,3 +670,148 @@ def configure_treeview_style(style: ttk.Style, name: str, scale: float = 1.0) ->
     style.configure(f"{name}.Treeview", rowheight=rowheight)
     style.configure(f"{name}.Treeview.Heading", font=font)
 
+
+class UiAssets:
+    """Resolve shipped UI image assets from the repository data tree."""
+
+    @staticmethod
+    def resolve(name: str):
+        from avlite.c60_common.c67_paths import DataPaths
+
+        path = DataPaths._repo_data_root() / "imgs" / name
+        if not path.is_file():
+            raise FileNotFoundError(f"UI asset not found: {name}")
+        return path
+
+
+class DataPicker:
+    """File-picker helpers for map, plan, and data path display."""
+
+    @staticmethod
+    def display_path(stored: str) -> str:
+        """Format a stored settings path for picker display."""
+        from pathlib import Path
+
+        from avlite.c60_common.c67_paths import DataPaths
+
+        if stored.startswith("~/"):
+            return stored
+        abs_path = Path(DataPaths.resolve(stored)).resolve()
+        user_root = DataPaths.user_dir().resolve()
+        repo_root = DataPaths._repo_data_root().resolve()
+        try:
+            abs_path.relative_to(user_root)
+            return DataPicker._format_user_path(abs_path)
+        except ValueError:
+            pass
+        try:
+            rel = abs_path.relative_to(repo_root)
+            return "data/" + rel.as_posix()
+        except ValueError:
+            return stored
+
+    @staticmethod
+    def default_map_display_path() -> str:
+        from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+
+        if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
+            return DataPicker.display_path(ExecutionSettings.c40_hd_map)
+        return DataPicker.display_path(ExecutionSettings.c43_race_boundary_map)
+
+    @staticmethod
+    def default_map_settings_field() -> str:
+        from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+
+        if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
+            return "c40_hd_map"
+        return "c43_race_boundary_map"
+
+    @staticmethod
+    def default_global_plan_display_path() -> str:
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+
+        return DataPicker.display_path(ExecutionSettings.c40_global_trajectory)
+
+    @staticmethod
+    def list_map_candidates() -> list[str]:
+        from pathlib import Path
+
+        from avlite.c10_perception.c11_perception_model import RaceMap
+        from avlite.c10_perception.c18_hdmap_parser import HDMap
+        from avlite.c60_common.c67_paths import DataPaths
+
+        def _is_map(path: Path) -> bool:
+            return HDMap.is_loadable(path) or RaceMap.is_loadable(path)
+
+        return DataPicker._collect_candidates(_is_map)
+
+    @staticmethod
+    def list_global_plan_candidates() -> list[str]:
+        from pathlib import Path
+
+        from avlite.c20_planning.c21_planning_model import GlobalPlan
+
+        return DataPicker._collect_candidates(
+            lambda path: GlobalPlan.is_loadable(path)
+        )
+
+    @staticmethod
+    def _format_user_path(abs_path) -> str:
+        from pathlib import Path
+
+        try:
+            rel = abs_path.resolve().relative_to(Path.home())
+            return "~/" + rel.as_posix()
+        except ValueError:
+            return str(abs_path.resolve())
+
+    @staticmethod
+    def _format_repo_path(abs_path) -> str:
+        from avlite.c60_common.c67_paths import DataPaths
+
+        rel = abs_path.relative_to(DataPaths._repo_data_root())
+        return "data/" + rel.as_posix()
+
+    @staticmethod
+    def _path_for_file(file_path, data_root) -> str:
+        from avlite.c60_common.c67_paths import DataPaths
+
+        if data_root.resolve() == DataPaths.user_dir().resolve():
+            return DataPicker._format_user_path(file_path)
+        return DataPicker._format_repo_path(file_path)
+
+    @staticmethod
+    def _iter_data_files(*roots):
+        for root in roots:
+            if not root.is_dir():
+                continue
+            for path in root.rglob("*"):
+                if path.is_file():
+                    yield path, root
+
+    @staticmethod
+    def _collect_candidates(predicate) -> list[str]:
+        from avlite.c60_common.c67_paths import DataPaths
+
+        repo_data = DataPaths._repo_data_root()
+        user_data = DataPaths.user_dir()
+        seen: set[str] = set()
+        user_candidates: list[str] = []
+        repo_candidates: list[str] = []
+
+        for path, root in DataPicker._iter_data_files(user_data, repo_data):
+            if not predicate(path):
+                continue
+            picker_path = DataPicker._path_for_file(path, root)
+            if picker_path in seen:
+                continue
+            seen.add(picker_path)
+            if root.resolve() == user_data.resolve():
+                user_candidates.append(picker_path)
+            else:
+                repo_candidates.append(picker_path)
+
+        return sorted(user_candidates) + sorted(repo_candidates)
+

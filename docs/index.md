@@ -166,12 +166,12 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 
 | Component | Description |
 |-----------|-------------|
-| **c10_perception** | Interfaces + built-in algorithms: `FastBEVLidarDetection`, `KalmanTracker`, `LidarLocalization`; prediction and mapping interfaces |
+| **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` (c11), OpenDRIVE `HDMap` parser (c18) |
 | **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`GreedyLatticePlanner`, lattice-based) |
 | **c30_control** | Vehicle controllers (Stanley, PID) |
-| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo) |
+| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo); `c43_factory` assembles the stack |
 | **c50_visualization** | Real-time Tkinter GUI with multiple plot views |
-| **c60_common** | Settings management, `HDMap` (OpenDRIVE), capability definitions (`AnyOf`), utilities |
+| **c60_common** | Settings validation, plugin discovery (`c66_plugins`), paths (`c67_paths`), capability definitions, utilities |
 
 ## Configuration
 
@@ -211,7 +211,7 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 
 - **Config tab** — profile dropdown, Save Config (visualization + execution layers).
 - **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save, **Export profile**, **Import profile**.
-- **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c40_execution.yaml`.
+- **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c40_execution.yaml`. GUI export includes `c50_visualization.yaml` via `c59_settings.get_stack_settings_classes()`.
 - **Import profile** — merges a profile zip into your config directory; confirms overwrite if the profile name already exists.
 - **Edit repository configs** (settings window, dev only) — switches read/write between `~/.config/avlite/` and `{repo}/configs/` (no file copy) and refreshes the profile dropdown from the active target. Preference stored in `~/.config/avlite/config_target`. Hidden when bundled configs are unavailable. Uncheck to return to the user config dir.
 
@@ -223,6 +223,8 @@ Export a profile on one machine and import it on another (e.g. robot with `AVLIT
 python -m avlite config export-profile myprofile [-o myprofile.zip]
 python -m avlite config import-profile myprofile.zip [--force]
 ```
+
+Headless `config export-profile` exports c10–c40 settings and plugins only (no visualization YAML). Use the GUI settings window to export a profile that includes `c50_visualization.yaml`.
 
 Each zip entry is validated against Pydantic schemas on export and import; invalid profiles are rejected with field-level errors (same rules as `config validate`).
 

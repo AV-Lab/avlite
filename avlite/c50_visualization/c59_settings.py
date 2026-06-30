@@ -1,274 +1,30 @@
 from __future__ import annotations
-import tkinter as tk
+
 import logging
+from typing import Any, ClassVar
+
+import tkinter as tk
+from pydantic import Field
 
 from avlite.c10_perception.c12_perception_strategy import (
-    PerceptionStrategy, DetectionStrategy, TrackingStrategy, PredictionStrategy,
+    DetectionStrategy,
+    PerceptionStrategy,
+    PredictionStrategy,
+    TrackingStrategy,
 )
-from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c42_executer import Executer
-from avlite.c60_common.c67_paths import apply_map_selection, apply_global_plan_selection, data_picker_path_for_setting
-
-from pydantic import Field
+from avlite.c40_execution.c43_factory import StackSettingsSync
+from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_common.c68_settings_schema import SettingsSchema
 
 log = logging.getLogger(__name__)
-
-
-class VisualizationSettings:
-    schema = None  # set after VisualizationSettingsSchema is defined below
-    exclude = ["exclude", "filepath", "schema", "vehicle_state", "elapsed_real_time", "elapsed_sim_time", "lap", "replan_fps",
-                         "control_fps", "perception_fps", "current_wp", "exec_running", "profile_list", "perception_status_text", "plugin_list"]
-    filepath: str="configs/c50_visualization.yaml"
-
-    def __init__(self):
-        # Config
-        self.shortcut_mode = tk.BooleanVar()
-        self.dark_mode = tk.BooleanVar(value=True)
-        self.hide_menubar = tk.BooleanVar(value=False)
-        self.selected_profile = tk.StringVar(value="default")
-        self.next_profile = tk.StringVar(value="default")
-        self.load_plugins = tk.BooleanVar(value=True)
-        self.mouse_drag_slowdown_factor = 0.5
-
-        # Plot options
-        self.show_legend = tk.BooleanVar(value=False)  # causes slow
-        self.show_past_locations = tk.BooleanVar(value=True)
-        self.show_global_plan = tk.BooleanVar(value=True)
-        self.show_local_plan = tk.BooleanVar(value=True)
-        self.show_local_lattice = tk.BooleanVar(value=True)
-        self.show_state = tk.BooleanVar(value=True)
-        self.global_view_follow_planner = tk.BooleanVar(value=False)
-        self.frenet_view_follow_planner = tk.BooleanVar(value=False)
-        self.show_local_global_view = tk.BooleanVar(value=True)
-        self.show_local_frenet_view = tk.BooleanVar(value=True)
-        self.show_lidar_global = tk.BooleanVar(value=True)   # Show LiDAR points in the Local Global (XY) view
-        self.show_lidar_frenet = tk.BooleanVar(value=False)  # Show LiDAR points in the Frenet (S-D) view
-        self.show_lidar_clusters = tk.BooleanVar(value=True)  # Highlight clustered LiDAR points (yellow, XY view)
-        self.show_race_boundary = tk.BooleanVar(value=True)  # Show world-bridge race boundary (XY + Frenet views)
-
-        self.xy_zoom = 30
-        self.frenet_zoom = 30
-        self.global_zoom = 30
-
-        #############################
-        # Perc Plan Control
-
-        # perception
-        self.show_occupancy_flow = tk.BooleanVar(value=False)
-        self.show_perception_extras = tk.BooleanVar(value=False)
-        self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
-        self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
-
-        self.perception_type = tk.StringVar(value=list(PerceptionStrategy.registry.keys())[0] if PerceptionStrategy.registry else None)
-        def _on_perception_change(*args):
-            ExecutionSettings.c40_perception = self.perception_type.get()
-        self.perception_type.trace_add("write", _on_perception_change)
-        self.perception_dt = tk.DoubleVar(value=ExecutionSettings.c40_perception_dt)
-
-        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy)
-        def _on_detection_change(*args):
-            PerceptionSettings.c12_detection_strategy = self.detection_strategy_type.get()
-        self.detection_strategy_type.trace_add("write", _on_detection_change)
-
-        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy)
-        def _on_tracking_change(*args):
-            PerceptionSettings.c12_tracking_strategy = self.tracking_strategy_type.get()
-        self.tracking_strategy_type.trace_add("write", _on_tracking_change)
-
-        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy)
-        def _on_prediction_change(*args):
-            PerceptionSettings.c12_prediction_strategy = self.prediction_strategy_type.get()
-        self.prediction_strategy_type.trace_add("write", _on_prediction_change)
-
-        # localization
-        self.localization_type = tk.StringVar(value=ExecutionSettings.c40_localization)
-        def _on_localization_change(*args):
-            ExecutionSettings.c40_localization = self.localization_type.get()
-        self.localization_type.trace_add("write", _on_localization_change)
-        self.localization_dt = tk.DoubleVar(value=ExecutionSettings.c40_localization_dt)
-        def _on_localization_dt_change(*args):
-            ExecutionSettings.c40_localization_dt = float(self.localization_dt.get())
-        self.localization_dt.trace_add("write", _on_localization_dt_change)
-
-        # mapping
-        self.mapping_type = tk.StringVar(value=ExecutionSettings.c40_mapping)
-        def _on_mapping_change(*args):
-            ExecutionSettings.c40_mapping = self.mapping_type.get()
-        self.mapping_type.trace_add("write", _on_mapping_change)
-
-        # planning
-        self.global_planner_type = tk.StringVar(value=ExecutionSettings.c40_global_planner if ExecutionSettings.c40_global_planner else (list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None))
-        def _on_global_plan_change(*args):
-            ExecutionSettings.c40_global_planner = self.global_planner_type.get()
-        self.global_planner_type.trace_add("write", _on_global_plan_change)
-
-        self.local_planner_type = tk.StringVar(value=(list(LocalPlanningStrategy.registry.keys())[0] if LocalPlanningStrategy.registry else None))
-        def _on_local_plan_change(*args):
-            ExecutionSettings.c40_local_planner = self.local_planner_type.get()
-        self.local_planner_type.trace_add("write", _on_local_plan_change)
-        
-        self.lap = tk.StringVar(value="0")
-        self.current_wp = tk.StringVar(value="0")
-
-
-
-        # control    
-        self.controller_type = tk.StringVar(value=(list(ControlStrategy.registry.keys())[0] if ControlStrategy.registry else None))
-        def _on_controller_change(*args):
-            ExecutionSettings.c40_controller = self.controller_type.get()
-        self.controller_type.trace_add("write", _on_controller_change)
-
-        self.global_plan_view = tk.BooleanVar(value=False)
-        self.local_plan_view = tk.BooleanVar(value=False)
-        
-        ############################
-
-        ############################
-        # Exec Options
-        
-        self.executer_type = tk.StringVar(value=(list(Executer.registry.keys())[0] if Executer.registry else None))
-        def _on_executer_change(*args):
-            ExecutionSettings.c40_executer_type = self.executer_type.get()
-        self.executer_type.trace_add("write", _on_executer_change)
-    
-        self.exec_plan = tk.BooleanVar(value=True)
-        self.exec_control = tk.BooleanVar(value=True)
-        self.exec_perceive = tk.BooleanVar(value=True)
-        self.exec_localize = tk.BooleanVar(value=True)
-
-        self.exec_running = False # excluded
-
-        self.control_dt = tk.DoubleVar(value=0.01)
-        def _on_control_dt_change(*args):
-            ExecutionSettings.c40_control_dt = float(self.control_dt.get())
-            _sync_exec_dt("control_dt", self.control_dt.get())
-        self.control_dt.trace_add("write", _on_control_dt_change)
-    
-        self.replan_dt = tk.DoubleVar(value=0.5)
-        def _on_replan_dt_change(*args):
-            ExecutionSettings.c40_replan_dt = float(self.replan_dt.get())
-            _sync_exec_dt("replan_dt", self.replan_dt.get())
-        self.replan_dt.trace_add("write", _on_replan_dt_change)
-
-        self.perception_dt = tk.DoubleVar(value=0.5)
-        def _on_perception_dt_change(*args):
-            ExecutionSettings.c40_perception_dt = float(self.perception_dt.get())
-            _sync_exec_dt("perception_dt", self.perception_dt.get())
-        self.perception_dt.trace_add("write", _on_perception_dt_change)
-
-        self.sim_dt = tk.DoubleVar(value=0.01)
-        def _on_sim_dt_change(*args):
-            ExecutionSettings.c40_sim_dt = float(self.sim_dt.get())
-        self.sim_dt.trace_add("write", _on_sim_dt_change)
-
-        self.execution_bridge = tk.StringVar(value=ExecutionSettings.c40_bridge)
-        def _on_execution_bridge_change(*args):
-            ExecutionSettings.c40_bridge = self.execution_bridge.get()
-        self.execution_bridge.trace_add("write", _on_execution_bridge_change)
-        
-
-        self.default_global_plan_file = tk.StringVar(value=default_global_plan_display_path())
-        def _on_default_global_plan_file_change(*args):
-            apply_global_plan_selection(self.default_global_plan_file.get())
-        self.default_global_plan_file.trace_add("write", _on_default_global_plan_file_change)
-
-        self.default_map_file = tk.StringVar(value=default_map_display_path())
-        def _on_default_map_file_change(*args):
-            apply_map_selection(self.default_map_file.get())
-        self.default_map_file.trace_add("write", _on_default_map_file_change)
-        
-        self.elapsed_real_time = tk.StringVar(value="0")
-        self.elapsed_sim_time = tk.StringVar(value="0")
-        
-        self.replan_fps = tk.StringVar(value="0")
-        self.control_fps = tk.StringVar(value="0")
-        self.perception_fps = tk.StringVar(value="0")
-
-
-        ## World Bridge model
-        self.bridge_provide_ground_truth_detection = tk.BooleanVar(value=False)  # Whether the world supports ground truth perception
-        def _on_gt_change(*args):
-            ExecutionSettings.c41_provide_ground_truth = self.bridge_provide_ground_truth_detection.get()
-        self.bridge_provide_ground_truth_detection.trace_add("write", _on_gt_change)
-
-        self.bridge_provide_rgb_image = tk.BooleanVar(value=False)  # Whether the world supports RGB image
-        def _on_rgb_change(*args):
-            ExecutionSettings.c41_provide_rgb = self.bridge_provide_rgb_image.get()
-        self.bridge_provide_rgb_image.trace_add("write", _on_rgb_change)
-        self.bridge_provide_depth_image = tk.BooleanVar(value=False)  # Whether the world supports depth image
-        self.bridge_provide_lidar_data = tk.BooleanVar(value=False)  # Whether the world supports LiDAR data
-        def _on_lidar_change(*args):
-            ExecutionSettings.c41_provide_lidar = self.bridge_provide_lidar_data.get()
-        self.bridge_provide_lidar_data.trace_add("write", _on_lidar_change)
-        ############################
-
-
-        ############################
-        # APP Options
-
-        # Logger Options
-        self.log_level = tk.StringVar(value=ExecutionSettings.c40_log_level)
-        def _on_log_level_change(*_):
-            ExecutionSettings.c40_log_level = self.log_level.get()
-        self.log_level.trace_add("write", _on_log_level_change)
-        self.show_core_logs = tk.BooleanVar(value=True)
-        self.show_perceive_logs = tk.BooleanVar(value=True)
-        self.show_plan_logs = tk.BooleanVar(value=True)
-        self.show_control_logs = tk.BooleanVar(value=True)
-        self.show_execute_logs = tk.BooleanVar(value=True)
-        self.show_vis_logs = tk.BooleanVar(value=True)
-        self.show_common_logs = tk.BooleanVar(value=True)
-        self.show_plugins_logs = tk.BooleanVar(value=True)
-        self.disable_log = tk.BooleanVar(value=False)
-        
-        self.max_log_lines = 1000  # Maximum number of log lines to keep
-        self.log_view_expanded = tk.BooleanVar(value=False)  # Whether the log view is expanded
-        self.log_view_default_height = tk.IntVar(value=12)  # Height of the log view in lines
-        self.log_view_expended_height = tk.IntVar(value=35) # Height of the log view when expanded in lines 
-        self.log_font = tk.StringVar(value="Courier")  # Font for the log view
-        self.log_font_size = tk.IntVar(value=11)
-
-        self.log_to_file = tk.BooleanVar(value=ExecutionSettings.c40_log_to_file)
-        def _on_log_to_file_change(*_):
-            ExecutionSettings.c40_log_to_file = self.log_to_file.get()
-        self.log_to_file.trace_add("write", _on_log_to_file_change)
-
-        self.log_pull_time = 50 # Time in milliseconds to pull logs from the logger
-        
-        # General variables - Not saved
-
-
-        self.bg_color = "#333333" if self.dark_mode.get() else "white"
-        self.fg_color = "white" if self.dark_mode.get() else "black"
-
-        self.profile_list = []
-        ############################
-
-
-def _sync_exec_dt(attr: str, value: float) -> None:
-    """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
-    try:
-        from avlite.plugins.p40_executer_ROS2.settings import PluginSettings as ROSSettings
-        from avlite.c50_visualization.c58_ui_lib import TkSettingsBinder
-        from avlite.c60_common.c69_setting_utils import save_setting
-
-        setattr(ROSSettings, attr, float(value))
-        save_setting(ROSSettings, binder=TkSettingsBinder())
-    except Exception:
-        pass
-
-
-
-
 class VisualizationSettingsSchema(SettingsSchema):
+    filepath: ClassVar[str] = "configs/c50_visualization.yaml"
+
     shortcut_mode: bool = Field(default=False, description="Enable keyboard shortcut mode in the visualizer.")
     dark_mode: bool = Field(default=True, description="Use dark UI theme.")
     hide_menubar: bool = Field(default=False, description="Hide the application menu bar.")
@@ -347,28 +103,280 @@ class VisualizationSettingsSchema(SettingsSchema):
     fg_color: str = Field(default="white", description="UI foreground/text color.")
 
 
-def load_stack_plugins(profile: str = "default", load_plugins: bool = True) -> None:
-    """Load stack and built-in plugin settings for the GUI."""
-    from avlite.c60_common.c60_plugins import load_all_stack_settings
+def get_stack_settings_classes() -> list[Any]:
+    """Core stack settings plus visualization schema, for profile export/import."""
+    from avlite.c40_execution.c43_factory import get_stack_settings_classes as get_core_stack_settings_classes
 
-    load_all_stack_settings(profile=profile, load_plugins=load_plugins)
-
-
-def default_map_display_path() -> str:
-    if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
-        return data_picker_path_for_setting(ExecutionSettings.c40_hd_map)
-    return data_picker_path_for_setting(ExecutionSettings.c43_race_boundary_map)
+    return get_core_stack_settings_classes() + [VisualizationSettingsSchema()]
 
 
-def default_map_settings_field() -> str:
-    if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
-        return "c40_hd_map"
-    return "c43_race_boundary_map"
+def _sync_exec_dt(attr: str, value: float) -> None:
+    """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
+    try:
+        from avlite.plugins.p40_executer_ROS2.settings import PluginSettings as ROSSettings
+        from avlite.c50_visualization.c58_ui_lib import TkSettingsBinder
+        from avlite.c60_common.c69_setting_utils import save_setting
+
+        setattr(ROSSettings, attr, float(value))
+        save_setting(ROSSettings, binder=TkSettingsBinder())
+    except Exception:
+        pass
 
 
-def default_global_plan_display_path() -> str:
-    return data_picker_path_for_setting(ExecutionSettings.c40_global_trajectory)
+class VisualizationSettings:
+    """Runtime Tk variables for the visualizer; persisted via ``TkSettingsBinder``."""
 
+    schema = VisualizationSettingsSchema
+    exclude = [
+        "exclude", "filepath", "schema", "vehicle_state", "elapsed_real_time",
+        "elapsed_sim_time", "lap", "replan_fps", "control_fps", "perception_fps",
+        "current_wp", "exec_running", "profile_list", "perception_status_text", "plugin_list",
+    ]
+    filepath: str = "configs/c50_visualization.yaml"
 
-VisualizationSettings.schema = VisualizationSettingsSchema
+    def __init__(self):
+        from avlite.c50_visualization.c58_ui_lib import DataPicker
 
+        self.shortcut_mode = tk.BooleanVar()
+        self.dark_mode = tk.BooleanVar(value=True)
+        self.hide_menubar = tk.BooleanVar(value=False)
+        self.selected_profile = tk.StringVar(value="default")
+        self.next_profile = tk.StringVar(value="default")
+        self.load_plugins = tk.BooleanVar(value=True)
+        self.mouse_drag_slowdown_factor = 0.5
+
+        self.show_legend = tk.BooleanVar(value=False)
+        self.show_past_locations = tk.BooleanVar(value=True)
+        self.show_global_plan = tk.BooleanVar(value=True)
+        self.show_local_plan = tk.BooleanVar(value=True)
+        self.show_local_lattice = tk.BooleanVar(value=True)
+        self.show_state = tk.BooleanVar(value=True)
+        self.global_view_follow_planner = tk.BooleanVar(value=False)
+        self.frenet_view_follow_planner = tk.BooleanVar(value=False)
+        self.show_local_global_view = tk.BooleanVar(value=True)
+        self.show_local_frenet_view = tk.BooleanVar(value=True)
+        self.show_lidar_global = tk.BooleanVar(value=True)
+        self.show_lidar_frenet = tk.BooleanVar(value=False)
+        self.show_lidar_clusters = tk.BooleanVar(value=True)
+        self.show_race_boundary = tk.BooleanVar(value=True)
+
+        self.xy_zoom = 30
+        self.frenet_zoom = 30
+        self.global_zoom = 30
+
+        self.show_occupancy_flow = tk.BooleanVar(value=False)
+        self.show_perception_extras = tk.BooleanVar(value=False)
+        self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
+        self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
+
+        self.perception_type = tk.StringVar(
+            value=list(PerceptionStrategy.registry.keys())[0] if PerceptionStrategy.registry else None
+        )
+
+        def _on_perception_change(*args):
+            ExecutionSettings.c40_perception = self.perception_type.get()
+
+        self.perception_type.trace_add("write", _on_perception_change)
+        self.perception_dt = tk.DoubleVar(value=ExecutionSettings.c40_perception_dt)
+
+        self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy)
+
+        def _on_detection_change(*args):
+            PerceptionSettings.c12_detection_strategy = self.detection_strategy_type.get()
+
+        self.detection_strategy_type.trace_add("write", _on_detection_change)
+
+        self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy)
+
+        def _on_tracking_change(*args):
+            PerceptionSettings.c12_tracking_strategy = self.tracking_strategy_type.get()
+
+        self.tracking_strategy_type.trace_add("write", _on_tracking_change)
+
+        self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy)
+
+        def _on_prediction_change(*args):
+            PerceptionSettings.c12_prediction_strategy = self.prediction_strategy_type.get()
+
+        self.prediction_strategy_type.trace_add("write", _on_prediction_change)
+
+        self.localization_type = tk.StringVar(value=ExecutionSettings.c40_localization)
+
+        def _on_localization_change(*args):
+            ExecutionSettings.c40_localization = self.localization_type.get()
+
+        self.localization_type.trace_add("write", _on_localization_change)
+        self.localization_dt = tk.DoubleVar(value=ExecutionSettings.c40_localization_dt)
+
+        def _on_localization_dt_change(*args):
+            ExecutionSettings.c40_localization_dt = float(self.localization_dt.get())
+
+        self.localization_dt.trace_add("write", _on_localization_dt_change)
+
+        self.mapping_type = tk.StringVar(value=ExecutionSettings.c40_mapping)
+
+        def _on_mapping_change(*args):
+            ExecutionSettings.c40_mapping = self.mapping_type.get()
+
+        self.mapping_type.trace_add("write", _on_mapping_change)
+
+        self.global_planner_type = tk.StringVar(
+            value=ExecutionSettings.c40_global_planner
+            if ExecutionSettings.c40_global_planner
+            else (list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
+        )
+
+        def _on_global_plan_change(*args):
+            ExecutionSettings.c40_global_planner = self.global_planner_type.get()
+
+        self.global_planner_type.trace_add("write", _on_global_plan_change)
+
+        self.local_planner_type = tk.StringVar(
+            value=(list(LocalPlanningStrategy.registry.keys())[0] if LocalPlanningStrategy.registry else None)
+        )
+
+        def _on_local_plan_change(*args):
+            ExecutionSettings.c40_local_planner = self.local_planner_type.get()
+
+        self.local_planner_type.trace_add("write", _on_local_plan_change)
+
+        self.lap = tk.StringVar(value="0")
+        self.current_wp = tk.StringVar(value="0")
+
+        self.controller_type = tk.StringVar(
+            value=(list(ControlStrategy.registry.keys())[0] if ControlStrategy.registry else None)
+        )
+
+        def _on_controller_change(*args):
+            ExecutionSettings.c40_controller = self.controller_type.get()
+
+        self.controller_type.trace_add("write", _on_controller_change)
+
+        self.global_plan_view = tk.BooleanVar(value=False)
+        self.local_plan_view = tk.BooleanVar(value=False)
+
+        self.executer_type = tk.StringVar(
+            value=(list(Executer.registry.keys())[0] if Executer.registry else None)
+        )
+
+        def _on_executer_change(*args):
+            ExecutionSettings.c40_executer_type = self.executer_type.get()
+
+        self.executer_type.trace_add("write", _on_executer_change)
+
+        self.exec_plan = tk.BooleanVar(value=True)
+        self.exec_control = tk.BooleanVar(value=True)
+        self.exec_perceive = tk.BooleanVar(value=True)
+        self.exec_localize = tk.BooleanVar(value=True)
+        self.exec_running = False
+
+        self.control_dt = tk.DoubleVar(value=0.01)
+
+        def _on_control_dt_change(*args):
+            ExecutionSettings.c40_control_dt = float(self.control_dt.get())
+            _sync_exec_dt("control_dt", self.control_dt.get())
+
+        self.control_dt.trace_add("write", _on_control_dt_change)
+
+        self.replan_dt = tk.DoubleVar(value=0.5)
+
+        def _on_replan_dt_change(*args):
+            ExecutionSettings.c40_replan_dt = float(self.replan_dt.get())
+            _sync_exec_dt("replan_dt", self.replan_dt.get())
+
+        self.replan_dt.trace_add("write", _on_replan_dt_change)
+
+        self.perception_dt = tk.DoubleVar(value=0.5)
+
+        def _on_perception_dt_change(*args):
+            ExecutionSettings.c40_perception_dt = float(self.perception_dt.get())
+            _sync_exec_dt("perception_dt", self.perception_dt.get())
+
+        self.perception_dt.trace_add("write", _on_perception_dt_change)
+
+        self.sim_dt = tk.DoubleVar(value=0.01)
+
+        def _on_sim_dt_change(*args):
+            ExecutionSettings.c40_sim_dt = float(self.sim_dt.get())
+
+        self.sim_dt.trace_add("write", _on_sim_dt_change)
+
+        self.execution_bridge = tk.StringVar(value=ExecutionSettings.c40_bridge)
+
+        def _on_execution_bridge_change(*args):
+            ExecutionSettings.c40_bridge = self.execution_bridge.get()
+
+        self.execution_bridge.trace_add("write", _on_execution_bridge_change)
+
+        self.default_global_plan_file = tk.StringVar(value=DataPicker.default_global_plan_display_path())
+
+        def _on_default_global_plan_file_change(*args):
+            StackSettingsSync.apply_global_plan_selection(self.default_global_plan_file.get())
+
+        self.default_global_plan_file.trace_add("write", _on_default_global_plan_file_change)
+
+        self.default_map_file = tk.StringVar(value=DataPicker.default_map_display_path())
+
+        def _on_default_map_file_change(*args):
+            StackSettingsSync.apply_map_selection(self.default_map_file.get())
+
+        self.default_map_file.trace_add("write", _on_default_map_file_change)
+
+        self.elapsed_real_time = tk.StringVar(value="0")
+        self.elapsed_sim_time = tk.StringVar(value="0")
+        self.replan_fps = tk.StringVar(value="0")
+        self.control_fps = tk.StringVar(value="0")
+        self.perception_fps = tk.StringVar(value="0")
+
+        self.bridge_provide_ground_truth_detection = tk.BooleanVar(value=False)
+
+        def _on_gt_change(*args):
+            ExecutionSettings.c41_provide_ground_truth = self.bridge_provide_ground_truth_detection.get()
+
+        self.bridge_provide_ground_truth_detection.trace_add("write", _on_gt_change)
+
+        self.bridge_provide_rgb_image = tk.BooleanVar(value=False)
+
+        def _on_rgb_change(*args):
+            ExecutionSettings.c41_provide_rgb = self.bridge_provide_rgb_image.get()
+
+        self.bridge_provide_rgb_image.trace_add("write", _on_rgb_change)
+        self.bridge_provide_depth_image = tk.BooleanVar(value=False)
+        self.bridge_provide_lidar_data = tk.BooleanVar(value=False)
+
+        def _on_lidar_change(*args):
+            ExecutionSettings.c41_provide_lidar = self.bridge_provide_lidar_data.get()
+
+        self.bridge_provide_lidar_data.trace_add("write", _on_lidar_change)
+
+        self.log_level = tk.StringVar(value=ExecutionSettings.c40_log_level)
+
+        def _on_log_level_change(*_):
+            ExecutionSettings.c40_log_level = self.log_level.get()
+
+        self.log_level.trace_add("write", _on_log_level_change)
+        self.show_core_logs = tk.BooleanVar(value=True)
+        self.show_perceive_logs = tk.BooleanVar(value=True)
+        self.show_plan_logs = tk.BooleanVar(value=True)
+        self.show_control_logs = tk.BooleanVar(value=True)
+        self.show_execute_logs = tk.BooleanVar(value=True)
+        self.show_vis_logs = tk.BooleanVar(value=True)
+        self.show_common_logs = tk.BooleanVar(value=True)
+        self.show_plugins_logs = tk.BooleanVar(value=True)
+        self.disable_log = tk.BooleanVar(value=False)
+        self.max_log_lines = 1000
+        self.log_view_expanded = tk.BooleanVar(value=False)
+        self.log_view_default_height = tk.IntVar(value=12)
+        self.log_view_expended_height = tk.IntVar(value=35)
+        self.log_font = tk.StringVar(value="Courier")
+        self.log_font_size = tk.IntVar(value=11)
+        self.log_to_file = tk.BooleanVar(value=ExecutionSettings.c40_log_to_file)
+
+        def _on_log_to_file_change(*_):
+            ExecutionSettings.c40_log_to_file = self.log_to_file.get()
+
+        self.log_to_file.trace_add("write", _on_log_to_file_change)
+        self.log_pull_time = 50
+        self.bg_color = "#333333" if self.dark_mode.get() else "white"
+        self.fg_color = "white" if self.dark_mode.get() else "black"
+        self.profile_list = []

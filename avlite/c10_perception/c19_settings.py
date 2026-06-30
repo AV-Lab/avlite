@@ -11,6 +11,7 @@ class PerceptionSettingsSchema(SettingsSchema):
     c11_state_default_heading: int = Field(default=0, description="Default heading (rad) for new agent states.")
     c11_max_agents: int = Field(default=12, description="Maximum number of agents tracked in the perception model.")
     c11_prediction_grid_size: int = Field(default=100, description="Grid resolution for occupancy-flow prediction output.")
+    c11_predict_delta_t: float = Field(default=0.1, description="Time step (seconds) between predicted points/frames.")
 
     c12_detection_strategy: str = Field(default="", description="Detection sub-strategy class name; empty uses ground truth.")
     c12_tracking_strategy: str = Field(default="", description="Tracking sub-strategy class name; empty uses ground truth.")

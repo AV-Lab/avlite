@@ -11,7 +11,7 @@ from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c67_paths import get_absolute_path, resolve_picker_data_path
+from avlite.c60_common.c67_paths import DataPaths
 from avlite.c60_common.c62_sensor_data import LidarCloud, lidar_2d_to_4
 
 
@@ -50,7 +50,7 @@ class BasicSim(WorldBridge):
             try:  
                 from avlite.c20_planning.c21_planning_model import GlobalPlan
                 self.default_global_plan = GlobalPlan.from_file(
-                    get_absolute_path(setting.c46_default_trajectory)
+                    DataPaths.resolve(setting.c46_default_trajectory)
                 )
                 self.npc_control = True
             except Exception as e:
@@ -138,7 +138,7 @@ class BasicSim(WorldBridge):
             return np.empty((0, 2, 2))
         try:
             import json
-            with open(resolve_picker_data_path(boundary_file)) as f:
+            with open(DataPaths.resolve_stored(boundary_file)) as f:
                 data = json.load(f)
             segments = []
             for key in ("LeftBound", "RightBound"):

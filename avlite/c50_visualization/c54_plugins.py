@@ -40,7 +40,7 @@ from avlite.c50_visualization.c58_ui_lib import (
     scaled_font,
     setup_dpi,
 )
-from avlite.c60_common.c67_paths import effective_config_path, get_config_dir, get_plugins_dir
+from avlite.c60_common.c67_paths import ConfigPaths, PluginPaths
 
 log = logging.getLogger(__name__)
 
@@ -81,175 +81,586 @@ class GitHubApiError(Exception):
         self.sso_url = sso_url
 
 
-def _parse_github_sso_url(header: str) -> Optional[str]:
-    """Extract SSO authorization URL from ``X-GitHub-SSO`` response header."""
-    if not header:
-        return None
-    match = re.search(r"url=(\S+)", header)
-    return match.group(1) if match else None
+class _GitHubClient:
+    """GitHub OAuth token storage and REST API helpers."""
 
+    @staticmethod
+    def _parse_github_sso_url(header: str) -> Optional[str]:
+        """Extract SSO authorization URL from ``X-GitHub-SSO`` response header."""
+        if not header:
+            return None
+        match = re.search(r"url=(\S+)", header)
+        return match.group(1) if match else None
 
-def _github_token_path() -> Path:
-    return get_config_dir() / "github_oauth.json"
+    @staticmethod
+    def _github_token_path() -> Path:
+        return ConfigPaths.user_dir() / "github_oauth.json"
 
-
-def _load_github_token() -> Optional[tuple[str, str]]:
-    path = _github_token_path()
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        token = data.get("token", "")
-        login = data.get("login", "")
-        if token and _github_user(token):
-            return token, login or _github_user(token) or ""
-    except Exception:
-        log.debug("Invalid saved GitHub token", exc_info=True)
-    _clear_github_token()
-    return None
-
-
-def _save_github_token(token: str, login: str) -> None:
-    path = _github_token_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"token": token, "login": login}), encoding="utf-8")
-    path.chmod(0o600)
-
-
-def _clear_github_token() -> None:
-    try:
-        _github_token_path().unlink(missing_ok=True)
-    except OSError:
-        pass
-
-
-def _github_form_post(url: str, data: dict[str, str], timeout: float = 30.0) -> dict:
-    body = urllib.parse.urlencode(data).encode()
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={"Accept": "application/json", "User-Agent": "avlite"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode())
-
-
-def _github_api(url: str, token: str, *, accept: Optional[str] = None, timeout: float = 30.0) -> bytes:
-    headers = {"Authorization": f"Bearer {token}", "User-Agent": "avlite"}
-    if accept:
-        headers["Accept"] = accept
-    req = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read()
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
+    @staticmethod
+    def _load_github_token() -> Optional[tuple[str, str]]:
+        path = _GitHubClient._github_token_path()
+        if not path.is_file():
+            return None
         try:
-            message = json.loads(body).get("message") or body
-        except json.JSONDecodeError:
-            message = body or str(exc)
-        sso_url = _parse_github_sso_url(exc.headers.get("X-GitHub-SSO", ""))
-        raise GitHubApiError(str(message), status=exc.code, sso_url=sso_url) from exc
-
-
-def _github_user(token: str) -> Optional[str]:
-    try:
-        body = json.loads(_github_api("https://api.github.com/user", token).decode())
-        login = body.get("login")
-        return str(login) if login else None
-    except Exception:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            token = data.get("token", "")
+            login = data.get("login", "")
+            if token and _GitHubClient._github_user(token):
+                return token, login or _GitHubClient._github_user(token) or ""
+        except Exception:
+            log.debug("Invalid saved GitHub token", exc_info=True)
+        _GitHubClient._clear_github_token()
         return None
 
+    @staticmethod
+    def _save_github_token(token: str, login: str) -> None:
+        path = _GitHubClient._github_token_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"token": token, "login": login}), encoding="utf-8")
+        path.chmod(0o600)
 
-def _start_device_flow() -> dict:
-    if not GITHUB_OAUTH_CLIENT_ID:
-        raise ValueError(
-            "GitHub OAuth is not configured. Set AVLITE_GITHUB_OAUTH_CLIENT_ID "
-            "to your AV-Lab OAuth app client id."
+    @staticmethod
+    def _clear_github_token() -> None:
+        try:
+            _GitHubClient._github_token_path().unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _github_form_post(url: str, data: dict[str, str], timeout: float = 30.0) -> dict:
+        body = urllib.parse.urlencode(data).encode()
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Accept": "application/json", "User-Agent": "avlite"},
+            method="POST",
         )
-    return _github_form_post(
-        "https://github.com/login/device/code",
-        {"client_id": GITHUB_OAUTH_CLIENT_ID, "scope": "repo"},
-    )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode())
 
+    @staticmethod
+    def _github_api(
+        url: str, token: str, *, accept: Optional[str] = None, timeout: float = 30.0
+    ) -> bytes:
+        headers = {"Authorization": f"Bearer {token}", "User-Agent": "avlite"}
+        if accept:
+            headers["Accept"] = accept
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            try:
+                message = json.loads(body).get("message") or body
+            except json.JSONDecodeError:
+                message = body or str(exc)
+            sso_url = _GitHubClient._parse_github_sso_url(exc.headers.get("X-GitHub-SSO", ""))
+            raise GitHubApiError(str(message), status=exc.code, sso_url=sso_url) from exc
 
-def _poll_device_flow(device_code: str, interval: int, expires_in: int) -> str:
-    deadline = time.monotonic() + expires_in
-    wait = max(1, interval)
-    while time.monotonic() < deadline:
-        data = _github_form_post(
-            "https://github.com/login/oauth/access_token",
-            {
-                "client_id": GITHUB_OAUTH_CLIENT_ID,
-                "device_code": device_code,
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-            },
+    @staticmethod
+    def _github_user(token: str) -> Optional[str]:
+        try:
+            body = json.loads(
+                _GitHubClient._github_api("https://api.github.com/user", token).decode()
+            )
+            login = body.get("login")
+            return str(login) if login else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _start_device_flow() -> dict:
+        if not GITHUB_OAUTH_CLIENT_ID:
+            raise ValueError(
+                "GitHub OAuth is not configured. Set AVLITE_GITHUB_OAUTH_CLIENT_ID "
+                "to your AV-Lab OAuth app client id."
+            )
+        return _GitHubClient._github_form_post(
+            "https://github.com/login/device/code",
+            {"client_id": GITHUB_OAUTH_CLIENT_ID, "scope": "repo"},
         )
-        token = data.get("access_token")
+
+    @staticmethod
+    def _poll_device_flow(device_code: str, interval: int, expires_in: int) -> str:
+        deadline = time.monotonic() + expires_in
+        wait = max(1, interval)
+        while time.monotonic() < deadline:
+            data = _GitHubClient._github_form_post(
+                "https://github.com/login/oauth/access_token",
+                {
+                    "client_id": GITHUB_OAUTH_CLIENT_ID,
+                    "device_code": device_code,
+                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                },
+            )
+            token = data.get("access_token")
+            if token:
+                return str(token)
+            err = data.get("error")
+            if err == "authorization_pending":
+                time.sleep(wait)
+                continue
+            if err == "slow_down":
+                wait += 5
+                time.sleep(wait)
+                continue
+            raise RuntimeError(data.get("error_description") or err or "GitHub sign-in failed")
+        raise TimeoutError("GitHub sign-in timed out")
+
+    @staticmethod
+    def _parse_github_repo(repository: str) -> Optional[tuple[str, str]]:
+        repo = repository.rstrip("/")
+        if repo.endswith(".git"):
+            repo = repo[:-4]
+        for prefix in ("https://github.com/", "http://github.com/"):
+            if repo.startswith(prefix):
+                parts = repo[len(prefix):].split("/")
+                if len(parts) >= 2:
+                    return parts[0], parts[1]
+        return None
+
+    @staticmethod
+    def _normalize_repo_url(url: str) -> str:
+        url = url.strip().rstrip("/")
+        if url.endswith(".git"):
+            url = url[:-4]
+        if url.startswith("git@"):
+            host_path = url[4:]
+            if ":" in host_path:
+                host, path = host_path.split(":", 1)
+                return f"https://{host}/{path}"
+        return url
+
+
+class _GitOperations:
+    """Git subprocess helpers for clone, pull, and SHA resolution."""
+
+    @staticmethod
+    def _git_subprocess_env() -> dict[str, str]:
+        env = os.environ.copy()
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        return env
+
+    @staticmethod
+    def _git_auth_args(token: Optional[str]) -> list[str]:
+        if not token:
+            return []
+        basic = base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
+        return ["-c", f"http.extraHeader=Authorization: Basic {basic}"]
+
+    @staticmethod
+    def _authenticated_clone_url(repository: str, token: Optional[str]) -> str:
+        """Return an HTTPS clone URL with embedded token (not stored in git config)."""
+        if not token:
+            return repository
+        parsed = _GitHubClient._parse_github_repo(_GitHubClient._normalize_repo_url(repository))
+        if parsed is None:
+            return repository
+        owner, repo = parsed
+        return f"https://x-access-token:{token}@github.com/{owner}/{repo}.git"
+
+    @staticmethod
+    def _run_git(
+        args: list[str],
+        *,
+        token: Optional[str] = None,
+        timeout: float = 120,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess:
+        cmd = ["git"] + _GitOperations._git_auth_args(token) + args
+        return subprocess.run(
+            cmd,
+            check=check,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=_GitOperations._git_subprocess_env(),
+        )
+
+    @staticmethod
+    def _format_git_error(err: BaseException) -> str:
+        if isinstance(err, subprocess.CalledProcessError):
+            detail = "\n".join(p for p in (err.stderr, err.stdout) if p).strip()
+            return detail or str(err)
+        if isinstance(err, subprocess.TimeoutExpired):
+            return f"Git command timed out after {err.timeout}s"
+        return str(err)
+
+    @staticmethod
+    def get_local_head(plugin_path: Path) -> Optional[str]:
+        """Return the current HEAD commit SHA of a local git repo, or ``None``."""
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(plugin_path), "rev-parse", "HEAD"],
+                capture_output=True, text=True, timeout=10,
+            )
+            return result.stdout.strip() if result.returncode == 0 else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_remote_sha(
+        repo_url: str, ref: str = "HEAD", *, token: Optional[str] = None
+    ) -> Optional[str]:
+        """Return the commit SHA for *ref* on the remote, or ``None`` on failure.
+
+        Uses ``ref^{}`` to dereference annotated tags to the underlying commit SHA.
+        The last matching line from ``git ls-remote`` is used.
+        """
+        try:
+            result = _GitOperations._run_git(
+                ["ls-remote", repo_url, ref, f"{ref}^{{}}"],
+                token=token,
+                timeout=20,
+                check=False,
+            )
+            if result.returncode != 0:
+                return None
+            sha = None
+            for line in result.stdout.strip().splitlines():
+                parts = line.split()
+                if parts:
+                    sha = parts[0]
+            return sha
+        except Exception:
+            return None
+
+
+class _PluginOperations:
+    """Plugin registry fetch, install/uninstall, and profile registration."""
+
+    @staticmethod
+    def fetch_registry(
+        *,
+        private: bool = False,
+        token: Optional[str] = None,
+        timeout: float = 10.0,
+    ) -> list[dict]:
+        """Fetch and parse a plugins registry (public raw URL or private GitHub API)."""
+        if private:
+            if not token:
+                raise ValueError("GitHub token required for private registry")
+            url = (
+                f"https://api.github.com/repos/{PRIVATE_REGISTRY_REPO}/contents/plugins.yaml"
+                "?ref=main"
+            )
+            raw = _GitHubClient._github_api(
+                url, token, accept="application/vnd.github.raw", timeout=timeout
+            )
+            data = yaml.safe_load(raw) or {}
+        else:
+            req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent": "avlite"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = yaml.safe_load(resp.read()) or {}
+        plugins = data.get("plugins") or []
+        if not isinstance(plugins, list):
+            raise ValueError("Registry plugins.yaml has unexpected schema")
+        return plugins
+
+    @staticmethod
+    def list_installed(plugins_dir: Path) -> list[dict]:
+        """List plugin directories present under ``plugins_dir``."""
+        out: list[dict] = []
+        if not plugins_dir.exists():
+            return out
+        for entry in sorted(plugins_dir.iterdir()):
+            if not entry.is_dir() or entry.name.startswith("."):
+                continue
+            out.append({
+                "name": entry.name,
+                "path": entry,
+                "has_init": (entry / "__init__.py").exists(),
+            })
+        return out
+
+    @staticmethod
+    def install_plugin(entry: dict, plugins_dir: Path, *, token: Optional[str] = None) -> Path:
+        """Clone the plugin repo into ``plugins_dir`` and checkout the version.
+
+        Returns the absolute install path.
+        """
+        name = entry["name"]
+        repo = entry["repository"]
+        version = entry.get("version", "latest")
+        plugins_dir.mkdir(parents=True, exist_ok=True)
+        target = (plugins_dir / name).resolve()
+
+        if target.exists():
+            raise FileExistsError(f"Plugin '{name}' already installed at {target}")
+
+        # Safety: target must remain inside plugins_dir
+        if plugins_dir.resolve() not in target.parents:
+            raise ValueError(f"Refusing to install outside plugins dir: {target}")
+
+        log.info("Cloning %s -> %s", repo, target)
+        clone_url = _GitOperations._authenticated_clone_url(repo, token)
+        if version == "latest":
+            _GitOperations._run_git(["clone", "--depth", "1", clone_url, str(target)], timeout=120)
+        else:
+            _GitOperations._run_git(["clone", clone_url, str(target)], timeout=120)
+
+        clean_url = _GitHubClient._normalize_repo_url(repo)
+        if _GitHubClient._parse_github_repo(clean_url):
+            subprocess.run(
+                ["git", "-C", str(target), "remote", "set-url", "origin", clean_url],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=_GitOperations._git_subprocess_env(),
+            )
+
+        if version and version != "latest":
+            log.info("Checking out version %s", version)
+            _GitOperations._run_git(["-C", str(target), "checkout", version], timeout=60)
+        return target
+
+    @staticmethod
+    def uninstall_plugin(name: str, plugins_dir: Path) -> None:
+        """Remove an installed plugin directory (guarded to plugins_dir)."""
+        plugins_dir = plugins_dir.resolve()
+        target = (plugins_dir / name).resolve()
+        if plugins_dir not in target.parents:
+            raise ValueError(f"Refusing to delete outside plugins dir: {target}")
+        if not target.exists():
+            log.warning("Plugin directory not found: %s", target)
+            return
+        log.info("Removing %s", target)
+        shutil.rmtree(target)
+
+    @staticmethod
+    def check_requirements(req_file: Path) -> tuple[list[str], list[str]]:
+        """Inspect ``requirements.txt`` vs current env. Returns (missing, mismatched)."""
+        from importlib.metadata import PackageNotFoundError, version as pkg_version
+
+        try:
+            from packaging.requirements import Requirement
+            from packaging.version import Version
+        except Exception:
+            return [], []
+
+        missing: list[str] = []
+        mismatched: list[str] = []
+        for raw in req_file.read_text().splitlines():
+            line = raw.split("#", 1)[0].strip()
+            if not line or line.startswith("-"):
+                continue
+            try:
+                req = Requirement(line)
+            except Exception:
+                continue
+            try:
+                installed = pkg_version(req.name)
+            except PackageNotFoundError:
+                missing.append(line)
+                continue
+            if req.specifier and not req.specifier.contains(Version(installed), prereleases=True):
+                mismatched.append(f"{line} (installed {installed})")
+        return missing, mismatched
+
+    @staticmethod
+    def pip_install(req_file: Path) -> None:
+        """Install requirements from ``req_file`` into the current interpreter."""
+        import sys
+
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @staticmethod
+    def check_plugin_update(
+        plugin_path: Path,
+        registry_entry: Optional[dict],
+        *,
+        token: Optional[str] = None,
+    ) -> str:
+        """Compare local HEAD against remote ref.
+
+        Returns ``'up-to-date'``, ``'update-available'``, or ``'unknown'``.
+        """
+        local_sha = _GitOperations.get_local_head(plugin_path)
+        if local_sha is None:
+            return "unknown"
+        if registry_entry is not None:
+            version = registry_entry.get("version", "latest")
+            repo = registry_entry.get("repository", "")
+        else:
+            try:
+                r = subprocess.run(
+                    ["git", "-C", str(plugin_path), "remote", "get-url", "origin"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                repo = r.stdout.strip() if r.returncode == 0 else ""
+                version = "latest"
+            except Exception:
+                return "unknown"
+        if not repo:
+            return "unknown"
+        ref = "HEAD" if version == "latest" else f"refs/tags/{version}"
+        remote_sha = _GitOperations.get_remote_sha(repo, ref, token=token)
+        if remote_sha is None:
+            return "unknown"
+        return "up-to-date" if local_sha == remote_sha else "update-available"
+
+    @staticmethod
+    def update_plugin(
+        plugin_path: Path,
+        version: str = "latest",
+        *,
+        token: Optional[str] = None,
+    ) -> None:
+        """Pull the latest commit, or fetch and check out a specific tag."""
+        if version == "latest":
+            _GitOperations._run_git(["-C", str(plugin_path), "pull"], token=token, timeout=120)
+        else:
+            _GitOperations._run_git(["-C", str(plugin_path), "fetch", "origin"], token=token, timeout=120)
+            _GitOperations._run_git(["-C", str(plugin_path), "checkout", version], timeout=60)
+
+    @staticmethod
+    def _current_profile() -> str:
+        """Best-effort: read the active profile from the visualization settings file."""
+        try:
+            from avlite.c50_visualization.c59_settings import VisualizationSettings
+
+            path = Path(ConfigPaths.effective_path(VisualizationSettings.filepath, for_write=False))
+            if path.exists():
+                with open(path, "r") as f:
+                    cfg = yaml.safe_load(f) or {}
+                for prof, body in cfg.items():
+                    if isinstance(body, dict) and body.get("selected_profile") == prof:
+                        return prof
+                # Fallback: first profile in file
+                if cfg:
+                    return next(iter(cfg.keys()))
+        except Exception as e:
+            log.debug("Could not determine active profile: %s", e)
+        return "default"
+
+    @staticmethod
+    def register_in_profile(name: str, path: Path, profile: Optional[str] = None) -> None:
+        """Add ``name -> path`` to ``ExecutionSettings.c40_community_plugins`` and persist."""
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+        from avlite.c60_common.c69_setting_utils import load_setting, save_setting
+
+        profile = profile or _PluginOperations._current_profile()
+        load_setting(ExecutionSettings, profile=profile)
+        ExecutionSettings.c40_community_plugins[name] = PluginPaths.normalize_stored(
+            name, str(path)
+        )
+        save_setting(ExecutionSettings, profile=profile)
+        log.info("Registered plugin '%s' in profile '%s'", name, profile)
+
+    @staticmethod
+    def unregister_from_profile(name: str, profile: Optional[str] = None) -> None:
+        """Remove ``name`` from ``ExecutionSettings.c40_community_plugins`` and persist."""
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+        from avlite.c60_common.c69_setting_utils import load_setting, save_setting
+
+        profile = profile or _PluginOperations._current_profile()
+        load_setting(ExecutionSettings, profile=profile)
+        ExecutionSettings.c40_community_plugins.pop(name, None)
+        save_setting(ExecutionSettings, profile=profile)
+        log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
+
+    @staticmethod
+    def get_plugin_repository_url(
+        registry_entry: Optional[dict],
+        install_path: Optional[Path],
+    ) -> Optional[str]:
+        """Return a browser-friendly GitHub URL for a plugin, if known."""
+        if registry_entry:
+            repo = registry_entry.get("repository", "")
+            if repo:
+                return _GitHubClient._normalize_repo_url(repo)
+        if install_path is not None:
+            try:
+                result = subprocess.run(
+                    ["git", "-C", str(install_path), "remote", "get-url", "origin"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    return _GitHubClient._normalize_repo_url(result.stdout.strip())
+            except Exception:
+                pass
+        return None
+
+    @staticmethod
+    def read_local_readme(plugin_path: Path) -> str:
+        """Read README from an installed plugin directory."""
+        for name in ("README.md", "readme.md", "Readme.md"):
+            path = plugin_path / name
+            if path.is_file():
+                return path.read_text(encoding="utf-8", errors="replace")
+        return ""
+
+    @staticmethod
+    def fetch_remote_readme(
+        repository: str,
+        version: str = "latest",
+        *,
+        token: Optional[str] = None,
+        timeout: float = 10.0,
+    ) -> str:
+        """Fetch README.md from a GitHub repository."""
+        parsed = _GitHubClient._parse_github_repo(repository)
+        if parsed is None:
+            return ""
+        owner, repo = parsed
+        refs = [version] if version and version != "latest" else ["main", "master", "HEAD"]
+        readme_names = ("README.md", "readme.md")
         if token:
-            return str(token)
-        err = data.get("error")
-        if err == "authorization_pending":
-            time.sleep(wait)
-            continue
-        if err == "slow_down":
-            wait += 5
-            time.sleep(wait)
-            continue
-        raise RuntimeError(data.get("error_description") or err or "GitHub sign-in failed")
-    raise TimeoutError("GitHub sign-in timed out")
+            for ref in refs:
+                for readme_name in readme_names:
+                    url = (
+                        f"https://api.github.com/repos/{owner}/{repo}/contents/{readme_name}"
+                        f"?ref={ref}"
+                    )
+                    try:
+                        raw = _GitHubClient._github_api(
+                            url, token, accept="application/vnd.github.raw", timeout=timeout
+                        )
+                        return raw.decode("utf-8", errors="replace")
+                    except Exception:
+                        continue
+            return ""
+        for ref in refs:
+            for readme_name in readme_names:
+                url = f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{readme_name}"
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent": "avlite"})
+                    with urllib.request.urlopen(req, timeout=timeout) as resp:
+                        return resp.read().decode("utf-8", errors="replace")
+                except Exception:
+                    continue
+        return ""
 
-
-def _git_subprocess_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    return env
-
-
-def _git_auth_args(token: Optional[str]) -> list[str]:
-    if not token:
-        return []
-    basic = base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
-    return ["-c", f"http.extraHeader=Authorization: Basic {basic}"]
-
-
-def _authenticated_clone_url(repository: str, token: Optional[str]) -> str:
-    """Return an HTTPS clone URL with embedded token (not stored in git config)."""
-    if not token:
-        return repository
-    parsed = _parse_github_repo(_normalize_repo_url(repository))
-    if parsed is None:
-        return repository
-    owner, repo = parsed
-    return f"https://x-access-token:{token}@github.com/{owner}/{repo}.git"
-
-
-def _run_git(
-    args: list[str],
-    *,
-    token: Optional[str] = None,
-    timeout: float = 120,
-    check: bool = True,
-) -> subprocess.CompletedProcess:
-    cmd = ["git"] + _git_auth_args(token) + args
-    return subprocess.run(
-        cmd,
-        check=check,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=_git_subprocess_env(),
-    )
-
-
-def _format_git_error(err: BaseException) -> str:
-    if isinstance(err, subprocess.CalledProcessError):
-        detail = "\n".join(p for p in (err.stderr, err.stdout) if p).strip()
-        return detail or str(err)
-    if isinstance(err, subprocess.TimeoutExpired):
-        return f"Git command timed out after {err.timeout}s"
-    return str(err)
+    @staticmethod
+    def load_plugin_readme(
+        name: str,
+        registry_entry: Optional[dict],
+        installed_path: Optional[Path],
+        *,
+        token: Optional[str] = None,
+    ) -> str:
+        """Load README text from a local install path or remote repository."""
+        if installed_path is not None:
+            text = _PluginOperations.read_local_readme(installed_path)
+            if text:
+                return text
+        if registry_entry:
+            repo = registry_entry.get("repository", "")
+            version = registry_entry.get("version", "latest")
+            if repo:
+                text = _PluginOperations.fetch_remote_readme(repo, version, token=token)
+                if text:
+                    return text
+        if installed_path is not None:
+            return "No README found in the plugin directory."
+        return "No README found."
 
 
 class _DeviceFlowDialog:
@@ -345,7 +756,7 @@ class _DeviceFlowDialog:
 
     def _run_flow(self) -> None:
         try:
-            flow = _start_device_flow()
+            flow = _GitHubClient._start_device_flow()
             self._verification_uri = flow["verification_uri"]
             user_code = flow["user_code"]
             device_code = flow["device_code"]
@@ -361,9 +772,9 @@ class _DeviceFlowDialog:
             self.window.after(0, show_code)
             if self._cancelled:
                 return
-            token = _poll_device_flow(device_code, interval, expires_in)
-            login = _github_user(token) or ""
-            _save_github_token(token, login)
+            token = _GitHubClient._poll_device_flow(device_code, interval, expires_in)
+            login = _GitHubClient._github_user(token) or ""
+            _GitHubClient._save_github_token(token, login)
             self.window.after(0, lambda t=token, l=login: self._finish(t, l, None))
         except Exception as exc:  # noqa: BLE001
             self.window.after(0, lambda err=exc: self._finish(None, None, err))
@@ -387,7 +798,7 @@ class _PluginDetailsWindow:
         self.registry_entry = registry_entry
         self.install_path = install_path
         entry = registry_entry or {}
-        self._repo_url = get_plugin_repository_url(registry_entry, install_path)
+        self._repo_url = _PluginOperations.get_plugin_repository_url(registry_entry, install_path)
         self._dpi_scale = dpi_scale
         self.window = tk.Toplevel(app.window)
         self.window.title(name)
@@ -469,7 +880,7 @@ class _PluginDetailsWindow:
         self.status = status
         self.registry_entry = entry
         self.install_path = install_path
-        self._repo_url = get_plugin_repository_url(entry, install_path)
+        self._repo_url = _PluginOperations.get_plugin_repository_url(entry, install_path)
         self._sync_action_buttons()
 
     def _sync_action_buttons(self) -> None:
@@ -513,7 +924,7 @@ class _PluginDetailsWindow:
         self.text.configure(state=tk.NORMAL)
         self.text.delete("1.0", tk.END)
         if rendered:
-            _render_markdown(self.text, content, self._dpi_scale)
+            self._render_markdown(self.text, content, self._dpi_scale)
         else:
             self.text.insert(tk.END, content)
         self.text.configure(state=tk.DISABLED)
@@ -525,7 +936,9 @@ class _PluginDetailsWindow:
 
         def worker() -> str:
             token = self.app._token if self.app._private else None
-            return load_plugin_readme(name, registry_entry, install_path, token=token)
+            return _PluginOperations.load_plugin_readme(
+                name, registry_entry, install_path, token=token
+            )
 
         def on_done(content: Optional[str], err: Optional[Exception]) -> None:
             try:
@@ -550,6 +963,67 @@ class _PluginDetailsWindow:
     def _reload_readme(self) -> None:
         self._set_body("Loading README\u2026")
         self._load_readme_async()
+
+    @staticmethod
+    def _insert_inline_md(text: tk.Text, line: str, base_tag: Optional[str]) -> None:
+        pos = 0
+        for match in _INLINE_MD_RE.finditer(line):
+            if match.start() > pos:
+                chunk = line[pos:match.start()]
+                text.insert(tk.END, chunk, base_tag if base_tag else ())
+            if match.group(2):
+                tags = (base_tag, "md_bold") if base_tag else ("md_bold",)
+                text.insert(tk.END, match.group(2), tags)
+            elif match.group(3):
+                tags = (base_tag, "md_italic") if base_tag else ("md_italic",)
+                text.insert(tk.END, match.group(3), tags)
+            elif match.group(4):
+                tags = (base_tag, "md_code") if base_tag else ("md_code",)
+                text.insert(tk.END, match.group(4), tags)
+            elif match.group(5):
+                tags = (base_tag, "md_link") if base_tag else ("md_link",)
+                text.insert(tk.END, match.group(5), tags)
+                text.insert(tk.END, f" ({match.group(6)})")
+            pos = match.end()
+        if pos < len(line):
+            text.insert(tk.END, line[pos:], base_tag if base_tag else ())
+
+    @staticmethod
+    def _render_markdown(text: tk.Text, content: str, dpi_scale: float = 1.0) -> None:
+        """Apply basic markdown formatting to a Tk Text widget."""
+        text.tag_configure("md_h1", font=scaled_font(dpi_scale, "Helvetica", 16, weight="bold"))
+        text.tag_configure("md_h2", font=scaled_font(dpi_scale, "Helvetica", 14, weight="bold"))
+        text.tag_configure("md_h3", font=scaled_font(dpi_scale, "Helvetica", 12, weight="bold"))
+        text.tag_configure("md_bold", font=scaled_font(dpi_scale, "Helvetica", 10, weight="bold"))
+        _base10 = scaled_font(dpi_scale, "Helvetica", 10)
+        text.tag_configure("md_italic", font=(_base10[0], _base10[1], "italic"))
+        text.tag_configure("md_code", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
+        text.tag_configure("md_codeblock", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
+        text.tag_configure("md_link", underline=True)
+
+        in_code_block = False
+        for line in content.splitlines(keepends=True):
+            stripped = line.strip()
+            if stripped.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                text.insert(tk.END, line, "md_codeblock")
+                continue
+
+            heading = re.match(r"^(#{1,3})\s+(.*)$", line.rstrip("\n"))
+            if heading:
+                level = len(heading.group(1))
+                _PluginDetailsWindow._insert_inline_md(text, heading.group(2) + "\n", f"md_h{level}")
+                continue
+
+            bullet = re.match(r"^(\s*[-*]|\s*\d+\.)\s+(.*)$", line.rstrip("\n"))
+            if bullet:
+                _PluginDetailsWindow._insert_inline_md(text, "  \u2022 " + bullet.group(2) + "\n", None)
+                continue
+
+            _PluginDetailsWindow._insert_inline_md(text, line, None)
+
 
 # ---------------------------------------------------------------------------
 # UI
@@ -576,7 +1050,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._host = host
         self._dpi_scale = dpi_scale
         self._on_close = on_close
-        self.plugins_dir = get_plugins_dir()
+        self.plugins_dir = PluginPaths.install_dir()
         self._busy = False
         self._registry: list[dict] = []
         self._update_statuses: dict[str, str] = {}
@@ -584,7 +1058,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._token: Optional[str] = None
         self._github_login = ""
         if private:
-            loaded = _load_github_token()
+            loaded = _GitHubClient._load_github_token()
             if loaded:
                 self._token, self._github_login = loaded
         self._build_ui()
@@ -732,7 +1206,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._refresh_async()
 
     def _on_sign_out(self) -> None:
-        _clear_github_token()
+        _GitHubClient._clear_github_token()
         self._token = None
         self._github_login = ""
         self._registry = []
@@ -749,11 +1223,24 @@ class _PluginRegistryPanel(ttk.Frame):
 
     # -- Population ------------------------------------------------------
     def _populate(self) -> None:
+        def _registered_names() -> set[str]:
+            try:
+                from avlite.c40_execution.c49_settings import ExecutionSettings
+
+                return set(ExecutionSettings.c40_community_plugins.keys())
+            except Exception:
+                return set()
+
+        def _fmt_category(category) -> str:
+            if isinstance(category, list):
+                return ", ".join(str(c) for c in category)
+            return str(category) if category else ""
+
         self.tree.delete(*self.tree.get_children())
         if self._private and not self._signed_in():
             self._update_buttons()
             return
-        installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
+        installed = {p["name"]: p for p in _PluginOperations.list_installed(self.plugins_dir)}
         registry_by_name = {e["name"]: e for e in self._registry}
         registered = _registered_names()
 
@@ -812,7 +1299,7 @@ class _PluginRegistryPanel(ttk.Frame):
         entry = next((e for e in self._registry if e["name"] == name), None)
         install_path = None
         if status.startswith("Installed"):
-            installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
+            installed = {p["name"]: p for p in _PluginOperations.list_installed(self.plugins_dir)}
             inst = installed.get(name)
             if inst is not None:
                 install_path = inst["path"]
@@ -843,7 +1330,7 @@ class _PluginRegistryPanel(ttk.Frame):
             and self._update_statuses.get(sel[0]) == "update-available"
         )
         has_any_update = any(s == "update-available" for s in self._update_statuses.values())
-        has_github = ctx is not None and get_plugin_repository_url(ctx[2], ctx[3]) is not None
+        has_github = ctx is not None and _PluginOperations.get_plugin_repository_url(ctx[2], ctx[3]) is not None
         enabled = signed_in and not busy
         self.btn_github.state(["!disabled"] if (has_github and enabled) else ["disabled"])
         self.btn_install.state(["!disabled"] if (available and enabled) else ["disabled"])
@@ -872,7 +1359,7 @@ class _PluginRegistryPanel(ttk.Frame):
         if ctx is None:
             return
         _name, _status, entry, install_path = ctx
-        repo_url = get_plugin_repository_url(entry, install_path)
+        repo_url = _PluginOperations.get_plugin_repository_url(entry, install_path)
         if repo_url:
             webbrowser.open(repo_url)
 
@@ -905,7 +1392,7 @@ class _PluginRegistryPanel(ttk.Frame):
         private = self._private
 
         def task():
-            return fetch_registry(private=private, token=token)
+            return _PluginOperations.fetch_registry(private=private, token=token)
 
         def done(result, err):
             if err is not None:
@@ -925,7 +1412,7 @@ class _PluginRegistryPanel(ttk.Frame):
                             webbrowser.open(err.sso_url)
                         return
                     if err.status == 401:
-                        _clear_github_token()
+                        _GitHubClient._clear_github_token()
                         self._token = None
                         self._github_login = ""
                         self._sync_auth_bar()
@@ -938,7 +1425,7 @@ class _PluginRegistryPanel(ttk.Frame):
                 elif isinstance(err, urllib.error.HTTPError) and err.code == 403:
                     msg = "Your GitHub account does not have access to member plugins."
                 elif self._private and self._token and "401" in msg:
-                    _clear_github_token()
+                    _GitHubClient._clear_github_token()
                     self._token = None
                     self._github_login = ""
                     self._sync_auth_bar()
@@ -955,7 +1442,7 @@ class _PluginRegistryPanel(ttk.Frame):
 
     def _check_updates_async(self) -> None:
         """Start background update checks for installed plugins not yet checked."""
-        installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
+        installed = {p["name"]: p for p in _PluginOperations.list_installed(self.plugins_dir)}
         registry_by_name = {e["name"]: e for e in self._registry}
         names_to_check = [
             n for n in registry_by_name
@@ -969,7 +1456,7 @@ class _PluginRegistryPanel(ttk.Frame):
                 plugin_path = installed[name]["path"]
                 registry_entry = registry_by_name.get(name)
                 try:
-                    result = check_plugin_update(
+                    result = _PluginOperations.check_plugin_update(
                         plugin_path, registry_entry, token=self._auth_token()
                     )
                 except Exception as e:
@@ -1014,7 +1501,7 @@ class _PluginRegistryPanel(ttk.Frame):
         on_done=None,
     ) -> None:
         parent = parent or self.window
-        installed = {p["name"]: p for p in list_installed(self.plugins_dir)}
+        installed = {p["name"]: p for p in _PluginOperations.list_installed(self.plugins_dir)}
         plugin_path = installed.get(name, {}).get("path")
         if plugin_path is None:
             return
@@ -1023,7 +1510,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._set_busy(True, f"Updating {name}\u2026")
 
         def task():
-            update_plugin(plugin_path, version, token=self._auth_token())
+            _PluginOperations.update_plugin(plugin_path, version, token=self._auth_token())
 
         def done(_result, err):
             if err is not None:
@@ -1044,7 +1531,7 @@ class _PluginRegistryPanel(ttk.Frame):
         names = [n for n, s in self._update_statuses.items() if s == "update-available"]
         if not names:
             return
-        installed_map = {p["name"]: p for p in list_installed(self.plugins_dir)}
+        installed_map = {p["name"]: p for p in _PluginOperations.list_installed(self.plugins_dir)}
         registry_by_name = {e["name"]: e for e in self._registry}
         self._set_busy(True, f"Updating {len(names)} plugin(s)\u2026")
 
@@ -1057,7 +1544,7 @@ class _PluginRegistryPanel(ttk.Frame):
                 entry = registry_by_name.get(name)
                 version = entry.get("version", "latest") if entry else "latest"
                 try:
-                    update_plugin(path, version, token=self._auth_token())
+                    _PluginOperations.update_plugin(path, version, token=self._auth_token())
                     self._update_statuses.pop(name, None)
                 except Exception as e:
                     errors.append(f"{name}: {e}")
@@ -1102,13 +1589,13 @@ class _PluginRegistryPanel(ttk.Frame):
         self._set_busy(True, f"Installing {name}…")
 
         def task():
-            path = install_plugin(entry, self.plugins_dir, token=self._auth_token())
-            register_in_profile(name, path, profile=profile)
+            path = _PluginOperations.install_plugin(entry, self.plugins_dir, token=self._auth_token())
+            _PluginOperations.register_in_profile(name, path, profile=profile)
             return path
 
         def done(path, err):
             if err is not None:
-                msg = _format_git_error(err)
+                msg = _GitOperations._format_git_error(err)
                 self._set_busy(False, f"Install failed: {msg}")
                 messagebox.showerror("Install failed", msg, parent=parent)
                 return
@@ -1135,7 +1622,7 @@ class _PluginRegistryPanel(ttk.Frame):
         req_file = plugin_path / "requirements.txt"
         if not req_file.exists():
             return
-        missing, mismatched = check_requirements(req_file)
+        missing, mismatched = _PluginOperations.check_requirements(req_file)
         if mismatched:
             messagebox.showwarning(
                 "Dependency version mismatch",
@@ -1150,7 +1637,7 @@ class _PluginRegistryPanel(ttk.Frame):
             parent=parent,
         ):
             try:
-                pip_install(req_file)
+                _PluginOperations.pip_install(req_file)
             except subprocess.CalledProcessError as e:
                 detail = "\n".join(p for p in (e.stdout, e.stderr) if p) or str(e)
                 messagebox.showerror(
@@ -1177,8 +1664,8 @@ class _PluginRegistryPanel(ttk.Frame):
         self._set_busy(True, f"Uninstalling {name}…")
 
         def task():
-            unregister_from_profile(name, profile=profile)
-            uninstall_plugin(name, self.plugins_dir)
+            _PluginOperations.unregister_from_profile(name, profile=profile)
+            _PluginOperations.uninstall_plugin(name, self.plugins_dir)
 
         def done(_result, err):
             if err is not None:
@@ -1263,7 +1750,7 @@ class CommunityPluginsApp:
         outer.pack(fill=tk.BOTH, expand=True)
         ttk.Label(
             outer,
-            text=f"Plugins directory: {get_plugins_dir()}",
+            text=f"Plugins directory: {PluginPaths.install_dir()}",
             foreground="#666",
         ).pack(anchor=tk.W, pady=(0, 6))
 
@@ -1314,475 +1801,6 @@ class CommunityPluginsApp:
         if parent is None:
             app.window.mainloop()
         return app
-
-
-# ---------------------------------------------------------------------------
-# Module functions
-# ---------------------------------------------------------------------------
-def fetch_registry(
-    *,
-    private: bool = False,
-    token: Optional[str] = None,
-    timeout: float = 10.0,
-) -> list[dict]:
-    """Fetch and parse a plugins registry (public raw URL or private GitHub API)."""
-    if private:
-        if not token:
-            raise ValueError("GitHub token required for private registry")
-        url = (
-            f"https://api.github.com/repos/{PRIVATE_REGISTRY_REPO}/contents/plugins.yaml"
-            "?ref=main"
-        )
-        raw = _github_api(url, token, accept="application/vnd.github.raw", timeout=timeout)
-        data = yaml.safe_load(raw) or {}
-    else:
-        req = urllib.request.Request(REGISTRY_URL, headers={"User-Agent": "avlite"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = yaml.safe_load(resp.read()) or {}
-    plugins = data.get("plugins") or []
-    if not isinstance(plugins, list):
-        raise ValueError("Registry plugins.yaml has unexpected schema")
-    return plugins
-
-
-def list_installed(plugins_dir: Path) -> list[dict]:
-    """List plugin directories present under ``plugins_dir``."""
-    out: list[dict] = []
-    if not plugins_dir.exists():
-        return out
-    for entry in sorted(plugins_dir.iterdir()):
-        if not entry.is_dir() or entry.name.startswith("."):
-            continue
-        out.append({
-            "name": entry.name,
-            "path": entry,
-            "has_init": (entry / "__init__.py").exists(),
-        })
-    return out
-
-
-def install_plugin(entry: dict, plugins_dir: Path, *, token: Optional[str] = None) -> Path:
-    """Clone the plugin repo into ``plugins_dir`` and checkout the version.
-
-    Returns the absolute install path.
-    """
-    name = entry["name"]
-    repo = entry["repository"]
-    version = entry.get("version", "latest")
-    plugins_dir.mkdir(parents=True, exist_ok=True)
-    target = (plugins_dir / name).resolve()
-
-    if target.exists():
-        raise FileExistsError(f"Plugin '{name}' already installed at {target}")
-
-    # Safety: target must remain inside plugins_dir
-    if plugins_dir.resolve() not in target.parents:
-        raise ValueError(f"Refusing to install outside plugins dir: {target}")
-
-    log.info("Cloning %s -> %s", repo, target)
-    clone_url = _authenticated_clone_url(repo, token)
-    if version == "latest":
-        _run_git(["clone", "--depth", "1", clone_url, str(target)], timeout=120)
-    else:
-        _run_git(["clone", clone_url, str(target)], timeout=120)
-
-    clean_url = _normalize_repo_url(repo)
-    if _parse_github_repo(clean_url):
-        subprocess.run(
-            ["git", "-C", str(target), "remote", "set-url", "origin", clean_url],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            env=_git_subprocess_env(),
-        )
-
-    if version and version != "latest":
-        log.info("Checking out version %s", version)
-        _run_git(["-C", str(target), "checkout", version], timeout=60)
-    return target
-
-
-def uninstall_plugin(name: str, plugins_dir: Path) -> None:
-    """Remove an installed plugin directory (guarded to plugins_dir)."""
-    plugins_dir = plugins_dir.resolve()
-    target = (plugins_dir / name).resolve()
-    if plugins_dir not in target.parents:
-        raise ValueError(f"Refusing to delete outside plugins dir: {target}")
-    if not target.exists():
-        log.warning("Plugin directory not found: %s", target)
-        return
-    log.info("Removing %s", target)
-    shutil.rmtree(target)
-
-
-def check_requirements(req_file: Path) -> tuple[list[str], list[str]]:
-    """Inspect ``requirements.txt`` vs current env. Returns (missing, mismatched)."""
-    from importlib.metadata import PackageNotFoundError, version as pkg_version
-
-    try:
-        from packaging.requirements import Requirement
-        from packaging.version import Version
-    except Exception:
-        return [], []
-
-    missing: list[str] = []
-    mismatched: list[str] = []
-    for raw in req_file.read_text().splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if not line or line.startswith("-"):
-            continue
-        try:
-            req = Requirement(line)
-        except Exception:
-            continue
-        try:
-            installed = pkg_version(req.name)
-        except PackageNotFoundError:
-            missing.append(line)
-            continue
-        if req.specifier and not req.specifier.contains(Version(installed), prereleases=True):
-            mismatched.append(f"{line} (installed {installed})")
-    return missing, mismatched
-
-
-def pip_install(req_file: Path) -> None:
-    """Install requirements from ``req_file`` into the current interpreter."""
-    import sys
-
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
-def get_local_head(plugin_path: Path) -> Optional[str]:
-    """Return the current HEAD commit SHA of a local git repo, or ``None``."""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(plugin_path), "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=10,
-        )
-        return result.stdout.strip() if result.returncode == 0 else None
-    except Exception:
-        return None
-
-
-def get_remote_sha(repo_url: str, ref: str = "HEAD", *, token: Optional[str] = None) -> Optional[str]:
-    """Return the commit SHA for *ref* on the remote, or ``None`` on failure.
-
-    Uses ``ref^{}`` to dereference annotated tags to the underlying commit SHA.
-    The last matching line from ``git ls-remote`` is used.
-    """
-    try:
-        result = _run_git(
-            ["ls-remote", repo_url, ref, f"{ref}^{{}}"],
-            token=token,
-            timeout=20,
-            check=False,
-        )
-        if result.returncode != 0:
-            return None
-        sha = None
-        for line in result.stdout.strip().splitlines():
-            parts = line.split()
-            if parts:
-                sha = parts[0]
-        return sha
-    except Exception:
-        return None
-
-
-def check_plugin_update(
-    plugin_path: Path,
-    registry_entry: Optional[dict],
-    *,
-    token: Optional[str] = None,
-) -> str:
-    """Compare local HEAD against remote ref.
-
-    Returns ``'up-to-date'``, ``'update-available'``, or ``'unknown'``.
-    """
-    local_sha = get_local_head(plugin_path)
-    if local_sha is None:
-        return "unknown"
-    if registry_entry is not None:
-        version = registry_entry.get("version", "latest")
-        repo = registry_entry.get("repository", "")
-    else:
-        try:
-            r = subprocess.run(
-                ["git", "-C", str(plugin_path), "remote", "get-url", "origin"],
-                capture_output=True, text=True, timeout=5,
-            )
-            repo = r.stdout.strip() if r.returncode == 0 else ""
-            version = "latest"
-        except Exception:
-            return "unknown"
-    if not repo:
-        return "unknown"
-    ref = "HEAD" if version == "latest" else f"refs/tags/{version}"
-    remote_sha = get_remote_sha(repo, ref, token=token)
-    if remote_sha is None:
-        return "unknown"
-    return "up-to-date" if local_sha == remote_sha else "update-available"
-
-
-def update_plugin(
-    plugin_path: Path,
-    version: str = "latest",
-    *,
-    token: Optional[str] = None,
-) -> None:
-    """Pull the latest commit, or fetch and check out a specific tag."""
-    if version == "latest":
-        _run_git(["-C", str(plugin_path), "pull"], token=token, timeout=120)
-    else:
-        _run_git(["-C", str(plugin_path), "fetch", "origin"], token=token, timeout=120)
-        _run_git(["-C", str(plugin_path), "checkout", version], timeout=60)
-
-
-def _current_profile() -> str:
-    """Best-effort: read the active profile from the visualization settings file."""
-    try:
-        from avlite.c50_visualization.c59_settings import VisualizationSettings
-
-        path = Path(effective_config_path(VisualizationSettings.filepath, for_write=False))
-        if path.exists():
-            with open(path, "r") as f:
-                cfg = yaml.safe_load(f) or {}
-            for prof, body in cfg.items():
-                if isinstance(body, dict) and body.get("selected_profile") == prof:
-                    return prof
-            # Fallback: first profile in file
-            if cfg:
-                return next(iter(cfg.keys()))
-    except Exception as e:
-        log.debug("Could not determine active profile: %s", e)
-    return "default"
-
-
-def register_in_profile(name: str, path: Path, profile: Optional[str] = None) -> None:
-    """Add ``name -> path`` to ``ExecutionSettings.c40_community_plugins`` and persist."""
-    from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c60_common.c67_paths import normalize_community_plugin_stored
-    from avlite.c60_common.c69_setting_utils import load_setting, save_setting
-
-    profile = profile or _current_profile()
-    load_setting(ExecutionSettings, profile=profile)
-    ExecutionSettings.c40_community_plugins[name] = normalize_community_plugin_stored(
-        name, str(path)
-    )
-    save_setting(ExecutionSettings, profile=profile)
-    log.info("Registered plugin '%s' in profile '%s'", name, profile)
-
-
-def unregister_from_profile(name: str, profile: Optional[str] = None) -> None:
-    """Remove ``name`` from ``ExecutionSettings.c40_community_plugins`` and persist."""
-    from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c60_common.c69_setting_utils import load_setting, save_setting
-
-    profile = profile or _current_profile()
-    load_setting(ExecutionSettings, profile=profile)
-    ExecutionSettings.c40_community_plugins.pop(name, None)
-    save_setting(ExecutionSettings, profile=profile)
-    log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
-
-
-def _registered_names() -> set[str]:
-    try:
-        from avlite.c40_execution.c49_settings import ExecutionSettings
-
-        return set(ExecutionSettings.c40_community_plugins.keys())
-    except Exception:
-        return set()
-
-
-def _parse_github_repo(repository: str) -> Optional[tuple[str, str]]:
-    repo = repository.rstrip("/")
-    if repo.endswith(".git"):
-        repo = repo[:-4]
-    for prefix in ("https://github.com/", "http://github.com/"):
-        if repo.startswith(prefix):
-            parts = repo[len(prefix):].split("/")
-            if len(parts) >= 2:
-                return parts[0], parts[1]
-    return None
-
-
-def _normalize_repo_url(url: str) -> str:
-    url = url.strip().rstrip("/")
-    if url.endswith(".git"):
-        url = url[:-4]
-    if url.startswith("git@"):
-        host_path = url[4:]
-        if ":" in host_path:
-            host, path = host_path.split(":", 1)
-            return f"https://{host}/{path}"
-    return url
-
-
-def get_plugin_repository_url(
-    registry_entry: Optional[dict],
-    install_path: Optional[Path],
-) -> Optional[str]:
-    """Return a browser-friendly GitHub URL for a plugin, if known."""
-    if registry_entry:
-        repo = registry_entry.get("repository", "")
-        if repo:
-            return _normalize_repo_url(repo)
-    if install_path is not None:
-        try:
-            result = subprocess.run(
-                ["git", "-C", str(install_path), "remote", "get-url", "origin"],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return _normalize_repo_url(result.stdout.strip())
-        except Exception:
-            pass
-    return None
-
-
-def read_local_readme(plugin_path: Path) -> str:
-    """Read README from an installed plugin directory."""
-    for name in ("README.md", "readme.md", "Readme.md"):
-        path = plugin_path / name
-        if path.is_file():
-            return path.read_text(encoding="utf-8", errors="replace")
-    return ""
-
-
-def fetch_remote_readme(
-    repository: str,
-    version: str = "latest",
-    *,
-    token: Optional[str] = None,
-    timeout: float = 10.0,
-) -> str:
-    """Fetch README.md from a GitHub repository."""
-    parsed = _parse_github_repo(repository)
-    if parsed is None:
-        return ""
-    owner, repo = parsed
-    refs = [version] if version and version != "latest" else ["main", "master", "HEAD"]
-    readme_names = ("README.md", "readme.md")
-    if token:
-        for ref in refs:
-            for readme_name in readme_names:
-                url = (
-                    f"https://api.github.com/repos/{owner}/{repo}/contents/{readme_name}"
-                    f"?ref={ref}"
-                )
-                try:
-                    raw = _github_api(url, token, accept="application/vnd.github.raw", timeout=timeout)
-                    return raw.decode("utf-8", errors="replace")
-                except Exception:
-                    continue
-        return ""
-    for ref in refs:
-        for readme_name in readme_names:
-            url = f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{readme_name}"
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "avlite"})
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    return resp.read().decode("utf-8", errors="replace")
-            except Exception:
-                continue
-    return ""
-
-
-def load_plugin_readme(
-    name: str,
-    registry_entry: Optional[dict],
-    installed_path: Optional[Path],
-    *,
-    token: Optional[str] = None,
-) -> str:
-    """Load README text from a local install path or remote repository."""
-    if installed_path is not None:
-        text = read_local_readme(installed_path)
-        if text:
-            return text
-    if registry_entry:
-        repo = registry_entry.get("repository", "")
-        version = registry_entry.get("version", "latest")
-        if repo:
-            text = fetch_remote_readme(repo, version, token=token)
-            if text:
-                return text
-    if installed_path is not None:
-        return "No README found in the plugin directory."
-    return "No README found."
-
-
-def _fmt_category(category) -> str:
-    if isinstance(category, list):
-        return ", ".join(str(c) for c in category)
-    return str(category) if category else ""
-
-
-
-def _insert_inline_md(text: tk.Text, line: str, base_tag: Optional[str]) -> None:
-    pos = 0
-    for match in _INLINE_MD_RE.finditer(line):
-        if match.start() > pos:
-            chunk = line[pos:match.start()]
-            text.insert(tk.END, chunk, base_tag if base_tag else ())
-        if match.group(2):
-            tags = (base_tag, "md_bold") if base_tag else ("md_bold",)
-            text.insert(tk.END, match.group(2), tags)
-        elif match.group(3):
-            tags = (base_tag, "md_italic") if base_tag else ("md_italic",)
-            text.insert(tk.END, match.group(3), tags)
-        elif match.group(4):
-            tags = (base_tag, "md_code") if base_tag else ("md_code",)
-            text.insert(tk.END, match.group(4), tags)
-        elif match.group(5):
-            tags = (base_tag, "md_link") if base_tag else ("md_link",)
-            text.insert(tk.END, match.group(5), tags)
-            text.insert(tk.END, f" ({match.group(6)})")
-        pos = match.end()
-    if pos < len(line):
-        text.insert(tk.END, line[pos:], base_tag if base_tag else ())
-
-
-def _render_markdown(text: tk.Text, content: str, dpi_scale: float = 1.0) -> None:
-    """Apply basic markdown formatting to a Tk Text widget."""
-    text.tag_configure("md_h1", font=scaled_font(dpi_scale, "Helvetica", 16, weight="bold"))
-    text.tag_configure("md_h2", font=scaled_font(dpi_scale, "Helvetica", 14, weight="bold"))
-    text.tag_configure("md_h3", font=scaled_font(dpi_scale, "Helvetica", 12, weight="bold"))
-    text.tag_configure("md_bold", font=scaled_font(dpi_scale, "Helvetica", 10, weight="bold"))
-    _base10 = scaled_font(dpi_scale, "Helvetica", 10)
-    text.tag_configure("md_italic", font=(_base10[0], _base10[1], "italic"))
-    text.tag_configure("md_code", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
-    text.tag_configure("md_codeblock", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
-    text.tag_configure("md_link", underline=True)
-
-    in_code_block = False
-    for line in content.splitlines(keepends=True):
-        stripped = line.strip()
-        if stripped.startswith("```"):
-            in_code_block = not in_code_block
-            continue
-        if in_code_block:
-            text.insert(tk.END, line, "md_codeblock")
-            continue
-
-        heading = re.match(r"^(#{1,3})\s+(.*)$", line.rstrip("\n"))
-        if heading:
-            level = len(heading.group(1))
-            _insert_inline_md(text, heading.group(2) + "\n", f"md_h{level}")
-            continue
-
-        bullet = re.match(r"^(\s*[-*]|\s*\d+\.)\s+(.*)$", line.rstrip("\n"))
-        if bullet:
-            _insert_inline_md(text, "  \u2022 " + bullet.group(2) + "\n", None)
-            continue
-
-        _insert_inline_md(text, line, None)
 
 
 def main() -> None:

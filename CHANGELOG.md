@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `test/c60_common/test_import_boundary.py` — core layers (`c40`, `c60`, `plugins`) must not import `c50_visualization`
+
+### Changed
+- Consolidated modules: deleted `c17_map.py`, `c50_stack_loader.py`, `_visualization_ui.py`, `c66_hdmap.py`
+- Stack orchestration moved into `c43_factory` (`load_stack_settings`, core `get_stack_settings_classes()`); GUI profile export uses `c59_settings.get_stack_settings_classes()` for visualization YAML
+- Renamed `c60_plugins.py` → `c66_plugins.py`
+- `c67_paths` slimmed to `ConfigPaths`, `PluginPaths`, and `DataPaths`; `c54_plugins` refactored into internal Git/plugin operation classes
+- `Map` / `RaceMap` live in `c11_perception_model.py`; OpenDRIVE `HDMap` parser in `c18_hdmap_parser.py`
+- `VisualizationSettings` Tk binder merged back into `c59_settings.py` (schema + runtime class)
+
+### Removed
+- `c17_mapping_algs.py` placeholder (mapping interface remains in `c14_mapping_strategy.py`)
+
 ## [0.3.2] - 2026-06-27
 
 ### Added
@@ -14,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings window **Export profile** / **Import profile**: zip of per-file profile slices (including community plugin YAMLs when referenced); validated against Pydantic schemas on export and import
 - `avlite config export-profile` and `avlite config import-profile` CLI subcommands
 - **Edit repository configs** (settings window, git clone only): optional dev mode to switch read/write between user dir and `{repo}/configs/`; preference in `~/.config/avlite/config_target`
-- `c60_plugins.py` (plugin discovery, loading, log routing) and `c67_paths.py` (config/XDG paths)
+- `c66_plugins.py` (plugin discovery, loading, log routing) and `c67_paths.py` (config/XDG paths)
 - Thread-safe log filter snapshots in the visualizer (Core / Plugins / per-layer toggles)
 - Community plugin import skips `.venv`, `site-packages`, and similar vendor directories
 - Tabbed **Community** / **Members** plugin browser (`python -m avlite plugins`)

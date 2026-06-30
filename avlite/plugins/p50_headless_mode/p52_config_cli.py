@@ -9,9 +9,10 @@ from typing import Any
 
 import yaml
 
-from avlite.c60_common.c67_paths import effective_config_path
+from avlite.c60_common.c67_paths import ConfigPaths
+from avlite.c40_execution.c43_factory import get_stack_settings_classes
 from avlite.c60_common.c69_setting_utils import export_profile, import_profile
-from avlite.c60_common.c60_plugins import list_plugins, load_builtin_plugin_settings
+from avlite.c60_common.c66_plugins import list_plugins, load_builtin_plugin_settings
 from avlite.c60_common.c68_settings_schema import (
     SettingsValidationError,
     describe_schema,
@@ -26,21 +27,16 @@ _config_parser: argparse.ArgumentParser | None = None
 def _layers() -> dict[str, Any]:
     global _LAYER_REGISTRY
     if _LAYER_REGISTRY is None:
-        import importlib
-
         from avlite.c10_perception.c19_settings import PerceptionSettings
         from avlite.c20_planning.c29_settings import PlanningSettings
         from avlite.c30_control.c39_settings import ControlSettings
         from avlite.c40_execution.c49_settings import ExecutionSettings
-        vis_mod = importlib.import_module("avlite.c50_visualization.c59_settings")
-        VisualizationSettings = vis_mod.VisualizationSettings
 
         _LAYER_REGISTRY = {
             "perception": PerceptionSettings,
             "planning": PlanningSettings,
             "control": ControlSettings,
             "execution": ExecutionSettings,
-            "visualization": VisualizationSettings,
         }
     return _LAYER_REGISTRY
 
@@ -76,7 +72,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         schema = schema_of(settings_cls)
         if schema is None:
             continue
-        filepath = Path(effective_config_path(settings_cls.filepath))
+        filepath = Path(ConfigPaths.effective_path(settings_cls.filepath))
         for prof in _profiles_in_file(filepath, args.profile):
             try:
                 with open(filepath) as f:
@@ -144,6 +140,7 @@ def cmd_export_profile(args: argparse.Namespace) -> int:
         count = export_profile(
             args.profile,
             output,
+            settings_classes=get_stack_settings_classes(),
             community_plugins=ExecutionSettings.c40_community_plugins,
         )
     except ValueError as exc:
@@ -158,7 +155,9 @@ def cmd_export_profile(args: argparse.Namespace) -> int:
 
 def cmd_import_profile(args: argparse.Namespace) -> int:
     try:
-        profile_name = import_profile(args.zip_path, overwrite=args.force)
+        profile_name = import_profile(
+            args.zip_path, settings_classes=get_stack_settings_classes(), overwrite=args.force
+        )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -183,7 +182,7 @@ def register_config_parser(subparsers: argparse._SubParsersAction) -> None:
     validate.set_defaults(config_handler=cmd_validate)
 
     describe = config_sub.add_parser("describe", help="Print field types, defaults, and descriptions")
-    describe.add_argument("--layer", help="Stack layer: perception, planning, control, execution, visualization")
+    describe.add_argument("--layer", help="Stack layer: perception, planning, control, execution")
     describe.add_argument("--field", help="Single field name to describe (requires --layer)")
     describe.set_defaults(config_handler=cmd_describe)
 

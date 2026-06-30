@@ -2,7 +2,7 @@ from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
-from avlite.c60_common.c66_hdmap import HDMap
+from avlite.c10_perception.c18_hdmap_parser import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c27_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker

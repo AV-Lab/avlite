@@ -8,7 +8,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.fields import FieldInfo
 
-SETTINGS_META = frozenset({"exclude", "filepath", "legacy_filepath", "schema"})
+SETTINGS_META = frozenset({"exclude", "filepath", "schema"})
 
 
 class SettingsBinder(Protocol):
@@ -44,10 +44,8 @@ class SettingsSchema(BaseModel):
 
     # YAML location for this settings group. Core layers override with a fixed path;
     # plugins leave it blank and the plugin loader fills it in from the plugin's
-    # directory name (see c67_paths.plugin_settings_filepath). ``legacy_filepath`` is
-    # an optional old basename used only as a read fallback during migrations.
+    # directory name (see PluginPaths.settings_filepath).
     filepath: ClassVar[str] = ""
-    legacy_filepath: ClassVar[str | None] = None
 
 
 def schema_of(setting: Any) -> Type[BaseModel] | None:

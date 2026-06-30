@@ -291,7 +291,7 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
 
     from avlite.c40_execution.c43_factory import executor_factory
     from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c60_common.c60_plugins import load_all_stack_settings
+    from avlite.c40_execution.c43_factory import load_stack_settings
     from avlite.plugins.p50_headless_mode.settings import PluginSettings
 
     # Use INFO temporarily until the profile is loaded and the real level is known.
@@ -330,7 +330,7 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
 
     console = Console(stderr=False)
 
-    load_all_stack_settings(profile=profile, load_plugins=True)
+    load_stack_settings(profile=profile, load_plugins=True)
 
     # Re-create the buffer with the configured capacity now that settings are loaded.
     log_buffer = deque(log_buffer, maxlen=PluginSettings.log_buffer_size)

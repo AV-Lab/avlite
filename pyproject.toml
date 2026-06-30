@@ -21,6 +21,12 @@ dependencies = [
     "pydantic>=2.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
 [project.scripts]
 avlite = "avlite.__main__:main"
 
@@ -28,6 +34,12 @@ avlite = "avlite.__main__:main"
 exclude = ["test*", "build*", "site*"]
 
 [tool.pytest.ini_options]
+testpaths = ["test"]
+markers = [
+    "requires_data: needs repo data/ assets (maps, xodr)",
+    "slow: timing-sensitive or multi-second tests",
+]
+addopts = "-m 'not slow and not requires_data'"
 filterwarnings = [
     "ignore::DeprecationWarning:schemathesis",
 ]

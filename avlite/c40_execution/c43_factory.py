@@ -1,19 +1,28 @@
 import inspect
 import logging
+from typing import Any
 
+from avlite.c10_perception.c11_perception_model import Map, RaceMap
+from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c20_planning.c29_settings import PlanningSettings
+from avlite.c30_control.c39_settings import ControlSettings
+from avlite.c60_common.c66_plugins import (
+    import_plugin_modules,
+    load_builtin_plugin_settings,
+    reload_lib,
+    sync_builtin_plugins,
+    unregister_plugin_package,
+)
+from avlite.c60_common.c67_paths import DataPaths, PluginPaths
+from avlite.c60_common.c69_setting_utils import load_setting
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
-from avlite.c60_common.c66_hdmap import HDMap
+from avlite.c10_perception.c18_hdmap_parser import HDMap
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c60_plugins import import_plugin_modules, reload_lib, sync_builtin_plugins, unregister_plugin_package
-from avlite.c60_common.c67_paths import resolve_picker_data_path, resolve_plugin_path
-
-from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
-from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
@@ -60,7 +69,7 @@ def executor_factory(
     if load_plugins:
         sync_builtin_plugins(list(ExecutionSettings.c40_default_plugins))
         for k, v in ExecutionSettings.c40_community_plugins.items():
-            path = resolve_plugin_path(k, v)
+            path = PluginPaths.resolve(k, v)
             log.warning("Loading external plugin: %s from %s", k, path)
             import_plugin_modules(str(path), pkg_name=k)
     else:
@@ -70,7 +79,7 @@ def executor_factory(
 
 
     try:
-        global_plan_path = resolve_picker_data_path(default_global_trajectory_file)
+        global_plan_path = DataPaths.resolve_stored(default_global_trajectory_file)
         default_global_plan = GlobalPlan.from_file(global_plan_path)
         log.debug(f"Default global trajectory loaded from {global_plan_path}")
     except Exception as e:
@@ -79,7 +88,7 @@ def executor_factory(
             "Falling back to race boundary centerline."
         )
         _fallback_planner = GlobalCenterlineRacePlanner(
-            resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
+            DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
         )
         default_global_plan = _fallback_planner.plan()
 
@@ -93,13 +102,13 @@ def executor_factory(
     
     try:
         if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
-            hdmap = HDMap(xodr_file_name=resolve_picker_data_path(hd_map))
-            pm.hd_map = hdmap
+            hdmap = HDMap(xodr_file_name=DataPaths.resolve_stored(hd_map))
+            pm.map = hdmap
             gp = HDMapGlobalPlanner(hdmap)
             log.debug("GlobalHDMapPlanner loaded")
         elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
             gp = GlobalCenterlineRacePlanner(
-                resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
+                DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
             )
             gp.global_plan = default_global_plan
         elif global_planner_strategy_name in GlobalPlannerStrategy.registry:
@@ -109,14 +118,14 @@ def executor_factory(
         else:
             log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
             gp = GlobalCenterlineRacePlanner(
-                resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
+                DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
             )
             gp.global_plan = default_global_plan
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
         gp = GlobalCenterlineRacePlanner(
-            resolve_picker_data_path(ExecutionSettings.c43_race_boundary_map),
+            DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
         )
         gp.global_plan = default_global_plan
 
@@ -203,6 +212,23 @@ def executor_factory(
     # NPC agents / ground-truth state), kept separate from the executer's
     # perception model `pm` so that perception steps cannot wipe simulated
     # agents. Both share the same ego_state.
+    def _bridge_kwargs(bridge_cls, ego_state, world_pm):
+        def _reference_point_tuple():
+            ref = ExecutionSettings.c40_reference_point
+            if ref and len(ref) >= 2:
+                return float(ref[0]), float(ref[1])
+            return None
+
+        params = inspect.signature(bridge_cls.__init__).parameters
+        kwargs: dict = {}
+        if "ego_state" in params:
+            kwargs["ego_state"] = ego_state
+        if "pm" in params:
+            kwargs["pm"] = world_pm
+        if "reference_point" in params:
+            kwargs["reference_point"] = _reference_point_tuple()
+        return kwargs
+
     world_pm = PerceptionModel(ego_vehicle=ego_state)
     try:
         if bridge in WorldBridge.registry:
@@ -253,20 +279,75 @@ def executor_factory(
     return executer
 
 
-def _reference_point_tuple() -> tuple[float, float] | None:
-    ref = ExecutionSettings.c40_reference_point
-    if ref and len(ref) >= 2:
-        return float(ref[0]), float(ref[1])
-    return None
+def get_stack_settings_classes() -> list[Any]:
+    """Layer singletons plus built-in plugin settings classes for export/import."""
+    classes: list[Any] = [
+        PerceptionSettings,
+        PlanningSettings,
+        ControlSettings,
+        ExecutionSettings,
+    ]
+    from avlite.c60_common.c66_plugins import list_plugins
+
+    for plugin in list_plugins():
+        cls = load_builtin_plugin_settings(plugin)
+        if cls is not None:
+            classes.append(cls)
+    return classes
 
 
-def _bridge_kwargs(cls, ego_state: EgoState, world_pm: PerceptionModel) -> dict:
-    params = inspect.signature(cls.__init__).parameters
-    kwargs: dict = {}
-    if "ego_state" in params:
-        kwargs["ego_state"] = ego_state
-    if "pm" in params:
-        kwargs["pm"] = world_pm
-    if "reference_point" in params:
-        kwargs["reference_point"] = _reference_point_tuple()
-    return kwargs
+def load_stack_settings(profile: str = "default", load_plugins: bool = True) -> None:
+    """Load c10–c40 YAML singletons and built-in plugin settings; bootstrap ref point."""
+    load_setting(PerceptionSettings, profile=profile)
+    load_setting(PlanningSettings, profile=profile)
+    load_setting(ControlSettings, profile=profile)
+    load_setting(ExecutionSettings, profile=profile)
+
+    StackSettingsSync.bootstrap_reference_point()
+
+    if not load_plugins:
+        return
+
+    for plugin in ExecutionSettings.c40_default_plugins:
+        cls = load_builtin_plugin_settings(plugin)
+        if cls is None:
+            continue
+        load_setting(cls, profile=profile)
+
+
+class StackSettingsSync:
+    """Apply map/plan picker selections to execution settings."""
+
+    @staticmethod
+    def apply_map_selection(rel_path: str) -> None:
+        """Route *rel_path* to execution map settings and update reference point."""
+        abs_path = DataPaths.resolve_stored(rel_path)
+        if rel_path.endswith(".xodr"):
+            ExecutionSettings.c40_hd_map = rel_path
+            ExecutionSettings.c46_lidar_boundary_file = ""
+        elif RaceMap.is_loadable(abs_path):
+            ExecutionSettings.c43_race_boundary_map = rel_path
+            ExecutionSettings.c46_lidar_boundary_file = rel_path
+        m = Map.open(abs_path)
+        ref = m.reference_point if m else None
+        ExecutionSettings.c40_reference_point = list(ref) if ref else None
+
+    @staticmethod
+    def apply_global_plan_selection(rel_path: str) -> None:
+        """Set ``c40_global_trajectory`` when *rel_path* is a valid global-plan JSON."""
+        if GlobalPlan.is_loadable(DataPaths.resolve_stored(rel_path)):
+            ExecutionSettings.c40_global_trajectory = rel_path
+
+    @staticmethod
+    def bootstrap_reference_point() -> None:
+        """Fill ``c40_reference_point`` from configured maps when YAML omits it."""
+        if ExecutionSettings.c40_reference_point is not None:
+            return
+        for rel_path in (
+            ExecutionSettings.c43_race_boundary_map,
+            ExecutionSettings.c40_hd_map,
+        ):
+            m = Map.open(DataPaths.resolve_stored(rel_path))
+            if m is not None and m.reference_point is not None:
+                ExecutionSettings.c40_reference_point = list(m.reference_point)
+                return
