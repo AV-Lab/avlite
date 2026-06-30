@@ -1,4 +1,4 @@
-"""Unit tests for lattice planning primitives (avlite.c20_planning.c27_lattice).
+"""Unit tests for lattice planning primitives (avlite.c20_planning.c28_lattice).
 
 Tests verify:
 - Node identity hashing is stable for equal state.
@@ -6,7 +6,7 @@ Tests verify:
 - Lattice.reset() clears accumulated nodes and edges.
 """
 
-from avlite.c20_planning.c27_lattice import Edge, Lattice, Node
+from avlite.c20_planning.c28_lattice import Edge, Lattice, Node
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 
 

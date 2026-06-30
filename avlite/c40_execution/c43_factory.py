@@ -27,7 +27,8 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-from avlite.c20_planning.c26_local_lattice_planners import GreedyLatticePlanner
+from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner  # noqa: F401 — registers in LocalPlanningStrategy.registry
+from avlite.c20_planning.c27_local_lattice_planners import GreedyLatticePlanner
 from avlite.c30_control.c33_pid import PIDController
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
@@ -105,6 +106,7 @@ def executor_factory(
             hdmap = HDMap(xodr_file_name=DataPaths.resolve_stored(hd_map))
             pm.map = hdmap
             gp = HDMapGlobalPlanner(hdmap)
+            gp.global_plan = default_global_plan
             log.debug("GlobalHDMapPlanner loaded")
         elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
             gp = GlobalCenterlineRacePlanner(
@@ -231,7 +233,11 @@ def executor_factory(
 
     world_pm = PerceptionModel(ego_vehicle=ego_state)
     try:
-        if bridge in WorldBridge.registry:
+        if executer_type == "ROSExecuter" and bridge == "BasicSim":
+            from avlite.plugins.p40_executer_ROS2.topic_mirror_bridge import TopicMirrorBridge
+            world = TopicMirrorBridge(ego_state=ego_state, perception_model=world_pm)
+            log.info("Using TopicMirrorBridge for ROSExecuter multiprocess mode")
+        elif bridge in WorldBridge.registry:
             log.info(f"Loading registered world bridge {bridge}...")
             cls = WorldBridge.registry[bridge]
             world = cls(**_bridge_kwargs(cls, ego_state, world_pm))

@@ -245,7 +245,7 @@ default:
   global_plan_view: true
   global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false
-  global_zoom: 170.0
+  global_zoom: 810.8967345284556
   hide_menubar: false
   load_plugins: true
   local_plan_view: true
@@ -275,6 +275,7 @@ default:
   show_core_logs: true
   show_execute_logs: true
   show_global_plan: true
+  show_global_plan_boundaries: true
   show_legend: false
   show_lidar_clusters: true
   show_lidar_frenet: true

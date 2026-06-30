@@ -36,6 +36,9 @@ class VisualizationSettingsSchema(SettingsSchema):
     show_legend: bool = Field(default=False, description="Show plot legend (may reduce performance).")
     show_past_locations: bool = Field(default=True, description="Show historical ego positions on plots.")
     show_global_plan: bool = Field(default=True, description="Draw global plan on plots.")
+    show_global_plan_boundaries: bool = Field(
+        default=True, description="Show left/right plan boundaries in global plot view."
+    )
     show_local_plan: bool = Field(default=True, description="Draw local plan on plots.")
     show_local_lattice: bool = Field(default=True, description="Draw local lattice on plots.")
     show_state: bool = Field(default=True, description="Show ego state overlay on plots.")
@@ -148,6 +151,7 @@ class VisualizationSettings:
         self.show_legend = tk.BooleanVar(value=False)
         self.show_past_locations = tk.BooleanVar(value=True)
         self.show_global_plan = tk.BooleanVar(value=True)
+        self.show_global_plan_boundaries = tk.BooleanVar(value=True)
         self.show_local_plan = tk.BooleanVar(value=True)
         self.show_local_lattice = tk.BooleanVar(value=True)
         self.show_state = tk.BooleanVar(value=True)

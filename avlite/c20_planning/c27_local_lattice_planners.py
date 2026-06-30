@@ -9,7 +9,7 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
-from avlite.c20_planning.c27_lattice import Lattice, Node, Edge
+from avlite.c20_planning.c28_lattice import Lattice, Node, Edge
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
 
@@ -44,10 +44,10 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
 
         # Replan stability: track when plan was last changed
         self._last_plan_change_time: float = 0.0
-        self._replan_wait_time: float = setting.c26_replan_wait_time
-        self._min_edge_progress_to_block: float = setting.c26_min_edge_progress_to_block
-        self._urgent_collision_threshold: int = setting.c26_urgent_collision_threshold
-        self._disconnect_distance_threshold: float = setting.c26_disconnect_distance_threshold
+        self._replan_wait_time: float = setting.c27_replan_wait_time
+        self._min_edge_progress_to_block: float = setting.c27_min_edge_progress_to_block
+        self._urgent_collision_threshold: int = setting.c27_urgent_collision_threshold
+        self._disconnect_distance_threshold: float = setting.c27_disconnect_distance_threshold
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)
@@ -234,20 +234,20 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
 class GreedyLatticePlanner(LatticePlanningStrategy):
     def __init__(self, global_plan: GlobalPlan, env: PerceptionModel, setting: PlanningSettingsSchema = PlanningSettings, controller=None):
 
-        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.c26_num_of_edge_points, planning_horizon=setting.c26_planning_horizon, controller=controller, setting=setting)
-        self.maneuver_distance: float = setting.c26_maneuver_distance
-        self.boundary_clearance: float = setting.c26_boundary_clearance
-        self.sample_size: int = setting.c26_sample_size
-        self.match_speed_wp_buffer: int = setting.c26_match_speed_wp_buffer
-        self.safety_margin_weight: float = setting.c26_safety_margin_weight
-        self.max_lateral_accel: float = setting.c26_max_lateral_accel
-        self.min_curvature_velocity: float = setting.c26_min_curvature_velocity
-        self._min_ramp_start_velocity: float = setting.c26_min_ramp_start_velocity
-        self._allow_curvature_fallback: bool = setting.c26_allow_curvature_fallback
-        self._allow_boundary_violation_fallback: bool = setting.c26_allow_boundary_violation_fallback
-        self._stopping_decel_factor: float = setting.c26_stopping_decel_factor
-        self._fallback_deceleration: float = setting.c26_fallback_deceleration
-        self._stopping_safety_buffer: float = setting.c26_stopping_safety_buffer
+        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.c27_num_of_edge_points, planning_horizon=setting.c27_planning_horizon, controller=controller, setting=setting)
+        self.maneuver_distance: float = setting.c27_maneuver_distance
+        self.boundary_clearance: float = setting.c27_boundary_clearance
+        self.sample_size: int = setting.c27_sample_size
+        self.match_speed_wp_buffer: int = setting.c27_match_speed_wp_buffer
+        self.safety_margin_weight: float = setting.c27_safety_margin_weight
+        self.max_lateral_accel: float = setting.c27_max_lateral_accel
+        self.min_curvature_velocity: float = setting.c27_min_curvature_velocity
+        self._min_ramp_start_velocity: float = setting.c27_min_ramp_start_velocity
+        self._allow_curvature_fallback: bool = setting.c27_allow_curvature_fallback
+        self._allow_boundary_violation_fallback: bool = setting.c27_allow_boundary_violation_fallback
+        self._stopping_decel_factor: float = setting.c27_stopping_decel_factor
+        self._fallback_deceleration: float = setting.c27_fallback_deceleration
+        self._stopping_safety_buffer: float = setting.c27_stopping_safety_buffer
 
     def _get_max_curvature_for_velocity(self, velocity: float) -> float:
         """
@@ -291,7 +291,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
         Hard-prefers edges ending at d=0 (within tolerance) when any exist."""
         if not edges:
             return None
-        d0_edges = [e for e in edges if abs(e.end.d) < PlanningSettings.c26_d0_reference_threshold]
+        d0_edges = [e for e in edges if abs(e.end.d) < PlanningSettings.c27_d0_reference_threshold]
         if d0_edges:
             return min(d0_edges, key=self._edge_cost)
         return min(edges, key=self._edge_cost)

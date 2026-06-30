@@ -279,7 +279,7 @@ def smoothen_path_savgol(plan: GlobalPlan, min_spacing=0.5, window_length=7, pol
             cleaned_left_d.append(plan.left_boundary_d[i])
             cleaned_right_d.append(plan.right_boundary_d[i])
         else:
-            log.warning(f"Removed near-duplicate point {plan.path[i]} at index {i} from global plan path.")
+            log.debug(f"Removed near-duplicate point {plan.path[i]} at index {i} from global plan path.")
 
     n = len(cleaned_path)
     if n >= 3:

@@ -44,7 +44,7 @@ flowchart TB
 ### Core Components
 
 - **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`); `Map` / `RaceMap` in c11; OpenDRIVE `HDMap` parser in c18
-- **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (lattice-based `GreedyLatticePlanner`)
+- **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, lattice-based `GreedyLatticePlanner`)
 - **c30_control**: Vehicle control algorithms (Stanley, PID)
 - **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, `replan_global()`, and `c43_factory` (assembles the stack and loads c10–c40 YAML profiles)
 - **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
@@ -238,8 +238,9 @@ avlite/
 │   ├── c23_local_planning_strategy.py
 │   ├── c24_global_hdmap_planners.py  # HDMapGlobalPlanner
 │   ├── c25_global_race_planners.py   # GlobalCenterlineRacePlanner
-│   ├── c26_local_lattice_planners.py
-│   ├── c27_lattice.py
+│   ├── c26_local_planners.py
+│   ├── c27_local_lattice_planners.py
+│   ├── c28_lattice.py
 │   └── c29_settings.py
 ├── c30_control/            # Control components
 │   ├── c31_control_model.py
