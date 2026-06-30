@@ -756,7 +756,12 @@ class LocalPlot:
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model, plot_predictions)
+        agent_pm = (
+            exec.world.get_ground_truth_perception_model()
+            if hasattr(exec.world, "get_ground_truth_perception_model")
+            else exec.pm
+        )
+        self.update_perception_model_plots(agent_pm, exec.local_planner.global_trajectory, plot_perception_model, plot_predictions)
         self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
         self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
