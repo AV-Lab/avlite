@@ -523,10 +523,26 @@ class VisualizerApp(tk.Tk):
                 f"Failed to rebuild the stack.\n\n{error}",
                 parent=self,
             )
-            
+        elif self.exec is not None:
+            _show_factory_fallback_errors(self)
 
     def switch_profile(self):
         self.load_configs(profile=self.setting.next_profile.get(), only_stack=False)
         # self.reload_stack(reload_code=False)
         self.update_views()
         self.update_ui()
+
+
+def _show_factory_fallback_errors(app: VisualizerApp) -> None:
+    fallbacks = getattr(app.exec, "_factory_fallbacks", ())
+    if not fallbacks:
+        return
+    if len(fallbacks) == 1:
+        title = "Factory error"
+        body = fallbacks[0].message
+    else:
+        title = "Factory errors"
+        body = "The stack could not load some settings as configured:\n\n" + "\n\n".join(
+            f"• {fb.message}" for fb in fallbacks
+        )
+    messagebox.showerror(title, body, parent=app)
