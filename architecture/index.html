@@ -425,6 +425,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#layer-import-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Layer import rules
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -680,9 +689,12 @@
 <span class="p">)</span>
 </code></pre></div>
 <p>It loads plugins, instantiates strategies from registries, and wires everything together. Both <code>perception_strategy_name</code> and <code>localization_strategy_name</code> are optional — pass an empty string or omit them to run without that component.</p>
+<p>Before calling <code>executor_factory()</code>, load YAML profiles with <code>load_stack_settings(profile, load_plugins)</code> in <a href="../avlite/c40_execution/c43_factory.py"><code>c43_factory.py</code></a>. That loads c10–c40 settings and built-in plugin settings; it does <strong>not</strong> load <code>c50_visualization.yaml</code> (the GUI loads the Tk <code>VisualizationSettings</code> binder separately).</p>
+<h3 id="layer-import-rules">Layer import rules<a class="headerlink" href="#layer-import-rules" title="Permanent link">&para;</a></h3>
+<p><code>c40_execution</code>, <code>c60_common</code>, and <code>avlite/plugins</code> must not import <code>c50_visualization</code>. Profile zip export that includes visualization YAML is composed in c50 via <code>c59_settings.get_stack_settings_classes()</code>, which wraps the core list from c43.</p>
 <h2 id="layers">Layers<a class="headerlink" href="#layers" title="Permanent link">&para;</a></h2>
 <h3 id="perception"><strong>Perception</strong><a class="headerlink" href="#perception" title="Permanent link">&para;</a></h3>
-<p>Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
+<p>Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. Static map types (<code>Map</code>, <code>RaceMap</code>) live in c11; OpenDRIVE <code>HDMap</code> parsing is in c18. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
 <h3 id="planning"><strong>Planning</strong><a class="headerlink" href="#planning" title="Permanent link">&para;</a></h3>
 <p>Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller.</p>
 <h3 id="control"><strong>Control</strong><a class="headerlink" href="#control" title="Permanent link">&para;</a></h3>
@@ -692,7 +704,7 @@
 <h3 id="visualization"><strong>Visualization</strong><a class="headerlink" href="#visualization" title="Permanent link">&para;</a></h3>
 <p>Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.</p>
 <h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
-<p>YAML profile load/save, hot reload, plugin discovery, capability enums, HD map and OpenDRIVE parsing, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), and settings validation.</p>
+<p>YAML profile load/save, hot reload, plugin discovery (<code>c66_plugins</code>), path resolution (<code>c67_paths</code>), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation.</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
 </code></pre></div>

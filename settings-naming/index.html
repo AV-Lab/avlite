@@ -418,6 +418,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#stack-load-and-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stack load and export
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#plugins" class="md-nav__link">
     <span class="md-ellipsis">
       Plugins
@@ -549,6 +558,34 @@
 </tbody>
 </table>
 <p>Built-in plugins use <code>configs/plugin_*.yaml</code> in the repo and the same basename under <code>~/.config/avlite/</code> when saved.</p>
+<h2 id="stack-load-and-export">Stack load and export<a class="headerlink" href="#stack-load-and-export" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>Module</th>
+<th>Includes c50 viz YAML?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>load_stack_settings()</code></td>
+<td><code>c43_factory</code></td>
+<td>No (GUI loads <code>VisualizationSettings</code> separately)</td>
+</tr>
+<tr>
+<td><code>get_stack_settings_classes()</code></td>
+<td><code>c43_factory</code></td>
+<td>No (c10–c40 + plugins)</td>
+</tr>
+<tr>
+<td><code>get_stack_settings_classes()</code></td>
+<td><code>c59_settings</code></td>
+<td>Yes (wraps c43 + <code>VisualizationSettingsSchema()</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Headless <code>python -m avlite config describe --layer</code> accepts perception, planning, control, and execution (not visualization).</p>
 <h2 id="plugins">Plugins<a class="headerlink" href="#plugins" title="Permanent link">&para;</a></h2>
 <p>Community and built-in plugins keep <code>PluginSettings</code> in <code>settings.py</code> with unprefixed snake_case parameters. AVLite sets <code>filepath</code> automatically for community plugins at registration/load time. See <a href="../plugin-development/">Plugin Development</a>.</p>
 <table>
