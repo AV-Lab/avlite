@@ -10,7 +10,7 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
 from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
 
 if TYPE_CHECKING:
@@ -39,6 +39,7 @@ class VelocityLocalPlanner(LocalPlanningStrategy):
         self._stopping_safety_buffer = setting.c26_stopping_safety_buffer
         self._follow_gap_buffer = setting.c26_follow_gap_buffer
         self._follow_cruise_min_gap = setting.c26_follow_cruise_min_gap
+        self._planning_horizon_points = setting.c26_planning_horizon_points
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)
@@ -51,7 +52,7 @@ class VelocityLocalPlanner(LocalPlanningStrategy):
     def get_local_plan(self) -> LocalPlan:
         if self._local_trajectory is not None:
             return LocalPlan.from_trajectory(self._local_trajectory)
-        return super().get_local_plan()
+        return LocalPlan.from_trajectory(self._clone_global_trajectory())
 
     def _advance_local_plan(self, state) -> None:
         if self._local_trajectory is not None:
@@ -59,7 +60,7 @@ class VelocityLocalPlanner(LocalPlanningStrategy):
 
     def replan(self):
         local_tj = self._clone_global_trajectory()
-        ref_velocity = np.asarray(self.global_trajectory.velocity, dtype=float)
+        ref_velocity = np.asarray(local_tj.velocity, dtype=float)
         self.profile_trajectory(local_tj, ref_velocity=ref_velocity)
         self._local_trajectory = local_tj
 
@@ -114,15 +115,12 @@ class VelocityLocalPlanner(LocalPlanningStrategy):
         self.apply_speed_match(trajectory, collision_idx, target_vel, ref_velocity=ref_velocity)
 
     def _clone_global_trajectory(self) -> TrajectoryTracker:
-        global_tj = self.global_trajectory
-        local_tj = TrajectoryTracker(
-            path=list(global_tj.path),
-            velocity=list(global_tj.velocity),
-            name="Local Trajectory",
+        sliced = slice_trajectory_horizon(
+            self.global_trajectory,
+            max_points=self._planning_horizon_points,
         )
-        local_tj.current_wp = global_tj.current_wp
-        local_tj.next_wp = global_tj.next_wp
-        return local_tj
+        sliced.name = "Local Trajectory"
+        return sliced
 
     def _check_path_collision(self, local_tj: TrajectoryTracker) -> tuple[bool, int, float]:
         obstacle_polygons = None

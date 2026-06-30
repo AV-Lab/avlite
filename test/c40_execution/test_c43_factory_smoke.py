@@ -61,3 +61,26 @@ def test_executor_factory_records_local_planner_fallback(minimal_corridor_map_pa
     assert fallbacks[0].used == GreedyLatticePlanner.__name__
     assert fallbacks[0].reason == "not recognized"
     assert "local planner" in fallbacks[0].message
+
+
+def test_executor_factory_records_global_plan_fallback(minimal_corridor_map_path):
+    ExecutionSettings.c43_race_boundary_map = str(minimal_corridor_map_path.resolve())
+
+    executer = executor_factory(
+        load_plugins=False,
+        executer_type=SyncExecuter.__name__,
+        bridge="BasicSim",
+        perception_strategy_name="",
+        localization_strategy_name="",
+        global_planner_strategy_name="GlobalCenterlineRacePlanner",
+        local_planner_strategy_name="GreedyLatticePlanner",
+        controller_strategy_name=StanleyController.__name__,
+        default_global_trajectory_file="nonexistent/global_plan.json",
+    )
+
+    fallbacks = executer._factory_fallbacks
+    assert len(fallbacks) == 1
+    assert fallbacks[0].component == "global_plan"
+    assert fallbacks[0].requested == "nonexistent/global_plan.json"
+    assert fallbacks[0].used == "race centerline"
+    assert "global plan" in fallbacks[0].message

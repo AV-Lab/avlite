@@ -9,6 +9,7 @@ from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c30_control.c32_control_strategy import ControlStrategy
+from avlite.c30_control.c39_settings import ControlSettings
 
 from typing import cast, Optional
 from abc import ABC, abstractmethod
@@ -16,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.collections import LineCollection
-from matplotlib.colors import Normalize
+from matplotlib.colors import LinearSegmentedColormap, Normalize
 
 import logging
 
@@ -58,9 +59,11 @@ class GlobalPlot(ABC):
         self.view_width = None
         self.view_height = None
         self.map_plotted = False
+        self._velocity_scale = "relative"
 
 
-    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, show_plan_boundaries=True, delta:Optional[tuple[float,float]]=None):
+    def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, show_plan_boundaries=True, velocity_scale="relative", delta:Optional[tuple[float,float]]=None):
+        self._velocity_scale = velocity_scale
         if not self.map_plotted:
             self.plot_map(exec.global_planner)
 
@@ -207,7 +210,7 @@ class GlobalRacePlot(GlobalPlot):
         # Create plot elements with empty data - they'll be updated later
         self.left_boundary, = self.ax.plot([], [], 'orange', linewidth=3, label="Left Boundary")
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
-        self.reference_trajectory = LineCollection([], cmap='RdYlGn_r', linewidths=5, zorder=4)
+        self.reference_trajectory = LineCollection([], cmap=_VELOCITY_CMAP, linewidths=5, zorder=4)
         self.ax.add_collection(self.reference_trajectory)
         
       
@@ -218,7 +221,9 @@ class GlobalRacePlot(GlobalPlot):
 
     def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
              follow_vehicle=True, show_plan_boundaries: bool = True,
+             velocity_scale: str = "relative",
              delta: Optional[tuple[float, float]] = None):
+        self._velocity_scale = velocity_scale
         self.plot_map(exec.global_planner, show_plan_boundaries=show_plan_boundaries)
         self.plot_vehicle(exec.ego_state)
         self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
@@ -257,6 +262,7 @@ class GlobalRacePlot(GlobalPlot):
         traj = plan.trajectory
         _update_velocity_colored_line(
             self.reference_trajectory, traj.path_x, traj.path_y, traj.velocity,
+            velocity_scale=self._velocity_scale,
         )
         
         self.map_min_x = min(plan.left_boundary_x)
@@ -327,7 +333,7 @@ class GlobalHDMapPlot(GlobalPlot):
            pl , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Lane Path", zorder=2)
            self.lane_path_plots.append(pl)
 
-        self.global_plan_path = LineCollection([], cmap='RdYlGn_r', linewidths=5, zorder=4)
+        self.global_plan_path = LineCollection([], cmap=_VELOCITY_CMAP, linewidths=5, zorder=4)
         self.ax.add_collection(self.global_plan_path)
 
         self.road_arrow = None # for the road direction arrow
@@ -335,7 +341,9 @@ class GlobalHDMapPlot(GlobalPlot):
 
     def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
              follow_vehicle=True, show_plan_boundaries: bool = True,
+             velocity_scale: str = "relative",
              delta: Optional[tuple[float, float]] = None):
+        self._velocity_scale = velocity_scale
         if not self.map_plotted:
             self.plot_map(exec.global_planner)
         self.plot_vehicle(exec.ego_state)
@@ -346,7 +354,10 @@ class GlobalHDMapPlot(GlobalPlot):
         if len(plan.path) >= 2:
             path = np.array(plan.path).T
             velocity = plan.velocity or plan.trajectory.velocity
-            _update_velocity_colored_line(self.global_plan_path, path[0], path[1], velocity)
+            _update_velocity_colored_line(
+                self.global_plan_path, path[0], path[1], velocity,
+                velocity_scale=self._velocity_scale,
+            )
         self.fig.canvas.draw()
 
     def show_closest_road_and_lane(self,  x:int, y:int, map:HDMap):
@@ -422,7 +433,10 @@ class GlobalHDMapPlot(GlobalPlot):
             self.clear_road_path_plots()
             path = np.array(global_plan.path).T
             velocity = global_plan.velocity or global_plan.trajectory.velocity
-            _update_velocity_colored_line(self.global_plan_path, path[0], path[1], velocity)
+            _update_velocity_colored_line(
+                self.global_plan_path, path[0], path[1], velocity,
+                velocity_scale=self._velocity_scale,
+            )
             self.fig.canvas.draw()
         except Exception as e:
             log.error(f"Error plotting global plan: {e}")
@@ -928,7 +942,8 @@ class LocalPlot:
                 self.__clear_local_plan_plots()
             else:
                 self.local_plan_plots_ax1[0].set_data(tj.path_x, tj.path_y)
-                self.local_plan_plots_ax2[0].set_data(tj.path_s, tj.path_d)
+                s_plot, d_plot = pl.global_trajectory.convert_xy_path_to_sd_path(list(zip(tj.path_x, tj.path_y)))
+                self.local_plan_plots_ax2[0].set_data(list(s_plot), list(d_plot))
                 self.__clear_local_plan_plots(index=1)
             return
         if not show_plot or pl.selected_local_plan is None:
@@ -1172,7 +1187,14 @@ class LocalPlot:
 
 # --- module helpers ---
 
-def _update_velocity_colored_line(collection, x, y, velocity):
+# slow → fast : green → yellow → red (distinct from HD lane #427b58)
+_VELOCITY_CMAP = LinearSegmentedColormap.from_list(
+    "velocity_slow_fast",
+    [(0.0, "#39ff14"), (0.5, "#ffd700"), (1.0, "#dc143c")],
+)
+
+
+def _update_velocity_colored_line(collection, x, y, velocity, *, velocity_scale="relative"):
     x, y = np.asarray(x, float), np.asarray(y, float)
     if len(x) < 2:
         collection.set_segments([])
@@ -1188,7 +1210,13 @@ def _update_velocity_colored_line(collection, x, y, velocity):
     seg_v = 0.5 * (v[:-1] + v[1:])
     collection.set_segments(segments)
     collection.set_array(seg_v)
-    vmin, vmax = float(seg_v.min()), float(seg_v.max())
-    if vmin == vmax:
-        vmax = vmin + 1e-9
-    collection.set_norm(Normalize(vmin=vmin, vmax=vmax))
+    if velocity_scale == "absolute":
+        vmax = float(ControlSettings.c32_ego_max_velocity)
+        if vmax <= 0.0:
+            vmax = 1e-9
+        collection.set_norm(Normalize(vmin=0.0, vmax=vmax, clip=True))
+    else:
+        vmin, vmax = float(seg_v.min()), float(seg_v.max())
+        if vmin == vmax:
+            vmax = vmin + 1e-9
+        collection.set_norm(Normalize(vmin=vmin, vmax=vmax))

@@ -11,6 +11,9 @@ class PlanningSettingsSchema(SettingsSchema):
     c26_stopping_decel_factor: float = Field(default=0.8, description="Deceleration factor when stopping (velocity planner).")
     c26_fallback_deceleration: float = Field(default=3.0, description="Fallback deceleration (m/s²) for velocity planner.")
     c26_stopping_safety_buffer: float = Field(default=2.0, description="Safety buffer distance when stopping (m) for velocity planner.")
+    c26_follow_gap_buffer: float = Field(default=0.5, description="Extra standoff beyond bumper lengths when following (m).")
+    c26_follow_cruise_min_gap: float = Field(default=15.0, description="Extra gap beyond stopping distance before deferring to global plan speed (m).")
+    c26_planning_horizon_points: int = Field(default=50, description="Max waypoints in velocity local plan window from current_wp.")
 
     c27_num_of_edge_points: int = Field(default=10, description="Number of points sampled along each lattice edge.")
     c27_planning_horizon: int = Field(default=3, description="Local planning horizon in seconds.")
@@ -29,9 +32,6 @@ class PlanningSettingsSchema(SettingsSchema):
     c27_min_ramp_start_velocity: float = Field(default=3.0, description="Minimum ramp start velocity (m/s).")
     c27_allow_curvature_fallback: bool = Field(default=False, description="Allow fallback when curvature limits block plan.")
     c27_allow_boundary_violation_fallback: bool = Field(default=False, description="Allow fallback on boundary violation.")
-    c27_stopping_decel_factor: float = Field(default=0.8, description="Deceleration factor when stopping.")
-    c27_fallback_deceleration: float = Field(default=3.0, description="Fallback deceleration (m/s²).")
-    c27_stopping_safety_buffer: float = Field(default=2.0, description="Safety buffer distance when stopping (m).")
 
     c20_boundary_margin: float = Field(
         default=0.0,

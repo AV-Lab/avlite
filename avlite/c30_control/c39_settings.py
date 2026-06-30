@@ -34,7 +34,7 @@ class ControlSettingsSchema(SettingsSchema):
     c30_emergency_braking_factor: float = Field(default=0.9, description="Emergency braking deceleration factor.")
 
     c32_ego_distance_front_axle: float = Field(default=2.5, description="Distance from rear axle to front axle (m).")
-    c32_ego_max_velocity: float = Field(default=30.0, description="Maximum ego velocity (m/s).")
+    c32_ego_max_velocity: float = Field(default=99.0, description="Maximum ego velocity (m/s).")
     c32_ego_max_acceleration: float = Field(default=10.0, description="Maximum ego acceleration (m/s²).")
     c32_ego_min_acceleration: float = Field(default=-20.0, description="Minimum ego acceleration / max decel (m/s²).")
     c32_ego_max_steering: float = Field(default=0.7, description="Maximum steering angle (rad).")

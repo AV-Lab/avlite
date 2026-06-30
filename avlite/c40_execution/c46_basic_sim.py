@@ -13,6 +13,7 @@ from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_common.c67_paths import DataPaths
 from avlite.c60_common.c62_sensor_data import LidarCloud, lidar_2d_to_4
+from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 
 
 import logging
@@ -80,16 +81,22 @@ class BasicSim(WorldBridge):
 
     def __control_npc_agents(self, dt: float):
         """ Control NPC agents in the simulation. """
+        max_dsteer = 3.0 * dt
         for agent in self.pm.agent_vehicles:
+            ctrl = self.npc_controllers.get(agent.agent_id)
+            if ctrl is None:
+                continue
 
-            cmd = self.npc_controllers[agent.agent_id].control(agent,control_dt=dt) 
+            cmd = ctrl.control(agent, control_dt=dt)
 
-            agent_acceleration = cmd.acceleration
-            agent_steering_angle = cmd.steer
+            prev_steer = getattr(ctrl, "_npc_steer", cmd.steer)
+            steer = float(np.clip(cmd.steer, prev_steer - max_dsteer, prev_steer + max_dsteer))
+            ctrl._npc_steer = steer
+
+            agent.velocity += cmd.acceleration * dt
+            agent.theta += agent.velocity / ctrl.ego_distance_front_axle * steer * dt
             agent.x += agent.velocity * math.cos(agent.theta) * dt
             agent.y += agent.velocity * math.sin(agent.theta) * dt
-            agent.velocity += agent_acceleration * dt
-            agent.theta += agent.velocity / self.npc_controllers[agent.agent_id].ego_distance_front_axle * agent_steering_angle * dt
 
 
         
@@ -97,12 +104,17 @@ class BasicSim(WorldBridge):
         id = self.pm.add_agent_vehicle(agent_state)
 
         if self.npc_control:
-            controllable_agent = EgoState(agent_state.x, agent_state.y, agent_state.theta, agent_state.velocity)
+            ref = self.default_global_plan.trajectory
+            tj = TrajectoryTracker(
+                path=list(ref.path),
+                velocity=[v * self.speed_factor for v in ref.velocity],
+            )
+            tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
+            agent_state.theta = tj.get_current_heading()
+            agent_state.velocity = tj.velocity[tj.current_wp]
 
-            controller = StanleyController(tj=self.default_global_plan.trajectory)
-            controller.tj.velocity = [v* self.speed_factor for v in controller.tj.velocity] 
-            controller.set_trajectory(self.default_global_plan.trajectory)
-
+            controller = StanleyController(tj=tj)
+            controller.reset()
             self.npc_controllers[id] = controller
 
         

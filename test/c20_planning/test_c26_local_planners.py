@@ -5,6 +5,7 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner
+from avlite.c20_planning.c29_settings import PlanningSettingsSchema
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c60_common.c64_collision_checking import check_collision
 
@@ -137,6 +138,41 @@ class TestVelocityLocalPlanner:
         from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 
         assert "VelocityLocalPlanner" in LocalPlanningStrategy.registry
+
+    def test_replan_limits_local_plan_to_horizon(self):
+        n = 200
+        path = [(float(i), 0.0) for i in range(n)]
+        velocity = [5.0] * n
+        trajectory = TrajectoryTracker(path=path, velocity=velocity)
+        global_plan = GlobalPlan(
+            start_point=path[0], goal_point=path[-1], path=path, velocity=velocity, trajectory=trajectory
+        )
+        pm = PerceptionModel(ego_vehicle=EgoState(x=30.0, y=0.0, theta=0.0, velocity=5.0))
+        setting = PlanningSettingsSchema(c26_planning_horizon_points=50)
+        planner = VelocityLocalPlanner(global_plan=global_plan, env=pm, setting=setting)
+        planner.global_trajectory.update_waypoint_by_xy(30.0, 0.0)
+        planner.replan()
+
+        local = planner.get_local_plan()
+        assert len(local.path) == 50
+        assert abs(local.path[0][0] - 30.0) < 1.0
+
+    def test_get_local_plan_before_replan_returns_horizon(self):
+        n = 200
+        path = [(float(i), 0.0) for i in range(n)]
+        velocity = [5.0] * n
+        trajectory = TrajectoryTracker(path=path, velocity=velocity)
+        global_plan = GlobalPlan(
+            start_point=path[0], goal_point=path[-1], path=path, velocity=velocity, trajectory=trajectory
+        )
+        pm = PerceptionModel(ego_vehicle=EgoState(x=30.0, y=0.0, theta=0.0, velocity=5.0))
+        setting = PlanningSettingsSchema(c26_planning_horizon_points=50)
+        planner = VelocityLocalPlanner(global_plan=global_plan, env=pm, setting=setting)
+        planner.global_trajectory.update_waypoint_by_xy(30.0, 0.0)
+
+        local = planner.get_local_plan()
+        assert len(local.path) == 50
+        assert abs(local.path[0][0] - 30.0) < 1.0
 
     def test_apply_speed_match_static_obstacle_reduces_velocity(self):
         global_plan = _straight_global_plan()

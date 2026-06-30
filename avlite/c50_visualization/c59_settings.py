@@ -39,6 +39,10 @@ class VisualizationSettingsSchema(SettingsSchema):
     show_global_plan_boundaries: bool = Field(
         default=True, description="Show left/right plan boundaries in global plot view."
     )
+    global_plan_velocity_scale: str = Field(
+        default="relative",
+        description="Global plan velocity color scale: 'relative' (per-path min–max) or 'absolute' (0 to ego max m/s).",
+    )
     show_local_plan: bool = Field(default=True, description="Draw local plan on plots.")
     show_local_lattice: bool = Field(default=True, description="Draw local lattice on plots.")
     show_state: bool = Field(default=True, description="Show ego state overlay on plots.")
@@ -152,6 +156,7 @@ class VisualizationSettings:
         self.show_past_locations = tk.BooleanVar(value=True)
         self.show_global_plan = tk.BooleanVar(value=True)
         self.show_global_plan_boundaries = tk.BooleanVar(value=True)
+        self.global_plan_velocity_scale = tk.StringVar(value="relative")
         self.show_local_plan = tk.BooleanVar(value=True)
         self.show_local_lattice = tk.BooleanVar(value=True)
         self.show_state = tk.BooleanVar(value=True)

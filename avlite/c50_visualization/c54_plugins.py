@@ -1468,6 +1468,11 @@ class _PluginRegistryPanel(ttk.Frame):
 
     def _on_update_check_done(self, name: str, result: str) -> None:
         """Called on the main thread when a single plugin's update check finishes."""
+        try:
+            if not self.window.winfo_exists():
+                return
+        except tk.TclError:
+            return
         self._update_statuses[name] = result
         label_map = {
             "up-to-date": "Up to date \u2713",
@@ -1748,11 +1753,6 @@ class CommunityPluginsApp:
 
         outer = ttk.Frame(self.window, padding=8)
         outer.pack(fill=tk.BOTH, expand=True)
-        ttk.Label(
-            outer,
-            text=f"Plugins directory: {PluginPaths.install_dir()}",
-            foreground="#666",
-        ).pack(anchor=tk.W, pady=(0, 6))
 
         nb = ttk.Notebook(outer)
         nb.pack(fill=tk.BOTH, expand=True)
@@ -1776,6 +1776,12 @@ class CommunityPluginsApp:
             private_frame, private=True, **panel_kw
         )
         self._private_panel.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(
+            outer,
+            text=f"Plugins directory: {PluginPaths.install_dir()}",
+            foreground="#666",
+        ).pack(anchor=tk.W, pady=(6, 0))
 
     def _on_close(self) -> None:
         CommunityPluginsApp._instance = None

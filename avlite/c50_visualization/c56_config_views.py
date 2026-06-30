@@ -563,6 +563,17 @@ class SettingWindow:
         )
         cb_plan_boundaries.pack(side=tk.LEFT)
         attach_schema_tooltip(cb_plan_boundaries, VisualizationSettings, "show_global_plan_boundaries")
+        ttk.Label(additional_setting_row_1c, text="Velocity scale:").pack(side=tk.LEFT, padx=(10, 5))
+        velocity_scale_cb = ttk.Combobox(
+            additional_setting_row_1c,
+            textvariable=self.root.setting.global_plan_velocity_scale,
+            values=("relative", "absolute"),
+            state="readonly",
+            width=10,
+        )
+        velocity_scale_cb.pack(side=tk.LEFT)
+        velocity_scale_cb.bind("<<ComboboxSelected>>", lambda e: self.root.update_ui())
+        attach_schema_tooltip(velocity_scale_cb, VisualizationSettings, "global_plan_velocity_scale")
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)

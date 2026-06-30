@@ -109,6 +109,7 @@ class GlobalPlanPlotView(ttk.Frame):
                 show_legend=self.root.setting.show_legend.get(),
                 follow_vehicle=self.root.setting.global_view_follow_planner.get(),
                 show_plan_boundaries=self.root.setting.show_global_plan_boundaries.get(),
+                velocity_scale=self.root.setting.global_plan_velocity_scale.get(),
                 delta=self._center_delta,
             )
             log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")

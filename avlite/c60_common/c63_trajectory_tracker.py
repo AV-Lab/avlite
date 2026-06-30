@@ -202,6 +202,26 @@ class TrajectoryTracker:
             self.next_wp = closest_wp
             self.current_wp = closest_wp - 1
 
+    def update_waypoint_by_xy_forward(
+        self,
+        x_current: float,
+        y_current: float,
+        min_wp: int | None = None,
+    ) -> None:
+        """Align to the closest waypoint but never move ``current_wp`` backward.
+
+        Useful on sparse polylines (e.g. HDMap lane centerlines) where global
+        closest-point search can jump to an earlier segment after a sharp turn.
+        """
+        floor_wp = self.current_wp if min_wp is None else max(0, min_wp)
+        self.update_waypoint_by_xy(x_current, y_current)
+        if self.current_wp < floor_wp:
+            self.current_wp = floor_wp
+            if self.current_wp < len(self.__reference_path) - 1:
+                self.next_wp = self.current_wp + 1
+            else:
+                self.next_wp = self.current_wp
+
     def update_waypoint_by_wp(self, current_wp: int) -> None:
         self.current_wp = current_wp % len(self.__reference_path)
         self.next_wp = current_wp + 1 % len(self.__reference_path)
@@ -792,3 +812,45 @@ def convert_sd_path_to_xy_path(tj: TrajectoryTracker, s_values, d_values):
         y_values.append(y_final)
 
     return x_values, y_values
+
+
+def slice_trajectory_horizon(
+    traj: TrajectoryTracker,
+    max_points: int = 50,
+) -> TrajectoryTracker:
+    """Return a forward horizon slice from current_wp (for local planning / publish)."""
+    if not traj.path:
+        return traj
+    start = max(0, min(traj.current_wp, len(traj.path) - 1))
+    end = len(traj.path) if max_points <= 0 else min(len(traj.path), start + max_points)
+    path_slice = list(traj.path[start:end])
+    if not path_slice:
+        return traj
+    vel = list(traj.velocity) if traj.velocity is not None else []
+    vel_slice = vel[start:end] if vel else []
+    if len(vel_slice) < len(path_slice):
+        pad = vel_slice[-1] if vel_slice else 0.0
+        vel_slice = vel_slice + [pad] * (len(path_slice) - len(vel_slice))
+    sliced = TrajectoryTracker(path=path_slice, velocity=vel_slice[: len(path_slice)])
+    sliced.name = traj.name
+    sliced.current_wp = 0
+    sliced.next_wp = min(1, len(path_slice) - 1)
+    sliced.parent_trajectory = traj
+    return sliced
+
+
+def trajectory_path_fingerprint(traj: TrajectoryTracker | None) -> tuple:
+    """Lightweight path-geometry fingerprint for trajectory dedup."""
+    if traj is None or not traj.path:
+        return (0,)
+    path = traj.path
+    n = len(path)
+    sample_idx: list[int] = []
+    for i in list(range(min(3, n))) + list(range(max(0, n - 3), n)):
+        if i not in sample_idx:
+            sample_idx.append(i)
+    pts = tuple(
+        (round(float(path[i][0]), 2), round(float(path[i][1]), 2))
+        for i in sample_idx
+    )
+    return (n, pts)

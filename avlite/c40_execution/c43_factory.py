@@ -1,5 +1,6 @@
 import inspect
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from avlite.c10_perception.c11_perception_model import Map, RaceMap
@@ -44,6 +45,15 @@ from avlite.c40_execution.c46_basic_sim import BasicSim
 log = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class FactoryFallback:
+    component: str
+    requested: str
+    used: str
+    reason: str
+    message: str
+
+
 def executor_factory(
     executer_type = ExecutionSettings.c40_executer_type,
     bridge = ExecutionSettings.c40_bridge,
@@ -65,8 +75,8 @@ def executor_factory(
     Factory method to create an instance of the Executer class based on the provided configuration.
     """
 
+    fallbacks: list[FactoryFallback] = []
 
-    
     if load_plugins:
         sync_builtin_plugins(list(ExecutionSettings.c40_default_plugins))
         for k, v in ExecutionSettings.c40_community_plugins.items():
@@ -82,11 +92,18 @@ def executor_factory(
     try:
         global_plan_path = DataPaths.resolve_stored(default_global_trajectory_file)
         default_global_plan = GlobalPlan.from_file(global_plan_path)
-        log.debug(f"Default global trajectory loaded from {global_plan_path}")
+        log.debug(f"Default global plan loaded from {global_plan_path}")
     except Exception as e:
         log.warning(
-            f"Could not load default global trajectory '{default_global_trajectory_file}': {e}. "
+            f"Could not load default global plan '{default_global_trajectory_file}': {e}. "
             "Falling back to race boundary centerline."
+        )
+        _record_fallback(
+            fallbacks,
+            component="global_plan",
+            requested=default_global_trajectory_file,
+            used="race centerline",
+            reason=str(e),
         )
         _fallback_planner = GlobalCenterlineRacePlanner(
             DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
@@ -119,6 +136,13 @@ def executor_factory(
             gp.global_plan = default_global_plan
         else:
             log.error(f"Global planner '{global_planner_strategy_name}' not recognized. Loading default.")
+            _record_fallback(
+                fallbacks,
+                component="global_planner",
+                requested=global_planner_strategy_name,
+                used=GlobalCenterlineRacePlanner.__name__,
+                reason="not recognized",
+            )
             gp = GlobalCenterlineRacePlanner(
                 DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
             )
@@ -126,6 +150,13 @@ def executor_factory(
 
     except Exception as e:
         log.error(f"Failed to load global planner {global_planner_strategy_name}. Loading default")
+        _record_fallback(
+            fallbacks,
+            component="global_planner",
+            requested=global_planner_strategy_name,
+            used=GlobalCenterlineRacePlanner.__name__,
+            reason=str(e),
+        )
         gp = GlobalCenterlineRacePlanner(
             DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
         )
@@ -136,13 +167,29 @@ def executor_factory(
     ##############################
     pr = None
     try:
-        if perception_strategy_name is not None and perception_strategy_name != "" and perception_strategy_name in  PerceptionStrategy.registry:
-            # load the class
-            cls = PerceptionStrategy.registry[perception_strategy_name]
-            pr = cls(perception_model=pm)
-            log.info("Perception Module Loaded!")
+        if perception_strategy_name is not None and perception_strategy_name != "":
+            if perception_strategy_name in PerceptionStrategy.registry:
+                cls = PerceptionStrategy.registry[perception_strategy_name]
+                pr = cls(perception_model=pm)
+                log.info("Perception Module Loaded!")
+            else:
+                log.error(f"Perception strategy '{perception_strategy_name}' not recognized.")
+                _record_fallback(
+                    fallbacks,
+                    component="perception",
+                    requested=perception_strategy_name,
+                    used="disabled",
+                    reason="not recognized",
+                )
     except Exception as e:
         log.error(f"Error loading perception strategy {perception_strategy_name}: {e}")
+        _record_fallback(
+            fallbacks,
+            component="perception",
+            requested=perception_strategy_name,
+            used="disabled",
+            reason=str(e),
+        )
         pr = None
 
 
@@ -151,12 +198,29 @@ def executor_factory(
     #################################
     loc = None
     try:
-        if localization_strategy_name is not None and localization_strategy_name != "" and localization_strategy_name in LocalizationStrategy.registry:
-            cls = LocalizationStrategy.registry[localization_strategy_name]
-            loc = cls(perception_model=pm)
-            log.info("Localization Module Loaded!")
+        if localization_strategy_name is not None and localization_strategy_name != "":
+            if localization_strategy_name in LocalizationStrategy.registry:
+                cls = LocalizationStrategy.registry[localization_strategy_name]
+                loc = cls(perception_model=pm)
+                log.info("Localization Module Loaded!")
+            else:
+                log.error(f"Localization strategy '{localization_strategy_name}' not recognized.")
+                _record_fallback(
+                    fallbacks,
+                    component="localization",
+                    requested=localization_strategy_name,
+                    used="disabled",
+                    reason="not recognized",
+                )
     except Exception as e:
         log.error(f"Error loading localization strategy {localization_strategy_name}: {e}")
+        _record_fallback(
+            fallbacks,
+            component="localization",
+            requested=localization_strategy_name,
+            used="disabled",
+            reason=str(e),
+        )
         loc = None
 
 
@@ -180,10 +244,24 @@ def executor_factory(
             pl = cls(global_plan=local_global_plan, env=pm)
         else:
             log.error(f"Unable to load local planner {local_planner_strategy_name}. Switching to default.")
+            _record_fallback(
+                fallbacks,
+                component="local_planner",
+                requested=local_planner_strategy_name,
+                used=GreedyLatticePlanner.__name__,
+                reason="not recognized",
+            )
             pl = GreedyLatticePlanner(global_plan=local_global_plan, env=pm)
 
     except Exception as e:
         log.error(f"Failed to load local planner: {e}. Switching to default.")
+        _record_fallback(
+            fallbacks,
+            component="local_planner",
+            requested=local_planner_strategy_name,
+            used=GreedyLatticePlanner.__name__,
+            reason=str(e),
+        )
         pl = GreedyLatticePlanner(global_plan=local_global_plan, env=pm)
 
     #################
@@ -196,13 +274,27 @@ def executor_factory(
 
         else:
             log.error(f"Controller {controller_strategy_name} not recognized. Using StanleyController as default.")
+            _record_fallback(
+                fallbacks,
+                component="controller",
+                requested=controller_strategy_name,
+                used=StanleyController.__name__,
+                reason="not recognized",
+            )
             cn = StanleyController()
-            
+
         if default_global_plan.trajectory is not None:
             cn.set_trajectory(default_global_plan.trajectory)
 
     except Exception as e:
         log.error(f"Error loading controller {e}. Setting controller to Stanley")
+        _record_fallback(
+            fallbacks,
+            component="controller",
+            requested=controller_strategy_name,
+            used=StanleyController.__name__,
+            reason=str(e),
+        )
         cn = StanleyController()
         cn.set_trajectory(default_global_plan.trajectory)
 
@@ -233,19 +325,30 @@ def executor_factory(
 
     world_pm = PerceptionModel(ego_vehicle=ego_state)
     try:
-        if executer_type == "ROSExecuter" and bridge == "BasicSim":
-            from avlite.plugins.p40_executer_ROS2.topic_mirror_bridge import TopicMirrorBridge
-            world = TopicMirrorBridge(ego_state=ego_state, perception_model=world_pm)
-            log.info("Using TopicMirrorBridge for ROSExecuter multiprocess mode")
-        elif bridge in WorldBridge.registry:
+        if bridge in WorldBridge.registry:
             log.info(f"Loading registered world bridge {bridge}...")
             cls = WorldBridge.registry[bridge]
             world = cls(**_bridge_kwargs(cls, ego_state, world_pm))
         else:
+            log.error(f"World bridge '{bridge}' not recognized. Using BasicSim.")
+            _record_fallback(
+                fallbacks,
+                component="world_bridge",
+                requested=bridge,
+                used=BasicSim.__name__,
+                reason="not recognized",
+            )
             world = BasicSim(**_bridge_kwargs(BasicSim, ego_state, world_pm))
     except Exception as e:
         log.error(f"Error loading world bridge {bridge}: {e}")
-        world = BasicSim(**_bridge_kwargs(BasicSim, ego_state, world_pm))  # fallback to BasicSim
+        _record_fallback(
+            fallbacks,
+            component="world_bridge",
+            requested=bridge,
+            used=BasicSim.__name__,
+            reason=str(e),
+        )
+        world = BasicSim(**_bridge_kwargs(BasicSim, ego_state, world_pm))
 
 
 
@@ -265,6 +368,13 @@ def executor_factory(
             executer = cls(**kwargs)
         else:
             log.error(f"Invalid Executer. Moving to default executer")
+            _record_fallback(
+                fallbacks,
+                component="executer",
+                requested=executer_type,
+                used=SyncExecuter.__name__,
+                reason="not recognized",
+            )
             executer = SyncExecuter(perception_model=pm,perception=pr, global_planner=gp, local_planner=pl,
                            controller=cn, world=world, localization=loc,
                            perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt,
@@ -272,6 +382,13 @@ def executor_factory(
     except Exception as e:
         log.error(f"Error loading executer '{executer_type}': {e}", exc_info=True)
         try:
+            _record_fallback(
+                fallbacks,
+                component="executer",
+                requested=executer_type,
+                used=SyncExecuter.__name__,
+                reason=str(e),
+            )
             executer = SyncExecuter(perception_model=pm,perception=pr, global_planner=gp, local_planner=pl,
                            controller=cn, world=world, localization=loc,
                            perception_dt=perception_dt, replan_dt=replan_dt, control_dt=control_dt,
@@ -282,6 +399,7 @@ def executor_factory(
 
     if executer is not None:
         executer._requested_executer_type = executer_type
+        executer._factory_fallbacks = tuple(fallbacks)
     return executer
 
 
@@ -357,3 +475,42 @@ class StackSettingsSync:
             if m is not None and m.reference_point is not None:
                 ExecutionSettings.c40_reference_point = list(m.reference_point)
                 return
+
+
+_FALLBACK_MESSAGE_TEMPLATES: dict[str, str] = {
+    "local_planner": "Could not load local planner '{requested}'. Switching to {used}.",
+    "global_planner": "Could not load global planner '{requested}'. Switching to {used}.",
+    "perception": "Could not load perception '{requested}'. Perception will be disabled.",
+    "localization": "Could not load localization '{requested}'. Localization will be disabled.",
+    "controller": "Could not load controller '{requested}'. Switching to {used}.",
+    "world_bridge": "Could not load world bridge '{requested}'. Switching to {used}.",
+    "executer": "Could not load executer '{requested}'. Switching to {used}.",
+    "global_plan": "Could not load global plan '{requested}'. Using race centerline instead.",
+}
+
+
+def _build_fallback_message(component: str, requested: str, used: str, reason: str) -> str:
+    template = _FALLBACK_MESSAGE_TEMPLATES[component]
+    message = template.format(requested=requested, used=used)
+    if reason:
+        message += f" ({reason})"
+    return message
+
+
+def _record_fallback(
+    fallbacks: list[FactoryFallback],
+    *,
+    component: str,
+    requested: str,
+    used: str,
+    reason: str = "",
+) -> None:
+    fallbacks.append(
+        FactoryFallback(
+            component=component,
+            requested=str(requested),
+            used=used,
+            reason=reason,
+            message=_build_fallback_message(component, str(requested), used, reason),
+        )
+    )
