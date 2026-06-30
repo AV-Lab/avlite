@@ -9,6 +9,7 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner
 from avlite.c20_planning.c28_lattice import Lattice, Node, Edge
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
@@ -135,6 +136,19 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
                 log.debug(f"Switching plan: geometric disconnect — {dist:.1f}m from plan")
                 return True
 
+        if (not new_plan.collision
+                and not new_plan.boundary_violation
+                and cur_vel is not None and len(cur_vel) > 0):
+            cur_v = float(np.mean(np.asarray(cur_vel)))
+            new_v = float(np.mean(np.asarray(new_plan.local_trajectory.velocity)))
+            if new_v > cur_v + 0.5:
+                log.info(
+                    "Switching plan: faster collision-free alternative (%.1f > %.1f m/s)",
+                    new_v,
+                    cur_v,
+                )
+                return True
+
         # Commit to current plan — do not switch
         return False
 
@@ -245,9 +259,30 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
         self._min_ramp_start_velocity: float = setting.c27_min_ramp_start_velocity
         self._allow_curvature_fallback: bool = setting.c27_allow_curvature_fallback
         self._allow_boundary_violation_fallback: bool = setting.c27_allow_boundary_violation_fallback
-        self._stopping_decel_factor: float = setting.c27_stopping_decel_factor
-        self._fallback_deceleration: float = setting.c27_fallback_deceleration
-        self._stopping_safety_buffer: float = setting.c27_stopping_safety_buffer
+        self._velocity_planner = VelocityLocalPlanner(global_plan, env, controller, setting)
+
+    def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
+        super().set_global_plan(global_plan, ego_xy=ego_xy)
+        self._velocity_planner.set_global_plan(global_plan, ego_xy=ego_xy)
+
+    def reset(self, wp: int = 0):
+        super().reset(wp)
+        self._velocity_planner.reset(wp)
+
+    def _profile_edge_velocity(self, edge: Edge) -> None:
+        if not edge.collision:
+            return
+        ref_vel = np.asarray(edge.local_trajectory.velocity, dtype=float)
+        self._velocity_planner.apply_speed_match(
+            edge.local_trajectory,
+            edge.collision_idx,
+            max(0.0, edge.collision_agent_velocity),
+            ref_velocity=ref_vel,
+        )
+
+    def _profile_lattice_edges(self, edges: list[Edge] | None = None) -> None:
+        for edge in edges if edges is not None else self.lattice.edges:
+            self._profile_edge_velocity(edge)
 
     def _get_max_curvature_for_velocity(self, velocity: float) -> float:
         """
@@ -314,6 +349,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
         )
 
         self.lattice.generate_lattice_from_nodes(pm=self.pm)
+        self._profile_lattice_edges()
 
         # Filter edges: no collision and curvature within limits
         feasible_edges = [edge for edge in self.lattice.level0_edges
@@ -395,7 +431,6 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                 reverse=True
             )
             self.set_selected_plan(edges_sorted[0])
-            vel = getattr(self.selected_local_plan, 'collision_agent_velocity', 0)
             idx = getattr(self.selected_local_plan, 'collision_idx', 0)
 
             if not self.selected_local_plan.collision:
@@ -407,69 +442,12 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                 return
 
             log.warning(f"No feasible edges. Collision at idx {idx}, initiating speed-match/emergency stop.")
-
-            tj = self.selected_local_plan.local_trajectory
-            current_vel = self.pm.ego_vehicle.velocity if self.pm.ego_vehicle.velocity > 0 else (tj.velocity[0] if len(tj.velocity) > 0 else 0)
-            target_vel = max(0.0, vel)  # match obstacle speed, not necessarily zero
-
-            if self.controller is not None:
-                max_decel = abs(self.controller.ego_min_acceleration) * self._stopping_decel_factor
-            else:
-                max_decel = self._fallback_deceleration
-            if max_decel < 0.1:
-                max_decel = self._fallback_deceleration
-
-            # Distance needed to decelerate from current_vel to target_vel
-            stopping_distance = max(0.0, current_vel**2 - target_vel**2) / (2 * max_decel)
-
-            # Calculate distance to collision point
-            collision_distance = 0.0
-            for i in range(1, min(idx + 1, len(tj.path_x))):
-                collision_distance += np.sqrt(
-                    (tj.path_x[i] - tj.path_x[i-1])**2 +
-                    (tj.path_y[i] - tj.path_y[i-1])**2
-                )
-
-            log.warning(f"Collision distance: {collision_distance:.1f}m, Speed-match distance: {stopping_distance:.1f}m, "
-                        f"Current vel: {current_vel:.1f}m/s, Target vel: {target_vel:.1f}m/s")
-
-            if stopping_distance >= collision_distance - self._stopping_safety_buffer:
-                # Not enough room — ramp from current speed down to obstacle speed over the trajectory
-                log.warning(f"Cannot match speed in time — ramping to obstacle speed {target_vel:.1f} m/s")
-                tj.velocity = np.maximum(0.0, np.linspace(current_vel, target_vel, len(tj.path)))
-            else:
-                # Enough room — hold current speed then decelerate smoothly to target_vel
-                cumulative_dist = 0.0
-                brake_start_idx = 0
-                target_brake_dist = collision_distance - stopping_distance - self._stopping_safety_buffer
-
-                for i in range(1, len(tj.path_x)):
-                    cumulative_dist += np.sqrt(
-                        (tj.path_x[i] - tj.path_x[i-1])**2 +
-                        (tj.path_y[i] - tj.path_y[i-1])**2
-                    )
-                    if cumulative_dist >= target_brake_dist:
-                        brake_start_idx = i
-                        break
-
-                new_velocity = np.empty(len(tj.path))
-                for i in range(len(tj.path)):
-                    if i <= brake_start_idx:
-                        new_velocity[i] = current_vel
-                    else:
-                        progress = (i - brake_start_idx) / max(1, len(tj.path) - brake_start_idx - 1)
-                        new_velocity[i] = max(target_vel, current_vel - progress * (current_vel - target_vel))
-
-                tj.velocity = new_velocity
-                log.info(f"Speed-match profile: hold {current_vel:.1f} m/s until idx {brake_start_idx}, "
-                         f"then ramp to {target_vel:.1f} m/s")
         else:
             # No edges at all - emergency stop
             log.error("No lattice edges generated - emergency stop")
             if self.selected_local_plan is not None:
                 tj = self.selected_local_plan.local_trajectory
-                stop_vel = self.pm.ego_vehicle.velocity if self.pm.ego_vehicle.velocity > 0 else (float(tj.velocity[0]) if len(tj.velocity) > 0 else 0.0)
-                tj.velocity = np.maximum(0.0, np.linspace(stop_vel, 0.0, len(tj.path)))
+                self._velocity_planner.apply_speed_match(tj, len(tj.path) - 1, 0.0)
 
     def _on_edge_traversed(self) -> None:
         self._partial_replan()
@@ -545,6 +523,8 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             )
             edge.boundary_violation = self.lattice._check_boundary_violation(edge)
             new_edges.append(edge)
+
+        self._profile_lattice_edges(new_edges)
 
         feasible = [e for e in new_edges if not e.collision and not e.boundary_violation and self._is_curvature_feasible(e)]
         if not feasible and self._allow_curvature_fallback:
