@@ -11,7 +11,7 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
 from avlite.c50_visualization.c53_stack_views import PerceivePlanControlView, ExecView
 from avlite.c40_execution.c43_factory import load_stack_settings
-from avlite.c50_visualization.c59_settings import VisualizationSettings
+from avlite.c50_visualization.c59_settings import VisualizationSettings, sync_perception_pipeline_from_c19
 from avlite.c50_visualization.c58_ui_lib import (
     TkSettingsBinder,
     UiAssets,
@@ -111,8 +111,14 @@ class VisualizerApp(tk.Tk):
         self.last_resize_time = time.time()
         self._create_menubar()
         self.ui_initialized = True
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         
         log.info(f"Available profiles: {self.setting.profile_list}")
+
+    def _on_close(self):
+        if hasattr(self, "exec_visualize_view"):
+            self.exec_visualize_view.stop_exec()
+        self.destroy()
 
     def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
@@ -454,6 +460,7 @@ class VisualizerApp(tk.Tk):
         if not only_stack:
             load_setting(self.setting, profile=profile, binder=binder)
         load_stack_settings(profile=profile, load_plugins=self.setting.load_plugins.get())
+        sync_perception_pipeline_from_c19(self.setting)
         self.setting.default_map_file.set(DataPicker.default_map_display_path())
         self.setting.default_global_plan_file.set(DataPicker.default_global_plan_display_path())
         self.exec_visualize_view.refresh_default_map_tooltips()
@@ -464,6 +471,15 @@ class VisualizerApp(tk.Tk):
         ConfigPaths.set_startup_profile(profile)
         if hasattr(self, "config_shortcut_view"):
             self.config_shortcut_view.toggle_dark_mode()
+
+    def on_community_plugins_changed(self) -> None:
+        """Reload profile stack settings and refresh UI after plugin install/uninstall."""
+        self.load_configs(only_stack=True)
+        if self.setting.load_plugins.get():
+            self.reload_stack(reload_code=True)
+        else:
+            self.perceive_plan_control_view.reset()
+            self.exec_visualize_view.update_data()
 
     def reload_stack(self, reload_code:bool = True):
         if reload_code:
@@ -527,6 +543,7 @@ class VisualizerApp(tk.Tk):
             _show_factory_fallback_errors(self)
 
     def switch_profile(self):
+        self.exec_visualize_view.stop_exec()
         self.load_configs(profile=self.setting.next_profile.get(), only_stack=False)
         # self.reload_stack(reload_code=False)
         self.update_views()

@@ -50,32 +50,6 @@ SAN:
   c34_stanley_valpha: 0.8
   c34_stanley_vbeta: 0.01
   c34_stanley_vgamma: 0.3
-async:
-  c30_emergency_braking_factor: 0.9
-  c30_emergency_min_moving_velocity: 1.0
-  c30_emergency_velocity_threshold: 0.5
-  c32_ego_distance_front_axle: 2.5
-  c32_ego_max_acceleration: 10.0
-  c32_ego_max_steering: 0.7
-  c32_ego_max_velocity: 30.0
-  c32_ego_min_acceleration: -20.0
-  c32_ego_min_steering: -0.7
-  c33_pid_alpha: 0.01
-  c33_pid_beta: 0.001
-  c33_pid_gamma: 0.6
-  c33_pid_lookahead: 2
-  c33_pid_valpha: 0.8
-  c33_pid_vbeta: 0.01
-  c33_pid_vgamma: 0.3
-  c34_stanley_k: 5.0
-  c34_stanley_k_soft: 0.01
-  c34_stanley_lookahead: 5
-  c34_stanley_slow_down_cte: 0.5
-  c34_stanley_slow_down_heading_cte: 0.5235987755982988
-  c34_stanley_slow_down_vel_threshold: 3.0
-  c34_stanley_valpha: 0.8
-  c34_stanley_vbeta: 0.01
-  c34_stanley_vgamma: 0.3
 default:
   c30_emergency_braking_factor: 0.9
   c30_emergency_min_moving_velocity: 1.0

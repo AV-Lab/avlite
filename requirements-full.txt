@@ -1,9 +1,6 @@
 # Full requirements including optional features
 -r requirements-minimal.txt
 
-# Joystick/gamepad support
-pygame>=2.5
-
 # Development tools
 ipython>=8.0
 pillow>=10.0
@@ -12,3 +9,6 @@ pillow>=10.0
 mkdocs>=1.5
 mkdocs-material>=9.0
 mkdocstrings[python]>=0.24
+
+# Optional plugin deps — install from related-repos/<plugin>/requirements.txt
+# e.g. pygame (avlite-controller-joystick), ROS 2 packages (avlite-executer-ROS2)

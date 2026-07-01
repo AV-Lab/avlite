@@ -141,6 +141,11 @@ class PluginPaths:
         }
 
     @staticmethod
+    def repo_root() -> Path:
+        """AVLite repository root (parent of ``avlite/`` package)."""
+        return Path(__file__).resolve().parent.parent.parent
+
+    @staticmethod
     def resolve(name: str, stored: str) -> Path:
         """Resolve a community plugin install path (name-only, relative, or legacy absolute)."""
         if not stored or stored == name:
@@ -148,6 +153,9 @@ class PluginPaths:
         path = Path(stored).expanduser()
         if path.is_absolute():
             return path.resolve()
+        repo_relative = PluginPaths.repo_root() / stored
+        if repo_relative.is_dir():
+            return repo_relative.resolve()
         return PluginPaths.install_dir() / stored
 
     @staticmethod
@@ -186,6 +194,11 @@ class PluginPaths:
         try:
             path.relative_to(PluginPaths.install_dir())
             return name
+        except ValueError:
+            pass
+        try:
+            rel = path.relative_to(PluginPaths.repo_root())
+            return rel.as_posix()
         except ValueError:
             pass
         try:

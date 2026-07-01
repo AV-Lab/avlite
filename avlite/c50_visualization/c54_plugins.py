@@ -1709,6 +1709,10 @@ class _PluginRegistryPanel(ttk.Frame):
         if host is None:
             return
         try:
+            refresh = getattr(host, "on_community_plugins_changed", None)
+            if callable(refresh):
+                refresh()
+                return
             cfg_view = getattr(host, "config_shortcut_view", None)
             if cfg_view is not None and hasattr(cfg_view, "update_setting_window"):
                 cfg_view.update_setting_window()

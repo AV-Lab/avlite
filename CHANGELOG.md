@@ -8,9 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Community plugin import infrastructure: `sync_community_plugins()`, `CommunityPluginFinder` meta-path hook, and dashed-name → Python import mapping (`plugin_import_name`)
+- `PluginPaths.repo_root()` and repo-relative community plugin path resolve/shorten
+- `Executer.apply_global_plan()` — shared helper to push a global plan to the local planner and controller
+- `sync_perception_pipeline_from_c19()` — keep visualization perception settings aligned with the active c19 profile after stack load
+- `VisualizerApp.on_community_plugins_changed()` — reload stack and refresh UI after community plugin install/uninstall
+- Clean visualizer shutdown (`WM_DELETE_WINDOW` stops execution before destroy); stop execution on profile switch
+- `load_boundary_segments()` and `boundary_segments_from_global_plan()` helpers in `c46_basic_sim.py`
+- `test/c60_common/test_c66_community_plugin_settings.py` — community plugin settings paths and import hook
 - `test/c60_common/test_import_boundary.py` — core layers (`c40`, `c60`, `plugins`) must not import `c50_visualization`
+- README, architecture, and plugin-development docs for optional community plugins (`avlite-bridge-*`, `avlite-executer-ROS2`, `avlite-controller-joystick`)
 
 ### Changed
+- **Breaking:** Optional integrations moved out of `avlite/plugins/` into separate community plugins with new names:
+  - `p40_bridge_carla` → `avlite-bridge-carla`
+  - `p40_bridge_gazebo` → `avlite-bridge-gazebo`
+  - `p40_bridge_ROS2` → `avlite-bridge-ROS2`
+  - `p40_executer_ROS2` → `avlite-executer-ROS2`
+  - `p30_controller_joystick` → `avlite-controller-joystick`
+- Execution profiles register optional plugins via `c40_community_plugins`; only `p50_headless_mode` remains built-in
+- Global plan GUI flow uses `apply_global_plan()` instead of manual local-planner/controller calls
+- Plugin log routing recognizes `avlite-*` community plugin names (controller → control layer, bridge/executer → execution layer)
+- `requirements-full.txt` no longer includes `pygame` (install from the joystick plugin's requirements when needed)
+- Stanley controller clips steering error before exponential slowdown to avoid numeric overflow
+- ROS execution profile defaults updated (planner, perception pipeline, boundary file, sim timing)
 - Consolidated modules: deleted `c17_map.py`, `c50_stack_loader.py`, `_visualization_ui.py`, `c66_hdmap.py`
 - Stack orchestration moved into `c43_factory` (`load_stack_settings`, core `get_stack_settings_classes()`); GUI profile export uses `c59_settings.get_stack_settings_classes()` for visualization YAML
 - Renamed `c60_plugins.py` → `c66_plugins.py`
@@ -19,7 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `VisualizationSettings` Tk binder merged back into `c59_settings.py` (schema + runtime class)
 
 ### Removed
+- Built-in plugins: `p30_controller_joystick`, `p40_bridge_carla`, `p40_bridge_gazebo`, `p40_bridge_ROS2`, `p40_executer_ROS2` (now optional community plugins)
+- Bundled `configs/plugin_p30_controller_joystick.yaml` and `configs/plugin_p40_*.yaml`
+- `async` profile from `c40_execution.yaml` and `c50_visualization.yaml`
+- Per-profile embedded settings from `c10_perception.yaml`, `c20_planning.yaml`, and `c30_control.yaml`
 - `c17_mapping_algs.py` placeholder (mapping interface remains in `c14_mapping_strategy.py`)
+
+### Fixed
+- Missing config file on load treated as defaults (debug log) instead of error in `load_setting`
 
 ## [0.3.2] - 2026-06-27
 

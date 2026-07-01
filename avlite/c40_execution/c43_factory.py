@@ -12,6 +12,7 @@ from avlite.c60_common.c66_plugins import (
     load_builtin_plugin_settings,
     reload_lib,
     sync_builtin_plugins,
+    sync_community_plugins,
     unregister_plugin_package,
 )
 from avlite.c60_common.c67_paths import DataPaths, PluginPaths
@@ -79,10 +80,7 @@ def executor_factory(
 
     if load_plugins:
         sync_builtin_plugins(list(ExecutionSettings.c40_default_plugins))
-        for k, v in ExecutionSettings.c40_community_plugins.items():
-            path = PluginPaths.resolve(k, v)
-            log.warning("Loading external plugin: %s from %s", k, path)
-            import_plugin_modules(str(path), pkg_name=k)
+        sync_community_plugins(ExecutionSettings.c40_community_plugins)
     else:
         sync_builtin_plugins([])
         for k in ExecutionSettings.c40_community_plugins:
@@ -431,6 +429,11 @@ def load_stack_settings(profile: str = "default", load_plugins: bool = True) -> 
 
     if not load_plugins:
         return
+
+    for name, stored in ExecutionSettings.c40_community_plugins.items():
+        path = PluginPaths.resolve(name, stored)
+        if path.is_dir():
+            import_plugin_modules(str(path), pkg_name=name)
 
     for plugin in ExecutionSettings.c40_default_plugins:
         cls = load_builtin_plugin_settings(plugin)

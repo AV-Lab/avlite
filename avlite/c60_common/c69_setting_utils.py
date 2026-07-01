@@ -124,7 +124,13 @@ def load_setting(
     except yaml.YAMLError as e:
         log.error("YAML syntax error in %s: %s", filepath, e)
         return False
+    except FileNotFoundError:
+        log.debug("No configuration file at %s; using defaults", filepath)
+        return False
     except OSError as e:
+        if getattr(e, "errno", None) == 2:
+            log.debug("No configuration file at %s; using defaults", filepath)
+            return False
         log.error("Failed to read configuration %s: %s", filepath, e)
         return False
 

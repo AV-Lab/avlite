@@ -8,6 +8,7 @@ from typing import Optional
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
+from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -218,9 +219,25 @@ class Executer(ABC):
             log.error("Global replan failed: planner returned no valid plan.")
             return
 
-        self.local_planner.set_global_plan(new_plan, ego_xy=(self.ego_state.x, self.ego_state.y))
-        self.controller.set_trajectory(new_plan.trajectory)
+        self.apply_global_plan(new_plan)
         log.info(f"Global replan complete; {len(new_plan.left_boundary_d)} boundary pts")
+
+    def apply_global_plan(
+        self,
+        global_plan: GlobalPlan,
+        ego_xy: Optional[tuple[float, float]] = None,
+    ) -> None:
+        """Push a global plan to the local planner and controller."""
+        if global_plan is None or global_plan.trajectory is None:
+            log.error("apply_global_plan: plan or trajectory is None")
+            return
+        if len(global_plan.trajectory.path_s) == 0:
+            log.error("apply_global_plan: trajectory is empty")
+            return
+        ego_xy = ego_xy if ego_xy is not None else (self.ego_state.x, self.ego_state.y)
+        self.local_planner.set_global_plan(global_plan, ego_xy=ego_xy)
+        self.controller.set_trajectory(global_plan.trajectory)
+        self.controller.reset()
 
     def _control_step(self, sim_dt: float) -> None:
         """Run one control iteration, apply to world, and update FPS."""

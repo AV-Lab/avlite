@@ -84,6 +84,21 @@ def test_resolve_plugin_path_legacy_absolute(tmp_path):
     assert PluginPaths.resolve("dev_plugin", str(legacy)) == legacy
 
 
+def test_resolve_plugin_path_repo_relative():
+    resolved = PluginPaths.resolve(
+        "avlite-executer-ROS2", "related-repos/avlite-executer-ROS2"
+    )
+    assert resolved.is_dir()
+    assert resolved.name == "avlite-executer-ROS2"
+
+
+def test_normalize_stored_repo_relative():
+    stored = PluginPaths.normalize_stored(
+        "avlite-executer-ROS2", "related-repos/avlite-executer-ROS2"
+    )
+    assert stored == "related-repos/avlite-executer-ROS2"
+
+
 def test_resolve_plugin_path_tilde_home(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))

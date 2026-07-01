@@ -29,13 +29,19 @@ _LAYER_DIGIT_TO_KEY = {
 }
 
 _PNX_PREFIX = re.compile(r"^p(\d)", re.IGNORECASE)
+_AVLITE_PLUGIN_PREFIX = re.compile(r"^avlite[-_](controller|bridge|executer)", re.IGNORECASE)
 
 _SKIP_PLUGIN_DIRS = frozenset({".venv", "venv", "__pycache__", "site-packages", "dist", "build", ".git"})
 
 
+def plugin_import_name(name: str) -> str:
+    """Python-safe plugin package segment (repo names may use dashes)."""
+    return name.replace("-", "_")
+
+
 def plugin_module_prefix(name: str) -> str:
     """Full module prefix for built-in or community plugin *name*."""
-    return f"{PLUGIN_NAMESPACE}.{name}"
+    return f"{PLUGIN_NAMESPACE}.{plugin_import_name(name)}"
 
 
 def is_plugin_logger(record_name: str) -> bool:
@@ -65,11 +71,18 @@ def plugin_module_from_logger(logger_name: str) -> str | None:
 
 
 def layer_key_for_plugin_package(package: str) -> str | None:
-    """Map p10_foo / p40_bar → layer key, or None if not pNx-shaped."""
+    """Map p10_foo / p40_bar / avlite-bridge-* → layer key, or None if unknown."""
     m = _PNX_PREFIX.match(package)
-    if not m:
-        return None
-    return _LAYER_DIGIT_TO_KEY.get(m.group(1)[0])
+    if m:
+        return _LAYER_DIGIT_TO_KEY.get(m.group(1)[0])
+    av = _AVLITE_PLUGIN_PREFIX.match(package)
+    if av:
+        kind = av.group(1).lower()
+        if kind == "controller":
+            return "control"
+        if kind in ("bridge", "executer"):
+            return "execution"
+    return None
 
 
 def layer_key_for_plugin_log_record(logger_name: str) -> str | None:
@@ -158,6 +171,12 @@ def patch_plugin_settings(setting, name: str, plugin_path: str) -> None:
     _set_settings_filepath(setting, PluginPaths.settings_filepath(name))
 
 
+def _plugin_settings_from_module(name: str):
+    """Return ``PluginSettings`` from an already-imported plugin settings module."""
+    mod = sys.modules.get(f"{plugin_module_prefix(name)}.settings")
+    return getattr(mod, "PluginSettings", None) if mod else None
+
+
 def load_community_plugin_setting(
     name: str,
     stored: str,
@@ -169,7 +188,13 @@ def load_community_plugin_setting(
     from avlite.c60_common.c69_setting_utils import load_setting
 
     install_path = str(PluginPaths.resolve(name, stored))
-    cls = load_plugin_settings_class(name, install_path)
+    settings_mod_name = f"{plugin_module_prefix(name)}.settings"
+    if settings_mod_name not in sys.modules:
+        import_plugin_modules(install_path, pkg_name=name)
+
+    cls = _plugin_settings_from_module(name)
+    if cls is None:
+        cls = load_plugin_settings_class(name, install_path)
     if cls is None:
         return None
     patch_plugin_settings(cls, name, install_path)
@@ -218,6 +243,132 @@ def sync_builtin_plugins(allowed: list[str]) -> None:
             unregister_plugin_package(name)
     if allowed:
         import_plugin_modules(plugins_filter=allowed)
+
+
+def _loaded_plugin_import_names() -> set[str]:
+    """Package segments currently loaded under ``avlite.plugins``."""
+    names: set[str] = set()
+    prefix = f"{PLUGIN_NAMESPACE}."
+    for mod_name in sys.modules:
+        if not mod_name.startswith(prefix):
+            continue
+        tail = mod_name[len(prefix):]
+        if tail:
+            names.add(tail.split(".", 1)[0])
+    return names
+
+
+def sync_community_plugins(allowed: dict[str, str]) -> None:
+    """Unload community plugins not in *allowed*, then import those that are."""
+    allowed_import = {plugin_import_name(n) for n in allowed}
+    builtin_import = {plugin_import_name(n) for n in list_plugins()}
+    for import_name in _loaded_plugin_import_names() - builtin_import - allowed_import:
+        unregister_plugin_package(import_name)
+    for name, stored in allowed.items():
+        path = PluginPaths.resolve(name, stored)
+        import_plugin_modules(str(path), pkg_name=name)
+
+
+def _community_plugins_from_execution_yaml() -> dict[str, str]:
+    """Read ``c40_community_plugins`` from the active execution profile YAML."""
+    import yaml
+
+    profile = ConfigPaths.startup_profile() or "default"
+    for config_path in (
+        ConfigPaths.user_dir() / "c40_execution.yaml",
+        ConfigPaths.bundled_dir() / "c40_execution.yaml",
+    ):
+        if not config_path.is_file():
+            continue
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except OSError:
+            continue
+        prof = data.get(profile, {})
+        if not isinstance(prof, dict):
+            continue
+        raw = prof.get("c40_community_plugins") or {}
+        if isinstance(raw, dict):
+            return raw
+    return {}
+
+
+def _match_community_plugin_dir(import_seg: str, parent: Path) -> Path | None:
+    """Return a plugin directory whose import segment matches *import_seg*."""
+    if not parent.is_dir():
+        return None
+    for entry in parent.iterdir():
+        if (
+            entry.is_dir()
+            and not entry.name.startswith(".")
+            and plugin_import_name(entry.name) == import_seg
+        ):
+            return entry.resolve()
+    return None
+
+
+def find_community_plugin_dir(import_seg: str) -> Path | None:
+    """Map a Python import segment back to a community plugin install directory."""
+    found = _match_community_plugin_dir(import_seg, PluginPaths.install_dir())
+    if found is not None:
+        return found
+    found = _match_community_plugin_dir(import_seg, PluginPaths.repo_root() / "related-repos")
+    if found is not None:
+        return found
+    for name, stored in _community_plugins_from_execution_yaml().items():
+        if plugin_import_name(name) == import_seg:
+            path = PluginPaths.resolve(name, stored)
+            if path.is_dir():
+                return path.resolve()
+    return None
+
+
+class CommunityPluginFinder:
+    """Resolve ``avlite.plugins.<import_name>`` to dashed community plugin directories."""
+
+    def find_spec(self, fullname: str, path, target=None):
+        prefix = PLUGIN_NAMESPACE + "."
+        if not fullname.startswith(prefix):
+            return None
+        rest = fullname[len(prefix) :]
+        if not rest:
+            return None
+
+        import_seg = rest.split(".", 1)[0]
+        builtin = PluginPaths.builtin_dir() / import_seg
+        if builtin.is_dir():
+            return None
+
+        plugin_dir = find_community_plugin_dir(import_seg)
+        if plugin_dir is None:
+            return None
+
+        subparts = rest.split(".")[1:]
+        if not subparts:
+            init_py = plugin_dir / "__init__.py"
+            return importlib.util.spec_from_file_location(
+                fullname,
+                str(init_py) if init_py.is_file() else None,
+                submodule_search_locations=[str(plugin_dir)],
+            )
+
+        mod_path = plugin_dir.joinpath(*subparts).with_suffix(".py")
+        if not mod_path.is_file():
+            return None
+        return importlib.util.spec_from_file_location(fullname, mod_path)
+
+
+_community_import_hook_registered = False
+
+
+def register_community_plugin_import_hook() -> None:
+    """Register ``CommunityPluginFinder`` so worker subprocesses can import community plugins."""
+    global _community_import_hook_registered
+    if _community_import_hook_registered:
+        return
+    sys.meta_path.insert(0, CommunityPluginFinder())
+    _community_import_hook_registered = True
 
 
 def _ensure_plugins_package(plugins_directory: Path) -> None:
@@ -336,6 +487,12 @@ def import_plugin_modules(
                     log.debug("Loaded module: %s from %s", module_name, f)
             except Exception as e:
                 log.error("Failed to load module %s from %s: %s", module_name, f, e)
+
+        display_name = pkg_name if directory else pkg_path.name
+        settings_mod = sys.modules.get(f"{package_prefix}.settings")
+        ps = getattr(settings_mod, "PluginSettings", None) if settings_mod else None
+        if ps is not None:
+            patch_plugin_settings(ps, display_name, str(pkg_path))
 
 
 def reload_lib(

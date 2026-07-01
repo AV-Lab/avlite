@@ -163,3 +163,24 @@ def test_install_plugin_uses_git_auth(monkeypatch, tmp_path):
     assert "x-access-token:gho_test@github.com/org/private-plugin" in clone_cmd[4]
     set_url_cmd = next(c for c in calls if "set-url" in c)
     assert set_url_cmd[-1] == "https://github.com/org/private-plugin"
+
+
+def test_notify_host_changed_calls_on_community_plugins_changed():
+    class FakeHost:
+        def __init__(self):
+            self.called = False
+
+        def on_community_plugins_changed(self):
+            self.called = True
+
+    host = FakeHost()
+    panel = object.__new__(cp._PluginRegistryPanel)
+    panel._host = host
+    cp._PluginRegistryPanel._notify_host_changed(panel)
+    assert host.called
+
+
+def test_notify_host_changed_no_op_without_host():
+    panel = object.__new__(cp._PluginRegistryPanel)
+    panel._host = None
+    cp._PluginRegistryPanel._notify_host_changed(panel)

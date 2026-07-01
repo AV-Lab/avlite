@@ -463,12 +463,13 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 ## See Also
 
 Built-in plugins in `avlite/plugins/` (maintained by core team):
-- `p40_bridge_carla` — CARLA simulator world bridge
-- `p40_bridge_gazebo` — Gazebo Ignition world bridge
-- `p40_bridge_ROS2` — ROS2 world bridge
-- `p40_executer_ROS2` — ROS2 executor with Autoware message support
-- `p10_perception_MO_prediction` — Multi-object prediction perception
-- `p30_controller_joystick` — Xbox-style joystick controller
 - `p50_headless_mode` — Headless runner and config CLI
+
+Optional plugins in `related-repos/` (install via `c40_community_plugins`):
+- `avlite-bridge-carla` — CARLA simulator world bridge
+- `avlite-bridge-gazebo` — Gazebo Ignition world bridge
+- `avlite-bridge-ROS2` — ROS2 world bridge
+- `avlite-executer-ROS2` — ROS2 executor (`related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md`)
+- `avlite-controller-joystick` — Xbox-style joystick controller
 
 Settings for built-in plugins: `configs/plugin_*.yaml` in the repo (same basename under `~/.config/avlite/` when saved). Community plugin settings use the same `plugin_<name>.yaml` basename but live only under `~/.config/avlite/` (no repo default).

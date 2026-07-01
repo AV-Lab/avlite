@@ -138,7 +138,7 @@ Vehicle control strategies (Stanley, PID) output throttle/brake and steering.
 
 ### **Execution**
 
-World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. Built-in bridges include BasicSim, CARLA, Gazebo, and ROS2 (via plugins).
+World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. Built-in bridges include BasicSim; CARLA, Gazebo, and ROS2 bridges ship as optional plugins under `related-repos/`. For a multiprocess ROS deployment with worker nodes and Autoware topics, use `c40_executer_type: ROSExecuter` with `avlite-executer-ROS2` — see [Optional Plugins](optional-plugins.md).
 
 ### **Visualization**
 
@@ -184,13 +184,14 @@ World Bridge
 ```
 avlite/
 └── plugins/              # Built-in (core team)
-    ├── p10_perception_MO_prediction/
-    ├── p30_controller_joystick/
-    ├── p40_bridge_carla/
-    ├── p40_bridge_gazebo/
-    ├── p40_bridge_ROS2/
-    ├── p40_executer_ROS2/
     └── p50_headless_mode/
+
+related-repos/            # Optional plugins (bridges, ROS executer, joystick)
+    ├── avlite-bridge-carla/
+    ├── avlite-bridge-gazebo/
+    ├── avlite-bridge-ROS2/
+    ├── avlite-controller-joystick/
+    └── avlite-executer-ROS2/
 
 ~/.local/share/avlite/plugins/   # Community (installed)
 └── my_plugin/

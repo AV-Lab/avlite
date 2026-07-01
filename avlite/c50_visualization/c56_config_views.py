@@ -16,7 +16,7 @@ from avlite.c60_common.c66_plugins import (
     reload_lib,
 )
 from avlite.c40_execution.c43_factory import load_stack_settings
-from avlite.c50_visualization.c59_settings import get_stack_settings_classes, VisualizationSettings
+from avlite.c50_visualization.c59_settings import get_stack_settings_classes, VisualizationSettings, sync_perception_pipeline_from_c19
 from avlite.c60_common.c69_setting_utils import (
     delete_setting_profile,
     export_profile,
@@ -235,6 +235,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         profile = self.root.setting.selected_profile.get()
         binder = TkSettingsBinder()
         save_setting(self.root.setting, profile=profile, binder=binder)
+        save_setting(PerceptionSettings, profile=profile, binder=binder)
         ExecutionSettings.c40_community_plugins = PluginPaths.normalize_map(
             ExecutionSettings.c40_community_plugins
         )
@@ -935,7 +936,8 @@ class SettingWindow:
         binder = TkSettingsBinder()
         self.save_from_widgets(PerceptionSettings)
         save_setting(PerceptionSettings, profile=profile, binder=binder)
-        self.save_from_widgets(PlanningSettings) 
+        sync_perception_pipeline_from_c19(self.root.setting)
+        self.save_from_widgets(PlanningSettings)
         save_setting(PlanningSettings, profile=profile, binder=binder)
         self.save_from_widgets(ControlSettings)
         save_setting(ControlSettings, profile=profile, binder=binder)
@@ -983,6 +985,7 @@ class SettingWindow:
         binder = TkSettingsBinder()
         load_stack_settings(profile=profile, load_plugins=self.root.setting.load_plugins.get())
         load_setting(self.root.setting, profile=profile, binder=binder)
+        sync_perception_pipeline_from_c19(self.root.setting)
         self.root.setting.selected_profile.set(profile)
         ConfigPaths.set_startup_profile(profile)
 

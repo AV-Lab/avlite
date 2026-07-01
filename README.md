@@ -6,7 +6,7 @@
 
 AVLite is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
 
-**ROS2 & Autoware Ready**: Built-in ROS2 executor plugin (`p40_executer_ROS2`) with native Autoware message support (Trajectory, ControlCommand, etc.).
+**ROS2 & Autoware Ready**: Optional ROS2 executer plugin (`avlite-executer-ROS2` in `related-repos/`) with native Autoware message support (Trajectory, ControlCommand, etc.).
 
 ![](docs/imgs/tk_visualizer.png)
 
@@ -49,7 +49,7 @@ flowchart TB
 - **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, `replan_global()`, and `c43_factory` (assembles the stack and loads c10–c40 YAML profiles)
 - **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
 - **c60_common**: Plugin discovery (`c66_plugins`), path resolution (`c67_paths`), settings schemas, capabilities, sensor layouts, and utilities
-- **plugins** (`avlite/plugins/`): Built-in and community plugin system (includes ROS2 executor with Autoware messages)
+- **plugins** (`avlite/plugins/`): Built-in headless mode; bridges and ROS executer live in `related-repos/`
 
 ### Key Features
 
@@ -70,7 +70,7 @@ flowchart TB
 ## Why AVLite?
 
 - **Lightweight**: Small codebase focused on clarity over production complexity
-- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via built-in plugin
+- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via `avlite-executer-ROS2`
 - **Multi-simulator**: Same code runs on BasicSim, Carla, or Gazebo
 - **Rapid iteration**: Hot-reload code and tune parameters without restarting
 - **Minimal dependencies**: Core needs only NumPy, Matplotlib, Tkinter
@@ -83,14 +83,16 @@ flowchart TB
 pip install -r requirements-minimal.txt
 ```
 
-**Full** (includes joystick support, dev tools, docs):
+**Full** (dev tools, docs):
 ```bash
 pip install -r requirements-full.txt
 ```
 
 **Optional integrations** (install separately as needed):
-- **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. AVLite's `p40_executer_ROS2` plugin provides ROS2 nodes and Autoware message converters out of the box (`configs/plugin_ros_executer.yaml`).
+- **CARLA**: [CARLA releases](https://github.com/carla-simulator/carla/releases) + `avlite-bridge-carla` plugin
+- **Gazebo**: ROS 2 + `avlite-bridge-gazebo` plugin
+- **ROS2 + Autoware**: ROS 2 (Humble+) and optionally `autoware_auto_msgs`; clone `avlite-executer-ROS2` and/or `avlite-bridge-ROS2` from `related-repos/` (see [Optional plugins](docs/optional-plugins.md))
+- **Joystick**: `avlite-controller-joystick` plugin (`pip install -r related-repos/avlite-controller-joystick/requirements.txt`)
 
 Run from source:
 ```bash
@@ -277,16 +279,29 @@ avlite/
 │   ├── c68_settings_schema.py
 │   └── c69_setting_utils.py
 └── plugins/               # Built-in plugins
-    ├── p10_perception_MO_prediction/
-    ├── p30_controller_joystick/
-    ├── p40_bridge_carla/
-    ├── p40_bridge_gazebo/
-    ├── p40_bridge_ROS2/
-    ├── p40_executer_ROS2/
     └── p50_headless_mode/
+
+related-repos/             # Optional plugins (see related-repos/README.md)
+    ├── avlite-bridge-carla/
+    ├── avlite-bridge-gazebo/
+    ├── avlite-bridge-ROS2/
+    ├── avlite-controller-joystick/
+    └── avlite-executer-ROS2/
 ```
 
 The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley controller, etc.
+
+### Optional plugins (`related-repos/`)
+
+| Plugin | Repository folder | Role |
+|--------|-------------------|------|
+| `avlite-bridge-carla` | `related-repos/avlite-bridge-carla/` | CARLA world bridge |
+| `avlite-bridge-gazebo` | `related-repos/avlite-bridge-gazebo/` | Gazebo Ignition bridge |
+| `avlite-bridge-ROS2` | `related-repos/avlite-bridge-ROS2/` | External ROS world bridge |
+| `avlite-controller-joystick` | `related-repos/avlite-controller-joystick/` | Gamepad controller |
+| `avlite-executer-ROS2` | `related-repos/avlite-executer-ROS2/` | Multiprocess ROS executer |
+
+Register in `c40_community_plugins` (shipped profiles already include repo-relative paths). Settings files use dashed names, e.g. `plugin_avlite-bridge-carla.yaml`.
 
 ## Testing
 

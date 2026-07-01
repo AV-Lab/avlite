@@ -210,4 +210,4 @@ def test_tuning_knob_reaches_controller_without_code_reload():
 def test_plugin_settings_filepath_from_directory_name():
     from avlite.c60_common.c67_paths import PluginPaths
 
-    assert PluginPaths.settings_filepath("p40_bridge_carla") == "configs/plugin_p40_bridge_carla.yaml"
+    assert PluginPaths.settings_filepath("avlite-bridge-carla") == "configs/plugin_avlite-bridge-carla.yaml"

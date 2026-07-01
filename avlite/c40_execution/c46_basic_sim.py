@@ -20,6 +20,48 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
+def load_boundary_segments(boundary_file: Optional[str]) -> np.ndarray:
+    """Load road boundaries as line segments of shape (M, 2, 2)."""
+    if not boundary_file:
+        return np.empty((0, 2, 2))
+    try:
+        import json
+        with open(DataPaths.resolve_stored(boundary_file)) as f:
+            data = json.load(f)
+        segments = []
+        for key in ("LeftBound", "RightBound"):
+            pts = np.asarray(data.get(key, []), dtype=float)
+            if pts.ndim == 1:
+                continue
+            pts = pts[:, :2]
+            if len(pts) >= 2:
+                segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
+        if not segments:
+            return np.empty((0, 2, 2))
+        return np.concatenate(segments, axis=0)
+    except Exception as e:
+        log.error(f"Failed to load lidar boundary file {boundary_file}: {e}")
+        return np.empty((0, 2, 2))
+
+
+def boundary_segments_from_global_plan(plan) -> np.ndarray:
+    """Build (M, 2, 2) line segments from global plan left/right boundary polylines."""
+    segments = []
+    for xs, ys in (
+        (getattr(plan, "left_boundary_x", None), getattr(plan, "left_boundary_y", None)),
+        (getattr(plan, "right_boundary_x", None), getattr(plan, "right_boundary_y", None)),
+    ):
+        if not xs or not ys or len(xs) != len(ys):
+            continue
+        pts = np.column_stack([np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)])
+        if len(pts) >= 2:
+            segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
+    if not segments:
+        return np.empty((0, 2, 2))
+    return np.concatenate(segments, axis=0)
+
+
 class BasicSim(WorldBridge):
     @property
     def capabilities(self) -> set[WorldCapability]:
@@ -62,7 +104,7 @@ class BasicSim(WorldBridge):
         #   axis 1 — endpoint: 0 = start, 1 = end
         #   axis 2 — coordinate: 0 = x, 1 = y
         # Used by __collect_segments() for LiDAR raycasting and by c57 for visualization.
-        self.boundary_segments: np.ndarray = self.__load_boundary_segments(
+        self.boundary_segments: np.ndarray = load_boundary_segments(
             setting.c46_lidar_boundary_file
         )
 
@@ -142,27 +184,6 @@ class BasicSim(WorldBridge):
     # ------------------------------------------------------------------
     # 2D LiDAR simulation
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def __load_boundary_segments(boundary_file: Optional[str]) -> np.ndarray:
-        """Load road boundaries as line segments of shape (M, 2, 2)."""
-        if not boundary_file:
-            return np.empty((0, 2, 2))
-        try:
-            import json
-            with open(DataPaths.resolve_stored(boundary_file)) as f:
-                data = json.load(f)
-            segments = []
-            for key in ("LeftBound", "RightBound"):
-                pts = np.asarray(data.get(key, []), dtype=float)[:, :2]
-                if len(pts) >= 2:
-                    segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
-            if not segments:
-                return np.empty((0, 2, 2))
-            return np.concatenate(segments, axis=0)
-        except Exception as e:
-            log.error(f"Failed to load lidar boundary file {boundary_file}: {e}")
-            return np.empty((0, 2, 2))
 
     def __collect_segments(self) -> np.ndarray:
         """All obstacle segments to raycast: agent bounding boxes + boundaries."""

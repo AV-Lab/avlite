@@ -761,31 +761,42 @@ class LocalPlot:
         show_race_boundaries = plot_race_boundary and not isinstance(
             exec.global_planner, HDMapGlobalPlanner
         )
+        fallback_plan = getattr(exec.global_planner, "global_plan", None)
         self.update_track_boundary_plot(
             exec.world,
             show_plot=show_race_boundaries,
             global_trajectory=exec.local_planner.global_trajectory,
+            fallback_plan=fallback_plan,
         )
         self.update_global_plan_plots(exec.local_planner, plot_global_plan)
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        agent_pm = (
-            exec.world.get_ground_truth_perception_model()
-            if hasattr(exec.world, "get_ground_truth_perception_model")
-            else exec.pm
-        )
+        if plot_ground_truth and hasattr(exec.world, "get_ground_truth_perception_model"):
+            agent_pm = exec.world.get_ground_truth_perception_model()
+        else:
+            agent_pm = exec.pm
         self.update_perception_model_plots(agent_pm, exec.local_planner.global_trajectory, plot_perception_model, plot_predictions)
         self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
         self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
 
-    def update_track_boundary_plot(self, world_bridge, show_plot=True, global_trajectory=None):
+    def update_track_boundary_plot(
+        self,
+        world_bridge,
+        show_plot=True,
+        global_trajectory=None,
+        fallback_plan=None,
+    ):
         if not show_plot or not hasattr(world_bridge, 'boundary_segments'):
             self.track_boundary_collection.set_segments([])
             self.track_boundary_collection_ax2.set_segments([])
             return
         segs = world_bridge.boundary_segments  # (M, 2, 2) world-frame
+        if len(segs) == 0 and fallback_plan is not None:
+            from avlite.c40_execution.c46_basic_sim import boundary_segments_from_global_plan
+
+            segs = boundary_segments_from_global_plan(fallback_plan)
         self.track_boundary_collection.set_segments(segs if len(segs) else [])
         if global_trajectory is None or len(segs) == 0:
             self.track_boundary_collection_ax2.set_segments([])

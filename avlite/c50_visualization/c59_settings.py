@@ -62,9 +62,6 @@ class VisualizationSettingsSchema(SettingsSchema):
     show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
     perception_type: str = Field(default="", description="Selected perception strategy class name.")
     perception_dt: float = Field(default=0.5, description="UI-linked perception dt (seconds).")
-    detection_strategy_type: str = Field(default="", description="Detection sub-strategy display name.")
-    tracking_strategy_type: str = Field(default="", description="Tracking sub-strategy display name.")
-    prediction_strategy_type: str = Field(default="", description="Prediction sub-strategy display name.")
     localization_type: str = Field(default="", description="Localization strategy display name.")
     localization_dt: float = Field(default=0.1, description="UI-linked localization dt (seconds).")
     mapping_type: str = Field(default="", description="Mapping strategy display name.")
@@ -120,14 +117,34 @@ def get_stack_settings_classes() -> list[Any]:
 def _sync_exec_dt(attr: str, value: float) -> None:
     """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
     try:
-        from avlite.plugins.p40_executer_ROS2.settings import PluginSettings as ROSSettings
+        from avlite.c40_execution.c49_settings import ExecutionSettings
         from avlite.c50_visualization.c58_ui_lib import TkSettingsBinder
+        from avlite.c60_common.c66_plugins import load_plugin_settings_class, patch_plugin_settings
+        from avlite.c60_common.c67_paths import PluginPaths
         from avlite.c60_common.c69_setting_utils import save_setting
 
-        setattr(ROSSettings, attr, float(value))
-        save_setting(ROSSettings, binder=TkSettingsBinder())
+        name = "avlite-executer-ROS2"
+        stored = ExecutionSettings.c40_community_plugins.get(name, name)
+        install = str(PluginPaths.resolve(name, stored))
+        cls = load_plugin_settings_class(name, install)
+        if cls is None:
+            return
+        patch_plugin_settings(cls, name, install)
+        setattr(cls, attr, float(value))
+        save_setting(cls, binder=TkSettingsBinder())
     except Exception:
         pass
+
+
+def sync_perception_pipeline_from_c19(setting: "VisualizationSettings") -> None:
+    """Push c19 pipeline strategy names into main-UI Tk vars without write-back."""
+    setting._syncing_perception_pipeline = True
+    try:
+        setting.detection_strategy_type.set(PerceptionSettings.c12_detection_strategy)
+        setting.tracking_strategy_type.set(PerceptionSettings.c12_tracking_strategy)
+        setting.prediction_strategy_type.set(PerceptionSettings.c12_prediction_strategy)
+    finally:
+        setting._syncing_perception_pipeline = False
 
 
 class VisualizationSettings:
@@ -138,6 +155,8 @@ class VisualizationSettings:
         "exclude", "filepath", "schema", "vehicle_state", "elapsed_real_time",
         "elapsed_sim_time", "lap", "replan_fps", "control_fps", "perception_fps",
         "current_wp", "exec_running", "profile_list", "perception_status_text", "plugin_list",
+        "detection_strategy_type", "tracking_strategy_type", "prediction_strategy_type",
+        "_syncing_perception_pipeline",
     ]
     filepath: str = "configs/c50_visualization.yaml"
 
@@ -188,9 +207,12 @@ class VisualizationSettings:
         self.perception_type.trace_add("write", _on_perception_change)
         self.perception_dt = tk.DoubleVar(value=ExecutionSettings.c40_perception_dt)
 
+        self._syncing_perception_pipeline = False
         self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy)
 
         def _on_detection_change(*args):
+            if self._syncing_perception_pipeline:
+                return
             PerceptionSettings.c12_detection_strategy = self.detection_strategy_type.get()
 
         self.detection_strategy_type.trace_add("write", _on_detection_change)
@@ -198,6 +220,8 @@ class VisualizationSettings:
         self.tracking_strategy_type = tk.StringVar(value=PerceptionSettings.c12_tracking_strategy)
 
         def _on_tracking_change(*args):
+            if self._syncing_perception_pipeline:
+                return
             PerceptionSettings.c12_tracking_strategy = self.tracking_strategy_type.get()
 
         self.tracking_strategy_type.trace_add("write", _on_tracking_change)
@@ -205,6 +229,8 @@ class VisualizationSettings:
         self.prediction_strategy_type = tk.StringVar(value=PerceptionSettings.c12_prediction_strategy)
 
         def _on_prediction_change(*args):
+            if self._syncing_perception_pipeline:
+                return
             PerceptionSettings.c12_prediction_strategy = self.prediction_strategy_type.get()
 
         self.prediction_strategy_type.trace_add("write", _on_prediction_change)
