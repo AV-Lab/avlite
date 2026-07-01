@@ -112,7 +112,7 @@ class PerceptionPipeline(PerceptionStrategy):
     """
     Pipelined perception strategy: detect → track → predict.
     Each stage is resolved by name from its registry at construction time.
-    Empty name or unknown name means that stage is skipped.
+    Empty name means that stage is skipped (ground truth for detect/track; no prediction).
     """
     def __init__(self, perception_model: PerceptionModel, setting: PerceptionSettingsSchema = PerceptionSettings):
         super().__init__(perception_model, setting)

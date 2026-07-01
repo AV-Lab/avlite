@@ -360,7 +360,7 @@ def dev_mode_export_warning(community_plugins: dict[str, str] | None = None) -> 
         "  \u2022 Install all community and member plugins referenced in the profile",
         "",
         "Plugin paths will not resolve on a machine that uses only "
-        "~/.local/share/avlite/plugins/.",
+        f"{PluginPaths.format_display(PluginPaths.install_dir())}/.",
     ]
     plugins = community_plugins or {}
     missing = [

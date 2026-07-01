@@ -58,7 +58,8 @@ c12_prediction_strategy: MyPredictor    # empty → prediction stage skipped
 ```
 
 - Each sub-strategy has its **own registry**; plugin classes auto-register like monolithic strategies.
-- Empty or unknown name: detection/tracking fall back to **ground truth** from the world bridge when available; prediction is skipped if unset.
+- Empty name: detection/tracking use **ground truth** from the world bridge when available; prediction is skipped if unset.
+- Non-empty unknown name: factory **raises on reload** (shown in the visualizer as "Reload failed").
 - Mix core and plugin sub-strategies freely (e.g. core `FastBEVLidarDetection` + plugin `MyPredictor`).
 
 **Localization** is separate from `PerceptionPipeline`: optional `LocalizationStrategy` in its own dropdown; updates `PerceptionModel.ego_vehicle` in-place.
