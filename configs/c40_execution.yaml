@@ -1,12 +1,7 @@
 B:
   async_mode: false
   c40_bridge: BasicSim
-  c40_community_plugins:
-    avlite-bridge-ROS2: avlite-community-plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-community-plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-community-plugins/avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-community-plugins/avlite-controller-joystick
-    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
+  c40_community_plugins: {}
   c40_control_dt: 0.05
   c40_controller: StanleyController
   c40_global_planner: GlobalCenterlineRacePlanner
@@ -55,12 +50,7 @@ Carla_Town10:
 SAN:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    avlite-bridge-ROS2: avlite-community-plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-community-plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-community-plugins/avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-community-plugins/avlite-controller-joystick
-    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
+  c40_community_plugins: {}
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -95,9 +85,7 @@ default:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    avlite-bridge-carla: avlite-bridge-carla
-    avlite-executer-ROS2: avlite-executer-ROS2
-    basic_predictor: basic_predictor
+    basic_predictor: avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -134,11 +122,11 @@ global planning:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    avlite-bridge-ROS2: avlite-community-plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-community-plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-community-plugins/avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-community-plugins/avlite-controller-joystick
-    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
+    avlite-bridge-ROS2: avlite-bridge-ROS2
+    avlite-bridge-carla: avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-controller-joystick
+    avlite-executer-ROS2: avlite-executer-ROS2
     sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
@@ -215,11 +203,11 @@ joystick:
   c40_async_combined_perception_planning: true
   c40_bridge: CarlaBridge
   c40_community_plugins:
-    avlite-bridge-ROS2: avlite-community-plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-community-plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-community-plugins/avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-community-plugins/avlite-controller-joystick
-    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
+    avlite-bridge-ROS2: avlite-bridge-ROS2
+    avlite-bridge-carla: avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-controller-joystick
+    avlite-executer-ROS2: avlite-executer-ROS2
   c40_control_dt: 0.01
   c40_controller: JoystickController
   c40_default_plugins:
@@ -254,9 +242,8 @@ perception:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
   c40_community_plugins:
-    A2RL: ~/avlite-private-plugins/A2RL
-    avlite-executer-ROS2: ~/avlite-community-plugins/avlite-executer-ROS2
-    basic_predictor: avlite-community-plugins/basic_predictor
+    PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
+    basic_predictor: ~/.local/share/avlite/plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:
@@ -292,11 +279,11 @@ perception:
 robot:
   c40_bridge: BasicSim
   c40_community_plugins:
-    avlite-bridge-ROS2: avlite-community-plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-community-plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-community-plugins/avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-community-plugins/avlite-controller-joystick
-    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
+    avlite-bridge-ROS2: avlite-bridge-ROS2
+    avlite-bridge-carla: avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-controller-joystick
+    avlite-executer-ROS2: avlite-executer-ROS2
 ros:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -305,8 +292,8 @@ ros:
     avlite-bridge-carla: avlite-bridge-carla
     avlite-bridge-gazebo: avlite-bridge-gazebo
     avlite-controller-joystick: avlite-controller-joystick
-    avlite-executer-ROS2: avlite-executer-ROS2
-    basic_predictor: basic_predictor
+    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
+    basic_predictor: avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:

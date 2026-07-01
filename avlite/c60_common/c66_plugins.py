@@ -188,6 +188,8 @@ def load_community_plugin_setting(
     from avlite.c60_common.c69_setting_utils import load_setting
 
     install_path = str(PluginPaths.resolve(name, stored))
+    if not Path(install_path).is_dir():
+        return None
     settings_mod_name = f"{plugin_module_prefix(name)}.settings"
     if settings_mod_name not in sys.modules:
         import_plugin_modules(install_path, pkg_name=name)
@@ -266,6 +268,8 @@ def sync_community_plugins(allowed: dict[str, str]) -> None:
         unregister_plugin_package(import_name)
     for name, stored in allowed.items():
         path = PluginPaths.resolve(name, stored)
+        if not path.is_dir():
+            continue
         import_plugin_modules(str(path), pkg_name=name)
 
 

@@ -115,6 +115,15 @@ def test_community_plugin_finder_imports_from_install_dir(monkeypatch, tmp_path)
     _clear_plugin_modules(_PLUGIN_NAME)
 
 
+def test_find_community_plugin_dir_from_install_dir(monkeypatch, tmp_path):
+    install = tmp_path / "plugins" / _PLUGIN_NAME
+    install.mkdir(parents=True)
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+
+    found = find_community_plugin_dir("avlite_executer_ROS2")
+    assert found == install.resolve()
+
+
 def test_find_community_plugin_dir_from_community_dev(monkeypatch, tmp_path):
     dev = tmp_path / "avlite-community-plugins" / _PLUGIN_NAME
     dev.mkdir(parents=True)

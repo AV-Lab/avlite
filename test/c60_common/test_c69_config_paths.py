@@ -84,22 +84,35 @@ def test_resolve_plugin_path_name_only(monkeypatch, tmp_path):
 
 
 def test_installed_community_plugins_map(monkeypatch, tmp_path):
-    repo_root = tmp_path / "repo"
-    repo_root.mkdir()
     install_dir = tmp_path / "plugins"
     (install_dir / "foo").mkdir(parents=True)
     (install_dir / ".hidden").mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(install_dir))
-    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
-    assert PluginPaths.installed_map() == {"foo": "foo"}
+    assert PluginPaths.installed_map() == {"foo": "~/plugins/foo"}
 
 
-def test_installed_map_includes_dev_checkout_dirs(monkeypatch, tmp_path):
+def test_installed_map_ignores_repo_dev_checkouts_when_off(monkeypatch, tmp_path):
     repo_root = tmp_path / "repo"
     plugin_dir = repo_root / "avlite-community-plugins" / "foo"
     plugin_dir.mkdir(parents=True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "empty_plugins"))
+    (tmp_path / "empty_plugins").mkdir()
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    PluginPaths.set_dev_mode(False)
+    assert PluginPaths.installed_map() == {}
+
+
+def test_installed_map_includes_repo_dev_checkouts_when_dev_mode(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "avlite-community-plugins" / "foo"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "empty_plugins"))
+    (tmp_path / "empty_plugins").mkdir()
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    PluginPaths.set_dev_mode(True)
     assert PluginPaths.installed_map() == {"foo": "avlite-community-plugins/foo"}
 
 
@@ -108,9 +121,12 @@ def test_installed_map_install_dir_takes_priority(monkeypatch, tmp_path):
     install_dir = tmp_path / "plugins"
     (install_dir / "foo").mkdir(parents=True)
     (repo_root / "avlite-community-plugins" / "foo").mkdir(parents=True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(install_dir))
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
-    assert PluginPaths.installed_map() == {"foo": "foo"}
+    PluginPaths.set_dev_mode(True)
+    assert PluginPaths.installed_map() == {"foo": "~/plugins/foo"}
 
 
 def test_resolve_plugin_path_legacy_absolute(tmp_path):
@@ -200,12 +216,17 @@ def test_dev_mode_export_warning_lists_missing_plugins(monkeypatch, tmp_path):
 def test_dev_mode_uninstall_warning_none_when_off(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
-    repo_root = tmp_path / "repo"
-    repo_root.mkdir()
-    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     PluginPaths.set_dev_mode(False)
-    dev_dir = PluginPaths.community_dev_dir()
-    assert dev_mode_uninstall_warning(dev_dir, "foo") is None
+    install_dir = PluginPaths.install_dir()
+    assert dev_mode_uninstall_warning(install_dir, "foo") is None
+
+
+def test_dev_mode_uninstall_warning_none_for_other_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    PluginPaths.set_dev_mode(True)
+    assert dev_mode_uninstall_warning(tmp_path / "other", "foo") is None
 
 
 def test_dev_mode_uninstall_warning_none_for_install_dir(monkeypatch, tmp_path):
@@ -236,26 +257,28 @@ def test_clone_dir_dev_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
     monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
-    repo_root = tmp_path / "repo"
-    repo_root.mkdir()
-    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
 
     PluginPaths.set_dev_mode(False)
     assert PluginPaths.clone_dir(private=False) == (tmp_path / "plugins").resolve()
     assert PluginPaths.clone_dir(private=True) == (tmp_path / "plugins").resolve()
 
     PluginPaths.set_dev_mode(True)
-    assert PluginPaths.clone_dir(private=False) == (repo_root / "avlite-community-plugins").resolve()
-    assert PluginPaths.clone_dir(private=True) == (repo_root / "avlite-private-plugins").resolve()
+    assert PluginPaths.clone_dir(private=False) == (tmp_path / "plugins").resolve()
+    assert PluginPaths.clone_dir(private=True) == (tmp_path / "plugins").resolve()
 
 
-def test_register_stored_path_dev_mode(monkeypatch, tmp_path):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+def test_register_stored_path_uses_explicit_home_path(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
     monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
 
     PluginPaths.set_dev_mode(False)
-    assert PluginPaths.register_stored_path("foo", private=False) == "foo"
-    assert PluginPaths.register_stored_path("bar", private=True) == "bar"
+    assert PluginPaths.register_stored_path("foo", private=False) == "~/plugins/foo"
+    assert PluginPaths.register_stored_path("bar", private=True) == "~/plugins/bar"
 
     PluginPaths.set_dev_mode(True)
     assert PluginPaths.register_stored_path("foo", private=False) == "avlite-community-plugins/foo"
@@ -295,12 +318,13 @@ def test_resolve_plugin_path_tilde_home(monkeypatch, tmp_path):
 
 
 def test_normalize_community_plugin_stored_under_plugins_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
     plugins_dir = tmp_path / "plugins"
     plugins_dir.mkdir()
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(plugins_dir))
     install = plugins_dir / "my_plugin"
     install.mkdir()
-    assert PluginPaths.normalize_stored("my_plugin", str(install)) == "my_plugin"
+    assert PluginPaths.normalize_stored("my_plugin", str(install)) == "~/plugins/my_plugin"
 
 
 def test_normalize_community_plugin_stored_home_relative(monkeypatch, tmp_path):

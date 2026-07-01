@@ -41,13 +41,12 @@ from avlite.c50_visualization.c58_ui_lib import (
     setup_dpi,
 )
 from avlite.c60_common.c67_paths import (
-    COMMUNITY_DEV_SUBDIR,
-    PRIVATE_DEV_SUBDIR,
     ConfigPaths,
     PluginPaths,
 )
 
 log = logging.getLogger(__name__)
+
 
 REGISTRY_URL = (
     "https://raw.githubusercontent.com/AV-Lab/avlite-community-plugins/main/plugins.yaml"
@@ -1070,7 +1069,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._host = host
         self._dpi_scale = dpi_scale
         self._on_close = on_close
-        self.plugins_dir = PluginPaths.clone_dir(private=self._private)
+        self.plugins_dir = _plugins_dir(private=self._private)
         self._busy = False
         self._registry: list[dict] = []
         self._update_statuses: dict[str, str] = {}
@@ -1242,7 +1241,7 @@ class _PluginRegistryPanel(ttk.Frame):
         return self._token if self._private else None
 
     def refresh_clone_dir(self) -> None:
-        self.plugins_dir = PluginPaths.clone_dir(private=self._private)
+        self.plugins_dir = _plugins_dir(private=self._private)
 
     @staticmethod
     def _format_update_status(result: Optional[str]) -> str:
@@ -1879,14 +1878,16 @@ class CommunityPluginsApp:
         self._dev_mode_cb.grid(row=0, column=1, sticky="e", padx=(8, 0))
         attach_tooltip(
             self._dev_mode_cb,
-            "Clone and register plugins under repo checkout dirs ("
+            "Clone editable git checkouts under repo directories ("
             f"{PluginPaths.format_display(PluginPaths.community_dev_dir())} | "
             f"{PluginPaths.format_display(PluginPaths.private_dev_dir())})",
         )
 
     def _footer_text(self) -> str:
         if PluginPaths.is_dev_mode():
-            return f"Dev mode: {COMMUNITY_DEV_SUBDIR}/ | {PRIVATE_DEV_SUBDIR}/"
+            community = PluginPaths.format_display(PluginPaths.community_dev_dir())
+            private = PluginPaths.format_display(PluginPaths.private_dev_dir())
+            return f"Dev mode: {community} | {private}"
         return f"Install location: {PluginPaths.format_display(PluginPaths.install_dir())}"
 
     def _update_footer(self) -> None:
@@ -1924,6 +1925,13 @@ class CommunityPluginsApp:
         if parent is None:
             app.window.mainloop()
         return app
+
+
+def _plugins_dir(*, private: bool) -> Path:
+    """Install/browse directory for the community or member plugins panel."""
+    if PluginPaths.is_dev_mode():
+        return PluginPaths.private_dev_dir() if private else PluginPaths.community_dev_dir()
+    return PluginPaths.install_dir()
 
 
 def main() -> None:

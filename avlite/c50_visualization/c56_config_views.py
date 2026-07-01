@@ -1012,6 +1012,8 @@ class SettingWindow:
         for plugin in ExecutionSettings.c40_default_plugins:
             self.listbox_default_plugins.insert(tk.END, plugin)
 
+        self.root.perceive_plan_control_view.reset()
+
     def update_core_widgets(self):
         self.update_widgets(PerceptionSettings)
         self.update_widgets(PlanningSettings)

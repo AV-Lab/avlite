@@ -174,8 +174,6 @@ class PluginPaths:
     @staticmethod
     def clone_dir(*, private: bool) -> Path:
         """Directory where the plugins app clones on Install."""
-        if PluginPaths.is_dev_mode():
-            return PluginPaths.private_dev_dir() if private else PluginPaths.community_dev_dir()
         return PluginPaths.install_dir()
 
     @staticmethod
@@ -183,8 +181,9 @@ class PluginPaths:
         """Profile YAML value for a newly registered plugin."""
         if PluginPaths.is_dev_mode():
             sub = PRIVATE_DEV_SUBDIR if private else COMMUNITY_DEV_SUBDIR
-            return f"{sub}/{name}"
-        return name
+            path = PluginPaths.repo_root() / sub / name
+            return PluginPaths.normalize_stored(name, str(path))
+        return PluginPaths.normalize_stored(name, str(PluginPaths.install_dir() / name))
 
     @staticmethod
     def load_path(name: str, stored: str = "") -> Path | None:
@@ -196,11 +195,14 @@ class PluginPaths:
     def installed_map() -> dict[str, str]:
         """Map installed community plugin names to profile storage values."""
         result: dict[str, str] = {}
-        roots = (
-            PluginPaths.install_dir(),
-            PluginPaths.community_dev_dir(),
-            PluginPaths.private_dev_dir(),
-        )
+        roots = [PluginPaths.install_dir()]
+        if PluginPaths.is_dev_mode():
+            roots.extend(
+                (
+                    PluginPaths.community_dev_dir(),
+                    PluginPaths.private_dev_dir(),
+                )
+            )
         for root in roots:
             if not root.is_dir():
                 continue
@@ -221,16 +223,27 @@ class PluginPaths:
 
     @staticmethod
     def resolve(name: str, stored: str) -> Path:
-        """Resolve a community plugin install path (name-only, relative, or legacy absolute)."""
+        """Resolve a community plugin install path from profile storage."""
+        install = PluginPaths.install_dir()
+
         if not stored or stored == name:
-            return PluginPaths.install_dir() / name
-        path = Path(stored).expanduser()
-        if path.is_absolute():
-            return path.resolve()
+            direct = install / name
+            return direct.resolve() if direct.is_dir() else direct
+
+        if stored.startswith("~/") or Path(stored).expanduser().is_absolute():
+            path = Path(stored).expanduser().resolve()
+            if path.is_dir():
+                return path
+
         repo_relative = PluginPaths.repo_root() / stored
         if repo_relative.is_dir():
             return repo_relative.resolve()
-        return PluginPaths.install_dir() / stored
+
+        install_by_name = install / name
+        if install_by_name.is_dir():
+            return install_by_name.resolve()
+
+        return install / name
 
     @staticmethod
     def format_display(path: Path | str) -> str:
@@ -261,15 +274,10 @@ class PluginPaths:
 
     @staticmethod
     def normalize_stored(name: str, path_or_stored: str) -> str:
-        """Normalize install locator for YAML: name sentinel, ``~/...``, or absolute."""
+        """Normalize install locator for YAML: ``~/...``, repo-relative, or absolute."""
         if not path_or_stored or path_or_stored == name:
-            return name
+            return PluginPaths.format_display(PluginPaths.install_dir() / name)
         path = Path(path_or_stored).expanduser().resolve()
-        try:
-            path.relative_to(PluginPaths.install_dir())
-            return name
-        except ValueError:
-            pass
         try:
             rel = path.relative_to(PluginPaths.repo_root())
             return rel.as_posix()
@@ -279,7 +287,8 @@ class PluginPaths:
             rel = path.relative_to(Path.home())
             return "~/" + rel.as_posix()
         except ValueError:
-            return str(path)
+            pass
+        return str(path)
 
     @staticmethod
     def normalize_map(plugins: dict[str, str]) -> dict[str, str]:
