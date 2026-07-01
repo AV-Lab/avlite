@@ -709,7 +709,7 @@
 <p>AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.</p>
 <div class="admonition tip">
 <p class="admonition-title">ROS2 &amp; Autoware Ready</p>
-<p>AVLite includes a built-in ROS2 executor plugin (<code>p40_executer_ROS2</code>) with native Autoware message support. Publish and subscribe to <code>autoware_auto_msgs</code> types like Trajectory and ControlCommand out of the box.</p>
+<p>AVLite integrates optional ROS 2 plugins under <code>related-repos/</code> (e.g. <code>avlite-executer-ROS2</code>) with native Autoware message support when installed.</p>
 </div>
 <p><strong>Repository</strong>: <a href="https://github.com/AV-Lab/avlite">github.com/AV-Lab/avlite</a></p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
@@ -736,14 +736,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </s
 <h3 id="optional-integrations">Optional Integrations<a class="headerlink" href="#optional-integrations" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>CARLA</strong>: Install from <a href="https://github.com/carla-simulator/carla/releases">CARLA releases</a></li>
-<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code> for native Autoware message support. The built-in <code>p40_executer_ROS2</code> plugin provides:<ul>
-<li><code>ROSExecuter</code>: Synchronize AVLite with ROS2 ecosystem</li>
-<li><code>PlannerNode</code>: Publishes Autoware Trajectory messages</li>
-<li><code>ControllerNode</code>: Publishes Autoware ControlCommand messages</li>
-<li><code>PerceptionNode</code>: Publishes ego state and tracked objects</li>
-<li>Message converters for seamless Autoware integration</li>
-</ul>
-</li>
+<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code>. Clone <code>related-repos/avlite-executer-ROS2</code>, register it in <code>c40_community_plugins</code>, and set <code>c40_executer_type: ROSExecuter</code> — see <a href="optional-plugins.md">Optional Plugins</a> and <code>related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md</code> in the repository.</li>
 </ul>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <h3 id="1-launch-the-application">1. Launch the Application<a class="headerlink" href="#1-launch-the-application" title="Permanent link">&para;</a></h3>
@@ -854,7 +847,7 @@ Third-party access</strong>.</p>
 </tr>
 <tr>
 <td><strong>c20_planning</strong></td>
-<td>Global planning (<code>GlobalCenterlineRacePlanner</code>, <code>HDMapGlobalPlanner</code>) and local planning (<code>GreedyLatticePlanner</code>, lattice-based)</td>
+<td>Global planning (<code>GlobalCenterlineRacePlanner</code>, <code>HDMapGlobalPlanner</code>) and local planning (<code>VelocityLocalPlanner</code>, <code>GreedyLatticePlanner</code>, lattice-based)</td>
 </tr>
 <tr>
 <td><strong>c30_control</strong></td>
@@ -960,9 +953,9 @@ python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> <
 <h3 id="example-switching-simulators">Example: Switching Simulators<a class="headerlink" href="#example-switching-simulators" title="Permanent link">&para;</a></h3>
 <p>In the GUI Config tab, change the <strong>Bridge</strong> dropdown:
 - <code>BasicSim</code> - Built-in 2D simulation (no external dependencies)
-- <code>CarlaBridge</code> - Connect to a running CARLA simulator (<code>p40_bridge_carla</code> plugin)
-- <code>GazeboIgnitionBridge</code> - Connect to Gazebo Ignition via ROS2 (<code>p40_bridge_gazebo</code> plugin)
-- <code>ROS2WorldBridge</code> - Use a ROS2 topic-based world bridge (<code>p40_bridge_ROS2</code> plugin)</p>
+- <code>CarlaBridge</code> - Connect to a running CARLA simulator (<code>avlite-bridge-carla</code> plugin)
+- <code>GazeboIgnitionBridge</code> - Connect to Gazebo Ignition via ROS2 (<code>avlite-bridge-gazebo</code> plugin)
+- <code>ROS2WorldBridge</code> - Use a ROS2 topic-based world bridge (<code>avlite-bridge-ROS2</code> plugin)</p>
 <h2 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>avlite/
 ├── c10_perception/     # Perception interfaces
@@ -971,19 +964,21 @@ python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> <
 ├── c40_execution/      # Execution and bridges
 ├── c50_visualization/  # GUI components
 ├── c60_common/         # Shared utilities
-└── plugins/            # Built-in plugins
-    ├── p10_perception_MO_prediction/
-    ├── p30_controller_joystick/
-    ├── p40_bridge_carla/       # CARLA simulator bridge
-    ├── p40_bridge_gazebo/      # Gazebo Ignition bridge
-    ├── p40_bridge_ROS2/        # ROS2 world bridge
-    ├── p40_executer_ROS2/      # ROS2 executor with Autoware msgs
+└── plugins/            # Built-in plugins (headless mode only)
     └── p50_headless_mode/
+
+related-repos/          # Optional plugins (see related-repos/README.md)
+    ├── avlite-bridge-carla/
+    ├── avlite-bridge-gazebo/
+    ├── avlite-bridge-ROS2/
+    ├── avlite-controller-joystick/
+    └── avlite-executer-ROS2/
 </code></pre></div>
 <p>Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="architecture/">Architecture</a> - System design and patterns</li>
+<li><a href="optional-plugins.md">Optional Plugins</a> - Related-repo bridges, ROS executer, joystick</li>
 <li><a href="plugin-development/">Plugin Development</a> - Create custom components</li>
 </ul>
 <h2 id="support">Support<a class="headerlink" href="#support" title="Permanent link">&para;</a></h2>

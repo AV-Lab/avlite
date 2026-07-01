@@ -700,7 +700,7 @@
 <h3 id="control"><strong>Control</strong><a class="headerlink" href="#control" title="Permanent link">&para;</a></h3>
 <p>Vehicle control strategies (Stanley, PID) output throttle/brake and steering.</p>
 <h3 id="execution"><strong>Execution</strong><a class="headerlink" href="#execution" title="Permanent link">&para;</a></h3>
-<p>World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. Built-in bridges include BasicSim, CARLA, Gazebo, and ROS2 (via plugins).</p>
+<p>World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. Built-in bridges include BasicSim; CARLA, Gazebo, and ROS2 bridges ship as optional plugins under <code>related-repos/</code>. For a multiprocess ROS deployment with worker nodes and Autoware topics, use <code>c40_executer_type: ROSExecuter</code> with <code>avlite-executer-ROS2</code> — see <a href="optional-plugins.md">Optional Plugins</a>.</p>
 <h3 id="visualization"><strong>Visualization</strong><a class="headerlink" href="#visualization" title="Permanent link">&para;</a></h3>
 <p>Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.</p>
 <h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
@@ -735,13 +735,14 @@
 <h2 id="plugin-system">Plugin System<a class="headerlink" href="#plugin-system" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>avlite/
 └── plugins/              # Built-in (core team)
-    ├── p10_perception_MO_prediction/
-    ├── p30_controller_joystick/
-    ├── p40_bridge_carla/
-    ├── p40_bridge_gazebo/
-    ├── p40_bridge_ROS2/
-    ├── p40_executer_ROS2/
     └── p50_headless_mode/
+
+related-repos/            # Optional plugins (bridges, ROS executer, joystick)
+    ├── avlite-bridge-carla/
+    ├── avlite-bridge-gazebo/
+    ├── avlite-bridge-ROS2/
+    ├── avlite-controller-joystick/
+    └── avlite-executer-ROS2/
 
 ~/.local/share/avlite/plugins/   # Community (installed)
 └── my_plugin/
