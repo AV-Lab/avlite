@@ -14,7 +14,7 @@ from avlite.c40_execution.c43_factory import StackSettingsSync, load_stack_setti
 from avlite.c50_visualization.c59_settings import get_stack_settings_classes
 from avlite.c50_visualization.c58_ui_lib import DataPicker, UiAssets
 from avlite.c60_common.c67_paths import ConfigPaths, DataPaths, PluginPaths
-from avlite.c60_common.c69_setting_utils import export_profile, import_profile
+from avlite.c60_common.c69_setting_utils import export_profile, import_profile, order_profiles_for_dropdown
 from avlite.plugins.p50_headless_mode.p52_config_cli import cmd_export_profile, cmd_import_profile
 
 REPO_EXEC = Path(__file__).resolve().parents[2] / "configs" / "c40_execution.yaml"
@@ -84,19 +84,102 @@ def test_resolve_plugin_path_legacy_absolute(tmp_path):
     assert PluginPaths.resolve("dev_plugin", str(legacy)) == legacy
 
 
-def test_resolve_plugin_path_repo_relative():
+def test_resolve_plugin_path_repo_relative(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "community-plugins" / "avlite-executer-ROS2"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     resolved = PluginPaths.resolve(
-        "avlite-executer-ROS2", "related-repos/avlite-executer-ROS2"
+        "avlite-executer-ROS2", "community-plugins/avlite-executer-ROS2"
     )
     assert resolved.is_dir()
     assert resolved.name == "avlite-executer-ROS2"
 
 
-def test_normalize_stored_repo_relative():
+def test_normalize_stored_repo_relative(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "community-plugins" / "avlite-executer-ROS2"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     stored = PluginPaths.normalize_stored(
+        "avlite-executer-ROS2", str(plugin_dir)
+    )
+    assert stored == "community-plugins/avlite-executer-ROS2"
+
+
+def test_dev_mode_preference_round_trip(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    assert not PluginPaths.is_dev_mode()
+    PluginPaths.set_dev_mode(True)
+    assert PluginPaths.is_dev_mode()
+    PluginPaths.set_dev_mode(False)
+    assert not PluginPaths.is_dev_mode()
+
+
+def test_clone_dir_dev_mode(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+
+    PluginPaths.set_dev_mode(False)
+    assert PluginPaths.clone_dir(private=False) == (tmp_path / "plugins").resolve()
+    assert PluginPaths.clone_dir(private=True) == (tmp_path / "plugins").resolve()
+
+    PluginPaths.set_dev_mode(True)
+    assert PluginPaths.clone_dir(private=False) == (repo_root / "community-plugins").resolve()
+    assert PluginPaths.clone_dir(private=True) == (repo_root / "avlite-private-plugins").resolve()
+
+
+def test_register_stored_path_dev_mode(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+
+    PluginPaths.set_dev_mode(False)
+    assert PluginPaths.register_stored_path("foo", private=False) == "foo"
+    assert PluginPaths.register_stored_path("bar", private=True) == "bar"
+
+    PluginPaths.set_dev_mode(True)
+    assert PluginPaths.register_stored_path("foo", private=False) == "community-plugins/foo"
+    assert PluginPaths.register_stored_path("bar", private=True) == "avlite-private-plugins/bar"
+
+
+def test_load_path_community_dev_dir(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "community-plugins" / "my_plugin"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+
+    loaded = PluginPaths.load_path("my_plugin", "community-plugins/my_plugin")
+    assert loaded == plugin_dir.resolve()
+    assert PluginPaths.load_path("missing", "community-plugins/missing") is None
+
+
+def test_load_path_install_dir(monkeypatch, tmp_path):
+    plugins_dir = tmp_path / "plugins"
+    plugin_dir = plugins_dir / "my_plugin"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(plugins_dir))
+
+    loaded = PluginPaths.load_path("my_plugin", "my_plugin")
+    assert loaded == plugin_dir.resolve()
+
+
+def test_resolve_plugin_path_legacy_related_repos(monkeypatch, tmp_path):
+    """Legacy related-repos/ paths still resolve."""
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "related-repos" / "avlite-executer-ROS2"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    resolved = PluginPaths.resolve(
         "avlite-executer-ROS2", "related-repos/avlite-executer-ROS2"
     )
-    assert stored == "related-repos/avlite-executer-ROS2"
+    assert resolved.is_dir()
+    assert resolved.name == "avlite-executer-ROS2"
 
 
 def test_resolve_plugin_path_tilde_home(monkeypatch, tmp_path):
@@ -270,6 +353,22 @@ def test_apply_map_selection_race_json_sets_lidar_boundary():
     StackSettingsSync.apply_map_selection(path)
     assert ExecutionSettings.c43_race_boundary_map == path
     assert ExecutionSettings.c46_lidar_boundary_file == path
+
+
+def test_order_profiles_for_dropdown_puts_default_first():
+    assert order_profiles_for_dropdown(["Carla_Town10", "default", "ros"]) == [
+        "default",
+        "Carla_Town10",
+        "ros",
+    ]
+
+
+def test_order_profiles_for_dropdown_without_default():
+    assert order_profiles_for_dropdown(["ros", "SAN"]) == ["ros", "SAN"]
+
+
+def test_order_profiles_for_dropdown_empty():
+    assert order_profiles_for_dropdown([]) == []
 
 
 def test_get_startup_profile_missing(monkeypatch, tmp_path):

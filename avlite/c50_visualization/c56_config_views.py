@@ -23,6 +23,7 @@ from avlite.c60_common.c69_setting_utils import (
     import_profile,
     list_profiles,
     load_setting,
+    order_profiles_for_dropdown,
     rename_setting_profile,
     save_setting,
 )
@@ -74,7 +75,7 @@ def _refresh_profile_dropdowns(win: "SettingWindow", *, select: str | None = Non
     else:
         current = win.root.setting.selected_profile.get()
         if current not in profiles:
-            current = "default" if "default" in profiles else (profiles[0] if profiles else "default")
+            current = profiles[0] if profiles else "default"
             win.root.setting.selected_profile.set(current)
     if win.root.setting.next_profile.get() not in profiles:
         win.root.setting.next_profile.set(current)
@@ -755,6 +756,7 @@ class SettingWindow:
         log.info(f"Creating profile: {text}")
         self.root.setting.selected_profile.set(text)
         self.root.setting.profile_list.append(text)
+        self.root.setting.profile_list = order_profiles_for_dropdown(self.root.setting.profile_list)
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.root.config_shortcut_view.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
@@ -879,11 +881,8 @@ class SettingWindow:
                     except Exception as e:
                         log.error(f"Failed to delete plugin settings for {plugin}: {e}")
 
-            self.root.setting.profile_list.remove(self.root.setting.selected_profile.get())
-            self.profile_dropdown_menu["values"] = self.root.setting.profile_list
-            self.root.config_shortcut_view.profile_dropdown_menu["values"] = self.root.setting.profile_list
-            self.root.setting.selected_profile.set("default")  
-            self.load_profile("default")
+            profile = _refresh_profile_dropdowns(self, select="default")
+            self.load_profile(profile)
 
 
 
@@ -921,6 +920,7 @@ class SettingWindow:
 
         idx = self.root.setting.profile_list.index(old_name)
         self.root.setting.profile_list[idx] = new_name
+        self.root.setting.profile_list = order_profiles_for_dropdown(self.root.setting.profile_list)
         self.root.setting.selected_profile.set(new_name)
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
