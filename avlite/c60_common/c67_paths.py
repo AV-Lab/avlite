@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 
 DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
+COMMUNITY_DEV_SUBDIR = "avlite-community-plugins"
+PRIVATE_DEV_SUBDIR = "avlite-private-plugins"
 
 
 class ConfigPaths:
@@ -48,6 +50,19 @@ class ConfigPaths:
         (ConfigPaths._user_meta_dir() / "config_target").write_text(value + "\n", encoding="utf-8")
 
     @staticmethod
+    def is_community_plugin_settings_basename(basename: str) -> bool:
+        """True for ``plugin_*.yaml`` belonging to community/member plugins (not built-in)."""
+        prefix = "plugin_"
+        suffix = ".yaml"
+        if not basename.startswith(prefix) or not basename.endswith(suffix):
+            return False
+        plugin_name = basename[len(prefix) : -len(suffix)]
+        from avlite.c60_common.c66_plugins import list_plugins, plugin_import_name
+
+        builtin = {plugin_import_name(p) for p in list_plugins()}
+        return plugin_import_name(plugin_name) not in builtin
+
+    @staticmethod
     def effective_path(stored_filepath: str, *, for_write: bool = False) -> str:
         """Resolve a settings filepath: user config dir for writes; user if present else repo for reads."""
         path = Path(stored_filepath)
@@ -58,6 +73,11 @@ class ConfigPaths:
         name = path.name
         user = ConfigPaths.user_dir() / name
         repo = ConfigPaths.bundled_dir() / name
+        if ConfigPaths.is_community_plugin_settings_basename(name):
+            if for_write:
+                ConfigPaths.user_dir().mkdir(parents=True, exist_ok=True)
+                return str(user)
+            return str(user if user.is_file() else repo)
         if ConfigPaths.is_repo_target() and ConfigPaths.can_edit_bundled():
             bundled = ConfigPaths.bundled_dir() / name
             if for_write:
@@ -129,16 +149,70 @@ class PluginPaths:
         return (base / DEFAULT_PLUGINS_SUBDIR).resolve()
 
     @staticmethod
+    def community_dev_dir() -> Path:
+        """Repo-local dev checkout directory for community plugins."""
+        return (PluginPaths.repo_root() / COMMUNITY_DEV_SUBDIR).resolve()
+
+    @staticmethod
+    def private_dev_dir() -> Path:
+        """Repo-local dev checkout directory for member/private plugins."""
+        return (PluginPaths.repo_root() / PRIVATE_DEV_SUBDIR).resolve()
+
+    @staticmethod
+    def is_dev_mode() -> bool:
+        path = ConfigPaths._user_meta_dir() / "plugin_dev_mode"
+        if not path.is_file():
+            return False
+        return path.read_text(encoding="utf-8").strip() == "1"
+
+    @staticmethod
+    def set_dev_mode(enabled: bool) -> None:
+        ConfigPaths._user_meta_dir().mkdir(parents=True, exist_ok=True)
+        value = "1" if enabled else "0"
+        (ConfigPaths._user_meta_dir() / "plugin_dev_mode").write_text(value + "\n", encoding="utf-8")
+
+    @staticmethod
+    def clone_dir(*, private: bool) -> Path:
+        """Directory where the plugins app clones on Install."""
+        if PluginPaths.is_dev_mode():
+            return PluginPaths.private_dev_dir() if private else PluginPaths.community_dev_dir()
+        return PluginPaths.install_dir()
+
+    @staticmethod
+    def register_stored_path(name: str, *, private: bool) -> str:
+        """Profile YAML value for a newly registered plugin."""
+        if PluginPaths.is_dev_mode():
+            sub = PRIVATE_DEV_SUBDIR if private else COMMUNITY_DEV_SUBDIR
+            return f"{sub}/{name}"
+        return name
+
+    @staticmethod
+    def load_path(name: str, stored: str = "") -> Path | None:
+        """Resolved plugin directory if it exists."""
+        path = PluginPaths.resolve(name, stored or name)
+        return path.resolve() if path.is_dir() else None
+
+    @staticmethod
     def installed_map() -> dict[str, str]:
         """Map installed community plugin names to profile storage values."""
-        plugins_dir = PluginPaths.install_dir()
-        if not plugins_dir.is_dir():
-            return {}
-        return {
-            entry.name: entry.name
-            for entry in sorted(plugins_dir.iterdir())
-            if entry.is_dir() and not entry.name.startswith(".")
-        }
+        result: dict[str, str] = {}
+        roots = (
+            PluginPaths.install_dir(),
+            PluginPaths.community_dev_dir(),
+            PluginPaths.private_dev_dir(),
+        )
+        for root in roots:
+            if not root.is_dir():
+                continue
+            for entry in sorted(root.iterdir()):
+                if not entry.is_dir() or entry.name.startswith("."):
+                    continue
+                if entry.name in result:
+                    continue
+                result[entry.name] = PluginPaths.normalize_stored(
+                    entry.name, str(entry.resolve())
+                )
+        return result
 
     @staticmethod
     def repo_root() -> Path:

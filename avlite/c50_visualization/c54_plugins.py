@@ -40,7 +40,12 @@ from avlite.c50_visualization.c58_ui_lib import (
     scaled_font,
     setup_dpi,
 )
-from avlite.c60_common.c67_paths import ConfigPaths, PluginPaths
+from avlite.c60_common.c67_paths import (
+    COMMUNITY_DEV_SUBDIR,
+    PRIVATE_DEV_SUBDIR,
+    ConfigPaths,
+    PluginPaths,
+)
 
 log = logging.getLogger(__name__)
 
@@ -541,16 +546,24 @@ class _PluginOperations:
         return "default"
 
     @staticmethod
-    def register_in_profile(name: str, path: Path, profile: Optional[str] = None) -> None:
+    def register_in_profile(
+        name: str,
+        path: Path,
+        profile: Optional[str] = None,
+        *,
+        private: bool = False,
+    ) -> None:
         """Add ``name -> path`` to ``ExecutionSettings.c40_community_plugins`` and persist."""
         from avlite.c40_execution.c49_settings import ExecutionSettings
         from avlite.c60_common.c69_setting_utils import load_setting, save_setting
 
         profile = profile or _PluginOperations._current_profile()
         load_setting(ExecutionSettings, profile=profile)
-        ExecutionSettings.c40_community_plugins[name] = PluginPaths.normalize_stored(
-            name, str(path)
-        )
+        if PluginPaths.is_dev_mode():
+            stored = PluginPaths.register_stored_path(name, private=private)
+        else:
+            stored = PluginPaths.normalize_stored(name, str(path))
+        ExecutionSettings.c40_community_plugins[name] = stored
         save_setting(ExecutionSettings, profile=profile)
         log.info("Registered plugin '%s' in profile '%s'", name, profile)
 
@@ -886,7 +899,7 @@ class _PluginDetailsWindow:
     def _sync_action_buttons(self) -> None:
         busy = self.app._busy
         available = self.status == "Available" and self.registry_entry is not None
-        installed = self.status.startswith("Installed")
+        installed = self.status.startswith("Installed") or self.status.startswith("Active")
         has_update = (
             installed
             and self.app._update_statuses.get(self.name) == "update-available"
@@ -1028,6 +1041,13 @@ class _PluginDetailsWindow:
 # ---------------------------------------------------------------------------
 # UI
 # ---------------------------------------------------------------------------
+_UPDATE_STATUS_LABELS = {
+    "up-to-date": "Up to date \u2713",
+    "update-available": "Update \u2191",
+    "unknown": "\u2014",
+}
+
+
 class _PluginRegistryPanel(ttk.Frame):
     """One registry tab: community or private AV-Lab plugins."""
 
@@ -1050,7 +1070,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._host = host
         self._dpi_scale = dpi_scale
         self._on_close = on_close
-        self.plugins_dir = PluginPaths.install_dir()
+        self.plugins_dir = PluginPaths.clone_dir(private=self._private)
         self._busy = False
         self._registry: list[dict] = []
         self._update_statuses: dict[str, str] = {}
@@ -1114,7 +1134,7 @@ class _PluginRegistryPanel(ttk.Frame):
             "version": ("Version", 70),
             "status": ("Status", 120),
             "update_status": ("Update", 100),
-            "path": ("Repository / Path", 220),
+            "path": ("Path", 220),
         }
         s = self._dpi_scale
         for col, (label, width) in headings.items():
@@ -1221,15 +1241,24 @@ class _PluginRegistryPanel(ttk.Frame):
     def _auth_token(self) -> Optional[str]:
         return self._token if self._private else None
 
+    def refresh_clone_dir(self) -> None:
+        self.plugins_dir = PluginPaths.clone_dir(private=self._private)
+
+    @staticmethod
+    def _format_update_status(result: Optional[str]) -> str:
+        if result is None:
+            return "Checking\u2026"
+        return _UPDATE_STATUS_LABELS.get(result, "\u2014")
+
     # -- Population ------------------------------------------------------
     def _populate(self) -> None:
-        def _registered_names() -> set[str]:
+        def _registered_plugins() -> dict[str, str]:
             try:
                 from avlite.c40_execution.c49_settings import ExecutionSettings
 
-                return set(ExecutionSettings.c40_community_plugins.keys())
+                return dict(ExecutionSettings.c40_community_plugins)
             except Exception:
-                return set()
+                return {}
 
         def _fmt_category(category) -> str:
             if isinstance(category, list):
@@ -1241,22 +1270,38 @@ class _PluginRegistryPanel(ttk.Frame):
             self._update_buttons()
             return
         installed = {p["name"]: p for p in _PluginOperations.list_installed(self.plugins_dir)}
-        registry_by_name = {e["name"]: e for e in self._registry}
-        registered = _registered_names()
+        registered_plugins = _registered_plugins()
+        registered = set(registered_plugins.keys())
 
         # Registry entries (Available or Installed)
         for entry in self._registry:
             name = entry["name"]
             inst = installed.pop(name, None)
-            if inst is not None:
+            stored = registered_plugins.get(name)
+            load = (
+                PluginPaths.load_path(name, stored)
+                if name in registered
+                else None
+            )
+            if load is None and inst is not None:
+                load = inst["path"]
+
+            if name in registered and load is not None:
+                status = "Active ✓"
+            elif inst is not None:
                 status = "Installed"
                 if name in registered:
                     status += " ✓"
-                path = str(inst["path"])
             else:
                 status = "Available"
+
+            if load is not None:
+                path = PluginPaths.format_display(load)
+            else:
                 path = entry.get("repository", "")
-            up_st = self._update_statuses.get(name, "Checking…") if inst is not None else ""
+
+            has_local = inst is not None or load is not None
+            up_st = self._format_update_status(self._update_statuses.get(name)) if has_local else ""
             self.tree.insert(
                 "",
                 tk.END,
@@ -1298,7 +1343,15 @@ class _PluginRegistryPanel(ttk.Frame):
             return None
         entry = next((e for e in self._registry if e["name"] == name), None)
         install_path = None
-        if status.startswith("Installed"):
+        try:
+            from avlite.c40_execution.c49_settings import ExecutionSettings
+
+            stored = ExecutionSettings.c40_community_plugins.get(name)
+            if stored is not None:
+                install_path = PluginPaths.load_path(name, stored)
+        except Exception:
+            stored = None
+        if install_path is None:
             installed = {p["name"]: p for p in _PluginOperations.list_installed(self.plugins_dir)}
             inst = installed.get(name)
             if inst is not None:
@@ -1321,7 +1374,9 @@ class _PluginRegistryPanel(ttk.Frame):
     def _update_buttons(self) -> None:
         sel = self._selected_entry()
         ctx = self._selected_plugin_context()
-        installed = sel is not None and sel[1].startswith("Installed")
+        installed = sel is not None and (
+            sel[1].startswith("Installed") or sel[1].startswith("Active")
+        )
         available = sel is not None and sel[1] == "Available"
         busy = self._busy
         signed_in = self._signed_in()
@@ -1474,12 +1529,7 @@ class _PluginRegistryPanel(ttk.Frame):
         except tk.TclError:
             return
         self._update_statuses[name] = result
-        label_map = {
-            "up-to-date": "Up to date \u2713",
-            "update-available": "Update \u2191",
-            "unknown": "\u2014",
-        }
-        label = label_map.get(result, "\u2014")
+        label = self._format_update_status(result)
         try:
             if self.tree.exists(name):
                 self.tree.set(name, "update_status", label)
@@ -1491,7 +1541,9 @@ class _PluginRegistryPanel(ttk.Frame):
     def _on_update(self) -> None:
         """Update the currently selected plugin."""
         sel = self._selected_entry()
-        if not sel or not sel[1].startswith("Installed"):
+        if not sel or not (
+            sel[1].startswith("Installed") or sel[1].startswith("Active")
+        ):
             return
         name = sel[0]
         if self._update_statuses.get(name) != "update-available":
@@ -1595,7 +1647,9 @@ class _PluginRegistryPanel(ttk.Frame):
 
         def task():
             path = _PluginOperations.install_plugin(entry, self.plugins_dir, token=self._auth_token())
-            _PluginOperations.register_in_profile(name, path, profile=profile)
+            _PluginOperations.register_in_profile(
+                name, path, profile=profile, private=self._private
+            )
             return path
 
         def done(path, err):
@@ -1665,6 +1719,15 @@ class _PluginRegistryPanel(ttk.Frame):
             parent=parent,
         ):
             return
+        from avlite.c60_common.c69_setting_utils import dev_mode_uninstall_warning
+
+        warning = dev_mode_uninstall_warning(self.plugins_dir, name)
+        if warning and not messagebox.askyesno(
+            "Uninstall plugin",
+            warning + "\n\nContinue uninstall?",
+            parent=parent,
+        ):
+            return
         profile = self._active_profile()
         self._set_busy(True, f"Uninstalling {name}…")
 
@@ -1687,7 +1750,9 @@ class _PluginRegistryPanel(ttk.Frame):
 
     def _on_uninstall(self) -> None:
         sel = self._selected_entry()
-        if not sel or not sel[1].startswith("Installed"):
+        if not sel or not (
+            sel[1].startswith("Installed") or sel[1].startswith("Active")
+        ):
             return
         self._uninstall_plugin(sel[0])
 
@@ -1781,11 +1846,59 @@ class CommunityPluginsApp:
         )
         self._private_panel.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(
-            outer,
-            text=f"Plugins directory: {PluginPaths.install_dir()}",
-            foreground="#666",
-        ).pack(anchor=tk.W, pady=(6, 0))
+        footer_row = ttk.Frame(outer)
+        footer_row.pack(fill=tk.X, pady=(6, 0))
+        footer_row.columnconfigure(0, weight=1)
+        footer_row.columnconfigure(1, weight=0)
+
+        self._footer_label = ttk.Label(footer_row, foreground="#666")
+        self._footer_label.grid(row=0, column=0, sticky="w")
+        self._update_footer()
+
+        self._dev_mode = tk.BooleanVar(value=PluginPaths.is_dev_mode())
+        dev_style = ttk.Style(self.window)
+        frame_bg = dev_style.lookup("TFrame", "background") or ""
+        dev_style.configure("PluginsDev.TCheckbutton", foreground="#888")
+        dev_style.map(
+            "PluginsDev.TCheckbutton",
+            foreground=[
+                ("disabled", "#666"),
+                ("active", "#aaa"),
+                ("selected", "#888"),
+            ],
+            background=[("active", frame_bg), ("selected", frame_bg)] if frame_bg else [],
+            indicatorcolor=[("selected", "#888"), ("active", "#aaa")] if frame_bg else [],
+        )
+        self._dev_mode_cb = ttk.Checkbutton(
+            footer_row,
+            text="Dev mode",
+            variable=self._dev_mode,
+            command=self._on_dev_mode_toggle,
+            style="PluginsDev.TCheckbutton",
+        )
+        self._dev_mode_cb.grid(row=0, column=1, sticky="e", padx=(8, 0))
+        attach_tooltip(
+            self._dev_mode_cb,
+            "Clone and register plugins under repo checkout dirs ("
+            f"{PluginPaths.format_display(PluginPaths.community_dev_dir())} | "
+            f"{PluginPaths.format_display(PluginPaths.private_dev_dir())})",
+        )
+
+    def _footer_text(self) -> str:
+        if PluginPaths.is_dev_mode():
+            return f"Dev mode: {COMMUNITY_DEV_SUBDIR}/ | {PRIVATE_DEV_SUBDIR}/"
+        return f"Install location: {PluginPaths.format_display(PluginPaths.install_dir())}"
+
+    def _update_footer(self) -> None:
+        self._footer_label.config(text=self._footer_text())
+
+    def _on_dev_mode_toggle(self) -> None:
+        PluginPaths.set_dev_mode(bool(self._dev_mode.get()))
+        self._community_panel.refresh_clone_dir()
+        self._private_panel.refresh_clone_dir()
+        self._update_footer()
+        self._community_panel._populate()
+        self._private_panel._populate()
 
     def _on_close(self) -> None:
         CommunityPluginsApp._instance = None

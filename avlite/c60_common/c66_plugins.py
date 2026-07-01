@@ -310,12 +310,14 @@ def _match_community_plugin_dir(import_seg: str, parent: Path) -> Path | None:
 
 def find_community_plugin_dir(import_seg: str) -> Path | None:
     """Map a Python import segment back to a community plugin install directory."""
-    found = _match_community_plugin_dir(import_seg, PluginPaths.install_dir())
-    if found is not None:
-        return found
-    found = _match_community_plugin_dir(import_seg, PluginPaths.repo_root() / "related-repos")
-    if found is not None:
-        return found
+    for root in (
+        PluginPaths.install_dir(),
+        PluginPaths.community_dev_dir(),
+        PluginPaths.private_dev_dir(),
+    ):
+        found = _match_community_plugin_dir(import_seg, root)
+        if found is not None:
+            return found
     for name, stored in _community_plugins_from_execution_yaml().items():
         if plugin_import_name(name) == import_seg:
             path = PluginPaths.resolve(name, stored)

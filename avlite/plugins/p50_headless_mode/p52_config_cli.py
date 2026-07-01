@@ -134,9 +134,12 @@ def cmd_export_profile(args: argparse.Namespace) -> int:
     output = args.output or f"{args.profile}.zip"
     try:
         from avlite.c40_execution.c49_settings import ExecutionSettings
-        from avlite.c60_common.c69_setting_utils import load_setting
+        from avlite.c60_common.c69_setting_utils import dev_mode_export_warning, load_setting
 
         load_setting(ExecutionSettings, profile=args.profile)
+        warning = dev_mode_export_warning(ExecutionSettings.c40_community_plugins)
+        if warning:
+            print(warning, file=sys.stderr)
         count = export_profile(
             args.profile,
             output,

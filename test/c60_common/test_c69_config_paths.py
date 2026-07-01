@@ -13,8 +13,20 @@ from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c40_execution.c43_factory import StackSettingsSync, load_stack_settings
 from avlite.c50_visualization.c59_settings import get_stack_settings_classes
 from avlite.c50_visualization.c58_ui_lib import DataPicker, UiAssets
-from avlite.c60_common.c67_paths import ConfigPaths, DataPaths, PluginPaths
-from avlite.c60_common.c69_setting_utils import export_profile, import_profile, order_profiles_for_dropdown
+from avlite.c60_common.c67_paths import (
+    COMMUNITY_DEV_SUBDIR,
+    PRIVATE_DEV_SUBDIR,
+    ConfigPaths,
+    DataPaths,
+    PluginPaths,
+)
+from avlite.c60_common.c69_setting_utils import (
+    dev_mode_export_warning,
+    dev_mode_uninstall_warning,
+    export_profile,
+    import_profile,
+    order_profiles_for_dropdown,
+)
 from avlite.plugins.p50_headless_mode.p52_config_cli import cmd_export_profile, cmd_import_profile
 
 REPO_EXEC = Path(__file__).resolve().parents[2] / "configs" / "c40_execution.yaml"
@@ -72,9 +84,32 @@ def test_resolve_plugin_path_name_only(monkeypatch, tmp_path):
 
 
 def test_installed_community_plugins_map(monkeypatch, tmp_path):
-    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path))
-    (tmp_path / "foo").mkdir()
-    (tmp_path / ".hidden").mkdir()
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    install_dir = tmp_path / "plugins"
+    (install_dir / "foo").mkdir(parents=True)
+    (install_dir / ".hidden").mkdir()
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(install_dir))
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    assert PluginPaths.installed_map() == {"foo": "foo"}
+
+
+def test_installed_map_includes_dev_checkout_dirs(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "avlite-community-plugins" / "foo"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "empty_plugins"))
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    assert PluginPaths.installed_map() == {"foo": "avlite-community-plugins/foo"}
+
+
+def test_installed_map_install_dir_takes_priority(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    install_dir = tmp_path / "plugins"
+    (install_dir / "foo").mkdir(parents=True)
+    (repo_root / "avlite-community-plugins" / "foo").mkdir(parents=True)
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(install_dir))
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     assert PluginPaths.installed_map() == {"foo": "foo"}
 
 
@@ -86,11 +121,11 @@ def test_resolve_plugin_path_legacy_absolute(tmp_path):
 
 def test_resolve_plugin_path_repo_relative(monkeypatch, tmp_path):
     repo_root = tmp_path / "repo"
-    plugin_dir = repo_root / "community-plugins" / "avlite-executer-ROS2"
+    plugin_dir = repo_root / "avlite-community-plugins" / "avlite-executer-ROS2"
     plugin_dir.mkdir(parents=True)
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     resolved = PluginPaths.resolve(
-        "avlite-executer-ROS2", "community-plugins/avlite-executer-ROS2"
+        "avlite-executer-ROS2", "avlite-community-plugins/avlite-executer-ROS2"
     )
     assert resolved.is_dir()
     assert resolved.name == "avlite-executer-ROS2"
@@ -98,13 +133,13 @@ def test_resolve_plugin_path_repo_relative(monkeypatch, tmp_path):
 
 def test_normalize_stored_repo_relative(monkeypatch, tmp_path):
     repo_root = tmp_path / "repo"
-    plugin_dir = repo_root / "community-plugins" / "avlite-executer-ROS2"
+    plugin_dir = repo_root / "avlite-community-plugins" / "avlite-executer-ROS2"
     plugin_dir.mkdir(parents=True)
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     stored = PluginPaths.normalize_stored(
         "avlite-executer-ROS2", str(plugin_dir)
     )
-    assert stored == "community-plugins/avlite-executer-ROS2"
+    assert stored == "avlite-community-plugins/avlite-executer-ROS2"
 
 
 def test_dev_mode_preference_round_trip(monkeypatch, tmp_path):
@@ -115,6 +150,86 @@ def test_dev_mode_preference_round_trip(monkeypatch, tmp_path):
     assert PluginPaths.is_dev_mode()
     PluginPaths.set_dev_mode(False)
     assert not PluginPaths.is_dev_mode()
+
+
+def test_dev_mode_export_warning_none_when_off(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    PluginPaths.set_dev_mode(False)
+    assert dev_mode_export_warning({"foo": "foo"}) is None
+
+
+def test_dev_mode_export_warning_when_on(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    PluginPaths.set_dev_mode(True)
+    warning = dev_mode_export_warning({})
+    assert warning is not None
+    assert COMMUNITY_DEV_SUBDIR in warning
+    assert PRIVATE_DEV_SUBDIR in warning
+    assert "target machine" in warning.lower()
+
+
+def test_dev_mode_export_warning_lists_missing_plugins(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    PluginPaths.set_dev_mode(True)
+    warning = dev_mode_export_warning(
+        {
+            "installed": "installed",
+            "missing": "avlite-community-plugins/missing",
+        }
+    )
+    assert warning is not None
+    assert "missing" in warning
+    (tmp_path / "plugins" / "installed").mkdir(parents=True)
+    warning2 = dev_mode_export_warning(
+        {
+            "installed": "installed",
+            "missing": "avlite-community-plugins/missing",
+        }
+    )
+    assert "missing" in warning2
+    assert "installed" not in warning2.split("Plugins not found locally:")[-1]
+
+
+def test_dev_mode_uninstall_warning_none_when_off(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    PluginPaths.set_dev_mode(False)
+    dev_dir = PluginPaths.community_dev_dir()
+    assert dev_mode_uninstall_warning(dev_dir, "foo") is None
+
+
+def test_dev_mode_uninstall_warning_none_for_install_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    PluginPaths.set_dev_mode(True)
+    install_dir = PluginPaths.install_dir()
+    assert dev_mode_uninstall_warning(install_dir, "foo") is None
+
+
+def test_dev_mode_uninstall_warning_when_dev_checkout(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    PluginPaths.set_dev_mode(True)
+    dev_dir = PluginPaths.community_dev_dir()
+    warning = dev_mode_uninstall_warning(dev_dir, "my_plugin")
+    assert warning is not None
+    assert "permanently delete" in warning.lower()
+    assert "commit" in warning.lower()
+    assert "my_plugin" in warning
 
 
 def test_clone_dir_dev_mode(monkeypatch, tmp_path):
@@ -130,7 +245,7 @@ def test_clone_dir_dev_mode(monkeypatch, tmp_path):
     assert PluginPaths.clone_dir(private=True) == (tmp_path / "plugins").resolve()
 
     PluginPaths.set_dev_mode(True)
-    assert PluginPaths.clone_dir(private=False) == (repo_root / "community-plugins").resolve()
+    assert PluginPaths.clone_dir(private=False) == (repo_root / "avlite-community-plugins").resolve()
     assert PluginPaths.clone_dir(private=True) == (repo_root / "avlite-private-plugins").resolve()
 
 
@@ -143,20 +258,20 @@ def test_register_stored_path_dev_mode(monkeypatch, tmp_path):
     assert PluginPaths.register_stored_path("bar", private=True) == "bar"
 
     PluginPaths.set_dev_mode(True)
-    assert PluginPaths.register_stored_path("foo", private=False) == "community-plugins/foo"
+    assert PluginPaths.register_stored_path("foo", private=False) == "avlite-community-plugins/foo"
     assert PluginPaths.register_stored_path("bar", private=True) == "avlite-private-plugins/bar"
 
 
 def test_load_path_community_dev_dir(monkeypatch, tmp_path):
     repo_root = tmp_path / "repo"
-    plugin_dir = repo_root / "community-plugins" / "my_plugin"
+    plugin_dir = repo_root / "avlite-community-plugins" / "my_plugin"
     plugin_dir.mkdir(parents=True)
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
 
-    loaded = PluginPaths.load_path("my_plugin", "community-plugins/my_plugin")
+    loaded = PluginPaths.load_path("my_plugin", "avlite-community-plugins/my_plugin")
     assert loaded == plugin_dir.resolve()
-    assert PluginPaths.load_path("missing", "community-plugins/missing") is None
+    assert PluginPaths.load_path("missing", "avlite-community-plugins/missing") is None
 
 
 def test_load_path_install_dir(monkeypatch, tmp_path):
@@ -167,19 +282,6 @@ def test_load_path_install_dir(monkeypatch, tmp_path):
 
     loaded = PluginPaths.load_path("my_plugin", "my_plugin")
     assert loaded == plugin_dir.resolve()
-
-
-def test_resolve_plugin_path_legacy_related_repos(monkeypatch, tmp_path):
-    """Legacy related-repos/ paths still resolve."""
-    repo_root = tmp_path / "repo"
-    plugin_dir = repo_root / "related-repos" / "avlite-executer-ROS2"
-    plugin_dir.mkdir(parents=True)
-    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
-    resolved = PluginPaths.resolve(
-        "avlite-executer-ROS2", "related-repos/avlite-executer-ROS2"
-    )
-    assert resolved.is_dir()
-    assert resolved.name == "avlite-executer-ROS2"
 
 
 def test_resolve_plugin_path_tilde_home(monkeypatch, tmp_path):
@@ -414,6 +516,74 @@ def test_effective_config_path_repo_target_write(monkeypatch, tmp_path):
     ConfigPaths.set_repo_target(True)
     path = ConfigPaths.effective_path("configs/c40_execution.yaml", for_write=True)
     assert Path(path) == bundled / "c40_execution.yaml"
+
+
+def test_is_community_plugin_settings_basename():
+    assert not ConfigPaths.is_community_plugin_settings_basename("c40_execution.yaml")
+    assert not ConfigPaths.is_community_plugin_settings_basename(
+        "plugin_p50_headless_mode.yaml"
+    )
+    assert ConfigPaths.is_community_plugin_settings_basename(
+        "plugin_avlite-bridge-carla.yaml"
+    )
+
+
+def test_effective_path_repo_target_skips_community_plugin_write(monkeypatch, tmp_path):
+    meta = tmp_path / "meta"
+    meta.mkdir()
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "plugin_avlite-bridge-carla.yaml").write_text("default: {}\n")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(meta))
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setattr(
+        "avlite.c60_common.c67_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    ConfigPaths.set_repo_target(True)
+    path = ConfigPaths.effective_path(
+        "configs/plugin_avlite-bridge-carla.yaml", for_write=True
+    )
+    assert Path(path) == config_dir / "plugin_avlite-bridge-carla.yaml"
+
+
+def test_effective_path_repo_target_still_writes_builtin_plugin(monkeypatch, tmp_path):
+    meta = tmp_path / "meta"
+    meta.mkdir()
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "plugin_p50_headless_mode.yaml").write_text("default: {}\n")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(meta))
+    monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
+    monkeypatch.setattr(
+        "avlite.c60_common.c67_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    ConfigPaths.set_repo_target(True)
+    path = ConfigPaths.effective_path(
+        "configs/plugin_p50_headless_mode.yaml", for_write=True
+    )
+    assert Path(path) == bundled / "plugin_p50_headless_mode.yaml"
+
+
+def test_effective_path_community_plugin_read_prefers_user(monkeypatch, tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    bundled_file = bundled / "plugin_avlite-bridge-carla.yaml"
+    bundled_file.write_text("default: {repo: true}\n")
+    user_file = config_dir / "plugin_avlite-bridge-carla.yaml"
+    user_file.write_text("default: {user: true}\n")
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setattr(
+        "avlite.c60_common.c67_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    ConfigPaths.set_repo_target(True)
+    path = ConfigPaths.effective_path(
+        "configs/plugin_avlite-bridge-carla.yaml", for_write=False
+    )
+    assert Path(path) == user_file
 
 
 def test_profile_export_import_round_trip(monkeypatch, tmp_path):

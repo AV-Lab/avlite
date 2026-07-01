@@ -115,9 +115,9 @@ def test_community_plugin_finder_imports_from_install_dir(monkeypatch, tmp_path)
     _clear_plugin_modules(_PLUGIN_NAME)
 
 
-def test_find_community_plugin_dir_from_related_repos(monkeypatch, tmp_path):
-    related = tmp_path / "related-repos" / _PLUGIN_NAME
-    related.mkdir(parents=True)
+def test_find_community_plugin_dir_from_community_dev(monkeypatch, tmp_path):
+    dev = tmp_path / "avlite-community-plugins" / _PLUGIN_NAME
+    dev.mkdir(parents=True)
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "empty_plugins"))
     (tmp_path / "empty_plugins").mkdir()
 
@@ -125,7 +125,7 @@ def test_find_community_plugin_dir_from_related_repos(monkeypatch, tmp_path):
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
 
     found = find_community_plugin_dir("avlite_executer_ROS2")
-    assert found == related.resolve()
+    assert found == dev.resolve()
 
 
 def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatch, tmp_path):

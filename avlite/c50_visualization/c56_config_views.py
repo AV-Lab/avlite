@@ -19,6 +19,7 @@ from avlite.c40_execution.c43_factory import load_stack_settings
 from avlite.c50_visualization.c59_settings import get_stack_settings_classes, VisualizationSettings, sync_perception_pipeline_from_c19
 from avlite.c60_common.c69_setting_utils import (
     delete_setting_profile,
+    dev_mode_export_warning,
     export_profile,
     import_profile,
     list_profiles,
@@ -86,8 +87,11 @@ def _setting_window_edit_repo_configs_toggle(win: "SettingWindow") -> None:
     enabled = win._edit_repo_configs_var.get()
     if enabled and not messagebox.askyesno(
         "Edit repository configs",
-        f"Save and load will use files under\n{ConfigPaths.bundled_dir()}\n"
-        f"instead of your user config dir ({ConfigPaths.user_dir()}).\n\nContinue?",
+        f"Core stack and built-in plugin settings will use files under\n"
+        f"{ConfigPaths.bundled_dir()}\n"
+        f"instead of your user config dir ({ConfigPaths.user_dir()}).\n\n"
+        f"Community and member plugin settings always stay in your user "
+        f"config directory.\n\nContinue?",
         parent=win.window,
     ):
         win._edit_repo_configs_var.set(False)
@@ -773,6 +777,18 @@ class SettingWindow:
             parent=self.window,
         ):
             return
+        try:
+            load_setting(ExecutionSettings, profile=profile)
+        except Exception as e:
+            messagebox.showerror("Export profile", str(e), parent=self.window)
+            return
+        warning = dev_mode_export_warning(ExecutionSettings.c40_community_plugins)
+        if warning and not messagebox.askyesno(
+            "Export profile",
+            warning + "\n\nContinue export?",
+            parent=self.window,
+        ):
+            return
         zip_path = filedialog.asksaveasfilename(
             parent=self.window,
             title="Export profile",
@@ -783,7 +799,6 @@ class SettingWindow:
         if not zip_path:
             return
         try:
-            load_setting(ExecutionSettings, profile=profile)
             count = export_profile(
                 profile,
                 zip_path,

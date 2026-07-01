@@ -285,7 +285,7 @@ When you rename a module file, update the import path in `__init__.py` to match 
 3. Add entry under community plugins: `my_plugin` → install path (or use **Install** then **Register** from `python -m avlite plugins`)
 4. Save profile
 
-Double-click a community plugin in the list to view its **Package Name** and **Settings file** paths separately. **Reset to Installed** repopulates the list from everything under the plugins install directory.
+Double-click a community plugin in the list to view its **Package Name** and **Settings file** paths separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`) and dev checkout dirs (`avlite-community-plugins/`, `avlite-private-plugins/`).
 
 **Via settings file** (`configs/c40_execution.yaml` or your saved copy under `~/.config/avlite/`):
 

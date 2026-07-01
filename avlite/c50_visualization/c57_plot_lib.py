@@ -654,7 +654,7 @@ class LocalPlot:
         )
         self.ax2.add_collection(self.track_boundary_collection_ax2)
 
-        # Prediction arrows: one dotted orange line per agent on both views
+        # Prediction trajectories: one dotted orange polyline per agent on both views
         self.prediction_lines_ax1 = []
         self.prediction_lines_ax2 = []
         for _ in range(self.MAX_AGENT_COUNT):
@@ -772,11 +772,19 @@ class LocalPlot:
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        if plot_ground_truth and hasattr(exec.world, "get_ground_truth_perception_model"):
-            agent_pm = exec.world.get_ground_truth_perception_model()
-        else:
-            agent_pm = exec.pm
-        self.update_perception_model_plots(agent_pm, exec.local_planner.global_trajectory, plot_perception_model, plot_predictions)
+        exec_pm = exec.pm
+        world_pm = (
+            exec.world.get_ground_truth_perception_model()
+            if plot_ground_truth and hasattr(exec.world, "get_ground_truth_perception_model")
+            else None
+        )
+        self.update_perception_model_plots(
+            exec_pm,
+            exec.local_planner.global_trajectory,
+            plot_perception_model,
+            plot_predictions,
+            world_pm=world_pm,
+        )
         self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
         self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
@@ -1028,8 +1036,16 @@ class LocalPlot:
         else:
             self.ego_vehicle_ax2.set_xy(np.empty((0, 2)))
 
-    def update_perception_model_plots(self, pm: PerceptionModel, global_trajectory: TrajectoryTracker, show_plot=True, show_prediction=False):
-        if not show_plot or len(pm.agent_vehicles) == 0:
+    def update_perception_model_plots(
+        self,
+        exec_pm: PerceptionModel,
+        global_trajectory: TrajectoryTracker,
+        show_plot=True,
+        show_prediction=False,
+        world_pm: Optional[PerceptionModel] = None,
+    ):
+        pm_agents = world_pm if world_pm is not None else exec_pm
+        if not show_plot or len(pm_agents.agent_vehicles) == 0:
             for i in range(self.MAX_AGENT_COUNT):
                 self.pm_plots_ax1[i].set_xy(np.empty((0, 2)))
                 self.pm_plots_ax2[i].set_xy(np.empty((0, 2)))
@@ -1037,10 +1053,10 @@ class LocalPlot:
                 self.prediction_lines_ax2[i].set_data([], [])
             return
 
-        n = min(len(pm.agent_vehicles), self.MAX_AGENT_COUNT)
-        if len(pm.agent_vehicles) > self.MAX_AGENT_COUNT:
+        n = min(len(pm_agents.agent_vehicles), self.MAX_AGENT_COUNT)
+        if len(pm_agents.agent_vehicles) > self.MAX_AGENT_COUNT:
             log.warning(f"Exceeded maximum number of agents: {self.MAX_AGENT_COUNT}")
-        agents = pm.agent_vehicles[:n]
+        agents = pm_agents.agent_vehicles[:n]
         # Batch all corners into one KD-tree call (n*4 points) instead of 4 calls per agent
         all_corners_xy = np.vstack([agent.get_bb_corners() for agent in agents])  # (n*4, 2)
         all_corners_sd = global_trajectory.convert_xy_path_to_sd_path_np(all_corners_xy)  # (n*4, 2)
@@ -1052,32 +1068,25 @@ class LocalPlot:
             self.pm_plots_ax1[j].set_xy(np.empty((0, 2)))
             self.pm_plots_ax2[j].set_xy(np.empty((0, 2)))
 
-        # Prediction arrows
+        # Prediction trajectories (always from exec_pm; world_pm has no pipeline outputs)
         use_prediction = (
             show_prediction
-            and pm.prediction_mode == PredictionMode.TRAJECTORY
-            and pm.trajectories is not None
-            and pm.trajectories.shape[0] >= n
+            and exec_pm.prediction_mode == PredictionMode.TRAJECTORY
+            and exec_pm.trajectories is not None
+            and exec_pm.trajectories.shape[0] >= n
         )
         if use_prediction:
-            n_steps = pm.trajectories.shape[1]
-            from avlite.c20_planning.c29_settings import PlanningSettings
-            total_time = PlanningSettings.c27_maneuver_distance / PlanningSettings.c20_default_ego_velocity
-            step = min(int(total_time / pm.predict_delta_t), n_steps - 1)
-            pred_xy = pm.trajectories[:n, step, :]  # (n, 2)
-            pred_sd = global_trajectory.convert_xy_path_to_sd_path_np(pred_xy)  # (n, 2)
-            ego_hdg = np.array([np.cos(pm.ego_vehicle.theta), np.sin(pm.ego_vehicle.theta)])
+            ego_hdg = np.array([np.cos(exec_pm.ego_vehicle.theta), np.sin(exec_pm.ego_vehicle.theta)])
             for i, agent in enumerate(agents):
-                to_agent = np.array([agent.x - pm.ego_vehicle.x, agent.y - pm.ego_vehicle.y])
+                to_agent = np.array([agent.x - exec_pm.ego_vehicle.x, agent.y - exec_pm.ego_vehicle.y])
                 if float(np.dot(ego_hdg, to_agent)) < 0.0:
                     self.prediction_lines_ax1[i].set_data([], [])
                     self.prediction_lines_ax2[i].set_data([], [])
                     continue
-                self.prediction_lines_ax1[i].set_data(
-                    [agent.x, pred_xy[i, 0]], [agent.y, pred_xy[i, 1]])
-                agent_s, agent_d = global_trajectory.convert_xy_to_sd(agent.x, agent.y)
-                self.prediction_lines_ax2[i].set_data(
-                    [agent_s, pred_sd[i, 0]], [agent_d, pred_sd[i, 1]])
+                path_xy = np.vstack([[agent.x, agent.y], exec_pm.trajectories[i]])
+                self.prediction_lines_ax1[i].set_data(path_xy[:, 0], path_xy[:, 1])
+                path_sd = global_trajectory.convert_xy_path_to_sd_path_np(path_xy)
+                self.prediction_lines_ax2[i].set_data(path_sd[:, 0], path_sd[:, 1])
         for i in range(n if use_prediction else 0, self.MAX_AGENT_COUNT):
             self.prediction_lines_ax1[i].set_data([], [])
             self.prediction_lines_ax2[i].set_data([], [])

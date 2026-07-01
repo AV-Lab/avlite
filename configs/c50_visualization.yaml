@@ -291,6 +291,80 @@ global planning:
   show_vis_logs: false
   sim_dt: 0.01
   xy_zoom: 50.0
+hdmap:
+  bg_color: '#333333'
+  bridge_provide_depth_image: false
+  bridge_provide_ground_truth_detection: true
+  bridge_provide_lidar_data: true
+  bridge_provide_rgb_image: false
+  control_dt: 0.01
+  controller_type: StanleyController
+  dark_mode: true
+  default_global_plan_file: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  default_map_file: data/race_boundary_yas_marina.map.json
+  disable_log: false
+  exec_control: true
+  exec_localize: true
+  exec_perceive: true
+  exec_plan: true
+  executer_type: AsyncThreadedExecuter
+  execution_bridge: BasicSim
+  fg_color: white
+  frenet_view_follow_planner: false
+  frenet_zoom: 40.0
+  global_plan_velocity_scale: relative
+  global_plan_view: true
+  global_planner_type: HDMapGlobalPlanner
+  global_view_follow_planner: false
+  global_zoom: 810.8967345284556
+  hide_menubar: false
+  load_plugins: true
+  local_plan_view: true
+  local_planner_type: GreedyLatticePlanner
+  localization_dt: 0.1
+  localization_type: ''
+  log_font: Courier
+  log_font_size: 11
+  log_level: INFO
+  log_pull_time: 50
+  log_to_file: false
+  log_view_default_height: 12
+  log_view_expanded: false
+  log_view_expended_height: 35
+  mapping_type: ''
+  max_log_lines: 1000
+  mouse_drag_slowdown_factor: 0.5
+  next_profile: perception
+  perception_dt: 0.01
+  perception_type: PerceptionPipeline
+  replan_dt: 0.01
+  selected_profile: hdmap
+  shortcut_mode: false
+  show_common_logs: true
+  show_control_logs: true
+  show_core_logs: true
+  show_execute_logs: true
+  show_global_plan: true
+  show_global_plan_boundaries: true
+  show_legend: false
+  show_lidar_clusters: true
+  show_lidar_frenet: true
+  show_lidar_global: true
+  show_local_frenet_view: true
+  show_local_global_view: false
+  show_local_lattice: true
+  show_local_plan: true
+  show_occupancy_flow: true
+  show_past_locations: true
+  show_perceive_logs: true
+  show_perception_extras: false
+  show_plan_logs: true
+  show_plugins_logs: true
+  show_race_boundary: true
+  show_state: true
+  show_vis_logs: true
+  sim_dt: 0.01
+  xy_zoom: 110.0
 joystick:
   bg_color: '#333333'
   bridge_provide_depth_image: false
@@ -384,6 +458,7 @@ perception:
   fg_color: white
   frenet_view_follow_planner: false
   frenet_zoom: 110.0
+  global_plan_velocity_scale: relative
   global_plan_view: false
   global_planner_type: GlobalCenterlineRacePlanner
   global_view_follow_planner: false
@@ -416,6 +491,7 @@ perception:
   show_core_logs: true
   show_execute_logs: false
   show_global_plan: true
+  show_global_plan_boundaries: true
   show_legend: false
   show_lidar_clusters: true
   show_lidar_frenet: true
@@ -438,7 +514,7 @@ perception:
 ros:
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
+  bridge_provide_ground_truth_detection: true
   bridge_provide_lidar_data: true
   bridge_provide_rgb_image: false
   control_dt: 0.01

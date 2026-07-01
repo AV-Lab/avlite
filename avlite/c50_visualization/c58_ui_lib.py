@@ -459,7 +459,11 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "plugins_browse": "Open the community plugins browser.",
     "settings_close": "Close the settings window without saving.",
     "settings_save": "Save profile and close the settings window.",
-    "edit_repo_configs": "Write profile changes to repository config files instead of user data.",
+    "edit_repo_configs": (
+        "Write core stack and built-in plugin YAML to repository configs/ "
+        "instead of user data. Community and member plugin settings always "
+        "stay in your user config directory."
+    ),
     # Community plugins
     "cp_refresh": "Refresh the plugin list from the registry.",
     "cp_install": "Install the selected plugin.",

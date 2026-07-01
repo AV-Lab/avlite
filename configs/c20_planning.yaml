@@ -114,6 +114,35 @@ global planning:
   c27_safety_margin_weight: 0.3
   c27_sample_size: 3
   c27_urgent_collision_threshold: 3
+hdmap:
+  c20_boundary_margin: 0.0
+  c20_collision_safety_margin: 0.3
+  c20_default_ego_velocity: 5.0
+  c20_min_velocity_threshold: 0.5
+  c20_obstacle_inflation_margin: 0.5
+  c26_fallback_deceleration: 3.0
+  c26_follow_cruise_min_gap: 15.0
+  c26_follow_gap_buffer: 0.5
+  c26_planning_horizon_points: 50
+  c26_stopping_decel_factor: 0.8
+  c26_stopping_safety_buffer: 2.0
+  c27_allow_boundary_violation_fallback: false
+  c27_allow_curvature_fallback: false
+  c27_boundary_clearance: 0.5
+  c27_d0_reference_threshold: 0.2
+  c27_disconnect_distance_threshold: 5.0
+  c27_maneuver_distance: 30
+  c27_match_speed_wp_buffer: 4
+  c27_max_lateral_accel: 4.0
+  c27_min_curvature_velocity: 3.0
+  c27_min_edge_progress_to_block: 0.2
+  c27_min_ramp_start_velocity: 3.0
+  c27_num_of_edge_points: 10
+  c27_planning_horizon: 3
+  c27_replan_wait_time: 2.5
+  c27_safety_margin_weight: 0.3
+  c27_sample_size: 3
+  c27_urgent_collision_threshold: 3
 joystick:
   c20_boundary_margin: 0.0
   c20_collision_safety_margin: 0.3

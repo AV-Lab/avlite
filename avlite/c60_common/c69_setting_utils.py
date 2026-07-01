@@ -21,6 +21,8 @@ from avlite.c60_common.c68_settings_schema import (
     validate_profile,
 )
 from avlite.c60_common.c67_paths import (
+    COMMUNITY_DEV_SUBDIR,
+    PRIVATE_DEV_SUBDIR,
     ConfigPaths,
     PluginPaths,
 )
@@ -235,6 +237,14 @@ def rename_setting_profile(setting, old_profile, new_profile) -> bool:
         return False
 
 
+def order_profiles_for_dropdown(profiles: list[str]) -> list[str]:
+    """Return profile names with ``default`` first for UI dropdowns."""
+    if not profiles:
+        return []
+    rest = [p for p in profiles if p != "default"]
+    return (["default"] if "default" in profiles else []) + rest
+
+
 def list_profiles(setting) -> list:
     """List all profiles in the configuration file."""
     filepath = ConfigPaths.effective_path(stored_filepath(setting), for_write=False)
@@ -245,7 +255,7 @@ def list_profiles(setting) -> list:
             log.warning("Empty or invalid configuration file: %s", filepath)
             return []
 
-        profiles = list(config.keys())
+        profiles = order_profiles_for_dropdown(list(config.keys()))
         log.info("Available profiles: %s", profiles)
         return profiles
     except Exception as e:
@@ -335,6 +345,57 @@ def iter_profile_sources(
         for basename, read_path in _community_sources_for_profile(profile, community_plugins).items():
             sources.setdefault(basename, read_path)
     return sorted(sources.items())
+
+
+def dev_mode_export_warning(community_plugins: dict[str, str] | None = None) -> str | None:
+    """Return a user-facing warning when exporting under Plugins dev mode, else None."""
+    if not PluginPaths.is_dev_mode():
+        return None
+    lines = [
+        "Plugins dev mode is enabled. This profile uses repo-relative plugin paths "
+        f"({COMMUNITY_DEV_SUBDIR}/, {PRIVATE_DEV_SUBDIR}/).",
+        "",
+        "On the target machine you must:",
+        f"  \u2022 Enable Plugins dev mode (same checkout directories)",
+        "  \u2022 Install all community and member plugins referenced in the profile",
+        "",
+        "Plugin paths will not resolve on a machine that uses only "
+        "~/.local/share/avlite/plugins/.",
+    ]
+    plugins = community_plugins or {}
+    missing = [
+        name
+        for name, stored in sorted(plugins.items())
+        if PluginPaths.load_path(name, stored) is None
+    ]
+    if missing:
+        lines.extend(["", "Plugins not found locally:", ", ".join(missing)])
+    return "\n".join(lines)
+
+
+def dev_mode_uninstall_warning(plugins_dir: Path, name: str) -> str | None:
+    """Return a user-facing warning when uninstalling a dev checkout, else None."""
+    if not PluginPaths.is_dev_mode():
+        return None
+    resolved_dir = plugins_dir.resolve()
+    dev_roots = (
+        PluginPaths.community_dev_dir().resolve(),
+        PluginPaths.private_dev_dir().resolve(),
+    )
+    if resolved_dir not in dev_roots:
+        return None
+    checkout = (resolved_dir / name).resolve()
+    path_display = PluginPaths.format_display(checkout)
+    return "\n".join(
+        [
+            "Plugins dev mode is enabled.",
+            "",
+            "Uninstall will permanently delete the plugin source checkout at:",
+            f"  {path_display}",
+            "",
+            "Commit or back up any local changes in git before continuing.",
+        ]
+    )
 
 
 def export_profile(
