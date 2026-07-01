@@ -5,6 +5,7 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
+from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c60_common.c61_capabilities import WorldCapability
@@ -21,46 +22,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def load_boundary_segments(boundary_file: Optional[str]) -> np.ndarray:
-    """Load road boundaries as line segments of shape (M, 2, 2)."""
-    if not boundary_file:
-        return np.empty((0, 2, 2))
-    try:
-        import json
-        with open(DataPaths.resolve_stored(boundary_file)) as f:
-            data = json.load(f)
-        segments = []
-        for key in ("LeftBound", "RightBound"):
-            pts = np.asarray(data.get(key, []), dtype=float)
-            if pts.ndim == 1:
-                continue
-            pts = pts[:, :2]
-            if len(pts) >= 2:
-                segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
-        if not segments:
-            return np.empty((0, 2, 2))
-        return np.concatenate(segments, axis=0)
-    except Exception as e:
-        log.error(f"Failed to load lidar boundary file {boundary_file}: {e}")
-        return np.empty((0, 2, 2))
-
-
-def boundary_segments_from_global_plan(plan) -> np.ndarray:
-    """Build (M, 2, 2) line segments from global plan left/right boundary polylines."""
-    segments = []
-    for xs, ys in (
-        (getattr(plan, "left_boundary_x", None), getattr(plan, "left_boundary_y", None)),
-        (getattr(plan, "right_boundary_x", None), getattr(plan, "right_boundary_y", None)),
-    ):
-        if not xs or not ys or len(xs) != len(ys):
-            continue
-        pts = np.column_stack([np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)])
-        if len(pts) >= 2:
-            segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
-    if not segments:
-        return np.empty((0, 2, 2))
-    return np.concatenate(segments, axis=0)
-
 
 class BasicSim(WorldBridge):
     @property
@@ -70,9 +31,10 @@ class BasicSim(WorldBridge):
             WorldCapability.GT_TRACKING,
             WorldCapability.GT_LOCALIZATION,
             WorldCapability.LIDAR_2D,
+            WorldCapability.AGENT_SPAWN,
         }
 
-    def __init__(self,ego_state:EgoState, pm:Optional[PerceptionModel] = None,
+    def __init__(self, ego_state: EgoState, pm: Optional[PerceptionModel] = None,
                  controller: Optional[ControlStrategy] = None,
                  setting: ExecutionSettingsSchema = ExecutionSettings,
                  reference_point: tuple[float, float] | None = None):
@@ -86,27 +48,13 @@ class BasicSim(WorldBridge):
         self.npc_control = setting.c46_npc_control
         self.speed_factor = setting.c46_npc_speed_factor
         self.npc_controllers = {}
-        self.default_global_plan = None
-
-        log.info(f"Loading default trajectory from {setting.c46_default_trajectory}")
-        if pm is not None and setting.c46_default_trajectory:
-            try:  
-                from avlite.c20_planning.c21_planning_model import GlobalPlan
-                self.default_global_plan = GlobalPlan.from_file(
-                    DataPaths.resolve(setting.c46_default_trajectory)
-                )
-                self.npc_control = True
-            except Exception as e:
-                log.error(f"Failed to load default trajectory {setting.c46_default_trajectory}: {e}")
 
         # Road boundary polylines as raycasting segments, shape (M, 2, 2):
         #   axis 0 — segment index (M = total segments from LeftBound + RightBound)
         #   axis 1 — endpoint: 0 = start, 1 = end
         #   axis 2 — coordinate: 0 = x, 1 = y
         # Used by __collect_segments() for LiDAR raycasting and by c57 for visualization.
-        self.boundary_segments: np.ndarray = load_boundary_segments(
-            setting.c46_lidar_boundary_file
-        )
+        self.boundary_segments: np.ndarray = load_boundary_segments(setting.c46_lidar_boundary_file)
 
 
     def control_ego_state(self, cmd:ControlCommand, dt=0.01):
@@ -142,22 +90,30 @@ class BasicSim(WorldBridge):
 
 
         
-    def spawn_agent(self, agent_state:AgentState):
+    def spawn_agent(
+        self,
+        agent_state: AgentState,
+        global_plan: Optional[GlobalPlan] = None,
+    ):
         id = self.pm.add_agent_vehicle(agent_state)
 
-        if self.npc_control:
-            ref = self.default_global_plan.trajectory
-            tj = TrajectoryTracker(
-                path=list(ref.path),
-                velocity=[v * self.speed_factor for v in ref.velocity],
-            )
-            tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
-            agent_state.theta = tj.get_current_heading()
-            agent_state.velocity = tj.velocity[tj.current_wp]
+        ref = global_plan.trajectory if global_plan is not None else None
+        if not self.npc_control or ref is None or len(ref.path) == 0:
+            if self.npc_control and (ref is None or len(ref.path) == 0):
+                log.warning("spawn_agent: no global plan available; NPC will not be controlled")
+            return
 
-            controller = StanleyController(tj=tj)
-            controller.reset()
-            self.npc_controllers[id] = controller
+        tj = TrajectoryTracker(
+            path=list(ref.path),
+            velocity=[v * self.speed_factor for v in ref.velocity],
+        )
+        tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
+        agent_state.theta = tj.get_current_heading()
+        agent_state.velocity = tj.velocity[tj.current_wp]
+
+        controller = StanleyController(tj=tj)
+        controller.reset()
+        self.npc_controllers[id] = controller
 
         
 
@@ -246,4 +202,44 @@ class BasicSim(WorldBridge):
         ranges = nearest[hit]
         dirs = directions[hit]
         return origin + ranges[:, None] * dirs
+
+def load_boundary_segments(boundary_file: Optional[str]) -> np.ndarray:
+    """Load road boundaries as line segments of shape (M, 2, 2)."""
+    if not boundary_file:
+        return np.empty((0, 2, 2))
+    try:
+        import json
+        with open(DataPaths.resolve_stored(boundary_file)) as f:
+            data = json.load(f)
+        segments = []
+        for key in ("LeftBound", "RightBound"):
+            pts = np.asarray(data.get(key, []), dtype=float)
+            if pts.ndim == 1:
+                continue
+            pts = pts[:, :2]
+            if len(pts) >= 2:
+                segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
+        if not segments:
+            return np.empty((0, 2, 2))
+        return np.concatenate(segments, axis=0)
+    except Exception as e:
+        log.error(f"Failed to load lidar boundary file {boundary_file}: {e}")
+        return np.empty((0, 2, 2))
+
+
+def boundary_segments_from_global_plan(plan) -> np.ndarray:
+    """Build (M, 2, 2) line segments from global plan left/right boundary polylines."""
+    segments = []
+    for xs, ys in (
+        (getattr(plan, "left_boundary_x", None), getattr(plan, "left_boundary_y", None)),
+        (getattr(plan, "right_boundary_x", None), getattr(plan, "right_boundary_y", None)),
+    ):
+        if not xs or not ys or len(xs) != len(ys):
+            continue
+        pts = np.column_stack([np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)])
+        if len(pts) >= 2:
+            segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
+    if not segments:
+        return np.empty((0, 2, 2))
+    return np.concatenate(segments, axis=0)
 

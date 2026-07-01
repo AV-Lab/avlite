@@ -5,7 +5,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
@@ -238,6 +238,10 @@ class Executer(ABC):
         self.local_planner.set_global_plan(global_plan, ego_xy=ego_xy)
         self.controller.set_trajectory(global_plan.trajectory)
         self.controller.reset()
+
+    def spawn_agent(self, agent_state: AgentState) -> None:
+        """Spawn an agent in the world using the ego's current global plan."""
+        self.world.spawn_agent(agent_state, global_plan=self.local_planner.global_plan)
 
     def _control_step(self, sim_dt: float) -> None:
         """Run one control iteration, apply to world, and update FPS."""

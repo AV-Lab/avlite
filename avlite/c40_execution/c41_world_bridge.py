@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c60_common.c62_sensor_data import (
@@ -62,8 +63,8 @@ class WorldBridge(ABC):
         """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
-    def spawn_agent(self, agent_state: AgentState):
-        """ Spawn an agent vehicled in a (simulated) world. Its optional if the world allows that. """
+    def spawn_agent(self, agent_state: AgentState, global_plan: Optional[GlobalPlan] = None):
+        """Spawn an agent. ``global_plan`` is optional ego route context for route-following NPCs."""
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     def get_ground_truth_perception_model(self) -> PerceptionModel:
