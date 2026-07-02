@@ -1,0 +1,1266 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Modular Autonomous Vehicle Stack">
+      
+      
+        <meta name="author" content="AV-Lab">
+      
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../settings-naming/">
+      
+      
+      <link rel="icon" href="../imgs/logo-black-bg.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>Algorithms - AVLite Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#algorithms" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="AVLite Documentation" class="md-header__button md-logo" aria-label="AVLite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.08-3.61 5.75-2.39 8.9.04.1.08.2.08.33 0 .22-.15.42-.35.5-.23.1-.47.04-.66-.12a.58.58 0 0 1-.14-.17c-1.13-1.43-1.31-3.48-.55-5.12C5.78 10 4.87 12.3 5 14.47c.06.5.12 1 .29 1.5.14.6.41 1.2.71 1.73 1.08 1.73 2.95 2.97 4.96 3.22 2.14.27 4.43-.12 6.07-1.6 1.83-1.66 2.47-4.32 1.53-6.6l-.13-.26c-.21-.46-.77-1.26-.77-1.26m-3.16 6.3c-.28.24-.74.5-1.1.6-1.12.4-2.24-.16-2.9-.82 1.19-.28 1.9-1.16 2.11-2.05.17-.8-.15-1.46-.28-2.23-.12-.74-.1-1.37.17-2.06.19.38.39.76.63 1.06.77 1 1.98 1.44 2.24 2.8.04.14.06.28.06.43.03.82-.33 1.72-.93 2.27Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AVLite Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Algorithms
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/AV-Lab/avlite" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AV-Lab/avlite
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../architecture/" class="md-tabs__link">
+        
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+    
+  
+  Algorithms
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../settings-naming/" class="md-tabs__link">
+        
+  
+    
+  
+  Settings Naming
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../plugin-development/" class="md-tabs__link">
+        
+  
+    
+  
+  Plugin Development
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="AVLite Documentation" class="md-nav__button md-logo" aria-label="AVLite Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.66 11.2c-.23-.3-.51-.56-.77-.82-.67-.6-1.43-1.03-2.07-1.66C13.33 7.26 13 4.85 13.95 3c-.95.23-1.78.75-2.49 1.32-2.59 2.08-3.61 5.75-2.39 8.9.04.1.08.2.08.33 0 .22-.15.42-.35.5-.23.1-.47.04-.66-.12a.58.58 0 0 1-.14-.17c-1.13-1.43-1.31-3.48-.55-5.12C5.78 10 4.87 12.3 5 14.47c.06.5.12 1 .29 1.5.14.6.41 1.2.71 1.73 1.08 1.73 2.95 2.97 4.96 3.22 2.14.27 4.43-.12 6.07-1.6 1.83-1.66 2.47-4.32 1.53-6.6l-.13-.26c-.21-.46-.77-1.26-.77-1.26m-3.16 6.3c-.28.24-.74.5-1.1.6-1.12.4-2.24-.16-2.9-.82 1.19-.28 1.9-1.16 2.11-2.05.17-.8-.15-1.46-.28-2.23-.12-.74-.1-1.37.17-2.06.19.38.39.76.63 1.06.77 1 1.98 1.44 2.24 2.8.04.14.06.28.06.43.03.82-.33 1.72-.93 2.27Z"/></svg>
+
+    </a>
+    AVLite Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/AV-Lab/avlite" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AV-Lab/avlite
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Algorithms
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Algorithms
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#planning-in-the-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      Planning in the stack
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-planning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Global planning
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Global planning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#race-centerline-globalcenterlineraceplanner" class="md-nav__link">
+    <span class="md-ellipsis">
+      Race centerline (GlobalCenterlineRacePlanner)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hd-map-hdmapglobalplanner" class="md-nav__link">
+    <span class="md-ellipsis">
+      HD map (HDMapGlobalPlanner)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#velocity-local-planner" class="md-nav__link">
+    <span class="md-ellipsis">
+      Velocity local planner
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#greedy-lattice-planner" class="md-nav__link">
+    <span class="md-ellipsis">
+      Greedy lattice planner
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Greedy lattice planner">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#coordinate-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coordinate frame
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-edge-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      Output: edge chain
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replan-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replan pipeline
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lattice-construction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lattice construction
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edge-feasibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      Edge feasibility
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#candidate-filtering-tiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Candidate filtering tiers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edge-selection-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      Edge selection cost
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plan-commitment-and-switching" class="md-nav__link">
+    <span class="md-ellipsis">
+      Plan commitment and switching
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#emergency-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      Emergency behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#debug-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Debug visualization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameter reference
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameter reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lattice-geometry-and-sampling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Lattice geometry and sampling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feasibility-and-fallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Feasibility and fallbacks
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#replan-stability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Replan stability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#selection-and-velocity-continuity" class="md-nav__link">
+    <span class="md-ellipsis">
+      Selection and velocity continuity
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-collision-settings-c20_" class="md-nav__link">
+    <span class="md-ellipsis">
+      Shared collision settings (c20_*)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#velocity-planner-c26_" class="md-nav__link">
+    <span class="md-ellipsis">
+      Velocity planner (c26_*)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Related reading
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-naming/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Settings Naming
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plugin-development/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Plugin Development
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="algorithms">Algorithms<a class="headerlink" href="#algorithms" title="Permanent link">&para;</a></h1>
+<p>This page describes the built-in <strong>planning</strong> algorithms in AVLite: how they fit together, how the greedy lattice local planner works, and which YAML parameters control behavior.</p>
+<p>Configuration lives in <a href="../configs/c20_planning.yaml"><code>configs/c20_planning.yaml</code></a> and is validated by <a href="../avlite/c20_planning/c29_settings.py"><code>PlanningSettings</code></a>. See <a href="../settings-naming/">Settings naming</a> for key prefixes and GUI tooltips.</p>
+<h2 id="planning-in-the-stack">Planning in the stack<a class="headerlink" href="#planning-in-the-stack" title="Permanent link">&para;</a></h2>
+<p>Planning runs after perception (optional) and before control:</p>
+<div class="highlight"><pre><span></span><code>Global planner  →  Local planner  →  Controller
+     ↓                    ↓
+ GlobalPlan          LocalPlan (trajectory)
+</code></pre></div>
+<p>The <strong>global planner</strong> produces a reference route with lane boundaries and a velocity profile. The <strong>local planner</strong> reacts to nearby agents each replan cycle and outputs a short-horizon trajectory the controller tracks.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Class</th>
+<th>Module</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Global (race track)</td>
+<td><code>GlobalCenterlineRacePlanner</code></td>
+<td><a href="../avlite/c20_planning/c25_global_race_planners.py"><code>c25_global_race_planners.py</code></a></td>
+</tr>
+<tr>
+<td>Global (HD map)</td>
+<td><code>HDMapGlobalPlanner</code></td>
+<td><a href="../avlite/c20_planning/c24_global_hdmap_planners.py"><code>c24_global_hdmap_planners.py</code></a></td>
+</tr>
+<tr>
+<td>Local (lattice)</td>
+<td><code>GreedyLatticePlanner</code></td>
+<td><a href="../avlite/c20_planning/c27_local_lattice_planners.py"><code>c27_local_lattice_planners.py</code></a></td>
+</tr>
+<tr>
+<td>Local (velocity only)</td>
+<td><code>VelocityLocalPlanner</code></td>
+<td><a href="../avlite/c20_planning/c26_local_planners.py"><code>c26_local_planners.py</code></a></td>
+</tr>
+</tbody>
+</table>
+<p>Select the local planner in the GUI or profile (<code>local_planner_strategy_name</code> in execution config). <strong><code>GreedyLatticePlanner</code></strong> is the default reactive planner for obstacle avoidance and overtaking.</p>
+<hr />
+<h2 id="global-planning">Global planning<a class="headerlink" href="#global-planning" title="Permanent link">&para;</a></h2>
+<h3 id="race-centerline-globalcenterlineraceplanner">Race centerline (<code>GlobalCenterlineRacePlanner</code>)<a class="headerlink" href="#race-centerline-globalcenterlineraceplanner" title="Permanent link">&para;</a></h3>
+<p>Used on closed race tracks with left/right boundary polylines.</p>
+<ul>
+<li>Extracts a centerline between boundaries.</li>
+<li>Assigns a curvature-based velocity profile along the path.</li>
+<li>Outputs a <code>GlobalPlan</code> with <code>left_boundary_d</code>, <code>right_boundary_d</code>, and a <code>TrajectoryTracker</code> reference — all consumed by the lattice.</li>
+</ul>
+<h3 id="hd-map-hdmapglobalplanner">HD map (<code>HDMapGlobalPlanner</code>)<a class="headerlink" href="#hd-map-hdmapglobalplanner" title="Permanent link">&para;</a></h3>
+<p>Used with OpenDRIVE maps parsed by <a href="../avlite/c10_perception/c18_hdmap_parser.py"><code>c18_hdmap_parser.py</code></a>.</p>
+<ul>
+<li>Routes on the lane graph from start to goal.</li>
+<li>Produces the same <code>GlobalPlan</code> structure (path, boundaries, velocity) for downstream local planning.</li>
+</ul>
+<hr />
+<h2 id="velocity-local-planner">Velocity local planner<a class="headerlink" href="#velocity-local-planner" title="Permanent link">&para;</a></h2>
+<p><code>VelocityLocalPlanner</code> follows the <strong>global path geometry</strong> and adjusts <strong>speed</strong> when obstacles block the way.</p>
+<ul>
+<li><strong><code>replan</code></strong> clones the global trajectory window and calls <code>profile_trajectory</code> to apply speed limits.</li>
+<li><strong><code>apply_speed_match</code></strong> decelerates toward an agent’s speed at a collision waypoint — used when an edge is marked colliding.</li>
+</ul>
+<p>When paired with the lattice planner, velocity profiling runs on colliding edges <strong>before</strong> edge selection so the planner can compare deceleration profiles. It can also be selected as the sole local planner for simpler follow-the-leader behavior without lateral sampling.</p>
+<hr />
+<h2 id="greedy-lattice-planner">Greedy lattice planner<a class="headerlink" href="#greedy-lattice-planner" title="Permanent link">&para;</a></h2>
+<p><code>GreedyLatticePlanner</code> extends <code>LatticePlanningStrategy</code>. It builds a <strong>Frenet lattice</strong> along the global reference, evaluates candidate maneuvers, commits to a <strong>chain of edges</strong>, and extends that chain as the ego moves.</p>
+<p>Implementation is split across:</p>
+<ul>
+<li><a href="../avlite/c20_planning/c27_local_lattice_planners.py"><code>c27_local_lattice_planners.py</code></a> — selection, commitment, replan logic</li>
+<li><a href="../avlite/c20_planning/c28_lattice.py"><code>c28_lattice.py</code></a> — node sampling, edge generation, boundary checks</li>
+</ul>
+<h3 id="coordinate-frame">Coordinate frame<a class="headerlink" href="#coordinate-frame" title="Permanent link">&para;</a></h3>
+<p>Planning uses Frenet coordinates relative to the global trajectory:</p>
+<ul>
+<li><strong><code>s</code></strong> — arc length along the reference</li>
+<li><strong><code>d</code></strong> — lateral offset (positive = left of reference)</li>
+</ul>
+<p>Each <strong>node</strong> is a <code>(s, d)</code> sample. Each <strong>edge</strong> connects two nodes and is shaped as a quintic polynomial in <code>(s, d)</code>, converted to a <code>TrajectoryTracker</code> with position and velocity.</p>
+<h3 id="output-edge-chain">Output: edge chain<a class="headerlink" href="#output-edge-chain" title="Permanent link">&para;</a></h3>
+<p>The planner does not expose a single edge. It commits to a linked list:</p>
+<div class="highlight"><pre><span></span><code>selected_local_plan → selected_next_local_plan → … → None
+</code></pre></div>
+<p><code>set_selected_plan</code> concatenates all edge trajectories into <code>_committed_trajectory</code>, which <code>get_local_plan()</code> returns to the controller. Waypoint sync advances along this single polyline.</p>
+<h3 id="replan-pipeline">Replan pipeline<a class="headerlink" href="#replan-pipeline" title="Permanent link">&para;</a></h3>
+<p>Each full <code>replan</code> cycle:</p>
+<pre class="mermaid"><code>flowchart TD
+    start[Ego pose s,d] --&gt; sample[sample_nodes]
+    sample --&gt; gen[generate_lattice_from_nodes]
+    gen --&gt; eval[Collision + boundary checks]
+    eval --&gt; vel[Velocity profile on colliding edges]
+    vel --&gt; filter[_feasible_candidates tier filter]
+    filter --&gt; chain[_build_selected_chain greedy]
+    chain --&gt; accept{Length acceptable?}
+    accept --&gt;|yes| switch{should_switch_plan?}
+    switch --&gt;|yes| commit[set_selected_plan + fill horizon]
+    switch --&gt;|no| keep[Keep committed plan]
+    accept --&gt;|no| keep
+    commit --&gt; partial[_partial_replan on edge traverse]</code></pre>
+<ol>
+<li><strong>Sample nodes</strong> at longitudinal stations spaced by <code>c27_maneuver_distance</code>.</li>
+<li><strong>Generate edges</strong> between consecutive levels (fully connected graph).</li>
+<li><strong>Check</strong> each edge for collision and boundary violation; profile velocity on colliding edges.</li>
+<li><strong>Filter</strong> to feasible candidates (tiered — see below).</li>
+<li><strong>Build chain</strong> greedily from level-0 edges forward.</li>
+<li><strong>Accept / switch</strong> only if length rules and <code>should_switch_plan</code> allow it.</li>
+<li><strong>Fill horizon</strong> via <code>_partial_replan</code> until the chain has <code>c27_planning_horizon</code> edges.</li>
+</ol>
+<p>When the ego finishes traversing an edge, <code>_on_edge_traversed</code> calls <code>_partial_replan</code> to append one new edge at the tail (sliding window).</p>
+<h3 id="lattice-construction">Lattice construction<a class="headerlink" href="#lattice-construction" title="Permanent link">&para;</a></h3>
+<p>From <a href="avlite/c20_planning/c28_lattice.py"><code>Lattice.sample_nodes</code></a>:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Ego start node at current <code>(s, d)</code></td>
+</tr>
+<tr>
+<td>1 … <code>planning_horizon</code></td>
+<td>One node on the reference line (<code>d</code> from global path) plus <code>sample_size − 1</code> random lateral nodes</td>
+</tr>
+</tbody>
+</table>
+<p>Lateral nodes are sampled uniformly between lane boundaries minus <code>c27_boundary_clearance</code>.</p>
+<p><a href="avlite/c20_planning/c28_lattice.py"><code>generate_lattice_from_nodes</code></a> connects <strong>every</strong> node at level <code>l</code> to <strong>every</strong> node at level <code>l + 1</code>, producing a dense candidate set. Level-0 outgoing edges are stored in <code>lattice.level0_edges</code>.</p>
+<p><strong>Obstacle prediction</strong> for collision checking spans the full lattice horizon:</p>
+<p>[
+T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}{v_{\text{ego}}}
+]</p>
+<p>Moving agents get swept polygons over that horizon; static agents use inflated footprints.</p>
+<h3 id="edge-feasibility">Edge feasibility<a class="headerlink" href="#edge-feasibility" title="Permanent link">&para;</a></h3>
+<p>Each edge is evaluated on three axes:</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Meaning</th>
+<th>Where stored / computed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Collision</strong></td>
+<td>Ego footprint intersects an agent polygon along the edge</td>
+<td><code>edge.collision</code>, <code>edge.collision_idx</code>, <code>edge.collision_agent_velocity</code></td>
+</tr>
+<tr>
+<td><strong>Boundary</strong></td>
+<td>Any path point exits <code>[right_boundary + clearance, left_boundary − clearance]</code></td>
+<td><code>edge.boundary_violation</code></td>
+</tr>
+<tr>
+<td><strong>Curvature</strong></td>
+<td><code>max_curvature(edge) ≤ a_lat / v²</code> with ego speed (floored at <code>c27_min_curvature_velocity</code>)</td>
+<td><code>_is_curvature_feasible()</code> at selection time</td>
+</tr>
+</tbody>
+</table>
+<p>Curvature uses the bicycle-model relation (a_{\text{lat}} = v^2 \kappa), with <code>c27_max_lateral_accel</code> as the limit.</p>
+<h3 id="candidate-filtering-tiers">Candidate filtering tiers<a class="headerlink" href="#candidate-filtering-tiers" title="Permanent link">&para;</a></h3>
+<p><a href="avlite/c20_planning/c27_local_lattice_planners.py"><code>_feasible_candidates</code></a> applies strict filters first, then relaxes if nothing remains:</p>
+<ol>
+<li><strong>Strict</strong> — no collision, no boundary violation, curvature feasible.</li>
+<li><strong>Curvature fallback</strong> (if <code>c27_allow_curvature_fallback</code>) — collision-free and in bounds; curvature ignored.</li>
+<li><strong>Boundary fallback</strong> (if agent blocks ahead <strong>or</strong> <code>c27_allow_boundary_violation_fallback</code>) — collision-free only.</li>
+</ol>
+<p><strong>Agent blocks ahead</strong> is true when any agent is in front of the ego (by heading dot product) within the planning horizon in <code>s</code>.</p>
+<p>When an agent blocks ahead, chain building <strong>prefers lateral successors</strong> with <code>|end.d| ≥ c27_d0_reference_threshold</code> so the planner keeps offset paths through an overtake instead of merging back to center too early.</p>
+<h3 id="edge-selection-cost">Edge selection cost<a class="headerlink" href="#edge-selection-cost" title="Permanent link">&para;</a></h3>
+<p><a href="avlite/c20_planning/c27_local_lattice_planners.py"><code>_select_best_edge</code></a> picks the minimum-cost candidate:</p>
+<ul>
+<li><strong>Hard preference</strong> for edges ending near the reference (<code>|end.d| &lt; c27_d0_reference_threshold</code>) when any exist.</li>
+<li><strong>Cost</strong> = <code>|end.d| + c27_safety_margin_weight × clearance_penalty</code> (lower clearance → higher cost).</li>
+</ul>
+<h3 id="plan-commitment-and-switching">Plan commitment and switching<a class="headerlink" href="#plan-commitment-and-switching" title="Permanent link">&para;</a></h3>
+<p>The planner avoids swapping plans every replan tick so the controller can converge on a stable reference.</p>
+<p><strong>Length acceptance</strong> (in <code>replan</code>) — a new chain is considered only if:</p>
+<ul>
+<li>No current plan and new chain has ≥ 1 edge, or</li>
+<li>New chain is <strong>longer or equal</strong>, or</li>
+<li>Length differs by at most <strong>1</strong> edge, or</li>
+<li>Current chain has a collision and the new chain is <strong>clean</strong></li>
+</ul>
+<p><strong><code>should_switch_plan</code></strong> — even if acceptable, switching requires:</p>
+<table>
+<thead>
+<tr>
+<th>Immediate switch</th>
+<th>Discretionary switch</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No committed plan</td>
+<td>Longer clean chain, or escape from colliding chain</td>
+</tr>
+<tr>
+<td>Emergency-stop recovery to clean plan</td>
+<td>Requires <strong>wait time</strong> (<code>c27_replan_wait_time</code>) <strong>or</strong> <strong>material gain</strong></td>
+</tr>
+<tr>
+<td>Current edge done, no successor</td>
+<td>Material gain = mean speed <strong>+0.5 m/s</strong> or chain <strong>+2 edges</strong></td>
+</tr>
+<tr>
+<td>Urgent collision (within <code>c27_urgent_collision_threshold</code> waypoints)</td>
+<td></td>
+</tr>
+<tr>
+<td>Geometric disconnect (<code>&gt; c27_disconnect_distance_threshold</code> m from plan)</td>
+<td></td>
+</tr>
+<tr>
+<td>Faster clean alternative (+0.5 m/s mean speed)</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Same-length clean alternatives never switch (anti-jitter).</p>
+<p>On switch, a <strong>velocity ramp</strong> over the first <code>c27_match_speed_wp_buffer</code> waypoints blends from ego speed into the plan when recovering from a stop.</p>
+<h3 id="emergency-behavior">Emergency behavior<a class="headerlink" href="#emergency-behavior" title="Permanent link">&para;</a></h3>
+<p>If no strictly feasible level-0 edges exist:</p>
+<ol>
+<li>Retry with boundary relaxed (<code>agent_blocks_ahead=True</code> filtering).</li>
+<li>If still blocked, pick the edge with the <strong>latest</strong> collision index (most reaction time) and apply speed match / emergency stop.</li>
+<li>If no edges are generated at all, decelerate the current committed trajectory to zero.</li>
+</ol>
+<h3 id="debug-visualization">Debug visualization<a class="headerlink" href="#debug-visualization" title="Permanent link">&para;</a></h3>
+<p>Enable the local lattice plot in the stack view. Edge colors in <a href="../avlite/c50_visualization/c57_plot_lib.py"><code>c57_plot_lib.py</code></a>:</p>
+<table>
+<thead>
+<tr>
+<th>Color</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Green (<code>#8ec07c</code>)</td>
+<td>Feasible — no collision, in bounds, curvature OK</td>
+</tr>
+<tr>
+<td>Blue</td>
+<td>Kinematic violation — boundary and/or curvature</td>
+</tr>
+<tr>
+<td>Red</td>
+<td>Collision</td>
+</tr>
+</tbody>
+</table>
+<p>The plot draws <strong>all</strong> lattice edges, not only the committed chain. During overtake, <strong>blue</strong> edges may still be selected when boundary constraints are relaxed, so many blue lines are normal in dense traffic.</p>
+<hr />
+<h2 id="parameter-reference">Parameter reference<a class="headerlink" href="#parameter-reference" title="Permanent link">&para;</a></h2>
+<p>Defaults match <a href="../avlite/c20_planning/c29_settings.py"><code>PlanningSettings</code></a>. Adjust per profile in <code>c20_planning.yaml</code>.</p>
+<h3 id="lattice-geometry-and-sampling">Lattice geometry and sampling<a class="headerlink" href="#lattice-geometry-and-sampling" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c27_planning_horizon</code></td>
+<td><code>3</code></td>
+<td>Number of edges in the committed chain (maneuver segments)</td>
+</tr>
+<tr>
+<td><code>c27_maneuver_distance</code></td>
+<td><code>30</code></td>
+<td>Longitudinal spacing between lattice levels (m)</td>
+</tr>
+<tr>
+<td><code>c27_sample_size</code></td>
+<td><code>3</code></td>
+<td>Lateral samples per level (1 on reference + <code>sample_size − 1</code> random)</td>
+</tr>
+<tr>
+<td><code>c27_num_of_edge_points</code></td>
+<td><code>10</code></td>
+<td>Waypoints along each quintic edge</td>
+</tr>
+<tr>
+<td><code>c27_boundary_clearance</code></td>
+<td><code>0.5</code></td>
+<td>Inset from lane boundaries for sampling and violation checks (m)</td>
+</tr>
+<tr>
+<td><code>c27_d0_reference_threshold</code></td>
+<td><code>0.2</code></td>
+<td>Treat <code>\|d\|</code> below this as “on reference” for selection and lateral preference (m)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="feasibility-and-fallbacks">Feasibility and fallbacks<a class="headerlink" href="#feasibility-and-fallbacks" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c27_max_lateral_accel</code></td>
+<td><code>4.0</code></td>
+<td>Lateral acceleration limit for curvature feasibility (m/s²)</td>
+</tr>
+<tr>
+<td><code>c27_min_curvature_velocity</code></td>
+<td><code>3.0</code></td>
+<td>Speed floor used when evaluating curvature at low ego speed (m/s)</td>
+</tr>
+<tr>
+<td><code>c27_allow_curvature_fallback</code></td>
+<td><code>false</code></td>
+<td>If strict tier is empty, allow edges that fail curvature but stay in bounds</td>
+</tr>
+<tr>
+<td><code>c27_allow_boundary_violation_fallback</code></td>
+<td><code>false</code></td>
+<td>If still empty, allow collision-free edges outside bounds</td>
+</tr>
+</tbody>
+</table>
+<p>Boundary relaxation also applies automatically when an agent blocks ahead (overtake path).</p>
+<h3 id="replan-stability">Replan stability<a class="headerlink" href="#replan-stability" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c27_replan_wait_time</code></td>
+<td><code>2.5</code></td>
+<td>Minimum time between discretionary plan switches (s)</td>
+</tr>
+<tr>
+<td><code>c27_urgent_collision_threshold</code></td>
+<td><code>3</code></td>
+<td>Waypoints to collision before immediate switch</td>
+</tr>
+<tr>
+<td><code>c27_disconnect_distance_threshold</code></td>
+<td><code>5.0</code></td>
+<td>Max distance from plan waypoint before forced switch (m)</td>
+</tr>
+<tr>
+<td><code>c27_min_edge_progress_to_block</code></td>
+<td><code>0.2</code></td>
+<td>Min fraction of edge progress before replan blocking (reserved)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="selection-and-velocity-continuity">Selection and velocity continuity<a class="headerlink" href="#selection-and-velocity-continuity" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c27_safety_margin_weight</code></td>
+<td><code>0.3</code></td>
+<td>Weight of clearance in edge cost</td>
+</tr>
+<tr>
+<td><code>c27_match_speed_wp_buffer</code></td>
+<td><code>4</code></td>
+<td>Waypoints for velocity ramp after plan switch</td>
+</tr>
+<tr>
+<td><code>c27_min_ramp_start_velocity</code></td>
+<td><code>3.0</code></td>
+<td>Minimum creep speed when ramping after recovery (m/s)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="shared-collision-settings-c20_">Shared collision settings (<code>c20_*</code>)<a class="headerlink" href="#shared-collision-settings-c20_" title="Permanent link">&para;</a></h3>
+<p>Used by lattice, velocity planner, and global boundary inset.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c20_collision_safety_margin</code></td>
+<td><code>0.3</code></td>
+<td>Extra inflation on ego footprint in collision checks (m)</td>
+</tr>
+<tr>
+<td><code>c20_obstacle_inflation_margin</code></td>
+<td><code>0.5</code></td>
+<td>Inflation on agent polygons for lattice prediction (m)</td>
+</tr>
+<tr>
+<td><code>c20_default_ego_velocity</code></td>
+<td><code>5.0</code></td>
+<td>Assumed ego speed when velocity is unknown (m/s)</td>
+</tr>
+<tr>
+<td><code>c20_min_velocity_threshold</code></td>
+<td><code>0.5</code></td>
+<td>Speed below which ego/agents treated as stopped (m/s)</td>
+</tr>
+<tr>
+<td><code>c20_boundary_margin</code></td>
+<td><code>0.0</code></td>
+<td>Global plan boundary inset from track or HD map edges (m)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="velocity-planner-c26_">Velocity planner (<code>c26_*</code>)<a class="headerlink" href="#velocity-planner-c26_" title="Permanent link">&para;</a></h3>
+<p>Used by <code>VelocityLocalPlanner</code> and for speed-matching on colliding lattice edges.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c26_stopping_decel_factor</code></td>
+<td><code>0.8</code></td>
+<td>Fraction of max decel used when stopping behind an agent</td>
+</tr>
+<tr>
+<td><code>c26_fallback_deceleration</code></td>
+<td><code>3.0</code></td>
+<td>Deceleration when max decel is unavailable (m/s²)</td>
+</tr>
+<tr>
+<td><code>c26_stopping_safety_buffer</code></td>
+<td><code>2.0</code></td>
+<td>Extra standoff distance when stopping (m)</td>
+</tr>
+<tr>
+<td><code>c26_follow_gap_buffer</code></td>
+<td><code>0.5</code></td>
+<td>Bumper-to-bumper gap beyond vehicle lengths (m)</td>
+</tr>
+<tr>
+<td><code>c26_follow_cruise_min_gap</code></td>
+<td><code>15.0</code></td>
+<td>Gap before deferring back to global cruise speed (m)</td>
+</tr>
+<tr>
+<td><code>c26_planning_horizon_points</code></td>
+<td><code>50</code></td>
+<td>Waypoint window for velocity local plan from current index</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Tuning notes</p>
+<ul>
+<li><strong>Many blue edges at high speed</strong> — curvature limit tightens as (v^2); raise <code>c27_max_lateral_accel</code> or enable <code>c27_allow_curvature_fallback</code>.</li>
+<li><strong>Overtake not lateral enough</strong> — check agent detection horizon; boundary relax only triggers when <code>_agent_blocks_ahead</code> is true.</li>
+<li><strong>Plan jitter / controller never settles</strong> — increase <code>c27_replan_wait_time</code>; discretionary switches need wait or material gain (+2 edges or +0.5 m/s).</li>
+<li><strong>Too conservative following</strong> — reduce <code>c26_follow_cruise_min_gap</code> or collision margins (<code>c20_*</code>).</li>
+</ul>
+</div>
+<hr />
+<h2 id="related-reading">Related reading<a class="headerlink" href="#related-reading" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../architecture/">Architecture</a> — stack layers and data flow</li>
+<li><a href="../settings-naming/">Settings naming</a> — YAML key prefixes and validation</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
