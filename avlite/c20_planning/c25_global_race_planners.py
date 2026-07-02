@@ -1,14 +1,15 @@
-import json
 import logging
 
 import numpy as np
 from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points
 
+from avlite.c10_perception.c11_perception_model import RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c60_common.c67_paths import DataPaths
 
 log = logging.getLogger(__name__)
 
@@ -35,13 +36,18 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
 
     def __init__(
         self,
-        filepath: str,
+        filepath: str | RaceMap,
         max_velocity: float = 10.0,
         max_lateral_accel: float = 5.0,
         margin: float | None = None,
     ):
         super().__init__()
-        self.filepath = filepath
+        if isinstance(filepath, RaceMap):
+            self._race_map = filepath
+            self.filepath = filepath.source_path
+        else:
+            self._race_map = None
+            self.filepath = filepath
         self.max_velocity = max_velocity
         self.max_lateral_accel = max_lateral_accel
         self.margin = margin
@@ -53,11 +59,13 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
             else PlanningSettings.c20_boundary_margin
         )
 
-        with open(self.filepath) as f:
-            data = json.load(f)
-
-        left = np.array(data["LeftBound"])[:, :2]
-        right = np.array(data["RightBound"])[:, :2]
+        if self._race_map is not None:
+            left = self._race_map.left_bound
+            right = self._race_map.right_bound
+        else:
+            race_map = RaceMap.from_path(DataPaths.resolve_stored(self.filepath))
+            left = race_map.left_bound
+            right = race_map.right_bound
 
         if len(left) != len(right):
             raise ValueError(

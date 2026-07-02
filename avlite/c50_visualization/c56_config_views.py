@@ -6,35 +6,25 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 
 
-from avlite.c60_common.c67_paths import (
-    bundled_config_dir,
-    can_edit_repo_configs,
-    community_plugin_settings_display_path,
-    effective_config_path,
-    format_user_path,
-    get_config_dir,
-    installed_community_plugins_map,
-    is_repo_config_target,
-    normalize_community_plugin_stored,
-    normalize_community_plugins_map,
-    set_repo_config_target,
-    set_startup_profile,
-)
-from avlite.c60_common.c60_plugins import (
+from avlite.c60_common.c67_paths import ConfigPaths, PluginPaths
+from avlite.c60_common.c66_plugins import (
     import_plugin_modules,
     list_plugins,
-    load_all_stack_settings,
     load_builtin_plugin_settings,
     load_community_plugin_setting,
     plugin_module_prefix,
     reload_lib,
 )
+from avlite.c40_execution.c43_factory import load_stack_settings
+from avlite.c50_visualization.c59_settings import get_stack_settings_classes, VisualizationSettings, sync_perception_pipeline_from_c19
 from avlite.c60_common.c69_setting_utils import (
     delete_setting_profile,
+    dev_mode_export_warning,
     export_profile,
     import_profile,
     list_profiles,
     load_setting,
+    order_profiles_for_dropdown,
     rename_setting_profile,
     save_setting,
 )
@@ -50,7 +40,6 @@ from avlite.c50_visualization.c58_ui_lib import (
     get_dpi_scale,
     scaled,
 )
-from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c60_common.c68_settings_schema import field_tooltip_text, setting_key
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
@@ -87,7 +76,7 @@ def _refresh_profile_dropdowns(win: "SettingWindow", *, select: str | None = Non
     else:
         current = win.root.setting.selected_profile.get()
         if current not in profiles:
-            current = "default" if "default" in profiles else (profiles[0] if profiles else "default")
+            current = profiles[0] if profiles else "default"
             win.root.setting.selected_profile.set(current)
     if win.root.setting.next_profile.get() not in profiles:
         win.root.setting.next_profile.set(current)
@@ -98,13 +87,16 @@ def _setting_window_edit_repo_configs_toggle(win: "SettingWindow") -> None:
     enabled = win._edit_repo_configs_var.get()
     if enabled and not messagebox.askyesno(
         "Edit repository configs",
-        f"Save and load will use files under\n{bundled_config_dir()}\n"
-        f"instead of your user config dir ({get_config_dir()}).\n\nContinue?",
+        f"Core stack and built-in plugin settings will use files under\n"
+        f"{ConfigPaths.bundled_dir()}\n"
+        f"instead of your user config dir ({ConfigPaths.user_dir()}).\n\n"
+        f"Community and member plugin settings always stay in your user "
+        f"config directory.\n\nContinue?",
         parent=win.window,
     ):
         win._edit_repo_configs_var.set(False)
         return
-    set_repo_config_target(enabled)
+    ConfigPaths.set_repo_target(enabled)
     profile = _refresh_profile_dropdowns(win)
     win.root.load_configs(profile=profile)
     win.load_profile(profile)
@@ -248,7 +240,8 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         profile = self.root.setting.selected_profile.get()
         binder = TkSettingsBinder()
         save_setting(self.root.setting, profile=profile, binder=binder)
-        ExecutionSettings.c40_community_plugins = normalize_community_plugins_map(
+        save_setting(PerceptionSettings, profile=profile, binder=binder)
+        ExecutionSettings.c40_community_plugins = PluginPaths.normalize_map(
             ExecutionSettings.c40_community_plugins
         )
         save_setting(ExecutionSettings, profile=profile, binder=binder)
@@ -275,7 +268,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def open_plugins_window(self):
         """Open the community plugins manager window."""
-        from avlite.c50_visualization.c50_community_plugins_app import CommunityPluginsApp
+        from avlite.c50_visualization.c54_plugins import CommunityPluginsApp
         CommunityPluginsApp.open(parent=self.root)
 
 
@@ -371,8 +364,8 @@ class SettingWindow:
         )
         btn_reset_non_exec.grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="we")
         attach_tooltip(btn_reset_non_exec, BUTTON_TOOLTIPS["profile_reset_non_exec"])
-        if can_edit_repo_configs():
-            self._edit_repo_configs_var = tk.BooleanVar(value=is_repo_config_target())
+        if ConfigPaths.can_edit_bundled():
+            self._edit_repo_configs_var = tk.BooleanVar(value=ConfigPaths.is_repo_target())
             cb_edit_repo = ttk.Checkbutton(
                 profile_ext_frame, text="Edit repository configs", variable=self._edit_repo_configs_var,
                 command=lambda: _setting_window_edit_repo_configs_toggle(self),
@@ -565,6 +558,29 @@ class SettingWindow:
             cb.pack(side=tk.LEFT)
             attach_schema_tooltip(cb, VisualizationSettings, field)
 
+        additional_setting_row_1c = ttk.Frame(additional_setting_frame)
+        additional_setting_row_1c.pack(fill=tk.X)
+        ttk.Label(additional_setting_row_1c, text="Global Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        cb_plan_boundaries = ttk.Checkbutton(
+            additional_setting_row_1c,
+            text="Plan boundaries",
+            variable=self.root.setting.show_global_plan_boundaries,
+            command=self.root.update_ui,
+        )
+        cb_plan_boundaries.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_plan_boundaries, VisualizationSettings, "show_global_plan_boundaries")
+        ttk.Label(additional_setting_row_1c, text="Velocity scale:").pack(side=tk.LEFT, padx=(10, 5))
+        velocity_scale_cb = ttk.Combobox(
+            additional_setting_row_1c,
+            textvariable=self.root.setting.global_plan_velocity_scale,
+            values=("relative", "absolute"),
+            state="readonly",
+            width=10,
+        )
+        velocity_scale_cb.pack(side=tk.LEFT)
+        velocity_scale_cb.bind("<<ComboboxSelected>>", lambda e: self.root.update_ui())
+        attach_schema_tooltip(velocity_scale_cb, VisualizationSettings, "global_plan_velocity_scale")
+
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
 
@@ -597,7 +613,7 @@ class SettingWindow:
     def reset_community_plugins(self):
         """Reset community plugins to all plugins installed under the plugins directory."""
         log.info("Resetting community plugins to installed set.")
-        ExecutionSettings.c40_community_plugins = installed_community_plugins_map()
+        ExecutionSettings.c40_community_plugins = PluginPaths.installed_map()
         self.update_community_plugin_list()
         if self.root.setting.load_plugins.get():
             self.update_community_plugin_widgets()
@@ -667,7 +683,7 @@ class SettingWindow:
             return
 
         log.info(f"Adding plugin: {name}")
-        ExecutionSettings.c40_community_plugins[name] = normalize_community_plugin_stored(name, dir)
+        ExecutionSettings.c40_community_plugins[name] = PluginPaths.normalize_stored(name, dir)
         self.listbox_community_plugins.insert(tk.END, name)
         
     def delete_community_plugin(self):
@@ -689,8 +705,8 @@ class SettingWindow:
         plugin_name = self.listbox_default_plugins.get(selected[0])
         cls = load_builtin_plugin_settings(plugin_name)
         if cls is not None and getattr(cls, "filepath", None):
-            settings_path = format_user_path(
-                effective_config_path(cls.filepath, for_write=False)
+            settings_path = PluginPaths.format_display(
+                ConfigPaths.effective_path(cls.filepath, for_write=False)
             )
         else:
             settings_path = "\u2014"
@@ -716,7 +732,7 @@ class SettingWindow:
             "Package Name",
             "Settings file",
             plugin_name,
-            community_plugin_settings_display_path(plugin_name),
+            PluginPaths.settings_display_path(plugin_name),
         )
 
     def update_community_plugin_list(self):
@@ -728,7 +744,7 @@ class SettingWindow:
 
     def open_plugins_window(self):
         """Open the community plugins manager and refresh the list on close."""
-        from avlite.c50_visualization.c50_community_plugins_app import CommunityPluginsApp
+        from avlite.c50_visualization.c54_plugins import CommunityPluginsApp
         app = CommunityPluginsApp.open(parent=self.root)
         app.window.bind("<Destroy>", lambda _e: self.update_community_plugin_list(), add="+")
 
@@ -744,6 +760,7 @@ class SettingWindow:
         log.info(f"Creating profile: {text}")
         self.root.setting.selected_profile.set(text)
         self.root.setting.profile_list.append(text)
+        self.root.setting.profile_list = order_profiles_for_dropdown(self.root.setting.profile_list)
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.root.config_shortcut_view.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
@@ -760,6 +777,18 @@ class SettingWindow:
             parent=self.window,
         ):
             return
+        try:
+            load_setting(ExecutionSettings, profile=profile)
+        except Exception as e:
+            messagebox.showerror("Export profile", str(e), parent=self.window)
+            return
+        warning = dev_mode_export_warning(ExecutionSettings.c40_community_plugins)
+        if warning and not messagebox.askyesno(
+            "Export profile",
+            warning + "\n\nContinue export?",
+            parent=self.window,
+        ):
+            return
         zip_path = filedialog.asksaveasfilename(
             parent=self.window,
             title="Export profile",
@@ -770,10 +799,10 @@ class SettingWindow:
         if not zip_path:
             return
         try:
-            load_setting(ExecutionSettings, profile=profile)
             count = export_profile(
                 profile,
                 zip_path,
+                settings_classes=get_stack_settings_classes(),
                 community_plugins=ExecutionSettings.c40_community_plugins,
             )
         except ValueError as e:
@@ -827,7 +856,9 @@ class SettingWindow:
             overwrite = True
 
         try:
-            profile_name = import_profile(zip_path, overwrite=overwrite)
+            profile_name = import_profile(
+                zip_path, settings_classes=get_stack_settings_classes(), overwrite=overwrite
+            )
         except ValueError as e:
             messagebox.showerror("Import profile", str(e), parent=self.window)
             return
@@ -865,11 +896,8 @@ class SettingWindow:
                     except Exception as e:
                         log.error(f"Failed to delete plugin settings for {plugin}: {e}")
 
-            self.root.setting.profile_list.remove(self.root.setting.selected_profile.get())
-            self.profile_dropdown_menu["values"] = self.root.setting.profile_list
-            self.root.config_shortcut_view.profile_dropdown_menu["values"] = self.root.setting.profile_list
-            self.root.setting.selected_profile.set("default")  
-            self.load_profile("default")
+            profile = _refresh_profile_dropdowns(self, select="default")
+            self.load_profile(profile)
 
 
 
@@ -907,6 +935,7 @@ class SettingWindow:
 
         idx = self.root.setting.profile_list.index(old_name)
         self.root.setting.profile_list[idx] = new_name
+        self.root.setting.profile_list = order_profiles_for_dropdown(self.root.setting.profile_list)
         self.root.setting.selected_profile.set(new_name)
         self.profile_dropdown_menu["values"] = self.root.setting.profile_list
         self.next_profile_dropdown_menu["values"] = self.root.setting.profile_list
@@ -922,12 +951,13 @@ class SettingWindow:
         binder = TkSettingsBinder()
         self.save_from_widgets(PerceptionSettings)
         save_setting(PerceptionSettings, profile=profile, binder=binder)
-        self.save_from_widgets(PlanningSettings) 
+        sync_perception_pipeline_from_c19(self.root.setting)
+        self.save_from_widgets(PlanningSettings)
         save_setting(PlanningSettings, profile=profile, binder=binder)
         self.save_from_widgets(ControlSettings)
         save_setting(ControlSettings, profile=profile, binder=binder)
         self.save_from_widgets(ExecutionSettings)
-        ExecutionSettings.c40_community_plugins = normalize_community_plugins_map(
+        ExecutionSettings.c40_community_plugins = PluginPaths.normalize_map(
             ExecutionSettings.c40_community_plugins
         )
         save_setting(ExecutionSettings, profile=profile, binder=binder)
@@ -968,10 +998,11 @@ class SettingWindow:
 
         log.info(f"loading profile: {profile}")
         binder = TkSettingsBinder()
-        load_all_stack_settings(profile=profile, load_plugins=self.root.setting.load_plugins.get())
+        load_stack_settings(profile=profile, load_plugins=self.root.setting.load_plugins.get())
         load_setting(self.root.setting, profile=profile, binder=binder)
+        sync_perception_pipeline_from_c19(self.root.setting)
         self.root.setting.selected_profile.set(profile)
-        set_startup_profile(profile)
+        ConfigPaths.set_startup_profile(profile)
 
         self.update_core_widgets()
         self.update_plugins_widgets()
@@ -980,6 +1011,8 @@ class SettingWindow:
         self.listbox_default_plugins.delete(0, tk.END)
         for plugin in ExecutionSettings.c40_default_plugins:
             self.listbox_default_plugins.insert(tk.END, plugin)
+
+        self.root.perceive_plan_control_view.reset()
 
     def update_core_widgets(self):
         self.update_widgets(PerceptionSettings)

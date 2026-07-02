@@ -4,6 +4,7 @@ from tkinter import ttk
 from tkinter.scrolledtext import ScrolledText
 import logging
 import queue
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -12,10 +13,15 @@ from typing import TYPE_CHECKING
 from avlite.c50_visualization.c58_ui_lib import attach_schema_tooltip, attach_tooltip, BUTTON_TOOLTIPS
 from avlite.c50_visualization.c59_settings import VisualizationSettings
 from avlite.c60_common.c68_settings_schema import field_tooltip_text
-from avlite.c60_common.c60_plugins import (
+from avlite.c60_common.c66_plugins import (
+    is_plugin_logger,
     layer_key_for_plugin_log_record,
     plugin_package_from_logger,
 )
+
+_CNX_PREFIX = re.compile(r"^(c\d{2})_", re.IGNORECASE)
+_PNX_PREFIX = re.compile(r"^(p\d{2})_", re.IGNORECASE)
+_PNX_PACKAGE = re.compile(r"^(p\d{2})", re.IGNORECASE)
 
 log = logging.getLogger(__name__)
 
@@ -299,11 +305,8 @@ class LogView(ttk.LabelFrame):
             while len(messages) < max_per_poll:
                 record, levelno = self.log_handler.log_queue.get_nowait()
                 # Format lazily on the UI thread (avoids blocking planner/controller threads in emit)
-                msg = self.log_handler.format(record)
-                _first_dot = msg.find('.')
-                _second_dot = msg.find('.', _first_dot + 1)
-                code = msg[_second_dot+1 : msg.find('_', _second_dot)]
-                msg = code[:4] + ':' + msg
+                code = LogView.record_code_prefix(record.name)
+                msg = f"{code}:{self.log_handler.format(record)}"
                 if levelno >= logging.ERROR:
                     tag = "error"
                 elif levelno >= logging.WARNING:
@@ -392,6 +395,29 @@ class LogView(ttk.LabelFrame):
             if not LogView.should_show_log(record.name, self.log_view._filter_state):
                 return
             self.log_queue.put((record, record.levelno))
+
+    @staticmethod
+    def record_code_prefix(record_name: str) -> str:
+        """Short module code for log lines (e.g. c15, p42, or plugin folder name)."""
+        segments = record_name.split(".")
+        if is_plugin_logger(record_name):
+            for segment in reversed(segments):
+                match = _PNX_PREFIX.match(segment)
+                if match:
+                    return match.group(1).lower()
+            package = plugin_package_from_logger(record_name)
+            if package is not None:
+                pkg_match = _PNX_PACKAGE.match(package)
+                if pkg_match:
+                    return pkg_match.group(1).lower()
+                return package
+            return segments[-1] if segments else record_name
+
+        for segment in reversed(segments):
+            match = _CNX_PREFIX.match(segment)
+            if match:
+                return match.group(1).lower()
+        return segments[-1][:4] if segments else record_name
 
     @staticmethod
     def should_show_log(record_name: str, filter_state: dict[str, bool]) -> bool:

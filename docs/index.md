@@ -7,7 +7,7 @@
 AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.
 
 !!! tip "ROS2 & Autoware Ready"
-    AVLite includes a built-in ROS2 executor plugin (`p40_executer_ROS2`) with native Autoware message support. Publish and subscribe to `autoware_auto_msgs` types like Trajectory and ControlCommand out of the box.
+    AVLite integrates optional ROS 2 plugins under `related-repos/` (e.g. `avlite-executer-ROS2`) with native Autoware message support when installed.
 
 **Repository**: [github.com/AV-Lab/avlite](https://github.com/AV-Lab/avlite)
 
@@ -19,7 +19,8 @@ AVLite is a lightweight, extensible autonomous vehicle software stack for rapid 
 - **Optional Perception & Localization**: Both perception and localization are optional — run with ground truth or plug in your own strategies
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
 - **Hot Reloading**: Modify code without restarting the application
-- **Plugin System**: Extend functionality with community plugins
+- **Plugin System**: Extend functionality with community and member plugins
+- **Multi-robot ready (extensible)**: `AgentType`, per-agent control command mapping, and `WorldBridge.control_agent` / `step()` hooks for future drones, diff-drive, and fleet sims — see [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control)
 - **Profile Management**: Save and load different configurations
 
 ## Installation
@@ -42,12 +43,7 @@ pip install -r requirements-full.txt
 ### Optional Integrations
 
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs` for native Autoware message support. The built-in `p40_executer_ROS2` plugin provides:
-    - `ROSExecuter`: Synchronize AVLite with ROS2 ecosystem
-    - `PlannerNode`: Publishes Autoware Trajectory messages
-    - `ControllerNode`: Publishes Autoware ControlCommand messages
-    - `PerceptionNode`: Publishes ego state and tracked objects
-    - Message converters for seamless Autoware integration
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs`. Clone `related-repos/avlite-executer-ROS2`, register it in `c40_community_plugins`, and set `c40_executer_type: ROSExecuter` — see [Optional Plugins](optional-plugins.md) and `related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md` in the repository.
 
 ## Quick Start
 
@@ -166,12 +162,12 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 
 | Component | Description |
 |-----------|-------------|
-| **c10_perception** | Interfaces + built-in algorithms: `FastBEVLidarDetection`, `KalmanTracker`, `LidarLocalization`; prediction and mapping interfaces |
-| **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`GreedyLatticePlanner`, lattice-based) |
+| **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` (c11), OpenDRIVE `HDMap` parser (c18) |
+| **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, `GreedyLatticePlanner`, lattice-based) |
 | **c30_control** | Vehicle controllers (Stanley, PID) |
-| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo) |
+| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo); `c43_factory` assembles the stack |
 | **c50_visualization** | Real-time Tkinter GUI with multiple plot views |
-| **c60_common** | Settings management, `HDMap` (OpenDRIVE), capability definitions (`AnyOf`), utilities |
+| **c60_common** | Settings validation, plugin discovery (`c66_plugins`), paths (`c67_paths`), capability definitions, utilities |
 
 ## Configuration
 
@@ -183,7 +179,8 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 |---------|----------|------------------|
 | **Shipped defaults** (read-only in git) | `{repo}/configs/*.yaml` | — |
 | **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
-| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/` | `AVLITE_PLUGINS_DIR` |
+| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in `c40_execution.yaml` | `AVLITE_PLUGINS_DIR` |
+| **Community plugin settings** | `~/.config/avlite/plugin_<name>.yaml` — user-only; no repo default | `AVLITE_CONFIG_DIR` |
 | **Maps & trajectories** | Read: `~/.config/avlite/data/` then `{repo}/data/`; save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
 | **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
 
@@ -204,13 +201,13 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 - `c30_control.yaml` — Controller tuning
 - `c40_execution.yaml` — Execution and simulator settings
 - `c50_visualization.yaml` — GUI preferences
-- `plugin_*.yaml` — Built-in plugin settings (same names as in repo `configs/`)
+- `plugin_*.yaml` — Plugin settings: built-in plugins ship repo defaults in `configs/` with user overrides under `~/.config/avlite/`; community plugins use the same `plugin_<name>.yaml` basename but only in the user config dir (one file per registered plugin name)
 
 ### GUI: profiles and reset
 
 - **Config tab** — profile dropdown, Save Config (visualization + execution layers).
 - **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save, **Export profile**, **Import profile**.
-- **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c40_execution.yaml`.
+- **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c40_execution.yaml`. GUI export includes `c50_visualization.yaml` via `c59_settings.get_stack_settings_classes()`.
 - **Import profile** — merges a profile zip into your config directory; confirms overwrite if the profile name already exists.
 - **Edit repository configs** (settings window, dev only) — switches read/write between `~/.config/avlite/` and `{repo}/configs/` (no file copy) and refreshes the profile dropdown from the active target. Preference stored in `~/.config/avlite/config_target`. Hidden when bundled configs are unavailable. Uncheck to return to the user config dir.
 
@@ -222,6 +219,8 @@ Export a profile on one machine and import it on another (e.g. robot with `AVLIT
 python -m avlite config export-profile myprofile [-o myprofile.zip]
 python -m avlite config import-profile myprofile.zip [--force]
 ```
+
+Headless `config export-profile` exports c10–c40 settings and plugins only (no visualization YAML). Use the GUI settings window to export a profile that includes `c50_visualization.yaml`.
 
 Each zip entry is validated against Pydantic schemas on export and import; invalid profiles are rejected with field-level errors (same rules as `config validate`).
 
@@ -244,9 +243,9 @@ See [Settings naming](settings-naming.md) for key prefixes and validation detail
 
 In the GUI Config tab, change the **Bridge** dropdown:
 - `BasicSim` - Built-in 2D simulation (no external dependencies)
-- `CarlaBridge` - Connect to a running CARLA simulator (`p40_bridge_carla` plugin)
-- `GazeboIgnitionBridge` - Connect to Gazebo Ignition via ROS2 (`p40_bridge_gazebo` plugin)
-- `ROS2WorldBridge` - Use a ROS2 topic-based world bridge (`p40_bridge_ROS2` plugin)
+- `CarlaBridge` - Connect to a running CARLA simulator (`avlite-bridge-carla` plugin)
+- `GazeboIgnitionBridge` - Connect to Gazebo Ignition via ROS2 (`avlite-bridge-gazebo` plugin)
+- `ROS2WorldBridge` - Use a ROS2 topic-based world bridge (`avlite-bridge-ROS2` plugin)
 
 ## Project Structure
 
@@ -258,14 +257,15 @@ avlite/
 ├── c40_execution/      # Execution and bridges
 ├── c50_visualization/  # GUI components
 ├── c60_common/         # Shared utilities
-└── plugins/            # Built-in plugins
-    ├── p10_perception_MO_prediction/
-    ├── p30_controller_joystick/
-    ├── p40_bridge_carla/       # CARLA simulator bridge
-    ├── p40_bridge_gazebo/      # Gazebo Ignition bridge
-    ├── p40_bridge_ROS2/        # ROS2 world bridge
-    ├── p40_executer_ROS2/      # ROS2 executor with Autoware msgs
+└── plugins/            # Built-in plugins (headless mode only)
     └── p50_headless_mode/
+
+related-repos/          # Optional plugins (see related-repos/README.md)
+    ├── avlite-bridge-carla/
+    ├── avlite-bridge-gazebo/
+    ├── avlite-bridge-ROS2/
+    ├── avlite-controller-joystick/
+    └── avlite-executer-ROS2/
 ```
 
 Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.
@@ -273,6 +273,8 @@ Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "
 ## Documentation
 
 - [Architecture](architecture.md) - System design and patterns
+- [Algorithms](algorithms.md) - Planning algorithms and lattice parameters
+- [Optional Plugins](optional-plugins.md) - Related-repo bridges, ROS executer, joystick
 - [Plugin Development](plugin-development.md) - Create custom components
 
 ## Support

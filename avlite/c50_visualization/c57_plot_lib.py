@@ -1,14 +1,15 @@
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
+from avlite.c10_perception.c11_perception_model import AggregatedOccupancyFlow, EgoState, SingleTrajectory
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
-from avlite.c60_common.c66_hdmap import HDMap
+from avlite.c10_perception.c18_hdmap_parser import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
-from avlite.c20_planning.c27_lattice import Edge
+from avlite.c20_planning.c28_lattice import Edge
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c30_control.c32_control_strategy import ControlStrategy
+from avlite.c30_control.c39_settings import ControlSettings
 
 from typing import cast, Optional
 from abc import ABC, abstractmethod
@@ -16,11 +17,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.collections import LineCollection
+from matplotlib.colors import LinearSegmentedColormap, Normalize
 
 import logging
 
 log = logging.getLogger(__name__)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
 
 class GlobalPlot(ABC):
     def __init__(self, figsize=(8, 10), name="Global Plot"):
@@ -34,12 +37,12 @@ class GlobalPlot(ABC):
         # Disable the 'l' shortcut for toggling log scale
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-        self.start, = self.ax.plot([], [], 'bo', markersize=14, label="Start", zorder = 3)
-        self.start_text = self.ax.text(1000, 1000, 'S', fontsize=12, color='white', zorder=4, ha='center', va='center')
-        self.goal, = self.ax.plot([], [], 'go', markersize=14, label="Goal", zorder = 3)    
-        self.goal_text = self.ax.text(1000, 1000 , 'G', fontsize=12, color='white', zorder=4, ha='center', va='center')
-        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=5)
-        self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=6, ha='center', va='center')
+        self.start, = self.ax.plot([], [], 'bo', markersize=14, label="Start", zorder=7)
+        self.start_text = self.ax.text(1000, 1000, 'S', fontsize=12, color='white', zorder=9, ha='center', va='center')
+        self.goal, = self.ax.plot([], [], 'go', markersize=14, label="Goal", zorder=7)
+        self.goal_text = self.ax.text(1000, 1000 , 'G', fontsize=12, color='white', zorder=9, ha='center', va='center')
+        self.vehicle_location, = self.ax.plot([], [], 'ro', markersize=14, label="Planner Location", zorder=8)
+        self.vehicle_location_text = self.ax.text(0, 0, 'L', fontsize=12, color='white', zorder=9, ha='center', va='center')
 
         self.orientation_arrow = None  # For the vehicle orientation arrow
         for tick in self.ax.xaxis.get_major_ticks():
@@ -56,9 +59,11 @@ class GlobalPlot(ABC):
         self.view_width = None
         self.view_height = None
         self.map_plotted = False
+        self._velocity_scale = "relative"
 
 
-    def plot(self,exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, delta:Optional[tuple[float,float]]=None):
+    def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, show_plan_boundaries=True, velocity_scale="relative", delta:Optional[tuple[float,float]]=None):
+        self._velocity_scale = velocity_scale
         if not self.map_plotted:
             self.plot_map(exec.global_planner)
 
@@ -125,10 +130,8 @@ class GlobalPlot(ABC):
                         x_pad = 0
                         y_pad = (target_height - map_height) / 2
                     
-                    dx = delta[0] if delta else 0.0
-                    dy = delta[1] if delta else 0.0
-                    self.ax.set_xlim(self.map_min_x - x_pad + dx, self.map_max_x + x_pad + dx)
-                    self.ax.set_ylim(self.map_min_y - y_pad + dy, self.map_max_y + y_pad + dy)
+                    self.ax.set_xlim(self.map_min_x - x_pad, self.map_max_x + x_pad)
+                    self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
                     self.view_width = map_width + x_pad * 2
                     self.view_height = map_height + y_pad * 2
 
@@ -166,7 +169,7 @@ class GlobalPlot(ABC):
         if self.orientation_arrow:
             self.orientation_arrow.remove()
         self.orientation_arrow = self.ax.annotate('', xy=(x2, y2), xytext=(x,y), arrowprops=dict(arrowstyle='->',
-                                                     mutation_scale=20, color="red", lw=5), zorder=5)
+                                                     mutation_scale=20, color="red", lw=5), zorder=9)
         
     def clear_tmp_plots(self):
         self.orientation_arrow.remove() if self.orientation_arrow else None
@@ -207,7 +210,8 @@ class GlobalRacePlot(GlobalPlot):
         # Create plot elements with empty data - they'll be updated later
         self.left_boundary, = self.ax.plot([], [], 'orange', linewidth=3, label="Left Boundary")
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
-        self.reference_trajectory, = self.ax.plot([], [], 'gray', linewidth=3, label="Global Trajectory")
+        self.reference_trajectory = LineCollection([], cmap=_VELOCITY_CMAP, linewidths=5, zorder=4)
+        self.ax.add_collection(self.reference_trajectory)
         
       
         # self.ax.legend()
@@ -216,8 +220,11 @@ class GlobalRacePlot(GlobalPlot):
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
     def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
-             follow_vehicle=True, delta: Optional[tuple[float, float]] = None):
-        self.plot_map(exec.global_planner)
+             follow_vehicle=True, show_plan_boundaries: bool = True,
+             velocity_scale: str = "relative",
+             delta: Optional[tuple[float, float]] = None):
+        self._velocity_scale = velocity_scale
+        self.plot_map(exec.global_planner, show_plan_boundaries=show_plan_boundaries)
         self.plot_vehicle(exec.ego_state)
         self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
         self.fig.canvas.draw()
@@ -238,22 +245,30 @@ class GlobalRacePlot(GlobalPlot):
         # Use the same colors as LocalPlot, not black/white specific colors
         self.left_boundary.set_color("orange")
         self.right_boundary.set_color("tan")
-        self.reference_trajectory.set_color("gray")
         self.vehicle_location.set_color("red")
         
         
-    def plot_map(self, global_planner: GlobalPlannerStrategy):
+    def plot_map(self, global_planner: GlobalPlannerStrategy, show_plan_boundaries: bool = True):
         """Update the plot with current data"""
 
         log.debug("Plotting Race Global Plot")
-        self.left_boundary.set_data(global_planner.global_plan.left_boundary_x, global_planner.global_plan.left_boundary_y)
-        self.right_boundary.set_data(global_planner.global_plan.right_boundary_x, global_planner.global_plan.right_boundary_y)
-        self.reference_trajectory.set_data(global_planner.global_plan.trajectory.path_x, global_planner.global_plan.trajectory.path_y)
+        plan = global_planner.global_plan
+        if show_plan_boundaries:
+            self.left_boundary.set_data(plan.left_boundary_x, plan.left_boundary_y)
+            self.right_boundary.set_data(plan.right_boundary_x, plan.right_boundary_y)
+        else:
+            self.left_boundary.set_data([], [])
+            self.right_boundary.set_data([], [])
+        traj = plan.trajectory
+        _update_velocity_colored_line(
+            self.reference_trajectory, traj.path_x, traj.path_y, traj.velocity,
+            velocity_scale=self._velocity_scale,
+        )
         
-        self.map_min_x = min(global_planner.global_plan.left_boundary_x)
-        self.map_max_x = max(global_planner.global_plan.right_boundary_x)
-        self.map_min_y = min(global_planner.global_plan.left_boundary_y)
-        self.map_max_y = max(global_planner.global_plan.right_boundary_y)
+        self.map_min_x = min(plan.left_boundary_x)
+        self.map_max_x = max(plan.right_boundary_x)
+        self.map_min_y = min(plan.left_boundary_y)
+        self.map_max_y = max(plan.right_boundary_y)
         self.map_plotted = True
             
 
@@ -318,11 +333,32 @@ class GlobalHDMapPlot(GlobalPlot):
            pl , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Lane Path", zorder=2)
            self.lane_path_plots.append(pl)
 
-        self.global_plan_path , *_ = self.ax.plot([], [], 'o-', color=blue, linewidth=2, alpha=0.5, label="Global Path", zorder=2)
+        self.global_plan_path = LineCollection([], cmap=_VELOCITY_CMAP, linewidths=5, zorder=4)
+        self.ax.add_collection(self.global_plan_path)
 
         self.road_arrow = None # for the road direction arrow
         self.lane_arrow = None # for the lane direction arrow
-        
+
+    def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
+             follow_vehicle=True, show_plan_boundaries: bool = True,
+             velocity_scale: str = "relative",
+             delta: Optional[tuple[float, float]] = None):
+        self._velocity_scale = velocity_scale
+        if not self.map_plotted:
+            self.plot_map(exec.global_planner)
+        self.plot_vehicle(exec.ego_state)
+        self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
+        plan = exec.global_planner.global_plan
+        if len(plan.path) < 2:
+            plan = exec.local_planner.global_plan
+        if len(plan.path) >= 2:
+            path = np.array(plan.path).T
+            velocity = plan.velocity or plan.trajectory.velocity
+            _update_velocity_colored_line(
+                self.global_plan_path, path[0], path[1], velocity,
+                velocity_scale=self._velocity_scale,
+            )
+        self.fig.canvas.draw()
 
     def show_closest_road_and_lane(self,  x:int, y:int, map:HDMap):
         """Show the closest road and lane to the given coordinates"""
@@ -393,22 +429,25 @@ class GlobalHDMapPlot(GlobalPlot):
     def plot_global_plan(self, global_plan: GlobalPlan):
         """Plot the road path"""
         try:
-            lane_path = global_plan.lane_path
-            log.debug("Plotting Road Path: length = %d", len(lane_path))
+            log.debug("Plotting Road Path: length = %d", len(global_plan.path))
             self.clear_road_path_plots()
             path = np.array(global_plan.path).T
-            self.global_plan_path.set_data(path[0], path[1])
+            velocity = global_plan.velocity or global_plan.trajectory.velocity
+            _update_velocity_colored_line(
+                self.global_plan_path, path[0], path[1], velocity,
+                velocity_scale=self._velocity_scale,
+            )
             self.fig.canvas.draw()
         except Exception as e:
             log.error(f"Error plotting global plan: {e}")
-            self.global_plan_path.set_data([], [])
+            _update_velocity_colored_line(self.global_plan_path, [], [], [])
 
 
     def clear_road_path_plots(self):
         """Clear the road path plots"""
         for i in range(len(self.lane_path_plots)):
             self.lane_path_plots[i].set_data([], [])
-        self.global_plan_path.set_data([], [])
+        _update_velocity_colored_line(self.global_plan_path, [], [], [])
         self.__clear_closest_road_and_lane()
 
     
@@ -524,6 +563,7 @@ class LocalPlot:
         self.lattice_graph_plots_ax2 = []
         self.lattice_graph_endpoints_ax1 = []
         self.lattice_graph_endpoints_ax2 = []
+        self._lattice_legend_added = False
         self.local_plan_plots_ax1 = []
         self.local_plan_plots_ax2 = []
         self.view_width_ax1 = None
@@ -615,7 +655,7 @@ class LocalPlot:
         )
         self.ax2.add_collection(self.track_boundary_collection_ax2)
 
-        # Prediction arrows: one dotted orange line per agent on both views
+        # Prediction trajectories: one dotted orange polyline per agent on both views
         self.prediction_lines_ax1 = []
         self.prediction_lines_ax2 = []
         for _ in range(self.MAX_AGENT_COUNT):
@@ -722,26 +762,50 @@ class LocalPlot:
         show_race_boundaries = plot_race_boundary and not isinstance(
             exec.global_planner, HDMapGlobalPlanner
         )
+        fallback_plan = getattr(exec.global_planner, "global_plan", None)
         self.update_track_boundary_plot(
             exec.world,
             show_plot=show_race_boundaries,
             global_trajectory=exec.local_planner.global_trajectory,
+            fallback_plan=fallback_plan,
         )
         self.update_global_plan_plots(exec.local_planner, plot_global_plan)
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)
         self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        self.update_perception_model_plots(exec.pm, exec.local_planner.global_trajectory, plot_perception_model, plot_predictions)
+        exec_pm = exec.pm
+        world_pm = (
+            exec.world.get_ground_truth_perception_model()
+            if plot_ground_truth and hasattr(exec.world, "get_ground_truth_perception_model")
+            else None
+        )
+        self.update_perception_model_plots(
+            exec_pm,
+            exec.local_planner.global_trajectory,
+            plot_perception_model,
+            plot_predictions,
+            world_pm=world_pm,
+        )
         self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
         self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
         self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
 
-    def update_track_boundary_plot(self, world_bridge, show_plot=True, global_trajectory=None):
+    def update_track_boundary_plot(
+        self,
+        world_bridge,
+        show_plot=True,
+        global_trajectory=None,
+        fallback_plan=None,
+    ):
         if not show_plot or not hasattr(world_bridge, 'boundary_segments'):
             self.track_boundary_collection.set_segments([])
             self.track_boundary_collection_ax2.set_segments([])
             return
         segs = world_bridge.boundary_segments  # (M, 2, 2) world-frame
+        if len(segs) == 0 and fallback_plan is not None:
+            from avlite.c40_execution.c46_basic_sim import boundary_segments_from_global_plan
+
+            segs = boundary_segments_from_global_plan(fallback_plan)
         self.track_boundary_collection.set_segments(segs if len(segs) else [])
         if global_trajectory is None or len(segs) == 0:
             self.track_boundary_collection_ax2.set_segments([])
@@ -845,11 +909,12 @@ class LocalPlot:
                 line.set_data([], [])
             return
 
+        curvature_check = getattr(pl, "_is_curvature_feasible", None)
         edge_index = 0
         for edge in pl.lattice.edges:
             if edge_index >= len(self.lattice_graph_plots_ax1):
-                (line_ax1,) = self.ax1.plot([], [], "--", color="lightskyblue", alpha=0.6)
-                (line_ax2,) = self.ax2.plot([], [], "--", color="lightskyblue", alpha=0.6)
+                (line_ax1,) = self.ax1.plot([], [], "--", color="#8ec07c", alpha=0.6)
+                (line_ax2,) = self.ax2.plot([], [], "--", color="#8ec07c", alpha=0.6)
                 (endpoint_ax1,) = self.ax1.plot([], [], "bo", alpha=0.6)
                 (endpoint_ax2,) = self.ax2.plot([], [], "bo", alpha=0.6)
                 self.lattice_graph_plots_ax1.append(line_ax1)
@@ -865,11 +930,18 @@ class LocalPlot:
                 edge.local_trajectory.path_s_from_parent, edge.local_trajectory.path_d_from_parent
             )
             if edge.collision:
-                self.lattice_graph_plots_ax1[edge_index].set_color("firebrick")
-                self.lattice_graph_plots_ax2[edge_index].set_color("firebrick")
+                color = "firebrick"
+            elif edge.boundary_violation or (
+                curvature_check is not None and not curvature_check(edge)
+            ):
+                color = "royalblue"
             else:
-                self.lattice_graph_plots_ax1[edge_index].set_color("lightskyblue")
-                self.lattice_graph_plots_ax2[edge_index].set_color("lightskyblue")
+                color = "#8ec07c"
+
+            self.lattice_graph_plots_ax1[edge_index].set_color(color)
+            self.lattice_graph_plots_ax2[edge_index].set_color(color)
+            self.lattice_graph_endpoints_ax1[edge_index].set_color(color)
+            self.lattice_graph_endpoints_ax2[edge_index].set_color(color)
 
             self.lattice_graph_endpoints_ax1[edge_index].set_data(
                 [edge.local_trajectory.path_x[-1]], [edge.local_trajectory.path_y[-1]]
@@ -878,6 +950,17 @@ class LocalPlot:
                 [edge.local_trajectory.path_s_from_parent[-1]], [edge.local_trajectory.path_d_from_parent[-1]]
             )
             edge_index += 1
+
+        if not self._lattice_legend_added:
+            from matplotlib.lines import Line2D
+
+            legend_handles = [
+                Line2D([0], [0], color="firebrick", lw=2, label="Collision"),
+                Line2D([0], [0], color="royalblue", lw=2, label="Kinematic violation"),
+                Line2D([0], [0], color="#8ec07c", lw=2, label="Feasible"),
+            ]
+            self.ax1.legend(handles=legend_handles, loc="upper right", fontsize=7, framealpha=0.5)
+            self._lattice_legend_added = True
 
         for i in range(edge_index, len(self.lattice_graph_plots_ax1)):
             self.lattice_graph_plots_ax1[i].set_data([], [])
@@ -898,7 +981,8 @@ class LocalPlot:
                 self.__clear_local_plan_plots()
             else:
                 self.local_plan_plots_ax1[0].set_data(tj.path_x, tj.path_y)
-                self.local_plan_plots_ax2[0].set_data(tj.path_s, tj.path_d)
+                s_plot, d_plot = pl.global_trajectory.convert_xy_path_to_sd_path(list(zip(tj.path_x, tj.path_y)))
+                self.local_plan_plots_ax2[0].set_data(list(s_plot), list(d_plot))
                 self.__clear_local_plan_plots(index=1)
             return
         if not show_plot or pl.selected_local_plan is None:
@@ -908,14 +992,12 @@ class LocalPlot:
             self.next_wp_plot_ax1.set_data([], [])
             self.next_wp_plot_ax2.set_data([], [])
         elif pl.selected_local_plan is not None:
-            x, y = pl.selected_local_plan.local_trajectory.get_current_xy()
-            local_tj = pl.selected_local_plan.local_trajectory
-            s = local_tj.path_s_from_parent[local_tj.current_wp]
-            d = local_tj.path_d_from_parent[local_tj.current_wp]
-
-            x_n, y_n = local_tj.get_xy_by_waypoint(local_tj.next_wp)
-            s_n = local_tj.path_s_from_parent[local_tj.next_wp]
-            d_n = local_tj.path_d_from_parent[local_tj.next_wp]
+            local_plan = pl.get_local_plan()
+            tj = local_plan.as_trajectory()
+            x, y = tj.get_current_xy()
+            x_n, y_n = tj.get_xy_by_waypoint(tj.next_wp)
+            s, d = pl.global_trajectory.convert_xy_to_sd(x, y)
+            s_n, d_n = pl.global_trajectory.convert_xy_to_sd(x_n, y_n)
 
             self.current_wp_plot_ax1.set_data([x], [y])
             self.current_wp_plot_ax2.set_data([s], [d])
@@ -923,8 +1005,10 @@ class LocalPlot:
             self.next_wp_plot_ax1.set_data([x_n], [y_n])
             self.next_wp_plot_ax2.set_data([s_n], [d_n])
 
-            v = pl.selected_local_plan
-            self.__update_local_plan_plots(v, index=0, horizon=pl.planning_horizon)
+            self.local_plan_plots_ax1[0].set_data(tj.path_x, tj.path_y)
+            s_plot, d_plot = pl.global_trajectory.convert_xy_path_to_sd_path(list(zip(tj.path_x, tj.path_y)))
+            self.local_plan_plots_ax2[0].set_data(list(s_plot), list(d_plot))
+            self.__clear_local_plan_plots(index=1)
 
     def __update_local_plan_plots(self, v: Edge, index: int = 0, horizon: int = None):
         if horizon is None:
@@ -972,8 +1056,16 @@ class LocalPlot:
         else:
             self.ego_vehicle_ax2.set_xy(np.empty((0, 2)))
 
-    def update_perception_model_plots(self, pm: PerceptionModel, global_trajectory: TrajectoryTracker, show_plot=True, show_prediction=False):
-        if not show_plot or len(pm.agent_vehicles) == 0:
+    def update_perception_model_plots(
+        self,
+        exec_pm: PerceptionModel,
+        global_trajectory: TrajectoryTracker,
+        show_plot=True,
+        show_prediction=False,
+        world_pm: Optional[PerceptionModel] = None,
+    ):
+        pm_agents = world_pm if world_pm is not None else exec_pm
+        if not show_plot or len(pm_agents.agent_vehicles) == 0:
             for i in range(self.MAX_AGENT_COUNT):
                 self.pm_plots_ax1[i].set_xy(np.empty((0, 2)))
                 self.pm_plots_ax2[i].set_xy(np.empty((0, 2)))
@@ -981,10 +1073,10 @@ class LocalPlot:
                 self.prediction_lines_ax2[i].set_data([], [])
             return
 
-        n = min(len(pm.agent_vehicles), self.MAX_AGENT_COUNT)
-        if len(pm.agent_vehicles) > self.MAX_AGENT_COUNT:
+        n = min(len(pm_agents.agent_vehicles), self.MAX_AGENT_COUNT)
+        if len(pm_agents.agent_vehicles) > self.MAX_AGENT_COUNT:
             log.warning(f"Exceeded maximum number of agents: {self.MAX_AGENT_COUNT}")
-        agents = pm.agent_vehicles[:n]
+        agents = pm_agents.agent_vehicles[:n]
         # Batch all corners into one KD-tree call (n*4 points) instead of 4 calls per agent
         all_corners_xy = np.vstack([agent.get_bb_corners() for agent in agents])  # (n*4, 2)
         all_corners_sd = global_trajectory.convert_xy_path_to_sd_path_np(all_corners_xy)  # (n*4, 2)
@@ -996,32 +1088,30 @@ class LocalPlot:
             self.pm_plots_ax1[j].set_xy(np.empty((0, 2)))
             self.pm_plots_ax2[j].set_xy(np.empty((0, 2)))
 
-        # Prediction arrows
-        use_prediction = (
-            show_prediction
-            and pm.prediction_mode == PredictionMode.TRAJECTORY
-            and pm.trajectories is not None
-            and pm.trajectories.shape[0] >= n
+        # Prediction trajectories (always from exec_pm; world_pm has no pipeline outputs)
+        pred = (
+            exec_pm.prediction
+            if show_prediction and isinstance(exec_pm.prediction, SingleTrajectory)
+            else None
         )
+        use_prediction = pred is not None and len(pred.trajectories) > 0
         if use_prediction:
-            n_steps = pm.trajectories.shape[1]
-            from avlite.c20_planning.c29_settings import PlanningSettings
-            total_time = PlanningSettings.c26_maneuver_distance / PlanningSettings.c20_default_ego_velocity
-            step = min(int(total_time / pm.predict_delta_t), n_steps - 1)
-            pred_xy = pm.trajectories[:n, step, :]  # (n, 2)
-            pred_sd = global_trajectory.convert_xy_path_to_sd_path_np(pred_xy)  # (n, 2)
-            ego_hdg = np.array([np.cos(pm.ego_vehicle.theta), np.sin(pm.ego_vehicle.theta)])
+            ego_hdg = np.array([np.cos(exec_pm.ego_vehicle.theta), np.sin(exec_pm.ego_vehicle.theta)])
             for i, agent in enumerate(agents):
-                to_agent = np.array([agent.x - pm.ego_vehicle.x, agent.y - pm.ego_vehicle.y])
+                to_agent = np.array([agent.x - exec_pm.ego_vehicle.x, agent.y - exec_pm.ego_vehicle.y])
                 if float(np.dot(ego_hdg, to_agent)) < 0.0:
                     self.prediction_lines_ax1[i].set_data([], [])
                     self.prediction_lines_ax2[i].set_data([], [])
                     continue
-                self.prediction_lines_ax1[i].set_data(
-                    [agent.x, pred_xy[i, 0]], [agent.y, pred_xy[i, 1]])
-                agent_s, agent_d = global_trajectory.convert_xy_to_sd(agent.x, agent.y)
-                self.prediction_lines_ax2[i].set_data(
-                    [agent_s, pred_sd[i, 0]], [agent_d, pred_sd[i, 1]])
+                agent_path = pred.trajectories.get(agent.agent_id)
+                if agent_path is None:
+                    self.prediction_lines_ax1[i].set_data([], [])
+                    self.prediction_lines_ax2[i].set_data([], [])
+                    continue
+                path_xy = np.vstack([[agent.x, agent.y], agent_path])
+                self.prediction_lines_ax1[i].set_data(path_xy[:, 0], path_xy[:, 1])
+                path_sd = global_trajectory.convert_xy_path_to_sd_path_np(path_xy)
+                self.prediction_lines_ax2[i].set_data(path_sd[:, 0], path_sd[:, 1])
         for i in range(n if use_prediction else 0, self.MAX_AGENT_COUNT):
             self.prediction_lines_ax1[i].set_data([], [])
             self.prediction_lines_ax2[i].set_data([], [])
@@ -1064,16 +1154,17 @@ class LocalPlot:
                 self.pm_occupancy_flow_ax1.set_data(np.zeros((100, 100)))
                 self.pm_occupancy_flow_ax1.set_extent([0, 0, 0, 0])
             return
-        if pm.occupancy_flow is not None and pm.grid_bounds is not None:
+        pred = pm.prediction if isinstance(pm.prediction, AggregatedOccupancyFlow) else None
+        if pred is not None and pred.occupancy_flow and pred.grid_bounds:
             extent = [
-                pm.grid_bounds.get('min_x', 0),
-                pm.grid_bounds.get('max_x', 0), 
-                pm.grid_bounds.get('min_y', 0),
-                pm.grid_bounds.get('max_y', 0),
+                pred.grid_bounds.get('min_x', 0),
+                pred.grid_bounds.get('max_x', 0),
+                pred.grid_bounds.get('min_y', 0),
+                pred.grid_bounds.get('max_y', 0),
             ]
-            flow_sum = pm.occupancy_flow[0].T
+            flow_sum = pred.occupancy_flow[0].T
             if not hasattr(self, 'pm_occupancy_flow_ax1'):
-                flow_sum = np.sum(pm.occupancy_flow, axis=0)
+                flow_sum = np.sum(pred.occupancy_flow, axis=0)
                 self.pm_occupancy_flow_ax1 = self.ax1.imshow(
                     flow_sum,
                     origin='lower',
@@ -1138,3 +1229,40 @@ class LocalPlot:
 
     def reset(self):
         self.update_pm_occupancy_flow_plots(None, show_plot=False)
+
+
+# --- module helpers ---
+
+# slow → fast : green → yellow → red (distinct from HD lane #427b58)
+_VELOCITY_CMAP = LinearSegmentedColormap.from_list(
+    "velocity_slow_fast",
+    [(0.0, "#39ff14"), (0.5, "#ffd700"), (1.0, "#dc143c")],
+)
+
+
+def _update_velocity_colored_line(collection, x, y, velocity, *, velocity_scale="relative"):
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    if len(x) < 2:
+        collection.set_segments([])
+        collection.set_array(np.array([]))
+        return
+    v = np.asarray(velocity, float)
+    if len(v) == 0:
+        v = np.full(len(x), 0.5)
+    n = min(len(x), len(v))
+    x, y, v = x[:n], y[:n], v[:n]
+    pts = np.column_stack([x, y]).reshape(-1, 1, 2)
+    segments = np.concatenate([pts[:-1], pts[1:]], axis=1)
+    seg_v = 0.5 * (v[:-1] + v[1:])
+    collection.set_segments(segments)
+    collection.set_array(seg_v)
+    if velocity_scale == "absolute":
+        vmax = float(ControlSettings.c32_ego_max_velocity)
+        if vmax <= 0.0:
+            vmax = 1e-9
+        collection.set_norm(Normalize(vmin=0.0, vmax=vmax, clip=True))
+    else:
+        vmin, vmax = float(seg_v.min()), float(seg_v.max())
+        if vmin == vmax:
+            vmax = vmin + 1e-9
+        collection.set_norm(Normalize(vmin=vmin, vmax=vmax))

@@ -8,13 +8,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Community plugin import infrastructure: `sync_community_plugins()`, `CommunityPluginFinder` meta-path hook, and dashed-name → Python import mapping (`plugin_import_name`)
+- `PluginPaths.repo_root()` and repo-relative community plugin path resolve/shorten
+- `Executer.apply_global_plan()` — shared helper to push a global plan to the local planner and controller
+- `sync_perception_pipeline_from_c19()` — keep visualization perception settings aligned with the active c19 profile after stack load
+- `VisualizerApp.on_community_plugins_changed()` — reload stack and refresh UI after community plugin install/uninstall
+- Clean visualizer shutdown (`WM_DELETE_WINDOW` stops execution before destroy); stop execution on profile switch
+- `load_boundary_segments()` and `boundary_segments_from_global_plan()` helpers in `c46_basic_sim.py`
+- `test/c60_common/test_c66_community_plugin_settings.py` — community plugin settings paths and import hook
+- `test/c60_common/test_import_boundary.py` — core layers (`c40`, `c60`, `plugins`) must not import `c50_visualization`
+- README, architecture, and plugin-development docs for optional community plugins (`avlite-bridge-*`, `avlite-executer-ROS2`, `avlite-controller-joystick`)
+
+### Changed
+- **Breaking:** Optional integrations moved out of `avlite/plugins/` into separate community plugins with new names:
+  - `p40_bridge_carla` → `avlite-bridge-carla`
+  - `p40_bridge_gazebo` → `avlite-bridge-gazebo`
+  - `p40_bridge_ROS2` → `avlite-bridge-ROS2`
+  - `p40_executer_ROS2` → `avlite-executer-ROS2`
+  - `p30_controller_joystick` → `avlite-controller-joystick`
+- Execution profiles register optional plugins via `c40_community_plugins`; only `p50_headless_mode` remains built-in
+- Global plan GUI flow uses `apply_global_plan()` instead of manual local-planner/controller calls
+- Plugin log routing recognizes `avlite-*` community plugin names (controller → control layer, bridge/executer → execution layer)
+- `requirements-full.txt` no longer includes `pygame` (install from the joystick plugin's requirements when needed)
+- Stanley controller clips steering error before exponential slowdown to avoid numeric overflow
+- ROS execution profile defaults updated (planner, perception pipeline, boundary file, sim timing)
+- Consolidated modules: deleted `c17_map.py`, `c50_stack_loader.py`, `_visualization_ui.py`, `c66_hdmap.py`
+- Stack orchestration moved into `c43_factory` (`load_stack_settings`, core `get_stack_settings_classes()`); GUI profile export uses `c59_settings.get_stack_settings_classes()` for visualization YAML
+- Renamed `c60_plugins.py` → `c66_plugins.py`
+- `c67_paths` slimmed to `ConfigPaths`, `PluginPaths`, and `DataPaths`; `c54_plugins` refactored into internal Git/plugin operation classes
+- `Map` / `RaceMap` live in `c11_perception_model.py`; OpenDRIVE `HDMap` parser in `c18_hdmap_parser.py`
+- `VisualizationSettings` Tk binder merged back into `c59_settings.py` (schema + runtime class)
+
+### Removed
+- Built-in plugins: `p30_controller_joystick`, `p40_bridge_carla`, `p40_bridge_gazebo`, `p40_bridge_ROS2`, `p40_executer_ROS2` (now optional community plugins)
+- Bundled `configs/plugin_p30_controller_joystick.yaml` and `configs/plugin_p40_*.yaml`
+- `async` profile from `c40_execution.yaml` and `c50_visualization.yaml`
+- Per-profile embedded settings from `c10_perception.yaml`, `c20_planning.yaml`, and `c30_control.yaml`
+- `c17_mapping_algs.py` placeholder (mapping interface remains in `c14_mapping_strategy.py`)
+
+### Fixed
+- Missing config file on load treated as defaults (debug log) instead of error in `load_setting`
+
+## [0.3.2] - 2026-06-27
+
+### Added
 - GUI startup profile: last selected profile saved in `~/.config/avlite/startup_profile` and restored on launch
 - Settings window **Export profile** / **Import profile**: zip of per-file profile slices (including community plugin YAMLs when referenced); validated against Pydantic schemas on export and import
 - `avlite config export-profile` and `avlite config import-profile` CLI subcommands
 - **Edit repository configs** (settings window, git clone only): optional dev mode to switch read/write between user dir and `{repo}/configs/`; preference in `~/.config/avlite/config_target`
-- `c60_plugins.py` (plugin discovery, loading, log routing) and `c67_paths.py` (config/XDG paths)
+- `c66_plugins.py` (plugin discovery, loading, log routing) and `c67_paths.py` (config/XDG paths)
 - Thread-safe log filter snapshots in the visualizer (Core / Plugins / per-layer toggles)
 - Community plugin import skips `.venv`, `site-packages`, and similar vendor directories
+- Tabbed **Community** / **Members** plugin browser (`python -m avlite plugins`)
+- GitHub Device Flow sign-in for AV-Lab private registry (`AV-Lab/avlite-private-plugins`)
+- OAuth token persistence at `~/.config/avlite/github_oauth.json`; `AVLITE_GITHUB_OAUTH_CLIENT_ID` override
+- SAML SSO authorize-link handling on 403; Copy button for device-flow user code
+- Safety disclaimers on both plugin tabs
+- Tests in `test/c50_visualization/test_community_plugins_github.py`
+- UI logo resolved from repo `data/imgs/` independent of CWD
 
 ### Changed
 - User data directory for maps and trajectories is now `~/.config/avlite/data/` (override with `AVLITE_DATA_DIR`)
@@ -23,12 +74,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Renamed `configs/ext_*.yaml` → `configs/plugin_*.yaml`; `ExtensionSettings` → `PluginSettings`; `load_extensions` → `load_plugins`; `c40_default_extensions` → `c40_default_plugins`
 - Renamed `c60_common` modules: `c61_capabilities`, `c62_sensor_data`, `c66_hdmap`, `c68_settings_schema`, `c69_setting_utils` (update imports if you extend AVLite)
 - **Use repository configs** superseded by **Edit repository configs** (path switch instead of deleting local YAML)
+- Authenticated git clone/update for private plugin repos (non-interactive git, Basic auth header, timeouts)
+- Shared `apply_ttk_theme()` helper for consistent dark/light styling across windows
 
 ### Removed
 - **Copy repository configs** button and `copy_repo_configs_to_user()` (use **Edit repository configs** to work on repo YAML, or import a profile zip to populate the user dir)
+- Bundled `p10_perception_MO_prediction` from `avlite/plugins/`; default configs updated
 
 ### Fixed
 - Settings window (`T`) no longer crashes when opening the repository-config controls after a partial code reload
+- Logo and About dialog load assets via repo/package path instead of process CWD
+- Dark theme consistent when launched from any directory; standalone plugins window uses equilux
+- Theme re-applied after profile load when `dark_mode` changes in YAML
+- `ControlComand` typo alias for `ControlCommand` (backward compatibility)
 
 ## [0.3.1] - 2026-06-21
 

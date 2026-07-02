@@ -87,10 +87,19 @@ class GlobalPlanPlotView(ttk.Frame):
         map_height = gp.map_max_y - gp.map_min_y
         return min(map_width, map_height * aspect_ratio)
 
+    def _control_held(self, event) -> bool:
+        gui = getattr(event, "guiEvent", None)
+        if gui is not None and getattr(gui, "state", 0) & 0x0004:
+            return True
+        return bool(event.key and "control" in event.key)
+
     def plot(self):
         t1 = time.time()
         try:
             aspect_ratio = self.__get_aspect_ratio()
+            max_zoom = self._max_zoom_out(aspect_ratio)
+            if max_zoom is not None and self.root.setting.global_zoom >= max_zoom:
+                self._center_delta = (0, 0)
             self._clamp_center_delta()
 
             self.global_plot.plot(
@@ -99,6 +108,8 @@ class GlobalPlanPlotView(ttk.Frame):
                 zoom=self.root.setting.global_zoom,
                 show_legend=self.root.setting.show_legend.get(),
                 follow_vehicle=self.root.setting.global_view_follow_planner.get(),
+                show_plan_boundaries=self.root.setting.show_global_plan_boundaries.get(),
+                velocity_scale=self.root.setting.global_plan_velocity_scale.get(),
                 delta=self._center_delta,
             )
             log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
@@ -145,7 +156,7 @@ class GlobalPlanPlotView(ttk.Frame):
                     if not self.left_mouse_button_pressed:
                         self.global_plot.show_closest_road_and_lane(x=int(x), y=int(y), map=self.root.exec.global_planner.hdmap)   
                 
-                if event.key and 'control' in event.key and self._drag_mode:
+                if self._control_held(event) and self._drag_mode:
                     dx =-(x - self._init_drag_mouse_pos[0])*self.root.setting.mouse_drag_slowdown_factor
                     dy =-(y - self._init_drag_mouse_pos[1])*self.root.setting.mouse_drag_slowdown_factor
                     self._center_delta = (self._center_delta[0]+dx, self._center_delta[1]+dy)
@@ -153,7 +164,7 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.plot()
 
                 if self.left_mouse_button_pressed and not self._drag_mode:
-                    if event.key and 'control' in event.key:
+                    if self._control_held(event):
                         if (not self._ego_orient_active
                                 or time.time() - self._left_press_time < _CONTROL_GRACE_S):
                             self._drag_mode = True
@@ -180,7 +191,7 @@ class GlobalPlanPlotView(ttk.Frame):
         if event.inaxes == self.ax:
             if event.button == 1:  # Left click
                 self.left_mouse_button_pressed = True
-                if event.key and 'control' in event.key: # for dragging
+                if self._control_held(event):  # for dragging
                     self._init_drag_mouse_pos = (event.xdata, event.ydata)
                     self._drag_mode = True
                     self.global_plot.clear_tmp_plots()
@@ -204,12 +215,12 @@ class GlobalPlanPlotView(ttk.Frame):
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                         self.global_plot.plot_global_plan(self.root.exec.global_planner.global_plan)
-                        self.root.exec.local_planner.set_global_plan(self.root.exec.global_planner.global_plan)
-                        self.root.exec.controller.reset()
-                        self.root.exec.controller.set_trajectory(self.root.exec.local_planner.global_plan.trajectory)
+                        self.root.exec.apply_global_plan(
+                            self.root.exec.global_planner.global_plan,
+                            ego_xy=(self.root.exec.ego_state.x, self.root.exec.ego_state.y),
+                        )
                         self.root.local_plan_plot_view.reset()
                         self.root.update_ui()
-                        self.root.exec.controller.reset()
 
                     self.start_point = None
                 else:
@@ -351,14 +362,14 @@ class LocalPlanPlotView(ttk.Frame):
         if x is not None and y is not None:
             t = self.root.exec.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.root.exec.world.spawn_agent(agent)
+            self.root.exec.spawn_agent(agent)
         elif s is not None and d is not None:
             # Convert (s, d) to (x, y) using some transformation logic
             x, y = self.root.exec.local_planner.global_trajectory.convert_sd_to_xy(s, d)
             log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
             t = self.root.exec.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.root.exec.world.spawn_agent(agent)
+            self.root.exec.spawn_agent(agent)
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")
 

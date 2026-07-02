@@ -1,8 +1,0 @@
-default:
-  X: 1
-perception:
-  X: 1
-perception exp:
-  X: 1
-sync:
-  X: 1

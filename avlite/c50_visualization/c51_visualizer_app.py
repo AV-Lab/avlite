@@ -9,20 +9,24 @@ from avlite.c40_execution.c43_factory import executor_factory
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_visualization.c52_plot_views import LocalPlanPlotView, GlobalPlanPlotView
-from avlite.c50_visualization.c53_perceive_plan_control_views import PerceivePlanControlView
-from avlite.c50_visualization.c54_exec_views import ExecView
+from avlite.c50_visualization.c53_stack_views import PerceivePlanControlView, ExecView
+from avlite.c40_execution.c43_factory import load_stack_settings
+from avlite.c50_visualization.c59_settings import VisualizationSettings, sync_perception_pipeline_from_c19
 from avlite.c50_visualization.c58_ui_lib import (
     TkSettingsBinder,
+    UiAssets,
+    apply_ttk_theme,
     get_dpi_scale,
     scaled,
     setup_dpi,
 )
-from avlite.c50_visualization.c59_settings import VisualizationSettings, load_stack_plugins
+from avlite.c50_visualization.c58_ui_lib import DataPicker
 from avlite.c50_visualization.c55_log_view import LogView
 from avlite.c50_visualization.c56_config_views import ConfigShortcutView
-from avlite.c60_common.c60_plugins import reload_lib
-from avlite.c60_common.c67_paths import get_startup_profile, set_startup_profile
+from avlite.c60_common.c66_plugins import reload_lib
+from avlite.c60_common.c67_paths import ConfigPaths
 from avlite.c60_common.c69_setting_utils import load_setting, list_profiles
+from avlite import __version__
     
 
 log = logging.getLogger(__name__)
@@ -35,6 +39,7 @@ class VisualizerApp(tk.Tk):
     def __init__(self):
         setup_dpi()
         super().__init__()
+        apply_ttk_theme(self, dark=True)
         self._dpi_scale: float = get_dpi_scale(self)
         self.exec = None
         self.loading_overlay = None
@@ -42,14 +47,20 @@ class VisualizerApp(tk.Tk):
         self.show_loading_overlay()
         self.update_idletasks()  # Force GUI to update and show the overlay
         self.update()            # Process all pending events
-        # self.after(500, self.__initialize_ui)  
-        self.__initialize_ui()
-        self.hide_loading_overlay()
-        
+        try:
+            self.__initialize_ui()
+        except Exception as e:
+            log.error("Startup failed: %s", e, exc_info=True)
+            messagebox.showerror(
+                "Startup failed",
+                f"Failed to start AVLite.\n\n{e}",
+                parent=self,
+            )
+        finally:
+            self.hide_loading_overlay()
+
 
     def __initialize_ui(self):
-        self.set_dark_mode_themed()
-
         self.title("AVlite Visualizer")
         s = self._dpi_scale
         self.geometry(f"{scaled(1200, s)}x{scaled(900, s)}")
@@ -61,7 +72,7 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(self.setting)
-        startup = get_startup_profile()
+        startup = ConfigPaths.startup_profile()
         if startup and startup in self.setting.profile_list:
             self.setting.selected_profile.set(startup)
 
@@ -93,7 +104,6 @@ class VisualizerApp(tk.Tk):
 
         # Bind to window resize to maintain ratio
         self.update_shortcut_mode()
-        self.config_shortcut_view.toggle_dark_mode()  
 
         self.validate_cmd = (self.register(self.validate_float_input), "%P")
         self.bind("<Configure>", self.__update_grid_column_sizes)
@@ -101,8 +111,14 @@ class VisualizerApp(tk.Tk):
         self.last_resize_time = time.time()
         self._create_menubar()
         self.ui_initialized = True
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         
         log.info(f"Available profiles: {self.setting.profile_list}")
+
+    def _on_close(self):
+        if hasattr(self, "exec_visualize_view"):
+            self.exec_visualize_view.stop_exec()
+        self.destroy()
 
     def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
@@ -241,7 +257,7 @@ class VisualizerApp(tk.Tk):
         # Try to load and display logo
         try:
             from PIL import Image, ImageTk
-            logo_img = Image.open("data/imgs/logo.png")
+            logo_img = Image.open(UiAssets.resolve("logo.png"))
             logo_img = logo_img.resize((round(256 * s), round(256 * s)), Image.LANCZOS)
             self.logo_photo = ImageTk.PhotoImage(logo_img)
             logo_label = tk.Label(frame, image=self.logo_photo, bg="black")
@@ -267,8 +283,7 @@ class VisualizerApp(tk.Tk):
                 del self.logo_photo
 
     def set_dark_mode_themed(self):
-
-        # self.configure(bg="gray14")
+        apply_ttk_theme(self, dark=True)
 
         if hasattr(self, "setting"):
             self.setting.bg_color = "#333333"
@@ -276,111 +291,45 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
-        
+
         if hasattr(self, "log_view") and hasattr(self, "config_shortcut_view"):
             self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
             self.config_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
-    
-        if hasattr(self, 'menubar'):
-            bg = "#333333"; fg = "#bbbbbb"; activebg = "#555555"; activefg = "#bbbbbb"
+
+        if hasattr(self, "menubar"):
+            bg = "#333333"
+            fg = "#bbbbbb"
+            activebg = "#555555"
+            activefg = "#bbbbbb"
             self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
-        try:
-            from ttkthemes import ThemedStyle
-            style = ThemedStyle(self)
-            style.set_theme("equilux")
-            style.configure("Big.TLabel", font=("Arial", 16, "bold"))
-            style.configure("TLabelframe.Label", font=("Arial", 11, "bold"))
-            gruvbox_red = "#9d0006"
-            gruvbox_orange = "#d65d0e"
-
-            style.layout(
-                "Start.TButton",
-                [("Button.border", {"sticky": "nswe", "children": [
-                    ("Button.padding", {"sticky": "nswe", "children": [
-                        ("Button.label", {"sticky": "nswe"})
-                    ]})
-                ]})]
-            )
-            style.layout(
-                "Stop.TButton",
-                [("Button.border", {"sticky": "nswe", "children": [
-                    ("Button.padding", {"sticky": "nswe", "children": [
-                        ("Button.label", {"sticky": "nswe"})
-                    ]})
-                ]})]
-            )
-            
-            style.configure( "Start.TButton", background=gruvbox_orange, foreground="white",)
-            style.configure(
-                "Stop.TButton",
-                background=gruvbox_red,
-                foreground="white",
-            )
-            style.map(
-                "Start.TButton",
-                background=[("active", "#ff8800")],  # Lighter orange on click/hover
-                foreground=[("active", "white")],
-            )
-            style.map(
-                "Stop.TButton",
-                background=[("active", "#ff4444")],  # Lighter red on click/hover
-                foreground=[("active", "white")],
-            )
-            self.option_add('*Listbox.background', '#222222')
-            self.option_add('*Listbox.foreground', '#ffffff')
-            self.option_add('*Listbox.selectBackground', '#444444')
-            self.option_add('*Listbox.selectForeground', '#dddddd')
-            self.option_add('*Listbox.highlightBackground', '#1a1a1a')
-            self.option_add('*Listbox.highlightColor', '#333333')
-            self.option_add('*Listbox.borderWidth', 1)
-
-            self.option_add('*selectBackground', '#666699')  # Light purple-ish
-            self.option_add('*selectForeground', '#ffffff')  # White text
-
-            self.option_add('*Entry.selectBackground', '#b3b3ff')
-            self.option_add('*Entry.selectForeground', '#000000')
-            style.map('TEntry',
-                selectbackground=[('!disabled', '#b3b3ff')],
-                selectforeground=[('!disabled', '#000000')]
-            )
-
-        except ImportError:
-            log.error("Please install ttkthemes to use dark mode.")
-            # self.set_set_light_mode_darker()
-        
         log.info("Dark mode enabled.")
 
     def set_light_mode(self):
-        self.configure(bg="white")
-        self.log_view.log_area.config(bg="white", fg="black")
-        self.config_shortcut_view.help_text.config(bg="white", fg="black")
+        apply_ttk_theme(self, dark=False)
 
-        self.setting.bg_color = "white"
-        self.setting.fg_color = "black"
-        self.local_plan_plot_view.update_plot_theme()
-        self.global_plan_plot_view.update_plot_theme()
-        if hasattr(self, 'menubar'):
-            bg = "white"; fg = "black"; activebg = "#ececec"; activefg = "black"
+        if hasattr(self, "log_view") and hasattr(self, "config_shortcut_view"):
+            self.log_view.log_area.config(bg="white", fg="black")
+            self.config_shortcut_view.help_text.config(bg="white", fg="black")
+
+        if hasattr(self, "setting"):
+            self.setting.bg_color = "white"
+            self.setting.fg_color = "black"
+        if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
+            self.local_plan_plot_view.update_plot_theme()
+            self.global_plan_plot_view.update_plot_theme()
+        if hasattr(self, "menubar"):
+            bg = "white"
+            fg = "black"
+            activebg = "#ececec"
+            activefg = "black"
             self.menubar.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
         log.info("Light mode enabled.")
-        style = ttk.Style(self)
-        style.theme_use('default')  # Reset to default theme
-        self.option_add('*Listbox.background', 'white')
-        self.option_add('*Listbox.foreground', 'black')
-        self.option_add('*Listbox.selectBackground', '#0078d7')  # Or 'lightblue' for a more neutral color
-        self.option_add('*Listbox.selectForeground', 'white')
-        self.option_add('*Listbox.highlightBackground', 'white')
-        self.option_add('*Listbox.highlightColor', '#0078d7')  # Or 'black' for a simple border
-        self.option_add('*Listbox.borderWidth', 2)
-       
-        style.configure("Big.TLabel", font=("Arial", 16, "bold"))
-        style.configure("TLabelframe.Label", font=("Arial", 10, "bold"))
 
     def _create_menubar(self):
         self.menubar = tk.Menu(self)
@@ -423,7 +372,7 @@ class VisualizerApp(tk.Tk):
 
         try:
             from PIL import Image, ImageTk
-            logo_img = Image.open("data/imgs/logo.png")
+            logo_img = Image.open(UiAssets.resolve("logo.png"))
             logo_size = scaled(200, s)
             logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
             win._logo_photo = ImageTk.PhotoImage(logo_img)
@@ -433,7 +382,7 @@ class VisualizerApp(tk.Tk):
 
         tk.Label(inner, text="AVLite", fg="#10bfe8", bg="black",
                  font=("Arial", 16, "bold")).pack()
-        tk.Label(inner, text="Version 0.1.0", fg="#10bfe8", bg="black",
+        tk.Label(inner, text=f"Version {__version__}", fg="#10bfe8", bg="black",
                  font=("Arial", 11)).pack(pady=(scaled(4, s), 0))
         tk.Label(inner, text="A lightweight autonomous driving software stack.",
                  fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(scaled(6, s), scaled(24, s)))
@@ -510,16 +459,29 @@ class VisualizerApp(tk.Tk):
         binder = TkSettingsBinder()
         if not only_stack:
             load_setting(self.setting, profile=profile, binder=binder)
-        load_stack_plugins(profile=profile, load_plugins=self.setting.load_plugins.get())
-        from avlite.c50_visualization.c59_settings import default_map_display_path, default_global_plan_display_path
-        self.setting.default_map_file.set(default_map_display_path())
-        self.setting.default_global_plan_file.set(default_global_plan_display_path())
+        load_stack_settings(profile=profile, load_plugins=self.setting.load_plugins.get())
+        sync_perception_pipeline_from_c19(self.setting)
+        self.setting.default_map_file.set(DataPicker.default_map_display_path())
+        self.setting.default_global_plan_file.set(DataPicker.default_global_plan_display_path())
         self.exec_visualize_view.refresh_default_map_tooltips()
         self.config_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 
         self.log_view.reset()
-        set_startup_profile(profile)
+        ConfigPaths.set_startup_profile(profile)
+        if hasattr(self, "config_shortcut_view"):
+            self.config_shortcut_view.toggle_dark_mode()
+        if hasattr(self, "perceive_plan_control_view"):
+            self.perceive_plan_control_view.reset()
+
+    def on_community_plugins_changed(self) -> None:
+        """Reload profile stack settings and refresh UI after plugin install/uninstall."""
+        self.load_configs(only_stack=True)
+        if self.setting.load_plugins.get():
+            self.reload_stack(reload_code=True)
+        else:
+            self.perceive_plan_control_view.reset()
+            self.exec_visualize_view.update_data()
 
     def reload_stack(self, reload_code:bool = True):
         if reload_code:
@@ -532,14 +494,12 @@ class VisualizerApp(tk.Tk):
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
 
+        error = None
         try:
-            # if reload_code:
-                # self.load_configs()
             if reload_code:
                 reload_lib(exclude_settings=True, reload_plugins=self.setting.load_plugins.get())
             self.exec = executor_factory(
                 executer_type=self.setting.executer_type.get(),
-                # async_mode=self.setting.async_exec.get(),
                 bridge=self.setting.execution_bridge.get(),
                 perception_strategy_name=self.setting.perception_type.get(),
                 localization_strategy_name=self.setting.localization_type.get(),
@@ -552,38 +512,38 @@ class VisualizerApp(tk.Tk):
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.c40_hd_map,
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
-                # reload_code=reload_code,
-                # exclude_reload_settings=True,
                 load_plugins=self.setting.load_plugins.get(),
                 async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
 
-            from avlite.c50_visualization.c59_settings import default_map_display_path
-            self.setting.default_map_file.set(default_map_display_path())
+            self.setting.default_map_file.set(DataPicker.default_map_display_path())
             self.exec_visualize_view.refresh_default_map_tooltips()
 
         except Exception as e:
+            error = e
             log.error(f"Error reloading stack: {e}", exc_info=True)
+        finally:
+            self.local_plan_plot_view.reset()
+            self.global_plan_plot_view.reset()
+            self.perceive_plan_control_view.reset()
+            self.exec_visualize_view.update_data()
+            self.update_views()
+            self.update_ui()
+            self.enable_frame(self)
+            if self.exec is not None:
+                self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
+            self.focus_set()
+            self.hide_loading_overlay()
+
+        if error is not None:
             messagebox.showerror(
                 "Reload failed",
-                f"Failed to rebuild the stack. \n\n{e}",
+                f"Failed to rebuild the stack.\n\n{error}",
+                parent=self,
             )
 
-
-        self.local_plan_plot_view.reset()
-        self.global_plan_plot_view.reset()
-        self.perceive_plan_control_view.reset()
-        self.exec_visualize_view.update_data()
-        self.update_views()
-        self.update_ui()
-        self.enable_frame(self)
-        if self.exec is not None:
-            self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
-        self.focus_set()  # unfocus any entry fields including widgets. Useful to avoid typing shortcut keys 
-        self.hide_loading_overlay()
-            
-
     def switch_profile(self):
+        self.exec_visualize_view.stop_exec()
         self.load_configs(profile=self.setting.next_profile.get(), only_stack=False)
         # self.reload_stack(reload_code=False)
         self.update_views()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import logging
 import os
 import zipfile
@@ -11,7 +10,7 @@ from typing import Any, Protocol
 
 import yaml
 
-from avlite.c60_common.c60_plugins import list_plugins, load_builtin_plugin_settings, load_plugin_settings_class
+from avlite.c60_common.c66_plugins import load_plugin_settings_class
 from avlite.c60_common.c68_settings_schema import (
     SETTINGS_META,
     PlainBinder,
@@ -22,13 +21,10 @@ from avlite.c60_common.c68_settings_schema import (
     validate_profile,
 )
 from avlite.c60_common.c67_paths import (
-    community_plugin_settings_basename,
-    community_plugin_settings_filepath,
-    effective_config_path,
-    get_config_dir,
-    legacy_plugin_settings_filepath,
-    plugin_settings_filepath,
-    resolve_plugin_path,
+    COMMUNITY_DEV_SUBDIR,
+    PRIVATE_DEV_SUBDIR,
+    ConfigPaths,
+    PluginPaths,
 )
 
 log = logging.getLogger(__name__)
@@ -56,15 +52,7 @@ def stored_filepath(setting) -> str:
     if fp:
         return fp
     plugin_dir = _plugin_dir_from_module(setting)
-    return plugin_settings_filepath(plugin_dir) if plugin_dir else fp
-
-
-def _legacy_filepath(setting) -> str | None:
-    legacy = getattr(setting, "legacy_filepath", None)
-    if legacy:
-        return legacy
-    plugin_dir = _plugin_dir_from_module(setting)
-    return legacy_plugin_settings_filepath(plugin_dir) if plugin_dir else None
+    return PluginPaths.settings_filepath(plugin_dir) if plugin_dir else fp
 
 
 class SettingsBinder(Protocol):
@@ -91,10 +79,10 @@ def save_setting(
     """Save current configuration to a YAML file."""
     bind = binder or PlainBinder()
     stored = stored_filepath(setting)
-    filepath = effective_config_path(stored, for_write=True)
+    filepath = ConfigPaths.effective_path(stored, for_write=True)
     schema = _get_schema(setting)
 
-    read_path = effective_config_path(stored, for_write=False)
+    read_path = ConfigPaths.effective_path(stored, for_write=False)
     if os.path.exists(read_path):
         with open(read_path, "r") as f:
             config = yaml.safe_load(f) or {}
@@ -130,16 +118,7 @@ def load_setting(
     """Load configuration from a YAML file. Returns True on success."""
     bind = binder or PlainBinder()
     stored = stored_filepath(setting)
-    filepath = effective_config_path(stored, for_write=False)
-    # Migration read fallback: if the current (new) file is absent but a legacy
-    # filename exists, read from it. Writes still target the resolved filepath.
-    if not os.path.exists(filepath):
-        legacy = _legacy_filepath(setting)
-        if legacy:
-            legacy_path = effective_config_path(legacy, for_write=False)
-            if os.path.exists(legacy_path):
-                log.debug("Loading %s from legacy path %s", stored, legacy_path)
-                filepath = legacy_path
+    filepath = ConfigPaths.effective_path(stored, for_write=False)
     schema = _get_schema(setting)
     try:
         with open(filepath, "r") as f:
@@ -147,7 +126,13 @@ def load_setting(
     except yaml.YAMLError as e:
         log.error("YAML syntax error in %s: %s", filepath, e)
         return False
+    except FileNotFoundError:
+        log.debug("No configuration file at %s; using defaults", filepath)
+        return False
     except OSError as e:
+        if getattr(e, "errno", None) == 2:
+            log.debug("No configuration file at %s; using defaults", filepath)
+            return False
         log.error("Failed to read configuration %s: %s", filepath, e)
         return False
 
@@ -197,7 +182,7 @@ def load_setting(
 
 def delete_setting_profile(setting, profile) -> bool:
     """Delete a profile from the configuration file."""
-    filepath = effective_config_path(stored_filepath(setting), for_write=True)
+    filepath = ConfigPaths.effective_path(stored_filepath(setting), for_write=True)
     if profile == "default":
         log.warning("Cannot delete the 'default' profile.")
         return False
@@ -224,7 +209,7 @@ def delete_setting_profile(setting, profile) -> bool:
 
 def rename_setting_profile(setting, old_profile, new_profile) -> bool:
     """Rename a profile in the configuration file."""
-    filepath = effective_config_path(stored_filepath(setting), for_write=True)
+    filepath = ConfigPaths.effective_path(stored_filepath(setting), for_write=True)
     if old_profile == "default":
         log.warning("Cannot rename the 'default' profile.")
         return False
@@ -252,9 +237,17 @@ def rename_setting_profile(setting, old_profile, new_profile) -> bool:
         return False
 
 
+def order_profiles_for_dropdown(profiles: list[str]) -> list[str]:
+    """Return profile names with ``default`` first for UI dropdowns."""
+    if not profiles:
+        return []
+    rest = [p for p in profiles if p != "default"]
+    return (["default"] if "default" in profiles else []) + rest
+
+
 def list_profiles(setting) -> list:
     """List all profiles in the configuration file."""
-    filepath = effective_config_path(stored_filepath(setting), for_write=False)
+    filepath = ConfigPaths.effective_path(stored_filepath(setting), for_write=False)
     try:
         with open(filepath, "r") as f:
             config = yaml.safe_load(f)
@@ -262,7 +255,7 @@ def list_profiles(setting) -> list:
             log.warning("Empty or invalid configuration file: %s", filepath)
             return []
 
-        profiles = list(config.keys())
+        profiles = order_profiles_for_dropdown(list(config.keys()))
         log.info("Available profiles: %s", profiles)
         return profiles
     except Exception as e:
@@ -270,40 +263,18 @@ def list_profiles(setting) -> list:
         return []
 
 
-def _all_settings_classes() -> list[Any]:
-    """Stack layer and built-in plugin settings classes (same set as config CLI)."""
-    from avlite.c10_perception.c19_settings import PerceptionSettings
-    from avlite.c20_planning.c29_settings import PlanningSettings
-    from avlite.c30_control.c39_settings import ControlSettings
-    from avlite.c40_execution.c49_settings import ExecutionSettings
-
-    vis_mod = importlib.import_module("avlite.c50_visualization.c59_settings")
-    VisualizationSettings = vis_mod.VisualizationSettings
-
-    classes: list[Any] = [
-        PerceptionSettings,
-        PlanningSettings,
-        ControlSettings,
-        ExecutionSettings,
-        VisualizationSettings,
-    ]
-    for plugin in list_plugins():
-        cls = load_builtin_plugin_settings(plugin)
-        if cls is not None:
-            classes.append(cls)
-    return classes
+def _settings_by_basename_map(settings_classes: list[Any]) -> dict[str, Any]:
+    mapping: dict[str, Any] = {}
+    for cls in settings_classes:
+        mapping[Path(stored_filepath(cls)).name] = cls
+    return mapping
 
 
-_settings_by_basename: dict[str, Any] | None = None
-
-
-def _settings_class_for_basename(basename: str) -> Any | None:
-    global _settings_by_basename
-    if _settings_by_basename is None:
-        _settings_by_basename = {}
-        for cls in _all_settings_classes():
-            _settings_by_basename[Path(stored_filepath(cls)).name] = cls
-    return _settings_by_basename.get(basename)
+def _settings_class_for_basename(
+    basename: str,
+    settings_classes: list[Any],
+) -> Any | None:
+    return _settings_by_basename_map(settings_classes).get(basename)
 
 
 def _validated_profile_dict(
@@ -343,27 +314,28 @@ def _community_sources_for_profile(
     sources: dict[str, Path] = {}
     for name in community_plugins:
         read_path = Path(
-            effective_config_path(community_plugin_settings_filepath(name), for_write=False)
+            ConfigPaths.effective_path(PluginPaths.settings_filepath(name), for_write=False)
         )
         if _profile_dict_in_file(read_path, profile) is not None:
-            sources[community_plugin_settings_basename(name)] = read_path
+            sources[PluginPaths.settings_basename(name)] = read_path
     return sources
 
 
 def iter_profile_sources(
     profile: str,
     *,
+    settings_classes: list[Any],
     community_plugins: dict[str, str] | None = None,
 ) -> list[tuple[str, Path]]:
     """Return ``(zip_entry_name, read_path)`` for every YAML containing *profile*."""
     sources: dict[str, Path] = {}
 
-    for cls in _all_settings_classes():
-        read_path = Path(effective_config_path(stored_filepath(cls), for_write=False))
+    for cls in settings_classes:
+        read_path = Path(ConfigPaths.effective_path(stored_filepath(cls), for_write=False))
         if _profile_dict_in_file(read_path, profile) is not None:
             sources[read_path.name] = read_path
 
-    config_dir = get_config_dir()
+    config_dir = ConfigPaths.user_dir()
     if config_dir.is_dir():
         for path in sorted(config_dir.glob("*.yaml")):
             if path.name not in sources and _profile_dict_in_file(path, profile) is not None:
@@ -375,19 +347,73 @@ def iter_profile_sources(
     return sorted(sources.items())
 
 
+def dev_mode_export_warning(community_plugins: dict[str, str] | None = None) -> str | None:
+    """Return a user-facing warning when exporting under Plugins dev mode, else None."""
+    if not PluginPaths.is_dev_mode():
+        return None
+    lines = [
+        "Plugins dev mode is enabled. This profile uses repo-relative plugin paths "
+        f"({COMMUNITY_DEV_SUBDIR}/, {PRIVATE_DEV_SUBDIR}/).",
+        "",
+        "On the target machine you must:",
+        f"  \u2022 Enable Plugins dev mode (same checkout directories)",
+        "  \u2022 Install all community and member plugins referenced in the profile",
+        "",
+        "Plugin paths will not resolve on a machine that uses only "
+        f"{PluginPaths.format_display(PluginPaths.install_dir())}/.",
+    ]
+    plugins = community_plugins or {}
+    missing = [
+        name
+        for name, stored in sorted(plugins.items())
+        if PluginPaths.load_path(name, stored) is None
+    ]
+    if missing:
+        lines.extend(["", "Plugins not found locally:", ", ".join(missing)])
+    return "\n".join(lines)
+
+
+def dev_mode_uninstall_warning(plugins_dir: Path, name: str) -> str | None:
+    """Return a user-facing warning when uninstalling a dev checkout, else None."""
+    if not PluginPaths.is_dev_mode():
+        return None
+    resolved_dir = plugins_dir.resolve()
+    dev_roots = (
+        PluginPaths.community_dev_dir().resolve(),
+        PluginPaths.private_dev_dir().resolve(),
+    )
+    if resolved_dir not in dev_roots:
+        return None
+    checkout = (resolved_dir / name).resolve()
+    path_display = PluginPaths.format_display(checkout)
+    return "\n".join(
+        [
+            "Plugins dev mode is enabled.",
+            "",
+            "Uninstall will permanently delete the plugin source checkout at:",
+            f"  {path_display}",
+            "",
+            "Commit or back up any local changes in git before continuing.",
+        ]
+    )
+
+
 def export_profile(
     profile: str,
     zip_path: Path | str,
     *,
+    settings_classes: list[Any],
     community_plugins: dict[str, str] | None = None,
 ) -> int:
     """Export *profile* from all YAML sources into a zip file. Returns entry count."""
-    sources = iter_profile_sources(profile, community_plugins=community_plugins)
+    sources = iter_profile_sources(
+        profile, settings_classes=settings_classes, community_plugins=community_plugins
+    )
     if not sources:
         raise ValueError(f"Profile '{profile}' not found in any configuration file")
 
     community_basenames = {
-        community_plugin_settings_basename(name): name
+        PluginPaths.settings_basename(name): name
         for name in (community_plugins or {})
     }
 
@@ -401,10 +427,10 @@ def export_profile(
                 plugin_name = community_basenames[entry_name]
                 stored = community_plugins[plugin_name]
                 cls = load_plugin_settings_class(
-                    plugin_name, str(resolve_plugin_path(plugin_name, stored))
+                    plugin_name, str(PluginPaths.resolve(plugin_name, stored))
                 )
             else:
-                cls = _settings_class_for_basename(read_path.name)
+                cls = _settings_class_for_basename(read_path.name, settings_classes)
             snippet_data = _validated_profile_dict(
                 cls, profile, prof_data, filepath=str(read_path)
             )
@@ -440,7 +466,7 @@ def _merge_profile_into_file(
 
 def _community_settings_dest(name: str) -> Path:
     return Path(
-        effective_config_path(community_plugin_settings_filepath(name), for_write=True)
+        ConfigPaths.effective_path(PluginPaths.settings_filepath(name), for_write=True)
     )
 
 
@@ -449,12 +475,17 @@ def _community_plugin_name_for_basename(
     community_plugins: dict[str, str],
 ) -> str | None:
     for name in community_plugins:
-        if community_plugin_settings_basename(name) == basename:
+        if PluginPaths.settings_basename(name) == basename:
             return name
     return None
 
 
-def import_profile(zip_path: Path | str, *, overwrite: bool = False) -> str:
+def import_profile(
+    zip_path: Path | str,
+    *,
+    settings_classes: list[Any],
+    overwrite: bool = False,
+) -> str:
     """Import a profile zip; merge each entry into the corresponding YAML. Returns profile name."""
     src = Path(zip_path)
     standard_entries: list[tuple[str, dict]] = []
@@ -506,8 +537,8 @@ def import_profile(zip_path: Path | str, *, overwrite: bool = False) -> str:
         if plugin_name is not None:
             deferred_community_standard.append((plugin_name, prof_data))
             continue
-        dest = effective_config_path(f"configs/{basename}", for_write=True)
-        cls = _settings_class_for_basename(basename)
+        dest = ConfigPaths.effective_path(f"configs/{basename}", for_write=True)
+        cls = _settings_class_for_basename(basename, settings_classes)
         validated_standard.append(
             (dest, _validated_profile_dict(cls, profile_name, prof_data, filepath=dest))
         )
@@ -525,7 +556,7 @@ def import_profile(zip_path: Path | str, *, overwrite: bool = False) -> str:
         stored = community_plugins_map[plugin_name]
         dest = _community_settings_dest(plugin_name)
         cls = load_plugin_settings_class(
-            plugin_name, str(resolve_plugin_path(plugin_name, stored))
+            plugin_name, str(PluginPaths.resolve(plugin_name, stored))
         )
         validated_community.append(
             (
@@ -545,7 +576,7 @@ def import_profile(zip_path: Path | str, *, overwrite: bool = False) -> str:
         stored = community_plugins_map[plugin_name]
         dest = _community_settings_dest(plugin_name)
         cls = load_plugin_settings_class(
-            plugin_name, str(resolve_plugin_path(plugin_name, stored))
+            plugin_name, str(PluginPaths.resolve(plugin_name, stored))
         )
         validated_community.append(
             (

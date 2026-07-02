@@ -145,24 +145,24 @@ def test_run_config_command_bare_config_shows_help(capsys):
 
 def test_default_map_settings_field_race_planner():
     from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-    from avlite.c50_visualization.c59_settings import default_map_settings_field
+    from avlite.c50_visualization.c58_ui_lib import DataPicker
 
     original = ExecutionSettings.c40_global_planner
     try:
         ExecutionSettings.c40_global_planner = GlobalCenterlineRacePlanner.__name__
-        assert default_map_settings_field() == "c43_race_boundary_map"
+        assert DataPicker.default_map_settings_field() == "c43_race_boundary_map"
     finally:
         ExecutionSettings.c40_global_planner = original
 
 
 def test_default_map_settings_field_hd_planner():
     from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
-    from avlite.c50_visualization.c59_settings import default_map_settings_field
+    from avlite.c50_visualization.c58_ui_lib import DataPicker
 
     original = ExecutionSettings.c40_global_planner
     try:
         ExecutionSettings.c40_global_planner = HDMapGlobalPlanner.__name__
-        assert default_map_settings_field() == "c40_hd_map"
+        assert DataPicker.default_map_settings_field() == "c40_hd_map"
     finally:
         ExecutionSettings.c40_global_planner = original
 
@@ -208,12 +208,6 @@ def test_tuning_knob_reaches_controller_without_code_reload():
 
 
 def test_plugin_settings_filepath_from_directory_name():
-    from avlite.c60_common.c67_paths import (
-        legacy_plugin_settings_filepath,
-        plugin_settings_filepath,
-    )
+    from avlite.c60_common.c67_paths import PluginPaths
 
-    assert plugin_settings_filepath("p40_bridge_carla") == "configs/plugin_p40_bridge_carla.yaml"
-    # Old hand-chosen name retained only as a read fallback for existing profiles.
-    assert legacy_plugin_settings_filepath("p40_bridge_carla") == "configs/plugin_carla.yaml"
-    assert legacy_plugin_settings_filepath("unmapped_plugin_dir") is None
+    assert PluginPaths.settings_filepath("avlite-bridge-carla") == "configs/plugin_avlite-bridge-carla.yaml"

@@ -7,6 +7,7 @@ __pycache__/
 venv
 .ipynb_checkpoints/
 .env
+.cursor/
 venvs
 1-files
 site/
@@ -15,6 +16,7 @@ graphify-out/
 .pytest_cache/
 .cursorignore
 avlite/extensions/e30_controller_joystick/
-configs/ext_controller_joystick.yaml
 research-link/
-related-repos/
+avlite-community-plugins/
+avlite-private-plugins/
+avlite-related-repos/

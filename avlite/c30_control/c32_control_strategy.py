@@ -5,7 +5,7 @@ from typing import Optional
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import LocalPlan
-from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
 from avlite.c30_control.c39_settings import ControlSettings
 from abc import ABC, abstractmethod
 import logging
@@ -40,7 +40,7 @@ class ControlStrategy(ABC):
         self.tj = plan.as_trajectory() if plan is not None else None
 
     @abstractmethod
-    def control(self, ego: EgoState, plan: Optional[LocalPlan]=None, control_dt:float=None) -> ControlCommand:
+    def control(self, ego: EgoState, plan: Optional[LocalPlan]=None, control_dt:float=None) -> ControlCommandBase:
         pass
 
 

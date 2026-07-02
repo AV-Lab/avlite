@@ -131,6 +131,7 @@ class TestSyncExecuterFps:
         # Allow slight floating-point overshoot (< 5 %)
         assert exec_.control_fps <= cap * 1.05
 
+    @pytest.mark.slow
     def test_control_fps_reflects_slow_world(self):
         """When the world introduces a 0.1 s delay, FPS must drop below target."""
         control_dt = 0.05
@@ -181,6 +182,7 @@ class TestSyncExecuterFps:
 # ---------------------------------------------------------------------------
 
 class TestAsyncExecuterFps:
+    @pytest.mark.slow
     def test_elapsed_sim_time_advances_by_control_dt(self):
         """elapsed_sim_time must use control_dt increments, not sim_dt."""
         pm = PerceptionModel()
@@ -213,6 +215,7 @@ class TestAsyncExecuterFps:
             # Allow floating-point rounding (< 1 % of control_dt)
             assert remainder < control_dt * 0.01 or abs(remainder - control_dt) < control_dt * 0.01
 
+    @pytest.mark.slow
     def test_control_fps_nonzero_after_running(self):
         pm = PerceptionModel()
         world = _StubWorldBridge()

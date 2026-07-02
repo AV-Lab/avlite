@@ -2,7 +2,12 @@
 
 import sys
 
-from avlite.c60_common.c60_plugins import import_plugin_modules, plugin_module_prefix
+from avlite.c30_control.c32_control_strategy import ControlStrategy
+from avlite.c60_common.c66_plugins import (
+    import_plugin_modules,
+    plugin_module_prefix,
+    sync_community_plugins,
+)
 
 
 def test_import_plugin_modules_skips_venv(tmp_path):
@@ -26,3 +31,28 @@ def test_import_plugin_modules_skips_venv(tmp_path):
         name.startswith(prefix + ".") and "venv" in name
         for name in sys.modules
     )
+
+
+def test_sync_community_plugins_unloads_removed(tmp_path):
+    plugin_dir = tmp_path / "sample_plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "strategy.py").write_text(
+        "from avlite.c30_control.c32_control_strategy import ControlStrategy\n"
+        "class SamplePluginController(ControlStrategy):\n"
+        "    def control(self, ego_state, local_plan):\n"
+        "        return self.cmd\n"
+    )
+    (plugin_dir / "__init__.py").write_text("from .strategy import SamplePluginController\n")
+
+    prefix = plugin_module_prefix("sample_plugin")
+    for name in list(sys.modules):
+        if name == prefix or name.startswith(prefix + "."):
+            del sys.modules[name]
+    ControlStrategy.registry.pop("SamplePluginController", None)
+
+    sync_community_plugins({"sample_plugin": str(plugin_dir)})
+    assert "SamplePluginController" in ControlStrategy.registry
+
+    sync_community_plugins({})
+    assert "SamplePluginController" not in ControlStrategy.registry
+    assert prefix not in sys.modules

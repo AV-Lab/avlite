@@ -117,7 +117,8 @@ class StanleyController(ControlStrategy):
         # lower the speed if abs(steer) > 0.5
         if (np.abs(self.cte_steer) > self.slow_down_cte or np.abs(heading_error) > self.slow_down_heading_cte) \
             and ego.velocity > self.slow_down_vel_threshold:
-            acc2 = acc - 3 * np.e**np.abs(self.cte_steer)  # reduce acceleration based on steering error
+            steer_err = float(np.clip(np.abs(self.cte_steer), 0.0, 20.0))
+            acc2 = acc - 3 * np.exp(steer_err)
             acc2 = np.clip(acc2, self.ego_min_acceleration, self.ego_max_acceleration)
             log.debug(f"Steering error {self.cte_steer:+6.2f} is large, reducing acceleration from {acc:.2f} to {acc2:.2f}")
             acc = acc2

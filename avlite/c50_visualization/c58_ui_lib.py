@@ -1,7 +1,10 @@
+import logging
 import os
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
+
+log = logging.getLogger(__name__)
 
 class ValueGauge(ttk.Frame):
     def __init__(
@@ -221,8 +224,10 @@ class ThemedListPickerDialog:
         items: list[str],
         *,
         initial: str | None = None,
+        readonly: bool = False,
     ):
         self.result: str | None = None
+        self.readonly = readonly
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
@@ -230,12 +235,13 @@ class ThemedListPickerDialog:
         self.dialog.bind("<Escape>", lambda _e: self.on_cancel())
 
         frame = ttk.Frame(self.dialog)
-        frame.pack(fill=tk.X)
+        frame.pack(fill=tk.BOTH, expand=True)
 
         list_frame = ttk.Frame(frame)
-        list_frame.pack(side=tk.TOP, fill=tk.X)
+        list_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        listbox_height = max(1, min(16, len(items)))
+        _max_visible_rows = 12
+        listbox_height = max(1, min(_max_visible_rows, len(items)))
         self.listbox = tk.Listbox(
             list_frame,
             height=listbox_height,
@@ -245,8 +251,8 @@ class ThemedListPickerDialog:
         )
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.listbox.yview)
         self.listbox.configure(yscrollcommand=scrollbar.set)
-        self.listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        if len(items) > listbox_height:
+        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        if len(items) > _max_visible_rows:
             scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         for item in items:
@@ -257,13 +263,17 @@ class ThemedListPickerDialog:
             self.listbox.selection_set(idx)
             self.listbox.see(idx)
 
-        self.listbox.bind("<Double-Button-1>", lambda _e: self.on_ok())
-        self.listbox.bind("<Return>", lambda _e: self.on_ok())
+        if not readonly:
+            self.listbox.bind("<Double-Button-1>", lambda _e: self.on_ok())
+            self.listbox.bind("<Return>", lambda _e: self.on_ok())
 
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=4)
-        ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side=tk.LEFT, padx=4)
-        ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT, padx=4)
+        if readonly:
+            ttk.Button(btn_frame, text="Close", command=self.on_cancel).pack(side=tk.RIGHT, padx=4)
+        else:
+            ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side=tk.LEFT, padx=4)
+            ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT, padx=4)
 
         self.dialog.update_idletasks()
         self.dialog.minsize(self.dialog.winfo_reqwidth(), self.dialog.winfo_reqheight())
@@ -274,9 +284,10 @@ class ThemedListPickerDialog:
         self.dialog.wait_window()
 
     def on_ok(self):
-        sel = self.listbox.curselection()
-        if sel:
-            self.result = self.listbox.get(sel[0])
+        if not self.readonly:
+            sel = self.listbox.curselection()
+            if sel:
+                self.result = self.listbox.get(sel[0])
         self.dialog.destroy()
 
     def on_cancel(self):
@@ -456,7 +467,11 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "plugins_browse": "Open the community plugins browser.",
     "settings_close": "Close the settings window without saving.",
     "settings_save": "Save profile and close the settings window.",
-    "edit_repo_configs": "Write profile changes to repository config files instead of user data.",
+    "edit_repo_configs": (
+        "Write core stack and built-in plugin YAML to repository configs/ "
+        "instead of user data. Community and member plugin settings always "
+        "stay in your user config directory."
+    ),
     # Community plugins
     "cp_refresh": "Refresh the plugin list from the registry.",
     "cp_install": "Install the selected plugin.",
@@ -498,6 +513,86 @@ class TkSettingsBinder:
             from avlite.c60_common.c68_settings_schema import PlainBinder
 
             PlainBinder().set_value(setting, attr_name, value)
+
+
+def apply_ttk_theme(root: tk.Misc, *, dark: bool) -> None:
+    """Apply equilux (dark) or default (light) ttk theme and Tk option_add overrides."""
+    if dark:
+        root.configure(bg="gray14")
+        try:
+            from ttkthemes import ThemedStyle
+
+            style = ThemedStyle(root)
+            style.set_theme("equilux")
+            style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+            style.configure("TLabelframe.Label", font=("Arial", 11, "bold"))
+            gruvbox_red = "#9d0006"
+            gruvbox_orange = "#d65d0e"
+
+            style.layout(
+                "Start.TButton",
+                [("Button.border", {"sticky": "nswe", "children": [
+                    ("Button.padding", {"sticky": "nswe", "children": [
+                        ("Button.label", {"sticky": "nswe"})
+                    ]})
+                ]})],
+            )
+            style.layout(
+                "Stop.TButton",
+                [("Button.border", {"sticky": "nswe", "children": [
+                    ("Button.padding", {"sticky": "nswe", "children": [
+                        ("Button.label", {"sticky": "nswe"})
+                    ]})
+                ]})],
+            )
+            style.configure("Start.TButton", background=gruvbox_orange, foreground="white")
+            style.configure("Stop.TButton", background=gruvbox_red, foreground="white")
+            style.map(
+                "Start.TButton",
+                background=[("active", "#ff8800")],
+                foreground=[("active", "white")],
+            )
+            style.map(
+                "Stop.TButton",
+                background=[("active", "#ff4444")],
+                foreground=[("active", "white")],
+            )
+        except ImportError:
+            log.error("Please install ttkthemes to use dark mode.")
+            return
+
+        root.option_add("*Listbox.background", "#222222")
+        root.option_add("*Listbox.foreground", "#ffffff")
+        root.option_add("*Listbox.selectBackground", "#444444")
+        root.option_add("*Listbox.selectForeground", "#dddddd")
+        root.option_add("*Listbox.highlightBackground", "#1a1a1a")
+        root.option_add("*Listbox.highlightColor", "#333333")
+        root.option_add("*Listbox.borderWidth", 1)
+        root.option_add("*selectBackground", "#666699")
+        root.option_add("*selectForeground", "#ffffff")
+        root.option_add("*Entry.selectBackground", "#444466")
+        root.option_add("*Entry.selectForeground", "#cccccc")
+        root.option_add("*Text.selectBackground", "#444466")
+        root.option_add("*Text.selectForeground", "#cccccc")
+        style = ttk.Style(root)
+        style.map(
+            "TEntry",
+            selectbackground=[("!disabled", "#444466")],
+            selectforeground=[("!disabled", "#cccccc")],
+        )
+    else:
+        root.configure(bg="white")
+        style = ttk.Style(root)
+        style.theme_use("default")
+        root.option_add("*Listbox.background", "white")
+        root.option_add("*Listbox.foreground", "black")
+        root.option_add("*Listbox.selectBackground", "#0078d7")
+        root.option_add("*Listbox.selectForeground", "white")
+        root.option_add("*Listbox.highlightBackground", "white")
+        root.option_add("*Listbox.highlightColor", "#0078d7")
+        root.option_add("*Listbox.borderWidth", 2)
+        style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+        style.configure("TLabelframe.Label", font=("Arial", 10, "bold"))
 
 
 _DPI_MIN = 1.0
@@ -586,4 +681,149 @@ def configure_treeview_style(style: ttk.Style, name: str, scale: float = 1.0) ->
     rowheight = font.metrics("linespace") + scaled(4, scale)
     style.configure(f"{name}.Treeview", rowheight=rowheight)
     style.configure(f"{name}.Treeview.Heading", font=font)
+
+
+class UiAssets:
+    """Resolve shipped UI image assets from the repository data tree."""
+
+    @staticmethod
+    def resolve(name: str):
+        from avlite.c60_common.c67_paths import DataPaths
+
+        path = DataPaths._repo_data_root() / "imgs" / name
+        if not path.is_file():
+            raise FileNotFoundError(f"UI asset not found: {name}")
+        return path
+
+
+class DataPicker:
+    """File-picker helpers for map, plan, and data path display."""
+
+    @staticmethod
+    def display_path(stored: str) -> str:
+        """Format a stored settings path for picker display."""
+        from pathlib import Path
+
+        from avlite.c60_common.c67_paths import DataPaths
+
+        if stored.startswith("~/"):
+            return stored
+        abs_path = Path(DataPaths.resolve(stored)).resolve()
+        user_root = DataPaths.user_dir().resolve()
+        repo_root = DataPaths._repo_data_root().resolve()
+        try:
+            abs_path.relative_to(user_root)
+            return DataPicker._format_user_path(abs_path)
+        except ValueError:
+            pass
+        try:
+            rel = abs_path.relative_to(repo_root)
+            return "data/" + rel.as_posix()
+        except ValueError:
+            return stored
+
+    @staticmethod
+    def default_map_display_path() -> str:
+        from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+
+        if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
+            return DataPicker.display_path(ExecutionSettings.c40_hd_map)
+        return DataPicker.display_path(ExecutionSettings.c43_race_boundary_map)
+
+    @staticmethod
+    def default_map_settings_field() -> str:
+        from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+
+        if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
+            return "c40_hd_map"
+        return "c43_race_boundary_map"
+
+    @staticmethod
+    def default_global_plan_display_path() -> str:
+        from avlite.c40_execution.c49_settings import ExecutionSettings
+
+        return DataPicker.display_path(ExecutionSettings.c40_global_trajectory)
+
+    @staticmethod
+    def list_map_candidates() -> list[str]:
+        from pathlib import Path
+
+        from avlite.c10_perception.c11_perception_model import RaceMap
+        from avlite.c10_perception.c18_hdmap_parser import HDMap
+        from avlite.c60_common.c67_paths import DataPaths
+
+        def _is_map(path: Path) -> bool:
+            return HDMap.is_loadable(path) or RaceMap.is_loadable(path)
+
+        return DataPicker._collect_candidates(_is_map)
+
+    @staticmethod
+    def list_global_plan_candidates() -> list[str]:
+        from pathlib import Path
+
+        from avlite.c20_planning.c21_planning_model import GlobalPlan
+
+        return DataPicker._collect_candidates(
+            lambda path: GlobalPlan.is_loadable(path)
+        )
+
+    @staticmethod
+    def _format_user_path(abs_path) -> str:
+        from pathlib import Path
+
+        try:
+            rel = abs_path.resolve().relative_to(Path.home())
+            return "~/" + rel.as_posix()
+        except ValueError:
+            return str(abs_path.resolve())
+
+    @staticmethod
+    def _format_repo_path(abs_path) -> str:
+        from avlite.c60_common.c67_paths import DataPaths
+
+        rel = abs_path.relative_to(DataPaths._repo_data_root())
+        return "data/" + rel.as_posix()
+
+    @staticmethod
+    def _path_for_file(file_path, data_root) -> str:
+        from avlite.c60_common.c67_paths import DataPaths
+
+        if data_root.resolve() == DataPaths.user_dir().resolve():
+            return DataPicker._format_user_path(file_path)
+        return DataPicker._format_repo_path(file_path)
+
+    @staticmethod
+    def _iter_data_files(*roots):
+        for root in roots:
+            if not root.is_dir():
+                continue
+            for path in root.rglob("*"):
+                if path.is_file():
+                    yield path, root
+
+    @staticmethod
+    def _collect_candidates(predicate) -> list[str]:
+        from avlite.c60_common.c67_paths import DataPaths
+
+        repo_data = DataPaths._repo_data_root()
+        user_data = DataPaths.user_dir()
+        seen: set[str] = set()
+        user_candidates: list[str] = []
+        repo_candidates: list[str] = []
+
+        for path, root in DataPicker._iter_data_files(user_data, repo_data):
+            if not predicate(path):
+                continue
+            picker_path = DataPicker._path_for_file(path, root)
+            if picker_path in seen:
+                continue
+            seen.add(picker_path)
+            if root.resolve() == user_data.resolve():
+                user_candidates.append(picker_path)
+            else:
+                repo_candidates.append(picker_path)
+
+        return sorted(user_candidates) + sorted(repo_candidates)
 

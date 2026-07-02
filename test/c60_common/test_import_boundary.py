@@ -12,6 +12,9 @@ FORBIDDEN_PREFIXES = (
 )
 
 SCAN_ROOTS = (
+    ROOT / "avlite" / "c10_perception",
+    ROOT / "avlite" / "c20_planning",
+    ROOT / "avlite" / "c30_control",
     ROOT / "avlite" / "c60_common",
     ROOT / "avlite" / "c40_execution",
     ROOT / "avlite" / "plugins",

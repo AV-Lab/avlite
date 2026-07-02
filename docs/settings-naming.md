@@ -10,7 +10,7 @@ Shipped defaults live in the repository `configs/` directory. When you save from
    Example: only `c15_perception_algs.py` reads detection params → `c15_detection_z_min`.
 
 2. **Multiple consumer modules** in the same layer package → `c{decade}_{name}`  
-   Example: `c26_local_lattice_planners.py` and `c27_lattice.py` both use collision margin → `c20_collision_safety_margin`.
+   Example: `c27_local_lattice_planners.py` and `c28_lattice.py` both use collision margin → `c20_collision_safety_margin`.
 
 3. **Cross-layer orchestration** → setting lives on the **consuming** layer’s settings class, prefixed by the consumer module.  
    Example: factory fallback race map in `c43_factory.py` → `ExecutionSettings.c43_race_boundary_map`.
@@ -31,9 +31,24 @@ Shipped defaults live in the repository `configs/` directory. When you save from
 
 Built-in plugins use `configs/plugin_*.yaml` in the repo and the same basename under `~/.config/avlite/` when saved.
 
+## Stack load and export
+
+| API | Module | Includes c50 viz YAML? |
+|-----|--------|------------------------|
+| `load_stack_settings()` | `c43_factory` | No (GUI loads `VisualizationSettings` separately) |
+| `get_stack_settings_classes()` | `c43_factory` | No (c10–c40 + plugins) |
+| `get_stack_settings_classes()` | `c59_settings` | Yes (wraps c43 + `VisualizationSettingsSchema()`) |
+
+Headless `python -m avlite config describe --layer` accepts perception, planning, control, and execution (not visualization).
+
 ## Plugins
 
-Community and built-in plugins keep `PluginSettings` in `settings.py` with unprefixed snake_case parameters. See [Plugin Development](plugin-development.md).
+Community and built-in plugins keep `PluginSettings` in `settings.py` with unprefixed snake_case parameters. AVLite sets `filepath` automatically for community plugins at registration/load time. See [Plugin Development](plugin-development.md).
+
+| Kind | Settings module | Repo default | User file (on Save) |
+|------|-----------------|--------------|---------------------|
+| Community plugin | `<plugin>/settings.py` | none | `~/.config/avlite/plugin_<name>.yaml` |
+| Built-in plugin | `avlite/plugins/<name>/settings.py` | `configs/plugin_<name>.yaml` | same basename under user config |
 
 ## Validation and field docs
 

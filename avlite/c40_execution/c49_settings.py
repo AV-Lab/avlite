@@ -40,7 +40,6 @@ class ExecutionSettingsSchema(SettingsSchema):
 
     c43_race_boundary_map: str = Field(default="data/race_boundary_yas_marina.map.json", description="Race boundary JSON for centerline planner.")
 
-    c46_default_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="BasicSim default trajectory path.")
     c46_npc_speed_factor: float = Field(default=0.8, description="NPC speed as fraction of plan speed.")
     c46_npc_control: bool = Field(default=True, description="Enable NPC vehicle controllers in BasicSim.")
     c46_lidar_boundary_file: str = Field(default="data/yasmarina.track.json", description="Track boundary file for simulated LiDAR.")
