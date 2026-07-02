@@ -623,6 +623,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#prediction-models-on-perceptionmodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prediction models on PerceptionModel
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1140,6 +1149,38 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 <li>Do not branch on <code>agent_id</code> heuristics for platform type — use <code>agent.agent_type</code>.</li>
 <li>Converters (Ackermann → diff-drive, etc.) are <strong>not in core yet</strong>; keep them in your plugin until a shared module (e.g. <code>c38_control_converters.py</code>) lands.</li>
 </ul>
+<h3 id="prediction-models-on-perceptionmodel">Prediction models on <code>PerceptionModel</code><a class="headerlink" href="#prediction-models-on-perceptionmodel" title="Permanent link">&para;</a></h3>
+<p>Forecast payloads live on a single typed object: <strong><code>perception_model.prediction</code></strong>. Per-agent types store data in <strong><code>dict[int, …]</code> keyed by <code>agent_id</code></strong> (not list index). The lump-sum occupancy type is <strong><code>AggregatedOccupancyFlow</code></strong> (one grid sequence for the whole scene).</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span><span class="p">,</span> <span class="n">SingleTrajectory</span>
+
+<span class="n">pm</span><span class="o">.</span><span class="n">prediction</span> <span class="o">=</span> <span class="n">SingleTrajectory</span><span class="p">(</span>
+    <span class="n">predict_delta_t</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">trajectories</span><span class="o">=</span><span class="p">{</span><span class="n">agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">:</span> <span class="n">path_xy</span> <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="n">pm</span><span class="o">.</span><span class="n">agent_vehicles</span><span class="p">},</span>
+<span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">prediction</span><span class="o">.</span><span class="n">trajectories</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">)</span>  <span class="c1"># [n_steps, 2] world x,y [m]</span>
+</code></pre></div>
+<p><strong>Timesteps — do not mix tracking and prediction:</strong></p>
+<table>
+<thead>
+<tr>
+<th>YAML key</th>
+<th>Stage</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c11_predict_delta_t</code></td>
+<td>Forecast</td>
+<td>Default <code>predict_delta_t</code> on prediction objects; collision step indexing</td>
+</tr>
+<tr>
+<td><code>c15_tracking_dt</code></td>
+<td>Tracking</td>
+<td>Kalman filter only (<code>KalmanTracker._dt</code>)</td>
+</tr>
+</tbody>
+</table>
 <h2 id="8-example-custom-world-bridge">8. Example: Custom World Bridge<a class="headerlink" href="#8-example-custom-world-bridge" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">EGO_AGENT_ID</span>
 <span class="kn">from</span> <span class="nn">avlite.c40_execution.c41_world_bridge</span> <span class="kn">import</span> <span class="n">WorldBridge</span>
