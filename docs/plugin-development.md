@@ -239,21 +239,101 @@ class MyLocalPlanner(LocalPlanningStrategy):
 
 ```python
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
 
 class MyController(ControlStrategy):
-    def control(self, ego, tj=None, control_dt=None) -> ControlCommand:
-        # Your logic here
-        return ControlCommand(throttle=1.0, steer=0.0)
-    
+    def control(self, ego, tj=None, control_dt=None) -> ControlCommandBase:
+        # Your logic here; ControlCommand is an alias for AckermannControlCommand
+        return ControlCommand(steer=0.0, acceleration=1.0)
+
     def reset(self):
         pass
 ```
 
-## 7. Example: Custom World Bridge
+## 7. Multi-robot agents and control
+
+AVLite separates **what an agent is** (platform metadata) from **how it is actuated** (control command payload). Phase 1 adds the structure; the executer still drives ego via `control_ego_state` only. Multi-agent actuation and physics sub-stepping are reserved for later.
+
+### Agent identity
+
+| ID | Role |
+|----|------|
+| `EGO_AGENT_ID = 0` | Ego vehicle (`EgoState` in `perception_model.ego_vehicle`) |
+| `1, 2, 3, …` | NPCs in `perception_model.agent_vehicles` (assigned by `add_agent_vehicle`) |
 
 ```python
+from avlite.c10_perception.c11_perception_model import AgentState, AgentType, EGO_AGENT_ID
+
+npc = AgentState(x=10.0, y=0.0, agent_type=AgentType.DIFF_DRIVE)
+agent_id = perception_model.add_agent_vehicle(npc)  # returns 1, 2, ...
+```
+
+IDs are stable integers — not `Enum.auto()` values and not random — so bridges, logs, and tracking stay debuggable.
+
+### Two layers (do not conflate)
+
+```mermaid
+flowchart LR
+  AgentType["AgentType on AgentState\nplatform metadata"]
+  CmdClass["ControlCommandBase subclass\nactuation payload"]
+  Map["control_type_for_agent()\nc38_control_mapping.py"]
+  Bridge["WorldBridge.control_type(agent)"]
+  AgentType --> Map --> CmdClass
+  Bridge --> Map
+```
+
+- **`AgentType`** — platform category on [`AgentState`](../avlite/c10_perception/c11_perception_model.py) (Ackermann car, diff-drive, aerial, pedestrian, …).
+- **Control command classes** — actuation payload in [`c31_control_model.py`](../avlite/c30_control/c31_control_model.py); default mapping in [`c38_control_mapping.py`](../avlite/c30_control/c38_control_mapping.py).
+
+### Default control mapping
+
+| `AgentType` | Command class | Fields |
+|-------------|---------------|--------|
+| `ACKERMANN` | `AckermannControlCommand` | `steer`, `acceleration` |
+| `DIFF_DRIVE`, `CYCLIST` | `DiffDriveControlCommand` | `linear`, `angular` |
+| `AERIAL`, `SURFACE_VESSEL`, `UNDERWATER`, `PEDESTRIAN`, `DYNAMIC_OBJECT` | `BodyVelocityControlCommand` | `vx`, `vy`, `vz`, `yaw_rate` |
+
+Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `agent_id` — use `agent.agent_type`.
+
+### Backward compatibility
+
+- `ControlCommand` and `ControlComand` remain aliases for **`AckermannControlCommand`** only.
+- Existing car stack code needs no changes; polymorphic APIs use **`ControlCommandBase`**.
+- Use `isinstance(cmd, ControlCommandBase)` for any command type; `isinstance(cmd, ControlCommand)` matches Ackermann only.
+
+### WorldBridge API (phase 1 vs future)
+
+| Method | Phase 1 today | Future |
+|--------|---------------|--------|
+| `control_ego_state(cmd)` | Required; all bridges implement this | Unchanged |
+| `control_type(agent)` | Default: `control_type_for_agent(agent)` | Override only for bridge-specific exceptions |
+| `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
+| `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |
+
+`control_type(agent)` lives on **`WorldBridge` only** — not on `ControlStrategy`. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of `control()`.
+
+### State model — today vs future
+
+**Today:** `AgentState` uses pose (`x`, `y`, `z`, `theta`) plus scalar **`velocity`** (speed along heading). This matches the car-centric stack (planning, collision checking, BasicSim, visualization).
+
+**Aerial / holonomic agents:** `BodyVelocityControlCommand` is defined, but base `AgentState` does not yet carry `vx`, `vy`, or `vz`. For 2D / bird's-eye use cases, heading plus scalar speed is an acceptable lite projection. Full drone or multirotor simulation needs richer state later.
+
+**Future pattern:** subclass when kinematics diverge — for example `DroneAgentState(AgentState)` with body or world velocity fields and custom `predict()` / integration. Same idea as `EgoState(AgentState)`. Lists typed as `list[AgentState]` accept subclasses. Keep **`agent_type`** for dispatch; use the **subclass** for extra fields and integration logic.
+
+### Plugin author checklist
+
+- Set `agent_type` at spawn for non-car NPCs.
+- Return the command type your controller produces; built-in controllers still return Ackermann today.
+- Bridge: implement only what you need now (`control_ego_state`); opt into `control_agent` and `AGENT_CONTROL` when the sim supports NPC actuation.
+- Do not branch on `agent_id` heuristics for platform type — use `agent.agent_type`.
+- Converters (Ackermann → diff-drive, etc.) are **not in core yet**; keep them in your plugin until a shared module (e.g. `c38_control_converters.py`) lands.
+
+## 8. Example: Custom World Bridge
+
+```python
+from avlite.c10_perception.c11_perception_model import EGO_AGENT_ID
 from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c30_control.c31_control_model import ControlCommandBase
 from avlite.c60_common.c61_capabilities import WorldCapability
 
 class MyBridge(WorldBridge):
@@ -261,12 +341,21 @@ class MyBridge(WorldBridge):
     def capabilities(self) -> set[WorldCapability]:
         return {WorldCapability.LIDAR_2D, WorldCapability.GT_LOCALIZATION}
 
-    def control_ego_state(self, throttle, brake, steer, dt):
+    def control_ego_state(self, cmd: ControlCommandBase, dt=0.01):
         # Send control to your simulator or robot
         pass
+
+    # Optional (future): multi-agent fleets — declare WorldCapability.AGENT_CONTROL
+    def control_agent(self, agent_id: int, cmd: ControlCommandBase, dt=0.01):
+        if agent_id == EGO_AGENT_ID:
+            return self.control_ego_state(cmd, dt=dt)
+        # Resolve agent, optionally convert cmd, actuate in sim
+        ...
 ```
 
-## 8. Export Classes
+`control_type(agent)` defaults to `control_type_for_agent(agent)` from [`c38_control_mapping.py`](../avlite/c30_control/c38_control_mapping.py). Use `world.step(dt)` to advance the sim without a new command from the stack (default no-op until a bridge overrides it and the executer wires sub-stepping).
+
+## 9. Export Classes
 
 ```python
 # __init__.py
@@ -278,7 +367,7 @@ __all__ = ["MyPerception", "MyLocalization", "MyController", "PluginSettings"]
 
 When you rename a module file, update the import path in `__init__.py` to match (e.g. `from .p31_joystick_controller import JoystickController`).
 
-## 9. Register Your Community Plugin
+## 10. Register Your Community Plugin
 
 **Via GUI** (recommended):
 1. Open AVLite
@@ -313,11 +402,11 @@ This is separate from the public community registry.
 - If your org uses SAML SSO, authorize the token when AVLite prompts you (403 with SSO link)
 - If OAuth App access restrictions apply, an AV-Lab org admin must approve the AVLite OAuth app under **Organization Settings → Third-party access**
 
-**Publishing:** Member plugins are listed by AV-Lab maintainers in the private registry (not via the community PR flow in section 10). Install and register work the same as community plugins once you are signed in; private repos use authenticated git clone.
+**Publishing:** Member plugins are listed by AV-Lab maintainers in the private registry (not via the community PR flow in section 11). Install and register work the same as community plugins once you are signed in; private repos use authenticated git clone.
 
 See [Member plugins](../index.md#member-plugins) in the main docs for token storage and troubleshooting.
 
-## 10. Publish to the community registry (pull request)
+## 11. Publish to the community registry (pull request)
 
 To list your plugin in every user's **Community** tab (`python -m avlite plugins`), add it to the official public registry via pull request.
 
@@ -325,7 +414,7 @@ Registry repository: [github.com/AV-Lab/avlite-community-plugins](https://github
 
 ### Before you open a PR
 
-1. **Test locally** — register the plugin on a profile (section 9) and confirm your strategies appear in the GUI dropdowns and the stack runs.
+1. **Test locally** — register the plugin on a profile (section 10) and confirm your strategies appear in the GUI dropdowns and the stack runs.
 2. **Public Git repository** — the registry clones your repo; private repos will not install for other users.
 3. **Plugin layout** — at minimum:
    ```
@@ -379,7 +468,7 @@ Keep entries sorted alphabetically by `name` if the registry already follows tha
 
 ### Pull request checklist
 
-- [ ] Plugin works when registered manually (section 9)
+- [ ] Plugin works when registered manually (section 10)
 - [ ] Repository is public and cloneable
 - [ ] `__init__.py` exports all strategy classes users should select
 - [ ] README explains what the plugin provides and any extra setup
@@ -400,7 +489,7 @@ You do not need a new AVLite release for registry-only changes.
 - **New plugin version** — push to your repo; users click **Update** in the Plugins browser (or reinstall). Bump `version` in `plugins.yaml` if you want to pin a new tag/SHA for fresh installs.
 - **Change metadata** — open another PR on avlite-community-plugins to edit `description`, `author`, `category`, or `version`.
 
-## 11. Built-in plugin naming (`pNx`)
+## 12. Built-in plugin naming (`pNx`)
 
 Built-in plugins under `avlite/plugins/` use a **directory name** and optional **module file names** with a `pNx` prefix:
 
@@ -422,7 +511,7 @@ The plugin **directory name** and **module file name** can differ. For example, 
 
 Logger names follow Python's `__name__`, e.g. `avlite.plugins.p30_controller_joystick.p31_joystick_controller`. Log routing uses the **first module segment** under the package (`p31_joystick_controller`) before falling back to the directory name.
 
-## 12. Log panel filtering
+## 13. Log panel filtering
 
 The visualizer log toolbar provides:
 
@@ -459,7 +548,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 | `LocalPlanningStrategy` | Local planning | `replan()` |
 | `GlobalPlannerStrategy` | Global planning | `plan()` |
 | `ControlStrategy` | Vehicle control | `control()` |
-| `WorldBridge` | Simulator integration | `control_ego_state()` |
+| `WorldBridge` | Simulator integration | `control_ego_state()`, `control_type(agent)`, `control_agent()`, `step()` |
 
 ## See Also
 

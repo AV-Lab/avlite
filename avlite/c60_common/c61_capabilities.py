@@ -12,6 +12,7 @@ class WorldCapability(Enum):
     LIDAR_3D = auto() # Whether the world supports lidar data
     LIDAR_2D = auto()             # 2D LiDAR scanner
     AGENT_SPAWN = auto()          # World supports spawning agent vehicles
+    AGENT_CONTROL = auto()        # Bridge can actuate spawned NPC agents via control_agent
     RADAR = auto()                # Radar sensor
     WHEEL_ENCODER = auto()        # Wheel encoder for odometry
     IMU = auto()                  # Inertial measurement unit

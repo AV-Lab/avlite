@@ -79,6 +79,7 @@ class MyPerception(PerceptionStrategy):
 - `WHEEL_ENCODER` - Wheel encoder for odometry
 - `IMU` - Inertial measurement unit
 - `GNSS` - GNSS / GPS receiver
+- `AGENT_CONTROL` - Bridge can actuate spawned NPC agents via `control_agent` (opt-in; separate from `AGENT_SPAWN`)
 
 **Perception Capabilities** (what perception strategies provide):
 
@@ -122,6 +123,22 @@ Before calling `executor_factory()`, load YAML profiles with `load_stack_setting
 
 `c40_execution`, `c60_common`, and `avlite/plugins` must not import `c50_visualization`. Profile zip export that includes visualization YAML is composed in c50 via `c59_settings.get_stack_settings_classes()`, which wraps the core list from c43.
 
+### Agent model
+
+Agents are represented as a small class hierarchy in c11:
+
+```
+State → AgentState → EgoState
+```
+
+- **`EGO_AGENT_ID = 0`** — reserved for the ego vehicle (`perception_model.ego_vehicle`).
+- **NPC ids `1, 2, 3, …`** — assigned by `PerceptionModel.add_agent_vehicle`.
+- **`AgentType`** — platform metadata on each agent (Ackermann, diff-drive, aerial, pedestrian, …).
+- **Default state** — pose (`x`, `y`, `z`, `theta`) plus scalar `velocity` (car-centric; used by planning, collision, and viz).
+- **Future** — specialized subclasses (e.g. `DroneAgentState`) when kinematics need body velocity or 3D integration; see [Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control).
+
+Control actuation is a separate layer: `ControlCommandBase` subclasses in c31, with default `AgentType` → command mapping in c38. The car stack still uses the `ControlCommand` alias for `AckermannControlCommand`.
+
 ## Layers
 
 ### **Perception**
@@ -134,7 +151,7 @@ Global route planning and reactive local planning (lattice-based). Produces traj
 
 ### **Control**
 
-Vehicle control strategies (Stanley, PID) output throttle/brake and steering.
+Vehicle control strategies (Stanley, PID) output actuation commands. Commands use a `ControlCommandBase` hierarchy (`AckermannControlCommand`, `DiffDriveControlCommand`, `BodyVelocityControlCommand` in c31); the built-in car stack still returns `ControlCommand` (Ackermann alias). Per-agent command type defaults are mapped from `AgentType` in c38. See [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control).
 
 ### **Execution**
 
@@ -170,14 +187,16 @@ World Bridge
     │                              Controller
     │                                          │
     └─────────────── Control Command ◄─────────┘
+                          │
+              (future: control_agent for NPC fleet)
 ```
 
 1. **World Bridge** provides sensor data (IMU, LiDAR, camera, ground truth)
 2. **Localization** (optional) estimates the ego pose from sensor data, updating `PerceptionModel.ego_vehicle` in-place
 3. **Perception** (optional) detects/tracks/predicts surrounding agents
 4. **Local Planner** generates trajectory avoiding obstacles
-5. **Controller** computes steering and throttle
-6. **World Bridge** executes control command
+5. **Controller** computes steering and throttle (Ackermann today; other command types reserved for multi-robot plugins)
+6. **World Bridge** executes control command via `control_ego_state` (ego path unchanged; `control_agent` and `step()` hooks exist for future multi-agent and sub-stepping)
 
 ## Plugin System
 

@@ -20,6 +20,7 @@ AVLite is a lightweight, extensible autonomous vehicle software stack for rapid 
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
 - **Hot Reloading**: Modify code without restarting the application
 - **Plugin System**: Extend functionality with community and member plugins
+- **Multi-robot ready (extensible)**: `AgentType`, per-agent control command mapping, and `WorldBridge.control_agent` / `step()` hooks for future drones, diff-drive, and fleet sims — see [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control)
 - **Profile Management**: Save and load different configurations
 
 ## Installation

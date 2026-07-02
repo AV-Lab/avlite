@@ -17,7 +17,7 @@ from avlite.c60_common.c66_plugins import (
 from avlite.c60_common.c67_paths import DataPaths, PluginPaths
 from avlite.c60_common.c69_setting_utils import load_setting
 
-from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState
+from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState, EGO_AGENT_ID
 from avlite.c10_perception.c18_hdmap_parser import HDMap
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import (
@@ -85,6 +85,7 @@ def executor_factory(
     log.debug(f"Default global plan loaded from {global_plan_path}")
 
     ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
+    ego_state.agent_id = EGO_AGENT_ID
     pm = PerceptionModel(ego_vehicle=ego_state)
 
     ###################
@@ -187,6 +188,10 @@ def executor_factory(
     bridge_cls = _require_registered(bridge, WorldBridge.registry, "world bridge")
     log.info(f"Loading registered world bridge {bridge}...")
     world = bridge_cls(**_bridge_kwargs(bridge_cls, ego_state, world_pm))
+
+    ego = world.ego_state
+    if ego.agent_id != EGO_AGENT_ID:
+        log.warning("Ego agent_id=%s; expected %s", ego.agent_id, EGO_AGENT_ID)
 
     #################
     # Creating Executer

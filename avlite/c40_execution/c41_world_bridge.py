@@ -4,9 +4,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, EGO_AGENT_ID, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c31_control_model import ControlCommandBase
+from avlite.c30_control.c38_control_mapping import control_type_for_agent
 from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c60_common.c62_sensor_data import (
     GnssReading,
@@ -39,14 +40,36 @@ class WorldBridge(ABC):
         pass
 
     @abstractmethod
-    def control_ego_state(self, cmd: ControlCommand, dt: Optional[float] = 0.01):
+    def control_ego_state(self, cmd: ControlCommandBase, dt: Optional[float] = 0.01):
         """
         Update the ego state.
 
         Parameters
-        cmd (ControlCommand): The control command containing acceleration and steering angle.
+        cmd (ControlCommandBase): The control command (typically AckermannControlCommand).
         dt (float): Time delta for the update if supported. Default is 0.01.
         """
+        pass
+
+    def control_type(self, agent: AgentState) -> type[ControlCommandBase]:
+        """Command class this bridge expects for the given agent."""
+        return control_type_for_agent(agent)
+
+    def control_agent(
+        self,
+        agent_id: int,
+        cmd: ControlCommandBase,
+        dt: Optional[float] = 0.01,
+    ) -> None:
+        """Apply control to any agent. Default: delegate ego to control_ego_state."""
+        if agent_id == EGO_AGENT_ID:
+            self.control_ego_state(cmd, dt=dt)
+            return
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support control of agent {agent_id}"
+        )
+
+    def step(self, dt: Optional[float] = 0.01) -> None:
+        """Advance the world by dt without a new command from the control stack."""
         pass
 
     def get_ego_state(self) -> EgoState:

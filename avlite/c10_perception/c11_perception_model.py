@@ -16,6 +16,19 @@ from avlite.c10_perception.c19_settings import PerceptionSettings
 
 log = logging.getLogger(__name__)
 
+EGO_AGENT_ID: int = 0
+
+
+class AgentType(Enum):
+    ACKERMANN = auto()
+    DIFF_DRIVE = auto()
+    AERIAL = auto()
+    SURFACE_VESSEL = auto()  # boats, USVs — water surface
+    UNDERWATER = auto()      # AUVs — subsurface
+    CYCLIST = auto()
+    PEDESTRIAN = auto()
+    DYNAMIC_OBJECT = auto()
+
 
 class PredictionMode(Enum):
     TRAJECTORY = auto() # Outputs a single predicted trajectory for each agent, represented as a sequence of future positions and velocities over a specified prediction horizon.
@@ -56,8 +69,8 @@ class PerceptionModel:
         if len(self.agent_vehicles) == self.max_agent_vehicles:
             log.info("Max num of agent reached. Deleteing Old agents")
             self.agent_vehicles = []
-        ids = {a.agent_id for a in self.agent_vehicles} # update agent id
-        agent.agent_id = next(i for i in range(len(ids)+1) if i not in ids)
+        ids = {a.agent_id for a in self.agent_vehicles}
+        agent.agent_id = next(i for i in range(1, len(ids) + 2) if i not in ids)
         self.agent_vehicles.append(agent)
         log.info(f"Total agent vehicles {len(self.agent_vehicles)}")
 
@@ -173,6 +186,7 @@ class State:
 class AgentState(State):
     velocity: float = 0.0
     agent_id: int = -1
+    agent_type: AgentType = AgentType.ACKERMANN
 
     def __post_init__(self):
         super().__post_init__()
@@ -193,7 +207,8 @@ class AgentState(State):
 @dataclass
 class EgoState(AgentState):
     """Ego vehicle state with additional properties in future."""
-    pass
+    agent_id: int = EGO_AGENT_ID
+    agent_type: AgentType = AgentType.ACKERMANN
 
 
 class Map(ABC):
