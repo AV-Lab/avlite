@@ -283,7 +283,11 @@ perception:
   c40_bridge: BasicSim
   c40_community_plugins:
     PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
-    basic_predictor: ~/.local/share/avlite/plugins/basic_predictor
+    avlite-bridge-ROS2: ~/avlite-community-plugins/avlite-bridge-ROS2
+    avlite-bridge-carla: ~/avlite-community-plugins/avlite-bridge-carla
+    avlite-bridge-gazebo: ~/avlite-community-plugins/avlite-bridge-gazebo
+    avlite-executer-ROS2: ~/avlite-community-plugins/avlite-executer-ROS2
+    basic_predictor: ~/avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_default_plugins:

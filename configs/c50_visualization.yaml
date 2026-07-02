@@ -560,7 +560,7 @@ perception:
   replan_dt: 0.01
   selected_profile: perception
   shortcut_mode: false
-  show_common_logs: false
+  show_common_logs: true
   show_control_logs: false
   show_core_logs: true
   show_execute_logs: false
