@@ -11,14 +11,14 @@ class PerceptionSettingsSchema(SettingsSchema):
     c11_state_default_heading: int = Field(default=0, description="Default heading (rad) for new agent states.")
     c11_max_agents: int = Field(default=12, description="Maximum number of agents tracked in the perception model.")
     c11_prediction_grid_size: int = Field(default=100, description="Grid resolution for occupancy-flow prediction output.")
-    c11_predict_delta_t: float = Field(default=0.1, description="Time step (seconds) between predicted points/frames.")
+    c11_predict_delta_t: float = Field(default=0.1, description="Default time step (seconds) between predicted future samples.")
 
     c12_detection_strategy: str = Field(default="", description="Detection sub-strategy class name; empty uses ground truth.")
     c12_tracking_strategy: str = Field(default="", description="Tracking sub-strategy class name; empty uses ground truth.")
     c12_prediction_strategy: str = Field(default="", description="Prediction sub-strategy class name; empty disables prediction.")
 
     c15_prediction_horizon: float = Field(default=2.0, description="Prediction horizon in seconds.")
-    c15_tracking_dt: float = Field(default=0.1, description="Tracker prediction step interval (seconds).")
+    c15_tracking_dt: float = Field(default=0.1, description="Kalman filter motion-model step interval (seconds).")
     c15_tracking_process_noise: float = Field(default=1.0, description="Kalman process noise scale.")
     c15_tracking_measurement_noise: float = Field(default=0.5, description="Kalman measurement noise scale.")
     c15_tracking_init_velocity_var: float = Field(default=25.0, description="Initial velocity variance for new tracks.")

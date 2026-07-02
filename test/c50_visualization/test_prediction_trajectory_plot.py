@@ -10,7 +10,7 @@ from avlite.c10_perception.c11_perception_model import (
     AgentState,
     EgoState,
     PerceptionModel,
-    PredictionMode,
+    SingleTrajectory,
 )
 from avlite.c50_visualization.c57_plot_lib import LocalPlot
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
@@ -40,8 +40,7 @@ class TestPredictionTrajectoryPlot:
         pm = PerceptionModel(
             ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
             agent_vehicles=[agent],
-            prediction_mode=PredictionMode.TRAJECTORY,
-            trajectories=trajectories,
+            prediction=SingleTrajectory(trajectories={0: trajectories[0]}),
         )
 
         plot = LocalPlot(max_plan_length=1, max_agent_count=1)
@@ -71,8 +70,7 @@ class TestPredictionTrajectoryPlot:
         pm = PerceptionModel(
             ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
             agent_vehicles=[agent],
-            prediction_mode=PredictionMode.TRAJECTORY,
-            trajectories=trajectories,
+            prediction=SingleTrajectory(trajectories={0: trajectories[0]}),
         )
 
         plot = LocalPlot(max_plan_length=1, max_agent_count=1)

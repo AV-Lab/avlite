@@ -328,6 +328,27 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 - Do not branch on `agent_id` heuristics for platform type — use `agent.agent_type`.
 - Converters (Ackermann → diff-drive, etc.) are **not in core yet**; keep them in your plugin until a shared module (e.g. `c38_control_converters.py`) lands.
 
+### Prediction models on `PerceptionModel`
+
+Forecast payloads live on a single typed object: **`perception_model.prediction`**. Per-agent types store data in **`dict[int, …]` keyed by `agent_id`** (not list index). The lump-sum occupancy type is **`AggregatedOccupancyFlow`** (one grid sequence for the whole scene).
+
+```python
+from avlite.c10_perception.c11_perception_model import PerceptionModel, SingleTrajectory
+
+pm.prediction = SingleTrajectory(
+    predict_delta_t=0.1,
+    trajectories={agent.agent_id: path_xy for agent in pm.agent_vehicles},
+)
+path = pm.prediction.trajectories.get(agent.agent_id)  # [n_steps, 2] world x,y [m]
+```
+
+**Timesteps — do not mix tracking and prediction:**
+
+| YAML key | Stage | Used by |
+|----------|-------|---------|
+| `c11_predict_delta_t` | Forecast | Default `predict_delta_t` on prediction objects; collision step indexing |
+| `c15_tracking_dt` | Tracking | Kalman filter only (`KalmanTracker._dt`) |
+
 ## 8. Example: Custom World Bridge
 
 ```python

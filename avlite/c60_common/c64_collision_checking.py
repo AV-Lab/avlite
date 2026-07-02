@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 from shapely.geometry import LineString, Polygon
 
-from avlite.c10_perception.c11_perception_model import PerceptionModel, AgentState, PredictionMode
+from avlite.c10_perception.c11_perception_model import PerceptionModel, AgentState, SingleTrajectory
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 
 log = logging.getLogger(__name__)
@@ -23,24 +23,22 @@ def precompute_obstacle_polygons(
 
     Returns a list of (polygon, agent_velocity) tuples.
     """
-    use_predicted = (
-        pm.prediction_mode == PredictionMode.TRAJECTORY
-        and pm.trajectories is not None
-        and len(pm.trajectories) == len(pm.agent_vehicles)
-    )
+    pred = pm.prediction if isinstance(pm.prediction, SingleTrajectory) else None
 
     ego = pm.ego_vehicle
     ego_heading = np.array([np.cos(ego.theta), np.sin(ego.theta)])
 
     result = []
-    for i, agent in enumerate(pm.agent_vehicles):
+    for agent in pm.agent_vehicles:
         agent_polygon = agent.get_bb_polygon()
         to_agent = np.array([agent.x - ego.x, agent.y - ego.y])
         agent_is_ahead = float(np.dot(ego_heading, to_agent)) >= 0.0
+        agent_path = pred.trajectories.get(agent.agent_id) if pred is not None else None
+        use_predicted = agent_path is not None
         if use_predicted and agent_is_ahead and abs(agent.velocity) > min_velocity_threshold:
-            n_steps = pm.trajectories.shape[1]
-            step = min(int(total_time / pm.predict_delta_t), n_steps - 1)
-            predicted_x, predicted_y = pm.trajectories[i, step, 0], pm.trajectories[i, step, 1]
+            n_steps = agent_path.shape[0]
+            step = min(int(total_time / pred.predict_delta_t), n_steps - 1)
+            predicted_x, predicted_y = agent_path[step, 0], agent_path[step, 1]
             predicted_agent = AgentState(
                 x=predicted_x, y=predicted_y, theta=agent.theta,
                 velocity=agent.velocity, agent_id=agent.agent_id,

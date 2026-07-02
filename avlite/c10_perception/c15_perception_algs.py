@@ -1,6 +1,6 @@
 import numpy as np
 
-from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel, PredictionMode
+from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel, SingleTrajectory
 from avlite.c10_perception.c12_perception_strategy import (
     DetectionStrategy,
     PredictionStrategy,
@@ -17,8 +17,7 @@ log = logging.getLogger(__name__)
 class ConstantVelocityPrediction(PredictionStrategy):
     """Predict each agent's future positions assuming constant velocity.
 
-    Writes results into ``pm.trajectories`` (shape ``[n_agents, n_steps, 2]``)
-    and sets ``pm.prediction_mode = PredictionMode.TRAJECTORY``.
+    Writes results into ``pm.prediction`` as ``SingleTrajectory``.
     """
 
     @property
@@ -28,23 +27,29 @@ class ConstantVelocityPrediction(PredictionStrategy):
     def predict(self, perception_model: PerceptionModel) -> PerceptionModel:
         agents = perception_model.agent_vehicles
         if not agents:
-            perception_model.prediction_mode = PredictionMode.TRAJECTORY
-            perception_model.trajectories = np.empty((0, 0, 2))
+            perception_model.prediction = SingleTrajectory(
+                predict_delta_t=PerceptionSettings.c11_predict_delta_t,
+                trajectories={},
+            )
             return perception_model
 
-        dt = perception_model.predict_delta_t
+        dt = PerceptionSettings.c11_predict_delta_t
         horizon = PerceptionSettings.c15_prediction_horizon
         n_steps = max(1, int(round(horizon / dt)))
 
-        trajectories = np.empty((len(agents), n_steps, 2))
-        for i, agent in enumerate(agents):
+        trajectories: dict[int, np.ndarray] = {}
+        for agent in agents:
+            steps = np.empty((n_steps, 2))
             for t in range(n_steps):
                 time = (t + 1) * dt
-                trajectories[i, t, 0] = agent.x + agent.velocity * np.cos(agent.theta) * time
-                trajectories[i, t, 1] = agent.y + agent.velocity * np.sin(agent.theta) * time
+                steps[t, 0] = agent.x + agent.velocity * np.cos(agent.theta) * time
+                steps[t, 1] = agent.y + agent.velocity * np.sin(agent.theta) * time
+            trajectories[agent.agent_id] = steps
 
-        perception_model.trajectories = trajectories
-        perception_model.prediction_mode = PredictionMode.TRAJECTORY
+        perception_model.prediction = SingleTrajectory(
+            predict_delta_t=dt,
+            trajectories=trajectories,
+        )
         log.debug("Predicted trajectories for %d agents over %d steps", len(agents), n_steps)
         return perception_model
 
@@ -124,7 +129,7 @@ class KalmanTracker(TrackingStrategy):
         self._next_id = 0
 
     def track(self, perception_model: PerceptionModel) -> PerceptionModel:
-        dt = perception_model.predict_delta_t or self._dt
+        dt = self._dt
         for trk in self._tracks:
             trk.predict(dt, self._q)
 

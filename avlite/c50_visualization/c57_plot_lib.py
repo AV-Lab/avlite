@@ -1,6 +1,6 @@
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c10_perception.c11_perception_model import EgoState, PredictionMode
+from avlite.c10_perception.c11_perception_model import AggregatedOccupancyFlow, EgoState, SingleTrajectory
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c18_hdmap_parser import HDMap
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
@@ -1089,12 +1089,12 @@ class LocalPlot:
             self.pm_plots_ax2[j].set_xy(np.empty((0, 2)))
 
         # Prediction trajectories (always from exec_pm; world_pm has no pipeline outputs)
-        use_prediction = (
-            show_prediction
-            and exec_pm.prediction_mode == PredictionMode.TRAJECTORY
-            and exec_pm.trajectories is not None
-            and exec_pm.trajectories.shape[0] >= n
+        pred = (
+            exec_pm.prediction
+            if show_prediction and isinstance(exec_pm.prediction, SingleTrajectory)
+            else None
         )
+        use_prediction = pred is not None and len(pred.trajectories) > 0
         if use_prediction:
             ego_hdg = np.array([np.cos(exec_pm.ego_vehicle.theta), np.sin(exec_pm.ego_vehicle.theta)])
             for i, agent in enumerate(agents):
@@ -1103,7 +1103,12 @@ class LocalPlot:
                     self.prediction_lines_ax1[i].set_data([], [])
                     self.prediction_lines_ax2[i].set_data([], [])
                     continue
-                path_xy = np.vstack([[agent.x, agent.y], exec_pm.trajectories[i]])
+                agent_path = pred.trajectories.get(agent.agent_id)
+                if agent_path is None:
+                    self.prediction_lines_ax1[i].set_data([], [])
+                    self.prediction_lines_ax2[i].set_data([], [])
+                    continue
+                path_xy = np.vstack([[agent.x, agent.y], agent_path])
                 self.prediction_lines_ax1[i].set_data(path_xy[:, 0], path_xy[:, 1])
                 path_sd = global_trajectory.convert_xy_path_to_sd_path_np(path_xy)
                 self.prediction_lines_ax2[i].set_data(path_sd[:, 0], path_sd[:, 1])
@@ -1149,16 +1154,17 @@ class LocalPlot:
                 self.pm_occupancy_flow_ax1.set_data(np.zeros((100, 100)))
                 self.pm_occupancy_flow_ax1.set_extent([0, 0, 0, 0])
             return
-        if pm.occupancy_flow is not None and pm.grid_bounds is not None:
+        pred = pm.prediction if isinstance(pm.prediction, AggregatedOccupancyFlow) else None
+        if pred is not None and pred.occupancy_flow and pred.grid_bounds:
             extent = [
-                pm.grid_bounds.get('min_x', 0),
-                pm.grid_bounds.get('max_x', 0), 
-                pm.grid_bounds.get('min_y', 0),
-                pm.grid_bounds.get('max_y', 0),
+                pred.grid_bounds.get('min_x', 0),
+                pred.grid_bounds.get('max_x', 0),
+                pred.grid_bounds.get('min_y', 0),
+                pred.grid_bounds.get('max_y', 0),
             ]
-            flow_sum = pm.occupancy_flow[0].T
+            flow_sum = pred.occupancy_flow[0].T
             if not hasattr(self, 'pm_occupancy_flow_ax1'):
-                flow_sum = np.sum(pm.occupancy_flow, axis=0)
+                flow_sum = np.sum(pred.occupancy_flow, axis=0)
                 self.pm_occupancy_flow_ax1 = self.ax1.imshow(
                     flow_sum,
                     origin='lower',
