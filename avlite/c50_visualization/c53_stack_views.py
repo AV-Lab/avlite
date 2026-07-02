@@ -348,7 +348,7 @@ class PlanFrame(ttk.LabelFrame):
         if not path:
             return
         try:
-            self.root.exec.local_planner.global_plan.to_file(path)
+            self.root.exec.global_planner.global_plan.to_file(path)
         except OSError as e:
             messagebox.showerror("Save Failed", str(e), parent=self)
 
@@ -650,7 +650,9 @@ class ExecView(ttk.Frame):
     def _pick_default_global_plan(self, _event=None):
         current = DataPicker.display_path(self.root.setting.default_global_plan_file.get())
         items = DataPicker.list_global_plan_candidates()
-        dialog = ThemedListPickerDialog(self.root, "Default Global Plan", items, initial=current)
+        dialog = ThemedListPickerDialog(
+            self.root, "Default Global Plan", items, initial=current,
+        )
         if dialog.result:
             self.root.setting.default_global_plan_file.set(dialog.result)
             self.root.reload_stack(reload_code=False)
@@ -658,7 +660,9 @@ class ExecView(ttk.Frame):
     def _pick_default_map(self, _event=None):
         current = DataPicker.display_path(self.root.setting.default_map_file.get())
         items = DataPicker.list_map_candidates()
-        dialog = ThemedListPickerDialog(self.root, "Default Map", items, initial=current)
+        dialog = ThemedListPickerDialog(
+            self.root, "Default Map", items, initial=current,
+        )
         if dialog.result:
             self.root.setting.default_map_file.set(dialog.result)
             self.root.reload_stack(reload_code=False)

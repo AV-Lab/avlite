@@ -145,6 +145,12 @@ def executor_factory(
             path=default_global_plan.path,
             velocity=default_global_plan.velocity,
             trajectory=default_global_plan.trajectory,
+            left_boundary_d=default_global_plan.left_boundary_d,
+            right_boundary_d=default_global_plan.right_boundary_d,
+            left_boundary_x=default_global_plan.left_boundary_x,
+            left_boundary_y=default_global_plan.left_boundary_y,
+            right_boundary_x=default_global_plan.right_boundary_x,
+            right_boundary_y=default_global_plan.right_boundary_y,
         )
 
     pl_cls = _require_registered(
