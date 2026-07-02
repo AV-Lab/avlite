@@ -273,6 +273,7 @@ Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "
 ## Documentation
 
 - [Architecture](architecture.md) - System design and patterns
+- [Algorithms](algorithms.md) - Planning algorithms and lattice parameters
 - [Optional Plugins](optional-plugins.md) - Related-repo bridges, ROS executer, joystick
 - [Plugin Development](plugin-development.md) - Create custom components
 

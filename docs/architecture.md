@@ -147,7 +147,7 @@ Optional monolithic or pipelined detect/track/predict strategies, plus localizat
 
 ### **Planning**
 
-Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller.
+Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller. See [Algorithms](algorithms.md) for lattice planner details.
 
 ### **Control**
 
