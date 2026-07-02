@@ -10,7 +10,8 @@ Tests verify:
 import numpy as np
 import pytest
 
-from avlite.c10_perception.c18_hdmap_parser import HDMap, sample_OpenDrive_geometry
+from avlite.c10_perception.c11_perception_model import HDMap
+from avlite.c10_perception.c18_hdmap_parser import sample_OpenDrive_geometry
 
 
 class TestHDMapLoadable:

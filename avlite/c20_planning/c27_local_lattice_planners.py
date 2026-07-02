@@ -134,19 +134,6 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
                 log.debug(f"Switching plan: geometric disconnect — {dist:.1f}m from plan")
                 return True
 
-        if (not new_plan.collision
-                and not new_plan.boundary_violation
-                and cur_vel is not None and len(cur_vel) > 0):
-            cur_v = float(np.mean(np.asarray(cur_vel)))
-            new_v = float(np.mean(np.asarray(new_plan.local_trajectory.velocity)))
-            if new_v > cur_v + 0.5:
-                log.info(
-                    "Switching plan: faster collision-free alternative (%.1f > %.1f m/s)",
-                    new_v,
-                    cur_v,
-                )
-                return True
-
         new_clean = not new_plan.collision and not new_plan.boundary_violation
         if new_clean:
             prev_len = self.local_plan_len()
@@ -154,7 +141,8 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
             waited = time.time() - self._last_plan_change_time >= self._replan_wait_time
             cur_v = float(np.mean(np.asarray(cur_vel))) if cur_vel is not None and len(cur_vel) > 0 else 0.0
             new_v = float(np.mean(np.asarray(new_plan.local_trajectory.velocity)))
-            material_gain = (new_v > cur_v + 0.5) or (new_len >= prev_len + 2)
+            material_gain = new_len >= prev_len + 2
+            speed_gain = new_v > cur_v + 0.5
 
             old_colliding = False
             edge = self.selected_local_plan
@@ -166,6 +154,8 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
 
             wants_switch = (new_len > prev_len) or old_colliding
             if wants_switch and (waited or material_gain):
+                return True
+            if speed_gain and waited:
                 return True
 
         # Commit to current plan — do not switch
@@ -505,7 +495,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             passing_feasible = self._feasible_candidates(self.lattice.level0_edges, agent_blocks_ahead=True)
             if passing_feasible:
                 passing_plan = self._build_selected_chain(passing_feasible, agent_blocks_ahead=True)
-                if not passing_plan.collision:
+                if not passing_plan.collision and self.should_switch_plan(passing_plan):
                     log.debug("Emergency avoided: committing collision-free passing chain")
                     self.set_selected_plan(passing_plan)
                     self._fill_planning_horizon()
@@ -517,7 +507,10 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                 key=lambda e: getattr(e, 'collision_idx', 0),
                 reverse=True
             )
-            self.set_selected_plan(edges_sorted[0])
+            if self.should_switch_plan(edges_sorted[0]):
+                self.set_selected_plan(edges_sorted[0])
+            else:
+                return
             idx = getattr(self.selected_local_plan, 'collision_idx', 0)
 
             if not self.selected_local_plan.collision:

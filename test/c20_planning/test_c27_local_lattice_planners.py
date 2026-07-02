@@ -112,9 +112,39 @@ class TestShouldSwitchPlan:
         fast_edge = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
 
         planner.selected_local_plan = slow_edge
-        planner._last_plan_change_time = 0.0
+        planner._last_plan_change_time = time.time()
+        assert planner.should_switch_plan(fast_edge) is False
 
+        planner._last_plan_change_time = 0.0
         assert planner.should_switch_plan(fast_edge) is True
+
+    def test_keeps_clean_plan_when_faster_alternative_without_wait(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=8.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        current = _edge_with_velocity(global_plan.trajectory, velocity=8.0, collision=False)
+        faster = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
+
+        planner.selected_local_plan = current
+        planner._last_plan_change_time = time.time()
+
+        assert planner.should_switch_plan(faster) is False
+
+    def test_switches_when_agent_cleared_on_colliding_head(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=3.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        slow_colliding = _edge_with_velocity(global_plan.trajectory, velocity=3.0, collision=True)
+        slow_colliding.collision_idx = 8
+        slow_colliding.local_trajectory.current_wp = 0
+        fast_clean = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
+
+        planner.selected_local_plan = slow_colliding
+        planner._last_plan_change_time = time.time()
+
+        assert planner.should_switch_plan(fast_clean) is True
 
     def test_keeps_plan_when_alternative_is_not_faster(self):
         global_plan = _straight_global_plan()

@@ -308,9 +308,14 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | `control_ego_state(cmd)` | Required; all bridges implement this | Unchanged |
 | `control_type(agent)` | Default: `control_type_for_agent(agent)` | Override only for bridge-specific exceptions |
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
+| `teleport_agent(id, x, y, theta)` | Default: ego delegates to `teleport_ego`; NPC raises `NotImplementedError` | Override for sim teleport of any agent |
+| `get_*(agent_id=EGO_AGENT_ID)` | Default: ego returns data or `None`; NPC raises `NotImplementedError` | Per-agent sensors in Carla / ROS bridges |
+| `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible) | Non-ego: passes `agent_id` to each getter |
 | `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |
 
 `control_type(agent)` lives on **`WorldBridge` only** — not on `ControlStrategy`. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of `control()`.
+
+**Multi-agent sensors:** override getters with an `agent_id` parameter when your bridge serves more than ego. Ego-only bridges (e.g. BasicSim) need no update — `get_sensor_frame()` uses the legacy no-kwargs call path for ego.
 
 ### State model — today vs future
 
@@ -569,7 +574,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 | `LocalPlanningStrategy` | Local planning | `replan()` |
 | `GlobalPlannerStrategy` | Global planning | `plan()` |
 | `ControlStrategy` | Vehicle control | `control()` |
-| `WorldBridge` | Simulator integration | `control_ego_state()`, `control_type(agent)`, `control_agent()`, `step()` |
+| `WorldBridge` | Simulator integration | `control_ego_state()`, `control_type(agent)`, `control_agent()`, `teleport_agent()`, `get_*(agent_id=...)`, `step()` |
 
 ## See Also
 

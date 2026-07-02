@@ -750,8 +750,7 @@ class DataPicker:
     def list_map_candidates() -> list[str]:
         from pathlib import Path
 
-        from avlite.c10_perception.c11_perception_model import RaceMap
-        from avlite.c10_perception.c18_hdmap_parser import HDMap
+        from avlite.c10_perception.c11_perception_model import HDMap, RaceMap
         from avlite.c60_common.c67_paths import DataPaths
 
         def _is_map(path: Path) -> bool:

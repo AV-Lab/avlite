@@ -162,7 +162,7 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 
 | Component | Description |
 |-----------|-------------|
-| **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` (c11), OpenDRIVE `HDMap` parser (c18) |
+| **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` / `HDMap` (c11), OpenDRIVE parser (c18) |
 | **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, `GreedyLatticePlanner`, lattice-based) |
 | **c30_control** | Vehicle controllers (Stanley, PID) |
 | **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo); `c43_factory` assembles the stack |

@@ -4,12 +4,17 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 import json
 import logging
+import math
+import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import copy
+import networkx as nx
 import numpy as np
+from scipy.spatial import KDTree
 from shapely.geometry import Polygon
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
@@ -235,8 +240,6 @@ class Map(ABC):
     def open(cls, path: Path | str) -> Map | None:
         """Dispatch to ``HDMap`` or ``RaceMap`` based on file format."""
         path = Path(path)
-        from avlite.c10_perception.c18_hdmap_parser import HDMap
-
         if HDMap.is_loadable(path):
             return HDMap.from_path(path)
         if RaceMap.is_loadable(path):
@@ -301,4 +304,203 @@ class RaceMap(Map):
             right_bound=right,
             _reference_point=ref_pt,
         )
+
+
+@dataclass
+class HDMap(Map):
+    """Compact HD map representation for global planning."""
+
+    @dataclass
+    class Lane:
+        id: int
+        uid: str
+        lane_element: ET.Element
+        center_line: np.ndarray = field(default_factory=lambda: np.array([]))
+        left_d: list[float] = field(default_factory=list)
+        right_d: list[float] = field(default_factory=list)
+        road: Optional["HDMap.Road"] = None
+        pred_id: str = ""
+        succ_id: str = ""
+        pred_type: str = "lane"
+        succ_type: str = "lane"
+        side: str = "left"
+        type: str = "driving"
+        road_id: str = ""
+        width: float = 0.0
+        lane_section_idx: int = 0
+        predecessors: list["HDMap.Lane"] = field(default_factory=list)
+        successors: list["HDMap.Lane"] = field(default_factory=list)
+        neighbors: set["HDMap.Lane"] = field(default_factory=set)
+        drivable_neighbors: set["HDMap.Lane"] = field(default_factory=set)
+
+        def __hash__(self):
+            return hash(self.uid)
+
+    @dataclass
+    class Road:
+        """Compact road representation for global planning."""
+
+        id: str
+        road_element: ET.Element
+        pred_id: str = ""
+        succ_id: str = ""
+        pred_type: str = "road"
+        succ_type: str = "road"
+        length: float = 0.0
+        junction_id: str = ""
+        center_line: np.ndarray = field(default_factory=lambda: np.array([]))
+        predecessors: list["HDMap.Road"] = field(default_factory=list)
+        successors: list["HDMap.Road"] = field(default_factory=list)
+        lane_sections: list[list["HDMap.Lane"]] = field(default_factory=list)
+        lane_section_s_vals: list[float] = field(default_factory=list)
+        reversed: bool = False
+
+    xodr_file_name: str = ""
+    sampling_resolution: float = 0.1
+    roads: list[Road] = field(default_factory=list)
+    lanes: list[Lane] = field(default_factory=list)
+    road_by_id: dict[str, Road] = field(default_factory=dict)
+    lane_by_uid: dict[str, Lane] = field(default_factory=dict)
+    junction_by_id: dict[str, list[Road]] = field(default_factory=dict)
+    road_network: nx.DiGraph = field(default_factory=nx.DiGraph)
+    lane_network: nx.DiGraph = field(default_factory=nx.DiGraph)
+    root: ET.Element | None = field(default=None, repr=False)
+
+    _point_to_road: dict[tuple[float, float], Road] = field(default_factory=dict, init=False, repr=False)
+    _point_to_drivable_lane: dict[tuple[float, float], Lane] = field(default_factory=dict, init=False, repr=False)
+    _road_kdtree: Optional[KDTree] = field(default=None, init=False, repr=False)
+    _lane_kdtree_drivable: Optional[KDTree] = field(default=None, init=False, repr=False)
+    _all_road_points: list[tuple[float, float]] = field(default_factory=list, init=False, repr=False)
+    _all_drivable_lane_points: list[tuple[float, float]] = field(default_factory=list, init=False, repr=False)
+
+    @property
+    def source_path(self) -> str:
+        return self.xodr_file_name
+
+    @property
+    def reference_point(self) -> tuple[float, float] | None:
+        def _normalise_geo_degrees(lat: float, lon: float) -> tuple[float, float]:
+            if max(abs(lat), abs(lon)) <= math.pi:
+                lat, lon = math.degrees(lat), math.degrees(lon)
+            return lat, lon
+
+        def _parse_proj_lat_lon(proj: str) -> tuple[float, float] | None:
+            lat_m = re.search(r"\+lat_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+            lon_m = re.search(r"\+lon_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+            if not lat_m or not lon_m:
+                return None
+            return _normalise_geo_degrees(float(lat_m.group(1)), float(lon_m.group(1)))
+
+        path = Path(self.xodr_file_name)
+        if path.suffix.lower() != ".xodr" or not path.is_file():
+            return None
+        try:
+            xml_root = ET.parse(path).getroot()
+        except (ET.ParseError, OSError):
+            return None
+        header = xml_root.find("header")
+        if header is None:
+            return None
+        geo = header.find("geoReference")
+        if geo is None or not (geo.text and geo.text.strip()):
+            return None
+        return _parse_proj_lat_lon(geo.text.strip())
+
+    @staticmethod
+    def is_loadable(path: Path | str) -> bool:
+        path = Path(path)
+        return path.suffix.lower() == ".xodr" and path.is_file()
+
+    @classmethod
+    def from_path(cls, path: Path | str) -> HDMap:
+        return cls(xodr_file_name=str(Path(path).resolve()))
+
+    def __post_init__(self) -> None:
+        if not self.xodr_file_name:
+            log.error("No OpenDRIVE file specified.")
+            return
+        from avlite.c10_perception.c18_hdmap_parser import parse_opendrive
+
+        parse_opendrive(self)
+
+    def find_nearest_road(self, x: float, y: float) -> Road | None:
+        if self._road_kdtree is not None:
+            _, index = self._road_kdtree.query((x, y))
+            if index >= 0 and index < len(self._all_road_points):
+                px, py = self._all_road_points[index]
+                if (px, py) not in self._point_to_road:
+                    log.error("Point not found in point_to_road mapping: (%s, %s)", px, py)
+                return self._point_to_road.get((px, py), None)
+
+    def find_nearest_lane(self, x: float, y: float) -> Lane | None:
+        if self._lane_kdtree_drivable is not None:
+            _, index = self._lane_kdtree_drivable.query((x, y))
+            if 0 <= index < len(self._all_drivable_lane_points):
+                lx, ly = self._all_drivable_lane_points[index]
+                if (lx, ly) not in self._point_to_drivable_lane:
+                    log.error("Point not found in point_to_lane mapping: (%s, %s)", x, y)
+                return self._point_to_drivable_lane.get((lx, ly), None)
+
+    def find_nearest_lane_and_idx(self, x: float, y: float) -> tuple[Lane | None, int]:
+        lane = self.find_nearest_lane(x, y)
+        if lane is None or lane.center_line.size == 0:
+            return None, -1
+        dists = np.linalg.norm(lane.center_line - np.array([[x], [y]]), axis=0)
+        idx = int(np.argmin(dists))
+        return lane, idx
+
+    def can_laneA_access_laneB(self, lane_a: Lane, lane_b: Lane) -> bool:
+        check1 = lane_b in lane_a.neighbors
+        b_start_end = [lane_b.center_line[:, 0], lane_b.center_line[:, -1]]
+        a = lane_a.center_line[:, -1] if int(lane_a.id) < 0 else lane_a.center_line[:, 0]
+        dists = [(np.linalg.norm(a - b), j) for j, b in enumerate(b_start_end)]
+        min_dist, b_idx = min(dists, key=lambda item: item[0])
+        check2 = min_dist < 0.5
+        check3 = False
+        if check2:
+            if int(lane_a.id) < 0:
+                vec_a = lane_a.center_line[:, -3] - lane_a.center_line[:, -1]
+            else:
+                vec_a = lane_a.center_line[:, 2] - lane_a.center_line[:, 0]
+            if int(lane_b.id) < 0:
+                vec_b = (
+                    lane_b.center_line[:, 0] - lane_b.center_line[:, 2]
+                    if b_idx == 0
+                    else lane_b.center_line[:, -1] - lane_b.center_line[:, -3]
+                )
+            else:
+                vec_b = (
+                    lane_b.center_line[:, 1] - lane_b.center_line[:, 0]
+                    if b_idx == 0
+                    else lane_b.center_line[:, -1] - lane_b.center_line[:, -3]
+                )
+            norm_a = np.linalg.norm(vec_a)
+            norm_b = np.linalg.norm(vec_b)
+            if norm_a > 0 and norm_b > 0:
+                check3 = np.dot(vec_a / norm_a, vec_b / norm_b) > 0.9
+        return check1 and check2 and check3
+
+    def road_has_driving_lanes(self, road: Road) -> bool:
+        road_element = road.road_element
+        for section in road_element.findall(".//laneSection"):
+            for lane in section.findall(".//lane"):
+                if lane.get("type") == "driving":
+                    return True
+        return False
+
+    def road_is_bidirectional(self, road: Road) -> bool:
+        road_element = road.road_element
+        right = False
+        left = False
+        for section in road_element.findall(".//laneSection"):
+            for lane in section.findall(".//lane"):
+                lane_type = lane.get("type")
+                lane_id = int(lane.get("id", "0"))
+                if lane_type == "driving" and lane_id < 0:
+                    right = True
+                if lane_type == "driving" and lane_id > 0:
+                    left = True
+                if right and left:
+                    return True
+        return False
 
