@@ -37,7 +37,7 @@ class Edge:
     global_tj: TrajectoryTracker
     num_of_points: int = 30
     local_trajectory: Optional[TrajectoryTracker] = None
-    selected_next_local_plan: Optional[TrajectoryTracker] = None
+    selected_next_local_plan: Optional["Edge"] = None
     next_edges: list["Edge"] = field(default_factory=list)
     collision: bool = False
     collision_agent_velocity: float = 0.0
@@ -121,7 +121,7 @@ class Lattice:
             maneuver_dist = getattr(self, 'maneuver_distance', 30.0)
             obstacle_polygons = precompute_obstacle_polygons(
                 pm,
-                total_time=maneuver_dist / ego_vel,
+                total_time=self.planning_horizon * maneuver_dist / ego_vel,
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
                 obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
             )

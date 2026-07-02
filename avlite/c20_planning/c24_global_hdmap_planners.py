@@ -159,13 +159,17 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                         self.global_plan.lane_left_boundary_d.append(lane_left)
                         self.global_plan.lane_right_boundary_d.append(lane_right)
        
-        # setting velocity. It should start with zero to max vel for the first 20 points, then at max, then reduce to zero last 20 points
+        # setting velocity: ramp from min creep speed to max, cruise, then decel to zero at goal
         n = len(self.global_plan.path)
+        min_v = PlanningSettings.c27_min_ramp_start_velocity
         if n < self.wp_to_full_velocity * 2:
             self.global_plan.velocity = [self.max_velocity] * n
         else:
-            self.global_plan.velocity = list(np.linspace(0, self.max_velocity, self.wp_to_full_velocity)) + [self.max_velocity] * (n - 40) + \
-                list(np.linspace(self.max_velocity, 0, self.wp_to_full_velocity))
+            self.global_plan.velocity = (
+                list(np.linspace(min_v, self.max_velocity, self.wp_to_full_velocity))
+                + [self.max_velocity] * (n - 2 * self.wp_to_full_velocity)
+                + list(np.linspace(self.max_velocity, 0, self.wp_to_full_velocity))
+            )
 
         # self.global_plan = remove_dublicate_points(self.global_plan)
         self.global_plan = smoothen_path_savgol(self.global_plan, min_spacing=0.5, window_length=7, polyorder=3)

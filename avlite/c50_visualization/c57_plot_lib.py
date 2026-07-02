@@ -563,6 +563,7 @@ class LocalPlot:
         self.lattice_graph_plots_ax2 = []
         self.lattice_graph_endpoints_ax1 = []
         self.lattice_graph_endpoints_ax2 = []
+        self._lattice_legend_added = False
         self.local_plan_plots_ax1 = []
         self.local_plan_plots_ax2 = []
         self.view_width_ax1 = None
@@ -908,11 +909,12 @@ class LocalPlot:
                 line.set_data([], [])
             return
 
+        curvature_check = getattr(pl, "_is_curvature_feasible", None)
         edge_index = 0
         for edge in pl.lattice.edges:
             if edge_index >= len(self.lattice_graph_plots_ax1):
-                (line_ax1,) = self.ax1.plot([], [], "--", color="lightskyblue", alpha=0.6)
-                (line_ax2,) = self.ax2.plot([], [], "--", color="lightskyblue", alpha=0.6)
+                (line_ax1,) = self.ax1.plot([], [], "--", color="#8ec07c", alpha=0.6)
+                (line_ax2,) = self.ax2.plot([], [], "--", color="#8ec07c", alpha=0.6)
                 (endpoint_ax1,) = self.ax1.plot([], [], "bo", alpha=0.6)
                 (endpoint_ax2,) = self.ax2.plot([], [], "bo", alpha=0.6)
                 self.lattice_graph_plots_ax1.append(line_ax1)
@@ -928,11 +930,18 @@ class LocalPlot:
                 edge.local_trajectory.path_s_from_parent, edge.local_trajectory.path_d_from_parent
             )
             if edge.collision:
-                self.lattice_graph_plots_ax1[edge_index].set_color("firebrick")
-                self.lattice_graph_plots_ax2[edge_index].set_color("firebrick")
+                color = "firebrick"
+            elif edge.boundary_violation or (
+                curvature_check is not None and not curvature_check(edge)
+            ):
+                color = "royalblue"
             else:
-                self.lattice_graph_plots_ax1[edge_index].set_color("lightskyblue")
-                self.lattice_graph_plots_ax2[edge_index].set_color("lightskyblue")
+                color = "#8ec07c"
+
+            self.lattice_graph_plots_ax1[edge_index].set_color(color)
+            self.lattice_graph_plots_ax2[edge_index].set_color(color)
+            self.lattice_graph_endpoints_ax1[edge_index].set_color(color)
+            self.lattice_graph_endpoints_ax2[edge_index].set_color(color)
 
             self.lattice_graph_endpoints_ax1[edge_index].set_data(
                 [edge.local_trajectory.path_x[-1]], [edge.local_trajectory.path_y[-1]]
@@ -941,6 +950,17 @@ class LocalPlot:
                 [edge.local_trajectory.path_s_from_parent[-1]], [edge.local_trajectory.path_d_from_parent[-1]]
             )
             edge_index += 1
+
+        if not self._lattice_legend_added:
+            from matplotlib.lines import Line2D
+
+            legend_handles = [
+                Line2D([0], [0], color="firebrick", lw=2, label="Collision"),
+                Line2D([0], [0], color="royalblue", lw=2, label="Kinematic violation"),
+                Line2D([0], [0], color="#8ec07c", lw=2, label="Feasible"),
+            ]
+            self.ax1.legend(handles=legend_handles, loc="upper right", fontsize=7, framealpha=0.5)
+            self._lattice_legend_added = True
 
         for i in range(edge_index, len(self.lattice_graph_plots_ax1)):
             self.lattice_graph_plots_ax1[i].set_data([], [])
@@ -972,14 +992,12 @@ class LocalPlot:
             self.next_wp_plot_ax1.set_data([], [])
             self.next_wp_plot_ax2.set_data([], [])
         elif pl.selected_local_plan is not None:
-            x, y = pl.selected_local_plan.local_trajectory.get_current_xy()
-            local_tj = pl.selected_local_plan.local_trajectory
-            s = local_tj.path_s_from_parent[local_tj.current_wp]
-            d = local_tj.path_d_from_parent[local_tj.current_wp]
-
-            x_n, y_n = local_tj.get_xy_by_waypoint(local_tj.next_wp)
-            s_n = local_tj.path_s_from_parent[local_tj.next_wp]
-            d_n = local_tj.path_d_from_parent[local_tj.next_wp]
+            local_plan = pl.get_local_plan()
+            tj = local_plan.as_trajectory()
+            x, y = tj.get_current_xy()
+            x_n, y_n = tj.get_xy_by_waypoint(tj.next_wp)
+            s, d = pl.global_trajectory.convert_xy_to_sd(x, y)
+            s_n, d_n = pl.global_trajectory.convert_xy_to_sd(x_n, y_n)
 
             self.current_wp_plot_ax1.set_data([x], [y])
             self.current_wp_plot_ax2.set_data([s], [d])
@@ -987,8 +1005,10 @@ class LocalPlot:
             self.next_wp_plot_ax1.set_data([x_n], [y_n])
             self.next_wp_plot_ax2.set_data([s_n], [d_n])
 
-            v = pl.selected_local_plan
-            self.__update_local_plan_plots(v, index=0, horizon=pl.planning_horizon)
+            self.local_plan_plots_ax1[0].set_data(tj.path_x, tj.path_y)
+            s_plot, d_plot = pl.global_trajectory.convert_xy_path_to_sd_path(list(zip(tj.path_x, tj.path_y)))
+            self.local_plan_plots_ax2[0].set_data(list(s_plot), list(d_plot))
+            self.__clear_local_plan_plots(index=1)
 
     def __update_local_plan_plots(self, v: Edge, index: int = 0, horizon: int = None):
         if horizon is None:

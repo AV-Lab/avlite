@@ -5,6 +5,7 @@ import logging
 import json
 
 from avlite.c10_perception.c18_hdmap_parser import HDMap
+from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
@@ -75,7 +76,10 @@ class GlobalPlan:
         with open(path_to_track, "r") as f:
             data = json.load(f)
             path = [point[:2] for point in data["ReferenceLine"]]
-            velocity=data["ReferenceSpeed"]
+            velocity = data["ReferenceSpeed"]
+            if velocity and velocity[0] <= 0:
+                velocity = list(velocity)
+                velocity[0] = PlanningSettings.c27_min_ramp_start_velocity
             left_boundary_d=data["LeftBound"]
             right_boundary_d=data["RightBound"]
             trajectory = TrajectoryTracker(path=path, velocity=velocity)

@@ -39,6 +39,7 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         self.planning_horizon: int = planning_horizon
         self.num_of_edge_points: int = num_of_edge_points
         self.selected_local_plan: Optional[Edge] = None
+        self._committed_trajectory = None
         self.lattice: Lattice = Lattice(
             self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
             planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
@@ -59,12 +60,13 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
     def reset(self, wp: int = 0):
         super().reset(wp)
         self.selected_local_plan = None
+        self._committed_trajectory = None
         self.lattice.reset()
         self._last_plan_change_time = 0.0
 
     def get_local_plan(self) -> LocalPlan:
-        if self.selected_local_plan is not None:
-            return LocalPlan.from_trajectory(self.selected_local_plan.local_trajectory)
+        if self._committed_trajectory is not None:
+            return LocalPlan.from_trajectory(self._committed_trajectory)
         return LocalPlan.from_trajectory(self.global_trajectory)
 
     def should_switch_plan(self, new_plan: Edge, force_if_collision: bool = True) -> bool:
@@ -119,10 +121,6 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
                 if new_v > cur_v + 0.5:
                     log.info(f"Switching plan: agent cleared ({new_v:.1f} > {cur_v:.1f} m/s)")
                     return True
-            # Non-urgent but colliding — switch only after wait time to avoid oscillation
-            if not new_plan.collision and (time.time() - self._last_plan_change_time >= self._replan_wait_time):
-                log.debug("Switching plan: escaping blocked plan to collision-free alternative")
-                return True
 
         # Geometric disconnect: car has fallen behind the plan start
         local_tj = self.selected_local_plan.local_trajectory
@@ -149,6 +147,27 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
                 )
                 return True
 
+        new_clean = not new_plan.collision and not new_plan.boundary_violation
+        if new_clean:
+            prev_len = self.local_plan_len()
+            new_len = self.local_plan_len(new_plan)
+            waited = time.time() - self._last_plan_change_time >= self._replan_wait_time
+            cur_v = float(np.mean(np.asarray(cur_vel))) if cur_vel is not None and len(cur_vel) > 0 else 0.0
+            new_v = float(np.mean(np.asarray(new_plan.local_trajectory.velocity)))
+            material_gain = (new_v > cur_v + 0.5) or (new_len >= prev_len + 2)
+
+            old_colliding = False
+            edge = self.selected_local_plan
+            while edge is not None:
+                if edge.collision:
+                    old_colliding = True
+                    break
+                edge = edge.selected_next_local_plan
+
+            wants_switch = (new_len > prev_len) or old_colliding
+            if wants_switch and (waited or material_gain):
+                return True
+
         # Commit to current plan — do not switch
         return False
 
@@ -156,6 +175,13 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         """Set the selected plan and update the change timestamp."""
         self.selected_local_plan = new_plan
         self._last_plan_change_time = time.time()
+        traj = self.selected_local_plan.local_trajectory
+        edge = self.selected_local_plan.selected_next_local_plan
+        while edge is not None:
+            traj = traj.concatenate(edge.local_trajectory)
+            edge = edge.selected_next_local_plan
+        traj.update_waypoint_by_xy(self.location_xy[0], self.location_xy[1])
+        self._committed_trajectory = traj
 
     def _on_edge_traversed(self) -> None:
         """Called once when step() advances to the next edge in the committed chain.
@@ -178,6 +204,9 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
             self._on_edge_traversed()
         elif self.selected_local_plan.local_trajectory.is_traversed() and self.selected_local_plan.selected_next_local_plan is None:
             log.info("Local plan traversed, no next local plan — holding last trajectory until replan")
+
+        if self._committed_trajectory is not None:
+            self._committed_trajectory.update_waypoint_by_xy(state.x, state.y)
 
     def step_wp(self):
         """
@@ -222,6 +251,8 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         self.global_trajectory.update_waypoint_by_xy(x_new, y_new)
         if self.selected_local_plan is not None:
             self.selected_local_plan.local_trajectory.update_waypoint_by_xy(x_new, y_new)
+        if self._committed_trajectory is not None:
+            self._committed_trajectory.update_waypoint_by_xy(x_new, y_new)
 
         #### Frenet Coordinates
         s_, d_ = self.global_trajectory.convert_xy_to_sd(x_new, y_new)
@@ -331,9 +362,69 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             return min(d0_edges, key=self._edge_cost)
         return min(edges, key=self._edge_cost)
 
+    def _agent_blocks_ahead(self) -> bool:
+        if len(self.pm.agent_vehicles) == 0:
+            return False
+        ego = self.pm.ego_vehicle
+        ego_heading = np.array([math.cos(ego.theta), math.sin(ego.theta)])
+        s_horizon = self.location_sd[0] + self.planning_horizon * self.maneuver_distance
+        for agent in self.pm.agent_vehicles:
+            to_agent = np.array([agent.x - ego.x, agent.y - ego.y])
+            if float(np.dot(ego_heading, to_agent)) < 0:
+                continue
+            agent_s, _ = self.global_trajectory.convert_xy_to_sd(agent.x, agent.y)
+            if agent_s <= s_horizon:
+                return True
+        return False
+
+    def _feasible_candidates(self, edges: list[Edge], agent_blocks_ahead: bool) -> list[Edge]:
+        relax_boundary = agent_blocks_ahead or self._allow_boundary_violation_fallback
+        relax_curvature = self._allow_curvature_fallback
+        candidates = [
+            e for e in edges
+            if not e.collision and not e.boundary_violation and self._is_curvature_feasible(e)
+        ]
+        if not candidates and relax_curvature:
+            candidates = [e for e in edges if not e.collision and not e.boundary_violation]
+        if not candidates and relax_boundary:
+            candidates = [e for e in edges if not e.collision]
+        return candidates
+
+    def _build_selected_chain(self, feasible_level0: list[Edge], agent_blocks_ahead: bool) -> Edge:
+        edge = self._select_best_edge(feasible_level0)
+        current_plan = edge
+        d0_threshold = PlanningSettings.c27_d0_reference_threshold
+        while edge is not None and len(edge.next_edges) > 0:
+            next_feasible = self._feasible_candidates(edge.next_edges, agent_blocks_ahead)
+            if not next_feasible:
+                edge.selected_next_local_plan = None
+                break
+            candidates = next_feasible
+            if agent_blocks_ahead:
+                lateral = [e for e in candidates if abs(e.end.d) >= d0_threshold]
+                if lateral:
+                    candidates = lateral
+            edge.selected_next_local_plan = self._select_best_edge(candidates)
+            edge = edge.selected_next_local_plan
+        return current_plan
+
+    def _fill_planning_horizon(self) -> None:
+        while self.local_plan_len() < self.planning_horizon:
+            prev_len = self.local_plan_len()
+            self._partial_replan()
+            if self.local_plan_len() <= prev_len:
+                break
+
     def replan(self, back_to_ref_horizon=10):
         if len(self.traversed_s) == 0:
             log.debug("Location unkown. Cannot replan")
+            return
+
+        track_end_s = self.global_trajectory.path_s[-2]
+        if self.location_sd[0] + self.maneuver_distance > track_end_s:
+            log.debug("replan: approaching track end, hand off to global decel profile")
+            self.selected_local_plan = None
+            self._committed_trajectory = None
             return
 
         # self.selected_local_plan = None
@@ -351,50 +442,35 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
         self.lattice.generate_lattice_from_nodes(pm=self.pm)
         self._profile_lattice_edges()
 
-        # Filter edges: no collision and curvature within limits
-        feasible_edges = [edge for edge in self.lattice.level0_edges
-                         if not edge.collision and not edge.boundary_violation and self._is_curvature_feasible(edge)]
-
-        # Fallback 1: drop curvature requirement (gated by settings)
-        if not feasible_edges and self._allow_curvature_fallback:
-            feasible_edges = [edge for edge in self.lattice.level0_edges if not edge.collision and not edge.boundary_violation]
-            if feasible_edges:
-                log.debug("No curvature-feasible edges, using collision-free edges")
-
-        # Fallback 2: accept boundary-violation edges when NO real collision exists.
-        # Boundary violations are soft constraints — a trajectory slightly outside the
-        # clearance margin should not trigger an emergency stop. (Gated by settings)
-        if not feasible_edges and self._allow_boundary_violation_fallback:
-            feasible_edges = [edge for edge in self.lattice.level0_edges if not edge.collision]
-            if feasible_edges:
-                log.warning("All edges have boundary violations but no collision — "
-                            "proceeding with best collision-free edge despite boundary violations")
+        agent_blocks_ahead = self._agent_blocks_ahead()
+        feasible_edges = self._feasible_candidates(self.lattice.level0_edges, agent_blocks_ahead)
 
         if feasible_edges:
-            # Select best edge considering both reference tracking and safety
-            edge = self._select_best_edge(feasible_edges)
+            current_plan = self._build_selected_chain(feasible_edges, agent_blocks_ahead)
 
-            current_plan = edge
-            while edge is not None and len(edge.next_edges) > 0:
-                # Filter next edges by collision and curvature
-                next_feasible = [e for e in edge.next_edges
-                                 if not e.collision and not e.boundary_violation and self._is_curvature_feasible(e)]
-                if not next_feasible and self._allow_curvature_fallback:
-                    next_feasible = [e for e in edge.next_edges if not e.collision and not e.boundary_violation]
-                if not next_feasible and self._allow_boundary_violation_fallback:
-                    next_feasible = [e for e in edge.next_edges if not e.collision]
-                if not next_feasible:
-                    edge.selected_next_local_plan = None
-                    break
-                edge.selected_next_local_plan = self._select_best_edge(next_feasible)
-                edge = edge.selected_next_local_plan
-
-            log.debug(f"current plan len {self.local_plan_len(current_plan)}")
-            if self.local_plan_len(current_plan) == self.planning_horizon:
+            new_len = self.local_plan_len(current_plan)
+            prev_len = self.local_plan_len() if self.selected_local_plan else None
+            log.debug(f"current plan len {new_len}")
+            new_clean = not current_plan.collision and not current_plan.boundary_violation
+            old_colliding = False
+            if self.selected_local_plan is not None:
+                edge = self.selected_local_plan
+                while edge is not None:
+                    if edge.collision:
+                        old_colliding = True
+                        break
+                    edge = edge.selected_next_local_plan
+            acceptable = (prev_len is None and new_len >= 1) or (
+                prev_len is not None and (
+                    new_len >= prev_len
+                    or abs(new_len - prev_len) <= 1
+                    or (old_colliding and new_clean)
+                )
+            )
+            if acceptable:
                 # Only switch if allowed (no recent change or current plan has collision)
                 if self.should_switch_plan(current_plan):
                     log.debug("Switching to new plan")
-                    self.set_selected_plan(current_plan)
                     # Velocity continuity: ramp from current ego speed up to reference
                     # to prevent a sudden speed jump when recovering from a stop/obstacle.
                     ego_v = max(self._min_ramp_start_velocity, self.pm.ego_vehicle.velocity)  # ensure positive creep speed to avoid current_wp=0 deadlock
@@ -407,6 +483,8 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                         ramp = np.linspace(ego_v, tj.velocity[n - 1], n)
                         tj.velocity[:n] = np.maximum(0.0, np.minimum(tj.velocity[:n], ramp))
                         log.debug(f"Velocity ramp applied: {ego_v:.1f} -> {tj.velocity[n-1]:.1f} m/s over {n} waypoints")
+                    self.set_selected_plan(current_plan)
+                    self._fill_planning_horizon()
                     _g_start = self.global_trajectory.get_closest_waypoint_frm_sd(current_plan.start.s, 0)
                     _g_end = self.global_trajectory.get_closest_waypoint_frm_sd(current_plan.end.s, 0)
                     _gv = np.asarray(self.global_trajectory.velocity)[_g_start:_g_end + 1]
@@ -424,6 +502,15 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
                 f"Sampled Lattice has {len(self.lattice.edges)} edges and {len(self.lattice.nodes)} nodes"
             )
         elif len(self.lattice.level0_edges) != 0:
+            passing_feasible = self._feasible_candidates(self.lattice.level0_edges, agent_blocks_ahead=True)
+            if passing_feasible:
+                passing_plan = self._build_selected_chain(passing_feasible, agent_blocks_ahead=True)
+                if not passing_plan.collision:
+                    log.debug("Emergency avoided: committing collision-free passing chain")
+                    self.set_selected_plan(passing_plan)
+                    self._fill_planning_horizon()
+                    return
+
             # No collision-free edges — pick edge with latest collision (more reaction time)
             edges_sorted = sorted(
                 self.lattice.level0_edges,
@@ -448,6 +535,13 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
             if self.selected_local_plan is not None:
                 tj = self.selected_local_plan.local_trajectory
                 self._velocity_planner.apply_speed_match(tj, len(tj.path) - 1, 0.0)
+                traj = self.selected_local_plan.local_trajectory
+                edge = self.selected_local_plan.selected_next_local_plan
+                while edge is not None:
+                    traj = traj.concatenate(edge.local_trajectory)
+                    edge = edge.selected_next_local_plan
+                traj.update_waypoint_by_xy(self.location_xy[0], self.location_xy[1])
+                self._committed_trajectory = traj
 
     def _on_edge_traversed(self) -> None:
         self._partial_replan()
@@ -526,20 +620,24 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
 
         self._profile_lattice_edges(new_edges)
 
-        feasible = [e for e in new_edges if not e.collision and not e.boundary_violation and self._is_curvature_feasible(e)]
-        if not feasible and self._allow_curvature_fallback:
-            feasible = [e for e in new_edges if not e.collision and not e.boundary_violation]
-            if feasible:
-                log.debug("partial_replan: no curvature-feasible edges, using collision-free only")
-        if not feasible and self._allow_boundary_violation_fallback:
-            feasible = [e for e in new_edges if not e.collision]
-            if feasible:
-                log.warning("partial_replan: all edges have boundary violations — "
-                            "using collision-free edge despite boundary violations")
+        agent_blocks_ahead = self._agent_blocks_ahead()
+        feasible = self._feasible_candidates(new_edges, agent_blocks_ahead)
+        if agent_blocks_ahead:
+            d0_threshold = PlanningSettings.c27_d0_reference_threshold
+            lateral = [e for e in feasible if abs(e.end.d) >= d0_threshold]
+            if lateral:
+                feasible = lateral
 
         if feasible:
             best = self._select_best_edge(feasible)
             tail_plan.selected_next_local_plan = best
+            traj = self.selected_local_plan.local_trajectory
+            edge = self.selected_local_plan.selected_next_local_plan
+            while edge is not None:
+                traj = traj.concatenate(edge.local_trajectory)
+                edge = edge.selected_next_local_plan
+            traj.update_waypoint_by_xy(self.location_xy[0], self.location_xy[1])
+            self._committed_trajectory = traj
             log.debug(
                 "_partial_replan: extended chain by 1 edge (tail s=%.1f -> s=%.1f, d=%.2f)",
                 tail_node.s, s_new, best.end.d,
