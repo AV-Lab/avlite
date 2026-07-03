@@ -39,7 +39,7 @@ Used on closed race tracks with left/right boundary polylines.
 
 ### HD map (`HDMapGlobalPlanner`)
 
-Used with OpenDRIVE maps parsed by [`c18_hdmap_parser.py`](../avlite/c10_perception/c18_hdmap_parser.py).
+Used with OpenDRIVE maps: `HDMap` in [`c11_perception_model.py`](../avlite/c10_perception/c11_perception_model.py), parsed by [`c18_hdmap_parser.py`](../avlite/c10_perception/c18_hdmap_parser.py).
 
 - Routes on the lane graph from start to goal.
 - Produces the same `GlobalPlan` structure (path, boundaries, velocity) for downstream local planning.
@@ -183,13 +183,15 @@ The planner avoids swapping plans every replan tick so the controller can conver
 | Immediate switch | Discretionary switch |
 |------------------|----------------------|
 | No committed plan | Longer clean chain, or escape from colliding chain |
-| Emergency-stop recovery to clean plan | Requires **wait time** (`c27_replan_wait_time`) **or** **material gain** |
-| Current edge done, no successor | Material gain = mean speed **+0.5 m/s** or chain **+2 edges** |
+| Emergency-stop recovery to clean plan | Requires **wait time** (`c27_replan_wait_time`) **or** chain **+2 edges** |
+| Current edge done, no successor | Same-length speed upgrade (+0.5 m/s) only after **wait time** |
 | Urgent collision (within `c27_urgent_collision_threshold` waypoints) | |
 | Geometric disconnect (`> c27_disconnect_distance_threshold` m from plan) | |
-| Faster clean alternative (+0.5 m/s mean speed) | |
+| Head edge colliding, agent cleared (+0.5 m/s faster clean plan) | |
 
-Same-length clean alternatives never switch (anti-jitter).
+A clean committed chain is **not** replaced for a slightly faster resampled plan on every replan cycle. Immediate +0.5 m/s applies only when recovering from a **colliding head edge** (obstacle just cleared). Emergency passing commits also go through `should_switch_plan`.
+
+Same-length clean alternatives with similar speed never switch (anti-jitter).
 
 On switch, a **velocity ramp** over the first `c27_match_speed_wp_buffer` waypoints blends from ego speed into the plan when recovering from a stop.
 
@@ -197,8 +199,8 @@ On switch, a **velocity ramp** over the first `c27_match_speed_wp_buffer` waypoi
 
 If no strictly feasible level-0 edges exist:
 
-1. Retry with boundary relaxed (`agent_blocks_ahead=True` filtering).
-2. If still blocked, pick the edge with the **latest** collision index (most reaction time) and apply speed match / emergency stop.
+1. Retry with boundary relaxed (`agent_blocks_ahead=True` filtering) — commit only if `should_switch_plan` allows.
+2. If still blocked, pick the edge with the **latest** collision index (most reaction time) only when `should_switch_plan` allows; otherwise keep the current committed chain.
 3. If no edges are generated at all, decelerate the current committed trajectory to zero.
 
 ### Debug visualization

@@ -18,7 +18,7 @@ from avlite.c60_common.c67_paths import DataPaths, PluginPaths
 from avlite.c60_common.c69_setting_utils import load_setting
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState, EGO_AGENT_ID
-from avlite.c10_perception.c18_hdmap_parser import HDMap
+from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c10_perception.c12_perception_strategy import (
     DetectionStrategy,

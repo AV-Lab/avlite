@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import logging
 import json
 
-from avlite.c10_perception.c18_hdmap_parser import HDMap
+from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 

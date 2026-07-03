@@ -514,8 +514,8 @@ local planning:
 perception:
   bg_color: '#333333'
   bridge_provide_depth_image: false
-  bridge_provide_ground_truth_detection: false
-  bridge_provide_lidar_data: true
+  bridge_provide_ground_truth_detection: true
+  bridge_provide_lidar_data: false
   bridge_provide_rgb_image: false
   control_dt: 0.01
   controller_type: StanleyController

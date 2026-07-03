@@ -333,7 +333,7 @@ ros:
   c40_bridge: BasicSim
   c40_community_plugins:
     PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
-    avlite-executer-ROS2: ~/avlite-community-plugins/avlite-executer-ROS2
+    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
     basic_predictor: ~/avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController

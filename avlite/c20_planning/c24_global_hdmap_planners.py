@@ -4,7 +4,7 @@ import numpy as np
 import logging
 from scipy.signal import savgol_filter
 
-from avlite.c10_perception.c18_hdmap_parser import HDMap
+from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings

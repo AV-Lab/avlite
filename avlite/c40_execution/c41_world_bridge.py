@@ -86,6 +86,21 @@ class WorldBridge(ABC):
         """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
+    def teleport_agent(
+        self,
+        agent_id: int,
+        x: float,
+        y: float,
+        theta: Optional[float] = None,
+    ) -> None:
+        """Teleport any agent. Default: ego delegates to teleport_ego; NPC raises."""
+        if agent_id == EGO_AGENT_ID:
+            self.teleport_ego(x, y, theta)
+            return
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support teleport of agent {agent_id}"
+        )
+
     def spawn_agent(self, agent_state: AgentState, global_plan: Optional[GlobalPlan] = None):
         """Spawn an agent. ``global_plan`` is optional ego route context for route-following NPCs."""
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
@@ -94,37 +109,58 @@ class WorldBridge(ABC):
         """ Returns the perception model of the world. This method should be implemented by simulators  """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
-    def get_rgb_image(self) -> RgbImage | None:
+    def get_rgb_image(self, agent_id: int = EGO_AGENT_ID) -> RgbImage | None:
         """Returns the RGB image. Layout: ``RgbImage`` in c62_sensor_data."""
+        self._require_ego_agent(agent_id, "rgb")
         return None
 
-    def get_depth_image(self) -> DepthImage | None:
+    def get_depth_image(self, agent_id: int = EGO_AGENT_ID) -> DepthImage | None:
         """Returns the depth image. Layout: ``DepthImage`` in c62_sensor_data."""
+        self._require_ego_agent(agent_id, "depth")
         return None
 
-    def get_lidar_data(self) -> LidarCloud | None:
+    def get_lidar_data(self, agent_id: int = EGO_AGENT_ID) -> LidarCloud | None:
         """Returns the lidar point cloud. Layout: ``LidarCloud`` in c62_sensor_data."""
+        self._require_ego_agent(agent_id, "lidar")
         return None
 
-    def get_imu(self) -> ImuReading | None:
+    def get_imu(self, agent_id: int = EGO_AGENT_ID) -> ImuReading | None:
+        self._require_ego_agent(agent_id, "imu")
         return None
 
-    def get_gnss(self) -> GnssReading | None:
+    def get_gnss(self, agent_id: int = EGO_AGENT_ID) -> GnssReading | None:
+        self._require_ego_agent(agent_id, "gnss")
         return None
 
-    def get_wheel_odometry(self) -> WheelOdometry | None:
+    def get_wheel_odometry(self, agent_id: int = EGO_AGENT_ID) -> WheelOdometry | None:
+        self._require_ego_agent(agent_id, "wheel odometry")
         return None
 
-    def get_sensor_frame(self) -> SensorFrame:
+    def get_sensor_frame(self, agent_id: int = EGO_AGENT_ID) -> SensorFrame:
         """Compose a sensor snapshot from individual getters. Override for atomic reads."""
+        if agent_id == EGO_AGENT_ID:
+            return SensorFrame(
+                rgb=self.get_rgb_image(),
+                depth=self.get_depth_image(),
+                lidar=self.get_lidar_data(),
+                imu=self.get_imu(),
+                gnss=self.get_gnss(),
+                wheel_odometry=self.get_wheel_odometry(),
+            )
         return SensorFrame(
-            rgb=self.get_rgb_image(),
-            depth=self.get_depth_image(),
-            lidar=self.get_lidar_data(),
-            imu=self.get_imu(),
-            gnss=self.get_gnss(),
-            wheel_odometry=self.get_wheel_odometry(),
+            rgb=self.get_rgb_image(agent_id=agent_id),
+            depth=self.get_depth_image(agent_id=agent_id),
+            lidar=self.get_lidar_data(agent_id=agent_id),
+            imu=self.get_imu(agent_id=agent_id),
+            gnss=self.get_gnss(agent_id=agent_id),
+            wheel_odometry=self.get_wheel_odometry(agent_id=agent_id),
         )
+
+    def _require_ego_agent(self, agent_id: int, method: str) -> None:
+        if agent_id != EGO_AGENT_ID:
+            raise NotImplementedError(
+                f"{type(self).__name__} does not support {method} for agent {agent_id}"
+            )
 
     def reset(self):
         pass

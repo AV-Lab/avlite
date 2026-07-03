@@ -143,7 +143,7 @@ Control actuation is a separate layer: `ControlCommandBase` subclasses in c31, w
 
 ### **Perception**
 
-Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. Static map types (`Map`, `RaceMap`) live in c11; OpenDRIVE `HDMap` parsing is in c18. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
+Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. Static map types (`Map`, `RaceMap`, `HDMap`) live in c11; OpenDRIVE parsing is in c18. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
 
 ### **Planning**
 

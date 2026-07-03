@@ -202,6 +202,13 @@ class Executer(ABC):
         """Run one planning iteration (replan) and update FPS."""
         self.local_planner.replan()
         self.planner_fps = self._planner_fps_tracker.tick()
+    
+    def _control_step(self, sim_dt: float) -> None:
+        """Run one control iteration, apply to world, and update FPS."""
+        local_tj = self.local_planner.get_local_plan()
+        cmd = self.controller.control(self.ego_state, local_tj, control_dt=sim_dt)
+        self.world.control_ego_state(cmd, dt=sim_dt)
+        self.control_fps = self._control_fps_tracker.tick(floor_dt=sim_dt)
 
     def replan_global(self) -> None:
         """Recompute the global plan from the current ego pose and hand it to the local planner.
@@ -243,12 +250,6 @@ class Executer(ABC):
         """Spawn an agent in the world using the ego's current global plan."""
         self.world.spawn_agent(agent_state, global_plan=self.local_planner.global_plan)
 
-    def _control_step(self, sim_dt: float) -> None:
-        """Run one control iteration, apply to world, and update FPS."""
-        local_tj = self.local_planner.get_local_plan()
-        cmd = self.controller.control(self.ego_state, local_tj, control_dt=sim_dt)
-        self.world.control_ego_state(cmd, dt=sim_dt)
-        self.control_fps = self._control_fps_tracker.tick(floor_dt=sim_dt)
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

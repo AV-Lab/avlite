@@ -37,6 +37,7 @@ def test_add_agent_skips_zero():
 class _StubBridge(WorldBridge, abstract=True):
     ego_state: EgoState = field(default_factory=EgoState)
     last_cmd: Optional[ControlCommand] = None
+    last_teleport: Optional[tuple[float, float, Optional[float]]] = None
 
     @property
     def capabilities(self) -> set[WorldCapability]:
@@ -44,6 +45,9 @@ class _StubBridge(WorldBridge, abstract=True):
 
     def control_ego_state(self, cmd, dt=0.01):
         self.last_cmd = cmd
+
+    def teleport_ego(self, x, y, theta=None):
+        self.last_teleport = (x, y, theta)
 
 
 def test_ego_agent_type_default():
@@ -61,6 +65,24 @@ def test_control_agent_raises_for_npc():
     bridge = _StubBridge()
     with pytest.raises(NotImplementedError):
         bridge.control_agent(1, ControlCommand(), dt=0.01)
+
+
+def test_teleport_agent_delegates_to_teleport_ego():
+    bridge = _StubBridge()
+    bridge.teleport_agent(EGO_AGENT_ID, 3.0, 4.0, theta=0.5)
+    assert bridge.last_teleport == (3.0, 4.0, 0.5)
+
+
+def test_teleport_agent_raises_for_npc():
+    bridge = _StubBridge()
+    with pytest.raises(NotImplementedError):
+        bridge.teleport_agent(1, 1.0, 2.0)
+
+
+def test_get_lidar_data_raises_for_npc():
+    bridge = _StubBridge()
+    with pytest.raises(NotImplementedError, match="lidar for agent 1"):
+        bridge.get_lidar_data(agent_id=1)
 
 
 def test_control_type_default_ackermann():

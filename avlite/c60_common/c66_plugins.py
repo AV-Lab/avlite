@@ -555,4 +555,4 @@ def reload_lib(
                 importlib.reload(module)
                 log.debug("Reloaded: %s", module_name)
             except Exception as e:
-                log.warning("Failed to reload %s: %s", module_name, e)
+                log.error("Failed to reload %s: %s", module_name, e)
