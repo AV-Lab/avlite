@@ -175,12 +175,7 @@ def _render_dashboard(executer, profile: str):
     world = _g(executer, "world", None)
 
     table.add_row("Profile", str(profile))
-    requested = getattr(executer, "_requested_executer_type", None)
-    actual = type(executer).__name__
-    if requested and requested != actual:
-        table.add_row("Executer", f"{actual}  [yellow](requested: {requested})[/yellow]")
-    else:
-        table.add_row("Executer", actual)
+    table.add_row("Executer", type(executer).__name__)
     table.add_row("World", type(world).__name__ if world not in (None, "-") else "-")
     table.add_row(
         "Elapsed (real / sim)",

@@ -197,14 +197,14 @@ def unregister_plugin_package(plugin_name: str) -> None:
     from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
     from avlite.c30_control.c32_control_strategy import ControlStrategy
     from avlite.c40_execution.c41_world_bridge import WorldBridge
-    from avlite.c40_execution.c42_executer import Executer
+    from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 
     registries = [
         PerceptionStrategy.registry,
         GlobalPlannerStrategy.registry,
         LocalPlanningStrategy.registry,
         ControlStrategy.registry,
-        Executer.registry,
+        ExecutionStrategy.registry,
         WorldBridge.registry,
     ]
     # App registry, only if the app layer was loaded (c60 must not import c50_apps).

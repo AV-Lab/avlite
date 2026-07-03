@@ -49,8 +49,7 @@ def test_load_stack_settings_reads_app_settings(monkeypatch, tmp_path):
 def test_load_setting_app_profile(monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
     (tmp_path / "c59_apps.yaml").write_text(
-        yaml.dump({"hdmap": {"c50_selected_profile": "hdmap", "c50_next_profile": "default"}})
+        yaml.dump({"hdmap": {"c50_selected_profile": "hdmap"}})
     )
     assert load_setting(AppSettings, profile="hdmap")
     assert AppSettings.c50_selected_profile == "hdmap"
-    assert AppSettings.c50_next_profile == "default"

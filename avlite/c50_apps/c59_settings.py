@@ -30,7 +30,6 @@ class AppSettingsSchema(SettingsSchema):
         description="Community plugin name to install directory map.",
     )
     c50_selected_profile: str = Field(default="default", description="Active settings profile name.")
-    c50_next_profile: str = Field(default="default", description="Profile to switch to with shortcut F.")
 
 
 AppSettings = AppSettingsSchema()

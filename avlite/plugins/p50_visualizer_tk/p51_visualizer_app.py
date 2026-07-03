@@ -12,7 +12,6 @@ except ImportError:
 
 _PIL_AVAILABLE = Image is not None
 
-from avlite.c40_execution.c42_executer import Executer
 from avlite.c50_apps.c52_factory import executor_factory
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
@@ -557,7 +556,7 @@ class VisualizerApp(tk.Tk):
 
     def switch_profile(self):
         self.exec_visualize_view.stop_exec()
-        self.load_configs(profile=self.app.c50_next_profile.get(), only_stack=False)
+        self.load_configs(profile=self.setting.p50_next_profile.get(), only_stack=False)
         # self.reload_stack(reload_code=False)
         self.update_views()
         self.update_ui()

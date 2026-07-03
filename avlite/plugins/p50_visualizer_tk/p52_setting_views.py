@@ -20,7 +20,7 @@ from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c40_execution.c42_executer import Executer
+from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_apps.c59_settings import AppSettings
 from avlite.c50_apps.c58_paths import ConfigPaths, PluginPaths
@@ -35,6 +35,7 @@ from avlite.c50_apps.c53_plugins import (
 from avlite.c50_apps.c52_factory import load_stack_settings
 from avlite.plugins.p50_visualizer_tk.settings import (
     AppSettingsUI,
+    PluginSettings,
     VisualizationSettings,
     get_stack_settings_classes,
     sync_stack_settings_to_ui,
@@ -135,8 +136,8 @@ class SettingWindow:
             if current not in profiles:
                 current = profiles[0] if profiles else "default"
                 self.host.app.c50_selected_profile.set(current)
-        if self.host.app.c50_next_profile.get() not in profiles:
-            self.host.app.c50_next_profile.set(current)
+        if self.host.setting.p50_next_profile.get() not in profiles:
+            self.host.setting.p50_next_profile.set(current)
         return current
 
     def _edit_repo_configs_toggle(self) -> None:
@@ -202,10 +203,10 @@ class SettingWindow:
         attach_tooltip(btn_profile_rename, BUTTON_TOOLTIPS["profile_rename"])
 
         ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
-        self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.host.app.c50_next_profile, state="readonly",)
+        self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.host.setting.p50_next_profile, state="readonly",)
         self.next_profile_dropdown_menu["values"] = self.host.setting.profile_list
         self.next_profile_dropdown_menu.state(["readonly"])
-        # next_profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_dropdown_change)
+        attach_schema_tooltip(self.next_profile_dropdown_menu, PluginSettings, "p50_next_profile")
         self.next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
         
         btn_reset_all = ttk.Button(
@@ -563,7 +564,7 @@ class SettingWindow:
         plugin_module_prefix_str = plugin_module_prefix(plugin_name)
         for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
                          LocalPlanningStrategy.registry, ControlStrategy.registry,
-                         Executer.registry, WorldBridge.registry]:
+                         ExecutionStrategy.registry, WorldBridge.registry]:
             to_remove = [name for name, cls in registry.items()
                          if cls.__module__.startswith(plugin_module_prefix_str)]
             for name in to_remove:

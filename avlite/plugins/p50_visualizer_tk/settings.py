@@ -16,7 +16,7 @@ from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c42_executer import Executer
+from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_apps.c52_factory import StackSettingsSync, get_stack_settings_classes as get_core_stack_settings_classes
 from avlite.c50_apps.c53_plugins import load_plugin_settings_class, patch_plugin_settings
@@ -42,6 +42,7 @@ class PluginSettingsSchema(SettingsSchema):
     p50_dark_mode: bool = Field(default=True, description="Use dark UI theme.")
     p50_hide_menubar: bool = Field(default=False, description="Hide the application menu bar.")
     p50_shortcut_mode: bool = Field(default=False, description="Enable keyboard shortcut mode in the visualizer.")
+    p50_next_profile: str = Field(default="default", description="Profile to switch to with shortcut F.")
     p50_bg_color: str = Field(default="#333333", description="UI background color.")
     p50_fg_color: str = Field(default="white", description="UI foreground/text color.")
     p59_mouse_drag_slowdown_factor: float = Field(
@@ -108,19 +109,16 @@ class AppSettingsUI:
     def __init__(self) -> None:
         self.c50_load_plugins = tk.BooleanVar(value=AppSettings.c50_load_plugins)
         self.c50_selected_profile = tk.StringVar(value=AppSettings.c50_selected_profile)
-        self.c50_next_profile = tk.StringVar(value=AppSettings.c50_next_profile)
 
     def sync_from_singleton(self) -> None:
         """Copy persisted singleton values into Tk variables."""
         self.c50_load_plugins.set(AppSettings.c50_load_plugins)
         self.c50_selected_profile.set(AppSettings.c50_selected_profile)
-        self.c50_next_profile.set(AppSettings.c50_next_profile)
 
     def sync_to_singleton(self) -> None:
         """Copy Tk variable values into the persisted singleton."""
         AppSettings.c50_load_plugins = bool(self.c50_load_plugins.get())
         AppSettings.c50_selected_profile = self.c50_selected_profile.get()
-        AppSettings.c50_next_profile = self.c50_next_profile.get()
 
 
 
@@ -179,6 +177,7 @@ class VisualizationSettings:
 
     def __init__(self):
         self.p50_shortcut_mode = tk.BooleanVar()
+        self.p50_next_profile = tk.StringVar(value=PluginSettings.p50_next_profile)
         self.p50_dark_mode = tk.BooleanVar(value=True)
         self.p50_hide_menubar = tk.BooleanVar(value=False)
         self.p59_mouse_drag_slowdown_factor = 0.5
@@ -317,7 +316,7 @@ class VisualizationSettings:
         self.p55_local_plan_view = tk.BooleanVar(value=False)
 
         self.executer_type = tk.StringVar(
-            value=_strategy_default(Executer.registry, ExecutionSettings.c40_executer_type)
+            value=_strategy_default(ExecutionStrategy.registry, ExecutionSettings.c40_executer_type)
         )
 
         def _on_executer_change(*args):
@@ -498,7 +497,7 @@ class VisualizationSettings:
                 es.c40_controller or _strategy_default(ControlStrategy.registry, None) or ""
             )
             self.executer_type.set(
-                es.c40_executer_type or _strategy_default(Executer.registry, None) or ""
+                es.c40_executer_type or _strategy_default(ExecutionStrategy.registry, None) or ""
             )
             self.control_dt.set(es.c40_control_dt)
             self.replan_dt.set(es.c40_replan_dt)

@@ -221,7 +221,7 @@ perception:
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
   c12_detection_strategy: FastBEVLidarDetection
-  c12_prediction_strategy: ConstantVelocityPrediction
+  c12_prediction_strategy: PluginBasicLSTMPredictor
   c12_tracking_strategy: KalmanTracker
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0

@@ -6,7 +6,7 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c40_execution.c42_executer import Executer
+from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 
 import threading
@@ -16,7 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 
 # TODO: Perception to be moved to a separate thread
-class AsyncThreadedExecuter(Executer):
+class AsyncThreadedExecuter(ExecutionStrategy):
     def __init__(
         self,
         perception_model: PerceptionModel,

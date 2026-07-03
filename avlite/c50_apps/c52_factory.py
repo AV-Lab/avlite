@@ -42,8 +42,8 @@ from avlite.c30_control.c34_stanley import StanleyController  # noqa: F401 — r
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
 from avlite.c10_perception.c16_localization_algs import LidarLocalization  # noqa: F401 — registers in LocalizationStrategy.registry
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c40_execution.c42_executer import Executer
-from avlite.c40_execution.c44_sync_executer import SyncExecuter  # noqa: F401 — registers in Executer.registry
+from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+from avlite.c40_execution.c44_sync_executer import SyncExecuter  # noqa: F401 — registers in ExecutionStrategy.registry
 from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim  # noqa: F401 — registers in WorldBridge.registry
 
@@ -68,9 +68,9 @@ def executor_factory(
     hd_map = ExecutionSettings.c40_hd_map,
     load_plugins=True,
     async_combined_perception_planning: bool = ExecutionSettings.c40_async_combined_perception_planning,
-) -> "Executer":
+) -> "ExecutionStrategy":
     """
-    Factory method to create an instance of the Executer class based on the provided configuration.
+    Factory method to create an instance of the ExecutionStrategy class based on the provided configuration.
     """
 
     if load_plugins:
@@ -203,7 +203,7 @@ def executor_factory(
     #################
     # Creating Executer
     #################
-    executer_cls = _RegistryChecks.require_registered(executer_type, Executer.registry, "executer")
+    executer_cls = _RegistryChecks.require_registered(executer_type, ExecutionStrategy.registry, "executer")
     kwargs = dict(
         perception_model=pm,
         perception=pr,
@@ -219,9 +219,7 @@ def executor_factory(
     )
     if issubclass(executer_cls, AsyncThreadedExecuter):
         kwargs["combined_perception_planning"] = async_combined_perception_planning
-    executer = executer_cls(**kwargs)
-    executer._requested_executer_type = executer_type
-    return executer
+    return executer_cls(**kwargs)
 
 
 def get_stack_settings_classes() -> list[Any]:

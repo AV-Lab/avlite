@@ -1,11 +1,15 @@
-B: {}
-Carla_Town10: {}
-SAN: {}
+B:
+  p50_next_profile: B
+Carla_Town10:
+  p50_next_profile: Carla_Town10
+SAN:
+  p50_next_profile: SAN
 default:
   p50_bg_color: '#333333'
   p50_dark_mode: true
   p50_fg_color: white
   p50_hide_menubar: false
+  p50_next_profile: default
   p50_shortcut_mode: false
   p55_frenet_view_follow_planner: false
   p55_frenet_zoom: 30.0
@@ -45,15 +49,20 @@ default:
   p57_show_plugins_logs: true
   p57_show_vis_logs: true
   p59_mouse_drag_slowdown_factor: 0.5
-global planning: {}
-hdmap: {}
-joystick: {}
-local planning: {}
+global planning:
+  p50_next_profile: global planning
+hdmap:
+  p50_next_profile: hdmap
+joystick:
+  p50_next_profile: joystick
+local planning:
+  p50_next_profile: local planning
 perception:
   p50_bg_color: '#333333'
   p50_dark_mode: true
   p50_fg_color: white
   p50_hide_menubar: false
+  p50_next_profile: perception
   p50_shortcut_mode: false
   p55_frenet_view_follow_planner: false
   p55_frenet_zoom: 30.0
@@ -66,13 +75,13 @@ perception:
   p55_show_global_plan_boundaries: true
   p55_show_legend: false
   p55_show_lidar_clusters: true
-  p55_show_lidar_frenet: false
+  p55_show_lidar_frenet: true
   p55_show_lidar_global: true
   p55_show_local_frenet_view: true
   p55_show_local_global_view: false
   p55_show_local_lattice: true
   p55_show_local_plan: true
-  p55_show_occupancy_flow: false
+  p55_show_occupancy_flow: true
   p55_show_past_locations: true
   p55_show_perception_extras: false
   p55_show_race_boundary: true
@@ -95,5 +104,7 @@ perception:
   p57_show_plugins_logs: true
   p57_show_vis_logs: true
   p59_mouse_drag_slowdown_factor: 0.5
-robot: {}
-ros: {}
+robot:
+  p50_next_profile: robot
+ros:
+  p50_next_profile: ros

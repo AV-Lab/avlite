@@ -21,7 +21,7 @@ from avlite.c60_common.c62_sensor_data import SensorFrame
 log = logging.getLogger(__name__)
 
 
-class Executer(ABC):
+class ExecutionStrategy(ABC):
     registry = {}
 
     def __init__(
@@ -101,7 +101,7 @@ class Executer(ABC):
                     call_localize=call_localize,
                 )
             except Exception as e:
-                log.error(f"Executer step error: {e}", exc_info=True)
+                log.error(f"ExecutionStrategy step error: {e}", exc_info=True)
             if self._stop_event.wait(timeout=cdt):
                 break
 
@@ -254,4 +254,4 @@ class Executer(ABC):
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)
         if not abstract:
-            Executer.registry[cls.__name__] = cls
+            ExecutionStrategy.registry[cls.__name__] = cls

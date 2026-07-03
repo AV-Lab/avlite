@@ -19,7 +19,7 @@ from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c40_execution.c42_executer import Executer
+from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_apps.c59_settings import AppSettings
 from avlite.plugins.p50_visualizer_tk.p53_ui_lib import (
@@ -571,7 +571,7 @@ class ExecView(ttk.Frame):
         attach_schema_tooltip(sim_dt, ExecutionSettings, "c40_sim_dt")
 
         self.executer_dropdown_menu = ttk.Combobox(exec_first_frame, textvariable=self.root.setting.executer_type, state="readonly",)
-        self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
+        self.executer_dropdown_menu["values"] = list(ExecutionStrategy.registry.keys())
         self.executer_dropdown_menu.state(["readonly"])
         self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
         self.executer_dropdown_menu.pack(side=tk.RIGHT)
@@ -749,7 +749,7 @@ class ExecView(ttk.Frame):
 
     def update_data(self):
         """Refresh the executer and bridge dropdowns from the registries."""
-        self.executer_dropdown_menu["values"] = list(Executer.registry.keys())
+        self.executer_dropdown_menu["values"] = list(ExecutionStrategy.registry.keys())
         self.bridge_frame.update_data()
 
     def reset_exec(self):

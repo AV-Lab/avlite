@@ -485,7 +485,7 @@ plugins:
 | `MappingStrategy` | Map building, SLAM mapping, environment representation |
 | `PlanningStrategy` | Global/local planners, behavior planning, decision-making |
 | `ControlStrategy` | Vehicle controllers, actuation |
-| `Executer` | Runtime execution, scheduling, orchestration |
+| `ExecutionStrategy` | Runtime execution, scheduling, orchestration |
 | `WorldBridge` | Bridges to simulators, middleware, or external world interfaces |
 
 A plugin can list **multiple** categories if it exports more than one strategy type, e.g. `[PerceptionStrategy, LocalizationStrategy]`.
