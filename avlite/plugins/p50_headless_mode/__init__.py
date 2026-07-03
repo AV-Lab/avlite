@@ -1,11 +1,8 @@
-"""AVLite headless-mode extension (headless runner + config CLI)."""
+"""Headless executer with terminal dashboard."""
 
-from avlite.plugins.p50_headless_mode.p52_config_cli import register_config_parser, run_config_command
-from avlite.plugins.p50_headless_mode.p51_headless import register_parser, run_headless
+from avlite.plugins.p50_headless_mode.p51_headless import HeadlessApp, run_headless
 
 __all__ = [
-    "register_parser",
+    "HeadlessApp",
     "run_headless",
-    "register_config_parser",
-    "run_config_command",
 ]

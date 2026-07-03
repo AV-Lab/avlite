@@ -1,7 +1,6 @@
 B:
   async_mode: false
   c40_bridge: BasicSim
-  c40_community_plugins: {}
   c40_control_dt: 0.05
   c40_controller: StanleyController
   c40_global_planner: GlobalCenterlineRacePlanner
@@ -14,11 +13,8 @@ B:
 Carla_Town10:
   c40_async_combined_perception_planning: true
   c40_bridge: CarlaBridge
-  c40_community_plugins: {}
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: ROSExecuter
   c40_global_planner: HDMapGlobalPlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -50,11 +46,8 @@ Carla_Town10:
 SAN:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins: {}
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: ROSExecuter
   c40_global_planner: HDMapGlobalPlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -84,15 +77,8 @@ SAN:
 default:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    avlite-bridge-ROS2: avlite-community-plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-community-plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-community-plugins/avlite-bridge-gazebo
-    basic_predictor: avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -124,17 +110,8 @@ default:
 global planning:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    avlite-bridge-ROS2: avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-controller-joystick
-    avlite-executer-ROS2: avlite-executer-ROS2
-    sample_avlite_plugin: sample_avlite_plugin
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -166,14 +143,8 @@ global planning:
 hdmap:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    avlite-bridge-carla: ~/.local/share/avlite/plugins/avlite-bridge-carla
-    avlite-executer-ROS2: ~/.local/share/avlite/plugins/avlite-executer-ROS2
-    basic_predictor: ~/.local/share/avlite/plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: HDMapGlobalPlanner
   c40_global_trajectory: data/20260702_045340_global_plan.json
@@ -205,16 +176,8 @@ hdmap:
 joystick:
   c40_async_combined_perception_planning: true
   c40_bridge: CarlaBridge
-  c40_community_plugins:
-    avlite-bridge-ROS2: avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-controller-joystick
-    avlite-executer-ROS2: avlite-executer-ROS2
   c40_control_dt: 0.01
   c40_controller: JoystickController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -244,12 +207,8 @@ joystick:
 local planning:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    basic_predictor: ~/avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -281,17 +240,8 @@ local planning:
 perception:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
-    avlite-bridge-ROS2: ~/avlite-community-plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: ~/avlite-community-plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: ~/avlite-community-plugins/avlite-bridge-gazebo
-    avlite-executer-ROS2: ~/avlite-community-plugins/avlite-executer-ROS2
-    basic_predictor: ~/avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
@@ -322,23 +272,11 @@ perception:
   c46_npc_speed_factor: 0.8
 robot:
   c40_bridge: BasicSim
-  c40_community_plugins:
-    avlite-bridge-ROS2: avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-controller-joystick
-    avlite-executer-ROS2: avlite-executer-ROS2
 ros:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
-  c40_community_plugins:
-    PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
-    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
-    basic_predictor: ~/avlite-community-plugins/basic_predictor
   c40_control_dt: 0.01
   c40_controller: StanleyController
-  c40_default_plugins:
-  - p50_headless_mode
   c40_executer_type: ROSExecuter
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json

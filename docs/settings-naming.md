@@ -13,11 +13,16 @@ Shipped defaults live in the repository `configs/` directory. When you save from
    Example: `c27_local_lattice_planners.py` and `c28_lattice.py` both use collision margin → `c20_collision_safety_margin`.
 
 3. **Cross-layer orchestration** → setting lives on the **consuming** layer’s settings class, prefixed by the consumer module.  
-   Example: factory fallback race map in `c43_factory.py` → `ExecutionSettings.c43_race_boundary_map`.
+   Example: factory fallback race map in `c52_factory.py` → `ExecutionSettings.c43_race_boundary_map`.  
+   App bootstrap (plugin lists, load gate, GUI profile selection) lives on `AppSettings` in c50 with `c50_*` prefixes.
 
-4. **Metadata** (`exclude`, `filepath`) is never prefixed.
+4. **Built-in Tk plugin (`p50_visualizer_tk`)** — prefix identifies the **consumer module**, not the settings file:
+   - Single consumer → `p{NN}_{name}` (e.g. `p57_log_font` → `p57_log_view.py`)
+   - Multiple modules in the package → `p50_{name}` (e.g. `p50_dark_mode` → p51 hosts, p52, p53)
 
-5. **Redundant subsystem prefixes** are dropped when the module prefix applies: `basic_sim_lidar_range` → `c46_lidar_range`.
+5. **Metadata** (`exclude`, `filepath`) is never prefixed.
+
+6. **Redundant subsystem prefixes** are dropped when the module prefix applies: `basic_sim_lidar_range` → `c46_lidar_range`.
 
 ## Settings files
 
@@ -27,7 +32,8 @@ Shipped defaults live in the repository `configs/` directory. When you save from
 | Planning | `avlite/c20_planning/c29_settings.py` | `configs/c20_planning.yaml` | `~/.config/avlite/c20_planning.yaml` |
 | Control | `avlite/c30_control/c39_settings.py` | `configs/c30_control.yaml` | `~/.config/avlite/c30_control.yaml` |
 | Execution | `avlite/c40_execution/c49_settings.py` | `configs/c40_execution.yaml` | `~/.config/avlite/c40_execution.yaml` |
-| Visualization | `avlite/c50_visualization/c59_settings.py` | `configs/c50_visualization.yaml` | `~/.config/avlite/c50_visualization.yaml` |
+| Apps (bootstrap) | `avlite/c50_apps/c59_settings.py` (schema only; no Tk) | `configs/c59_apps.yaml` | `~/.config/avlite/c59_apps.yaml` |
+| Visualization | `avlite/plugins/p50_visualizer_tk/settings.py` (`PluginSettingsSchema`) | `configs/plugin_p50_visualizer_tk.yaml` | `~/.config/avlite/plugin_p50_visualizer_tk.yaml` |
 
 Built-in plugins use `configs/plugin_*.yaml` in the repo and the same basename under `~/.config/avlite/` when saved.
 
@@ -35,11 +41,11 @@ Built-in plugins use `configs/plugin_*.yaml` in the repo and the same basename u
 
 | API | Module | Includes c50 viz YAML? |
 |-----|--------|------------------------|
-| `load_stack_settings()` | `c43_factory` | No (GUI loads `VisualizationSettings` separately) |
-| `get_stack_settings_classes()` | `c43_factory` | No (c10–c40 + plugins) |
-| `get_stack_settings_classes()` | `c59_settings` | Yes (wraps c43 + `VisualizationSettingsSchema()`) |
+| `load_stack_settings()` | `c52_factory` | No (GUI loads `VisualizationSettings` separately) |
+| `get_stack_settings_classes()` | `c52_factory` | No (c10–c40 + `AppSettings` + plugins) |
+| `get_stack_settings_classes()` | `p50_visualizer_tk/settings.py` | Yes (wraps c52 + `PluginSettingsSchema()`) |
 
-Headless `python -m avlite config describe --layer` accepts perception, planning, control, and execution (not visualization).
+Headless `python -m avlite config-cli describe --layer` accepts perception, planning, control, and execution (not visualization or app bootstrap).
 
 ## Plugins
 
@@ -55,13 +61,13 @@ Community and built-in plugins keep `PluginSettings` in `settings.py` with unpre
 Each settings module defines a Pydantic `*SettingsSchema` with types, defaults, and `Field(description=...)`. YAML profiles are validated on load/save and on profile zip export/import.
 
 ```bash
-python -m avlite config help
-python -m avlite config validate              # check all profiles
-python -m avlite config validate --profile default
-python -m avlite config export-profile myprofile [-o myprofile.zip]
-python -m avlite config import-profile myprofile.zip [--force]
-python -m avlite config describe --layer execution
-python -m avlite config describe --layer execution --field c40_control_dt
+python -m avlite config-cli help
+python -m avlite config-cli validate              # check all profiles
+python -m avlite config-cli validate --profile default
+python -m avlite config-cli export-profile myprofile [-o myprofile.zip]
+python -m avlite config-cli import-profile myprofile.zip [--force]
+python -m avlite config-cli describe --layer execution
+python -m avlite config-cli describe --layer execution --field c40_control_dt
 ```
 
 Hover a field in the settings window (`T`) or on main-page controls to see its schema description (type and default in parentheses).

@@ -46,10 +46,10 @@ flowchart TB
 - **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`); `Map` / `RaceMap` in c11; OpenDRIVE `HDMap` parser in c18
 - **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, lattice-based `GreedyLatticePlanner`)
 - **c30_control**: Vehicle control algorithms (Stanley, PID)
-- **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, `replan_global()`, and `c43_factory` (assembles the stack and loads c10–c40 YAML profiles)
-- **c50_visualization**: Real-time Tkinter-based GUI for debugging and monitoring
-- **c60_common**: Plugin discovery (`c66_plugins`), path resolution (`c67_paths`), settings schemas, capabilities, sensor layouts, and utilities
-- **plugins** (`avlite/plugins/`): Built-in headless mode; bridges and ROS executer live in `related-repos/`
+- **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, and `replan_global()`
+- **c50_apps**: App infrastructure (`c51_app_strategy`, `c52_factory`, `c53_plugins`, `c54_settings_schema`, `c55_setting_utils`, `c58_paths`); no tkinter
+- **c60_common**: Algorithm utilities only (`c61`–`c65`: capabilities, sensor data, trajectory, collision, FPS)
+- **plugins** (`avlite/plugins/`): Built-in Tk visualizer package (`p50_visualizer_tk`), headless mode, config CLI; bridges and ROS executer live in `related-repos/`
 
 ### Key Features
 
@@ -146,7 +146,7 @@ pip install rich
    strategies, and tune parameters until it behaves the way you want.
 2. **Save** the result as a named profile from the Config tab.
 3. **Transfer** (optional): export the profile as a zip from the settings window
-   (`T`) or with `python -m avlite config export-profile <name>`, then import
+   (`T`) or with `python -m avlite config-cli export-profile <name>`, then import
    on the target machine with **Import profile** or `config import-profile`.
 4. **Deploy** that profile on your robot/server with
    `python -m avlite headless -p <profile>`.
@@ -159,10 +159,11 @@ see in the visualizer is what the robot will run.
 Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filenames; load prefers the user copy when present. User maps and trajectories live under `~/.config/avlite/data/`; the Planning panel **Save Global Plan** button (⬇) opens a file picker there. Set `AVLITE_CONFIG_DIR` or `AVLITE_DATA_DIR` to use different directories.
 
 ```bash
-python -m avlite config help
-python -m avlite config validate --profile default
-python -m avlite config export-profile myprofile -o myprofile.zip
-python -m avlite config import-profile myprofile.zip --force
+python -m avlite config              # settings GUI (no visualizer)
+python -m avlite config-cli help
+python -m avlite config-cli validate --profile default
+python -m avlite config-cli export-profile myprofile -o myprofile.zip
+python -m avlite config-cli import-profile myprofile.zip --force
 ```
 
 See [Configuration](docs/index.md#configuration) in the docs for paths, CLI, and resetting to repo defaults.
@@ -253,32 +254,26 @@ avlite/
 ├── c40_execution/          # Execution and simulation
 │   ├── c41_world_bridge.py
 │   ├── c42_executer.py
-│   ├── c43_factory.py            # Executor factory + stack settings load
 │   ├── c44_sync_executer.py
 │   ├── c45_async_threaded_executer.py
 │   ├── c46_basic_sim.py
 │   └── c49_settings.py
-├── c50_visualization/      # GUI and plotting (9 modules)
-│   ├── c51_visualizer_app.py
-│   ├── c52_plot_views.py
-│   ├── c53_stack_views.py
-│   ├── c54_plugins.py
-│   ├── c55_log_view.py
-│   ├── c56_config_views.py
-│   ├── c57_plot_lib.py
-│   ├── c58_ui_lib.py             # DataPicker, UiAssets
-│   └── c59_settings.py             # VisualizationSettingsSchema + Tk VisualizationSettings
-├── c60_common/            # Utilities
+├── c50_apps/               # App infrastructure (no tkinter)
+│   ├── c51_app_strategy.py       # AppStrategy registry + bootstrap
+│   ├── c52_factory.py            # executor_factory, load_stack_settings
+│   ├── c53_plugins.py            # Plugin discovery, loading, log routing
+│   ├── c54_settings_schema.py    # SettingsSchema, validation
+│   ├── c55_setting_utils.py      # YAML profile load/save/export
+│   └── c58_paths.py              # ConfigPaths, PluginPaths, DataPaths
+├── c60_common/             # Algorithm utilities (c61–c65)
 │   ├── c61_capabilities.py
 │   ├── c62_sensor_data.py
 │   ├── c63_trajectory_tracker.py
 │   ├── c64_collision_checking.py
-│   ├── c65_fps_tracker.py
-│   ├── c66_plugins.py            # Plugin discovery, loading, log routing
-│   ├── c67_paths.py              # ConfigPaths, PluginPaths, DataPaths
-│   ├── c68_settings_schema.py
-│   └── c69_setting_utils.py
+│   └── c65_fps_tracker.py
 └── plugins/               # Built-in plugins
+    ├── p50_visualizer_tk/        # Tk visualizer + config + plugins apps (p51–p59)
+    ├── p50_config_cli/
     └── p50_headless_mode/
 
 related-repos/             # Optional plugins (see related-repos/README.md)
@@ -301,7 +296,7 @@ The numbering scheme allows quick navigation: search for "c23" to find local pla
 | `avlite-controller-joystick` | `related-repos/avlite-controller-joystick/` | Gamepad controller |
 | `avlite-executer-ROS2` | `related-repos/avlite-executer-ROS2/` | Multiprocess ROS executer |
 
-Register in `c40_community_plugins` (shipped profiles already include repo-relative paths). Settings files use dashed names, e.g. `plugin_avlite-bridge-carla.yaml`.
+Register in `c50_community_plugins` in `configs/c59_apps.yaml` (shipped profiles already include repo-relative paths). Settings files use dashed names, e.g. `plugin_avlite-bridge-carla.yaml`.
 
 ## Testing
 

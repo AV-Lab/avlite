@@ -43,7 +43,7 @@ pip install -r requirements-full.txt
 ### Optional Integrations
 
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs`. Clone `related-repos/avlite-executer-ROS2`, register it in `c40_community_plugins`, and set `c40_executer_type: ROSExecuter` — see [Optional Plugins](optional-plugins.md) and `related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md` in the repository.
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs`. Clone `related-repos/avlite-executer-ROS2`, register it in `c50_community_plugins` (`configs/c59_apps.yaml`), and set `c40_executer_type: ROSExecuter` — see [Optional Plugins](optional-plugins.md) and `related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md` in the repository.
 
 ## Quick Start
 
@@ -165,9 +165,10 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 | **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` / `HDMap` (c11), OpenDRIVE parser (c18) |
 | **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, `GreedyLatticePlanner`, lattice-based) |
 | **c30_control** | Vehicle controllers (Stanley, PID) |
-| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim with 2-D LiDAR, CARLA, Gazebo); `c43_factory` assembles the stack |
-| **c50_visualization** | Real-time Tkinter GUI with multiple plot views |
-| **c60_common** | Settings validation, plugin discovery (`c66_plugins`), paths (`c67_paths`), capability definitions, utilities |
+| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim, CARLA, Gazebo) |
+| **c50_apps** | App infrastructure: `c51_app_strategy`, `c52_factory`, `c53_plugins`, `c54_settings_schema`, `c55_setting_utils`, `c58_paths`, `c59_settings` |
+| **p50_visualizer_tk** | Tk visualizer, settings GUI (`avlite config`), plugin manager (`avlite plugins`) |
+| **c60_common** | Algorithm utilities only (`c61`–`c65`: capabilities, sensor layouts, collision, FPS) |
 
 ## Configuration
 
@@ -179,7 +180,7 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 |---------|----------|------------------|
 | **Shipped defaults** (read-only in git) | `{repo}/configs/*.yaml` | — |
 | **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
-| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in `c40_execution.yaml` | `AVLITE_PLUGINS_DIR` |
+| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in `c59_apps.yaml` (`c50_community_plugins`) | `AVLITE_PLUGINS_DIR` |
 | **Community plugin settings** | `~/.config/avlite/plugin_<name>.yaml` — user-only; no repo default | `AVLITE_CONFIG_DIR` |
 | **Maps & trajectories** | Read: `~/.config/avlite/data/` then `{repo}/data/`; save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
 | **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
@@ -200,14 +201,15 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 - `c20_planning.yaml` — Planning parameters
 - `c30_control.yaml` — Controller tuning
 - `c40_execution.yaml` — Execution and simulator settings
-- `c50_visualization.yaml` — GUI preferences
+- `c59_apps.yaml` — App bootstrap (plugin lists, load gate, GUI profile selection)
+- `plugin_p50_visualizer_tk.yaml` — GUI visualization preferences
 - `plugin_*.yaml` — Plugin settings: built-in plugins ship repo defaults in `configs/` with user overrides under `~/.config/avlite/`; community plugins use the same `plugin_<name>.yaml` basename but only in the user config dir (one file per registered plugin name)
 
 ### GUI: profiles and reset
 
 - **Config tab** — profile dropdown, Save Config (visualization + execution layers).
 - **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save, **Export profile**, **Import profile**.
-- **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c40_execution.yaml`. GUI export includes `c50_visualization.yaml` via `c59_settings.get_stack_settings_classes()`.
+- **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c59_apps.yaml`. GUI export includes `plugin_p50_visualizer_tk.yaml` via `settings.get_stack_settings_classes()`.
 - **Import profile** — merges a profile zip into your config directory; confirms overwrite if the profile name already exists.
 - **Edit repository configs** (settings window, dev only) — switches read/write between `~/.config/avlite/` and `{repo}/configs/` (no file copy) and refreshes the profile dropdown from the active target. Preference stored in `~/.config/avlite/config_target`. Hidden when bundled configs are unavailable. Uncheck to return to the user config dir.
 
@@ -216,23 +218,23 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 Export a profile on one machine and import it on another (e.g. robot with `AVLITE_CONFIG_DIR` or `~/.config/avlite`), then run `python -m avlite headless -p <profile>`.
 
 ```bash
-python -m avlite config export-profile myprofile [-o myprofile.zip]
-python -m avlite config import-profile myprofile.zip [--force]
+python -m avlite config-cli export-profile myprofile [-o myprofile.zip]
+python -m avlite config-cli import-profile myprofile.zip [--force]
 ```
 
-Headless `config export-profile` exports c10–c40 settings and plugins only (no visualization YAML). Use the GUI settings window to export a profile that includes `c50_visualization.yaml`.
+Headless `config-cli export-profile` exports c10–c40 settings, `c59_apps.yaml`, and plugins only (no visualization YAML). Use `avlite config` or the visualizer settings window to export a profile that includes `plugin_p50_visualizer_tk.yaml`.
 
-Each zip entry is validated against Pydantic schemas on export and import; invalid profiles are rejected with field-level errors (same rules as `config validate`).
+Each zip entry is validated against Pydantic schemas on export and import; invalid profiles are rejected with field-level errors (same rules as `config-cli validate`).
 
 ### CLI validation
 
 ```bash
-python -m avlite config validate
-python -m avlite config validate --profile default
-python -m avlite config export-profile myprofile -o myprofile.zip
-python -m avlite config import-profile myprofile.zip --force
-python -m avlite config describe --layer execution
-python -m avlite config describe --layer execution --field c40_control_dt
+python -m avlite config-cli validate
+python -m avlite config-cli validate --profile default
+python -m avlite config-cli export-profile myprofile -o myprofile.zip
+python -m avlite config-cli import-profile myprofile.zip --force
+python -m avlite config-cli describe --layer execution
+python -m avlite config-cli describe --layer execution --field c40_control_dt
 ```
 
 Schema field descriptions appear as **tooltips** in the settings window and on main-page controls (dropdowns, Δt fields).
@@ -255,9 +257,11 @@ avlite/
 ├── c20_planning/       # Planning algorithms
 ├── c30_control/        # Control strategies
 ├── c40_execution/      # Execution and bridges
-├── c50_visualization/  # GUI components
+├── c50_apps/  # App infrastructure (AppStrategy, paths)
 ├── c60_common/         # Shared utilities
-└── plugins/            # Built-in plugins (headless mode only)
+└── plugins/            # Built-in apps and stack plugins
+    ├── p50_visualizer_tk/   # visualizer + config + plugins Tk apps
+    ├── p50_config_cli/
     └── p50_headless_mode/
 
 related-repos/          # Optional plugins (see related-repos/README.md)

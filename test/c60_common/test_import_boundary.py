@@ -1,4 +1,8 @@
-"""Ensure core layers do not import visualization (c50)."""
+"""Ensure stack core layers do not import the app/GUI layer.
+
+Stack layers (``c10``–``c40``, ``c60``) must not import ``c50_apps`` (except
+allowed app-infra modules) or ``p50_*`` Tk app plugins.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +11,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
+ALLOWED_C50_MODULES = (
+    "avlite.c50_apps.c51_app_strategy",
+    "avlite.c50_apps.c54_settings_schema",
+    "avlite.c50_apps.c58_paths",
+)
+
 FORBIDDEN_PREFIXES = (
-    "avlite.c50_visualization",
+    "avlite.c50_apps",
+    "avlite.plugins.p50_",
 )
 
 SCAN_ROOTS = (
@@ -17,7 +28,6 @@ SCAN_ROOTS = (
     ROOT / "avlite" / "c30_control",
     ROOT / "avlite" / "c60_common",
     ROOT / "avlite" / "c40_execution",
-    ROOT / "avlite" / "plugins",
 )
 
 
@@ -41,6 +51,8 @@ def test_core_layers_do_not_import_c50():
             if "__pycache__" in path.parts:
                 continue
             for mod in _imports_from_file(path):
+                if mod in ALLOWED_C50_MODULES:
+                    continue
                 if any(mod.startswith(prefix) for prefix in FORBIDDEN_PREFIXES):
                     violations.append(f"{path.relative_to(ROOT)} imports {mod}")
     assert not violations, "\n".join(violations)

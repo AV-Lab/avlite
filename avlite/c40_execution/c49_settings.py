@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from avlite.c60_common.c68_settings_schema import SettingsSchema
+from avlite.c50_apps.c54_settings_schema import SettingsSchema
 
 
 class ExecutionSettingsSchema(SettingsSchema):
@@ -27,8 +27,6 @@ class ExecutionSettingsSchema(SettingsSchema):
         default_factory=lambda: [24.46992202098782, 54.60522506805341],
         description="WGS84 map origin (lat, lon) in degrees; derived from selected map or set manually.",
     )
-    c40_community_plugins: dict[str, str] = Field(default_factory=dict, description="Community plugin name to directory map.")
-    c40_default_plugins: list[str] = Field(default_factory=list, description="Built-in plugins to load on startup.")
     c40_async_combined_perception_planning: bool = Field(default=True, description="Run perception and planning concurrently.")
     c40_log_level: str = Field(default="INFO", description="Python logging level.")
     c40_log_to_file: bool = Field(default=False, description="Write logs to file.")

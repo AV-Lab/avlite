@@ -12,7 +12,7 @@ from avlite.c60_common.c61_capabilities import WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_common.c67_paths import DataPaths
+from avlite.c50_apps.c58_paths import DataPaths
 from avlite.c60_common.c62_sensor_data import LidarCloud, lidar_2d_to_4
 from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
 

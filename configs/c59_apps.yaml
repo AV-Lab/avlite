@@ -1,0 +1,132 @@
+B:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins: {}
+  c50_selected_profile: B
+  c50_next_profile: B
+Carla_Town10:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins: {}
+  c50_selected_profile: Carla_Town10
+  c50_next_profile: Carla_Town10
+SAN:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins: {}
+  c50_selected_profile: SAN
+  c50_next_profile: SAN
+default:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    avlite-bridge-ROS2: ~/avlite-community-plugins/avlite-bridge-ROS2
+    avlite-bridge-carla: ~/avlite-community-plugins/avlite-bridge-carla
+    avlite-bridge-gazebo: ~/avlite-community-plugins/avlite-bridge-gazebo
+    basic_predictor: ~/avlite-community-plugins/basic_predictor
+  c50_selected_profile: default
+  c50_next_profile: default
+global planning:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    avlite-bridge-ROS2: avlite-bridge-ROS2
+    avlite-bridge-carla: avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-controller-joystick
+    avlite-executer-ROS2: avlite-executer-ROS2
+    sample_avlite_plugin: sample_avlite_plugin
+  c50_selected_profile: global planning
+  c50_next_profile: global planning
+hdmap:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    avlite-bridge-carla: ~/.local/share/avlite/plugins/avlite-bridge-carla
+    avlite-executer-ROS2: ~/.local/share/avlite/plugins/avlite-executer-ROS2
+    basic_predictor: ~/.local/share/avlite/plugins/basic_predictor
+  c50_selected_profile: hdmap
+  c50_next_profile: hdmap
+joystick:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    avlite-bridge-ROS2: avlite-bridge-ROS2
+    avlite-bridge-carla: avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-controller-joystick
+    avlite-executer-ROS2: avlite-executer-ROS2
+  c50_selected_profile: joystick
+  c50_next_profile: joystick
+local planning:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    basic_predictor: ~/avlite-community-plugins/basic_predictor
+  c50_selected_profile: local planning
+  c50_next_profile: local planning
+perception:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
+    avlite-bridge-ROS2: ~/avlite-community-plugins/avlite-bridge-ROS2
+    avlite-bridge-carla: ~/avlite-community-plugins/avlite-bridge-carla
+    avlite-bridge-gazebo: ~/avlite-community-plugins/avlite-bridge-gazebo
+    avlite-executer-ROS2: ~/avlite-community-plugins/avlite-executer-ROS2
+    basic_predictor: ~/avlite-community-plugins/basic_predictor
+  c50_selected_profile: perception
+  c50_next_profile: perception
+robot:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    avlite-bridge-ROS2: avlite-bridge-ROS2
+    avlite-bridge-carla: avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-controller-joystick
+    avlite-executer-ROS2: avlite-executer-ROS2
+  c50_selected_profile: robot
+  c50_next_profile: robot
+ros:
+  c50_load_plugins: true
+  c50_default_plugins:
+  - p50_headless_mode
+  - p50_config_cli
+  - p50_visualizer_tk
+  c50_community_plugins:
+    PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
+    avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
+    basic_predictor: ~/avlite-community-plugins/basic_predictor
+  c50_selected_profile: ros
+  c50_next_profile: ros

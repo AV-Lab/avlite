@@ -117,11 +117,11 @@ executer = executor_factory(
 
 It loads plugins, instantiates strategies from registries, and wires everything together. Both `perception_strategy_name` and `localization_strategy_name` are optional — pass an empty string or omit them to run without that component.
 
-Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c43_factory.py`](../avlite/c40_execution/c43_factory.py). That loads c10–c40 settings and built-in plugin settings; it does **not** load `c50_visualization.yaml` (the GUI loads the Tk `VisualizationSettings` binder separately).
+Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c52_factory.py`](../avlite/c50_apps/c52_factory.py). That loads c10–c40 settings, `AppSettings` (`c59_apps.yaml`), and built-in plugin settings; it does **not** load `plugin_p50_visualizer_tk.yaml` (the GUI loads the Tk `VisualizationSettings` binder separately).
 
 ### Layer import rules
 
-`c40_execution`, `c60_common`, and `avlite/plugins` must not import `c50_visualization`. Profile zip export that includes visualization YAML is composed in c50 via `c59_settings.get_stack_settings_classes()`, which wraps the core list from c43.
+Stack core (`c10`–`c40`, `c60`) may import `c51_app_strategy`, `c54_settings_schema`, `c58_paths`, and `c59_settings` only. Profile zip export that includes visualization YAML is composed in `p50_visualizer_tk` via `settings.get_stack_settings_classes()`, which wraps the core list from `c52_factory`. Tk binders (`VisualizationSettings`, `AppSettingsUI`) live in plugin `settings.py`; `c59_settings` is schema-only.
 
 ### Agent model
 
@@ -163,7 +163,7 @@ Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread
 
 ### **Common**
 
-YAML profile load/save, hot reload, plugin discovery (`c66_plugins`), path resolution (`c67_paths`), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation.
+YAML profile load/save, hot reload, plugin discovery (`c53_plugins`), path resolution (`c58_paths`), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (`c54_settings_schema`).
 
 ## Data Flow
 
@@ -202,7 +202,9 @@ World Bridge
 
 ```
 avlite/
-└── plugins/              # Built-in (core team)
+└── plugins/            # Built-in (core team)
+    ├── p50_visualizer_tk/   # visualizer + config + plugins Tk apps
+    ├── p50_config_cli/
     └── p50_headless_mode/
 
 related-repos/            # Optional plugins (bridges, ROS executer, joystick)

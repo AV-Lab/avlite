@@ -6,9 +6,61 @@ background thread and displays live statistics and logs.
 
 import argparse
 import logging
+import os
 import sys
+import threading
+import time
+from collections import deque
+from datetime import datetime
+from pathlib import Path
+
+from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c50_apps.c51_app_strategy import AppStrategy
+from avlite.c50_apps.c52_factory import executor_factory, load_stack_settings
+from avlite.plugins.p50_headless_mode.settings import PluginSettings
+
+try:
+    from rich.console import Console
+    from rich.layout import Layout
+    from rich.live import Live
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.text import Text
+except ImportError:
+    Console = Layout = Live = Panel = Table = Text = None  # type: ignore[misc, assignment]
+
+_RICH_AVAILABLE = Console is not None
 
 log = logging.getLogger(__name__)
+
+
+class HeadlessApp(AppStrategy):
+    """``avlite headless`` — run the executer with a terminal dashboard."""
+
+    cli_name = "headless"
+    help = "Run the executer headless with a terminal dashboard"
+
+    def configure_parser(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("-p", "--profile", default=None, help="Profile name to load (default: 'default')")
+        parser.add_argument("profile_pos", nargs="?", default=None, help=argparse.SUPPRESS)
+        parser.add_argument("--control-dt", type=float, default=None, help="Control loop dt in seconds (default: from profile)")
+        parser.add_argument("--replan-dt", type=float, default=None, help="Replan dt in seconds (default: from profile)")
+        parser.add_argument("--perceive", action="store_true", help="Enable perception step in the loop")
+        parser.add_argument(
+            "--log-level",
+            default=None,
+            choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+            help="Override the log level from the profile (default: read from profile)",
+        )
+
+    def run(self, args: argparse.Namespace, unknown: list[str]) -> None:
+        run_headless(
+            profile=args.profile or args.profile_pos or "default",
+            control_dt=args.control_dt,
+            replan_dt=args.replan_dt,
+            perceive=args.perceive,
+            log_level=args.log_level,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -47,9 +99,6 @@ class _FDStreamCapture:
         self._stop = False
 
     def start(self) -> None:
-        import os
-        import threading
-
         self._saved_fd = os.dup(self._fd)
         self._read_fd, self._write_fd = os.pipe()
         os.dup2(self._write_fd, self._fd)
@@ -80,8 +129,6 @@ class _FDStreamCapture:
         self._thread.start()
 
     def stop(self) -> None:
-        import os
-
         self._stop = True
         if self._saved_fd is not None:
             try:
@@ -104,10 +151,6 @@ class _FDStreamCapture:
 
 def _render_dashboard(executer, profile: str):
     """Build a ``rich`` renderable summarising the live executer state (stats only)."""
-    from rich.panel import Panel
-    from rich.table import Table
-    from rich.text import Text
-
     def _g(obj, attr, default="-"):
         try:
             val = getattr(obj, attr)
@@ -198,9 +241,6 @@ def _render_dashboard(executer, profile: str):
 
 
 def _render_log_panel(log_buffer, height: int):
-    from rich.panel import Panel
-    from rich.text import Text
-
     # Show the most recent lines that fit in the panel.
     recent = list(log_buffer)[-height:]
     if not recent:
@@ -225,8 +265,6 @@ def _render_log_panel(log_buffer, height: int):
 
 
 def _build_layout(executer, profile, log_buffer, log_height: int, stats_panel_height: int):
-    from rich.layout import Layout
-
     layout = Layout()
     layout.split_column(
         Layout(_render_log_panel(log_buffer, log_height), name="logs"),
@@ -246,53 +284,14 @@ def _strip_console_handlers(logger: logging.Logger) -> None:
             logger.removeHandler(h)
 
 
-# ---------------------------------------------------------------------------
-# CLI registration
-# ---------------------------------------------------------------------------
-
-def register_parser(subparsers) -> None:
-    """Add the ``headless`` sub-command to *subparsers*."""
-    p = subparsers.add_parser("headless", help="Run the executer headless with a terminal dashboard")
-    p.add_argument("-p", "--profile", default=None, help="Profile name to load (default: 'default')")
-    p.add_argument("profile_pos", nargs="?", default=None, help=argparse.SUPPRESS)
-    p.add_argument("--control-dt", type=float, default=None, help="Control loop dt in seconds (default: from profile)")
-    p.add_argument("--replan-dt", type=float, default=None, help="Replan dt in seconds (default: from profile)")
-    p.add_argument("--perceive", action="store_true", help="Enable perception step in the loop")
-    p.add_argument(
-        "--log-level",
-        default=None,
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Override the log level from the profile (default: read from profile)",
-    )
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
 def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bool, log_level: str | None) -> None:
     """Run the executer in a background thread with a live ``rich`` dashboard."""
-    try:
-        from rich.console import Console
-        from rich.live import Live
-    except ImportError:
+    if not _RICH_AVAILABLE:
         sys.stderr.write(
             "Headless mode requires the 'rich' package.\n"
             "Install it with:  pip install rich\n"
         )
         sys.exit(1)
-
-    import os as _os
-    import threading
-    import time
-    from collections import deque
-    from datetime import datetime
-    from pathlib import Path
-
-    from avlite.c40_execution.c43_factory import executor_factory
-    from avlite.c40_execution.c49_settings import ExecutionSettings
-    from avlite.c40_execution.c43_factory import load_stack_settings
-    from avlite.plugins.p50_headless_mode.settings import PluginSettings
 
     # Use INFO temporarily until the profile is loaded and the real level is known.
     level_value = logging.INFO
@@ -324,9 +323,9 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
     fd_capture.start()
 
     # Nudge ROS to be quieter at the source, if the user hasn't set these.
-    _os.environ.setdefault("RCUTILS_LOGGING_USE_STDOUT", "0")
-    _os.environ.setdefault("RCUTILS_COLORIZED_OUTPUT", "0")
-    _os.environ.setdefault("RCUTILS_LOGGING_MIN_SEVERITY", (log_level or "INFO").upper())
+    os.environ.setdefault("RCUTILS_LOGGING_USE_STDOUT", "0")
+    os.environ.setdefault("RCUTILS_COLORIZED_OUTPUT", "0")
+    os.environ.setdefault("RCUTILS_LOGGING_MIN_SEVERITY", (log_level or "INFO").upper())
 
     console = Console(stderr=False)
 
@@ -437,5 +436,3 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
             root_logger.removeHandler(file_handler)
             file_handler.close()
         fd_capture.stop()
-
-

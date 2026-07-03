@@ -3,7 +3,7 @@ from typing import ClassVar
 import numpy as np
 from pydantic import Field
 
-from avlite.c60_common.c68_settings_schema import SettingsSchema
+from avlite.c50_apps.c54_settings_schema import SettingsSchema
 
 
 class ControlSettingsSchema(SettingsSchema):

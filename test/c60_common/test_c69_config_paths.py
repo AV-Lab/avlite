@@ -10,24 +10,24 @@ import pytest
 import yaml
 
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c40_execution.c43_factory import StackSettingsSync, load_stack_settings
-from avlite.c50_visualization.c59_settings import get_stack_settings_classes
-from avlite.c50_visualization.c58_ui_lib import DataPicker, UiAssets
-from avlite.c60_common.c67_paths import (
+from avlite.c50_apps.c52_factory import StackSettingsSync, load_stack_settings
+from avlite.plugins.p50_visualizer_tk.settings import get_stack_settings_classes
+from avlite.plugins.p50_visualizer_tk.p53_ui_lib import DataPicker, UiAssets
+from avlite.c50_apps.c58_paths import (
     COMMUNITY_DEV_SUBDIR,
     PRIVATE_DEV_SUBDIR,
     ConfigPaths,
-    DataPaths,
     PluginPaths,
 )
-from avlite.c60_common.c69_setting_utils import (
+from avlite.c50_apps.c58_paths import DataPaths
+from avlite.c50_apps.c55_setting_utils import (
     dev_mode_export_warning,
     dev_mode_uninstall_warning,
     export_profile,
     import_profile,
     order_profiles_for_dropdown,
 )
-from avlite.plugins.p50_headless_mode.p52_config_cli import cmd_export_profile, cmd_import_profile
+from avlite.plugins.p50_config_cli.p51_config_cli import cmd_export_profile, cmd_import_profile
 
 REPO_EXEC = Path(__file__).resolve().parents[2] / "configs" / "c40_execution.yaml"
 REPO_DATA = Path(__file__).resolve().parents[2] / "data"
@@ -69,7 +69,7 @@ def test_clear_user_configs_removes_flat_files(monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
     user_file = ConfigPaths.user_dir() / "c40_execution.yaml"
     user_file.write_text("user: {}\n")
-    viz_file = ConfigPaths.user_dir() / "c50_visualization.yaml"
+    viz_file = ConfigPaths.user_dir() / "plugin_p50_visualizer_tk.yaml"
     viz_file.write_text("viz: {}\n")
     deleted = ConfigPaths.clear_user_profiles()
     assert not user_file.is_file()
@@ -535,7 +535,7 @@ def test_effective_config_path_repo_target_write(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(meta))
     monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
     monkeypatch.setattr(
-        "avlite.c60_common.c67_paths.ConfigPaths.bundled_dir", lambda: bundled
+        "avlite.c50_apps.c58_paths.ConfigPaths.bundled_dir", lambda: bundled
     )
     ConfigPaths.set_repo_target(True)
     path = ConfigPaths.effective_path("configs/c40_execution.yaml", for_write=True)
@@ -563,7 +563,7 @@ def test_effective_path_repo_target_skips_community_plugin_write(monkeypatch, tm
     monkeypatch.setenv("XDG_CONFIG_HOME", str(meta))
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
     monkeypatch.setattr(
-        "avlite.c60_common.c67_paths.ConfigPaths.bundled_dir", lambda: bundled
+        "avlite.c50_apps.c58_paths.ConfigPaths.bundled_dir", lambda: bundled
     )
     ConfigPaths.set_repo_target(True)
     path = ConfigPaths.effective_path(
@@ -581,7 +581,7 @@ def test_effective_path_repo_target_still_writes_builtin_plugin(monkeypatch, tmp
     monkeypatch.setenv("XDG_CONFIG_HOME", str(meta))
     monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
     monkeypatch.setattr(
-        "avlite.c60_common.c67_paths.ConfigPaths.bundled_dir", lambda: bundled
+        "avlite.c50_apps.c58_paths.ConfigPaths.bundled_dir", lambda: bundled
     )
     ConfigPaths.set_repo_target(True)
     path = ConfigPaths.effective_path(
@@ -601,7 +601,7 @@ def test_effective_path_community_plugin_read_prefers_user(monkeypatch, tmp_path
     user_file.write_text("default: {user: true}\n")
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
     monkeypatch.setattr(
-        "avlite.c60_common.c67_paths.ConfigPaths.bundled_dir", lambda: bundled
+        "avlite.c50_apps.c58_paths.ConfigPaths.bundled_dir", lambda: bundled
     )
     ConfigPaths.set_repo_target(True)
     path = ConfigPaths.effective_path(
@@ -617,7 +617,10 @@ def test_profile_export_import_round_trip(monkeypatch, tmp_path):
     ConfigPaths.set_repo_target(False)
 
     (config_dir / "c40_execution.yaml").write_text(
-        yaml.dump({"robot": {"c40_bridge": "BasicSim", "c40_community_plugins": {}}})
+        yaml.dump({"robot": {"c40_bridge": "BasicSim"}})
+    )
+    (config_dir / "c59_apps.yaml").write_text(
+        yaml.dump({"robot": {"c50_community_plugins": {}}})
     )
     (config_dir / "c10_perception.yaml").write_text(
         yaml.dump({"robot": {"c15_detection_z_min": 0.5}})
@@ -628,6 +631,7 @@ def test_profile_export_import_round_trip(monkeypatch, tmp_path):
     assert count >= 2
 
     (config_dir / "c40_execution.yaml").unlink()
+    (config_dir / "c59_apps.yaml").unlink()
     (config_dir / "c10_perception.yaml").unlink()
 
     assert import_profile(zip_path, settings_classes=get_stack_settings_classes()) == "robot"
@@ -693,7 +697,7 @@ def test_profile_import_rejects_invalid_types(monkeypatch, tmp_path):
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr(
             "c40_execution.yaml",
-            yaml.dump({"robot": {"c40_control_dt": "bad", "c40_community_plugins": {}}}),
+            yaml.dump({"robot": {"c40_control_dt": "bad"}}),
         )
 
     with pytest.raises(ValueError):
@@ -718,15 +722,17 @@ def test_profile_export_import_community_plugin(monkeypatch, tmp_path):
     (config_dir / "plugin_foo.yaml").write_text(
         yaml.dump({"robot": {"setting_a": 1}})
     )
-    (config_dir / "c40_execution.yaml").write_text(
+    (config_dir / "c59_apps.yaml").write_text(
         yaml.dump(
             {
                 "robot": {
-                    "c40_bridge": "BasicSim",
-                    "c40_community_plugins": {"foo": "foo"},
+                    "c50_community_plugins": {"foo": "foo"},
                 }
             }
         )
+    )
+    (config_dir / "c40_execution.yaml").write_text(
+        yaml.dump({"robot": {"c40_bridge": "BasicSim"}})
     )
 
     zip_path = tmp_path / "robot.zip"
@@ -734,6 +740,7 @@ def test_profile_export_import_community_plugin(monkeypatch, tmp_path):
 
     (config_dir / "plugin_foo.yaml").unlink()
     (config_dir / "c40_execution.yaml").unlink()
+    (config_dir / "c59_apps.yaml").unlink()
 
     import_profile(zip_path, settings_classes=get_stack_settings_classes())
     cp_data = yaml.safe_load((config_dir / "plugin_foo.yaml").read_text())
@@ -760,12 +767,11 @@ def test_profile_import_legacy_community_zip_entry(monkeypatch, tmp_path):
     zip_path = tmp_path / "robot.zip"
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr(
-            "c40_execution.yaml",
+            "c59_apps.yaml",
             yaml.dump(
                 {
                     "robot": {
-                        "c40_bridge": "BasicSim",
-                        "c40_community_plugins": {"foo": "foo"},
+                        "c50_community_plugins": {"foo": "foo"},
                     }
                 }
             ),
@@ -787,7 +793,10 @@ def test_cli_export_import_profile(monkeypatch, tmp_path):
     ConfigPaths.set_repo_target(False)
 
     (config_dir / "c40_execution.yaml").write_text(
-        yaml.dump({"robot": {"c40_bridge": "BasicSim", "c40_community_plugins": {}}})
+        yaml.dump({"robot": {"c40_bridge": "BasicSim"}})
+    )
+    (config_dir / "c59_apps.yaml").write_text(
+        yaml.dump({"robot": {"c50_community_plugins": {}}})
     )
 
     zip_path = tmp_path / "robot.zip"
