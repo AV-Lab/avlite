@@ -15,9 +15,10 @@ from datetime import datetime
 from pathlib import Path
 
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c51_app_strategy import AppStrategy
-from avlite.c50_apps.c52_factory import executor_factory, load_stack_settings
-from avlite.plugins.p50_headless_mode.settings import PluginSettings
+from avlite.c60_apps.c61_app_strategy import AppStrategy
+from avlite.c60_apps.c62_factory import executor_factory, load_stack_settings
+from avlite.c60_apps.c65_setting_utils import profile_file_path
+from avlite.plugins.p60_headless_mode.settings import PluginSettings
 
 try:
     from rich.console import Console
@@ -286,6 +287,11 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
             "Headless mode requires the 'rich' package.\n"
             "Install it with:  pip install rich\n"
         )
+        sys.exit(1)
+
+    profile_path = profile_file_path(profile, for_write=False)
+    if not os.path.exists(profile_path):
+        sys.stderr.write(f"Profile '{profile}' not found ({profile_path})\n")
         sys.exit(1)
 
     # Use INFO temporarily until the profile is loaded and the real level is known.

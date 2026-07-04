@@ -8,8 +8,8 @@ import yaml
 
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c52_factory import load_stack_settings
-from avlite.plugins.p50_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
+from avlite.c60_apps.c62_factory import load_stack_settings
+from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
 
 
 def test_sync_stack_settings_to_ui_reads_controller_from_profile(monkeypatch, tmp_path):
@@ -17,11 +17,20 @@ def test_sync_stack_settings_to_ui_reads_controller_from_profile(monkeypatch, tm
     root.withdraw()
     try:
         monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
-        (tmp_path / "c59_apps.yaml").write_text(
-            yaml.dump({"default": {"c52_load_plugins": False, "c52_default_plugins": [], "c52_community_plugins": {}}})
-        )
-        (tmp_path / "c40_execution.yaml").write_text(
-            yaml.dump({"default": {"c40_controller": "StanleyController", "c40_bridge": "BasicSim"}})
+        (tmp_path / "default.yaml").write_text(
+            yaml.dump(
+                {
+                    "c69_apps": {
+                        "c62_load_plugins": False,
+                        "c62_default_plugins": [],
+                        "c62_community_plugins": {},
+                    },
+                    "c40_execution": {
+                        "c40_controller": "StanleyController",
+                        "c40_bridge": "BasicSim",
+                    },
+                }
+            )
         )
 
         load_stack_settings(profile="default", load_plugins=False)

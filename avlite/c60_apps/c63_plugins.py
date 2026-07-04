@@ -10,12 +10,12 @@ import sys
 import types
 from pathlib import Path
 
-from avlite.c50_apps.c54_settings_schema import SettingsValidationError, validate_profile
-from avlite.c50_apps.c58_paths import (
+from avlite.c60_apps.c64_settings_schema import SettingsValidationError, validate_profile
+from avlite.c60_apps.c68_paths import (
     ConfigPaths,
     PluginPaths,
 )
-from avlite.c50_apps.c59_settings import AppSettingsSchema
+from avlite.c60_apps.c69_settings import AppSettingsSchema
 
 log = logging.getLogger(__name__)
 
@@ -173,7 +173,7 @@ def load_community_plugin_setting(
     binder=None,
 ):
     """Load ``PluginSettings`` for a community plugin from user config."""
-    from avlite.c50_apps.c55_setting_utils import load_setting
+    from avlite.c60_apps.c65_setting_utils import load_setting
 
     install_path = str(PluginPaths.resolve(name, stored))
     if not Path(install_path).is_dir():
@@ -209,8 +209,8 @@ def unregister_plugin_package(plugin_name: str) -> None:
         ExecutionStrategy.registry,
         WorldBridge.registry,
     ]
-    # App registry, only if the app layer was loaded (c60 must not import c50_apps).
-    app_strategy_mod = sys.modules.get("avlite.c50_apps.c51_app_strategy")
+    # App registry, only if the app layer was loaded (c50_common must not import c60_apps).
+    app_strategy_mod = sys.modules.get("avlite.c60_apps.c61_app_strategy")
     if app_strategy_mod is not None:
         registries.append(app_strategy_mod.AppStrategy.registry)
 
@@ -365,7 +365,16 @@ def import_plugin_modules(
                 module = importlib.util.module_from_spec(spec)
                 module.__path__ = [str(pkg_path)]
                 sys.modules[package_prefix] = module
-                spec.loader.exec_module(module)
+                try:
+                    spec.loader.exec_module(module)
+                except Exception as e:
+                    log.error(
+                        "Failed to load package %s from %s: %s",
+                        package_prefix,
+                        pkg_path,
+                        e,
+                    )
+                    continue
             else:
                 log.error("Failed to create module spec for %s", package_prefix)
 
@@ -432,15 +441,15 @@ def reload_lib(
         "avlite.c20_planning",
         "avlite.c30_control",
         "avlite.c40_execution",
-        "avlite.c60_common",
+        "avlite.c50_common",
     ]
-    c50_modules = [
-        "avlite.c50_apps.c51_app_strategy",
-        "avlite.c50_apps.c52_factory",
-        "avlite.c50_apps.c53_plugins",
-        "avlite.c50_apps.c54_settings_schema",
-        "avlite.c50_apps.c55_setting_utils",
-        "avlite.c50_apps.c58_paths",
+    app_modules = [
+        "avlite.c60_apps.c61_app_strategy",
+        "avlite.c60_apps.c62_factory",
+        "avlite.c60_apps.c63_plugins",
+        "avlite.c60_apps.c64_settings_schema",
+        "avlite.c60_apps.c65_setting_utils",
+        "avlite.c60_apps.c68_paths",
     ]
     stack_settings = [
         "avlite.c10_perception.c19_settings",
@@ -464,7 +473,7 @@ def reload_lib(
         for module_name in list(sys.modules.keys()):
             if any(module_name.startswith(prefix) for prefix in base_prefixes):
                 project_modules.append(module_name)
-            elif any(module_name.startswith(prefix) for prefix in c50_modules):
+            elif any(module_name.startswith(prefix) for prefix in app_modules):
                 project_modules.append(module_name)
             elif reload_plugins and is_plugin_logger(module_name):
                 project_modules.append(module_name)
@@ -520,13 +529,13 @@ class _CommunityPluginPaths:
 
     @staticmethod
     def community_plugins_from_execution_yaml() -> dict[str, str]:
-        """Read ``c52_community_plugins`` from the active app profile YAML."""
+        """Read ``c62_community_plugins`` from the ``c69_apps`` section of the active profile."""
         import yaml
 
         profile = ConfigPaths.startup_profile() or "default"
         for config_path in (
-            ConfigPaths.user_dir() / "c59_apps.yaml",
-            ConfigPaths.bundled_dir() / "c59_apps.yaml",
+            ConfigPaths.user_dir() / f"{profile}.yaml",
+            ConfigPaths.bundled_dir() / f"{profile}.yaml",
         ):
             if not config_path.is_file():
                 continue
@@ -535,13 +544,13 @@ class _CommunityPluginPaths:
                     data = yaml.safe_load(f) or {}
             except OSError:
                 continue
-            prof = data.get(profile, {})
-            if not isinstance(prof, dict):
+            apps = data.get("c69_apps", {})
+            if not isinstance(apps, dict):
                 continue
             try:
                 return validate_profile(
-                    AppSettingsSchema, prof, profile=profile
-                ).c52_community_plugins
+                    AppSettingsSchema, apps, profile=profile
+                ).c62_community_plugins
             except SettingsValidationError:
                 continue
         return {}

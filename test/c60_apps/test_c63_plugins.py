@@ -10,15 +10,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from avlite.c50_apps.c53_plugins import (
+from avlite.c60_apps.c63_plugins import (
     find_community_plugin_dir,
     import_plugin_modules,
     load_community_plugin_setting,
     plugin_module_prefix,
     register_community_plugin_import_hook,
 )
-from avlite.c50_apps.c58_paths import ConfigPaths, PluginPaths
-from avlite.c50_apps.c55_setting_utils import load_setting, stored_filepath
+from avlite.c60_apps.c68_paths import ConfigPaths, PluginPaths
+from avlite.c60_apps.c65_setting_utils import load_setting, setting_section
 
 _PLUGIN_NAME = "avlite-executer-ROS2"
 _SETTINGS_BODY = (
@@ -48,22 +48,21 @@ def dashed_plugin(tmp_path):
     _clear_plugin_modules(_PLUGIN_NAME)
 
 
-def test_import_plugin_modules_patches_dashed_settings_filepath(dashed_plugin, monkeypatch, tmp_path):
+def test_import_plugin_modules_maps_dashed_plugin_section(dashed_plugin, monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
     import_plugin_modules(str(dashed_plugin), pkg_name=_PLUGIN_NAME)
 
     from avlite.plugins.avlite_executer_ROS2.settings import PluginSettings
 
-    expected = PluginPaths.settings_filepath(_PLUGIN_NAME)
-    assert stored_filepath(PluginSettings) == expected
-    assert expected == "configs/plugin_avlite-executer-ROS2.yaml"
+    assert setting_section(PluginSettings) == ("plugins", "avlite_executer_ROS2")
 
 
-def test_load_setting_uses_dashed_yaml_after_import(dashed_plugin, monkeypatch, tmp_path):
+def test_load_setting_uses_plugin_section_after_import(dashed_plugin, monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
-    user_yaml = tmp_path / "plugin_avlite-executer-ROS2.yaml"
-    user_yaml.write_text(
-        yaml.dump({"default": {"replan_dt": 0.42, "control_dt": 0.07}}),
+    (tmp_path / "default.yaml").write_text(
+        yaml.dump(
+            {"plugins": {"avlite_executer_ROS2": {"replan_dt": 0.42, "control_dt": 0.07}}}
+        ),
         encoding="utf-8",
     )
 
@@ -139,11 +138,11 @@ def test_find_community_plugin_dir_from_community_dev(monkeypatch, tmp_path):
 
 def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
-    (tmp_path / "c59_apps.yaml").write_text(
+    (tmp_path / "default.yaml").write_text(
         yaml.dump(
             {
-                "default": {
-                    "c52_community_plugins": {
+                "c69_apps": {
+                    "c62_community_plugins": {
                         _PLUGIN_NAME: str(dashed_plugin),
                     },
                 }
@@ -152,7 +151,7 @@ def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatc
         encoding="utf-8",
     )
 
-    from avlite.c50_apps.c52_factory import load_stack_settings
+    from avlite.c60_apps.c62_factory import load_stack_settings
 
     _clear_plugin_modules(_PLUGIN_NAME)
     load_stack_settings(profile="default", load_plugins=True)

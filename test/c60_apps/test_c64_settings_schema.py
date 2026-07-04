@@ -10,8 +10,8 @@ import pytest
 import yaml
 
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
-from avlite.c50_apps.c55_setting_utils import load_setting, save_setting
-from avlite.c50_apps.c54_settings_schema import (
+from avlite.c60_apps.c65_setting_utils import load_setting, save_setting
+from avlite.c60_apps.c64_settings_schema import (
     SettingsValidationError,
     apply_validated_to_setting,
     dump_from_setting,
@@ -75,70 +75,68 @@ def test_field_tooltip_text_description_first():
     assert tip.endswith("(float, default=0.05, config_name: c40_control_dt)")
 
 
-def test_load_setting_valid_profile(tmp_path):
-    filepath = tmp_path / "exec.yaml"
-    filepath.write_text(yaml.dump({"default": {"c40_bridge": "BasicSim", "c40_control_dt": 0.01}}))
+def test_load_setting_valid_profile(monkeypatch, tmp_path):
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
+    (tmp_path / "default.yaml").write_text(
+        yaml.dump({"c40_execution": {"c40_bridge": "BasicSim", "c40_control_dt": 0.01}})
+    )
     original_bridge = ExecutionSettings.c40_bridge
     original_dt = ExecutionSettings.c40_control_dt
-    ExecutionSettingsSchema.filepath = str(filepath)
     try:
         assert load_setting(ExecutionSettings, profile="default") is True
         assert ExecutionSettings.c40_bridge == "BasicSim"
         assert ExecutionSettings.c40_control_dt == 0.01
     finally:
-        ExecutionSettingsSchema.filepath = "configs/c40_execution.yaml"
         ExecutionSettings.c40_bridge = original_bridge
         ExecutionSettings.c40_control_dt = original_dt
 
 
-def test_load_setting_invalid_type(tmp_path):
-    filepath = tmp_path / "exec.yaml"
-    filepath.write_text(yaml.dump({"default": {"c40_control_dt": "bad"}}))
+def test_load_setting_invalid_type(monkeypatch, tmp_path):
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
+    (tmp_path / "default.yaml").write_text(
+        yaml.dump({"c40_execution": {"c40_control_dt": "bad"}})
+    )
     original_dt = ExecutionSettings.c40_control_dt
-    ExecutionSettingsSchema.filepath = str(filepath)
     try:
         assert load_setting(ExecutionSettings, profile="default") is False
         assert ExecutionSettings.c40_control_dt == original_dt
     finally:
-        ExecutionSettingsSchema.filepath = "configs/c40_execution.yaml"
         ExecutionSettings.c40_control_dt = original_dt
 
 
-def test_save_setting_round_trip(tmp_path):
-    filepath = tmp_path / "exec.yaml"
-    filepath.write_text(yaml.dump({"other": {"c40_bridge": "X"}}))
+def test_save_setting_round_trip(monkeypatch, tmp_path):
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
+    (tmp_path / "testprof.yaml").write_text(yaml.dump({"c10_perception": {"c11_max_agents": 5}}))
     original_bridge = ExecutionSettings.c40_bridge
-    ExecutionSettingsSchema.filepath = str(filepath)
     ExecutionSettings.c40_bridge = "RoundTripBridge"
     try:
         save_setting(ExecutionSettings, profile="testprof")
-        with open(filepath) as f:
+        with open(tmp_path / "testprof.yaml") as f:
             saved = yaml.safe_load(f)
-        assert "other" in saved
-        assert saved["testprof"]["c40_bridge"] == "RoundTripBridge"
-        assert "filepath" not in saved["testprof"]
-        model = validate_profile(ExecutionSettingsSchema, saved["testprof"])
+        assert "c10_perception" in saved
+        assert saved["c40_execution"]["c40_bridge"] == "RoundTripBridge"
+        assert "filepath" not in saved["c40_execution"]
+        model = validate_profile(ExecutionSettingsSchema, saved["c40_execution"])
         assert model.c40_bridge == "RoundTripBridge"
     finally:
-        ExecutionSettingsSchema.filepath = "configs/c40_execution.yaml"
         ExecutionSettings.c40_bridge = original_bridge
 
 
-def _parse_config_cli_args(argv: list[str]) -> argparse.Namespace:
-    from avlite.plugins.p50_config_cli.p51_config_cli import configure_parser
+def _parse_setting_cli_args(argv: list[str]) -> argparse.Namespace:
+    from avlite.plugins.p60_setting_cli.p61_setting_cli import configure_parser
 
     parser = argparse.ArgumentParser(prog="avlite")
     sub = parser.add_subparsers(dest="command")
-    config_cli = sub.add_parser("config-cli")
-    configure_parser(config_cli)
+    setting_cli = sub.add_parser("setting-cli")
+    configure_parser(setting_cli)
     return parser.parse_args(argv)
 
 
-def test_run_config_command_bare_config_shows_help(capsys):
-    from avlite.plugins.p50_config_cli.p51_config_cli import run_config_command
+def test_run_setting_command_bare_setting_shows_help(capsys):
+    from avlite.plugins.p60_setting_cli.p61_setting_cli import run_setting_command
 
-    args = _parse_config_cli_args(["config-cli"])
-    assert run_config_command(args) == 0
+    args = _parse_setting_cli_args(["setting-cli"])
+    assert run_setting_command(args) == 0
     out = capsys.readouterr().out
     assert "validate" in out
     assert "describe" in out
@@ -146,7 +144,7 @@ def test_run_config_command_bare_config_shows_help(capsys):
 
 def test_default_map_settings_field_race_planner():
     from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-    from avlite.plugins.p50_visualizer_tk.p55_ui_lib import DataPicker
+    from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DataPicker
 
     original = ExecutionSettings.c40_global_planner
     try:
@@ -158,7 +156,7 @@ def test_default_map_settings_field_race_planner():
 
 def test_default_map_settings_field_hd_planner():
     from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
-    from avlite.plugins.p50_visualizer_tk.p55_ui_lib import DataPicker
+    from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DataPicker
 
     original = ExecutionSettings.c40_global_planner
     try:
@@ -168,18 +166,18 @@ def test_default_map_settings_field_hd_planner():
         ExecutionSettings.c40_global_planner = original
 
 
-def test_run_config_command_help_subcommand(capsys):
-    from avlite.plugins.p50_config_cli.p51_config_cli import run_config_command
+def test_run_setting_command_help_subcommand(capsys):
+    from avlite.plugins.p60_setting_cli.p61_setting_cli import run_setting_command
 
-    args = _parse_config_cli_args(["config-cli", "help"])
-    assert run_config_command(args) == 0
+    args = _parse_setting_cli_args(["setting-cli", "help"])
+    assert run_setting_command(args) == 0
     out = capsys.readouterr().out
     assert "validate" in out
     assert "describe" in out
 
 
 def test_reset_to_defaults_preserves_identity():
-    from avlite.c50_apps.c54_settings_schema import reset_to_defaults
+    from avlite.c60_apps.c64_settings_schema import reset_to_defaults
 
     before_id = id(ExecutionSettings)
     original = ExecutionSettings.c40_bridge
@@ -209,6 +207,6 @@ def test_tuning_knob_reaches_controller_without_code_reload():
 
 
 def test_plugin_settings_filepath_from_directory_name():
-    from avlite.c50_apps.c58_paths import PluginPaths
+    from avlite.c60_apps.c68_paths import PluginPaths
 
     assert PluginPaths.settings_filepath("avlite-bridge-carla") == "configs/plugin_avlite-bridge-carla.yaml"

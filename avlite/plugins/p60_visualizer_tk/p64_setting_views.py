@@ -5,55 +5,47 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from avlite.plugins.p50_visualizer_tk.p51_visualizer_app import VisualizerApp
+    from avlite.plugins.p60_visualizer_tk.p61_visualizer_app import VisualizerApp
 import importlib
 import logging
-import sys
-import zipfile
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 
-import yaml
-
-from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
-from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c59_settings import AppSettings
-from avlite.c50_apps.c58_paths import ConfigPaths, PluginPaths
-from avlite.c50_apps.c53_plugins import (
+from avlite.c60_apps.c69_settings import AppSettings
+from avlite.c60_apps.c68_paths import ConfigPaths, PluginPaths
+from avlite.c60_apps.c63_plugins import (
     import_plugin_modules,
     list_plugins,
     load_builtin_plugin_settings,
     load_community_plugin_setting,
     plugin_module_prefix,
     reload_lib,
+    unregister_plugin_package,
 )
-from avlite.c50_apps.c52_factory import load_stack_settings
-from avlite.plugins.p50_visualizer_tk.settings import (
+from avlite.c60_apps.c62_factory import load_stack_settings
+from avlite.plugins.p60_visualizer_tk.settings import (
     PluginSettings,
     VisualizationSettings,
-    get_stack_settings_classes,
     sync_stack_settings_to_ui,
 )
-from avlite.c50_apps.c55_setting_utils import (
-    delete_setting_profile,
+from avlite.c60_apps.c65_setting_utils import (
+    can_remove_builtin_plugin,
+    delete_profile as delete_profile_file,
     dev_mode_export_warning,
     export_profile,
     import_profile,
     list_profiles,
     load_setting,
     order_profiles_for_dropdown,
-    rename_setting_profile,
+    profile_file_path,
+    rename_profile as rename_profile_file,
     save_setting,
 )
-from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     BUTTON_TOOLTIPS,
     HoverTooltip,
     ThemedInputDialog,
@@ -67,8 +59,8 @@ from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
     scaled,
     setup_dpi,
 )
-from avlite.c50_apps.c54_settings_schema import field_tooltip_text, setting_key
-from avlite.plugins.p50_visualizer_tk.p53_plugins_app import CommunityPluginsApp
+from avlite.c60_apps.c64_settings_schema import field_tooltip_text, setting_key
+from avlite.plugins.p60_visualizer_tk.p63_plugins_app import CommunityPluginsApp
 
 log = logging.getLogger(__name__)
 
@@ -131,15 +123,37 @@ class SettingWindow:
             combo["values"] = profiles
         if select and select in profiles:
             current = select
-            self.host.setting.c50_selected_profile.set(current)
+            self.host.setting.c60_selected_profile.set(current)
         else:
-            current = self.host.setting.c50_selected_profile.get()
+            current = self.host.setting.c60_selected_profile.get()
             if current not in profiles:
                 current = profiles[0] if profiles else "default"
-                self.host.setting.c50_selected_profile.set(current)
-        if self.host.setting.p50_next_profile.get() not in profiles:
-            self.host.setting.p50_next_profile.set(current)
+                self.host.setting.c60_selected_profile.set(current)
+        if self.host.setting.p60_next_profile.get() not in profiles:
+            self.host.setting.p60_next_profile.set(current)
+        self._update_profile_action_states(current)
         return current
+
+    def _hosting_plugin_name(self) -> str:
+        return getattr(self.host, "hosting_plugin_name", "p60_visualizer_tk")
+
+    def _update_profile_action_states(self, profile: str | None = None) -> None:
+        profile = profile or self.host.setting.c60_selected_profile.get()
+        if profile == "default":
+            self._btn_profile_delete.state(["disabled"])
+        else:
+            self._btn_profile_delete.state(["!disabled"])
+
+    def _update_builtin_plugin_action_states(self) -> None:
+        selected = self.listbox_default_plugins.curselection()
+        if not selected:
+            self._btn_remove_builtin.state(["disabled"])
+            return
+        plugin_name = self.listbox_default_plugins.get(selected)
+        if can_remove_builtin_plugin(plugin_name, self._hosting_plugin_name()) is not None:
+            self._btn_remove_builtin.state(["disabled"])
+        else:
+            self._btn_remove_builtin.state(["!disabled"])
 
     def _edit_repo_configs_toggle(self) -> None:
         enabled = self._edit_repo_configs_var.get()
@@ -166,7 +180,7 @@ class SettingWindow:
         self.window.bind("<Control-u>", lambda e: self.canvas.yview_scroll(-5, "units"))
         self.window.bind(
             "<Control-d>",
-            lambda e: self.canvas.yview_scroll(int(0.5 * self.host.setting.p58_log_view_default_height.get()), "units"),
+            lambda e: self.canvas.yview_scroll(int(0.5 * self.host.setting.p68_log_view_default_height.get()), "units"),
         )
         self.window.bind("G", lambda e: self.canvas.yview_moveto(1.0))
         self.window.bind("g", lambda e: self.canvas.yview_moveto(0.0))
@@ -177,7 +191,7 @@ class SettingWindow:
 
         ttk.Label(profile_ext_frame, text="Execution Profiles",style="Big.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, padx=10, pady=5)
         ttk.Label(profile_ext_frame, text="Load Profile").grid(row=1, column=0, padx=5, pady=5)
-        self.profile_dropdown_menu = ttk.Combobox(profile_ext_frame, textvariable=self.host.setting.c50_selected_profile, state="readonly",)
+        self.profile_dropdown_menu = ttk.Combobox(profile_ext_frame, textvariable=self.host.setting.c60_selected_profile, state="readonly",)
         self.profile_dropdown_menu["values"] = self.host.setting.profile_list
         # self.global_planner_dropdown_menu.current(0)  
         self.profile_dropdown_menu.state(["readonly"])
@@ -187,16 +201,16 @@ class SettingWindow:
         btn_profile_new = ttk.Button(profile_ext_frame, text="New", command=self.create_profile)
         btn_profile_new.grid(row=2, column=0, padx=5, pady=5, sticky="we")
         attach_tooltip(btn_profile_new, BUTTON_TOOLTIPS["profile_new"])
-        btn_profile_delete = ttk.Button(profile_ext_frame, text="Delete", command=self.delete_profile)
-        btn_profile_delete.grid(row=2, column=1, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_profile_delete, BUTTON_TOOLTIPS["profile_delete"])
+        self._btn_profile_delete = ttk.Button(profile_ext_frame, text="Delete", command=self.delete_profile)
+        self._btn_profile_delete.grid(row=2, column=1, padx=5, pady=5, sticky="we")
+        attach_tooltip(self._btn_profile_delete, BUTTON_TOOLTIPS["profile_delete"])
         btn_profile_save = ttk.Button(profile_ext_frame, text="Save", underline=0, command=self.save_profile)
         btn_profile_save.grid(row=2, column=2, padx=5, pady=5, sticky="we")
         attach_tooltip(btn_profile_save, BUTTON_TOOLTIPS["profile_save"])
-        btn_profile_export = ttk.Button(profile_ext_frame, text="Export", command=self.export_profile_zip)
+        btn_profile_export = ttk.Button(profile_ext_frame, text="Export", command=self.export_profile_file)
         btn_profile_export.grid(row=3, column=0, padx=5, pady=5, sticky="we")
         attach_tooltip(btn_profile_export, BUTTON_TOOLTIPS["profile_export"])
-        btn_profile_import = ttk.Button(profile_ext_frame, text="Import", command=self.import_profile_zip)
+        btn_profile_import = ttk.Button(profile_ext_frame, text="Import", command=self.import_profile_file)
         btn_profile_import.grid(row=3, column=1, padx=5, pady=5, sticky="we")
         attach_tooltip(btn_profile_import, BUTTON_TOOLTIPS["profile_import"])
         btn_profile_rename = ttk.Button(profile_ext_frame, text="Rename", command=self.rename_profile)
@@ -204,10 +218,10 @@ class SettingWindow:
         attach_tooltip(btn_profile_rename, BUTTON_TOOLTIPS["profile_rename"])
 
         ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
-        self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.host.setting.p50_next_profile, state="readonly",)
+        self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.host.setting.p60_next_profile, state="readonly",)
         self.next_profile_dropdown_menu["values"] = self.host.setting.profile_list
         self.next_profile_dropdown_menu.state(["readonly"])
-        attach_schema_tooltip(self.next_profile_dropdown_menu, PluginSettings, "p50_next_profile")
+        attach_schema_tooltip(self.next_profile_dropdown_menu, PluginSettings, "p60_next_profile")
         self.next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
         
         btn_reset_all = ttk.Button(
@@ -241,11 +255,11 @@ class SettingWindow:
         listbox_height = max(6, scaled(10, _s))
 
         cb_load_plugins = ttk.Checkbutton(
-            plugin_frame, text="Load Plugins", variable=self.host.setting.c52_load_plugins,
+            plugin_frame, text="Load Plugins", variable=self.host.setting.c62_load_plugins,
             command=self._on_load_plugins_toggle,
         )
         cb_load_plugins.grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=5)
-        attach_schema_tooltip(cb_load_plugins, AppSettings, "c52_load_plugins")
+        attach_schema_tooltip(cb_load_plugins, AppSettings, "c62_load_plugins")
 
         # built-in plugins
         ttk.Label(plugin_frame, text="Plugins").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
@@ -255,15 +269,15 @@ class SettingWindow:
         self.listbox_default_plugins.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for plugin in AppSettings.c52_default_plugins:
+        for plugin in AppSettings.c62_default_plugins:
             self.listbox_default_plugins.insert(tk.END, plugin)
         
         btn_reset_plugins = ttk.Button(plugin_frame, text="Reset Plugins", command=self.reset_default_plugins)
         btn_reset_plugins.grid(row=3, column=0, sticky="we", padx=5, pady=5)
         attach_tooltip(btn_reset_plugins, BUTTON_TOOLTIPS["plugins_reset_builtin"])
-        btn_remove_builtin = ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin)
-        btn_remove_builtin.grid(row=3, column=1, sticky="we", padx=5, pady=5)
-        attach_tooltip(btn_remove_builtin, BUTTON_TOOLTIPS["plugins_remove_builtin"])
+        self._btn_remove_builtin = ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin)
+        self._btn_remove_builtin.grid(row=3, column=1, sticky="we", padx=5, pady=5)
+        attach_tooltip(self._btn_remove_builtin, BUTTON_TOOLTIPS["plugins_remove_builtin"])
 
 
         # community plugins
@@ -274,13 +288,15 @@ class SettingWindow:
         self.listbox_community_plugins.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
-        for plugin in AppSettings.c52_community_plugins.keys() if self.host.setting.c52_load_plugins.get() else []:
+        for plugin in AppSettings.c62_community_plugins.keys() if self.host.setting.c62_load_plugins.get() else []:
             self.listbox_community_plugins.insert(tk.END, plugin)
 
         self.listbox_community_plugins.bind("<Double-Button-1>", lambda e: self.edit_community_plugin())
         self.listbox_community_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_plugin())
         self.listbox_default_plugins.bind("<Double-Button-1>", lambda e: self.edit_default_plugin())
-        self.listbox_default_plugins.bind("<<ListboxSelect>>", lambda e: self._scroll_to_selected_builtin_plugin())
+        self.listbox_default_plugins.bind("<<ListboxSelect>>", lambda e: self._on_builtin_plugin_select())
+        self._update_profile_action_states()
+        self._update_builtin_plugin_action_states()
 
 
 
@@ -343,7 +359,7 @@ class SettingWindow:
         self.create_widgets(PlanningSettings, "Planning Settings")
         self.create_widgets(ControlSettings, "Control Settings")
         self.create_widgets(ExecutionSettings, "Execution Settings")
-        if self.host.setting.c52_load_plugins.get():
+        if self.host.setting.c62_load_plugins.get():
             ttk.Separator(self.settings_frame, orient="horizontal").pack(fill="x", pady=10)
             ttk.Label(self.settings_frame, text="Plugin Settings", style="Big.TLabel").pack(
                 anchor=tk.W, padx=5, pady=5
@@ -362,12 +378,12 @@ class SettingWindow:
         ttk.Label(additional_setting_row_1, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         additional_setting_row_1.pack(fill=tk.X)
         for text, field in (
-            ("Legend", "p56_show_legend"),
-            ("Locations", "p56_show_past_locations"),
-            ("Global Plan", "p56_show_global_plan"),
-            ("Local Plan", "p56_show_local_plan"),
-            ("Local Lattice", "p56_show_local_lattice"),
-            ("State", "p56_show_state"),
+            ("Legend", "p66_show_legend"),
+            ("Locations", "p66_show_past_locations"),
+            ("Global Plan", "p66_show_global_plan"),
+            ("Local Plan", "p66_show_local_plan"),
+            ("Local Lattice", "p66_show_local_lattice"),
+            ("State", "p66_show_state"),
         ):
             cb = ttk.Checkbutton(
                 additional_setting_row_1, text=text,
@@ -377,8 +393,8 @@ class SettingWindow:
             attach_schema_tooltip(cb, VisualizationSettings, field)
 
         for text, field in (
-            ("Follow Planner in Global", "p56_global_view_follow_planner"),
-            ("Follow Planner in Frenet", "p56_frenet_view_follow_planner"),
+            ("Follow Planner in Global", "p66_global_view_follow_planner"),
+            ("Follow Planner in Frenet", "p66_frenet_view_follow_planner"),
         ):
             cb = ttk.Checkbutton(additional_setting_row_1, text=text, variable=getattr(self.host.setting, field))
             cb.pack(side=tk.LEFT)
@@ -388,12 +404,12 @@ class SettingWindow:
         additional_setting_row_1b.pack(fill=tk.X)
         ttk.Label(additional_setting_row_1b, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         for text, field in (
-            ("Local Global View", "p57_show_local_global_view"),
-            ("Local Frenet View", "p57_show_local_frenet_view"),
-            ("LiDAR in Global", "p56_show_lidar_global"),
-            ("LiDAR in Frenet", "p56_show_lidar_frenet"),
-            ("Clustered Pts", "p56_show_lidar_clusters"),
-            ("Race Boundary", "p56_show_race_boundary"),
+            ("Local Global View", "p67_show_local_global_view"),
+            ("Local Frenet View", "p67_show_local_frenet_view"),
+            ("LiDAR in Global", "p66_show_lidar_global"),
+            ("LiDAR in Frenet", "p66_show_lidar_frenet"),
+            ("Clustered Pts", "p66_show_lidar_clusters"),
+            ("Race Boundary", "p66_show_race_boundary"),
         ):
             cb = ttk.Checkbutton(
                 additional_setting_row_1b, text=text,
@@ -408,45 +424,45 @@ class SettingWindow:
         cb_plan_boundaries = ttk.Checkbutton(
             additional_setting_row_1c,
             text="Plan boundaries",
-            variable=self.host.setting.p56_show_global_plan_boundaries,
+            variable=self.host.setting.p66_show_global_plan_boundaries,
             command=self.host.update_ui,
         )
         cb_plan_boundaries.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_plan_boundaries, VisualizationSettings, "p56_show_global_plan_boundaries")
+        attach_schema_tooltip(cb_plan_boundaries, VisualizationSettings, "p66_show_global_plan_boundaries")
         ttk.Label(additional_setting_row_1c, text="Velocity scale:").pack(side=tk.LEFT, padx=(10, 5))
         velocity_scale_cb = ttk.Combobox(
             additional_setting_row_1c,
-            textvariable=self.host.setting.p56_global_plan_velocity_scale,
+            textvariable=self.host.setting.p66_global_plan_velocity_scale,
             values=("relative", "absolute"),
             state="readonly",
             width=10,
         )
         velocity_scale_cb.pack(side=tk.LEFT)
         velocity_scale_cb.bind("<<ComboboxSelected>>", lambda e: self.host.update_ui())
-        attach_schema_tooltip(velocity_scale_cb, VisualizationSettings, "p56_global_plan_velocity_scale")
+        attach_schema_tooltip(velocity_scale_cb, VisualizationSettings, "p66_global_plan_velocity_scale")
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
 
         ttk.Label(additional_setting_row_2, text="Log View:").pack(anchor=tk.W, side=tk.LEFT, padx=0)
-        cb_expand_log = ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.host.setting.p58_log_view_expanded)
+        cb_expand_log = ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.host.setting.p68_log_view_expanded)
         cb_expand_log.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_expand_log, VisualizationSettings, "p58_log_view_expanded")
+        attach_schema_tooltip(cb_expand_log, VisualizationSettings, "p68_log_view_expanded")
 
         ttk.Label(additional_setting_row_2, text="Default Log Height:").pack(side=tk.LEFT, padx=5)
-        ttk.Entry(additional_setting_row_2, textvariable=self.host.setting.p58_log_view_default_height, width=5,
+        ttk.Entry(additional_setting_row_2, textvariable=self.host.setting.p68_log_view_default_height, width=5,
                   validatecommand=self.host.validate_cmd).pack(side=tk.LEFT, padx=5)
 
         ttk.Label(additional_setting_row_2, text="Expanded Log Height").pack(side=tk.LEFT, padx=5)
-        ttk.Entry(additional_setting_row_2, textvariable=self.host.setting.p58_log_view_expended_height, width=5,
+        ttk.Entry(additional_setting_row_2, textvariable=self.host.setting.p68_log_view_expended_height, width=5,
                   validatecommand=self.host.validate_cmd).pack(side=tk.LEFT, padx=5)
 
         additional_setting_row_3 = ttk.Frame(additional_setting_frame)
         additional_setting_row_3.pack(fill=tk.X, padx=0)
         ttk.Label(additional_setting_row_3, text="Menu bar:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
-        cb_hide_menubar = ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.host.setting.p50_hide_menubar)
+        cb_hide_menubar = ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.host.setting.p60_hide_menubar)
         cb_hide_menubar.pack(anchor=tk.W, side=tk.LEFT)
-        attach_schema_tooltip(cb_hide_menubar, VisualizationSettings, "p50_hide_menubar")
+        attach_schema_tooltip(cb_hide_menubar, VisualizationSettings, "p60_hide_menubar")
         btn_settings_close = ttk.Button(additional_setting_row_2, text="Close", width=5, underline=0, command=self.hide)
         btn_settings_close.pack(side=tk.RIGHT, padx=5)
         attach_tooltip(btn_settings_close, BUTTON_TOOLTIPS["settings_close"])
@@ -461,14 +477,14 @@ class SettingWindow:
         self.update_widgets(ControlSettings)
         self.update_widgets(ExecutionSettings)
 
-        if self.host.setting.c52_load_plugins.get():
-            for plugin in AppSettings.c52_default_plugins:
+        if self.host.setting.c62_load_plugins.get():
+            for plugin in AppSettings.c62_default_plugins:
                 try:
                     module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
                     PluginSettings = getattr(module, "PluginSettings")
                     load_setting(
                         PluginSettings,
-                        profile=self.host.setting.c50_selected_profile.get(),
+                        profile=self.host.setting.c60_selected_profile.get(),
                         binder=TkSettingsBinder(),
                     )
                     self.update_widgets(PluginSettings, plugin_name=plugin)
@@ -476,8 +492,8 @@ class SettingWindow:
                 except Exception as e:
                     log.error("Failed to load plugin settings for %s: %s", plugin, e)
 
-            profile = self.host.setting.c50_selected_profile.get()
-            for name, stored in AppSettings.c52_community_plugins.items():
+            profile = self.host.setting.c60_selected_profile.get()
+            for name, stored in AppSettings.c62_community_plugins.items():
                 plugin_name = f"community_{name}"
                 cls = load_community_plugin_setting(
                     name, stored, profile=profile, binder=TkSettingsBinder()
@@ -491,12 +507,12 @@ class SettingWindow:
 
     def rebuild_plugin_sections(self) -> None:
         """Create or tear down built-in and community plugin setting sections."""
-        if self.host.setting.c52_load_plugins.get():
+        if self.host.setting.c62_load_plugins.get():
             self.create_plugin_widgets()
             self.create_community_plugin_widgets()
             return
 
-        for plugin in AppSettings.c52_default_plugins:
+        for plugin in AppSettings.c62_default_plugins:
             plugin_key = f"PluginSettings{plugin}"
             if plugin_key in self.widget_entries:
                 entry_dict = self.widget_entries[plugin_key]
@@ -508,7 +524,7 @@ class SettingWindow:
                 log.debug("Removed widgets for %s", plugin_key)
         self.plugin_widget_created = False
 
-        for name in list(AppSettings.c52_community_plugins.keys()):
+        for name in list(AppSettings.c62_community_plugins.keys()):
             cp_key = f"PluginSettingscommunity_{name}"
             if cp_key in self.widget_entries:
                 entry_dict = self.widget_entries[cp_key]
@@ -526,9 +542,9 @@ class SettingWindow:
     def reset_community_plugins(self):
         """Reset community plugins to all plugins installed under the plugins directory."""
         log.info("Resetting community plugins to installed set.")
-        AppSettings.c52_community_plugins = PluginPaths.installed_map()
+        AppSettings.c62_community_plugins = PluginPaths.installed_map()
         self.update_community_plugin_list()
-        if self.host.setting.c52_load_plugins.get():
+        if self.host.setting.c62_load_plugins.get():
             self.update_community_plugin_widgets()
 
     def reset_default_plugins(self):
@@ -536,48 +552,35 @@ class SettingWindow:
         log.info("Resetting default plugins to source code defaults.")
 
         self.listbox_default_plugins.delete(0, tk.END)
-        AppSettings.c52_default_plugins = list_plugins()
+        AppSettings.c62_default_plugins = list_plugins()
 
-        for plugin in AppSettings.c52_default_plugins:
+        for plugin in AppSettings.c62_default_plugins:
             self.listbox_default_plugins.insert(tk.END, plugin)
 
-        import_plugin_modules(plugins_filter=AppSettings.c52_default_plugins)
+        import_plugin_modules(plugins_filter=AppSettings.c62_default_plugins)
         self.host.on_stack_settings_changed()
+        self._update_builtin_plugin_action_states()
 
     def remove_default_plugin(self):
         """ Remove the selected default plugin from the list. """
         selected = self.listbox_default_plugins.curselection()
-        if selected:
-            plugin_name = self.listbox_default_plugins.get(selected)
-            if plugin_name in AppSettings.c52_default_plugins:
-                AppSettings.c52_default_plugins.remove(plugin_name)
-                self.listbox_default_plugins.delete(selected)
-                self._unregister_plugin(plugin_name)
-                self.host.on_stack_settings_changed()
-                log.info(f"Removed and unloaded plugin: {plugin_name}")
-            else:
-                log.warning(f"Plugin {plugin_name} not found in default plugins.")
-        else:
+        if not selected:
             log.warning("No plugin selected to remove.")
-
-    def _unregister_plugin(self, plugin_name: str):
-        """Remove all strategy classes registered by a plugin from all registries and sys.modules."""
-        plugin_module_prefix_str = plugin_module_prefix(plugin_name)
-        for registry in [PerceptionStrategy.registry, GlobalPlannerStrategy.registry,
-                         LocalPlanningStrategy.registry, ControlStrategy.registry,
-                         ExecutionStrategy.registry, WorldBridge.registry]:
-            to_remove = [name for name, cls in registry.items()
-                         if cls.__module__.startswith(plugin_module_prefix_str)]
-            for name in to_remove:
-                del registry[name]
-                log.info(f"Unregistered {name} from {plugin_module_prefix_str}")
-
-        # Purge plugin modules from sys.modules so reload_lib won't re-register them
-        for mod_name in list(sys.modules.keys()):
-            if mod_name.startswith(plugin_module_prefix_str):
-                del sys.modules[mod_name]
-                log.debug(f"Removed {mod_name} from sys.modules")
-
+            return
+        plugin_name = self.listbox_default_plugins.get(selected)
+        blocked = can_remove_builtin_plugin(plugin_name, self._hosting_plugin_name())
+        if blocked is not None:
+            messagebox.showwarning("Remove Plugin", blocked, parent=self.window)
+            return
+        if plugin_name in AppSettings.c62_default_plugins:
+            AppSettings.c62_default_plugins.remove(plugin_name)
+            self.listbox_default_plugins.delete(selected)
+            unregister_plugin_package(plugin_name)
+            self.host.on_stack_settings_changed()
+            log.info(f"Removed and unloaded plugin: {plugin_name}")
+            self._update_builtin_plugin_action_states()
+        else:
+            log.warning(f"Plugin {plugin_name} not found in default plugins.")
 
     def add_community_plugin(self):
         dialog = ThemedTwoInputDialog(self.host, "Community Plugins", "Package Name", "Package Directory")
@@ -586,14 +589,14 @@ class SettingWindow:
             return
 
         log.info(f"Adding plugin: {name}")
-        AppSettings.c52_community_plugins[name] = PluginPaths.normalize_stored(name, dir)
+        AppSettings.c62_community_plugins[name] = PluginPaths.normalize_stored(name, dir)
         self.listbox_community_plugins.insert(tk.END, name)
         
     def delete_community_plugin(self):
         selected = self.listbox_community_plugins.curselection()
         if selected:
             plugin_name = self.listbox_community_plugins.get(selected)
-            AppSettings.c52_community_plugins.pop(plugin_name, None)
+            AppSettings.c62_community_plugins.pop(plugin_name, None)
             self.listbox_community_plugins.delete(selected)
             log.info(f"Deleted community plugin: {plugin_name}")
         else:
@@ -607,9 +610,9 @@ class SettingWindow:
 
         plugin_name = self.listbox_default_plugins.get(selected[0])
         cls = load_builtin_plugin_settings(plugin_name)
-        if cls is not None and getattr(cls, "filepath", None):
+        if cls is not None:
             settings_path = PluginPaths.format_display(
-                ConfigPaths.effective_path(cls.filepath, for_write=False)
+                profile_file_path(self.host.setting.c60_selected_profile.get(), for_write=False)
             )
         else:
             settings_path = "\u2014"
@@ -642,7 +645,7 @@ class SettingWindow:
         """ Load the community plugins from the settings. """
 
         self.listbox_community_plugins.delete(0, tk.END)
-        for name, dir in AppSettings.c52_community_plugins.items():
+        for name, dir in AppSettings.c62_community_plugins.items():
             self.listbox_community_plugins.insert(tk.END, name)
 
     def open_plugins_window(self):
@@ -660,7 +663,7 @@ class SettingWindow:
         if not text:
             return
         log.info(f"Creating profile: {text}")
-        self.host.setting.c50_selected_profile.set(text)
+        self.host.setting.c60_selected_profile.set(text)
         self.host.setting.profile_list.append(text)
         self.host.setting.profile_list = order_profiles_for_dropdown(self.host.setting.profile_list)
         self.profile_dropdown_menu["values"] = self.host.setting.profile_list
@@ -672,81 +675,111 @@ class SettingWindow:
         self.save_profile()
 
 
-    def export_profile_zip(self):
-        """Export the selected profile to a zip file."""
-        profile = self.host.setting.c50_selected_profile.get()
+    def export_profile_file(self):
+        """Export the selected profile to a single YAML file."""
+        profile = self.host.setting.c60_selected_profile.get()
         if not messagebox.askyesno(
             "Export profile",
             f"Export reads from saved files on disk.\nSave profile '{profile}' first if you have unsaved changes.\n\nContinue?",
             parent=self.window,
         ):
             return
-        try:
-            load_setting(ExecutionSettings, profile=profile)
-        except Exception as e:
-            messagebox.showerror("Export profile", str(e), parent=self.window)
+        options = self._ask_export_options()
+        if options is None:
             return
-        warning = dev_mode_export_warning(AppSettings.c52_community_plugins)
+        include_stack, include_app, include_plugins = options
+        warning = dev_mode_export_warning(AppSettings.c62_community_plugins)
         if warning and not messagebox.askyesno(
             "Export profile",
             warning + "\n\nContinue export?",
             parent=self.window,
         ):
             return
-        zip_path = filedialog.asksaveasfilename(
+        out_path = filedialog.asksaveasfilename(
             parent=self.window,
             title="Export profile",
-            defaultextension=".zip",
-            initialfile=f"{profile}.zip",
-            filetypes=[("AVLite profile", "*.zip"), ("All files", "*.*")],
+            defaultextension=".yaml",
+            initialfile=f"{profile}.yaml",
+            filetypes=[("AVLite profile", "*.yaml"), ("All files", "*.*")],
         )
-        if not zip_path:
+        if not out_path:
             return
         try:
             count = export_profile(
                 profile,
-                zip_path,
-                settings_classes=get_stack_settings_classes(),
-                community_plugins=AppSettings.c52_community_plugins,
+                out_path,
+                include_stack=include_stack,
+                include_app=include_app,
+                include_plugins=include_plugins,
             )
         except ValueError as e:
             messagebox.showerror("Export profile", str(e), parent=self.window)
             return
         except OSError as e:
-            messagebox.showerror("Export profile", f"Failed to write zip: {e}", parent=self.window)
+            messagebox.showerror("Export profile", f"Failed to write file: {e}", parent=self.window)
             return
         messagebox.showinfo(
             "Export profile",
-            f"Exported profile '{profile}' ({count} file(s)) to\n{zip_path}",
+            f"Exported profile '{profile}' ({count} section(s)) to\n{out_path}",
             parent=self.window,
         )
 
-    def import_profile_zip(self):
-        """Import a profile from a zip file."""
-        zip_path = filedialog.askopenfilename(
+    def _ask_export_options(self) -> tuple[bool, bool, bool] | None:
+        """Modal dialog: returns (include_stack, include_app, include_plugins) or None if cancelled."""
+        dlg = tk.Toplevel(self.window)
+        dlg.title("Export options")
+        dlg.transient(self.window)
+        try:
+            bg = ttk.Style(dlg).lookup("TFrame", "background")
+            if bg:
+                dlg.configure(background=bg)
+        except tk.TclError:
+            pass
+        include_stack = tk.BooleanVar(value=True)
+        include_app = tk.BooleanVar(value=True)
+        include_plugins = tk.BooleanVar(value=True)
+        ttk.Label(dlg, text="Choose what to include in the exported profile:").pack(
+            padx=12, pady=(12, 6), anchor="w"
+        )
+        ttk.Checkbutton(
+            dlg,
+            text="Stack settings (perception, planning, control, execution)",
+            variable=include_stack,
+        ).pack(padx=12, anchor="w")
+        ttk.Checkbutton(
+            dlg, text="App settings (plugin list, active profile)", variable=include_app
+        ).pack(padx=12, anchor="w")
+        ttk.Checkbutton(
+            dlg, text="Plugin settings (built-in and community)", variable=include_plugins
+        ).pack(padx=12, anchor="w")
+        state = {"ok": False}
+        buttons = ttk.Frame(dlg)
+        buttons.pack(padx=12, pady=12, fill="x")
+
+        def _ok() -> None:
+            state["ok"] = True
+            dlg.destroy()
+
+        ttk.Button(buttons, text="Export", command=_ok).pack(side="right")
+        ttk.Button(buttons, text="Cancel", command=dlg.destroy).pack(side="right", padx=(0, 6))
+        dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+        dlg.grab_set()
+        self.window.wait_window(dlg)
+        if not state["ok"]:
+            return None
+        return include_stack.get(), include_app.get(), include_plugins.get()
+
+    def import_profile_file(self):
+        """Import a profile from a single YAML file."""
+        in_path = filedialog.askopenfilename(
             parent=self.window,
             title="Import profile",
-            filetypes=[("AVLite profile", "*.zip"), ("All files", "*.*")],
+            filetypes=[("AVLite profile", "*.yaml"), ("All files", "*.*")],
         )
-        if not zip_path:
+        if not in_path:
             return
+        imported_name = Path(in_path).stem
         overwrite = False
-        try:
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                for name in zf.namelist():
-                    if not name.endswith(".yaml"):
-                        continue
-                    snippet = yaml.safe_load(zf.read(name)) or {}
-                    if isinstance(snippet, dict) and len(snippet) == 1:
-                        imported_name = next(iter(snippet.keys()))
-                        break
-                else:
-                    messagebox.showerror("Import profile", "No profile found in zip.", parent=self.window)
-                    return
-        except (OSError, yaml.YAMLError) as e:
-            messagebox.showerror("Import profile", str(e), parent=self.window)
-            return
-
         if imported_name in self.host.setting.profile_list:
             if not messagebox.askyesno(
                 "Import profile",
@@ -757,9 +790,7 @@ class SettingWindow:
             overwrite = True
 
         try:
-            profile_name = import_profile(
-                zip_path, settings_classes=get_stack_settings_classes(), overwrite=overwrite
-            )
+            profile_name = import_profile(in_path, overwrite=overwrite)
         except ValueError as e:
             messagebox.showerror("Import profile", str(e), parent=self.window)
             return
@@ -777,35 +808,25 @@ class SettingWindow:
 
 
     def delete_profile(self):
-        """ Delete a profile from the settings. """
+        """ Delete a profile (single per-profile YAML file). """
 
-        result = messagebox.askyesno("Confirmation", f"Are you sure you want to delete {self.host.setting.c50_selected_profile.get()}?")
-        if result:
-            log.info(f"Deleting profile: {self.host.setting.c50_selected_profile.get()}")
-            delete_setting_profile(PerceptionSettings, profile=self.host.setting.c50_selected_profile.get())
-            delete_setting_profile(PlanningSettings, profile=self.host.setting.c50_selected_profile.get())
-            delete_setting_profile(ControlSettings, profile=self.host.setting.c50_selected_profile.get())
-            delete_setting_profile(ExecutionSettings, profile=self.host.setting.c50_selected_profile.get())
-            delete_setting_profile(AppSettings, profile=self.host.setting.c50_selected_profile.get())
-            delete_setting_profile(self.host.setting, profile=self.host.setting.c50_selected_profile.get())
-            if self.host.setting.c52_load_plugins.get():
-                for plugin in AppSettings.c52_default_plugins:
-                    try:
-                        module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
-                        PluginSettings = getattr(module, "PluginSettings")
-                        delete_setting_profile(PluginSettings, profile=self.host.setting.c50_selected_profile.get())
-                    except Exception as e:
-                        log.error(f"Failed to delete plugin settings for {plugin}: {e}")
-
-            profile = self._refresh_profile_dropdowns(select="default")
-            self.load_profile(profile)
-
-
+        profile = self.host.setting.c60_selected_profile.get()
+        if profile == "default":
+            messagebox.showwarning("Delete", "Cannot delete the 'default' profile.", parent=self.window)
+            return
+        if not messagebox.askyesno("Confirmation", f"Are you sure you want to delete {profile}?", parent=self.window):
+            return
+        log.info(f"Deleting profile: {profile}")
+        if not delete_profile_file(profile):
+            messagebox.showerror("Delete", f"Could not delete profile '{profile}'.", parent=self.window)
+            return
+        profile = self._refresh_profile_dropdowns(select="default")
+        self.load_profile(profile)
 
     def rename_profile(self):
-        """ Rename the selected profile across all settings files. """
+        """ Rename the selected profile (single per-profile YAML file). """
 
-        old_name = self.host.setting.c50_selected_profile.get()
+        old_name = self.host.setting.c60_selected_profile.get()
         if old_name == "default":
             messagebox.showwarning("Rename", "Cannot rename the 'default' profile.")
             return
@@ -819,25 +840,14 @@ class SettingWindow:
             return
 
         log.info(f"Renaming profile '{old_name}' to '{new_name}'")
-        rename_setting_profile(PerceptionSettings, old_name, new_name)
-        rename_setting_profile(PlanningSettings, old_name, new_name)
-        rename_setting_profile(ControlSettings, old_name, new_name)
-        rename_setting_profile(ExecutionSettings, old_name, new_name)
-        rename_setting_profile(AppSettings, old_name, new_name)
-        rename_setting_profile(self.host.setting, old_name, new_name)
-        if self.host.setting.c52_load_plugins.get():
-            for plugin in AppSettings.c52_default_plugins:
-                try:
-                    module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
-                    PluginSettings = getattr(module, "PluginSettings")
-                    rename_setting_profile(PluginSettings, old_name, new_name)
-                except Exception as e:
-                    log.error(f"Failed to rename plugin settings for {plugin}: {e}")
+        if not rename_profile_file(old_name, new_name):
+            messagebox.showerror("Rename", f"Could not rename profile '{old_name}'.")
+            return
 
         idx = self.host.setting.profile_list.index(old_name)
         self.host.setting.profile_list[idx] = new_name
         self.host.setting.profile_list = order_profiles_for_dropdown(self.host.setting.profile_list)
-        self.host.setting.c50_selected_profile.set(new_name)
+        self.host.setting.c60_selected_profile.set(new_name)
         self.profile_dropdown_menu["values"] = self.host.setting.profile_list
         self.next_profile_dropdown_menu["values"] = self.host.setting.profile_list
         shortcut = getattr(self.host, "setting_shortcut_view", None)
@@ -849,8 +859,8 @@ class SettingWindow:
     def save_profile(self):
         """ Save the current settings to the selected profile. """
 
-        log.info(f"Saving profile: {self.host.setting.c50_selected_profile.get()}")
-        profile = self.host.setting.c50_selected_profile.get()
+        log.info(f"Saving profile: {self.host.setting.c60_selected_profile.get()}")
+        profile = self.host.setting.c60_selected_profile.get()
         binder = TkSettingsBinder()
         self.save_from_widgets(PerceptionSettings)
         save_setting(PerceptionSettings, profile=profile, binder=binder)
@@ -859,16 +869,16 @@ class SettingWindow:
         self.save_from_widgets(ControlSettings)
         save_setting(ControlSettings, profile=profile, binder=binder)
         self.save_from_widgets(ExecutionSettings)
-        AppSettings.c52_community_plugins = PluginPaths.normalize_map(
-            AppSettings.c52_community_plugins
+        AppSettings.c62_community_plugins = PluginPaths.normalize_map(
+            AppSettings.c62_community_plugins
         )
         save_setting(ExecutionSettings, profile=profile, binder=binder)
         self.host.setting.sync_app_to_singleton()
         save_setting(AppSettings, profile=profile, binder=binder)
         save_setting(self.host.setting, profile=profile, binder=binder)
 
-        if self.host.setting.c52_load_plugins.get():
-            for plugin in AppSettings.c52_default_plugins:
+        if self.host.setting.c62_load_plugins.get():
+            for plugin in AppSettings.c62_default_plugins:
                 try:
                     module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
                     PluginSettings = getattr(module, "PluginSettings")
@@ -878,9 +888,9 @@ class SettingWindow:
                     log.error(f"Failed to save plugin settings for {plugin}: {e}")
 
         # Save community plugin settings
-        if self.host.setting.c52_load_plugins.get():
-            profile = self.host.setting.c50_selected_profile.get()
-            for name, stored in AppSettings.c52_community_plugins.items():
+        if self.host.setting.c62_load_plugins.get():
+            profile = self.host.setting.c60_selected_profile.get()
+            for name, stored in AppSettings.c62_community_plugins.items():
                 try:
                     cls = load_community_plugin_setting(
                         name, stored, profile=profile, binder=TkSettingsBinder()
@@ -906,24 +916,26 @@ class SettingWindow:
         load_stack_settings(profile=profile)
         load_setting(self.host.setting, profile=profile, binder=binder)
         sync_stack_settings_to_ui(self.host.setting)
-        self.host.setting.c50_selected_profile.set(profile)
+        self.host.setting.c60_selected_profile.set(profile)
         ConfigPaths.set_startup_profile(profile)
 
         self.refresh_widgets()
         self.update_community_plugin_list()
 
         self.listbox_default_plugins.delete(0, tk.END)
-        for plugin in AppSettings.c52_default_plugins:
+        for plugin in AppSettings.c62_default_plugins:
             self.listbox_default_plugins.insert(tk.END, plugin)
 
+        self._update_profile_action_states(profile)
+        self._update_builtin_plugin_action_states()
         self.host.on_stack_settings_changed()
 
     def update_community_plugin_widgets(self):
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
-        if not self.host.setting.c52_load_plugins.get():
+        if not self.host.setting.c62_load_plugins.get():
             return
-        profile = self.host.setting.c50_selected_profile.get()
-        for name, stored in AppSettings.c52_community_plugins.items():
+        profile = self.host.setting.c60_selected_profile.get()
+        for name, stored in AppSettings.c62_community_plugins.items():
             plugin_name = f"community_{name}"
             cls = load_community_plugin_setting(
                 name, stored, profile=profile, binder=TkSettingsBinder()
@@ -976,7 +988,7 @@ class SettingWindow:
             log.warning("Plugin widgets already created, skipping.")
             return
 
-        for plugin in AppSettings.c52_default_plugins:
+        for plugin in AppSettings.c62_default_plugins:
             try:
                 module = importlib.import_module(f"{plugin_module_prefix(plugin)}.settings")
                 PluginSettings = getattr(module, "PluginSettings")
@@ -992,9 +1004,9 @@ class SettingWindow:
             return
 
         found = []
-        if self.host.setting.c52_load_plugins.get():
-            profile = self.host.setting.c50_selected_profile.get()
-            for name, stored in AppSettings.c52_community_plugins.items():
+        if self.host.setting.c62_load_plugins.get():
+            profile = self.host.setting.c60_selected_profile.get()
+            for name, stored in AppSettings.c62_community_plugins.items():
                 cls = load_community_plugin_setting(
                     name, stored, profile=profile, binder=TkSettingsBinder()
                 )
@@ -1111,6 +1123,10 @@ class SettingWindow:
         if total > 0:
             self.canvas.yview_moveto(frame.winfo_y() / total)
 
+    def _on_builtin_plugin_select(self) -> None:
+        self._update_builtin_plugin_action_states()
+        self._scroll_to_selected_builtin_plugin()
+
     def _scroll_to_selected_builtin_plugin(self) -> None:
         sel = self.listbox_default_plugins.curselection()
         if sel:
@@ -1182,7 +1198,7 @@ class SettingShortcutView(ttk.LabelFrame):
         self.root.bind(
             "<Control-d>",
             lambda e: self.root.log_view.log_area.yview_scroll(
-                int(0.5 * self.root.setting.p58_log_view_default_height.get()), "units"
+                int(0.5 * self.root.setting.p68_log_view_default_height.get()), "units"
             ),
         )
         self.root.bind("G", lambda e: self.root.log_view.log_area.yview_moveto(1.0))
@@ -1213,7 +1229,7 @@ class SettingShortcutView(ttk.LabelFrame):
         self.profile_dropdown_menu = ttk.Combobox(
             self,
             width=10,
-            textvariable=self.root.setting.c50_selected_profile,
+            textvariable=self.root.setting.c60_selected_profile,
             state="readonly",
             justify=tk.CENTER,
             font=("Arial", 10, "bold"),
@@ -1222,22 +1238,22 @@ class SettingShortcutView(ttk.LabelFrame):
         self.profile_dropdown_menu.state(["readonly"])
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
         self.profile_dropdown_menu.pack(side=tk.RIGHT)
-        attach_schema_tooltip(self.profile_dropdown_menu, AppSettings, "c50_selected_profile")
+        attach_schema_tooltip(self.profile_dropdown_menu, AppSettings, "c60_selected_profile")
 
         shortcut_cb = ttk.Checkbutton(
             self,
             text="Shortcut Mode",
-            variable=self.root.setting.p50_shortcut_mode,
+            variable=self.root.setting.p60_shortcut_mode,
             command=self.root.update_shortcut_mode,
         )
         shortcut_cb.pack(anchor=tk.W, side=tk.LEFT)
-        attach_schema_tooltip(shortcut_cb, VisualizationSettings, "p50_shortcut_mode")
+        attach_schema_tooltip(shortcut_cb, VisualizationSettings, "p60_shortcut_mode")
 
         dark_cb = ttk.Checkbutton(
-            self, text="Dark Mode", variable=self.root.setting.p50_dark_mode, command=self.toggle_dark_mode
+            self, text="Dark Mode", variable=self.root.setting.p60_dark_mode, command=self.toggle_dark_mode
         )
         dark_cb.pack(anchor=tk.W, side=tk.LEFT)
-        attach_schema_tooltip(dark_cb, VisualizationSettings, "p50_dark_mode")
+        attach_schema_tooltip(dark_cb, VisualizationSettings, "p60_dark_mode")
 
         ttk.Label(self, textvariable=self.root.setting.perception_status_text, width=30).pack(
             side=tk.LEFT, padx=(25, 5), pady=5
@@ -1270,14 +1286,14 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.root.reload_stack(reload_code=False)
 
     def toggle_dark_mode(self):
-        self.root.set_dark_mode_themed() if self.root.setting.p50_dark_mode.get() else self.root.set_light_mode()
+        self.root.set_dark_mode_themed() if self.root.setting.p60_dark_mode.get() else self.root.set_light_mode()
 
     def save_settings(self):
-        profile = self.root.setting.c50_selected_profile.get()
+        profile = self.root.setting.c60_selected_profile.get()
         binder = TkSettingsBinder()
         save_setting(self.root.setting, profile=profile, binder=binder)
         save_setting(PerceptionSettings, profile=profile, binder=binder)
-        AppSettings.c52_community_plugins = PluginPaths.normalize_map(AppSettings.c52_community_plugins)
+        AppSettings.c62_community_plugins = PluginPaths.normalize_map(AppSettings.c62_community_plugins)
         save_setting(ExecutionSettings, profile=profile, binder=binder)
 
     def open_settings_window(self):

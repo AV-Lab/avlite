@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-04
+
 ### Added
+- `scripts/migrate_configs.py` — one-time migration from the old per-layer/per-plugin YAML files to the new per-profile `configs/<profile>.yaml` layout, applying field renames (`c52_*` → `c62_*`, `c50_selected_profile` → `c60_selected_profile`, `p5x_*` → `p6x_*`)
+- `c65_setting_utils.section_key()` / `profile_file_path()` and file-level `delete_profile()` / `rename_profile()` for the single-file-per-profile model
+- `setting-cli export-profile --no-app` / `--no-plugins` flags and Export dialog checkboxes (include app settings / include plugin settings)
 - `AppStrategy` registry in `c50_apps/c51_app_strategy.py` — pluggable CLI/GUI entry points (`setting`, `config-cli`, `plugins`, `headless`, default visualizer)
 - Standalone settings GUI: `python -m avlite setting` (no visualizer panels)
 - `p50_config_cli` built-in plugin — terminal profile validate/describe/import/export (`config-cli` subcommand)
@@ -23,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README, architecture, and plugin-development docs for optional community plugins (`avlite-bridge-*`, `avlite-executer-ROS2`, `avlite-controller-joystick`)
 
 ### Changed
+- **Breaking:** Renamed terminal CLI `config-cli` → `setting-cli` and built-in plugin `p60_config_cli` → `p60_setting_cli` (pairs with GUI `avlite setting`)
+- **Breaking:** Profile export supports optional stack layer sections via `include_stack` / `--no-stack` and a **Stack settings** checkbox in the Export dialog (alongside app and plugin toggles)
+- **Breaking:** Renamed `c50_apps` → `c60_apps` (inner modules `c5x` → `c6x`) and `c60_common` → `c50_common` (inner modules `c6x` → `c5x`); built-in plugins `p50_*` → `p60_*` (`p60_visualizer_tk`, `p60_config_cli`, `p60_headless_mode`) with inner modules `p5x` → `p6x`
+- **Breaking:** App bootstrap fields renamed `c52_load_plugins` / `c52_default_plugins` / `c52_community_plugins` → `c62_*` and `c50_selected_profile` → `c60_selected_profile`; visualizer fields `p5x_*` → `p6x_*`
+- **Breaking:** Config layout is now **one file per profile** — `configs/<profile>.yaml` with sections `c10_perception`, `c20_planning`, `c30_control`, `c40_execution`, `c69_apps`, and `plugins:` (per-plugin settings keyed by directory name); replaces the per-layer (`c10_perception.yaml`, …) and per-plugin (`plugin_*.yaml`, `c59_apps.yaml`) files
+- **Breaking:** Profile export/import is a single `.yaml` (was a zip); `c65_setting_utils.export_profile()` / `import_profile()` gate stack layers, `c69_apps`, and `plugins` sections behind include flags
 - **Breaking:** `p50_visualizer_tk` modules renumbered to `p51`–`p59` (apps at `p51_visualizer_app`, `p52_setting_app`, `p53_plugins_app`); settings GUI CLI renamed from `avlite config` to `avlite setting`; visualization YAML keys updated (`p56_*` plot, `p57_*` stack panels, `p58_*` log)
 - **Breaking:** Merged Tk plugins into one package: `p50_visualizer_tk` hosts the visualizer, settings GUI (`avlite setting`), and plugin manager (`avlite plugins`); removed `p50_config_tk` and `p50_plugins_app_tk`
 - **Breaking:** App bootstrap settings moved to `c59_settings.py` / `configs/c59_apps.yaml` (`c50_load_plugins`, `c50_default_plugins`, `c50_community_plugins`, profile selection)

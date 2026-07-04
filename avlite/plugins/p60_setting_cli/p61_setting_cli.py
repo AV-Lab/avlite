@@ -13,18 +13,18 @@ from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c59_settings import AppSettings
-from avlite.c50_apps.c51_app_strategy import AppStrategy
-from avlite.c50_apps.c58_paths import ConfigPaths
-from avlite.c50_apps.c52_factory import get_stack_settings_classes
-from avlite.c50_apps.c55_setting_utils import (
+from avlite.c60_apps.c69_settings import AppSettings
+from avlite.c60_apps.c61_app_strategy import AppStrategy
+from avlite.c60_apps.c65_setting_utils import (
     dev_mode_export_warning,
     export_profile,
     import_profile,
-    load_setting,
+    list_profiles,
+    profile_file_path,
+    setting_section,
 )
-from avlite.c50_apps.c53_plugins import list_plugins, load_builtin_plugin_settings
-from avlite.c50_apps.c54_settings_schema import (
+from avlite.c60_apps.c63_plugins import list_plugins, load_builtin_plugin_settings
+from avlite.c60_apps.c64_settings_schema import (
     SettingsValidationError,
     describe_schema,
     schema_of,
@@ -38,20 +38,20 @@ _LAYER_REGISTRY: dict[str, Any] = {
     "execution": ExecutionSettings,
     "apps": AppSettings,
 }
-_config_parser: argparse.ArgumentParser | None = None
+_setting_parser: argparse.ArgumentParser | None = None
 
 
-class ConfigCliApp(AppStrategy):
-    """``avlite config-cli`` — validate, describe, and import/export profiles in the terminal."""
+class SettingCliApp(AppStrategy):
+    """``avlite setting-cli`` — validate, describe, and import/export profiles in the terminal."""
 
-    cli_name = "config-cli"
+    cli_name = "setting-cli"
     help = "Validate or describe settings profiles (terminal)"
 
     def configure_parser(self, parser: argparse.ArgumentParser) -> None:
         configure_parser(parser)
 
     def run(self, args: argparse.Namespace, unknown: list[str]) -> int | None:
-        return run_config_command(args)
+        return run_setting_command(args)
 
 
 def _layers() -> dict[str, Any]:
@@ -71,38 +71,36 @@ def _plugin_settings() -> list[Any]:
     return classes
 
 
-def _profiles_in_file(filepath: Path, profile: str | None) -> list[str]:
-    if not filepath.exists():
-        return []
-    with open(filepath) as f:
-        data = yaml.safe_load(f) or {}
-    if profile is not None:
-        return [profile] if profile in data else []
-    return list(data.keys())
-
-
 def cmd_validate(args: argparse.Namespace) -> int:
     errors: list[str] = []
     settings_classes = _stack_settings() + _plugin_settings()
+    profiles = [args.profile] if args.profile else list_profiles()
 
-    for settings_cls in settings_classes:
-        schema = schema_of(settings_cls)
-        if schema is None:
+    for prof in profiles:
+        filepath = Path(profile_file_path(prof, for_write=False))
+        if not filepath.exists():
+            errors.append(f"{filepath}: profile '{prof}' not found")
             continue
-        filepath = Path(ConfigPaths.effective_path(settings_cls.filepath))
-        for prof in _profiles_in_file(filepath, args.profile):
-            try:
-                with open(filepath) as f:
-                    config = yaml.safe_load(f) or {}
-            except yaml.YAMLError as exc:
-                errors.append(f"{filepath}: YAML syntax error: {exc}")
+        try:
+            with open(filepath) as f:
+                config = yaml.safe_load(f) or {}
+        except yaml.YAMLError as exc:
+            errors.append(f"{filepath}: YAML syntax error: {exc}")
+            continue
+
+        for settings_cls in settings_classes:
+            schema = schema_of(settings_cls)
+            if schema is None:
                 continue
-            profile_dict = config.get(prof, {})
-            if not isinstance(profile_dict, dict):
-                errors.append(f"{filepath} / profile '{prof}': expected mapping")
+            group, key = setting_section(settings_cls)
+            if group == "plugins":
+                section = (config.get("plugins") or {}).get(key)
+            else:
+                section = config.get(key)
+            if not isinstance(section, dict):
                 continue
             try:
-                validate_profile(schema, profile_dict, filepath=str(filepath), profile=prof)
+                validate_profile(schema, section, filepath=str(filepath), profile=prof)
             except SettingsValidationError as exc:
                 errors.append(str(exc))
 
@@ -142,39 +140,37 @@ def cmd_describe(args: argparse.Namespace) -> int:
 
 
 def cmd_help(_args: argparse.Namespace) -> int:
-    if _config_parser is not None:
-        _config_parser.print_help()
+    if _setting_parser is not None:
+        _setting_parser.print_help()
     return 0
 
 
 def cmd_export_profile(args: argparse.Namespace) -> int:
-    output = args.output or f"{args.profile}.zip"
+    output = args.output or f"{args.profile}.yaml"
     try:
-        load_setting(ExecutionSettings, profile=args.profile)
-        warning = dev_mode_export_warning(AppSettings.c52_community_plugins)
+        warning = dev_mode_export_warning(AppSettings.c62_community_plugins)
         if warning:
             print(warning, file=sys.stderr)
         count = export_profile(
             args.profile,
             output,
-            settings_classes=get_stack_settings_classes(),
-            community_plugins=AppSettings.c52_community_plugins,
+        include_stack=not args.no_stack,
+            include_app=not args.no_app,
+            include_plugins=not args.no_plugins,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     except OSError as exc:
-        print(f"Failed to write zip: {exc}", file=sys.stderr)
+        print(f"Failed to write profile: {exc}", file=sys.stderr)
         return 1
-    print(f"Exported profile '{args.profile}' ({count} file(s)) to {output}")
+    print(f"Exported profile '{args.profile}' ({count} section(s)) to {output}")
     return 0
 
 
 def cmd_import_profile(args: argparse.Namespace) -> int:
     try:
-        profile_name = import_profile(
-            args.zip_path, settings_classes=get_stack_settings_classes(), overwrite=args.force
-        )
+        profile_name = import_profile(args.path, overwrite=args.force)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -186,38 +182,41 @@ def cmd_import_profile(args: argparse.Namespace) -> int:
 
 
 def configure_parser(parser: argparse.ArgumentParser) -> None:
-    """Add nested subcommands to the ``config-cli`` app parser."""
-    global _config_parser
-    _config_parser = parser
-    config_sub = parser.add_subparsers(dest="config_command")
+    """Add nested subcommands to the ``setting-cli`` app parser."""
+    global _setting_parser
+    _setting_parser = parser
+    setting_sub = parser.add_subparsers(dest="setting_command")
 
-    help_p = config_sub.add_parser("help", help="Show config-cli command usage")
-    help_p.set_defaults(config_handler=cmd_help)
+    help_p = setting_sub.add_parser("help", help="Show setting-cli command usage")
+    help_p.set_defaults(setting_handler=cmd_help)
 
-    validate = config_sub.add_parser("validate", help="Validate YAML profiles against schemas")
+    validate = setting_sub.add_parser("validate", help="Validate YAML profiles against schemas")
     validate.add_argument("--profile", help="Validate only this profile name")
-    validate.set_defaults(config_handler=cmd_validate)
+    validate.set_defaults(setting_handler=cmd_validate)
 
-    describe = config_sub.add_parser("describe", help="Print field types, defaults, and descriptions")
+    describe = setting_sub.add_parser("describe", help="Print field types, defaults, and descriptions")
     describe.add_argument("--layer", help="Stack layer: perception, planning, control, execution")
     describe.add_argument("--field", help="Single field name to describe (requires --layer)")
-    describe.set_defaults(config_handler=cmd_describe)
+    describe.set_defaults(setting_handler=cmd_describe)
 
-    export_p = config_sub.add_parser("export-profile", help="Export a profile to a zip file")
+    export_p = setting_sub.add_parser("export-profile", help="Export a profile to a YAML file")
     export_p.add_argument("profile", help="Profile name to export")
-    export_p.add_argument("-o", "--output", help="Output zip path (default: {profile}.zip)")
-    export_p.set_defaults(config_handler=cmd_export_profile)
+    export_p.add_argument("-o", "--output", help="Output YAML path (default: {profile}.yaml)")
+    export_p.add_argument("--no-stack", action="store_true", help="Exclude stack layer sections (c10–c40)")
+    export_p.add_argument("--no-app", action="store_true", help="Exclude the c69_apps section")
+    export_p.add_argument("--no-plugins", action="store_true", help="Exclude the plugins section")
+    export_p.set_defaults(setting_handler=cmd_export_profile)
 
-    import_p = config_sub.add_parser("import-profile", help="Import a profile from a zip file")
-    import_p.add_argument("zip_path", help="Path to profile zip file")
-    import_p.add_argument("--force", action="store_true", help="Overwrite existing profile keys")
-    import_p.set_defaults(config_handler=cmd_import_profile)
+    import_p = setting_sub.add_parser("import-profile", help="Import a profile from a YAML file")
+    import_p.add_argument("path", help="Path to profile YAML file")
+    import_p.add_argument("--force", action="store_true", help="Overwrite an existing profile")
+    import_p.set_defaults(setting_handler=cmd_import_profile)
 
 
-def run_config_command(args: argparse.Namespace) -> int:
-    handler = getattr(args, "config_handler", None)
+def run_setting_command(args: argparse.Namespace) -> int:
+    handler = getattr(args, "setting_handler", None)
     if handler is None:
-        if _config_parser is not None:
-            _config_parser.print_help()
+        if _setting_parser is not None:
+            _setting_parser.print_help()
         return 0
     return handler(args)

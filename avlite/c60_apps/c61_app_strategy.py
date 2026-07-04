@@ -5,7 +5,7 @@ An *app* is anything launchable as ``avlite <cli_name>``: the visualizer
 
 To add a new app, subclass :class:`AppStrategy` and implement ``run``::
 
-    from avlite.c50_apps.c51_app_strategy import AppStrategy
+    from avlite.c60_apps.c61_app_strategy import AppStrategy
 
     class MyToolApp(AppStrategy):
         cli_name = "my-tool"
@@ -19,7 +19,7 @@ Importing the module auto-registers the app (same pattern as
 ``PerceptionStrategy``). Override :meth:`AppStrategy.configure_parser` only
 when the app needs CLI flags or nested subcommands.
 
-Built-in ``p50_*`` plugin packages are imported at startup via :func:`~avlite.c50_apps.c51_app_strategy.import_app_plugins`.
+Built-in ``p60_*`` plugin packages are imported at startup via :func:`~avlite.c60_apps.c61_app_strategy.import_app_plugins`.
 
 This module stays free of heavy imports (no tkinter); plugins may import it
 without pulling in the GUI.
@@ -61,10 +61,10 @@ class AppStrategy(ABC):
 
 def bootstrap_apps() -> None:
     """Import all app modules so their ``AppStrategy`` subclasses register."""
-    from avlite.c50_apps.c53_plugins import import_plugin_modules, list_plugins
+    from avlite.c60_apps.c63_plugins import import_plugin_modules, list_plugins
 
     for name in list_plugins():
-        if not name.startswith("p50"):
+        if not name.startswith("p60"):
             continue
         try:
             import_plugin_modules(plugins_filter=[name])
