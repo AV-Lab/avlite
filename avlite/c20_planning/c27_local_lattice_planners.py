@@ -12,7 +12,7 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner
 from avlite.c20_planning.c28_lattice import Lattice, Node, Edge
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
 
 if TYPE_CHECKING:
     from avlite.c30_control.c32_control_strategy import ControlStrategy

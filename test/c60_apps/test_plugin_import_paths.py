@@ -3,7 +3,7 @@
 import sys
 
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c50_apps.c53_plugins import (
+from avlite.c60_apps.c63_plugins import (
     import_plugin_modules,
     plugin_module_prefix,
     sync_community_plugins,

@@ -7,9 +7,9 @@ import numpy as np
 from collections import defaultdict
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
 
 
 log = logging.getLogger(__name__)

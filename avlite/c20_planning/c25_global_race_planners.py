@@ -8,8 +8,8 @@ from avlite.c10_perception.c11_perception_model import RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c50_apps.c58_paths import DataPaths
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c60_apps.c68_paths import DataPaths
 
 log = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from avlite.c10_perception.c11_perception_model import Map, RaceMap
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c39_settings import ControlSettings
-from avlite.c50_apps.c53_plugins import (
+from avlite.c60_apps.c63_plugins import (
     import_plugin_modules,
     load_builtin_plugin_settings,
     reload_lib,
@@ -14,13 +14,13 @@ from avlite.c50_apps.c53_plugins import (
     sync_community_plugins,
     unregister_plugin_package,
 )
-from avlite.c50_apps.c58_paths import DataPaths, PluginPaths
-from avlite.c50_apps.c55_setting_utils import load_setting
+from avlite.c60_apps.c68_paths import DataPaths, PluginPaths
+from avlite.c60_apps.c65_setting_utils import load_setting
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState, EGO_AGENT_ID
 from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c59_settings import AppSettings
+from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c10_perception.c12_perception_strategy import (
     DetectionStrategy,
     PerceptionPipeline,
@@ -74,11 +74,11 @@ def executor_factory(
     """
 
     if load_plugins:
-        sync_builtin_plugins(list(AppSettings.c52_default_plugins))
-        sync_community_plugins(AppSettings.c52_community_plugins)
+        sync_builtin_plugins(list(AppSettings.c62_default_plugins))
+        sync_community_plugins(AppSettings.c62_community_plugins)
     else:
         sync_builtin_plugins([])
-        for k in AppSettings.c52_community_plugins:
+        for k in AppSettings.c62_community_plugins:
             unregister_plugin_package(k)
 
     global_plan_path = DataPaths.resolve_stored(default_global_trajectory_file)
@@ -231,7 +231,7 @@ def get_stack_settings_classes() -> list[Any]:
         ExecutionSettings,
         AppSettings,
     ]
-    from avlite.c50_apps.c53_plugins import list_plugins
+    from avlite.c60_apps.c63_plugins import list_plugins
 
     for plugin in list_plugins():
         cls = load_builtin_plugin_settings(plugin)
@@ -251,16 +251,16 @@ def load_stack_settings(profile: str = "default", load_plugins: bool | None = No
     StackSettingsSync.bootstrap_reference_point()
 
     if load_plugins is None:
-        load_plugins = AppSettings.c52_load_plugins
+        load_plugins = AppSettings.c62_load_plugins
     if not load_plugins:
         return
 
-    for name, stored in AppSettings.c52_community_plugins.items():
+    for name, stored in AppSettings.c62_community_plugins.items():
         path = PluginPaths.resolve(name, stored)
         if path.is_dir():
             import_plugin_modules(str(path), pkg_name=name)
 
-    for plugin in AppSettings.c52_default_plugins:
+    for plugin in AppSettings.c62_default_plugins:
         cls = load_builtin_plugin_settings(plugin)
         if cls is None:
             continue

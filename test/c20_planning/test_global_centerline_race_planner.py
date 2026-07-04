@@ -6,7 +6,7 @@ import pytest
 from shapely.geometry import LineString, Point
 
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-from avlite.c50_apps.c58_paths import DataPaths
+from avlite.c60_apps.c68_paths import DataPaths
 
 
 def _max_corridor_bias(center_pts, left_pts, right_pts, n_samples: int = 200) -> float:

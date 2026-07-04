@@ -4,7 +4,7 @@ from avlite.c10_perception.c11_perception_model import AggregatedOccupancyFlow, 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c28_lattice import Edge
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c46_basic_sim import boundary_segments_from_global_plan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner

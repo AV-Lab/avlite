@@ -6,7 +6,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 
 from avlite.c30_control.c39_settings import ControlSettings
-from avlite.plugins.p50_visualizer_tk.p59_plot_lib import _VELOCITY_CMAP, _update_velocity_colored_line
+from avlite.plugins.p60_visualizer_tk.p69_plot_lib import _VELOCITY_CMAP, _update_velocity_colored_line
 
 
 def test_slow_is_greener_than_fast():

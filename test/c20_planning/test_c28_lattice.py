@@ -7,7 +7,7 @@ Tests verify:
 """
 
 from avlite.c20_planning.c28_lattice import Edge, Lattice, Node
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 
 
 def _straight_global(x_end: float = 100.0, n: int = 20) -> TrajectoryTracker:

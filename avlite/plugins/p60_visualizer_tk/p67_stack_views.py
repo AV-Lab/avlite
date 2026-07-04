@@ -21,8 +21,8 @@ from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c59_settings import AppSettings
-from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
+from avlite.c60_apps.c69_settings import AppSettings
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ValueGauge,
     DataPicker,
     attach_schema_tooltip,
@@ -31,13 +31,13 @@ from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
     ThemedListPickerDialog,
     update_schema_tooltip,
 )
-from avlite.plugins.p50_visualizer_tk.settings import VisualizationSettings
-from avlite.c50_apps.c53_plugins import plugin_module_prefix
-from avlite.c60_common.c61_capabilities import WorldCapability
-from avlite.c50_apps.c58_paths import DataPaths
+from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
+from avlite.c60_apps.c63_plugins import plugin_module_prefix
+from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c60_apps.c68_paths import DataPaths
 
 if TYPE_CHECKING:
-    from avlite.plugins.p50_visualizer_tk.p51_visualizer_app import VisualizerApp
+    from avlite.plugins.p60_visualizer_tk.p61_visualizer_app import VisualizerApp
 
 log = logging.getLogger(__name__)
 
@@ -61,11 +61,11 @@ class PerceivePlanControlView(ttk.Frame):
 
         # Extras row – hidden until the checkbox enables it
         self.perception_extras_frame = PerceptionExtrasFrame(root=self.root, view=self)
-        self.root.setting.p57_show_perception_extras.trace_add("write", lambda *_: self.toggle_perception_extras())
+        self.root.setting.p67_show_perception_extras.trace_add("write", lambda *_: self.toggle_perception_extras())
         self.toggle_perception_extras()  # sync initial checkbox state
 
     def toggle_perception_extras(self):
-        if self.root.setting.p57_show_perception_extras.get():
+        if self.root.setting.p67_show_perception_extras.get():
             self.perception_extras_frame.pack(fill=tk.X, expand=True)
         else:
             self.perception_extras_frame.pack_forget()
@@ -99,15 +99,15 @@ class PerceptionFrame(ttk.LabelFrame):
         self.perception_dropdown_menu.grid(row=0, column=0, sticky="ew", padx=2)
         attach_schema_tooltip(self.perception_dropdown_menu, ExecutionSettings, "c40_perception")
 
-        show_occ = ttk.Checkbutton(self, text="Show", variable=self.root.setting.p57_show_occupancy_flow)
+        show_occ = ttk.Checkbutton(self, text="Show", variable=self.root.setting.p67_show_occupancy_flow)
         show_occ.grid(row=0, column=1, padx=2)
-        attach_schema_tooltip(show_occ, VisualizationSettings, "p57_show_occupancy_flow")
+        attach_schema_tooltip(show_occ, VisualizationSettings, "p67_show_occupancy_flow")
         extras_cb = ttk.Checkbutton(
-            self, text="Extras", variable=self.root.setting.p57_show_perception_extras,
+            self, text="Extras", variable=self.root.setting.p67_show_perception_extras,
             command=lambda: self.root.perceive_plan_control_view.toggle_perception_extras(),
         )
         extras_cb.grid(row=0, column=2, padx=2)
-        attach_schema_tooltip(extras_cb, VisualizationSettings, "p57_show_perception_extras")
+        attach_schema_tooltip(extras_cb, VisualizationSettings, "p67_show_perception_extras")
 
         # Rows 1-3: pipeline sub-strategy widgets (shown only for PerceptionPipeline)
         self._lbl_detect = ttk.Label(self, text="Detect:")
@@ -165,8 +165,8 @@ class PerceptionFrame(ttk.LabelFrame):
     def update_data(self):
         """Update data in the perception frame."""
         core_strategies = set(PerceptionStrategy.registry.keys())
-        allowed_default_plugins = set(PerceptionStrategy.registry.keys()) & set(AppSettings.c52_default_plugins)
-        community_prefixes = tuple(plugin_module_prefix(a) for a in AppSettings.c52_community_plugins.keys())
+        allowed_default_plugins = set(PerceptionStrategy.registry.keys()) & set(AppSettings.c62_default_plugins)
+        community_prefixes = tuple(plugin_module_prefix(a) for a in AppSettings.c62_community_plugins.keys())
         allowed_community_plugins = {
             n for n, c in PerceptionStrategy.registry.items()
             if community_prefixes and c.__module__.startswith(community_prefixes)
@@ -226,9 +226,9 @@ class PlanFrame(ttk.LabelFrame):
         # - Global -----
         global_frame = ttk.Frame(self)
         global_frame.pack(fill=tk.X)
-        global_show = ttk.Checkbutton(global_frame, text="Global", command=self.root.update_views, variable=self.root.setting.p57_global_plan_view)
+        global_show = ttk.Checkbutton(global_frame, text="Global", command=self.root.update_views, variable=self.root.setting.p67_global_plan_view)
         global_show.pack(side=tk.LEFT)
-        attach_schema_tooltip(global_show, VisualizationSettings, "p57_global_plan_view")
+        attach_schema_tooltip(global_show, VisualizationSettings, "p67_global_plan_view")
         self.global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
         self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
         self.global_planner_dropdown_menu.state(["readonly"])
@@ -247,15 +247,15 @@ class PlanFrame(ttk.LabelFrame):
         wp_frame = ttk.Frame(self)
         wp_frame.pack(fill=tk.X)
         # ttk.Separator(wp_frame, orient='horizontal').pack(side=tk.TOP,fill='x', pady=2)
-        local_show = ttk.Checkbutton(wp_frame, text="Local", command=self.root.update_views, variable=self.root.setting.p57_local_plan_view)
+        local_show = ttk.Checkbutton(wp_frame, text="Local", command=self.root.update_views, variable=self.root.setting.p67_local_plan_view)
         local_show.pack(side=tk.LEFT)
-        attach_schema_tooltip(local_show, VisualizationSettings, "p57_local_plan_view")
-        local_g = ttk.Checkbutton(wp_frame, text="G", variable=self.root.setting.p57_show_local_global_view, command=self.root.update_ui)
+        attach_schema_tooltip(local_show, VisualizationSettings, "p67_local_plan_view")
+        local_g = ttk.Checkbutton(wp_frame, text="G", variable=self.root.setting.p67_show_local_global_view, command=self.root.update_ui)
         local_g.pack(side=tk.LEFT)
-        local_f = ttk.Checkbutton(wp_frame, text="F", variable=self.root.setting.p57_show_local_frenet_view, command=self.root.update_ui)
+        local_f = ttk.Checkbutton(wp_frame, text="F", variable=self.root.setting.p67_show_local_frenet_view, command=self.root.update_ui)
         local_f.pack(side=tk.LEFT)
-        attach_schema_tooltip(local_g, VisualizationSettings, "p57_show_local_global_view")
-        attach_schema_tooltip(local_f, VisualizationSettings, "p57_show_local_frenet_view")
+        attach_schema_tooltip(local_g, VisualizationSettings, "p67_show_local_global_view")
+        attach_schema_tooltip(local_f, VisualizationSettings, "p67_show_local_frenet_view")
 
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
         self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())

@@ -1,4 +1,4 @@
-"""Smoke tests for executor_factory stack assembly (avlite.c50_apps.c52_factory).
+"""Smoke tests for executor_factory stack assembly (avlite.c60_apps.c62_factory).
 
 Tests verify:
 - executor_factory wires core components with plugins disabled.
@@ -9,7 +9,7 @@ import pytest
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionPipeline
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c50_apps.c52_factory import executor_factory
+from avlite.c60_apps.c62_factory import executor_factory
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c30_control.c34_stanley import StanleyController

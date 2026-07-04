@@ -10,8 +10,8 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
-from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
+from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
 
 if TYPE_CHECKING:
     from avlite.c30_control.c32_control_strategy import ControlStrategy

@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import numpy as np
 import pytest
 
-from avlite.plugins.p50_visualizer_tk.p59_plot_lib import LocalPlot
+from avlite.plugins.p60_visualizer_tk.p69_plot_lib import LocalPlot
 
 
 @pytest.fixture

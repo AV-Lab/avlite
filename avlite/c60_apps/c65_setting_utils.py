@@ -1,27 +1,37 @@
-"""YAML profile load/save for AVLite settings classes."""
+"""YAML profile load/save for AVLite settings classes (one file per profile).
+
+Each profile is a single ``configs/<profile>.yaml`` file whose top-level keys are
+the stack layer sections (``c10_perception`` … ``c40_execution``), the app section
+(``c69_apps``), and a ``plugins`` mapping keyed by plugin directory name::
+
+    c10_perception: { ... }
+    c40_execution:  { ... }
+    c69_apps:       { c60_selected_profile: default, c62_load_plugins: true, ... }
+    plugins:
+      p60_visualizer_tk: { ... }
+      <community_plugin>: { ... }
+"""
 
 from __future__ import annotations
 
 import logging
 import os
-import zipfile
 from pathlib import Path
 from typing import Any, Protocol
 
 import yaml
 
-from avlite.c50_apps.c53_plugins import load_plugin_settings_class
-from avlite.c50_apps.c59_settings import AppSettingsSchema
-from avlite.c50_apps.c54_settings_schema import (
+from avlite.c60_apps.c64_settings_schema import (
     SETTINGS_META,
     PlainBinder,
     SettingsValidationError,
     apply_validated_to_setting,
     dump_from_setting,
     schema_of,
+    setting_key,
     validate_profile,
 )
-from avlite.c50_apps.c58_paths import (
+from avlite.c60_apps.c68_paths import (
     COMMUNITY_DEV_SUBDIR,
     PRIVATE_DEV_SUBDIR,
     ConfigPaths,
@@ -30,23 +40,67 @@ from avlite.c50_apps.c58_paths import (
 
 log = logging.getLogger(__name__)
 
+PLUGINS_SECTION = "plugins"
 
-def stored_filepath(setting) -> str:
-    """Resolve the YAML filepath token for *setting*.
+STACK_LAYER_SECTIONS = frozenset(
+    {"c10_perception", "c20_planning", "c30_control", "c40_execution"}
+)
 
-    Uses an explicit ``filepath`` when set; otherwise, for plugin settings imported
-    directly (no loader patch), derives ``configs/plugin_<dir>.yaml`` from the module.
-    """
-    fp = getattr(setting, "filepath", "") or ""
-    if fp:
-        return fp
-    plugin_dir = _SettingResolution.plugin_dir_from_module(setting)
-    return PluginPaths.settings_filepath(plugin_dir) if plugin_dir else fp
+# Legacy per-layer/per-plugin basenames that must never be listed as profiles.
+_NON_PROFILE_STEMS = frozenset(
+    {"c10_perception", "c20_planning", "c30_control", "c40_execution", "c59_apps"}
+)
 
 
 class SettingsBinder(Protocol):
     def get_value(self, setting: Any, attr_name: str) -> Any: ...
     def set_value(self, setting: Any, attr_name: str, value: Any) -> None: ...
+
+
+def profile_file_path(profile: str, *, for_write: bool = False) -> str:
+    """Resolve the YAML path for *profile* (``configs/<profile>.yaml``)."""
+    return ConfigPaths.effective_path(f"configs/{profile}.yaml", for_write=for_write)
+
+
+def setting_section(setting) -> tuple[str | None, str]:
+    """Return ``(group, key)`` locating *setting* inside a profile file.
+
+    ``group`` is ``"plugins"`` for plugin settings (nested under the ``plugins``
+    mapping), or ``None`` for layer/app settings (top-level). ``key`` is the
+    section name (layer/app stem, or plugin directory name).
+    """
+    plugin_dir = _SettingResolution.plugin_dir_from_module(setting)
+    if plugin_dir:
+        return (PLUGINS_SECTION, plugin_dir)
+
+    fp = getattr(setting, "filepath", "") or ""
+    base = Path(fp).name
+    if base.startswith("plugin_") and base.endswith(".yaml"):
+        return (PLUGINS_SECTION, base[len("plugin_") : -len(".yaml")])
+    if fp:
+        return (None, Path(fp).stem)
+    return (None, setting_key(setting))
+
+
+def _load_profile_config(path: str) -> dict:
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r") as f:
+        return yaml.safe_load(f) or {}
+
+
+def _get_section(config: dict, group: str | None, key: str) -> Any:
+    if group == PLUGINS_SECTION:
+        plugins = config.get(PLUGINS_SECTION)
+        return plugins.get(key) if isinstance(plugins, dict) else None
+    return config.get(key)
+
+
+def _set_section(config: dict, group: str | None, key: str, value: dict) -> None:
+    if group == PLUGINS_SECTION:
+        config.setdefault(PLUGINS_SECTION, {})[key] = value
+    else:
+        config[key] = value
 
 
 def save_setting(
@@ -55,36 +109,30 @@ def save_setting(
     *,
     binder: SettingsBinder | None = None,
 ) -> None:
-    """Save current configuration to a YAML file."""
+    """Save *setting* into its section of ``configs/<profile>.yaml``."""
     bind = binder or PlainBinder()
-    stored = stored_filepath(setting)
-    filepath = ConfigPaths.effective_path(stored, for_write=True)
+    group, key = setting_section(setting)
+    write_path = profile_file_path(profile, for_write=True)
+    config = _load_profile_config(profile_file_path(profile, for_write=False))
     schema = _SettingResolution.schema_for(setting)
 
-    read_path = ConfigPaths.effective_path(stored, for_write=False)
-    if os.path.exists(read_path):
-        with open(read_path, "r") as f:
-            config = yaml.safe_load(f) or {}
-    else:
-        config = {}
-
     if schema is not None:
-        config[profile] = dump_from_setting(
-            setting, schema, filepath=filepath, profile=profile, binder=bind
+        section_data = dump_from_setting(
+            setting, schema, filepath=write_path, profile=profile, binder=bind
         )
     else:
-        config[profile] = {}
+        section_data = {}
         exclude = _SettingResolution.setting_exclude(setting)
-        target = setting if not isinstance(setting, type) else setting
-        for attr_name, attr_value in vars(target).items():
+        for attr_name, attr_value in vars(setting).items():
             if callable(attr_value) or attr_name.startswith("_") or attr_name in exclude:
                 continue
-            config[profile][attr_name] = bind.get_value(setting, attr_name)
+            section_data[attr_name] = bind.get_value(setting, attr_name)
 
-    os.makedirs(os.path.dirname(filepath) or ".", exist_ok=True)
-    with open(filepath, "w") as f:
+    _set_section(config, group, key, section_data)
+    os.makedirs(os.path.dirname(write_path) or ".", exist_ok=True)
+    with open(write_path, "w") as f:
         yaml.dump(config, f, default_flow_style=False)
-    log.info("Configuration saved to %s for profile '%s'", filepath, profile)
+    log.info("Saved %s to %s (profile '%s')", key, write_path, profile)
 
 
 def load_setting(
@@ -94,46 +142,37 @@ def load_setting(
     strict: bool = False,
     binder: SettingsBinder | None = None,
 ) -> bool:
-    """Load configuration from a YAML file. Returns True on success."""
+    """Load *setting* from its section of ``configs/<profile>.yaml``. True on success."""
     bind = binder or PlainBinder()
-    stored = stored_filepath(setting)
-    filepath = ConfigPaths.effective_path(stored, for_write=False)
-    schema = _SettingResolution.schema_for(setting)
+    group, key = setting_section(setting)
+    filepath = profile_file_path(profile, for_write=False)
     try:
         with open(filepath, "r") as f:
             config = yaml.safe_load(f)
     except yaml.YAMLError as e:
         log.error("YAML syntax error in %s: %s", filepath, e)
         return False
-    except FileNotFoundError:
-        log.debug("No configuration file at %s; using defaults", filepath)
-        return False
-    except OSError as e:
-        if getattr(e, "errno", None) == 2:
-            log.debug("No configuration file at %s; using defaults", filepath)
+    except (FileNotFoundError, OSError) as e:
+        if isinstance(e, FileNotFoundError) or getattr(e, "errno", None) == 2:
+            log.debug("No profile file at %s; using defaults", filepath)
             return False
-        log.error("Failed to read configuration %s: %s", filepath, e)
+        log.error("Failed to read %s: %s", filepath, e)
         return False
 
+    if not config:
+        log.warning("Empty or invalid profile file: %s", filepath)
+        return False
+
+    section = _get_section(config, group, key)
+    if not isinstance(section, dict) or not section:
+        log.debug("Section '%s' not found in %s (profile '%s')", key, filepath, profile)
+        return False
+
+    schema = _SettingResolution.schema_for(setting)
     try:
-        if not config:
-            log.warning("Empty or invalid configuration file: %s", filepath)
-            return False
-
-        profile_dict = config.get(profile, "")
-        if not profile_dict:
-            log.warning("Profile '%s' not found in %s", profile, filepath)
-            return False
-
         if schema is not None:
-            known = set(schema.model_fields.keys())
-            unknown = set(profile_dict.keys()) - known - SETTINGS_META
-            for key in sorted(unknown):
-                log.debug("Skipping unknown key in %s profile '%s': %s", filepath, profile, key)
             try:
-                validated = validate_profile(
-                    schema, profile_dict, filepath=filepath, profile=profile
-                )
+                validated = validate_profile(schema, section, filepath=filepath, profile=profile)
             except SettingsValidationError as e:
                 log.error(str(e))
                 if strict:
@@ -142,78 +181,69 @@ def load_setting(
             apply_validated_to_setting(setting, validated, binder=bind)
         else:
             exclude = _SettingResolution.setting_exclude(setting)
-            for attr_name, value in profile_dict.items():
+            for attr_name, value in section.items():
                 if attr_name in exclude:
                     continue
                 if not hasattr(setting, attr_name):
                     log.warning("Skipping unknown attribute: %s", attr_name)
                     continue
                 bind.set_value(setting, attr_name, value)
-
-        log.info("Configuration loaded from %s for profile '%s'", filepath, profile)
+        log.info("Loaded %s from %s (profile '%s')", key, filepath, profile)
         return True
     except SettingsValidationError:
         raise
     except Exception as e:
-        log.error("Failed to load configuration: %s", e)
+        log.error("Failed to load %s: %s", key, e)
         return False
 
 
-def delete_setting_profile(setting, profile) -> bool:
-    """Delete a profile from the configuration file."""
-    filepath = ConfigPaths.effective_path(stored_filepath(setting), for_write=True)
+def can_remove_builtin_plugin(plugin_name: str, hosting_plugin_name: str) -> str | None:
+    """Return an error message if *plugin_name* must not be removed, else ``None``."""
+    if plugin_name == hosting_plugin_name:
+        return (
+            f"Cannot remove {plugin_name!r} while this settings window is running. "
+            "Remove other plugins, save, and restart with a different app if needed."
+        )
+    return None
+
+
+def delete_profile(profile: str) -> bool:
+    """Delete the ``configs/<profile>.yaml`` file. The ``default`` profile is protected."""
     if profile == "default":
         log.warning("Cannot delete the 'default' profile.")
         return False
-
-    try:
-        with open(filepath, "r") as f:
-            config = yaml.safe_load(f) or {}
-
-        if profile not in config:
-            log.warning("Profile '%s' does not exist in %s", profile, profile)
-            return False
-
-        del config[profile]
-
-        with open(filepath, "w") as f:
-            yaml.dump(config, f, default_flow_style=False)
-
-        log.info("Profile '%s' deleted from %s", profile, filepath)
-        return True
-    except Exception as e:
-        log.error("Failed to delete profile: %s", e)
+    path = Path(profile_file_path(profile, for_write=True))
+    if not path.is_file():
+        log.warning("Profile '%s' does not exist at %s", profile, path)
         return False
+    path.unlink()
+    log.info("Deleted profile '%s' (%s)", profile, path)
+    return True
 
 
-def rename_setting_profile(setting, old_profile, new_profile) -> bool:
-    """Rename a profile in the configuration file."""
-    filepath = ConfigPaths.effective_path(stored_filepath(setting), for_write=True)
+def rename_profile(old_profile: str, new_profile: str) -> bool:
+    """Rename ``configs/<old>.yaml`` to ``configs/<new>.yaml`` and refresh selection."""
     if old_profile == "default":
         log.warning("Cannot rename the 'default' profile.")
         return False
-
-    try:
-        with open(filepath, "r") as f:
-            config = yaml.safe_load(f) or {}
-
-        if old_profile not in config:
-            log.warning("Profile '%s' does not exist in %s", old_profile, filepath)
-            return False
-        if new_profile in config:
-            log.warning("Profile '%s' already exists in %s", new_profile, filepath)
-            return False
-
-        config[new_profile] = config.pop(old_profile)
-
-        with open(filepath, "w") as f:
-            yaml.dump(config, f, default_flow_style=False)
-
-        log.info("Profile '%s' renamed to '%s' in %s", old_profile, new_profile, filepath)
-        return True
-    except Exception as e:
-        log.error("Failed to rename profile: %s", e)
+    src = Path(profile_file_path(old_profile, for_write=True))
+    dst = Path(profile_file_path(new_profile, for_write=True))
+    if not src.is_file():
+        log.warning("Profile '%s' does not exist at %s", old_profile, src)
         return False
+    if dst.exists():
+        log.warning("Profile '%s' already exists at %s", new_profile, dst)
+        return False
+    src.rename(dst)
+
+    config = _load_profile_config(str(dst))
+    apps = config.get("c69_apps")
+    if isinstance(apps, dict) and "c60_selected_profile" in apps:
+        apps["c60_selected_profile"] = new_profile
+        with open(dst, "w") as f:
+            yaml.dump(config, f, default_flow_style=False)
+    log.info("Renamed profile '%s' to '%s'", old_profile, new_profile)
+    return True
 
 
 def order_profiles_for_dropdown(profiles: list[str]) -> list[str]:
@@ -224,48 +254,20 @@ def order_profiles_for_dropdown(profiles: list[str]) -> list[str]:
     return (["default"] if "default" in profiles else []) + rest
 
 
-def list_profiles(setting) -> list:
-    """List all profiles in the configuration file."""
-    filepath = ConfigPaths.effective_path(stored_filepath(setting), for_write=False)
-    try:
-        with open(filepath, "r") as f:
-            config = yaml.safe_load(f)
-        if not config:
-            log.warning("Empty or invalid configuration file: %s", filepath)
-            return []
-
-        profiles = order_profiles_for_dropdown(list(config.keys()))
-        log.info("Available profiles: %s", profiles)
-        return profiles
-    except Exception as e:
-        log.error("Failed to list profiles: %s", e)
-        return []
-
-
-def iter_profile_sources(
-    profile: str,
-    *,
-    settings_classes: list[Any],
-    community_plugins: dict[str, str] | None = None,
-) -> list[tuple[str, Path]]:
-    """Return ``(zip_entry_name, read_path)`` for every YAML containing *profile*."""
-    sources: dict[str, Path] = {}
-
-    for cls in settings_classes:
-        read_path = Path(ConfigPaths.effective_path(stored_filepath(cls), for_write=False))
-        if _ProfileZipIO.profile_dict_in_file(read_path, profile) is not None:
-            sources[read_path.name] = read_path
-
-    config_dir = ConfigPaths.user_dir()
-    if config_dir.is_dir():
-        for path in sorted(config_dir.glob("*.yaml")):
-            if path.name not in sources and _ProfileZipIO.profile_dict_in_file(path, profile) is not None:
-                sources[path.name] = path
-
-    if community_plugins:
-        for basename, read_path in _ProfileZipIO.community_sources_for_profile(profile, community_plugins).items():
-            sources.setdefault(basename, read_path)
-    return sorted(sources.items())
+def list_profiles(setting: Any = None) -> list:
+    """List available profiles: ``*.yaml`` stems in the user and repo config dirs."""
+    names: set[str] = set()
+    for directory in (ConfigPaths.user_dir(), ConfigPaths.bundled_dir()):
+        if not directory.is_dir():
+            continue
+        for path in directory.glob("*.yaml"):
+            stem = path.stem
+            if stem in _NON_PROFILE_STEMS or stem.startswith("plugin_"):
+                continue
+            names.add(stem)
+    profiles = order_profiles_for_dropdown(sorted(names))
+    log.debug("Available profiles: %s", profiles)
+    return profiles
 
 
 def dev_mode_export_warning(community_plugins: dict[str, str] | None = None) -> str | None:
@@ -277,7 +279,7 @@ def dev_mode_export_warning(community_plugins: dict[str, str] | None = None) -> 
         f"({COMMUNITY_DEV_SUBDIR}/, {PRIVATE_DEV_SUBDIR}/).",
         "",
         "On the target machine you must:",
-        f"  \u2022 Enable Plugins dev mode (same checkout directories)",
+        "  \u2022 Enable Plugins dev mode (same checkout directories)",
         "  \u2022 Install all community and member plugins referenced in the profile",
         "",
         "Plugin paths will not resolve on a machine that uses only "
@@ -321,159 +323,115 @@ def dev_mode_uninstall_warning(plugins_dir: Path, name: str) -> str | None:
 
 def export_profile(
     profile: str,
-    zip_path: Path | str,
+    out_path: Path | str,
     *,
-    settings_classes: list[Any],
-    community_plugins: dict[str, str] | None = None,
+    include_stack: bool = True,
+    include_app: bool = True,
+    include_plugins: bool = True,
 ) -> int:
-    """Export *profile* from all YAML sources into a zip file. Returns entry count."""
-    sources = iter_profile_sources(
-        profile, settings_classes=settings_classes, community_plugins=community_plugins
-    )
-    if not sources:
-        raise ValueError(f"Profile '{profile}' not found in any configuration file")
+    """Export *profile* to a single ``.yaml`` file. Returns the number of sections written.
 
-    community_basenames = {
-        PluginPaths.settings_basename(name): name
-        for name in (community_plugins or {})
-    }
+    ``include_stack`` controls the four core layer sections (``c10_perception`` …
+    ``c40_execution``); ``include_app`` controls ``c69_apps``; ``include_plugins``
+    controls the ``plugins`` mapping.
+    """
+    if not include_stack and not include_app and not include_plugins:
+        raise ValueError("Nothing selected to export")
 
-    out = Path(zip_path)
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        for entry_name, read_path in sources:
-            with open(read_path, encoding="utf-8") as f:
-                data = yaml.safe_load(f) or {}
-            prof_data = data[profile]
-            if entry_name in community_basenames:
-                plugin_name = community_basenames[entry_name]
-                stored = community_plugins[plugin_name]
-                cls = load_plugin_settings_class(
-                    plugin_name, str(PluginPaths.resolve(plugin_name, stored))
-                )
-            else:
-                cls = _ProfileZipIO.settings_class_for_basename(read_path.name, settings_classes)
-            snippet_data = _ProfileZipIO.validated_profile_dict(
-                cls, profile, prof_data, filepath=str(read_path)
-            )
-            snippet = {profile: snippet_data}
-            zf.writestr(entry_name, yaml.dump(snippet, default_flow_style=False))
-    log.info("Exported profile '%s' to %s (%d file(s))", profile, out, len(sources))
-    return len(sources)
+    read_path = profile_file_path(profile, for_write=False)
+    if not os.path.exists(read_path):
+        raise ValueError(f"Profile '{profile}' not found ({read_path})")
+    config = _load_profile_config(read_path)
+    if not config:
+        raise ValueError(f"Profile '{profile}' is empty ({read_path})")
+
+    out: dict[str, Any] = {}
+    for key, value in config.items():
+        if key == PLUGINS_SECTION:
+            if include_plugins:
+                out[key] = value
+            continue
+        if key == "c69_apps" and not include_app:
+            continue
+        if key in STACK_LAYER_SECTIONS and not include_stack:
+            continue
+        out[key] = value
+
+    out_file = Path(out_path)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w", encoding="utf-8") as f:
+        yaml.dump(out, f, default_flow_style=False)
+    log.info("Exported profile '%s' to %s (%d section(s))", profile, out_file, len(out))
+    return len(out)
+
+
+def _validate_profile_sections(data: dict) -> None:
+    """Validate known layer/app/built-in-plugin sections against their schemas."""
+    from avlite.c60_apps.c62_factory import get_stack_settings_classes
+
+    schema_by_section: dict[tuple[str | None, str], Any] = {}
+    for cls in get_stack_settings_classes():
+        schema = schema_of(cls)
+        if schema is None:
+            continue
+        schema_by_section[setting_section(cls)] = schema
+
+    for key, value in data.items():
+        if key == PLUGINS_SECTION:
+            if isinstance(value, dict):
+                for plugin_key, plugin_value in value.items():
+                    schema = schema_by_section.get((PLUGINS_SECTION, plugin_key))
+                    if schema is not None and isinstance(plugin_value, dict):
+                        validate_profile(schema, plugin_value, profile=plugin_key)
+            continue
+        schema = schema_by_section.get((None, key))
+        if schema is not None and isinstance(value, dict):
+            validate_profile(schema, value, profile=key)
 
 
 def import_profile(
-    zip_path: Path | str,
+    in_path: Path | str,
     *,
-    settings_classes: list[Any],
     overwrite: bool = False,
+    profile: str | None = None,
+    validate: bool = True,
 ) -> str:
-    """Import a profile zip; merge each entry into the corresponding YAML. Returns profile name."""
-    src = Path(zip_path)
-    standard_entries: list[tuple[str, dict]] = []
-    community_entries: list[tuple[str, dict]] = []
-    profile_name: str | None = None
+    """Import a profile ``.yaml`` file into ``configs/``. Returns the profile name.
 
-    with zipfile.ZipFile(src, "r") as zf:
-        for name in zf.namelist():
-            if not name.endswith(".yaml"):
-                continue
-            snippet = yaml.safe_load(zf.read(name)) or {}
-            if not isinstance(snippet, dict) or len(snippet) != 1:
-                raise ValueError(f"Invalid profile entry in zip: {name}")
-            prof, prof_data = next(iter(snippet.items()))
-            if not isinstance(prof_data, dict):
-                raise ValueError(f"Invalid profile data in zip: {name}")
-            if profile_name is None:
-                profile_name = prof
-            elif profile_name != prof:
-                raise ValueError(
-                    f"Inconsistent profile names in zip: expected '{profile_name}', got '{prof}' in {name}"
-                )
-            if name.startswith("community/"):
-                community_entries.append((name, prof_data))
+    The target profile name defaults to the imported file's stem. Existing sections
+    are merged unless *overwrite* replaces the whole profile. Known sections are
+    validated against their schemas before anything is written.
+    """
+    src = Path(in_path)
+    with open(src, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict) or not data:
+        raise ValueError(f"Invalid or empty profile file: {src}")
+
+    if validate:
+        _validate_profile_sections(data)
+
+    profile_name = profile or src.stem
+    dest = profile_file_path(profile_name, for_write=True)
+    dest_exists = os.path.exists(dest)
+    if dest_exists and not overwrite:
+        raise ValueError(f"Profile '{profile_name}' already exists")
+
+    existing = _load_profile_config(dest) if dest_exists else {}
+    merged: dict[str, Any] = {} if overwrite else dict(existing)
+    for key, value in data.items():
+        if key == PLUGINS_SECTION and isinstance(value, dict):
+            plugins = merged.setdefault(PLUGINS_SECTION, {})
+            if isinstance(plugins, dict):
+                plugins.update(value)
             else:
-                standard_entries.append((Path(name).name, prof_data))
+                merged[PLUGINS_SECTION] = dict(value)
+        else:
+            merged[key] = value
 
-    if profile_name is None:
-        raise ValueError("No YAML entries found in zip")
-
-    standard_entries.sort(key=lambda item: (0 if item[0] == "c40_execution.yaml" else 1, item[0]))
-
-    exec_prof_data: dict | None = None
-    apps_prof_data: dict | None = None
-    for basename, prof_data in standard_entries:
-        if basename == "c40_execution.yaml":
-            exec_prof_data = prof_data
-        elif basename == "c59_apps.yaml":
-            apps_prof_data = prof_data
-
-    community_plugins_map: dict[str, str] = {}
-    if isinstance(apps_prof_data, dict):
-        community_plugins_map = validate_profile(
-            AppSettingsSchema, apps_prof_data, profile=profile_name
-        ).c52_community_plugins
-
-    validated_standard: list[tuple[str, dict]] = []
-    deferred_community_standard: list[tuple[str, dict]] = []
-    for basename, prof_data in standard_entries:
-        plugin_name = _ProfileZipIO.community_plugin_name_for_basename(basename, community_plugins_map)
-        if plugin_name is not None:
-            deferred_community_standard.append((plugin_name, prof_data))
-            continue
-        dest = ConfigPaths.effective_path(f"configs/{basename}", for_write=True)
-        cls = _ProfileZipIO.settings_class_for_basename(basename, settings_classes)
-        validated_standard.append(
-            (dest, _ProfileZipIO.validated_profile_dict(cls, profile_name, prof_data, filepath=dest))
-        )
-
-    validated_community: list[tuple[Path, dict]] = []
-    for entry_name, prof_data in community_entries:
-        plugin_name = Path(entry_name).stem
-        if plugin_name not in community_plugins_map:
-            log.warning(
-                "Skipping legacy community plugin '%s': not referenced in execution profile '%s'",
-                plugin_name,
-                profile_name,
-            )
-            continue
-        stored = community_plugins_map[plugin_name]
-        dest = _ProfileZipIO.community_settings_dest(plugin_name)
-        cls = load_plugin_settings_class(
-            plugin_name, str(PluginPaths.resolve(plugin_name, stored))
-        )
-        validated_community.append(
-            (
-                dest,
-                _ProfileZipIO.validated_profile_dict(cls, profile_name, prof_data, filepath=str(dest)),
-            )
-        )
-
-    for plugin_name, prof_data in deferred_community_standard:
-        if plugin_name not in community_plugins_map:
-            log.warning(
-                "Skipping community plugin '%s': not referenced in execution profile '%s'",
-                plugin_name,
-                profile_name,
-            )
-            continue
-        stored = community_plugins_map[plugin_name]
-        dest = _ProfileZipIO.community_settings_dest(plugin_name)
-        cls = load_plugin_settings_class(
-            plugin_name, str(PluginPaths.resolve(plugin_name, stored))
-        )
-        validated_community.append(
-            (
-                dest,
-                _ProfileZipIO.validated_profile_dict(cls, profile_name, prof_data, filepath=str(dest)),
-            )
-        )
-
-    for dest, validated in validated_standard:
-        _ProfileZipIO.merge_profile_into_file(dest, profile_name, validated, overwrite=overwrite)
-
-    for dest, validated in validated_community:
-        _ProfileZipIO.merge_profile_into_file(dest, profile_name, validated, overwrite=overwrite)
-
+    Path(dest).parent.mkdir(parents=True, exist_ok=True)
+    with open(dest, "w", encoding="utf-8") as f:
+        yaml.dump(merged, f, default_flow_style=False)
     log.info("Imported profile '%s' from %s", profile_name, src)
     return profile_name
 
@@ -502,102 +460,3 @@ class _SettingResolution:
     @staticmethod
     def schema_for(setting):
         return schema_of(setting)
-
-
-class _ProfileZipIO:
-    """Zip export/import helpers (module-private)."""
-
-    @staticmethod
-    def settings_by_basename_map(settings_classes: list[Any]) -> dict[str, Any]:
-        mapping: dict[str, Any] = {}
-        for cls in settings_classes:
-            mapping[Path(stored_filepath(cls)).name] = cls
-        return mapping
-
-    @staticmethod
-    def settings_class_for_basename(basename: str, settings_classes: list[Any]) -> Any | None:
-        return _ProfileZipIO.settings_by_basename_map(settings_classes).get(basename)
-
-    @staticmethod
-    def validated_profile_dict(
-        settings_cls: Any | None,
-        profile: str,
-        prof_data: dict,
-        *,
-        filepath: str,
-    ) -> dict:
-        if settings_cls is None:
-            return prof_data
-        schema = _SettingResolution.schema_for(settings_cls)
-        if schema is None:
-            return prof_data
-        try:
-            validated = validate_profile(schema, prof_data, filepath=filepath, profile=profile)
-        except SettingsValidationError as exc:
-            raise ValueError(str(exc)) from exc
-        return validated.model_dump()
-
-    @staticmethod
-    def profile_dict_in_file(path: Path, profile: str) -> dict | None:
-        if not path.is_file():
-            return None
-        with open(path, encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        prof = data.get(profile)
-        if not isinstance(prof, dict):
-            return None
-        return prof
-
-    @staticmethod
-    def community_sources_for_profile(
-        profile: str,
-        community_plugins: dict[str, str],
-    ) -> dict[str, Path]:
-        sources: dict[str, Path] = {}
-        for name in community_plugins:
-            read_path = Path(
-                ConfigPaths.effective_path(PluginPaths.settings_filepath(name), for_write=False)
-            )
-            if _ProfileZipIO.profile_dict_in_file(read_path, profile) is not None:
-                sources[PluginPaths.settings_basename(name)] = read_path
-        return sources
-
-    @staticmethod
-    def merge_profile_into_file(
-        filepath: str | Path,
-        profile: str,
-        prof_data: dict,
-        *,
-        overwrite: bool,
-    ) -> None:
-        path = Path(filepath)
-        if path.is_file():
-            with open(path, encoding="utf-8") as f:
-                config = yaml.safe_load(f) or {}
-        else:
-            config = {}
-
-        if profile in config and not overwrite:
-            raise ValueError(f"Profile '{profile}' already exists in {path}")
-
-        config[profile] = prof_data
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            yaml.dump(config, f, default_flow_style=False)
-        log.info("Merged profile '%s' into %s", profile, path)
-
-    @staticmethod
-    def community_settings_dest(name: str) -> Path:
-        return Path(
-            ConfigPaths.effective_path(PluginPaths.settings_filepath(name), for_write=True)
-        )
-
-    @staticmethod
-    def community_plugin_name_for_basename(
-        basename: str,
-        community_plugins: dict[str, str],
-    ) -> str | None:
-        for name in community_plugins:
-            if PluginPaths.settings_basename(name) == basename:
-                return name
-        return None

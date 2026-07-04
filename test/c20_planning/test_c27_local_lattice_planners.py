@@ -8,7 +8,7 @@ from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c27_local_lattice_planners import GreedyLatticePlanner
 from avlite.c20_planning.c28_lattice import Edge, Node
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 
 
 def _straight_global_plan(x_end: float = 100.0, n: int = 20, velocity: float = 10.0) -> GlobalPlan:

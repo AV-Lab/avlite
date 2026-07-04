@@ -1,4 +1,4 @@
-"""Unit tests for FpsTracker (avlite.c60_common.c65_fps_tracker).
+"""Unit tests for FpsTracker (avlite.c50_common.c55_fps_tracker).
 
 Tests verify:
 - First tick always returns 0.0 (no prior timestamp).
@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from avlite.c60_common.c65_fps_tracker import FpsTracker
+from avlite.c50_common.c55_fps_tracker import FpsTracker
 
 
 class _FakeClock:

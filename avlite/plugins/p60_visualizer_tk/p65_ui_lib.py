@@ -16,8 +16,8 @@ from avlite.c10_perception.c11_perception_model import HDMap, RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c54_settings_schema import PlainBinder, field_tooltip_text
-from avlite.c50_apps.c58_paths import DataPaths
+from avlite.c60_apps.c64_settings_schema import PlainBinder, field_tooltip_text
+from avlite.c60_apps.c68_paths import DataPaths
 
 log = logging.getLogger(__name__)
 
@@ -462,7 +462,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "log_toggle_height": "Expand or collapse the log panel.",
     # Settings window — profiles
     "profile_new": "Create a new execution profile folder.",
-    "profile_delete": "Delete the selected profile.",
+    "profile_delete": "Delete the selected profile (the default profile is protected).",
     "profile_save": "Save all settings into the selected profile.",
     "profile_export": "Export the profile as a zip archive.",
     "profile_import": "Import a profile from a zip archive.",
@@ -471,7 +471,10 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "profile_reset_non_exec": "Reset all settings except execution to defaults.",
     # Settings window — plugins
     "plugins_reset_builtin": "Restore the built-in plugin list to defaults.",
-    "plugins_remove_builtin": "Remove the selected built-in plugin entry.",
+    "plugins_remove_builtin": (
+        "Remove the selected built-in plugin entry "
+        "(the app hosting this settings window cannot be removed)."
+    ),
     "plugins_reset_community": "Sync community plugin list with installed packages.",
     "plugins_add": "Add a community plugin entry manually.",
     "plugins_remove_community": "Remove the selected community plugin entry.",

@@ -5,7 +5,7 @@ import numpy as np
 from shapely.geometry import LineString, Polygon
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, AgentState, SingleTrajectory
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 
 log = logging.getLogger(__name__)
 

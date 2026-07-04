@@ -1,4 +1,4 @@
-"""Unit tests for collision checking (avlite.c60_common.c64_collision_checking).
+"""Unit tests for collision checking (avlite.c50_common.c54_collision_checking).
 
 Tests verify:
 - Static obstacles block trajectories that intersect their footprint.
@@ -9,8 +9,8 @@ Tests verify:
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c60_common.c64_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
 
 
 def _straight_trajectory(x_start: float, x_end: float, n: int = 20) -> TrajectoryTracker:

@@ -5,7 +5,7 @@ import math
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c40_execution.c46_basic_sim import BasicSim
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 
 
 def _straight_global_plan() -> GlobalPlan:

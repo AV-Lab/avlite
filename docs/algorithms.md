@@ -205,7 +205,7 @@ If no strictly feasible level-0 edges exist:
 
 ### Debug visualization
 
-Enable the local lattice plot in the stack view. Edge colors in [`p59_plot_lib.py`](../avlite/plugins/p50_visualizer_tk/p59_plot_lib.py):
+Enable the local lattice plot in the stack view. Edge colors in [`p69_plot_lib.py`](../avlite/plugins/p60_visualizer_tk/p69_plot_lib.py):
 
 | Color | Meaning |
 |-------|---------|

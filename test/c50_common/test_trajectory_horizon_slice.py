@@ -1,8 +1,8 @@
-"""Tests for slice_trajectory_horizon (avlite.c60_common.c63_trajectory_tracker)."""
+"""Tests for slice_trajectory_horizon (avlite.c50_common.c53_trajectory_tracker)."""
 
 import json
 
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
 
 
 def _long_trajectory(n: int = 500, start_wp: int = 10) -> TrajectoryTracker:

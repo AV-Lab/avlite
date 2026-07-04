@@ -10,10 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from avlite.plugins.p50_visualizer_tk.p55_ui_lib import attach_schema_tooltip, attach_tooltip, BUTTON_TOOLTIPS
-from avlite.plugins.p50_visualizer_tk.settings import VisualizationSettings
-from avlite.c50_apps.c54_settings_schema import field_tooltip_text
-from avlite.c50_apps.c53_plugins import (
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import attach_schema_tooltip, attach_tooltip, BUTTON_TOOLTIPS
+from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
+from avlite.c60_apps.c64_settings_schema import field_tooltip_text
+from avlite.c60_apps.c63_plugins import (
     is_plugin_logger,
     layer_key_for_plugin_log_record,
     plugin_package_from_logger,
@@ -26,36 +26,36 @@ _PNX_PACKAGE = re.compile(r"^(p\d{2})", re.IGNORECASE)
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from avlite.plugins.p50_visualizer_tk.p51_visualizer_app import VisualizerApp
+    from avlite.plugins.p60_visualizer_tk.p61_visualizer_app import VisualizerApp
 
 
 class LogView(ttk.LabelFrame):
     _LAYER_TOGGLES = (
-        ("perception", "avlite.c10_perception", "p58_show_perceive_logs"),
-        ("planning", "avlite.c20_planning", "p58_show_plan_logs"),
-        ("control", "avlite.c30_control", "p58_show_control_logs"),
-        ("execution", "avlite.c40_execution", "p58_show_execute_logs"),
-        ("visualization", "avlite.plugins.p50_visualizer_tk", "p58_show_vis_logs"),
-        ("common", "avlite.c60_common", "p58_show_common_logs"),
+        ("perception", "avlite.c10_perception", "p68_show_perceive_logs"),
+        ("planning", "avlite.c20_planning", "p68_show_plan_logs"),
+        ("control", "avlite.c30_control", "p68_show_control_logs"),
+        ("execution", "avlite.c40_execution", "p68_show_execute_logs"),
+        ("visualization", "avlite.plugins.p60_visualizer_tk", "p68_show_vis_logs"),
+        ("common", "avlite.c50_common", "p68_show_common_logs"),
     )
 
     _DEFAULT_FILTER_STATE: dict[str, bool] = {
-        "p58_show_perceive_logs": True,
-        "p58_show_plan_logs": True,
-        "p58_show_control_logs": True,
-        "p58_show_execute_logs": True,
-        "p58_show_vis_logs": True,
-        "p58_show_common_logs": True,
-        "p58_show_core_logs": True,
-        "p58_show_plugins_logs": True,
-        "p58_disable_log": False,
+        "p68_show_perceive_logs": True,
+        "p68_show_plan_logs": True,
+        "p68_show_control_logs": True,
+        "p68_show_execute_logs": True,
+        "p68_show_vis_logs": True,
+        "p68_show_common_logs": True,
+        "p68_show_core_logs": True,
+        "p68_show_plugins_logs": True,
+        "p68_disable_log": False,
         "log_to_file": False,
     }
 
     def __init__(self, root: VisualizerApp):
         super().__init__(root, text="Log")
         self.root = root
-        self.max_log_lines = self.root.setting.p58_max_log_lines
+        self.max_log_lines = self.root.setting.p68_max_log_lines
 
         # self.log_queue = queue.Queue()
         # self.after(50, self.process_log_queue)
@@ -67,33 +67,33 @@ class LogView(ttk.LabelFrame):
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
 
         cb_core = ttk.Checkbutton(
-            self.controls_frame, text="Core", variable=self.root.setting.p58_show_core_logs, command=self.update_log_filter,
+            self.controls_frame, text="Core", variable=self.root.setting.p68_show_core_logs, command=self.update_log_filter,
         )
         cb_core.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_core, VisualizationSettings, "p58_show_core_logs")
+        attach_schema_tooltip(cb_core, VisualizationSettings, "p68_show_core_logs")
         cb_plugins = ttk.Checkbutton(
-            self.controls_frame, text="Plugins", variable=self.root.setting.p58_show_plugins_logs, command=self.update_log_filter,
+            self.controls_frame, text="Plugins", variable=self.root.setting.p68_show_plugins_logs, command=self.update_log_filter,
         )
         cb_plugins.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_plugins, VisualizationSettings, "p58_show_plugins_logs")
-        self.cb_perceive = ttk.Checkbutton( self.controls_frame, text="Perception", variable=self.root.setting.p58_show_perceive_logs, command=self.update_log_filter,)
+        attach_schema_tooltip(cb_plugins, VisualizationSettings, "p68_show_plugins_logs")
+        self.cb_perceive = ttk.Checkbutton( self.controls_frame, text="Perception", variable=self.root.setting.p68_show_perceive_logs, command=self.update_log_filter,)
         self.cb_perceive.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_perceive, VisualizationSettings, "p58_show_perceive_logs")
-        self.cb_plan = ttk.Checkbutton( self.controls_frame, text="Planning", variable=self.root.setting.p58_show_plan_logs, command=self.update_log_filter,)
+        attach_schema_tooltip(self.cb_perceive, VisualizationSettings, "p68_show_perceive_logs")
+        self.cb_plan = ttk.Checkbutton( self.controls_frame, text="Planning", variable=self.root.setting.p68_show_plan_logs, command=self.update_log_filter,)
         self.cb_plan.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_plan, VisualizationSettings, "p58_show_plan_logs")
-        self.cb_control = ttk.Checkbutton( self.controls_frame, text="Control", variable=self.root.setting.p58_show_control_logs, command=self.update_log_filter,)
+        attach_schema_tooltip(self.cb_plan, VisualizationSettings, "p68_show_plan_logs")
+        self.cb_control = ttk.Checkbutton( self.controls_frame, text="Control", variable=self.root.setting.p68_show_control_logs, command=self.update_log_filter,)
         self.cb_control.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_control, VisualizationSettings, "p58_show_control_logs")
-        self.cb_execute = ttk.Checkbutton( self.controls_frame, text="Execution", variable=self.root.setting.p58_show_execute_logs, command=self.update_log_filter,)
+        attach_schema_tooltip(self.cb_control, VisualizationSettings, "p68_show_control_logs")
+        self.cb_execute = ttk.Checkbutton( self.controls_frame, text="Execution", variable=self.root.setting.p68_show_execute_logs, command=self.update_log_filter,)
         self.cb_execute.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_execute, VisualizationSettings, "p58_show_execute_logs")
-        self.cb_vis = ttk.Checkbutton( self.controls_frame, text="Visualization", variable=self.root.setting.p58_show_vis_logs, command=self.update_log_filter,)
+        attach_schema_tooltip(self.cb_execute, VisualizationSettings, "p68_show_execute_logs")
+        self.cb_vis = ttk.Checkbutton( self.controls_frame, text="Visualization", variable=self.root.setting.p68_show_vis_logs, command=self.update_log_filter,)
         self.cb_vis.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_vis, VisualizationSettings, "p58_show_vis_logs")
-        self.cb_common = ttk.Checkbutton( self.controls_frame, text="Common", variable=self.root.setting.p58_show_common_logs, command=self.update_log_filter,)
+        attach_schema_tooltip(self.cb_vis, VisualizationSettings, "p68_show_vis_logs")
+        self.cb_common = ttk.Checkbutton( self.controls_frame, text="Common", variable=self.root.setting.p68_show_common_logs, command=self.update_log_filter,)
         self.cb_common.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_common, VisualizationSettings, "p58_show_common_logs")
+        attach_schema_tooltip(self.cb_common, VisualizationSettings, "p68_show_common_logs")
 
         cb_file = ttk.Checkbutton(self.controls_frame, text="File", variable=self.root.setting.log_to_file, command=self.update_log_to_file)
         cb_file.pack(side=tk.RIGHT)
@@ -123,7 +123,7 @@ class LogView(ttk.LabelFrame):
         btn_clear = ttk.Button(self.controls_frame, text="Clear", command=self.clear_log, width=4)
         btn_clear.pack(side=tk.RIGHT)
         attach_tooltip(btn_clear, BUTTON_TOOLTIPS["log_clear"])
-        self.root.setting.p58_log_view_expanded.trace_add("write", lambda *_: self._sync_expand_button())
+        self.root.setting.p68_log_view_expanded.trace_add("write", lambda *_: self._sync_expand_button())
         btn_copy = ttk.Button(self.controls_frame, text="Copy", command=self.copy_log, width=4)
         btn_copy.pack(side=tk.RIGHT)
         attach_tooltip(btn_copy, BUTTON_TOOLTIPS["log_copy"])
@@ -136,7 +136,7 @@ class LogView(ttk.LabelFrame):
 
         
         self.rb_db_debug.pack(side=tk.RIGHT)
-        self.log_area = ScrolledText(self, state="disabled", height=self.root.setting.p58_log_view_default_height.get(), wrap=tk.WORD)
+        self.log_area = ScrolledText(self, state="disabled", height=self.root.setting.p68_log_view_default_height.get(), wrap=tk.WORD)
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
         self._file_handler: logging.FileHandler | None = None
@@ -161,7 +161,7 @@ class LogView(ttk.LabelFrame):
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         self._sync_filter_state()
         log.info("Log initialized.")
-        self.after(self.root.setting.p58_log_pull_time, self.poll_log_queue)
+        self.after(self.root.setting.p68_log_pull_time, self.poll_log_queue)
 
     def reset(self):
         self.update_log_filter()
@@ -213,20 +213,20 @@ class LogView(ttk.LabelFrame):
         """ update the log view height based on the setting """
 
         if reverse:
-            self.root.setting.p58_log_view_expanded.set(not self.root.setting.p58_log_view_expanded.get())
+            self.root.setting.p68_log_view_expanded.set(not self.root.setting.p68_log_view_expanded.get())
 
-        if self.root.setting.p58_log_view_expanded.get():
-            self.log_area.configure(height=self.root.setting.p58_log_view_expended_height.get())
+        if self.root.setting.p68_log_view_expanded.get():
+            self.log_area.configure(height=self.root.setting.p68_log_view_expended_height.get())
             log.debug("Log view expanded.")
         else:
-            self.log_area.configure(height=self.root.setting.p58_log_view_default_height.get())
+            self.log_area.configure(height=self.root.setting.p68_log_view_default_height.get())
             log.debug("Log view collapsed.")
         self._sync_expand_button()
 
     def _sync_expand_button(self) -> None:
         if not hasattr(self, "_btn_expand"):
             return
-        if self.root.setting.p58_log_view_expanded.get():
+        if self.root.setting.p68_log_view_expanded.get():
             self._btn_expand.configure(text="▾")
         else:
             self._btn_expand.configure(text="▴")
@@ -236,15 +236,15 @@ class LogView(ttk.LabelFrame):
         """Copy Tk checkbox state into plain bools (main thread only)."""
         s = self.root.setting
         self._filter_state = {
-            "p58_show_perceive_logs": bool(s.p58_show_perceive_logs.get()),
-            "p58_show_plan_logs": bool(s.p58_show_plan_logs.get()),
-            "p58_show_control_logs": bool(s.p58_show_control_logs.get()),
-            "p58_show_execute_logs": bool(s.p58_show_execute_logs.get()),
-            "p58_show_vis_logs": bool(s.p58_show_vis_logs.get()),
-            "p58_show_common_logs": bool(s.p58_show_common_logs.get()),
-            "p58_show_core_logs": bool(s.p58_show_core_logs.get()),
-            "p58_show_plugins_logs": bool(s.p58_show_plugins_logs.get()),
-            "p58_disable_log": bool(s.p58_disable_log.get()),
+            "p68_show_perceive_logs": bool(s.p68_show_perceive_logs.get()),
+            "p68_show_plan_logs": bool(s.p68_show_plan_logs.get()),
+            "p68_show_control_logs": bool(s.p68_show_control_logs.get()),
+            "p68_show_execute_logs": bool(s.p68_show_execute_logs.get()),
+            "p68_show_vis_logs": bool(s.p68_show_vis_logs.get()),
+            "p68_show_common_logs": bool(s.p68_show_common_logs.get()),
+            "p68_show_core_logs": bool(s.p68_show_core_logs.get()),
+            "p68_show_plugins_logs": bool(s.p68_show_plugins_logs.get()),
+            "p68_disable_log": bool(s.p68_disable_log.get()),
             "log_to_file": bool(s.log_to_file.get()),
         }
 
@@ -252,19 +252,19 @@ class LogView(ttk.LabelFrame):
         log.info("Log filter updated.")
         self._sync_filter_state()
         self.log_blacklist.clear()
-        if not self._filter_state["p58_show_perceive_logs"]:
+        if not self._filter_state["p68_show_perceive_logs"]:
             self.log_blacklist.add("avlite.c10_perception")
-        if not self._filter_state["p58_show_plan_logs"]:
+        if not self._filter_state["p68_show_plan_logs"]:
             self.log_blacklist.add("avlite.c20_planning")
-        if not self._filter_state["p58_show_control_logs"]:
+        if not self._filter_state["p68_show_control_logs"]:
             self.log_blacklist.add("avlite.c30_control")
-        if not self._filter_state["p58_show_execute_logs"]:
+        if not self._filter_state["p68_show_execute_logs"]:
             self.log_blacklist.add("avlite.c40_execution")
-        if not self._filter_state["p58_show_vis_logs"]:
-            self.log_blacklist.add("avlite.plugins.p50_visualizer_tk")
-            self.log_blacklist.add("avlite.plugins.p50_visualizer_tk")
-        if not self._filter_state["p58_show_common_logs"]:
-            self.log_blacklist.add("avlite.c60_common")
+        if not self._filter_state["p68_show_vis_logs"]:
+            self.log_blacklist.add("avlite.plugins.p60_visualizer_tk")
+            self.log_blacklist.add("avlite.plugins.p60_visualizer_tk")
+        if not self._filter_state["p68_show_common_logs"]:
+            self.log_blacklist.add("avlite.c50_common")
 
     def update_log_level(self):
         logger = logging.getLogger()
@@ -320,7 +320,7 @@ class LogView(ttk.LabelFrame):
         except queue.Empty:
             pass
 
-        if messages and not self._filter_state.get("log_to_file") and not self._filter_state.get("p58_disable_log"):
+        if messages and not self._filter_state.get("log_to_file") and not self._filter_state.get("p68_disable_log"):
             self.log_area.configure(state="normal")
             # Batch consecutive same-tag records into a single insert call
             # to minimise the number of Tkinter operations per poll.
@@ -340,7 +340,7 @@ class LogView(ttk.LabelFrame):
             self.log_area.yview(tk.END)
 
         if self.winfo_exists():
-            self.after(self.root.setting.p58_log_pull_time, self.poll_log_queue)
+            self.after(self.root.setting.p68_log_pull_time, self.poll_log_queue)
 
 
     class TextRedirector:
@@ -425,13 +425,13 @@ class LogView(ttk.LabelFrame):
         """Return whether *record_name* should be shown (thread-safe: plain bools only)."""
         for _key, prefix, attr in LogView._LAYER_TOGGLES:
             if record_name.startswith(prefix + "."):
-                if not filter_state.get("p58_show_core_logs", True):
+                if not filter_state.get("p68_show_core_logs", True):
                     return False
                 return filter_state.get(attr, True)
 
         pkg = plugin_package_from_logger(record_name)
         if pkg is not None:
-            if not filter_state.get("p58_show_plugins_logs", True):
+            if not filter_state.get("p68_show_plugins_logs", True):
                 return False
             layer = layer_key_for_plugin_log_record(record_name)
             if layer is None:
@@ -503,7 +503,7 @@ class LogView(ttk.LabelFrame):
     #         self.log_area.yview(tk.END)  # Only scroll once at the end
     #     
     #     # Schedule next poll
-    #     self.after(self.root.setting.p58_log_pull_time, self.poll_log_queue)  # Slightly longer interval
+    #     self.after(self.root.setting.p68_log_pull_time, self.poll_log_queue)  # Slightly longer interval
     #             
 
 

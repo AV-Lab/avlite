@@ -1,6 +1,6 @@
-"""Tests for AppStrategy registration in merged p50_visualizer_tk."""
+"""Tests for AppStrategy registration in merged p60_visualizer_tk."""
 
-from avlite.c50_apps.c51_app_strategy import AppStrategy, bootstrap_apps
+from avlite.c60_apps.c61_app_strategy import AppStrategy, bootstrap_apps
 
 
 def test_bootstrap_registers_three_tk_apps():

@@ -8,8 +8,8 @@ from avlite.c10_perception.c11_perception_model import AgentState, EgoState, EGO
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommandBase
 from avlite.c30_control.c38_control_mapping import control_type_for_agent
-from avlite.c60_common.c61_capabilities import WorldCapability
-from avlite.c60_common.c62_sensor_data import (
+from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c52_sensor_data import (
     GnssReading,
     ImuReading,
     SensorFrame,

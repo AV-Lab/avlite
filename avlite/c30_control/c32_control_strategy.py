@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import LocalPlan
 from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
 from avlite.c30_control.c39_settings import ControlSettings

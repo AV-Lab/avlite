@@ -1,6 +1,6 @@
 """Headless executer with terminal dashboard."""
 
-from avlite.plugins.p50_headless_mode.p51_headless import HeadlessApp, run_headless
+from avlite.plugins.p60_headless_mode.p61_headless import HeadlessApp, run_headless
 
 __all__ = [
     "HeadlessApp",

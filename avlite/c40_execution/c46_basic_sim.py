@@ -8,13 +8,13 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c50_apps.c58_paths import DataPaths
-from avlite.c60_common.c62_sensor_data import LidarCloud, lidar_2d_to_4
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c60_apps.c68_paths import DataPaths
+from avlite.c50_common.c52_sensor_data import LidarCloud, lidar_2d_to_4
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 
 
 import logging

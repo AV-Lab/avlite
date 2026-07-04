@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from avlite.c60_common.c62_sensor_data import (
+from avlite.c50_common.c52_sensor_data import (
     DepthImage,
     GnssDatum,
     GnssReading,

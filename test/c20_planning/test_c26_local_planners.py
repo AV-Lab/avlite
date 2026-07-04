@@ -6,8 +6,8 @@ from avlite.c10_perception.c11_perception_model import AgentState, EgoState, Per
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner
 from avlite.c20_planning.c29_settings import PlanningSettingsSchema
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
-from avlite.c60_common.c64_collision_checking import check_collision
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_collision_checking import check_collision
 
 
 def _straight_global_plan(x_end: float = 100.0, n: int = 20, velocity: float = 5.0) -> GlobalPlan:

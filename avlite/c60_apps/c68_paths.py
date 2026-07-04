@@ -8,7 +8,7 @@ from pathlib import Path
 DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
 COMMUNITY_DEV_SUBDIR = "avlite-community-plugins"
 PRIVATE_DEV_SUBDIR = "avlite-private-plugins"
-VIZ_SETTINGS_BASENAME = "plugin_p50_visualizer_tk.yaml"
+VIZ_SETTINGS_BASENAME = "plugin_p60_visualizer_tk.yaml"
 
 
 class ConfigPaths:
@@ -58,7 +58,7 @@ class ConfigPaths:
         if not basename.startswith(prefix) or not basename.endswith(suffix):
             return False
         plugin_name = basename[len(prefix) : -len(suffix)]
-        from avlite.c50_apps.c53_plugins import list_plugins, plugin_import_name
+        from avlite.c60_apps.c63_plugins import list_plugins, plugin_import_name
 
         builtin = {plugin_import_name(p) for p in list_plugins()}
         return plugin_import_name(plugin_name) not in builtin

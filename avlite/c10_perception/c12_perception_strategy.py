@@ -2,8 +2,8 @@ import logging
 from abc import ABC, abstractmethod
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
-from avlite.c60_common.c61_capabilities import WorldCapability, PerceptionCapability
-from avlite.c60_common.c62_sensor_data import SensorFrame
+from avlite.c50_common.c51_capabilities import WorldCapability, PerceptionCapability
+from avlite.c50_common.c52_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
 

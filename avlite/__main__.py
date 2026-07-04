@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from avlite.c50_apps.c51_app_strategy import bootstrap_apps, register_parsers, run_app
+from avlite.c60_apps.c61_app_strategy import bootstrap_apps, register_parsers, run_app
 
 
 def main(argv: list[str] | None = None) -> None:

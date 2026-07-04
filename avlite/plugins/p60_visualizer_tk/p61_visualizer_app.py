@@ -12,16 +12,16 @@ except ImportError:
 
 _PIL_AVAILABLE = Image is not None
 
-from avlite.c50_apps.c52_factory import executor_factory
+from avlite.c60_apps.c62_factory import executor_factory
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_apps.c51_app_strategy import AppStrategy
-from avlite.c50_apps.c59_settings import AppSettings
-from avlite.plugins.p50_visualizer_tk.p56_plot_views import LocalPlanPlotView, GlobalPlanPlotView
-from avlite.plugins.p50_visualizer_tk.p57_stack_views import PerceivePlanControlView, ExecView
-from avlite.c50_apps.c52_factory import load_stack_settings
-from avlite.plugins.p50_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
-from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
+from avlite.c60_apps.c61_app_strategy import AppStrategy
+from avlite.c60_apps.c69_settings import AppSettings
+from avlite.plugins.p60_visualizer_tk.p66_plot_views import LocalPlanPlotView, GlobalPlanPlotView
+from avlite.plugins.p60_visualizer_tk.p67_stack_views import PerceivePlanControlView, ExecView
+from avlite.c60_apps.c62_factory import load_stack_settings
+from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     TkSettingsBinder,
     UiAssets,
     apply_ttk_theme,
@@ -29,12 +29,12 @@ from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
     scaled,
     setup_dpi,
 )
-from avlite.plugins.p50_visualizer_tk.p55_ui_lib import DataPicker
-from avlite.plugins.p50_visualizer_tk.p58_log_view import LogView
-from avlite.plugins.p50_visualizer_tk.p54_setting_views import SettingShortcutView
-from avlite.c50_apps.c53_plugins import reload_lib
-from avlite.c50_apps.c58_paths import ConfigPaths
-from avlite.c50_apps.c55_setting_utils import load_setting, list_profiles
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DataPicker
+from avlite.plugins.p60_visualizer_tk.p68_log_view import LogView
+from avlite.plugins.p60_visualizer_tk.p64_setting_views import SettingShortcutView
+from avlite.c60_apps.c63_plugins import reload_lib
+from avlite.c60_apps.c68_paths import ConfigPaths
+from avlite.c60_apps.c65_setting_utils import load_setting, list_profiles
 from avlite import __version__
     
 
@@ -44,6 +44,7 @@ logging.getLogger("PIL").setLevel(logging.WARNING)
 
 class VisualizerApp(tk.Tk):
     exec: SyncExecuter | None
+    hosting_plugin_name = "p60_visualizer_tk"
 
     def __init__(self):
         setup_dpi()
@@ -83,7 +84,7 @@ class VisualizerApp(tk.Tk):
         self.setting.profile_list = list_profiles(AppSettings)
         startup = ConfigPaths.startup_profile()
         if startup and startup in self.setting.profile_list:
-            self.setting.c50_selected_profile.set(startup)
+            self.setting.c60_selected_profile.set(startup)
 
         # ----------------------------------------------------------------------
         # UI Views
@@ -149,24 +150,24 @@ class VisualizerApp(tk.Tk):
     
 
     def __update_two_plots_layout(self):
-        log.debug(f"Updating two plots layout: global_plan_view: {self.setting.p57_global_plan_view.get()}, local_plan_view: {self.setting.p57_local_plan_view.get()}")
+        log.debug(f"Updating two plots layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, local_plan_view: {self.setting.p67_local_plan_view.get()}")
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
         self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
         self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
 
     def __update_one_plot_layout(self):
-        log.debug(f"Updating one plot layout: global_plan_view: {self.setting.p57_global_plan_view.get()}, local_plan_view: {self.setting.p57_local_plan_view.get()}")
+        log.debug(f"Updating one plot layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, local_plan_view: {self.setting.p67_local_plan_view.get()}")
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
-        if self.setting.p57_global_plan_view.get() and not self.setting.p57_local_plan_view.get():
+        if self.setting.p67_global_plan_view.get() and not self.setting.p67_local_plan_view.get():
             self.global_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
-        elif self.setting.p57_local_plan_view.get() and not self.setting.p57_global_plan_view.get():
+        elif self.setting.p67_local_plan_view.get() and not self.setting.p67_global_plan_view.get():
             self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
         
     
     def update_views(self):
-        if self.setting.p57_global_plan_view.get() and self.setting.p57_local_plan_view.get():
+        if self.setting.p67_global_plan_view.get() and self.setting.p67_local_plan_view.get():
             self.__update_two_plots_layout()
         else:
             self.__update_one_plot_layout()
@@ -177,9 +178,9 @@ class VisualizerApp(tk.Tk):
 
     def update_shortcut_mode(self, reverse=False):
         if reverse:
-            self.setting.p50_shortcut_mode.set(not self.setting.p50_shortcut_mode.get())
+            self.setting.p60_shortcut_mode.set(not self.setting.p60_shortcut_mode.get())
 
-        if self.setting.p50_shortcut_mode.get():
+        if self.setting.p60_shortcut_mode.get():
             self.perceive_plan_control_view.grid_forget()
             self.exec_visualize_view.grid_forget()
 
@@ -294,8 +295,8 @@ class VisualizerApp(tk.Tk):
         apply_ttk_theme(self, dark=True)
 
         if hasattr(self, "setting"):
-            self.setting.p50_bg_color = "#333333"
-            self.setting.p50_fg_color = "white"
+            self.setting.p60_bg_color = "#333333"
+            self.setting.p60_fg_color = "white"
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
@@ -323,8 +324,8 @@ class VisualizerApp(tk.Tk):
             self.setting_shortcut_view.help_text.config(bg="white", fg="black")
 
         if hasattr(self, "setting"):
-            self.setting.p50_bg_color = "white"
-            self.setting.p50_fg_color = "black"
+            self.setting.p60_bg_color = "white"
+            self.setting.p60_fg_color = "black"
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
@@ -357,7 +358,7 @@ class VisualizerApp(tk.Tk):
         self.menus.append(help_menu)
 
         # Apply current theme colours
-        if self.setting.p50_dark_mode.get():
+        if self.setting.p60_dark_mode.get():
             bg, fg, activebg, activefg = "#333333", "#bbbbbb", "#555555", "#bbbbbb"
         else:
             bg, fg, activebg, activefg = "white", "black", "#ececec", "black"
@@ -366,7 +367,7 @@ class VisualizerApp(tk.Tk):
             menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
         self._apply_menubar_visibility()
-        self.setting.p50_hide_menubar.trace_add("write", lambda *_: self._apply_menubar_visibility())
+        self.setting.p60_hide_menubar.trace_add("write", lambda *_: self._apply_menubar_visibility())
 
     def _show_about(self):
         win = tk.Toplevel(self)
@@ -401,7 +402,7 @@ class VisualizerApp(tk.Tk):
         win.focus_set()
 
     def _apply_menubar_visibility(self):
-        if self.setting.p50_hide_menubar.get():
+        if self.setting.p60_hide_menubar.get():
             self.config(menu="")
         else:
             self.config(menu=self.menubar)
@@ -411,8 +412,8 @@ class VisualizerApp(tk.Tk):
         self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
         self.setting_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
 
-        self.setting.p50_bg_color = "#333333"
-        self.setting.p50_fg_color = "white"
+        self.setting.p60_bg_color = "#333333"
+        self.setting.p60_fg_color = "white"
         self.local_plan_plot_view.update_plot_theme()
         self.global_plan_plot_view.update_plot_theme()
         
@@ -428,12 +429,12 @@ class VisualizerApp(tk.Tk):
         _do_plot = _plot_dt >= 0.033  # cap plot redraws at ~30 Hz
         if _do_plot:
             self._last_plot_time = t1
-            if self.setting.p57_global_plan_view.get():
+            if self.setting.p67_global_plan_view.get():
                 self.global_plan_plot_view.plot()
-            if self.setting.p57_local_plan_view.get():
+            if self.setting.p67_local_plan_view.get():
                 self.local_plan_plot_view.plot()
 
-        if not self.setting.p50_shortcut_mode.get():
+        if not self.setting.p60_shortcut_mode.get():
             self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), Vel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+5.1f}")
             self.setting.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
 
@@ -458,9 +459,9 @@ class VisualizerApp(tk.Tk):
         """Load settings from a profile or the current settings. Uses c55_setting_utils files plus UI housekeeping."""
         
         if profile:
-            self.setting.c50_selected_profile.set(profile)
+            self.setting.c60_selected_profile.set(profile)
         else:
-            profile = self.setting.c50_selected_profile.get() 
+            profile = self.setting.c60_selected_profile.get() 
         # load_setting(PerceptionSettings, profile=profile)
         # load_setting(PlanningSettings, profile=profile)
         # load_setting(ControlSettings, profile=profile)
@@ -488,7 +489,7 @@ class VisualizerApp(tk.Tk):
     def on_community_plugins_changed(self) -> None:
         """Reload profile stack settings and refresh UI after plugin install/uninstall."""
         self.load_settings(only_stack=True)
-        if self.setting.c52_load_plugins.get():
+        if self.setting.c62_load_plugins.get():
             self.reload_stack(reload_code=True)
         else:
             self.perceive_plan_control_view.reset()
@@ -508,7 +509,7 @@ class VisualizerApp(tk.Tk):
         error = None
         try:
             if reload_code:
-                reload_lib(exclude_settings=True, reload_plugins=self.setting.c52_load_plugins.get())
+                reload_lib(exclude_settings=True, reload_plugins=self.setting.c62_load_plugins.get())
             self.exec = executor_factory(
                 executer_type=self.setting.executer_type.get(),
                 bridge=self.setting.execution_bridge.get(),
@@ -523,7 +524,7 @@ class VisualizerApp(tk.Tk):
                 control_dt=self.setting.control_dt.get(),
                 hd_map=ExecutionSettings.c40_hd_map,
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
-                load_plugins=self.setting.c52_load_plugins.get(),
+                load_plugins=self.setting.c62_load_plugins.get(),
                 async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
 
@@ -555,7 +556,7 @@ class VisualizerApp(tk.Tk):
 
     def switch_profile(self):
         self.exec_visualize_view.stop_exec()
-        self.load_settings(profile=self.setting.p50_next_profile.get(), only_stack=False)
+        self.load_settings(profile=self.setting.p60_next_profile.get(), only_stack=False)
         # self.reload_stack(reload_code=False)
         self.update_views()
         self.update_ui()
