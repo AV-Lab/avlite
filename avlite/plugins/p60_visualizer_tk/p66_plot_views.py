@@ -442,7 +442,8 @@ class LocalPlanPlotView(ttk.Frame):
         if show_gv != show_fv:
             aspect_ratio /= 2
 
-        want_lidar = (
+        bridge_lidar = self.root.setting.bridge_provide_lidar_data.get()
+        want_lidar = bridge_lidar and (
             self.root.setting.p66_show_lidar_global.get()
             or self.root.setting.p66_show_lidar_frenet.get()
         )
@@ -468,7 +469,7 @@ class LocalPlanPlotView(ttk.Frame):
             lidar_data=self.root.exec.world.get_lidar_data() if want_lidar else None,
             plot_lidar_global=self.root.setting.p66_show_lidar_global.get(),
             plot_lidar_frenet=self.root.setting.p66_show_lidar_frenet.get(),
-            plot_clusters=self.root.setting.p66_show_lidar_clusters.get(),
+            plot_clusters=bridge_lidar and self.root.setting.p66_show_lidar_clusters.get(),
             plot_ground_truth=self.root.setting.bridge_provide_ground_truth_detection.get(),
             plot_race_boundary=self.root.setting.p66_show_race_boundary.get(),
             show_global_view=self.root.setting.p67_show_local_global_view.get(),

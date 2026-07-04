@@ -9,6 +9,7 @@ import yaml
 
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c62_factory import get_stack_settings_classes, load_stack_settings
+from avlite.c60_apps.c68_paths import ConfigPaths
 from avlite.c60_apps.c65_setting_utils import load_setting
 
 
@@ -53,3 +54,22 @@ def test_load_setting_app_profile(monkeypatch, tmp_path):
     )
     assert load_setting(AppSettings, profile="hdmap")
     assert AppSettings.c60_selected_profile == "hdmap"
+
+
+def test_load_setting_empty_plugin_section_uses_schema_defaults(monkeypatch, tmp_path):
+    from avlite.plugins.p60_visualizer_tk.settings import PluginSettings, PluginSettingsSchema
+
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
+    ConfigPaths.set_repo_target(False)
+    (tmp_path / "carla.yaml").write_text(
+        yaml.dump({"plugins": {"p60_visualizer_tk": {}}})
+    )
+    expected = PluginSettingsSchema.model_validate({})
+    PluginSettings.p67_global_plan_view = not expected.p67_global_plan_view
+
+    assert load_setting(PluginSettings, profile="carla") is True
+    assert PluginSettings.p67_global_plan_view == expected.p67_global_plan_view
+    assert PluginSettings.p67_local_plan_view == expected.p67_local_plan_view
+    assert PluginSettings.p67_global_plan_view is True
+    assert PluginSettings.p67_local_plan_view is True
+    assert PluginSettings.p66_show_global_plan == expected.p66_show_global_plan

@@ -46,12 +46,6 @@ STACK_LAYER_SECTIONS = frozenset(
     {"c10_perception", "c20_planning", "c30_control", "c40_execution"}
 )
 
-# Legacy per-layer/per-plugin basenames that must never be listed as profiles.
-_NON_PROFILE_STEMS = frozenset(
-    {"c10_perception", "c20_planning", "c30_control", "c40_execution", "c59_apps"}
-)
-
-
 class SettingsBinder(Protocol):
     def get_value(self, setting: Any, attr_name: str) -> Any: ...
     def set_value(self, setting: Any, attr_name: str, value: Any) -> None: ...
@@ -164,13 +158,20 @@ def load_setting(
         return False
 
     section = _get_section(config, group, key)
-    if not isinstance(section, dict) or not section:
-        log.debug("Section '%s' not found in %s (profile '%s')", key, filepath, profile)
-        return False
-
     schema = _SettingResolution.schema_for(setting)
     try:
         if schema is not None:
+            if not isinstance(section, dict) or not section:
+                if not isinstance(section, dict):
+                    log.debug(
+                        "Section '%s' not found in %s (profile '%s'); applying schema defaults",
+                        key,
+                        filepath,
+                        profile,
+                    )
+                else:
+                    log.debug("Section '%s' empty; applying schema defaults", key)
+                section = {}
             try:
                 validated = validate_profile(schema, section, filepath=filepath, profile=profile)
             except SettingsValidationError as e:
@@ -180,6 +181,9 @@ def load_setting(
                 return False
             apply_validated_to_setting(setting, validated, binder=bind)
         else:
+            if not isinstance(section, dict) or not section:
+                log.debug("Section '%s' not found in %s (profile '%s')", key, filepath, profile)
+                return False
             exclude = _SettingResolution.setting_exclude(setting)
             for attr_name, value in section.items():
                 if attr_name in exclude:
@@ -255,16 +259,21 @@ def order_profiles_for_dropdown(profiles: list[str]) -> list[str]:
 
 
 def list_profiles(setting: Any = None) -> list:
-    """List available profiles: ``*.yaml`` stems in the user and repo config dirs."""
+    """List available profiles from the active config target (dev clone) or user+repo (pip)."""
+    if ConfigPaths.can_edit_bundled() and not ConfigPaths.is_repo_target():
+        ConfigPaths.copy_bundled_profiles_to_user()
+    if ConfigPaths.can_edit_bundled():
+        directories = (
+            [ConfigPaths.bundled_dir()]
+            if ConfigPaths.is_repo_target()
+            else [ConfigPaths.user_dir()]
+        )
+    else:
+        directories = [ConfigPaths.user_dir(), ConfigPaths.bundled_dir()]
     names: set[str] = set()
-    for directory in (ConfigPaths.user_dir(), ConfigPaths.bundled_dir()):
-        if not directory.is_dir():
-            continue
-        for path in directory.glob("*.yaml"):
-            stem = path.stem
-            if stem in _NON_PROFILE_STEMS or stem.startswith("plugin_"):
-                continue
-            names.add(stem)
+    for directory in directories:
+        for path in ConfigPaths.iter_profile_paths(directory):
+            names.add(path.stem)
     profiles = order_profiles_for_dropdown(sorted(names))
     log.debug("Available profiles: %s", profiles)
     return profiles

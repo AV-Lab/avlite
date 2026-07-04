@@ -485,6 +485,7 @@ class VisualizerApp(tk.Tk):
             self.setting_shortcut_view.toggle_dark_mode()
         if hasattr(self, "perceive_plan_control_view"):
             self.perceive_plan_control_view.reset()
+        self.update_views()
 
     def on_community_plugins_changed(self) -> None:
         """Reload profile stack settings and refresh UI after plugin install/uninstall."""

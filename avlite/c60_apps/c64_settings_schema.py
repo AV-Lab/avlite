@@ -75,19 +75,6 @@ def setting_key(setting: Any) -> str:
     return name[:-6] if name.endswith("Schema") else name
 
 
-def reset_to_defaults(setting: Any) -> None:
-    """Re-apply each schema field's default onto *setting* in place (preserving identity)."""
-    schema = schema_of(setting)
-    if schema is None:
-        return
-    for name, info in schema.model_fields.items():
-        if name in SETTINGS_META:
-            continue
-        if not hasattr(setting, name):
-            continue
-        setattr(setting, name, info.get_default(call_default_factory=True))
-
-
 class SettingsValidationError(Exception):
     """Raised when a profile dict fails schema validation."""
 

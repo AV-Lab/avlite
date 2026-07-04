@@ -45,7 +45,6 @@ Every plugin (built-in or community) stores its settings under the profile's `pl
 |-----|--------|------------------------|
 | `load_stack_settings()` | `c62_factory` | No (GUI loads `VisualizationSettings` separately) |
 | `get_stack_settings_classes()` | `c62_factory` | No (c10–c40 + `AppSettings` + plugins) |
-| `get_stack_settings_classes()` | `p60_visualizer_tk/settings.py` | Yes (wraps c62 + `PluginSettingsSchema()`) |
 
 Headless `python -m avlite setting-cli describe --layer` accepts perception, planning, control, and execution (not visualization or app bootstrap).
 

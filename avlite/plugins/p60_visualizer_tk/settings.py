@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar
 
 import tkinter as tk
 from pydantic import Field
@@ -18,7 +17,7 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c60_apps.c62_factory import StackSettingsSync, get_stack_settings_classes as get_core_stack_settings_classes
+from avlite.c60_apps.c62_factory import StackSettingsSync
 from avlite.c60_apps.c63_plugins import load_plugin_settings_class, patch_plugin_settings
 from avlite.c60_apps.c64_settings_schema import SettingsSchema
 from avlite.c60_apps.c65_setting_utils import save_setting
@@ -37,8 +36,6 @@ def _strategy_default(registry: dict, configured: str | None) -> str | None:
 
 
 class PluginSettingsSchema(SettingsSchema):
-    filepath: ClassVar[str] = "configs/plugin_p60_visualizer_tk.yaml"
-
     p60_dark_mode: bool = Field(default=True, description="Use dark UI theme.")
     p60_hide_menubar: bool = Field(default=False, description="Hide the application menu bar.")
     p60_shortcut_mode: bool = Field(default=False, description="Enable keyboard shortcut mode in the visualizer.")
@@ -75,8 +72,8 @@ class PluginSettingsSchema(SettingsSchema):
     p66_global_zoom: float = Field(default=30, description="Global plot zoom level.")
     p67_show_occupancy_flow: bool = Field(default=False, description="Show occupancy flow visualization.")
     p67_show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
-    p67_global_plan_view: bool = Field(default=False, description="Show global plan panel.")
-    p67_local_plan_view: bool = Field(default=False, description="Show local plan panel.")
+    p67_global_plan_view: bool = Field(default=True, description="Show global plan panel.")
+    p67_local_plan_view: bool = Field(default=True, description="Show local plan panel.")
 
     p68_show_core_logs: bool = Field(default=True, description="Show core module logs.")
     p68_show_perceive_logs: bool = Field(default=True, description="Show perception logs.")
@@ -97,11 +94,6 @@ class PluginSettingsSchema(SettingsSchema):
 
 
 PluginSettings = PluginSettingsSchema()
-
-
-def get_stack_settings_classes() -> list[Any]:
-    """Core stack settings plus visualization schema, for profile export/import."""
-    return get_core_stack_settings_classes() + [PluginSettingsSchema()]
 
 
 def _sync_exec_dt(attr: str, value: float) -> None:
@@ -125,32 +117,10 @@ def sync_stack_settings_to_ui(setting: "VisualizationSettings") -> None:
     setting.sync_stack_from_singletons()
 
 
-def sync_perception_pipeline_from_c19(setting: "VisualizationSettings") -> None:
-    """Push c19 pipeline strategy names into main-UI Tk vars without write-back."""
-    setting.sync_perception_pipeline_from_c19()
-
-
 class VisualizationSettings:
     """Runtime Tk variables for the visualizer; persisted via ``TkSettingsBinder``."""
 
     schema = PluginSettingsSchema
-    exclude = [
-        "exclude", "filepath", "schema", "vehicle_state", "elapsed_real_time",
-        "elapsed_sim_time", "lap", "replan_fps", "control_fps", "perception_fps",
-        "current_wp", "exec_running", "profile_list", "perception_status_text", "plugin_list",
-        "detection_strategy_type", "tracking_strategy_type", "prediction_strategy_type",
-        "_syncing_perception_pipeline", "_syncing_stack",
-        "perception_type", "perception_dt", "localization_type", "localization_dt",
-        "mapping_type", "global_planner_type", "local_planner_type", "controller_type",
-        "executer_type", "exec_plan", "exec_control", "exec_perceive", "exec_localize",
-        "control_dt", "replan_dt", "sim_dt", "execution_bridge",
-        "default_global_plan_file", "default_map_file",
-        "bridge_provide_ground_truth_detection", "bridge_provide_rgb_image",
-        "bridge_provide_depth_image", "bridge_provide_lidar_data",
-        "log_level", "log_to_file",
-        "c62_default_plugins", "c62_community_plugins",
-    ]
-    filepath: str = "configs/plugin_p60_visualizer_tk.yaml"
 
     def __init__(self):
         self.c62_load_plugins = tk.BooleanVar(value=AppSettings.c62_load_plugins)
@@ -159,7 +129,7 @@ class VisualizationSettings:
         self.p60_next_profile = tk.StringVar(value=PluginSettings.p60_next_profile)
         self.p60_dark_mode = tk.BooleanVar(value=True)
         self.p60_hide_menubar = tk.BooleanVar(value=False)
-            self.p69_mouse_drag_slowdown_factor = 0.5
+        self.p69_mouse_drag_slowdown_factor = PluginSettings.p69_mouse_drag_slowdown_factor
 
         self.p66_show_legend = tk.BooleanVar(value=False)
         self.p66_show_past_locations = tk.BooleanVar(value=True)
@@ -291,8 +261,8 @@ class VisualizationSettings:
 
         self.controller_type.trace_add("write", _on_controller_change)
 
-        self.p67_global_plan_view = tk.BooleanVar(value=False)
-        self.p67_local_plan_view = tk.BooleanVar(value=False)
+        self.p67_global_plan_view = tk.BooleanVar(value=True)
+        self.p67_local_plan_view = tk.BooleanVar(value=True)
 
         self.executer_type = tk.StringVar(
             value=_strategy_default(ExecutionStrategy.registry, ExecutionSettings.c40_executer_type)

@@ -8,7 +8,11 @@ from pathlib import Path
 DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
 COMMUNITY_DEV_SUBDIR = "avlite-community-plugins"
 PRIVATE_DEV_SUBDIR = "avlite-private-plugins"
-VIZ_SETTINGS_BASENAME = "plugin_p60_visualizer_tk.yaml"
+
+# Legacy per-layer/per-plugin basenames that must never be listed as profiles.
+_NON_PROFILE_STEMS = frozenset(
+    {"c10_perception", "c20_planning", "c30_control", "c40_execution", "c59_apps"}
+)
 
 
 class ConfigPaths:
@@ -87,7 +91,38 @@ class ConfigPaths:
         if for_write:
             ConfigPaths.user_dir().mkdir(parents=True, exist_ok=True)
             return str(user)
-        return str(user if user.is_file() else repo)
+        if user.is_file():
+            return str(user)
+        if ConfigPaths.can_edit_bundled():
+            return str(user)
+        return str(repo if repo.is_file() else user)
+
+    @staticmethod
+    def iter_profile_paths(directory: Path):
+        """Yield profile ``*.yaml`` paths under *directory* (excludes legacy layer/plugin files)."""
+        if not directory.is_dir():
+            return
+        for path in directory.glob("*.yaml"):
+            stem = path.stem
+            if stem in _NON_PROFILE_STEMS or stem.startswith("plugin_"):
+                continue
+            yield path
+
+    @staticmethod
+    def copy_bundled_profiles_to_user() -> list[str]:
+        """Copy bundled profile YAML missing from user dir; return copied basenames."""
+        user_dir = ConfigPaths.user_dir()
+        copied: list[str] = []
+        for src in ConfigPaths.iter_profile_paths(ConfigPaths.bundled_dir()):
+            if not src.is_file():
+                continue
+            dst = user_dir / src.name
+            if dst.is_file():
+                continue
+            user_dir.mkdir(parents=True, exist_ok=True)
+            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            copied.append(src.name)
+        return copied
 
     @staticmethod
     def clear_user_profiles() -> list[str]:
@@ -171,11 +206,6 @@ class PluginPaths:
         ConfigPaths._user_meta_dir().mkdir(parents=True, exist_ok=True)
         value = "1" if enabled else "0"
         (ConfigPaths._user_meta_dir() / "plugin_dev_mode").write_text(value + "\n", encoding="utf-8")
-
-    @staticmethod
-    def clone_dir(*, private: bool) -> Path:
-        """Directory where the plugins app clones on Install."""
-        return PluginPaths.install_dir()
 
     @staticmethod
     def register_stored_path(name: str, *, private: bool) -> str:

@@ -971,10 +971,6 @@ class SettingWindow:
         self.rebuild_plugin_sections()
         self.host.reload_stack(reload_code=False)
 
-    def recreate_plugin_widgets(self):
-        """Backward-compatible alias for :meth:`rebuild_plugin_sections`."""
-        self.rebuild_plugin_sections()
-
     def update_core_widgets(self):
         """Backward-compatible alias for :meth:`refresh_widgets`."""
         self.refresh_widgets()
@@ -1140,9 +1136,9 @@ class SettingWindow:
             self._scroll_to_settings(f"PluginSettingscommunity_{name}")
 
     def hide(self):
-        """Hide the window instead of destroying it"""
+        """Hide the window instead of destroying it."""
         self.window.withdraw()
-        
+
     def show(self):
         """Show the hidden window"""
         self.window.deiconify()

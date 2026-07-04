@@ -176,21 +176,6 @@ def test_run_setting_command_help_subcommand(capsys):
     assert "describe" in out
 
 
-def test_reset_to_defaults_preserves_identity():
-    from avlite.c60_apps.c64_settings_schema import reset_to_defaults
-
-    before_id = id(ExecutionSettings)
-    original = ExecutionSettings.c40_bridge
-    try:
-        ExecutionSettings.c40_bridge = "MutatedBridge"
-        reset_to_defaults(ExecutionSettings)
-        # Singleton identity must be preserved so injected references see the reset.
-        assert id(ExecutionSettings) is not None and id(ExecutionSettings) == before_id
-        assert ExecutionSettings.c40_bridge == ExecutionSettingsSchema.model_fields["c40_bridge"].default
-    finally:
-        ExecutionSettings.c40_bridge = original
-
-
 def test_tuning_knob_reaches_controller_without_code_reload():
     """Regression: mutating the settings singleton (as a profile load does) must reach
     a freshly built controller via a plain factory/constructor call, with no module reload."""

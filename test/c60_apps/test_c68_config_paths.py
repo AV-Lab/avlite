@@ -24,6 +24,7 @@ from avlite.c60_apps.c65_setting_utils import (
     dev_mode_uninstall_warning,
     export_profile,
     import_profile,
+    list_profiles,
     order_profiles_for_dropdown,
 )
 from avlite.plugins.p60_setting_cli.p61_setting_cli import cmd_export_profile, cmd_import_profile
@@ -40,9 +41,149 @@ def test_get_config_dir_honors_env(monkeypatch, tmp_path):
 
 
 def test_effective_config_path_read_falls_back_to_repo(monkeypatch, tmp_path):
-    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    repo_file = bundled / "c40_execution.yaml"
+    repo_file.write_text("c40_bridge: BasicSim\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.can_edit_bundled", lambda: False
+    )
     path = ConfigPaths.effective_path("configs/c40_execution.yaml", for_write=False)
-    assert Path(path) == REPO_EXEC
+    assert Path(path) == repo_file
+
+
+def test_effective_path_user_target_dev_no_repo_fallback(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {}\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.can_edit_bundled", lambda: True
+    )
+    ConfigPaths.set_repo_target(False)
+    path = ConfigPaths.effective_path("configs/default.yaml", for_write=False)
+    assert Path(path) == config_dir / "default.yaml"
+    assert not (config_dir / "default.yaml").is_file()
+
+
+def test_copy_bundled_profiles_to_user_when_empty(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {repo: true}\n")
+    (bundled / "Carla_Town10.yaml").write_text("c40_execution: {carla: true}\n")
+    (bundled / "plugin_p60_headless_mode.yaml").write_text("ignored: true\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    copied = ConfigPaths.copy_bundled_profiles_to_user()
+    assert sorted(copied) == ["Carla_Town10.yaml", "default.yaml"]
+    assert (config_dir / "default.yaml").read_text() == "c40_execution: {repo: true}\n"
+    assert (config_dir / "Carla_Town10.yaml").read_text() == "c40_execution: {carla: true}\n"
+    assert not (config_dir / "plugin_p60_headless_mode.yaml").exists()
+    assert ConfigPaths.copy_bundled_profiles_to_user() == []
+
+
+def test_copy_bundled_profiles_to_user_copies_missing_when_user_has_other_profiles(
+    monkeypatch, tmp_path,
+):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {repo: true}\n")
+    (bundled / "Carla_Town10.yaml").write_text("c40_execution: {carla: true}\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "robot.yaml").write_text("c40_execution: {robot: true}\n")
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    copied = ConfigPaths.copy_bundled_profiles_to_user()
+    assert sorted(copied) == ["Carla_Town10.yaml", "default.yaml"]
+    assert (config_dir / "robot.yaml").read_text() == "c40_execution: {robot: true}\n"
+    assert (config_dir / "default.yaml").read_text() == "c40_execution: {repo: true}\n"
+    assert ConfigPaths.copy_bundled_profiles_to_user() == []
+
+
+def test_copy_bundled_profiles_to_user_skips_existing_only(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {repo: true}\n")
+    (bundled / "Carla_Town10.yaml").write_text("c40_execution: {carla: true}\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "default.yaml").write_text("c40_execution: {user: true}\n")
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    copied = ConfigPaths.copy_bundled_profiles_to_user()
+    assert copied == ["Carla_Town10.yaml"]
+    assert (config_dir / "default.yaml").read_text() == "c40_execution: {user: true}\n"
+    assert (config_dir / "Carla_Town10.yaml").read_text() == "c40_execution: {carla: true}\n"
+
+
+def test_list_profiles_respects_repo_target(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {}\n")
+    (bundled / "Carla_Town10.yaml").write_text("c40_execution: {}\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "robot.yaml").write_text("c40_execution: {}\n")
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.can_edit_bundled", lambda: True
+    )
+    ConfigPaths.set_repo_target(False)
+    assert list_profiles() == ["default", "Carla_Town10", "robot"]
+    ConfigPaths.set_repo_target(True)
+    assert list_profiles() == ["default", "Carla_Town10"]
+    empty_user = tmp_path / "empty_user"
+    empty_user.mkdir()
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(empty_user))
+    ConfigPaths.set_repo_target(True)
+    assert list_profiles() == ["default", "Carla_Town10"]
+    assert not (empty_user / "default.yaml").exists()
+
+
+def test_list_profiles_seeds_missing_bundled_profiles_in_user_mode(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {repo: true}\n")
+    (bundled / "Carla_Town10.yaml").write_text("c40_execution: {carla: true}\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.can_edit_bundled", lambda: True
+    )
+    ConfigPaths.set_repo_target(False)
+    assert list_profiles() == ["default", "Carla_Town10"]
+    assert (config_dir / "default.yaml").read_text() == "c40_execution: {repo: true}\n"
+    assert (config_dir / "Carla_Town10.yaml").read_text() == "c40_execution: {carla: true}\n"
 
 
 def test_effective_config_path_read_prefers_user(monkeypatch, tmp_path):
@@ -250,18 +391,16 @@ def test_dev_mode_uninstall_warning_when_dev_checkout(monkeypatch, tmp_path):
     assert "my_plugin" in warning
 
 
-def test_clone_dir_dev_mode(monkeypatch, tmp_path):
+def test_install_dir_dev_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
     monkeypatch.delenv("AVLITE_CONFIG_DIR", raising=False)
 
     PluginPaths.set_dev_mode(False)
-    assert PluginPaths.clone_dir(private=False) == (tmp_path / "plugins").resolve()
-    assert PluginPaths.clone_dir(private=True) == (tmp_path / "plugins").resolve()
+    assert PluginPaths.install_dir() == (tmp_path / "plugins").resolve()
 
     PluginPaths.set_dev_mode(True)
-    assert PluginPaths.clone_dir(private=False) == (tmp_path / "plugins").resolve()
-    assert PluginPaths.clone_dir(private=True) == (tmp_path / "plugins").resolve()
+    assert PluginPaths.install_dir() == (tmp_path / "plugins").resolve()
 
 
 def test_register_stored_path_uses_explicit_home_path(monkeypatch, tmp_path):
@@ -636,7 +775,17 @@ def test_profile_export_import_round_trip(monkeypatch, tmp_path):
 
 
 def test_profile_export_finds_repo_profile(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {c40_bridge: BasicSim}\n")
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path / "empty"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.can_edit_bundled", lambda: False
+    )
     ConfigPaths.set_repo_target(False)
     out_path = tmp_path / "default.yaml"
     count = export_profile("default", out_path)
@@ -646,9 +795,19 @@ def test_profile_export_finds_repo_profile(monkeypatch, tmp_path):
 
 
 def test_profile_import_writes_to_user_config_dir(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "default.yaml").write_text("c40_execution: {c40_bridge: BasicSim}\n")
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "meta"))
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.bundled_dir", lambda: bundled
+    )
+    monkeypatch.setattr(
+        "avlite.c60_apps.c68_paths.ConfigPaths.can_edit_bundled", lambda: False
+    )
     ConfigPaths.set_repo_target(False)
 
     out_path = tmp_path / "default.yaml"
