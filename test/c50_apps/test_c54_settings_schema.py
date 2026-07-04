@@ -146,7 +146,7 @@ def test_run_config_command_bare_config_shows_help(capsys):
 
 def test_default_map_settings_field_race_planner():
     from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-    from avlite.plugins.p50_visualizer_tk.p53_ui_lib import DataPicker
+    from avlite.plugins.p50_visualizer_tk.p55_ui_lib import DataPicker
 
     original = ExecutionSettings.c40_global_planner
     try:
@@ -158,7 +158,7 @@ def test_default_map_settings_field_race_planner():
 
 def test_default_map_settings_field_hd_planner():
     from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
-    from avlite.plugins.p50_visualizer_tk.p53_ui_lib import DataPicker
+    from avlite.plugins.p50_visualizer_tk.p55_ui_lib import DataPicker
 
     original = ExecutionSettings.c40_global_planner
     try:

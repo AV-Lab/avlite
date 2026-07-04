@@ -48,7 +48,7 @@ from avlite.c50_apps.c55_setting_utils import (
     load_setting,
     save_setting,
 )
-from avlite.plugins.p50_visualizer_tk.p53_ui_lib import (
+from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
     BUTTON_TOOLTIPS,
     attach_tooltip,
     apply_ttk_theme,
@@ -562,23 +562,23 @@ class _PluginOperations:
         *,
         private: bool = False,
     ) -> None:
-        """Add ``name -> path`` to ``AppSettings.c50_community_plugins`` and persist."""
+        """Add ``name -> path`` to ``AppSettings.c52_community_plugins`` and persist."""
         profile = profile or _PluginOperations._current_profile()
         load_setting(AppSettings, profile=profile)
         if PluginPaths.is_dev_mode():
             stored = PluginPaths.register_stored_path(name, private=private)
         else:
             stored = PluginPaths.normalize_stored(name, str(path))
-        AppSettings.c50_community_plugins[name] = stored
+        AppSettings.c52_community_plugins[name] = stored
         save_setting(AppSettings, profile=profile)
         log.info("Registered plugin '%s' in profile '%s'", name, profile)
 
     @staticmethod
     def unregister_from_profile(name: str, profile: Optional[str] = None) -> None:
-        """Remove ``name`` from ``AppSettings.c50_community_plugins`` and persist."""
+        """Remove ``name`` from ``AppSettings.c52_community_plugins`` and persist."""
         profile = profile or _PluginOperations._current_profile()
         load_setting(AppSettings, profile=profile)
-        AppSettings.c50_community_plugins.pop(name, None)
+        AppSettings.c52_community_plugins.pop(name, None)
         save_setting(AppSettings, profile=profile)
         log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
 
@@ -1257,7 +1257,7 @@ class _PluginRegistryPanel(ttk.Frame):
     def _populate(self) -> None:
         def _registered_plugins() -> dict[str, str]:
             try:
-                return dict(AppSettings.c50_community_plugins)
+                return dict(AppSettings.c52_community_plugins)
             except Exception:
                 return {}
 
@@ -1345,7 +1345,7 @@ class _PluginRegistryPanel(ttk.Frame):
         entry = next((e for e in self._registry if e["name"] == name), None)
         install_path = None
         try:
-            stored = AppSettings.c50_community_plugins.get(name)
+            stored = AppSettings.c52_community_plugins.get(name)
             if stored is not None:
                 install_path = PluginPaths.load_path(name, stored)
         except Exception:
@@ -1626,7 +1626,7 @@ class _PluginRegistryPanel(ttk.Frame):
         if host is None:
             return None
         try:
-            return host.app.c50_selected_profile.get()
+            return host.setting.c50_selected_profile.get()
         except Exception:
             return None
 
@@ -1775,7 +1775,7 @@ class _PluginRegistryPanel(ttk.Frame):
             if callable(refresh):
                 refresh()
                 return
-            cfg_view = getattr(host, "config_shortcut_view", None)
+            cfg_view = getattr(host, "setting_shortcut_view", None)
             if cfg_view is not None and hasattr(cfg_view, "update_setting_window"):
                 cfg_view.update_setting_window()
         except Exception:

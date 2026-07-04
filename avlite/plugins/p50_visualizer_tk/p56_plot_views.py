@@ -98,18 +98,18 @@ class GlobalPlanPlotView(ttk.Frame):
         try:
             aspect_ratio = self.__get_aspect_ratio()
             max_zoom = self._max_zoom_out(aspect_ratio)
-            if max_zoom is not None and self.root.setting.p55_global_zoom >= max_zoom:
+            if max_zoom is not None and self.root.setting.p56_global_zoom >= max_zoom:
                 self._center_delta = (0, 0)
             self._clamp_center_delta()
 
             self.global_plot.plot(
                 exec=self.root.exec,
                 aspect_ratio=aspect_ratio,
-                zoom=self.root.setting.p55_global_zoom,
-                show_legend=self.root.setting.p55_show_legend.get(),
-                follow_vehicle=self.root.setting.p55_global_view_follow_planner.get(),
-                show_plan_boundaries=self.root.setting.p55_show_global_plan_boundaries.get(),
-                velocity_scale=self.root.setting.p55_global_plan_velocity_scale.get(),
+                zoom=self.root.setting.p56_global_zoom,
+                show_legend=self.root.setting.p56_show_legend.get(),
+                follow_vehicle=self.root.setting.p56_global_view_follow_planner.get(),
+                show_plan_boundaries=self.root.setting.p56_show_global_plan_boundaries.get(),
+                velocity_scale=self.root.setting.p56_global_plan_velocity_scale.get(),
                 delta=self._center_delta,
             )
             log.debug(f"Global Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
@@ -246,15 +246,15 @@ class GlobalPlanPlotView(ttk.Frame):
                 log.debug(f"Teleport Ego to X: {self.teleport_x:.2f}, Y: {self.teleport_y:.2f}, Orientation: {self.teleport_orientation:.2f}")
     
     def on_mouse_scroll(self, event, increment=10):
-        log.debug(f"Scroll Event in global coordinate. Zoom: {self.root.setting.p55_global_zoom}")
+        log.debug(f"Scroll Event in global coordinate. Zoom: {self.root.setting.p56_global_zoom}")
         if event.button == "up":
-            self.root.setting.p55_global_zoom -= increment if self.root.setting.p55_global_zoom > increment else 0
+            self.root.setting.p56_global_zoom -= increment if self.root.setting.p56_global_zoom > increment else 0
         elif event.button == "down":
             max_zoom = self._max_zoom_out(self.__get_aspect_ratio())
-            if max_zoom is None or self.root.setting.p55_global_zoom < max_zoom:
-                self.root.setting.p55_global_zoom += increment
+            if max_zoom is None or self.root.setting.p56_global_zoom < max_zoom:
+                self.root.setting.p56_global_zoom += increment
                 if max_zoom is not None:
-                    self.root.setting.p55_global_zoom = min(self.root.setting.p55_global_zoom, max_zoom)
+                    self.root.setting.p56_global_zoom = min(self.root.setting.p56_global_zoom, max_zoom)
         threshold = 0.01
         if (self._prev_scroll_time is None or time.time() - self._prev_scroll_time > threshold) and not self.root.setting.exec_running:
             # self.root.update_ui()
@@ -389,15 +389,15 @@ class LocalPlanPlotView(ttk.Frame):
         if event.inaxes == self.ax1:
             log.debug(f"Scroll Event in real coordinate: {event.button}")
             if event.button == "up":
-                self.root.setting.p55_xy_zoom -= increment if self.root.setting.p55_xy_zoom > increment else 0
+                self.root.setting.p56_xy_zoom -= increment if self.root.setting.p56_xy_zoom > increment else 0
             elif event.button == "down":
-                self.root.setting.p55_xy_zoom += increment
+                self.root.setting.p56_xy_zoom += increment
         elif event.inaxes == self.ax2:
             log.debug(f"Scroll Event in frenet: {event.button}")
             if event.button == "up":
-                self.root.setting.p55_frenet_zoom -= increment if self.root.setting.p55_frenet_zoom > increment else 0
+                self.root.setting.p56_frenet_zoom -= increment if self.root.setting.p56_frenet_zoom > increment else 0
             elif event.button == "down":
-                self.root.setting.p55_frenet_zoom += increment
+                self.root.setting.p56_frenet_zoom += increment
 
         threshold = 0.01
         if (
@@ -408,19 +408,19 @@ class LocalPlanPlotView(ttk.Frame):
         self._prev_scroll_time = time.time()
 
     def zoom_in(self):
-        self.root.setting.p55_xy_zoom -= 5 if self.root.setting.p55_xy_zoom > 5 else 0
+        self.root.setting.p56_xy_zoom -= 5 if self.root.setting.p56_xy_zoom > 5 else 0
         self.root.update_ui()
 
     def zoom_out(self):
-        self.root.setting.p55_xy_zoom += 5
+        self.root.setting.p56_xy_zoom += 5
         self.root.update_ui()
 
     def zoom_in_frenet(self):
-        self.root.setting.p55_frenet_zoom -= 5 if self.root.setting.p55_frenet_zoom > 5 else 0
+        self.root.setting.p56_frenet_zoom -= 5 if self.root.setting.p56_frenet_zoom > 5 else 0
         self.root.update_ui()
 
     def zoom_out_frenet(self):
-        self.root.setting.p55_frenet_zoom += 5
+        self.root.setting.p56_frenet_zoom += 5
         self.root.update_ui()
 
     def update_plot_theme(self):
@@ -437,14 +437,14 @@ class LocalPlanPlotView(ttk.Frame):
         # ylim formulas assume two stacked axes each occupying half the height;
         # when only one axis is shown at full height, halving the ratio doubles
         # the y-range so the content fills the available space.
-        show_gv = self.root.setting.p55_show_local_global_view.get()
-        show_fv = self.root.setting.p55_show_local_frenet_view.get()
+        show_gv = self.root.setting.p57_show_local_global_view.get()
+        show_fv = self.root.setting.p57_show_local_frenet_view.get()
         if show_gv != show_fv:
             aspect_ratio /= 2
 
         want_lidar = (
-            self.root.setting.p55_show_lidar_global.get()
-            or self.root.setting.p55_show_lidar_frenet.get()
+            self.root.setting.p56_show_lidar_global.get()
+            or self.root.setting.p56_show_lidar_frenet.get()
         )
 
         t1 = time.time()
@@ -452,27 +452,27 @@ class LocalPlanPlotView(ttk.Frame):
         self.local_plot.plot(
             exec=self.root.exec,
             aspect_ratio=aspect_ratio,
-            xy_zoom=self.root.setting.p55_xy_zoom,
-            frenet_zoom=self.root.setting.p55_frenet_zoom,
-            show_legend=self.root.setting.p55_show_legend.get(),
-            plot_last_pts=self.root.setting.p55_show_past_locations.get(),
-            plot_global_plan=self.root.setting.p55_show_global_plan.get(),
-            plot_local_plan=self.root.setting.p55_show_local_plan.get(),
-            plot_local_lattice=self.root.setting.p55_show_local_lattice.get(),
-            plot_state=self.root.setting.p55_show_state.get(),
-            global_follow_planner=self.root.setting.p55_global_view_follow_planner.get(),
-            frenet_follow_planner=self.root.setting.p55_frenet_view_follow_planner.get(),
-            plot_occupancy_flow=self.root.setting.p55_show_occupancy_flow.get(),
+            xy_zoom=self.root.setting.p56_xy_zoom,
+            frenet_zoom=self.root.setting.p56_frenet_zoom,
+            show_legend=self.root.setting.p56_show_legend.get(),
+            plot_last_pts=self.root.setting.p56_show_past_locations.get(),
+            plot_global_plan=self.root.setting.p56_show_global_plan.get(),
+            plot_local_plan=self.root.setting.p56_show_local_plan.get(),
+            plot_local_lattice=self.root.setting.p56_show_local_lattice.get(),
+            plot_state=self.root.setting.p56_show_state.get(),
+            global_follow_planner=self.root.setting.p56_global_view_follow_planner.get(),
+            frenet_follow_planner=self.root.setting.p56_frenet_view_follow_planner.get(),
+            plot_occupancy_flow=self.root.setting.p57_show_occupancy_flow.get(),
             plot_predictions=True,
             plot_lidar=want_lidar,
             lidar_data=self.root.exec.world.get_lidar_data() if want_lidar else None,
-            plot_lidar_global=self.root.setting.p55_show_lidar_global.get(),
-            plot_lidar_frenet=self.root.setting.p55_show_lidar_frenet.get(),
-            plot_clusters=self.root.setting.p55_show_lidar_clusters.get(),
+            plot_lidar_global=self.root.setting.p56_show_lidar_global.get(),
+            plot_lidar_frenet=self.root.setting.p56_show_lidar_frenet.get(),
+            plot_clusters=self.root.setting.p56_show_lidar_clusters.get(),
             plot_ground_truth=self.root.setting.bridge_provide_ground_truth_detection.get(),
-            plot_race_boundary=self.root.setting.p55_show_race_boundary.get(),
-            show_global_view=self.root.setting.p55_show_local_global_view.get(),
-            show_frenet_view=self.root.setting.p55_show_local_frenet_view.get(),
+            plot_race_boundary=self.root.setting.p56_show_race_boundary.get(),
+            show_global_view=self.root.setting.p57_show_local_global_view.get(),
+            show_frenet_view=self.root.setting.p57_show_local_frenet_view.get(),
         )
         self.canvas.draw()
         log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")

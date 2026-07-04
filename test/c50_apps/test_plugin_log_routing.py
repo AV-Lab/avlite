@@ -2,7 +2,7 @@
 
 import logging
 
-from avlite.plugins.p50_visualizer_tk.p57_log_view import LogView
+from avlite.plugins.p50_visualizer_tk.p58_log_view import LogView
 from avlite.c50_apps.c53_plugins import (
     layer_key_for_plugin_log_record,
     layer_key_for_plugin_package,
@@ -13,15 +13,15 @@ from avlite.c50_apps.c53_plugins import (
 
 def _filters(**overrides: bool) -> dict[str, bool]:
     base = {
-        "p57_show_perceive_logs": True,
-        "p57_show_plan_logs": True,
-        "p57_show_control_logs": True,
-        "p57_show_execute_logs": True,
-        "p57_show_vis_logs": True,
-        "p57_show_common_logs": True,
-        "p57_show_core_logs": True,
-        "p57_show_plugins_logs": True,
-        "p57_disable_log": False,
+        "p58_show_perceive_logs": True,
+        "p58_show_plan_logs": True,
+        "p58_show_control_logs": True,
+        "p58_show_execute_logs": True,
+        "p58_show_vis_logs": True,
+        "p58_show_common_logs": True,
+        "p58_show_core_logs": True,
+        "p58_show_plugins_logs": True,
+        "p58_disable_log": False,
         "log_to_file": False,
     }
     base.update(overrides)
@@ -74,27 +74,27 @@ def test_layer_key_for_plugin_log_record_package_fallback():
 
 def test_should_show_log_core_layer():
     name = "avlite.c30_control.c32_control_strategy"
-    assert LogView.should_show_log(name, _filters(p57_show_control_logs=True))
-    assert not LogView.should_show_log(name, _filters(p57_show_control_logs=False))
-    assert not LogView.should_show_log(name, _filters(p57_show_core_logs=False, p57_show_control_logs=True))
+    assert LogView.should_show_log(name, _filters(p58_show_control_logs=True))
+    assert not LogView.should_show_log(name, _filters(p58_show_control_logs=False))
+    assert not LogView.should_show_log(name, _filters(p58_show_core_logs=False, p58_show_control_logs=True))
 
 
 def test_should_show_log_plugins_master_toggle():
     name = "avlite.plugins.avlite_controller_joystick.p30_joystick_controller"
-    assert LogView.should_show_log(name, _filters(p57_show_plugins_logs=True))
-    assert not LogView.should_show_log(name, _filters(p57_show_plugins_logs=False))
+    assert LogView.should_show_log(name, _filters(p58_show_plugins_logs=True))
+    assert not LogView.should_show_log(name, _filters(p58_show_plugins_logs=False))
 
 
 def test_should_show_log_pnx_routes_to_layer():
     name = "avlite.plugins.avlite_controller_joystick.p30_joystick_controller"
-    assert LogView.should_show_log(name, _filters(p57_show_plugins_logs=True, p57_show_control_logs=True))
-    assert not LogView.should_show_log(name, _filters(p57_show_plugins_logs=True, p57_show_control_logs=False))
+    assert LogView.should_show_log(name, _filters(p58_show_plugins_logs=True, p58_show_control_logs=True))
+    assert not LogView.should_show_log(name, _filters(p58_show_plugins_logs=True, p58_show_control_logs=False))
 
 
 def test_should_show_log_community_plugin_bucket():
     name = "avlite.plugins.sample_avlite_plugin.handler"
-    assert LogView.should_show_log(name, _filters(p57_show_plugins_logs=True))
-    assert not LogView.should_show_log(name, _filters(p57_show_plugins_logs=False))
+    assert LogView.should_show_log(name, _filters(p58_show_plugins_logs=True))
+    assert not LogView.should_show_log(name, _filters(p58_show_plugins_logs=False))
 
 
 def test_record_code_prefix():

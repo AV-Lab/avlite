@@ -434,8 +434,8 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "toolbar_settings": "Open settings to edit profiles, plugins, and visualization options.",
     "toolbar_plugins": "Browse and install community plugins from GitHub.",
     "toolbar_reload_stack": "Rebuild the perception, planning, control, and execution stack with current settings.",
-    "toolbar_reset_config": "Reload configuration from disk and discard unsaved UI changes.",
-    "toolbar_save_config": "Save the current settings to the active profile YAML files.",
+    "toolbar_reset_settings": "Reload configuration from disk and discard unsaved UI changes.",
+    "toolbar_save_settings": "Save the current settings to the active profile YAML files.",
     # Execution
     "exec_start": "Run the simulation loop continuously at the configured rates.",
     "exec_stop": "Stop the loop and halt the world bridge.",
