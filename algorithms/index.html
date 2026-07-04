@@ -768,7 +768,7 @@
 <li>Outputs a <code>GlobalPlan</code> with <code>left_boundary_d</code>, <code>right_boundary_d</code>, and a <code>TrajectoryTracker</code> reference — all consumed by the lattice.</li>
 </ul>
 <h3 id="hd-map-hdmapglobalplanner">HD map (<code>HDMapGlobalPlanner</code>)<a class="headerlink" href="#hd-map-hdmapglobalplanner" title="Permanent link">&para;</a></h3>
-<p>Used with OpenDRIVE maps parsed by <a href="../avlite/c10_perception/c18_hdmap_parser.py"><code>c18_hdmap_parser.py</code></a>.</p>
+<p>Used with OpenDRIVE maps: <code>HDMap</code> in <a href="../avlite/c10_perception/c11_perception_model.py"><code>c11_perception_model.py</code></a>, parsed by <a href="../avlite/c10_perception/c18_hdmap_parser.py"><code>c18_hdmap_parser.py</code></a>.</p>
 <ul>
 <li>Routes on the lane graph from start to goal.</li>
 <li>Produces the same <code>GlobalPlan</code> structure (path, boundaries, velocity) for downstream local planning.</li>
@@ -921,11 +921,11 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 </tr>
 <tr>
 <td>Emergency-stop recovery to clean plan</td>
-<td>Requires <strong>wait time</strong> (<code>c27_replan_wait_time</code>) <strong>or</strong> <strong>material gain</strong></td>
+<td>Requires <strong>wait time</strong> (<code>c27_replan_wait_time</code>) <strong>or</strong> chain <strong>+2 edges</strong></td>
 </tr>
 <tr>
 <td>Current edge done, no successor</td>
-<td>Material gain = mean speed <strong>+0.5 m/s</strong> or chain <strong>+2 edges</strong></td>
+<td>Same-length speed upgrade (+0.5 m/s) only after <strong>wait time</strong></td>
 </tr>
 <tr>
 <td>Urgent collision (within <code>c27_urgent_collision_threshold</code> waypoints)</td>
@@ -936,22 +936,23 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 <td></td>
 </tr>
 <tr>
-<td>Faster clean alternative (+0.5 m/s mean speed)</td>
+<td>Head edge colliding, agent cleared (+0.5 m/s faster clean plan)</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p>Same-length clean alternatives never switch (anti-jitter).</p>
+<p>A clean committed chain is <strong>not</strong> replaced for a slightly faster resampled plan on every replan cycle. Immediate +0.5 m/s applies only when recovering from a <strong>colliding head edge</strong> (obstacle just cleared). Emergency passing commits also go through <code>should_switch_plan</code>.</p>
+<p>Same-length clean alternatives with similar speed never switch (anti-jitter).</p>
 <p>On switch, a <strong>velocity ramp</strong> over the first <code>c27_match_speed_wp_buffer</code> waypoints blends from ego speed into the plan when recovering from a stop.</p>
 <h3 id="emergency-behavior">Emergency behavior<a class="headerlink" href="#emergency-behavior" title="Permanent link">&para;</a></h3>
 <p>If no strictly feasible level-0 edges exist:</p>
 <ol>
-<li>Retry with boundary relaxed (<code>agent_blocks_ahead=True</code> filtering).</li>
-<li>If still blocked, pick the edge with the <strong>latest</strong> collision index (most reaction time) and apply speed match / emergency stop.</li>
+<li>Retry with boundary relaxed (<code>agent_blocks_ahead=True</code> filtering) — commit only if <code>should_switch_plan</code> allows.</li>
+<li>If still blocked, pick the edge with the <strong>latest</strong> collision index (most reaction time) only when <code>should_switch_plan</code> allows; otherwise keep the current committed chain.</li>
 <li>If no edges are generated at all, decelerate the current committed trajectory to zero.</li>
 </ol>
 <h3 id="debug-visualization">Debug visualization<a class="headerlink" href="#debug-visualization" title="Permanent link">&para;</a></h3>
-<p>Enable the local lattice plot in the stack view. Edge colors in <a href="../avlite/c50_visualization/c57_plot_lib.py"><code>c57_plot_lib.py</code></a>:</p>
+<p>Enable the local lattice plot in the stack view. Edge colors in <a href="../avlite/plugins/p60_visualizer_tk/p69_plot_lib.py"><code>p69_plot_lib.py</code></a>:</p>
 <table>
 <thead>
 <tr>

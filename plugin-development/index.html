@@ -761,6 +761,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#apps-appstrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apps (AppStrategy)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       See Also
@@ -900,7 +909,7 @@
 <p>Tunable parameters are saved outside the plugin tree in <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> (see section 1). Do not ship a <code>config/</code> folder or plugin-local YAML profiles in your repository.</p>
 <p>Do not commit a <code>.venv</code> inside your plugin directory — AVLite scans all <code>.py</code> files under the plugin path and skips common vendor folders (<code>.venv</code>, <code>site-packages</code>, etc.), but keeping the venv outside the plugin tree is cleaner.</p>
 <h2 id="1-settings-file-optional">1. Settings File (Optional)<a class="headerlink" href="#1-settings-file-optional" title="Permanent link">&para;</a></h2>
-<p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> (or under <code>AVLITE_CONFIG_DIR</code> if set). The filename uses the registry key / <code>c40_community_plugins</code> entry name — you do <strong>not</strong> need <code>exclude</code>, <code>filepath</code>, or a <code>config/</code> folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.</p>
+<p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> (or under <code>AVLITE_CONFIG_DIR</code> if set). The filename uses the registry key / <code>c62_community_plugins</code> entry name — you do <strong>not</strong> need <code>exclude</code>, <code>filepath</code>, or a <code>config/</code> folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># settings.py</span>
 <span class="k">class</span> <span class="nc">PluginSettings</span><span class="p">:</span>
     <span class="c1"># Your parameters (appear in UI automatically)</span>
@@ -911,7 +920,7 @@
 <p>Built-in plugins under <code>avlite/plugins/</code> are different: they set <code>filepath = "configs/plugin_*.yaml"</code> explicitly so shipped defaults live in the repository <code>configs/</code> directory and fall back from the user config dir on load.</p>
 <h2 id="2-example-custom-perception-monolithic">2. Example: Custom Perception (Monolithic)<a class="headerlink" href="#2-example-custom-perception-monolithic" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PerceptionStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">PerceptionCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
 <span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">PluginSettings</span>
 
 <span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
@@ -919,13 +928,13 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">,</span> <span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_3D</span><span class="p">}</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">PerceptionCapability</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">PerceptionCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">PerceptionCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">,</span>
-                <span class="n">PerceptionCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">}</span>
+    <span class="k">def</span> <span class="nf">stack_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">StackCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">,</span>
+                <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">perceive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rgb_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">depth_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lidar_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -938,12 +947,12 @@
 to implement one stage of the pipeline. These plug into <code>PerceptionPipeline</code> and are
 selected by name when <strong>Perception</strong> is set to <code>PerceptionPipeline</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">DetectionStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
 <span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
 
 <span class="k">class</span> <span class="nc">MyDetector</span><span class="p">(</span><span class="n">DetectionStrategy</span><span class="p">):</span>
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">detect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span><span class="p">,</span>
@@ -952,12 +961,12 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
         <span class="k">return</span> <span class="n">perception_model</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">TrackingStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
 <span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
 
 <span class="k">class</span> <span class="nc">MyTracker</span><span class="p">(</span><span class="n">TrackingStrategy</span><span class="p">):</span>
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
         <span class="k">return</span> <span class="nb">set</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">track</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span><span class="p">:</span>
@@ -965,12 +974,12 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
         <span class="k">return</span> <span class="n">perception_model</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PredictionStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
 <span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
 
 <span class="k">class</span> <span class="nc">MyPredictor</span><span class="p">(</span><span class="n">PredictionStrategy</span><span class="p">):</span>
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
         <span class="k">return</span> <span class="nb">set</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -986,19 +995,19 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 <p>Localization strategies estimate the ego vehicle’s pose and update
 <code>self.perception_model.ego_vehicle</code> <strong>in-place</strong> (no return value).</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c13_localization_strategy</span> <span class="kn">import</span> <span class="n">LocalizationStrategy</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">LocalizationCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
 
 <span class="k">class</span> <span class="nc">MyLocalization</span><span class="p">(</span><span class="n">LocalizationStrategy</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_3D</span><span class="p">}</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">LocalizationCapability</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">LocalizationCapability</span><span class="o">.</span><span class="n">LOCALIZATION_2D</span><span class="p">,</span> <span class="n">LocalizationCapability</span><span class="o">.</span><span class="n">LOCALIZATION_HEADING</span><span class="p">}</span>
+    <span class="k">def</span> <span class="nf">stack_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">StackCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">localize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">imu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lidar</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rgb_img</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Estimate the ego pose from sensor data and update in-place</span>
@@ -1020,17 +1029,20 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_trajectory</span>
 </code></pre></div>
 <h2 id="6-example-custom-controller">6. Example: Custom Controller<a class="headerlink" href="#6-example-custom-controller" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c30_control.c32_control_strategy</span> <span class="kn">import</span> <span class="n">ControlStrategy</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c20_planning.c21_planning_model</span> <span class="kn">import</span> <span class="n">GlobalPlan</span><span class="p">,</span> <span class="n">LocalPlan</span>
+<span class="kn">from</span> <span class="nn">avlite.c30_control.c32_control_strategy</span> <span class="kn">import</span> <span class="n">ControlStrategy</span>
 <span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlCommand</span><span class="p">,</span> <span class="n">ControlCommandBase</span>
 
 <span class="k">class</span> <span class="nc">MyController</span><span class="p">(</span><span class="n">ControlStrategy</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">control</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ego</span><span class="p">,</span> <span class="n">tj</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control_dt</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ControlCommandBase</span><span class="p">:</span>
-        <span class="c1"># Your logic here; ControlCommand is an alias for AckermannControlCommand</span>
+    <span class="k">def</span> <span class="nf">control</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ego</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">GlobalPlan</span> <span class="o">|</span> <span class="n">LocalPlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">control_dt</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ControlCommandBase</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ControlCommand</span><span class="p">(</span><span class="n">steer</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">acceleration</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 </code></pre></div>
+<p>Use <code>set_trajectory_tracker(tj)</code> when you already have a built <code>TrajectoryTracker</code>; use <code>set_plan(plan)</code> or the <code>plan</code> argument on <code>control()</code> when you hold a <code>GlobalPlan</code> or <code>LocalPlan</code>.</p>
 <h2 id="7-multi-robot-agents-and-control">7. Multi-robot agents and control<a class="headerlink" href="#7-multi-robot-agents-and-control" title="Permanent link">&para;</a></h2>
 <p>AVLite separates <strong>what an agent is</strong> (platform metadata) from <strong>how it is actuated</strong> (control command payload). Phase 1 adds the structure; the executer still drives ego via <code>control_ego_state</code> only. Multi-agent actuation and physics sub-stepping are reserved for later.</p>
 <h3 id="agent-identity">Agent identity<a class="headerlink" href="#agent-identity" title="Permanent link">&para;</a></h3>
@@ -1130,6 +1142,21 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 <td>Override + declare <code>WorldCapability.AGENT_CONTROL</code></td>
 </tr>
 <tr>
+<td><code>teleport_agent(id, x, y, theta)</code></td>
+<td>Default: ego delegates to <code>teleport_ego</code>; NPC raises <code>NotImplementedError</code></td>
+<td>Override for sim teleport of any agent</td>
+</tr>
+<tr>
+<td><code>get_*(agent_id=EGO_AGENT_ID)</code></td>
+<td>Default: ego returns data or <code>None</code>; NPC raises <code>NotImplementedError</code></td>
+<td>Per-agent sensors in Carla / ROS bridges</td>
+</tr>
+<tr>
+<td><code>get_sensor_frame(agent_id=...)</code></td>
+<td>Ego: calls legacy <code>get_*()</code> with no kwargs (BasicSim-compatible)</td>
+<td>Non-ego: passes <code>agent_id</code> to each getter</td>
+</tr>
+<tr>
 <td><code>step(dt)</code></td>
 <td>Default no-op; executer does not call it yet</td>
 <td>Physics tick with held command; executer sub-stepping</td>
@@ -1137,6 +1164,7 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 </tbody>
 </table>
 <p><code>control_type(agent)</code> lives on <strong><code>WorldBridge</code> only</strong> — not on <code>ControlStrategy</code>. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of <code>control()</code>.</p>
+<p><strong>Multi-agent sensors:</strong> override getters with an <code>agent_id</code> parameter when your bridge serves more than ego. Ego-only bridges (e.g. BasicSim) need no update — <code>get_sensor_frame()</code> uses the legacy no-kwargs call path for ego.</p>
 <h3 id="state-model-today-vs-future">State model — today vs future<a class="headerlink" href="#state-model-today-vs-future" title="Permanent link">&para;</a></h3>
 <p><strong>Today:</strong> <code>AgentState</code> uses pose (<code>x</code>, <code>y</code>, <code>z</code>, <code>theta</code>) plus scalar <strong><code>velocity</code></strong> (speed along heading). This matches the car-centric stack (planning, collision checking, BasicSim, visualization).</p>
 <p><strong>Aerial / holonomic agents:</strong> <code>BodyVelocityControlCommand</code> is defined, but base <code>AgentState</code> does not yet carry <code>vx</code>, <code>vy</code>, or <code>vz</code>. For 2D / bird's-eye use cases, heading plus scalar speed is an acceptable lite projection. Full drone or multirotor simulation needs richer state later.</p>
@@ -1185,12 +1213,17 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">EGO_AGENT_ID</span>
 <span class="kn">from</span> <span class="nn">avlite.c40_execution.c41_world_bridge</span> <span class="kn">import</span> <span class="n">WorldBridge</span>
 <span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlCommandBase</span>
-<span class="kn">from</span> <span class="nn">avlite.c60_common.c61_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span>
+<span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">StackCapability</span><span class="p">,</span> <span class="n">WorldCapability</span>
 
 <span class="k">class</span> <span class="nc">MyBridge</span><span class="p">(</span><span class="n">WorldBridge</span><span class="p">):</span>
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_2D</span><span class="p">,</span> <span class="n">WorldCapability</span><span class="o">.</span><span class="n">GT_LOCALIZATION</span><span class="p">}</span>
+    <span class="k">def</span> <span class="nf">world_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_2D</span><span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">stack_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">StackCapability</span><span class="p">]:</span>
+        <span class="c1"># Ground truth provided by the world (satisfies downstream stack_requirements)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">control_ego_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="n">ControlCommandBase</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
         <span class="c1"># Send control to your simulator or robot</span>
@@ -1219,10 +1252,11 @@ selected by name when <strong>Perception</strong> is set to <code>PerceptionPipe
 3. Add entry under community plugins: <code>my_plugin</code> → install path (or use <strong>Install</strong> then <strong>Register</strong> from <code>python -m avlite plugins</code>)
 4. Save profile</p>
 <p>Double-click a community plugin in the list to view its <strong>Package Name</strong> and <strong>Settings file</strong> paths separately. <strong>Reset to Installed</strong> repopulates the list from plugin directories under the user install dir (<code>~/.local/share/avlite/plugins/</code>) and dev checkout dirs (<code>avlite-community-plugins/</code>, <code>avlite-private-plugins/</code>).</p>
-<p><strong>Via settings file</strong> (<code>configs/c40_execution.yaml</code> or your saved copy under <code>~/.config/avlite/</code>):</p>
-<div class="highlight"><pre><span></span><code><span class="nt">c40_community_plugins</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_plugin</span><span class="w">                    </span><span class="c1"># installed under ~/.local/share/avlite/plugins/</span>
-<span class="w">  </span><span class="nt">dev_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~/src/my_plugin</span><span class="w">             </span><span class="c1"># local dev checkout outside the plugins dir</span>
+<p><strong>Via settings file</strong> (the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>, or your saved copy under <code>~/.config/avlite/</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="nt">c69_apps</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">c62_community_plugins</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_plugin</span><span class="w">                  </span><span class="c1"># installed under ~/.local/share/avlite/plugins/</span>
+<span class="w">    </span><span class="nt">dev_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~/src/my_plugin</span><span class="w">           </span><span class="c1"># local dev checkout outside the plugins dir</span>
 </code></pre></div>
 <p>The map value is the <strong>install path</strong>, not the settings YAML path. When a plugin lives under <code>~/.local/share/avlite/plugins/</code> (override install root with <code>AVLITE_PLUGINS_DIR</code>), AVLite stores the name sentinel (<code>my_plugin: my_plugin</code>). Paths outside that directory are stored as <code>~/...</code> or an absolute path. Plugin settings always live in <code>~/.config/avlite/plugin_&lt;name&gt;.yaml</code>, independent of the install location.</p>
 <p>Your classes will now appear in the UI dropdowns.</p>
@@ -1330,7 +1364,7 @@ This is separate from the public community registry.</p>
 <td>Vehicle controllers, actuation</td>
 </tr>
 <tr>
-<td><code>Executer</code></td>
+<td><code>ExecutionStrategy</code></td>
 <td>Runtime execution, scheduling, orchestration</td>
 </tr>
 <tr>
@@ -1353,7 +1387,7 @@ This is separate from the public community registry.</p>
 </ul>
 <p>In the PR description, briefly state what layer(s) the plugin extends (perception, planning, control, bridge, etc.) and link to an example profile or usage steps if helpful.</p>
 <h3 id="after-merge">After merge<a class="headerlink" href="#after-merge" title="Permanent link">&para;</a></h3>
-<p>Once the PR is merged to <code>main</code>, AVLite fetches the updated registry automatically the next time a user opens <strong>Plugins</strong> (<code>python -m avlite plugins</code>). They can <strong>Install</strong>, then <strong>Register</strong> to add the plugin to their active execution profile (<code>c40_community_plugins</code>).</p>
+<p>Once the PR is merged to <code>main</code>, AVLite fetches the updated registry automatically the next time a user opens <strong>Plugins</strong> (<code>python -m avlite plugins</code>). They can <strong>Install</strong>, then <strong>Register</strong> to add the plugin to their active profile (<code>c62_community_plugins</code> in the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>).</p>
 <p>You do not need a new AVLite release for registry-only changes.</p>
 <h3 id="updating-your-listing">Updating your listing<a class="headerlink" href="#updating-your-listing" title="Permanent link">&para;</a></h3>
 <ul>
@@ -1406,7 +1440,7 @@ This is separate from the public community registry.</p>
 <h2 id="13-log-panel-filtering">13. Log panel filtering<a class="headerlink" href="#13-log-panel-filtering" title="Permanent link">&para;</a></h2>
 <p>The visualizer log toolbar provides:</p>
 <ul>
-<li><strong>Core</strong> — master toggle for all core stack logs (<code>avlite.c10_*</code> … <code>avlite.c60_*</code>). Does not change the per-layer checkbox states.</li>
+<li><strong>Core</strong> — master toggle for all core stack logs (<code>avlite.c10_*</code> … <code>avlite.c50_*</code>). Does not change the per-layer checkbox states.</li>
 <li><strong>Plugins</strong> — master toggle for all <code>avlite.plugins.*</code> logs.</li>
 <li><strong>Per-layer checkboxes</strong> (Perception, Planning, Control, Execution, Visualization, Common) — filter core logs and plugin logs routed to that layer.</li>
 </ul>
@@ -1507,14 +1541,55 @@ This is separate from the public community registry.</p>
 <tr>
 <td><code>WorldBridge</code></td>
 <td>Simulator integration</td>
-<td><code>control_ego_state()</code>, <code>control_type(agent)</code>, <code>control_agent()</code>, <code>step()</code></td>
+<td><code>control_ego_state()</code>, <code>control_type(agent)</code>, <code>control_agent()</code>, <code>teleport_agent()</code>, <code>get_*(agent_id=...)</code>, <code>step()</code></td>
 </tr>
 </tbody>
 </table>
+<h2 id="apps-appstrategy">Apps (<code>AppStrategy</code>)<a class="headerlink" href="#apps-appstrategy" title="Permanent link">&para;</a></h2>
+<p>CLI and GUI entry points register via :class:<code>~avlite.c60_apps.c61_app_strategy.AppStrategy</code> (same auto-register pattern as perception/planning strategies). Subclass as <code>class MyToolApp(AppStrategy)</code>, set <code>cli_name</code> and <code>help</code>, implement <code>run()</code>, and optionally <code>configure_parser()</code> for flags or nested subcommands. Built-in p50 entry classes use the <code>*App</code> suffix (e.g. <code>SettingCliApp</code>, <code>VisualizationApp</code>); the base framework class remains <code>AppStrategy</code>. Importing the module registers the app.</p>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>Plugin / module</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Visualizer (default)</td>
+<td><code>p60_visualizer_tk</code> (<code>p61_visualizer_app</code>)</td>
+<td><code>python -m avlite</code></td>
+</tr>
+<tr>
+<td>Settings GUI</td>
+<td><code>p60_visualizer_tk</code> (<code>p62_setting_app</code>)</td>
+<td><code>python -m avlite setting</code></td>
+</tr>
+<tr>
+<td>Plugin manager</td>
+<td><code>p60_visualizer_tk</code> (<code>p63_plugins_app</code>)</td>
+<td><code>python -m avlite plugins</code></td>
+</tr>
+<tr>
+<td>Headless runner</td>
+<td><code>p60_headless_mode</code></td>
+<td><code>python -m avlite headless</code></td>
+</tr>
+<tr>
+<td>Setting CLI</td>
+<td><code>p60_setting_cli</code></td>
+<td><code>python -m avlite setting-cli</code></td>
+</tr>
+</tbody>
+</table>
+<p>Built-in <code>p60_*</code> plugin packages are imported at startup via <code>bootstrap_apps()</code> in <code>c61_app_strategy</code>. The merged <code>p60_visualizer_tk</code> package hosts shared Tk code (<code>p64_setting_views</code>, <code>p65_ui_lib</code>, <code>settings.py</code>) and three standalone <code>AppStrategy</code> entry modules. Stack core (<code>c10</code>–<code>c40</code>, <code>c50_common</code>) may import <code>c61_app_strategy</code>, <code>c64_settings_schema</code>, <code>c68_paths</code>, and <code>c69_settings</code> only; it must not import <code>p60_*</code> Tk apps.</p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <p>Built-in plugins in <code>avlite/plugins/</code> (maintained by core team):
-- <code>p50_headless_mode</code> — Headless runner and config CLI</p>
-<p>Optional plugins in <code>related-repos/</code> (install via <code>c40_community_plugins</code>):
+- <code>p60_visualizer_tk</code> — Tk visualizer GUI, settings window (<code>avlite setting</code>), and plugin browser (<code>avlite plugins</code>)
+- <code>p60_headless_mode</code> — Headless terminal dashboard runner
+- <code>p60_setting_cli</code> — Terminal profile validate/describe/import/export</p>
+<p>Optional plugins in <code>related-repos/</code> (install via <code>c62_community_plugins</code> in the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>):
 - <code>avlite-bridge-carla</code> — CARLA simulator world bridge
 - <code>avlite-bridge-gazebo</code> — Gazebo Ignition world bridge
 - <code>avlite-bridge-ROS2</code> — ROS2 world bridge

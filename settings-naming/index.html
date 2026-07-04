@@ -446,9 +446,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#settings-files" class="md-nav__link">
+  <a href="#settings-sections" class="md-nav__link">
     <span class="md-ellipsis">
-      Settings files
+      Settings sections
     </span>
   </a>
   
@@ -529,7 +529,7 @@
 
 <h1 id="core-stack-settings-naming">Core stack settings naming<a class="headerlink" href="#core-stack-settings-naming" title="Permanent link">&para;</a></h1>
 <p>Each stack layer has one settings module (<code>c19</code>, <code>c29</code>, <code>c39</code>, <code>c49</code>) with a class used as a singleton (<code>PerceptionSettings</code>, <code>PlanningSettings</code>, <code>ControlSettings</code>, <code>ExecutionSettings</code>). YAML profiles mirror attribute names exactly.</p>
-<p>Shipped defaults live in the repository <code>configs/</code> directory. When you save from the GUI or settings window, profiles are written to <code>~/.config/avlite/</code> using the <strong>same filenames</strong>. On load, each file is read from the user directory if present, otherwise from the repo. Override the user directory with <code>AVLITE_CONFIG_DIR</code> (YAML files sit directly in that path, not in a nested <code>configs/</code> folder). Enable <strong>Edit repository configs</strong> in the settings window (git clone only) to switch read/write to <code>{repo}/configs/</code> instead of the user dir.</p>
+<p>Each profile is a single <code>configs/&lt;profile&gt;.yaml</code> file whose top-level keys are sections: one per core layer (<code>c10_perception</code>, <code>c20_planning</code>, <code>c30_control</code>, <code>c40_execution</code>), an app-bootstrap section (<code>c69_apps</code>), and a <code>plugins:</code> mapping keyed by plugin directory name. Shipped defaults live in the repository <code>configs/</code> directory. When you save from the GUI or settings window, the profile is written to <code>~/.config/avlite/</code> using the <strong>same filename</strong>. On load, each profile file is read from the user directory if present, otherwise from the repo. Override the user directory with <code>AVLITE_CONFIG_DIR</code> (YAML files sit directly in that path, not in a nested <code>configs/</code> folder). Enable <strong>Edit repository configs</strong> in the settings window (git clone only) to switch read/write to <code>{repo}/configs/</code> instead of the user dir.</p>
 <h2 id="prefix-rules">Prefix rules<a class="headerlink" href="#prefix-rules" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
@@ -542,7 +542,15 @@
 </li>
 <li>
 <p><strong>Cross-layer orchestration</strong> → setting lives on the <strong>consuming</strong> layer’s settings class, prefixed by the consumer module.<br />
-   Example: factory fallback race map in <code>c43_factory.py</code> → <code>ExecutionSettings.c43_race_boundary_map</code>.</p>
+   Example: factory fallback race map in <code>c62_factory.py</code> → <code>ExecutionSettings.c43_race_boundary_map</code>.<br />
+   App bootstrap lives on <code>AppSettings</code> in c60: plugin lists and load gate use <code>c62_*</code> (consumer <code>c62_factory</code>); active profile selection uses <code>c60_selected_profile</code>.</p>
+</li>
+<li>
+<p><strong>Built-in Tk plugin (<code>p60_visualizer_tk</code>)</strong> — prefix identifies the <strong>consumer module</strong>, not the settings file:</p>
+</li>
+<li>Single consumer → <code>p{NN}_{name}</code> (e.g. <code>p68_log_font</code> → <code>p68_log_view.py</code>)</li>
+<li>
+<p>Multiple modules in the package → <code>p60_{name}</code> (e.g. <code>p60_dark_mode</code> → p61, p62, p64)</p>
 </li>
 <li>
 <p><strong>Metadata</strong> (<code>exclude</code>, <code>filepath</code>) is never prefixed.</p>
@@ -551,78 +559,73 @@
 <p><strong>Redundant subsystem prefixes</strong> are dropped when the module prefix applies: <code>basic_sim_lidar_range</code> → <code>c46_lidar_range</code>.</p>
 </li>
 </ol>
-<h2 id="settings-files">Settings files<a class="headerlink" href="#settings-files" title="Permanent link">&para;</a></h2>
+<h2 id="settings-sections">Settings sections<a class="headerlink" href="#settings-sections" title="Permanent link">&para;</a></h2>
+<p>All sections below live in the single per-profile file <code>configs/&lt;profile&gt;.yaml</code> (repo default) and <code>~/.config/avlite/&lt;profile&gt;.yaml</code> (user override on Save).</p>
 <table>
 <thead>
 <tr>
 <th>Layer</th>
 <th>Module</th>
-<th>Repo default</th>
-<th>User override (on Save)</th>
+<th>Profile section</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Perception</td>
 <td><code>avlite/c10_perception/c19_settings.py</code></td>
-<td><code>configs/c10_perception.yaml</code></td>
-<td><code>~/.config/avlite/c10_perception.yaml</code></td>
+<td><code>c10_perception</code></td>
 </tr>
 <tr>
 <td>Planning</td>
 <td><code>avlite/c20_planning/c29_settings.py</code></td>
-<td><code>configs/c20_planning.yaml</code></td>
-<td><code>~/.config/avlite/c20_planning.yaml</code></td>
+<td><code>c20_planning</code></td>
 </tr>
 <tr>
 <td>Control</td>
 <td><code>avlite/c30_control/c39_settings.py</code></td>
-<td><code>configs/c30_control.yaml</code></td>
-<td><code>~/.config/avlite/c30_control.yaml</code></td>
+<td><code>c30_control</code></td>
 </tr>
 <tr>
 <td>Execution</td>
 <td><code>avlite/c40_execution/c49_settings.py</code></td>
-<td><code>configs/c40_execution.yaml</code></td>
-<td><code>~/.config/avlite/c40_execution.yaml</code></td>
+<td><code>c40_execution</code></td>
+</tr>
+<tr>
+<td>Apps (bootstrap)</td>
+<td><code>avlite/c60_apps/c69_settings.py</code> (schema only; no Tk)</td>
+<td><code>c69_apps</code></td>
 </tr>
 <tr>
 <td>Visualization</td>
-<td><code>avlite/c50_visualization/c59_settings.py</code></td>
-<td><code>configs/c50_visualization.yaml</code></td>
-<td><code>~/.config/avlite/c50_visualization.yaml</code></td>
+<td><code>avlite/plugins/p60_visualizer_tk/settings.py</code> (<code>PluginSettingsSchema</code>)</td>
+<td><code>plugins.p60_visualizer_tk</code></td>
 </tr>
 </tbody>
 </table>
-<p>Built-in plugins use <code>configs/plugin_*.yaml</code> in the repo and the same basename under <code>~/.config/avlite/</code> when saved.</p>
+<p>Every plugin (built-in or community) stores its settings under the profile's <code>plugins:</code> mapping, keyed by the plugin's directory name.</p>
 <h2 id="stack-load-and-export">Stack load and export<a class="headerlink" href="#stack-load-and-export" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>API</th>
 <th>Module</th>
-<th>Includes c50 viz YAML?</th>
+<th>Includes viz section?</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>load_stack_settings()</code></td>
-<td><code>c43_factory</code></td>
+<td><code>c62_factory</code></td>
 <td>No (GUI loads <code>VisualizationSettings</code> separately)</td>
 </tr>
 <tr>
 <td><code>get_stack_settings_classes()</code></td>
-<td><code>c43_factory</code></td>
-<td>No (c10–c40 + plugins)</td>
-</tr>
-<tr>
-<td><code>get_stack_settings_classes()</code></td>
-<td><code>c59_settings</code></td>
-<td>Yes (wraps c43 + <code>VisualizationSettingsSchema()</code>)</td>
+<td><code>c62_factory</code></td>
+<td>No (c10–c40 + <code>AppSettings</code> + plugins)</td>
 </tr>
 </tbody>
 </table>
-<p>Headless <code>python -m avlite config describe --layer</code> accepts perception, planning, control, and execution (not visualization).</p>
+<p>Headless <code>python -m avlite setting-cli describe --layer</code> accepts perception, planning, control, and execution (not visualization or app bootstrap).</p>
 <h2 id="plugins">Plugins<a class="headerlink" href="#plugins" title="Permanent link">&para;</a></h2>
 <p>Community and built-in plugins keep <code>PluginSettings</code> in <code>settings.py</code> with unprefixed snake_case parameters. AVLite sets <code>filepath</code> automatically for community plugins at registration/load time. See <a href="../plugin-development/">Plugin Development</a>.</p>
 <table>
@@ -630,34 +633,31 @@
 <tr>
 <th>Kind</th>
 <th>Settings module</th>
-<th>Repo default</th>
-<th>User file (on Save)</th>
+<th>Profile section</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Community plugin</td>
 <td><code>&lt;plugin&gt;/settings.py</code></td>
-<td>none</td>
-<td><code>~/.config/avlite/plugin_&lt;name&gt;.yaml</code></td>
+<td><code>plugins.&lt;name&gt;</code> (user config only)</td>
 </tr>
 <tr>
 <td>Built-in plugin</td>
 <td><code>avlite/plugins/&lt;name&gt;/settings.py</code></td>
-<td><code>configs/plugin_&lt;name&gt;.yaml</code></td>
-<td>same basename under user config</td>
+<td><code>plugins.&lt;name&gt;</code> (repo default + user override)</td>
 </tr>
 </tbody>
 </table>
 <h2 id="validation-and-field-docs">Validation and field docs<a class="headerlink" href="#validation-and-field-docs" title="Permanent link">&para;</a></h2>
-<p>Each settings module defines a Pydantic <code>*SettingsSchema</code> with types, defaults, and <code>Field(description=...)</code>. YAML profiles are validated on load/save and on profile zip export/import.</p>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span><span class="nb">help</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>validate<span class="w">              </span><span class="c1"># check all profiles</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>validate<span class="w"> </span>--profile<span class="w"> </span>default
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span><span class="o">[</span>-o<span class="w"> </span>myprofile.zip<span class="o">]</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>import-profile<span class="w"> </span>myprofile.zip<span class="w"> </span><span class="o">[</span>--force<span class="o">]</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>config<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution<span class="w"> </span>--field<span class="w"> </span>c40_control_dt
+<p>Each settings module defines a Pydantic <code>*SettingsSchema</code> with types, defaults, and <code>Field(description=...)</code>. YAML profile sections are validated on load/save and on profile export/import.</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span><span class="nb">help</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>validate<span class="w">              </span><span class="c1"># check all profiles</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>validate<span class="w"> </span>--profile<span class="w"> </span>default
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span><span class="o">[</span>-o<span class="w"> </span>myprofile.yaml<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-stack<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-app<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-plugins<span class="o">]</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>import-profile<span class="w"> </span>myprofile.yaml<span class="w"> </span><span class="o">[</span>--force<span class="o">]</span>
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution
+python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution<span class="w"> </span>--field<span class="w"> </span>c40_control_dt
 </code></pre></div>
 <p>Hover a field in the settings window (<code>T</code>) or on main-page controls to see its schema description (type and default in parentheses).</p>
 
