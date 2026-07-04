@@ -287,13 +287,6 @@ class PluginPaths:
             return resolved.as_posix()
 
     @staticmethod
-    def settings_display_path(name: str) -> str:
-        """Human-readable settings file path for a community plugin."""
-        return PluginPaths.format_display(
-            ConfigPaths.effective_path(PluginPaths.settings_filepath(name), for_write=False)
-        )
-
-    @staticmethod
     def settings_basename(name: str) -> str:
         """YAML basename for a plugin's settings (``plugin_<dir>.yaml``)."""
         return f"plugin_{name}.yaml"

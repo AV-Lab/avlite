@@ -602,6 +602,11 @@ class SettingWindow:
         else:
             log.warning("No community plugin selected to delete.")
 
+    def _plugin_settings_location(self, plugin_name: str) -> str:
+        profile = self.host.setting.c60_selected_profile.get()
+        path = PluginPaths.format_display(profile_file_path(profile, for_write=False))
+        return f"{path} (plugins.{plugin_name})"
+
     def edit_default_plugin(self):
         selected = self.listbox_default_plugins.curselection()
         if not selected:
@@ -609,13 +614,11 @@ class SettingWindow:
             return
 
         plugin_name = self.listbox_default_plugins.get(selected[0])
-        cls = load_builtin_plugin_settings(plugin_name)
-        if cls is not None:
-            settings_path = PluginPaths.format_display(
-                profile_file_path(self.host.setting.c60_selected_profile.get(), for_write=False)
-            )
-        else:
-            settings_path = "\u2014"
+        settings_path = (
+            self._plugin_settings_location(plugin_name)
+            if load_builtin_plugin_settings(plugin_name) is not None
+            else "\u2014"
+        )
         ThemedReadOnlyTwoFieldDialog(
             self.host,
             "Plugin",
@@ -638,7 +641,7 @@ class SettingWindow:
             "Package Name",
             "Settings file",
             plugin_name,
-            PluginPaths.settings_display_path(plugin_name),
+            self._plugin_settings_location(plugin_name),
         )
 
     def update_community_plugin_list(self):

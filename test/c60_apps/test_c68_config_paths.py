@@ -26,6 +26,7 @@ from avlite.c60_apps.c65_setting_utils import (
     import_profile,
     list_profiles,
     order_profiles_for_dropdown,
+    profile_file_path,
 )
 from avlite.plugins.p60_setting_cli.p61_setting_cli import cmd_export_profile, cmd_import_profile
 
@@ -473,15 +474,17 @@ def test_normalize_community_plugin_stored_home_relative(monkeypatch, tmp_path):
     assert PluginPaths.resolve("my_plugin", stored) == custom.resolve()
 
 
-def test_format_user_path_and_settings_display(monkeypatch, tmp_path):
+def test_plugin_settings_location_display(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "plugin_sample_avlite_plugin.yaml").write_text("default: {}\n")
+    (config_dir / "default.yaml").write_text("plugins: {}\n")
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
     ConfigPaths.set_repo_target(False)
-    display = PluginPaths.settings_display_path("sample_avlite_plugin")
-    assert display == "~/config/plugin_sample_avlite_plugin.yaml"
+    path = PluginPaths.format_display(profile_file_path("default", for_write=False))
+    assert f"{path} (plugins.sample_avlite_plugin)" == (
+        "~/config/default.yaml (plugins.sample_avlite_plugin)"
+    )
 
 
 def test_get_data_dir_honors_env(monkeypatch, tmp_path):
