@@ -9,9 +9,10 @@ Tests verify:
 
 import numpy as np
 import pytest
+import xml.etree.ElementTree as ET
 
 from avlite.c10_perception.c11_perception_model import HDMap
-from avlite.c10_perception.c18_hdmap_parser import sample_OpenDrive_geometry
+from avlite.c10_perception.c18_hdmap_parser import parse_geo_reference_from_root, sample_OpenDrive_geometry
 
 
 class TestHDMapLoadable:
@@ -38,6 +39,19 @@ class TestHDMapParse:
         assert ref is not None
         assert ref[0] == pytest.approx(45.0, abs=1e-6)
         assert ref[1] == pytest.approx(55.0, abs=1e-6)
+
+
+class TestGeoReferenceParsing:
+    def test_parse_geo_reference_converts_radians(self):
+        root = ET.fromstring(
+            "<OpenDRIVE><header>"
+            "<geoReference>+proj=tmerc +lat_0=0.5 +lon_0=-0.001 +units=m +no_defs</geoReference>"
+            "</header></OpenDRIVE>"
+        )
+        ref = parse_geo_reference_from_root(root)
+        assert ref is not None
+        assert ref[0] == pytest.approx(np.degrees(0.5), abs=1e-6)
+        assert ref[1] == pytest.approx(np.degrees(-0.001), abs=1e-6)
 
 
 class TestOpenDriveGeometry:

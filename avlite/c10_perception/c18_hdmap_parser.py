@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import math
+import re
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -9,6 +11,26 @@ from scipy.spatial import KDTree
 from avlite.c10_perception.c11_perception_model import HDMap
 
 log = logging.getLogger(__name__)
+
+
+def parse_geo_reference_from_root(root: ET.Element | None) -> tuple[float, float] | None:
+    if root is None:
+        return None
+    header = root.find("header")
+    if header is None:
+        return None
+    geo = header.find("geoReference")
+    if geo is None or not (geo.text and geo.text.strip()):
+        return None
+    proj = geo.text.strip()
+    lat_m = re.search(r"\+lat_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+    lon_m = re.search(r"\+lon_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
+    if not lat_m or not lon_m:
+        return None
+    lat, lon = float(lat_m.group(1)), float(lon_m.group(1))
+    if max(abs(lat), abs(lon)) <= math.pi:
+        lat, lon = math.degrees(lat), math.degrees(lon)
+    return lat, lon
 
 
 def parse_opendrive(hdmap: HDMap) -> None:
@@ -23,8 +45,10 @@ def parse_opendrive(hdmap: HDMap) -> None:
     hdmap._lane_kdtree_drivable = None
     hdmap._all_road_points = []
     hdmap._all_drivable_lane_points = []
+    hdmap._reference_point = None
 
     hdmap.root = _parse_hdmap_xml(hdmap)
+    hdmap._reference_point = parse_geo_reference_from_root(hdmap.root)
     if hdmap._all_road_points:
         hdmap._road_kdtree = KDTree(hdmap._all_road_points)
     if hdmap._all_drivable_lane_points:

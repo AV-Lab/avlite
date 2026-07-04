@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 import json
 import logging
-import math
-import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -372,6 +370,7 @@ class HDMap(Map):
     _lane_kdtree_drivable: Optional[KDTree] = field(default=None, init=False, repr=False)
     _all_road_points: list[tuple[float, float]] = field(default_factory=list, init=False, repr=False)
     _all_drivable_lane_points: list[tuple[float, float]] = field(default_factory=list, init=False, repr=False)
+    _reference_point: tuple[float, float] | None = field(default=None, init=False, repr=False)
 
     @property
     def source_path(self) -> str:
@@ -379,32 +378,7 @@ class HDMap(Map):
 
     @property
     def reference_point(self) -> tuple[float, float] | None:
-        def _normalise_geo_degrees(lat: float, lon: float) -> tuple[float, float]:
-            if max(abs(lat), abs(lon)) <= math.pi:
-                lat, lon = math.degrees(lat), math.degrees(lon)
-            return lat, lon
-
-        def _parse_proj_lat_lon(proj: str) -> tuple[float, float] | None:
-            lat_m = re.search(r"\+lat_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
-            lon_m = re.search(r"\+lon_0=([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)", proj)
-            if not lat_m or not lon_m:
-                return None
-            return _normalise_geo_degrees(float(lat_m.group(1)), float(lon_m.group(1)))
-
-        path = Path(self.xodr_file_name)
-        if path.suffix.lower() != ".xodr" or not path.is_file():
-            return None
-        try:
-            xml_root = ET.parse(path).getroot()
-        except (ET.ParseError, OSError):
-            return None
-        header = xml_root.find("header")
-        if header is None:
-            return None
-        geo = header.find("geoReference")
-        if geo is None or not (geo.text and geo.text.strip()):
-            return None
-        return _parse_proj_lat_lon(geo.text.strip())
+        return self._reference_point
 
     @staticmethod
     def is_loadable(path: Path | str) -> bool:
