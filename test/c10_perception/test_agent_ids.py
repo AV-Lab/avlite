@@ -40,7 +40,7 @@ class _StubBridge(WorldBridge, abstract=True):
     last_teleport: Optional[tuple[float, float, Optional[float]]] = None
 
     @property
-    def capabilities(self) -> set[WorldCapability]:
+    def world_capabilities(self) -> set[WorldCapability]:
         return set()
 
     def control_ego_state(self, cmd, dt=0.01):

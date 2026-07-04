@@ -31,10 +31,10 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_log_level: str = Field(default="INFO", description="Python logging level.")
     c40_log_to_file: bool = Field(default=False, description="Write logs to file.")
 
-    c41_provide_ground_truth: bool = Field(default=True, description="Bridge exposes ground-truth perception.")
-    c41_provide_rgb: bool = Field(default=False, description="Bridge exposes RGB camera data.")
-    c41_provide_lidar: bool = Field(default=False, description="Bridge exposes LiDAR data.")
-    c41_provide_depth: bool = Field(default=False, description="Bridge exposes depth camera data.")
+    c41_provided: list[str] | None = Field(
+        default=None,
+        description="Capability names the bridge feeds the stack; null = all supported enabled.",
+    )
 
     c43_race_boundary_map: str = Field(default="data/race_boundary_yas_marina.map.json", description="Race boundary JSON for centerline planner.")
 
@@ -49,3 +49,18 @@ class ExecutionSettingsSchema(SettingsSchema):
 # Singleton instance: the runtime settings object. Mutated in place by the YAML
 # loader and reset helpers — never rebind this name (see settings invariant).
 ExecutionSettings = ExecutionSettingsSchema()
+
+
+def provided_capability_names() -> set[str] | None:
+    """Enabled capability names, or None when all supported capabilities are enabled."""
+    val = ExecutionSettings.c41_provided
+    return None if val is None else set(val)
+
+
+def is_capability_provided(cap) -> bool:
+    """Whether *cap* (a WorldCapability or StackCapability) is fed to the stack.
+
+    Returns True when the provide filter is unset (None = all supported enabled).
+    """
+    names = provided_capability_names()
+    return True if names is None else cap.name in names

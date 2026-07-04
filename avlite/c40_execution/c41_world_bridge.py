@@ -8,7 +8,7 @@ from avlite.c10_perception.c11_perception_model import AgentState, EgoState, EGO
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommandBase
 from avlite.c30_control.c38_control_mapping import control_type_for_agent
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c50_common.c52_sensor_data import (
     GnssReading,
     ImuReading,
@@ -35,9 +35,20 @@ class WorldBridge(ABC):
 
     @property
     @abstractmethod
-    def capabilities(self) -> set[WorldCapability]:
-        """Set of supported capabilities (must be implemented by subclass)."""
+    def world_capabilities(self) -> set[WorldCapability]:
+        """Set of supported sensor capabilities (must be implemented by subclass)."""
         pass
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        """Stack capabilities the world provides as ground truth (default: none).
+
+        A simulator can advertise e.g. ``{StackCapability.DETECTION,
+        StackCapability.TRACKING, StackCapability.LOCALIZATION}`` to satisfy
+        downstream ``stack_requirements`` without a real perception/localization
+        module (ground-truth provision).
+        """
+        return set()
 
     @abstractmethod
     def control_ego_state(self, cmd: ControlCommandBase, dt: Optional[float] = 0.01):

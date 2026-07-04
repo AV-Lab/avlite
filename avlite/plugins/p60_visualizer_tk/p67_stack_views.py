@@ -20,7 +20,10 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
-from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c40_execution.c49_settings import (
+    ExecutionSettings,
+    is_capability_provided,
+)
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ValueGauge,
@@ -33,7 +36,7 @@ from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
 )
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
 from avlite.c60_apps.c63_plugins import plugin_module_prefix
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c60_apps.c68_paths import DataPaths
 
 if TYPE_CHECKING:
@@ -74,9 +77,9 @@ class PerceivePlanControlView(ttk.Frame):
         """Update data in the view."""
         self.perceive_frame.update_data()
         if self.root.exec is not None:
-            caps = self.root.exec.world.capabilities
+            stack_caps = self.root.exec.world.stack_capabilities
             self.perception_extras_frame.localization_dropdown_menu["values"] = (
-                (("",) if WorldCapability.GT_LOCALIZATION in caps else ())
+                (("",) if StackCapability.LOCALIZATION in stack_caps else ())
                 + tuple(LocalizationStrategy.registry.keys())
             )
         self.plan_frame.update_data()
@@ -178,13 +181,13 @@ class PerceptionFrame(ttk.LabelFrame):
         self.perception_dropdown_menu["values"] = tuple(data)
         if self.root.exec is None:
             return
-        _caps = self.root.exec.world.capabilities
+        _stack_caps = self.root.exec.world.stack_capabilities
         self.detection_dropdown_menu["values"] = (
-            (("",) if WorldCapability.GT_DETECTION in _caps else ())
+            (("",) if StackCapability.DETECTION in _stack_caps else ())
             + tuple(DetectionStrategy.registry.keys())
         )
         self.tracking_dropdown_menu["values"] = (
-            (("",) if WorldCapability.GT_TRACKING in _caps else ())
+            (("",) if StackCapability.TRACKING in _stack_caps else ())
             + tuple(TrackingStrategy.registry.keys())
         )
         self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
@@ -782,47 +785,57 @@ class BridgeFrame(ttk.LabelFrame):
         self.world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())
         self.world_bridge_dropdown_menu.state(["readonly"])
         self.world_bridge_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.world_bridge_dropdown_menu.grid(row=0, column=0, pady=0, sticky="we")
+        self.world_bridge_dropdown_menu.grid(row=0, column=0, pady=(0, 4), sticky="we")
         attach_schema_tooltip(self.world_bridge_dropdown_menu, ExecutionSettings, "c40_bridge")
 
-        self.chk_ground_truth = ttk.Checkbutton(self, text="Ground Truth", variable=self.root.setting.bridge_provide_ground_truth_detection)
-        self.chk_ground_truth.grid(row=1, column=0, sticky="w")
-        attach_schema_tooltip(self.chk_ground_truth, ExecutionSettings, "c41_provide_ground_truth")
+        # Scrollable checklist of the bridge's providable capabilities.
+        style = ttk.Style()
+        bg_color = style.lookup("TFrame", "background")
+        self._caps_canvas = tk.Canvas(self, height=96, width=140, highlightthickness=0, bd=0, background=bg_color)
+        self._caps_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self._caps_canvas.yview)
+        self._caps_inner = ttk.Frame(self._caps_canvas)
+        self._caps_canvas.configure(yscrollcommand=self._caps_scrollbar.set)
+        self._caps_inner.bind(
+            "<Configure>", lambda e: self._caps_canvas.configure(scrollregion=self._caps_canvas.bbox("all"))
+        )
+        self._caps_canvas.create_window((0, 0), window=self._caps_inner, anchor="nw")
+        self._caps_canvas.grid(row=1, column=0, sticky="nsew")
+        self._caps_scrollbar.grid(row=1, column=1, sticky="ns")
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
 
-        self.chk_rgb_image = ttk.Checkbutton(self, text="RGB Image", variable=self.root.setting.bridge_provide_rgb_image)
-        self.chk_rgb_image.grid(row=2, column=0, sticky="w")
-        attach_schema_tooltip(self.chk_rgb_image, ExecutionSettings, "c41_provide_rgb")
+        self._cap_vars: dict[str, tk.BooleanVar] = {}
+        self._build_capability_checks(set(), set())
 
-        # self.chk_depth_image = ttk.Checkbutton(self, text="Provide Depth Image", variable=self.root.setting.bridge_provide_depth_image)
-        # self.chk_depth_image.grid(row=2, column=0, sticky="w")
+    def _build_capability_checks(self, world_capabilities: set, stack_capabilities: set):
+        """Rebuild the checklist for the data the selected bridge can feed the stack."""
+        for child in self._caps_inner.winfo_children():
+            child.destroy()
+        self._cap_vars = {}
 
-        self.chk_lidar_data = ttk.Checkbutton(self, text="LiDAR Data", variable=self.root.setting.bridge_provide_lidar_data)
-        self.chk_lidar_data.grid(row=3, column=0, sticky="w")
-        attach_schema_tooltip(self.chk_lidar_data, ExecutionSettings, "c41_provide_lidar")
+        # World "action" capabilities are features, not data fed to the stack.
+        actions = {WorldCapability.AGENT_SPAWN, WorldCapability.AGENT_CONTROL}
+        sensors = sorted(set(world_capabilities) - actions, key=lambda c: c.value)
+        ground_truth = sorted(set(stack_capabilities), key=lambda c: c.value)
+        for cap in (*sensors, *ground_truth):
+            var = tk.BooleanVar(value=is_capability_provided(cap))
+            var.trace_add("write", lambda *_: self._on_toggle())
+            chk = ttk.Checkbutton(self._caps_inner, text=cap.name, variable=var)
+            chk.pack(anchor="w")
+            self._cap_vars[cap.name] = var
 
-
+    def _on_toggle(self):
+        """Persist the checked capabilities to the c41_provided filter and refresh plots."""
+        ExecutionSettings.c41_provided = [name for name, var in self._cap_vars.items() if var.get()]
+        self.root.update_views()
 
     def update_data(self):
         """Refresh the bridge dropdown from the registry."""
         self.world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())
 
-    def update_for_bridge(self, capabilities: set):
-        """Enable / disable checkboxes based on the active bridge's capabilities."""
-        cap_map = {
-            WorldCapability.GT_DETECTION: self.chk_ground_truth,
-            WorldCapability.CAMERA_RGB:    self.chk_rgb_image,
-        }
-        for cap, chk in cap_map.items():
-            if cap in capabilities:
-                chk.state(['!disabled'])
-            else:
-                chk.state(['disabled'])
-
-        # LiDAR checkbox: enabled when the bridge provides either 2D or 3D LiDAR
-        if {WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D} & capabilities:
-            self.chk_lidar_data.state(['!disabled'])
-        else:
-            self.chk_lidar_data.state(['disabled'])
+    def update_for_bridge(self, capabilities: set, stack_capabilities: set | None = None):
+        """Rebuild the capability checklist for the active bridge."""
+        self._build_capability_checks(capabilities, stack_capabilities or set())
 
 
 

@@ -181,9 +181,10 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                         self.__controller_last_step_time = t1
 
                     with self.lock_world:
-                        state = self.world.ego_state
-                        cmd = self.controller.control(state, control_dt=self.sim_dt)
-                        self.world.control_ego_state(cmd, dt=self.sim_dt)
+                        if self._can_actuate():
+                            state = self.world.ego_state
+                            cmd = self.controller.control(state, control_dt=self.sim_dt)
+                            self.world.control_ego_state(cmd, dt=self.sim_dt)
 
                     self.control_fps = self._control_fps_tracker.tick(floor_dt=self.sim_dt)
                     self.elapsed_sim_time += self.control_dt

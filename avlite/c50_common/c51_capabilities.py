@@ -4,9 +4,6 @@ from enum import Enum, auto
 
 
 class WorldCapability(Enum):
-    GT_DETECTION = auto() # Whether the world supports ground truth detection
-    GT_TRACKING = auto() # Whether the world supports ground truth tracking ids
-    GT_LOCALIZATION = auto() # Whether the world supports ground truth localization
     CAMERA_RGB = auto() # Whether the world supports RGB image
     CAMERA_DEPTH = auto() # Whether the world supports depth image
     LIDAR_3D = auto() # Whether the world supports lidar data
@@ -18,22 +15,24 @@ class WorldCapability(Enum):
     IMU = auto()                  # Inertial measurement unit
     GNSS = auto()                 # GNSS / GPS receiver
 
-class PerceptionCapability(Enum):
-    DETECTION = auto() # Whether the perception strategy supports detection
-    TRACKING = auto() # Whether the perception strategy supports tracking
-    PREDICTION = auto() # Whether the perception strategy supports prediction
 
-class LocalizationCapability(Enum):
-    LOCALIZATION_2D = auto() # Whether the localization strategy provides 2D pose (x, y) - BridEye View
-    LOCALIZATION_3D = auto() # Whether the localization strategy provides 3D pose (x, y, z)
-    LOCALIZATION_HEADING = auto() # Whether the localization strategy provides heading estimation
-    LOCALIZATION_HEADING_3D = auto() # Whether the localization strategy provides 3D heading estimation (e.g. roll, pitch, yaw)
-    VELOCITY = auto() # Whether the localization strategy provides velocity estimation
+class StackCapability(Enum):
+    """What a stack module produces for downstream modules.
 
-class MappingCapability(Enum):
-    OCCUPANCY_GRID = auto()
-    PATH_BOUNDARY = auto()
-    OPENDRIVE_HDMAP = auto()
+    Used both as a module's advertised ``capabilities`` and as inter-module
+    ``stack_requirements``. A world bridge may also advertise a subset of these
+    via ``stack_capabilities`` to provide ground truth (e.g. GT detection).
+    """
+    DETECTION = auto() # Whether the strategy supports detection
+    TRACKING = auto() # Whether the strategy supports tracking
+    PREDICTION = auto() # Whether the strategy supports prediction
+    LOCAL_PLAN = auto() # Whether the strategy produces a local plan
+    GLOBAL_PLAN = auto() # Whether the strategy produces a global plan
+    CONTROL = auto() # Whether the strategy produces control commands
+
+    LOCALIZATION = auto() # Whether the strategy provides ego localization
+    MAP = auto() # Whether the strategy provides a map
+    SLAM = auto() # Whether the strategy provides simultaneous localization and mapping
 
 
 
@@ -45,7 +44,7 @@ class AnyOf:
     Usage::
 
         @property
-        def requirements(self):
+        def world_requirements(self):
             return {AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)}
     """
 

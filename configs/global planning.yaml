@@ -106,10 +106,13 @@ c40_execution:
   - 54.60522506805341
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
-  c41_provide_depth: false
-  c41_provide_ground_truth: true
-  c41_provide_lidar: false
-  c41_provide_rgb: false
+  c41_provided:
+  - IMU
+  - GNSS
+  - WHEEL_ENCODER
+  - DETECTION
+  - TRACKING
+  - LOCALIZATION
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c46_lidar_boundary_file: data/race_boundary_yas_marina.map.json
   c46_lidar_fov_deg: 360.0

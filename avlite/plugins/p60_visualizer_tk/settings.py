@@ -349,33 +349,6 @@ class VisualizationSettings:
         self.control_fps = tk.StringVar(value="0")
         self.perception_fps = tk.StringVar(value="0")
 
-        self.bridge_provide_ground_truth_detection = tk.BooleanVar(value=ExecutionSettings.c41_provide_ground_truth)
-
-        def _on_gt_change(*args):
-            if self._syncing_stack:
-                return
-            ExecutionSettings.c41_provide_ground_truth = self.bridge_provide_ground_truth_detection.get()
-
-        self.bridge_provide_ground_truth_detection.trace_add("write", _on_gt_change)
-
-        self.bridge_provide_rgb_image = tk.BooleanVar(value=ExecutionSettings.c41_provide_rgb)
-
-        def _on_rgb_change(*args):
-            if self._syncing_stack:
-                return
-            ExecutionSettings.c41_provide_rgb = self.bridge_provide_rgb_image.get()
-
-        self.bridge_provide_rgb_image.trace_add("write", _on_rgb_change)
-        self.bridge_provide_depth_image = tk.BooleanVar(value=ExecutionSettings.c41_provide_depth)
-        self.bridge_provide_lidar_data = tk.BooleanVar(value=ExecutionSettings.c41_provide_lidar)
-
-        def _on_lidar_change(*args):
-            if self._syncing_stack:
-                return
-            ExecutionSettings.c41_provide_lidar = self.bridge_provide_lidar_data.get()
-
-        self.bridge_provide_lidar_data.trace_add("write", _on_lidar_change)
-
         self.log_level = tk.StringVar(value=ExecutionSettings.c40_log_level)
 
         def _on_log_level_change(*_):
@@ -462,10 +435,6 @@ class VisualizationSettings:
             self.replan_dt.set(es.c40_replan_dt)
             self.sim_dt.set(es.c40_sim_dt)
             self.execution_bridge.set(es.c40_bridge)
-            self.bridge_provide_ground_truth_detection.set(es.c41_provide_ground_truth)
-            self.bridge_provide_rgb_image.set(es.c41_provide_rgb)
-            self.bridge_provide_depth_image.set(es.c41_provide_depth)
-            self.bridge_provide_lidar_data.set(es.c41_provide_lidar)
             self.log_level.set(es.c40_log_level)
             self.log_to_file.set(es.c40_log_to_file)
             self.sync_perception_pipeline_from_c19()

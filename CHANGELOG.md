@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-07-04
 
 ### Added
+- `StackCapability` — unified enum for stack-produced/consumed capabilities (`DETECTION`, `TRACKING`, `PREDICTION`, `LOCAL_PLAN`, `GLOBAL_PLAN`, `CONTROL`, `LOCALIZATION`, `MAP`, `SLAM`), replacing the per-module `PerceptionCapability` / `LocalizationCapability` / `MappingCapability` enums
+- Consistent 2×2 capability contract: every strategy declares `world_requirements` (sensors) and `stack_requirements` (upstream modules) and advertises `stack_capabilities`; world bridges expose `world_capabilities` plus an optional `stack_capabilities` for supplying ground truth
+- Runtime enforcement of `stack_requirements` in the executer: modules whose upstream dependencies are unmet are warned at assembly and their steps are gated
+- Ego actuation now requires an available pose source: when `LOCALIZATION` is unavailable (no localization strategy and no ground-truth localization from the world) both sync and async executers halt ego control so the vehicle does not move (`Executer._can_actuate()`)
+- Bridge settings: scrollable, interactive checklist of the bridge's providable world/ground-truth capabilities that controls which data is fed to the stack, backed by `ExecutionSettings.c41_provided` and `is_capability_provided()` / `provided_capability_names()` helpers
 - `scripts/migrate_configs.py` — one-time migration from the old per-layer/per-plugin YAML files to the new per-profile `configs/<profile>.yaml` layout, applying field renames (`c52_*` → `c62_*`, `c50_selected_profile` → `c60_selected_profile`, `p5x_*` → `p6x_*`)
 - `c65_setting_utils.section_key()` / `profile_file_path()` and file-level `delete_profile()` / `rename_profile()` for the single-file-per-profile model
 - `setting-cli export-profile --no-app` / `--no-plugins` flags and Export dialog checkboxes (include app settings / include plugin settings)
@@ -28,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README, architecture, and plugin-development docs for optional community plugins (`avlite-bridge-*`, `avlite-executer-ROS2`, `avlite-controller-joystick`)
 
 ### Changed
+- **Breaking:** Capability API renamed for symmetry — strategy `requirements` → `world_requirements`, strategy `capabilities` → `stack_capabilities`; `WorldBridge.capabilities` → `world_capabilities` (update any custom strategies/bridges)
+- Ground truth is now supplied through the world bridge's `stack_capabilities` (e.g. `BasicSim` provides `DETECTION`/`TRACKING`/`LOCALIZATION`) instead of dedicated `GT_*` world capabilities, and is filtered by the Bridge checklist
 - **Breaking:** Renamed terminal CLI `config-cli` → `setting-cli` and built-in plugin `p60_config_cli` → `p60_setting_cli` (pairs with GUI `avlite setting`)
 - **Breaking:** Profile export supports optional stack layer sections via `include_stack` / `--no-stack` and a **Stack settings** checkbox in the Export dialog (alongside app and plugin toggles)
 - **Breaking:** Renamed `c50_apps` → `c60_apps` (inner modules `c5x` → `c6x`) and `c60_common` → `c50_common` (inner modules `c6x` → `c5x`); built-in plugins `p50_*` → `p60_*` (`p60_visualizer_tk`, `p60_config_cli`, `p60_headless_mode`) with inner modules `p5x` → `p6x`
@@ -70,6 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `VisualizationSettings` Tk binder merged back into `c59_settings.py` (schema + runtime class)
 
 ### Removed
+- **Breaking:** `PerceptionCapability`, `LocalizationCapability`, and `MappingCapability` enums (folded into `StackCapability`)
+- **Breaking:** `GT_DETECTION` / `GT_TRACKING` / `GT_LOCALIZATION` members of `WorldCapability` (ground truth now flows through world `stack_capabilities`)
+- **Breaking:** `ExecutionSettings.c41_provide_ground_truth` / `c41_provide_rgb` / `c41_provide_depth` / `c41_provide_lidar` booleans and their fixed Bridge checkboxes (replaced by the `c41_provided` capability checklist)
 - Built-in plugins: `p30_controller_joystick`, `p40_bridge_carla`, `p40_bridge_gazebo`, `p40_bridge_ROS2`, `p40_executer_ROS2` (now optional community plugins)
 - Bundled `configs/plugin_p30_controller_joystick.yaml` and `configs/plugin_p40_*.yaml`
 - `async` profile from `c40_execution.yaml` and `c50_apps.yaml`

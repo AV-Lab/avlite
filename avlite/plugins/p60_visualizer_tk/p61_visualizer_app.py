@@ -544,7 +544,9 @@ class VisualizerApp(tk.Tk):
             self.update_ui()
             self.enable_frame(self)
             if self.exec is not None:
-                self.exec_visualize_view.bridge_frame.update_for_bridge(self.exec.world.capabilities)
+                self.exec_visualize_view.bridge_frame.update_for_bridge(
+                    self.exec.world.world_capabilities, self.exec.world.stack_capabilities
+                )
             self.focus_set()
             self.hide_loading_overlay()
 

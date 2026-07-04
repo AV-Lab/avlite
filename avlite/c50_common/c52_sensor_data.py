@@ -83,7 +83,7 @@ class SensorFrame:
     """Snapshot of all sensor readings for one execution tick.
 
     Any field may be None when the bridge does not provide that sensor or when
-    gated off by ExecutionSettings (c41_provide_rgb, c41_provide_lidar, etc.).
+    gated off by the ExecutionSettings.c41_provided capability filter.
     """
 
     # Camera: colour image from the ego-mounted RGB camera.

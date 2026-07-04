@@ -8,7 +8,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -25,13 +25,17 @@ log = logging.getLogger(__name__)
 
 class BasicSim(WorldBridge):
     @property
-    def capabilities(self) -> set[WorldCapability]:
+    def world_capabilities(self) -> set[WorldCapability]:
         return {
-            WorldCapability.GT_DETECTION,
-            WorldCapability.GT_TRACKING,
-            WorldCapability.GT_LOCALIZATION,
             WorldCapability.LIDAR_2D,
             WorldCapability.AGENT_SPAWN,
+        }
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {
+            StackCapability.DETECTION,
+            StackCapability.LOCALIZATION,
         }
 
     def __init__(self, ego_state: EgoState, pm: Optional[PerceptionModel] = None,

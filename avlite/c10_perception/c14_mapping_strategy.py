@@ -4,7 +4,7 @@ from typing import Mapping
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c50_common.c51_capabilities import WorldCapability, MappingCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 
 log = logging.getLogger(__name__)
 
@@ -17,13 +17,17 @@ class MappingStrategy(ABC):
 
     @property
     @abstractmethod
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         pass
 
     @property
-    @abstractmethod
-    def capabilities(self) -> set[MappingCapability]:
-        pass
+    def stack_requirements(self) -> set[StackCapability]:
+        """Upstream stack capabilities this strategy depends on (default: none)."""
+        return set()
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.MAP}
     
 
     def __init_subclass__(cls, abstract=False, **kwargs):

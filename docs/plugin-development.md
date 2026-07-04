@@ -108,7 +108,7 @@ Built-in plugins under `avlite/plugins/` are different: they set `filepath = "co
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
-from avlite.c50_common.c51_capabilities import WorldCapability, PerceptionCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 from .settings import PluginSettings
 
 class MyPerception(PerceptionStrategy):
@@ -116,13 +116,13 @@ class MyPerception(PerceptionStrategy):
         super().__init__(perception_model, setting)
     
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return {WorldCapability.CAMERA_RGB, WorldCapability.LIDAR_3D}
     
     @property
-    def capabilities(self) -> set[PerceptionCapability]:
-        return {PerceptionCapability.DETECTION, PerceptionCapability.TRACKING,
-                PerceptionCapability.PREDICTION}
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.DETECTION, StackCapability.TRACKING,
+                StackCapability.PREDICTION}
     
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None,
                  perception_model=None):
@@ -144,7 +144,7 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyDetector(DetectionStrategy):
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return {WorldCapability.CAMERA_RGB}
 
     def detect(self, perception_model: PerceptionModel,
@@ -160,7 +160,7 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyTracker(TrackingStrategy):
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return set()
 
     def track(self, perception_model: PerceptionModel) -> PerceptionModel:
@@ -175,7 +175,7 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyPredictor(PredictionStrategy):
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return set()
 
     def predict(self, perception_model: PerceptionModel) -> PerceptionModel | None:
@@ -198,19 +198,19 @@ Localization strategies estimate the ego vehicle’s pose and update
 
 ```python
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c50_common.c51_capabilities import WorldCapability, LocalizationCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 
 class MyLocalization(LocalizationStrategy):
     def __init__(self, perception_model, setting=None):
         super().__init__(perception_model, setting)
     
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return {WorldCapability.LIDAR_3D}
     
     @property
-    def capabilities(self) -> set[LocalizationCapability]:
-        return {LocalizationCapability.LOCALIZATION_2D, LocalizationCapability.LOCALIZATION_HEADING}
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.LOCALIZATION}
     
     def localize(self, imu=None, lidar=None, rgb_img=None) -> None:
         # Estimate the ego pose from sensor data and update in-place
@@ -238,17 +238,21 @@ class MyLocalPlanner(LocalPlanningStrategy):
 ## 6. Example: Custom Controller
 
 ```python
+from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
 
 class MyController(ControlStrategy):
-    def control(self, ego, tj=None, control_dt=None) -> ControlCommandBase:
-        # Your logic here; ControlCommand is an alias for AckermannControlCommand
+    def control(self, ego, plan: GlobalPlan | LocalPlan | None = None, control_dt=None) -> ControlCommandBase:
+        if plan is not None:
+            self.set_plan(plan)
         return ControlCommand(steer=0.0, acceleration=1.0)
 
     def reset(self):
         pass
 ```
+
+Use `set_trajectory_tracker(tj)` when you already have a built `TrajectoryTracker`; use `set_plan(plan)` or the `plan` argument on `control()` when you hold a `GlobalPlan` or `LocalPlan`.
 
 ## 7. Multi-robot agents and control
 
@@ -360,12 +364,17 @@ path = pm.prediction.trajectories.get(agent.agent_id)  # [n_steps, 2] world x,y 
 from avlite.c10_perception.c11_perception_model import EGO_AGENT_ID
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c30_control.c31_control_model import ControlCommandBase
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 class MyBridge(WorldBridge):
     @property
-    def capabilities(self) -> set[WorldCapability]:
-        return {WorldCapability.LIDAR_2D, WorldCapability.GT_LOCALIZATION}
+    def world_capabilities(self) -> set[WorldCapability]:
+        return {WorldCapability.LIDAR_2D}
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        # Ground truth provided by the world (satisfies downstream stack_requirements)
+        return {StackCapability.LOCALIZATION}
 
     def control_ego_state(self, cmd: ControlCommandBase, dt=0.01):
         # Send control to your simulator or robot

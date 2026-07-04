@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
-from avlite.c50_common.c51_capabilities import WorldCapability, PerceptionCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 from avlite.c50_common.c52_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
@@ -19,12 +19,19 @@ class PerceptionStrategy(ABC):
     
     @property
     @abstractmethod
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
+        """World (sensor) capabilities this strategy requires from the bridge."""
         pass
 
     @property
+    def stack_requirements(self) -> set[StackCapability]:
+        """Upstream stack capabilities this strategy depends on (default: none)."""
+        return set()
+
+    @property
     @abstractmethod
-    def capabilities(self) -> set[PerceptionCapability]:
+    def stack_capabilities(self) -> set[StackCapability]:
+        """Stack capabilities this strategy provides to downstream modules."""
         pass
 
     @abstractmethod
@@ -56,7 +63,7 @@ class DetectionStrategy(ABC):
     
     @property
     @abstractmethod
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         pass
 
     @abstractmethod
@@ -77,7 +84,7 @@ class TrackingStrategy(ABC):
 
     @property
     @abstractmethod
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         pass
 
     @abstractmethod
@@ -95,7 +102,7 @@ class PredictionStrategy(ABC):
 
     @property
     @abstractmethod
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         pass
 
     @abstractmethod
@@ -127,21 +134,26 @@ class PerceptionPipeline(PerceptionStrategy):
         return None
 
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         reqs = set()
         for child in (self._detector, self._tracker, self._predictor):
             if child is not None:
-                reqs |= child.requirements
-        # Stages with no strategy fall back to ground truth from the world bridge
-        if self._detector is None:
-            reqs.add(WorldCapability.GT_DETECTION)
-        if self._tracker is None:
-            reqs.add(WorldCapability.GT_TRACKING)
+                reqs |= child.world_requirements
         return reqs
 
     @property
-    def capabilities(self) -> set[PerceptionCapability]:
-        return {PerceptionCapability.DETECTION, PerceptionCapability.TRACKING, PerceptionCapability.PREDICTION}
+    def stack_requirements(self) -> set[StackCapability]:
+        # Stages with no strategy fall back to ground truth from the world bridge
+        reqs = set()
+        if self._detector is None:
+            reqs.add(StackCapability.DETECTION)
+        if self._tracker is None:
+            reqs.add(StackCapability.TRACKING)
+        return reqs
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.DETECTION, StackCapability.TRACKING, StackCapability.PREDICTION}
 
     def perceive(
         self,

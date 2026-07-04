@@ -25,7 +25,7 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 
 # ---------------------------------------------------------------------------
@@ -39,8 +39,13 @@ class _StubWorldBridge(WorldBridge):
     delay: float = 0.0  # artificial latency per control_ego_state call
 
     @property
-    def capabilities(self):
+    def world_capabilities(self):
         return set()
+
+    @property
+    def stack_capabilities(self):
+        # Provide ground-truth localization so the executer may actuate the ego.
+        return {StackCapability.LOCALIZATION}
 
     def control_ego_state(self, cmd: ControlCommand, dt: float = 0.01):
         if self.delay > 0.0:

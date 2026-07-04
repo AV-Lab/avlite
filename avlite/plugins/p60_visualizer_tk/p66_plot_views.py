@@ -11,6 +11,8 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
 from avlite.plugins.p60_visualizer_tk.p69_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
+from avlite.c40_execution.c49_settings import is_capability_provided
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 log = logging.getLogger(__name__)
 
@@ -442,7 +444,7 @@ class LocalPlanPlotView(ttk.Frame):
         if show_gv != show_fv:
             aspect_ratio /= 2
 
-        bridge_lidar = self.root.setting.bridge_provide_lidar_data.get()
+        bridge_lidar = is_capability_provided(WorldCapability.LIDAR_2D) or is_capability_provided(WorldCapability.LIDAR_3D)
         want_lidar = bridge_lidar and (
             self.root.setting.p66_show_lidar_global.get()
             or self.root.setting.p66_show_lidar_frenet.get()
@@ -470,7 +472,7 @@ class LocalPlanPlotView(ttk.Frame):
             plot_lidar_global=self.root.setting.p66_show_lidar_global.get(),
             plot_lidar_frenet=self.root.setting.p66_show_lidar_frenet.get(),
             plot_clusters=bridge_lidar and self.root.setting.p66_show_lidar_clusters.get(),
-            plot_ground_truth=self.root.setting.bridge_provide_ground_truth_detection.get(),
+            plot_ground_truth=is_capability_provided(StackCapability.DETECTION),
             plot_race_boundary=self.root.setting.p66_show_race_boundary.get(),
             show_global_view=self.root.setting.p67_show_local_global_view.get(),
             show_frenet_view=self.root.setting.p67_show_local_frenet_view.get(),

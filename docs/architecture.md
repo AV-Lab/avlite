@@ -51,26 +51,31 @@ When you create a subclass, it automatically registers itself and appears in the
 
 ### Capability System
 
-Components declare what they require and provide:
+Components declare what they require and provide along a clean 2x2 grid keyed on capability space (world/sensor vs stack) and direction (requires vs provides):
+
+| | requires | provides |
+| --- | --- | --- |
+| **World layer** (`WorldCapability`) | `world_requirements` | `world_capabilities` (world bridge only) |
+| **Stack layer** (`StackCapability`) | `stack_requirements` | `stack_capabilities` |
+
+- A **strategy** declares `world_requirements`, `stack_requirements` (non-abstract, per-module defaults), and `stack_capabilities` (what it produces).
+- A **world bridge** declares `world_capabilities` (sensors it exposes) and `stack_capabilities` (ground truth it provides).
 
 ```python
 class MyPerception(PerceptionStrategy):
     @property
-    def requirements(self) -> set[WorldCapability]:
-        # What I need from the world/simulator
+    def world_requirements(self) -> set[WorldCapability]:
+        # What I need from the world/simulator (sensors)
         return {WorldCapability.CAMERA_RGB}
-    
+
     @property
-    def capabilities(self) -> set[PerceptionCapability]:
-        # What I provide
-        return {PerceptionCapability.DETECTION}
+    def stack_capabilities(self) -> set[StackCapability]:
+        # What I provide to downstream modules
+        return {StackCapability.DETECTION}
 ```
 
-**World Capabilities** (what simulators can provide):
+**World Capabilities** (sensors / actuation the bridge provides):
 
-- `GT_DETECTION` - Ground truth object detection
-- `GT_TRACKING` - Ground truth tracking IDs
-- `GT_LOCALIZATION` - Ground truth ego pose
 - `CAMERA_RGB` - RGB camera images
 - `CAMERA_DEPTH` - Depth camera images
 - `LIDAR_3D` - 3D LiDAR point cloud data
@@ -79,27 +84,22 @@ class MyPerception(PerceptionStrategy):
 - `WHEEL_ENCODER` - Wheel encoder for odometry
 - `IMU` - Inertial measurement unit
 - `GNSS` - GNSS / GPS receiver
+- `AGENT_SPAWN` - Bridge can spawn NPC agents
 - `AGENT_CONTROL` - Bridge can actuate spawned NPC agents via `control_agent` (opt-in; separate from `AGENT_SPAWN`)
 
-**Perception Capabilities** (what perception strategies provide):
+**Stack Capabilities** (`StackCapability`) — what a stack module produces, used both as a module's `stack_capabilities` and as another module's `stack_requirements`:
 
 - `DETECTION` - Object detection
 - `TRACKING` - Object tracking
 - `PREDICTION` - Motion prediction
+- `LOCAL_PLAN` - Local plan (produced by the local planner)
+- `GLOBAL_PLAN` - Global plan (produced by the global planner)
+- `CONTROL` - Control commands (produced by the controller)
+- `LOCALIZATION` - Ego localization
+- `MAP` - Map
+- `SLAM` - Simultaneous localization and mapping
 
-**Localization Capabilities** (what localization strategies provide):
-
-- `LOCALIZATION_2D` - 2D pose estimation (x, y)
-- `LOCALIZATION_3D` - 3D pose estimation (x, y, z)
-- `LOCALIZATION_HEADING` - Heading / yaw estimation
-- `LOCALIZATION_HEADING_3D` - Full 3D orientation (roll, pitch, yaw)
-- `VELOCITY` - Velocity estimation
-
-**Mapping Capabilities** (what mapping strategies provide):
-
-- `OCCUPANCY_GRID` - Occupancy grid mapping
-- `PATH_BOUNDARY` - Path boundary extraction
-- `OPENDRIVE_HDMAP` - OpenDRIVE HD map integration
+**Ground truth via the world bridge:** a `WorldBridge` may advertise `stack_capabilities` (a `set[StackCapability]`, default empty) to satisfy downstream `stack_requirements` without a real module. For example, `BasicSim` provides `{DETECTION, TRACKING, LOCALIZATION}` as ground truth. The executer combines every present module's `stack_capabilities` with `world.stack_capabilities` and warns when a module's `stack_requirements` are unmet.
 
 ### Factory Pattern
 
