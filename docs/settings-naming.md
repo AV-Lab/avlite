@@ -14,11 +14,11 @@ Shipped defaults live in the repository `configs/` directory. When you save from
 
 3. **Cross-layer orchestration** → setting lives on the **consuming** layer’s settings class, prefixed by the consumer module.  
    Example: factory fallback race map in `c52_factory.py` → `ExecutionSettings.c43_race_boundary_map`.  
-   App bootstrap (plugin lists, load gate, GUI profile selection) lives on `AppSettings` in c50 with `c50_*` prefixes.
+   App bootstrap lives on `AppSettings` in c50: plugin lists and load gate use `c52_*` (consumer `c52_factory`); active profile selection uses `c50_selected_profile`.
 
 4. **Built-in Tk plugin (`p50_visualizer_tk`)** — prefix identifies the **consumer module**, not the settings file:
-   - Single consumer → `p{NN}_{name}` (e.g. `p57_log_font` → `p57_log_view.py`)
-   - Multiple modules in the package → `p50_{name}` (e.g. `p50_dark_mode` → p51 hosts, p52, p53)
+   - Single consumer → `p{NN}_{name}` (e.g. `p58_log_font` → `p58_log_view.py`)
+   - Multiple modules in the package → `p50_{name}` (e.g. `p50_dark_mode` → p51, p52, p54)
 
 5. **Metadata** (`exclude`, `filepath`) is never prefixed.
 

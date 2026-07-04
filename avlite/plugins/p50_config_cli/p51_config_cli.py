@@ -151,14 +151,14 @@ def cmd_export_profile(args: argparse.Namespace) -> int:
     output = args.output or f"{args.profile}.zip"
     try:
         load_setting(ExecutionSettings, profile=args.profile)
-        warning = dev_mode_export_warning(AppSettings.c50_community_plugins)
+        warning = dev_mode_export_warning(AppSettings.c52_community_plugins)
         if warning:
             print(warning, file=sys.stderr)
         count = export_profile(
             args.profile,
             output,
             settings_classes=get_stack_settings_classes(),
-            community_plugins=AppSettings.c50_community_plugins,
+            community_plugins=AppSettings.c52_community_plugins,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

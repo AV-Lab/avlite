@@ -11,6 +11,7 @@ from typing import Any, Protocol
 import yaml
 
 from avlite.c50_apps.c53_plugins import load_plugin_settings_class
+from avlite.c50_apps.c59_settings import AppSettingsSchema
 from avlite.c50_apps.c54_settings_schema import (
     SETTINGS_META,
     PlainBinder,
@@ -408,9 +409,9 @@ def import_profile(
 
     community_plugins_map: dict[str, str] = {}
     if isinstance(apps_prof_data, dict):
-        raw = apps_prof_data.get("c50_community_plugins") or {}
-        if isinstance(raw, dict):
-            community_plugins_map = raw
+        community_plugins_map = validate_profile(
+            AppSettingsSchema, apps_prof_data, profile=profile_name
+        ).c52_community_plugins
 
     validated_standard: list[tuple[str, dict]] = []
     deferred_community_standard: list[tuple[str, dict]] = []

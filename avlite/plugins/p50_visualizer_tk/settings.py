@@ -23,8 +23,8 @@ from avlite.c50_apps.c53_plugins import load_plugin_settings_class, patch_plugin
 from avlite.c50_apps.c54_settings_schema import SettingsSchema
 from avlite.c50_apps.c55_setting_utils import save_setting
 from avlite.c50_apps.c58_paths import PluginPaths
-from avlite.c50_apps.c59_settings import AppSettings, AppSettingsSchema
-from avlite.plugins.p50_visualizer_tk.p53_ui_lib import DataPicker, TkSettingsBinder
+from avlite.c50_apps.c59_settings import AppSettings
+from avlite.plugins.p50_visualizer_tk.p55_ui_lib import DataPicker, TkSettingsBinder
 
 log = logging.getLogger(__name__)
 
@@ -49,78 +49,54 @@ class PluginSettingsSchema(SettingsSchema):
         default=0.5, description="Slowdown factor when dragging plots with mouse."
     )
 
-    p55_show_legend: bool = Field(default=False, description="Show plot legend (may reduce performance).")
-    p55_show_past_locations: bool = Field(default=True, description="Show historical ego positions on plots.")
-    p55_show_global_plan: bool = Field(default=True, description="Draw global plan on plots.")
-    p55_show_global_plan_boundaries: bool = Field(
+    p56_show_legend: bool = Field(default=False, description="Show plot legend (may reduce performance).")
+    p56_show_past_locations: bool = Field(default=True, description="Show historical ego positions on plots.")
+    p56_show_global_plan: bool = Field(default=True, description="Draw global plan on plots.")
+    p56_show_global_plan_boundaries: bool = Field(
         default=True, description="Show left/right plan boundaries in global plot view."
     )
-    p55_global_plan_velocity_scale: str = Field(
+    p56_global_plan_velocity_scale: str = Field(
         default="relative",
         description="Global plan velocity color scale: 'relative' (per-path min–max) or 'absolute' (0 to ego max m/s).",
     )
-    p55_show_local_plan: bool = Field(default=True, description="Draw local plan on plots.")
-    p55_show_local_lattice: bool = Field(default=True, description="Draw local lattice on plots.")
-    p55_show_state: bool = Field(default=True, description="Show ego state overlay on plots.")
-    p55_global_view_follow_planner: bool = Field(default=False, description="Follow planner in global XY view.")
-    p55_frenet_view_follow_planner: bool = Field(default=False, description="Follow planner in Frenet view.")
-    p55_show_local_global_view: bool = Field(default=True, description="Show local global (XY) sub-view.")
-    p55_show_local_frenet_view: bool = Field(default=True, description="Show local Frenet sub-view.")
-    p55_show_lidar_global: bool = Field(default=True, description="Show LiDAR points in global XY view.")
-    p55_show_lidar_frenet: bool = Field(default=True, description="Show LiDAR points in Frenet view.")
-    p55_show_lidar_clusters: bool = Field(default=True, description="Highlight clustered LiDAR points.")
-    p55_show_race_boundary: bool = Field(default=True, description="Show race boundary on plots.")
-    p55_xy_zoom: float = Field(default=30, description="XY plot zoom level.")
-    p55_frenet_zoom: float = Field(default=30, description="Frenet plot zoom level.")
-    p55_global_zoom: float = Field(default=30, description="Global plot zoom level.")
-    p55_show_occupancy_flow: bool = Field(default=False, description="Show occupancy flow visualization.")
-    p55_show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
-    p55_global_plan_view: bool = Field(default=False, description="Show global plan panel.")
-    p55_local_plan_view: bool = Field(default=False, description="Show local plan panel.")
+    p56_show_local_plan: bool = Field(default=True, description="Draw local plan on plots.")
+    p56_show_local_lattice: bool = Field(default=True, description="Draw local lattice on plots.")
+    p56_show_state: bool = Field(default=True, description="Show ego state overlay on plots.")
+    p56_global_view_follow_planner: bool = Field(default=False, description="Follow planner in global XY view.")
+    p56_frenet_view_follow_planner: bool = Field(default=False, description="Follow planner in Frenet view.")
+    p57_show_local_global_view: bool = Field(default=True, description="Show local global (XY) sub-view.")
+    p57_show_local_frenet_view: bool = Field(default=True, description="Show local Frenet sub-view.")
+    p56_show_lidar_global: bool = Field(default=True, description="Show LiDAR points in global XY view.")
+    p56_show_lidar_frenet: bool = Field(default=True, description="Show LiDAR points in Frenet view.")
+    p56_show_lidar_clusters: bool = Field(default=True, description="Highlight clustered LiDAR points.")
+    p56_show_race_boundary: bool = Field(default=True, description="Show race boundary on plots.")
+    p56_xy_zoom: float = Field(default=30, description="XY plot zoom level.")
+    p56_frenet_zoom: float = Field(default=30, description="Frenet plot zoom level.")
+    p56_global_zoom: float = Field(default=30, description="Global plot zoom level.")
+    p57_show_occupancy_flow: bool = Field(default=False, description="Show occupancy flow visualization.")
+    p57_show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
+    p57_global_plan_view: bool = Field(default=False, description="Show global plan panel.")
+    p57_local_plan_view: bool = Field(default=False, description="Show local plan panel.")
 
-    p57_show_core_logs: bool = Field(default=True, description="Show core module logs.")
-    p57_show_perceive_logs: bool = Field(default=True, description="Show perception logs.")
-    p57_show_plan_logs: bool = Field(default=True, description="Show planning logs.")
-    p57_show_control_logs: bool = Field(default=True, description="Show control logs.")
-    p57_show_execute_logs: bool = Field(default=True, description="Show execution logs.")
-    p57_show_vis_logs: bool = Field(default=True, description="Show visualization logs.")
-    p57_show_common_logs: bool = Field(default=True, description="Show common module logs.")
-    p57_show_plugins_logs: bool = Field(default=True, description="Show plugin logs.")
-    p57_disable_log: bool = Field(default=False, description="Disable log panel updates.")
-    p57_max_log_lines: int = Field(default=1000, description="Max log lines retained in UI.")
-    p57_log_view_expanded: bool = Field(default=False, description="Use expanded log panel height.")
-    p57_log_view_default_height: int = Field(default=12, description="Default log panel height in lines.")
-    p57_log_view_expended_height: int = Field(default=35, description="Expanded log panel height in lines.")
-    p57_log_font: str = Field(default="Courier", description="Log panel font family.")
-    p57_log_font_size: int = Field(default=11, description="Log panel font size.")
-    p57_log_pull_time: int = Field(default=50, description="Log refresh interval (ms).")
+    p58_show_core_logs: bool = Field(default=True, description="Show core module logs.")
+    p58_show_perceive_logs: bool = Field(default=True, description="Show perception logs.")
+    p58_show_plan_logs: bool = Field(default=True, description="Show planning logs.")
+    p58_show_control_logs: bool = Field(default=True, description="Show control logs.")
+    p58_show_execute_logs: bool = Field(default=True, description="Show execution logs.")
+    p58_show_vis_logs: bool = Field(default=True, description="Show visualization logs.")
+    p58_show_common_logs: bool = Field(default=True, description="Show common module logs.")
+    p58_show_plugins_logs: bool = Field(default=True, description="Show plugin logs.")
+    p58_disable_log: bool = Field(default=False, description="Disable log panel updates.")
+    p58_max_log_lines: int = Field(default=1000, description="Max log lines retained in UI.")
+    p58_log_view_expanded: bool = Field(default=False, description="Use expanded log panel height.")
+    p58_log_view_default_height: int = Field(default=12, description="Default log panel height in lines.")
+    p58_log_view_expended_height: int = Field(default=35, description="Expanded log panel height in lines.")
+    p58_log_font: str = Field(default="Courier", description="Log panel font family.")
+    p58_log_font_size: int = Field(default=11, description="Log panel font size.")
+    p58_log_pull_time: int = Field(default=50, description="Log refresh interval (ms).")
 
 
 PluginSettings = PluginSettingsSchema()
-
-
-class AppSettingsUI:
-    """Tk variables for AppSettings fields bound to widgets."""
-
-    schema = AppSettingsSchema
-    exclude = ["exclude", "filepath", "schema", "c50_default_plugins", "c50_community_plugins"]
-    filepath: str = "configs/c59_apps.yaml"
-
-    def __init__(self) -> None:
-        self.c50_load_plugins = tk.BooleanVar(value=AppSettings.c50_load_plugins)
-        self.c50_selected_profile = tk.StringVar(value=AppSettings.c50_selected_profile)
-
-    def sync_from_singleton(self) -> None:
-        """Copy persisted singleton values into Tk variables."""
-        self.c50_load_plugins.set(AppSettings.c50_load_plugins)
-        self.c50_selected_profile.set(AppSettings.c50_selected_profile)
-
-    def sync_to_singleton(self) -> None:
-        """Copy Tk variable values into the persisted singleton."""
-        AppSettings.c50_load_plugins = bool(self.c50_load_plugins.get())
-        AppSettings.c50_selected_profile = self.c50_selected_profile.get()
-
-
 
 
 def get_stack_settings_classes() -> list[Any]:
@@ -132,7 +108,7 @@ def _sync_exec_dt(attr: str, value: float) -> None:
     """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
     try:
         name = "avlite-executer-ROS2"
-        stored = AppSettings.c50_community_plugins.get(name, name)
+        stored = AppSettings.c52_community_plugins.get(name, name)
         install = str(PluginPaths.resolve(name, stored))
         cls = load_plugin_settings_class(name, install)
         if cls is None:
@@ -172,39 +148,42 @@ class VisualizationSettings:
         "bridge_provide_ground_truth_detection", "bridge_provide_rgb_image",
         "bridge_provide_depth_image", "bridge_provide_lidar_data",
         "log_level", "log_to_file",
+        "c52_default_plugins", "c52_community_plugins",
     ]
     filepath: str = "configs/plugin_p50_visualizer_tk.yaml"
 
     def __init__(self):
+        self.c52_load_plugins = tk.BooleanVar(value=AppSettings.c52_load_plugins)
+        self.c50_selected_profile = tk.StringVar(value=AppSettings.c50_selected_profile)
         self.p50_shortcut_mode = tk.BooleanVar()
         self.p50_next_profile = tk.StringVar(value=PluginSettings.p50_next_profile)
         self.p50_dark_mode = tk.BooleanVar(value=True)
         self.p50_hide_menubar = tk.BooleanVar(value=False)
         self.p59_mouse_drag_slowdown_factor = 0.5
 
-        self.p55_show_legend = tk.BooleanVar(value=False)
-        self.p55_show_past_locations = tk.BooleanVar(value=True)
-        self.p55_show_global_plan = tk.BooleanVar(value=True)
-        self.p55_show_global_plan_boundaries = tk.BooleanVar(value=True)
-        self.p55_global_plan_velocity_scale = tk.StringVar(value="relative")
-        self.p55_show_local_plan = tk.BooleanVar(value=True)
-        self.p55_show_local_lattice = tk.BooleanVar(value=True)
-        self.p55_show_state = tk.BooleanVar(value=True)
-        self.p55_global_view_follow_planner = tk.BooleanVar(value=False)
-        self.p55_frenet_view_follow_planner = tk.BooleanVar(value=False)
-        self.p55_show_local_global_view = tk.BooleanVar(value=True)
-        self.p55_show_local_frenet_view = tk.BooleanVar(value=True)
-        self.p55_show_lidar_global = tk.BooleanVar(value=True)
-        self.p55_show_lidar_frenet = tk.BooleanVar(value=False)
-        self.p55_show_lidar_clusters = tk.BooleanVar(value=True)
-        self.p55_show_race_boundary = tk.BooleanVar(value=True)
+        self.p56_show_legend = tk.BooleanVar(value=False)
+        self.p56_show_past_locations = tk.BooleanVar(value=True)
+        self.p56_show_global_plan = tk.BooleanVar(value=True)
+        self.p56_show_global_plan_boundaries = tk.BooleanVar(value=True)
+        self.p56_global_plan_velocity_scale = tk.StringVar(value="relative")
+        self.p56_show_local_plan = tk.BooleanVar(value=True)
+        self.p56_show_local_lattice = tk.BooleanVar(value=True)
+        self.p56_show_state = tk.BooleanVar(value=True)
+        self.p56_global_view_follow_planner = tk.BooleanVar(value=False)
+        self.p56_frenet_view_follow_planner = tk.BooleanVar(value=False)
+        self.p57_show_local_global_view = tk.BooleanVar(value=True)
+        self.p57_show_local_frenet_view = tk.BooleanVar(value=True)
+        self.p56_show_lidar_global = tk.BooleanVar(value=True)
+        self.p56_show_lidar_frenet = tk.BooleanVar(value=False)
+        self.p56_show_lidar_clusters = tk.BooleanVar(value=True)
+        self.p56_show_race_boundary = tk.BooleanVar(value=True)
 
-        self.p55_xy_zoom = 30
-        self.p55_frenet_zoom = 30
-        self.p55_global_zoom = 30
+        self.p56_xy_zoom = 30
+        self.p56_frenet_zoom = 30
+        self.p56_global_zoom = 30
 
-        self.p55_show_occupancy_flow = tk.BooleanVar(value=False)
-        self.p55_show_perception_extras = tk.BooleanVar(value=False)
+        self.p57_show_occupancy_flow = tk.BooleanVar(value=False)
+        self.p57_show_perception_extras = tk.BooleanVar(value=False)
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
 
@@ -312,8 +291,8 @@ class VisualizationSettings:
 
         self.controller_type.trace_add("write", _on_controller_change)
 
-        self.p55_global_plan_view = tk.BooleanVar(value=False)
-        self.p55_local_plan_view = tk.BooleanVar(value=False)
+        self.p57_global_plan_view = tk.BooleanVar(value=False)
+        self.p57_local_plan_view = tk.BooleanVar(value=False)
 
         self.executer_type = tk.StringVar(
             value=_strategy_default(ExecutionStrategy.registry, ExecutionSettings.c40_executer_type)
@@ -435,21 +414,21 @@ class VisualizationSettings:
             ExecutionSettings.c40_log_level = self.log_level.get()
 
         self.log_level.trace_add("write", _on_log_level_change)
-        self.p57_show_core_logs = tk.BooleanVar(value=True)
-        self.p57_show_perceive_logs = tk.BooleanVar(value=True)
-        self.p57_show_plan_logs = tk.BooleanVar(value=True)
-        self.p57_show_control_logs = tk.BooleanVar(value=True)
-        self.p57_show_execute_logs = tk.BooleanVar(value=True)
-        self.p57_show_vis_logs = tk.BooleanVar(value=True)
-        self.p57_show_common_logs = tk.BooleanVar(value=True)
-        self.p57_show_plugins_logs = tk.BooleanVar(value=True)
-        self.p57_disable_log = tk.BooleanVar(value=False)
-        self.p57_max_log_lines = 1000
-        self.p57_log_view_expanded = tk.BooleanVar(value=False)
-        self.p57_log_view_default_height = tk.IntVar(value=12)
-        self.p57_log_view_expended_height = tk.IntVar(value=35)
-        self.p57_log_font = tk.StringVar(value="Courier")
-        self.p57_log_font_size = tk.IntVar(value=11)
+        self.p58_show_core_logs = tk.BooleanVar(value=True)
+        self.p58_show_perceive_logs = tk.BooleanVar(value=True)
+        self.p58_show_plan_logs = tk.BooleanVar(value=True)
+        self.p58_show_control_logs = tk.BooleanVar(value=True)
+        self.p58_show_execute_logs = tk.BooleanVar(value=True)
+        self.p58_show_vis_logs = tk.BooleanVar(value=True)
+        self.p58_show_common_logs = tk.BooleanVar(value=True)
+        self.p58_show_plugins_logs = tk.BooleanVar(value=True)
+        self.p58_disable_log = tk.BooleanVar(value=False)
+        self.p58_max_log_lines = 1000
+        self.p58_log_view_expanded = tk.BooleanVar(value=False)
+        self.p58_log_view_default_height = tk.IntVar(value=12)
+        self.p58_log_view_expended_height = tk.IntVar(value=35)
+        self.p58_log_font = tk.StringVar(value="Courier")
+        self.p58_log_font_size = tk.IntVar(value=11)
         self.log_to_file = tk.BooleanVar(value=ExecutionSettings.c40_log_to_file)
 
         def _on_log_to_file_change(*_):
@@ -458,10 +437,20 @@ class VisualizationSettings:
             ExecutionSettings.c40_log_to_file = self.log_to_file.get()
 
         self.log_to_file.trace_add("write", _on_log_to_file_change)
-        self.p57_log_pull_time = 50
+        self.p58_log_pull_time = 50
         self.p50_bg_color = "#333333" if self.p50_dark_mode.get() else "white"
         self.p50_fg_color = "white" if self.p50_dark_mode.get() else "black"
         self.profile_list = []
+
+    def sync_app_from_singleton(self) -> None:
+        """Copy AppSettings singleton values into Tk variables."""
+        self.c52_load_plugins.set(AppSettings.c52_load_plugins)
+        self.c50_selected_profile.set(AppSettings.c50_selected_profile)
+
+    def sync_app_to_singleton(self) -> None:
+        """Copy app Tk variable values into the AppSettings singleton."""
+        AppSettings.c52_load_plugins = bool(self.c52_load_plugins.get())
+        AppSettings.c50_selected_profile = self.c50_selected_profile.get()
 
     def sync_perception_pipeline_from_c19(self) -> None:
         """Push c19 pipeline strategy names into main-UI Tk vars without write-back."""

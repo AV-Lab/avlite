@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `AppStrategy` registry in `c50_apps/c51_app_strategy.py` — pluggable CLI/GUI entry points (`config`, `config-cli`, `plugins`, `headless`, default visualizer)
-- Standalone settings GUI: `python -m avlite config` (no visualizer panels)
+- `AppStrategy` registry in `c50_apps/c51_app_strategy.py` — pluggable CLI/GUI entry points (`setting`, `config-cli`, `plugins`, `headless`, default visualizer)
+- Standalone settings GUI: `python -m avlite setting` (no visualizer panels)
 - `p50_config_cli` built-in plugin — terminal profile validate/describe/import/export (`config-cli` subcommand)
 - Community plugin import infrastructure: `sync_community_plugins()`, `CommunityPluginFinder` meta-path hook, and dashed-name → Python import mapping (`plugin_import_name`)
 - `PluginPaths.repo_root()` and repo-relative community plugin path resolve/shorten
@@ -23,11 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README, architecture, and plugin-development docs for optional community plugins (`avlite-bridge-*`, `avlite-executer-ROS2`, `avlite-controller-joystick`)
 
 ### Changed
-- **Breaking:** Merged Tk plugins into one package: `p50_visualizer_tk` hosts the visualizer, settings GUI (`avlite config`), and plugin manager (`avlite plugins`); removed `p50_config_tk` and `p50_plugins_app_tk`
+- **Breaking:** `p50_visualizer_tk` modules renumbered to `p51`–`p59` (apps at `p51_visualizer_app`, `p52_setting_app`, `p53_plugins_app`); settings GUI CLI renamed from `avlite config` to `avlite setting`; visualization YAML keys updated (`p56_*` plot, `p57_*` stack panels, `p58_*` log)
+- **Breaking:** Merged Tk plugins into one package: `p50_visualizer_tk` hosts the visualizer, settings GUI (`avlite setting`), and plugin manager (`avlite plugins`); removed `p50_config_tk` and `p50_plugins_app_tk`
 - **Breaking:** App bootstrap settings moved to `c59_settings.py` / `configs/c59_apps.yaml` (`c50_load_plugins`, `c50_default_plugins`, `c50_community_plugins`, profile selection)
 - **Breaking:** Plugin lists removed from `c40_execution.yaml` (`c40_default_plugins`, `c40_community_plugins` → `c50_*` on `AppSettings`)
 - **Breaking:** Visualization YAML is `plugin_p50_visualizer_tk.yaml` only (deleted `plugin_p50_config_tk.yaml`, `plugin_p50_plugins_app_tk.yaml`; no legacy `c50_apps.yaml` fallback)
-- **Breaking:** Visualization settings fields use consumer prefixes (`p50_*`, `p55_*`, `p57_*`, …) in `p50_visualizer_tk/settings.py`; `AppSettingsUI` Tk binder moved out of `c59_settings.py`
+- **Breaking:** Visualization settings fields use consumer prefixes (`p50_*`, `p56_*`, `p57_*`, `p58_*`, …) in `p50_visualizer_tk/settings.py`; `AppSettingsUI` Tk binder moved out of `c59_settings.py`
 - c50_apps private helpers grouped into module-local classes (public API unchanged)
 - p50 plugin modules use top-level imports for clearer inter-module dependencies (optional deps use try/except sentinels at module scope)
 - **Breaking:** p50 app entry classes renamed from `*AppStrategy` to `*App` (`VisualizationApp` for the default visualizer CLI entry; base class remains `AppStrategy`)

@@ -143,7 +143,7 @@ def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatc
         yaml.dump(
             {
                 "default": {
-                    "c50_community_plugins": {
+                    "c52_community_plugins": {
                         _PLUGIN_NAME: str(dashed_plugin),
                     },
                 }

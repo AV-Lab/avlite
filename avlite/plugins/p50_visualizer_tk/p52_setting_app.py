@@ -1,4 +1,4 @@
-"""Standalone ``avlite config`` settings GUI."""
+"""Standalone ``avlite setting`` settings GUI."""
 
 from __future__ import annotations
 
@@ -7,32 +7,39 @@ import tkinter as tk
 
 from avlite.c50_apps.c51_app_strategy import AppStrategy
 from avlite.c50_apps.c59_settings import AppSettings
-from avlite.plugins.p50_visualizer_tk.settings import AppSettingsUI, VisualizationSettings, sync_stack_settings_to_ui
 from avlite.c50_apps.c52_factory import load_stack_settings
 from avlite.c50_apps.c53_plugins import reload_lib
 from avlite.c50_apps.c58_paths import ConfigPaths
 from avlite.c50_apps.c55_setting_utils import list_profiles, load_setting
+from avlite.plugins.p50_visualizer_tk.p54_setting_views import SettingWindow
+from avlite.plugins.p50_visualizer_tk.p55_ui_lib import (
+    TkSettingsBinder,
+    apply_ttk_theme,
+    get_dpi_scale,
+    scaled,
+    setup_dpi,
+)
+from avlite.plugins.p50_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
 
 log = logging.getLogger(__name__)
 
 
-class ConfigAppHost(tk.Tk):
-    """Minimal host for the standalone ``avlite config`` settings GUI."""
+class SettingAppHost(tk.Tk):
+    """Minimal host for the standalone ``avlite setting`` settings GUI."""
 
     def __init__(self) -> None:
         setup_dpi()
         super().__init__()
         apply_ttk_theme(self, dark=True)
-        self.title("AVLite Config")
+        self.title("AVLite Settings")
         _s = get_dpi_scale(self)
         self.geometry(f"{scaled(900, _s)}x{scaled(700, _s)}")
 
-        self.app = AppSettingsUI()
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(AppSettings)
         startup = ConfigPaths.startup_profile()
         if startup and startup in self.setting.profile_list:
-            self.app.c50_selected_profile.set(startup)
+            self.setting.c50_selected_profile.set(startup)
 
         self.validate_cmd = (self.register(self._validate_float_input), "%P")
 
@@ -45,14 +52,14 @@ class ConfigAppHost(tk.Tk):
         except ValueError:
             return False
 
-    def load_configs(self, only_stack: bool = False, profile: str | None = None) -> None:
+    def load_settings(self, only_stack: bool = False, profile: str | None = None) -> None:
         if profile:
-            self.app.c50_selected_profile.set(profile)
+            self.setting.c50_selected_profile.set(profile)
         else:
-            profile = self.app.c50_selected_profile.get()
+            profile = self.setting.c50_selected_profile.get()
         binder = TkSettingsBinder()
         load_setting(AppSettings, profile=profile)
-        self.app.sync_from_singleton()
+        self.setting.sync_app_from_singleton()
         if not only_stack:
             load_setting(self.setting, profile=profile, binder=binder)
         load_stack_settings(profile=profile)
@@ -65,22 +72,22 @@ class ConfigAppHost(tk.Tk):
 
     def reload_stack(self, reload_code: bool = True) -> None:
         if reload_code:
-            reload_lib(exclude_settings=True, reload_plugins=self.app.c50_load_plugins.get())
-        load_stack_settings(profile=self.app.c50_selected_profile.get())
+            reload_lib(exclude_settings=True, reload_plugins=self.setting.c52_load_plugins.get())
+        load_stack_settings(profile=self.setting.c50_selected_profile.get())
         sync_stack_settings_to_ui(self.setting)
         self.on_stack_settings_changed()
 
 
-class ConfigApp(AppStrategy):
-    """``avlite config`` — standalone settings GUI (no visualizer panels)."""
+class SettingApp(AppStrategy):
+    """``avlite setting`` — standalone settings GUI (no visualizer panels)."""
 
-    cli_name = "config"
+    cli_name = "setting"
     help = "Open the settings GUI"
 
     def run(self, args, unknown):
-        host = ConfigAppHost()
+        host = SettingAppHost()
         host.withdraw()
-        host.load_configs()
+        host.load_settings()
         view = SettingWindow(host, show_visualization_settings=False)
         view.window.protocol("WM_DELETE_WINDOW", host.destroy)
         host.mainloop()

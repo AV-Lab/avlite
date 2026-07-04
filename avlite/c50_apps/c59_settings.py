@@ -18,14 +18,14 @@ _DEFAULT_BUILTIN_PLUGINS = [
 class AppSettingsSchema(SettingsSchema):
     filepath: ClassVar[str] = "configs/c59_apps.yaml"
 
-    c50_load_plugins: bool = Field(
+    c52_load_plugins: bool = Field(
         default=True, description="Load built-in and community plugins on startup."
     )
-    c50_default_plugins: list[str] = Field(
+    c52_default_plugins: list[str] = Field(
         default_factory=lambda: list(_DEFAULT_BUILTIN_PLUGINS),
         description="Built-in plugin packages to load on startup.",
     )
-    c50_community_plugins: dict[str, str] = Field(
+    c52_community_plugins: dict[str, str] = Field(
         default_factory=dict,
         description="Community plugin name to install directory map.",
     )

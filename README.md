@@ -159,7 +159,7 @@ see in the visualizer is what the robot will run.
 Profiles are split across layer YAML files (`c10_perception.yaml`, …). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filenames; load prefers the user copy when present. User maps and trajectories live under `~/.config/avlite/data/`; the Planning panel **Save Global Plan** button (⬇) opens a file picker there. Set `AVLITE_CONFIG_DIR` or `AVLITE_DATA_DIR` to use different directories.
 
 ```bash
-python -m avlite config              # settings GUI (no visualizer)
+python -m avlite setting              # settings GUI (no visualizer)
 python -m avlite config-cli help
 python -m avlite config-cli validate --profile default
 python -m avlite config-cli export-profile myprofile -o myprofile.zip
@@ -296,7 +296,7 @@ The numbering scheme allows quick navigation: search for "c23" to find local pla
 | `avlite-controller-joystick` | `related-repos/avlite-controller-joystick/` | Gamepad controller |
 | `avlite-executer-ROS2` | `related-repos/avlite-executer-ROS2/` | Multiprocess ROS executer |
 
-Register in `c50_community_plugins` in `configs/c59_apps.yaml` (shipped profiles already include repo-relative paths). Settings files use dashed names, e.g. `plugin_avlite-bridge-carla.yaml`.
+Register in `c52_community_plugins` in `configs/c59_apps.yaml` (shipped profiles already include repo-relative paths). Settings files use dashed names, e.g. `plugin_avlite-bridge-carla.yaml`.
 
 ## Testing
 

@@ -34,16 +34,16 @@ def test_load_stack_settings_reads_app_settings(monkeypatch, tmp_path):
         yaml.dump(
             {
                 "default": {
-                    "c50_load_plugins": False,
-                    "c50_default_plugins": ["p50_headless_mode"],
-                    "c50_community_plugins": {},
+                    "c52_load_plugins": False,
+                    "c52_default_plugins": ["p50_headless_mode"],
+                    "c52_community_plugins": {},
                 }
             }
         )
     )
     load_stack_settings(profile="default")
-    assert AppSettings.c50_load_plugins is False
-    assert AppSettings.c50_default_plugins == ["p50_headless_mode"]
+    assert AppSettings.c52_load_plugins is False
+    assert AppSettings.c52_default_plugins == ["p50_headless_mode"]
 
 
 def test_load_setting_app_profile(monkeypatch, tmp_path):

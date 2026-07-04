@@ -12,7 +12,7 @@ import yaml
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_apps.c52_factory import StackSettingsSync, load_stack_settings
 from avlite.plugins.p50_visualizer_tk.settings import get_stack_settings_classes
-from avlite.plugins.p50_visualizer_tk.p53_ui_lib import DataPicker, UiAssets
+from avlite.plugins.p50_visualizer_tk.p55_ui_lib import DataPicker, UiAssets
 from avlite.c50_apps.c58_paths import (
     COMMUNITY_DEV_SUBDIR,
     PRIVATE_DEV_SUBDIR,
@@ -620,7 +620,7 @@ def test_profile_export_import_round_trip(monkeypatch, tmp_path):
         yaml.dump({"robot": {"c40_bridge": "BasicSim"}})
     )
     (config_dir / "c59_apps.yaml").write_text(
-        yaml.dump({"robot": {"c50_community_plugins": {}}})
+        yaml.dump({"robot": {"c52_community_plugins": {}}})
     )
     (config_dir / "c10_perception.yaml").write_text(
         yaml.dump({"robot": {"c15_detection_z_min": 0.5}})
@@ -726,7 +726,7 @@ def test_profile_export_import_community_plugin(monkeypatch, tmp_path):
         yaml.dump(
             {
                 "robot": {
-                    "c50_community_plugins": {"foo": "foo"},
+                    "c52_community_plugins": {"foo": "foo"},
                 }
             }
         )
@@ -771,7 +771,7 @@ def test_profile_import_legacy_community_zip_entry(monkeypatch, tmp_path):
             yaml.dump(
                 {
                     "robot": {
-                        "c50_community_plugins": {"foo": "foo"},
+                        "c52_community_plugins": {"foo": "foo"},
                     }
                 }
             ),
@@ -796,7 +796,7 @@ def test_cli_export_import_profile(monkeypatch, tmp_path):
         yaml.dump({"robot": {"c40_bridge": "BasicSim"}})
     )
     (config_dir / "c59_apps.yaml").write_text(
-        yaml.dump({"robot": {"c50_community_plugins": {}}})
+        yaml.dump({"robot": {"c52_community_plugins": {}}})
     )
 
     zip_path = tmp_path / "robot.zip"

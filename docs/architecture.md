@@ -121,7 +121,7 @@ Before calling `executor_factory()`, load YAML profiles with `load_stack_setting
 
 ### Layer import rules
 
-Stack core (`c10`–`c40`, `c60`) may import `c51_app_strategy`, `c54_settings_schema`, `c58_paths`, and `c59_settings` only. Profile zip export that includes visualization YAML is composed in `p50_visualizer_tk` via `settings.get_stack_settings_classes()`, which wraps the core list from `c52_factory`. Tk binders (`VisualizationSettings`, `AppSettingsUI`) live in plugin `settings.py`; `c59_settings` is schema-only.
+Stack core (`c10`–`c40`, `c60`) may import `c51_app_strategy`, `c54_settings_schema`, `c58_paths`, and `c59_settings` only. Profile zip export that includes visualization YAML is composed in `p50_visualizer_tk` via `settings.get_stack_settings_classes()`, which wraps the core list from `c52_factory`. Tk binder `VisualizationSettings` lives in plugin `settings.py`; `c59_settings` is schema-only (plugin bootstrap fields use `c52_*`, consumed by `c52_factory`).
 
 ### Agent model
 

@@ -18,7 +18,7 @@ def test_sync_stack_settings_to_ui_reads_controller_from_profile(monkeypatch, tm
     try:
         monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
         (tmp_path / "c59_apps.yaml").write_text(
-            yaml.dump({"default": {"c50_load_plugins": False, "c50_default_plugins": [], "c50_community_plugins": {}}})
+            yaml.dump({"default": {"c52_load_plugins": False, "c52_default_plugins": [], "c52_community_plugins": {}}})
         )
         (tmp_path / "c40_execution.yaml").write_text(
             yaml.dump({"default": {"c40_controller": "StanleyController", "c40_bridge": "BasicSim"}})

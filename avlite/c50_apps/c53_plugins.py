@@ -10,10 +10,12 @@ import sys
 import types
 from pathlib import Path
 
+from avlite.c50_apps.c54_settings_schema import SettingsValidationError, validate_profile
 from avlite.c50_apps.c58_paths import (
     ConfigPaths,
     PluginPaths,
 )
+from avlite.c50_apps.c59_settings import AppSettingsSchema
 
 log = logging.getLogger(__name__)
 
@@ -518,7 +520,7 @@ class _CommunityPluginPaths:
 
     @staticmethod
     def community_plugins_from_execution_yaml() -> dict[str, str]:
-        """Read ``c50_community_plugins`` from the active app profile YAML."""
+        """Read ``c52_community_plugins`` from the active app profile YAML."""
         import yaml
 
         profile = ConfigPaths.startup_profile() or "default"
@@ -536,9 +538,12 @@ class _CommunityPluginPaths:
             prof = data.get(profile, {})
             if not isinstance(prof, dict):
                 continue
-            raw = prof.get("c50_community_plugins") or {}
-            if isinstance(raw, dict):
-                return raw
+            try:
+                return validate_profile(
+                    AppSettingsSchema, prof, profile=profile
+                ).c52_community_plugins
+            except SettingsValidationError:
+                continue
         return {}
 
     @staticmethod

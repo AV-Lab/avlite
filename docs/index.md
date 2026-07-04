@@ -43,7 +43,7 @@ pip install -r requirements-full.txt
 ### Optional Integrations
 
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases)
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs`. Clone `related-repos/avlite-executer-ROS2`, register it in `c50_community_plugins` (`configs/c59_apps.yaml`), and set `c40_executer_type: ROSExecuter` — see [Optional Plugins](optional-plugins.md) and `related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md` in the repository.
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs`. Clone `related-repos/avlite-executer-ROS2`, register it in `c52_community_plugins` (`configs/c59_apps.yaml`), and set `c40_executer_type: ROSExecuter` — see [Optional Plugins](optional-plugins.md) and `related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md` in the repository.
 
 ## Quick Start
 
@@ -167,7 +167,7 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 | **c30_control** | Vehicle controllers (Stanley, PID) |
 | **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim, CARLA, Gazebo) |
 | **c50_apps** | App infrastructure: `c51_app_strategy`, `c52_factory`, `c53_plugins`, `c54_settings_schema`, `c55_setting_utils`, `c58_paths`, `c59_settings` |
-| **p50_visualizer_tk** | Tk visualizer, settings GUI (`avlite config`), plugin manager (`avlite plugins`) |
+| **p50_visualizer_tk** | Tk visualizer, settings GUI (`avlite setting`), plugin manager (`avlite plugins`) |
 | **c60_common** | Algorithm utilities only (`c61`–`c65`: capabilities, sensor layouts, collision, FPS) |
 
 ## Configuration
@@ -180,7 +180,7 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 |---------|----------|------------------|
 | **Shipped defaults** (read-only in git) | `{repo}/configs/*.yaml` | — |
 | **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
-| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in `c59_apps.yaml` (`c50_community_plugins`) | `AVLITE_PLUGINS_DIR` |
+| **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in `c59_apps.yaml` (`c52_community_plugins`) | `AVLITE_PLUGINS_DIR` |
 | **Community plugin settings** | `~/.config/avlite/plugin_<name>.yaml` — user-only; no repo default | `AVLITE_CONFIG_DIR` |
 | **Maps & trajectories** | Read: `~/.config/avlite/data/` then `{repo}/data/`; save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
 | **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
@@ -207,7 +207,7 @@ The GUI remembers the last selected profile in `~/.config/avlite/startup_profile
 
 ### GUI: profiles and reset
 
-- **Config tab** — profile dropdown, Save Config (visualization + execution layers).
+- **Config tab** — profile dropdown, Save Settings (visualization + execution layers).
 - **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save, **Export profile**, **Import profile**.
 - **Export profile** — reads saved YAML from disk (save first if you have unsaved widget changes); writes a zip with one file per source YAML, each containing only the selected profile key. Includes community plugin configs when referenced in `c59_apps.yaml`. GUI export includes `plugin_p50_visualizer_tk.yaml` via `settings.get_stack_settings_classes()`.
 - **Import profile** — merges a profile zip into your config directory; confirms overwrite if the profile name already exists.
@@ -222,7 +222,7 @@ python -m avlite config-cli export-profile myprofile [-o myprofile.zip]
 python -m avlite config-cli import-profile myprofile.zip [--force]
 ```
 
-Headless `config-cli export-profile` exports c10–c40 settings, `c59_apps.yaml`, and plugins only (no visualization YAML). Use `avlite config` or the visualizer settings window to export a profile that includes `plugin_p50_visualizer_tk.yaml`.
+Headless `config-cli export-profile` exports c10–c40 settings, `c59_apps.yaml`, and plugins only (no visualization YAML). Use `avlite setting` or the visualizer settings window to export a profile that includes `plugin_p50_visualizer_tk.yaml`.
 
 Each zip entry is validated against Pydantic schemas on export and import; invalid profiles are rejected with field-level errors (same rules as `config-cli validate`).
 

@@ -89,7 +89,7 @@ Do not commit a `.venv` inside your plugin directory — AVLite scans all `.py` 
 
 ## 1. Settings File (Optional)
 
-If your plugin has tunable parameters, add `settings.py` with a `PluginSettings` class. AVLite creates settings widgets automatically and saves profiles to `~/.config/avlite/plugin_<plugin_name>.yaml` (or under `AVLITE_CONFIG_DIR` if set). The filename uses the registry key / `c50_community_plugins` entry name — you do **not** need `exclude`, `filepath`, or a `config/` folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.
+If your plugin has tunable parameters, add `settings.py` with a `PluginSettings` class. AVLite creates settings widgets automatically and saves profiles to `~/.config/avlite/plugin_<plugin_name>.yaml` (or under `AVLITE_CONFIG_DIR` if set). The filename uses the registry key / `c52_community_plugins` entry name — you do **not** need `exclude`, `filepath`, or a `config/` folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.
 
 ```python
 # settings.py
@@ -406,7 +406,7 @@ Double-click a community plugin in the list to view its **Package Name** and **S
 **Via settings file** (`configs/c59_apps.yaml` or your saved copy under `~/.config/avlite/`):
 
 ```yaml
-c50_community_plugins:
+c52_community_plugins:
   my_plugin: my_plugin                    # installed under ~/.local/share/avlite/plugins/
   dev_plugin: ~/src/my_plugin             # local dev checkout outside the plugins dir
 ```
@@ -506,7 +506,7 @@ In the PR description, briefly state what layer(s) the plugin extends (perceptio
 
 ### After merge
 
-Once the PR is merged to `main`, AVLite fetches the updated registry automatically the next time a user opens **Plugins** (`python -m avlite plugins`). They can **Install**, then **Register** to add the plugin to their active profile (`c50_community_plugins` in `c59_apps.yaml`).
+Once the PR is merged to `main`, AVLite fetches the updated registry automatically the next time a user opens **Plugins** (`python -m avlite plugins`). They can **Install**, then **Register** to add the plugin to their active profile (`c52_community_plugins` in `c59_apps.yaml`).
 
 You do not need a new AVLite release for registry-only changes.
 
@@ -583,21 +583,21 @@ CLI and GUI entry points register via :class:`~avlite.c50_apps.c51_app_strategy.
 | App | Plugin / module | Command |
 |-----|-----------------|---------|
 | Visualizer (default) | `p50_visualizer_tk` (`p51_visualizer_app`) | `python -m avlite` |
-| Settings GUI | `p50_visualizer_tk` (`p51_config_app`) | `python -m avlite config` |
-| Plugin manager | `p50_visualizer_tk` (`p51_plugins_app`) | `python -m avlite plugins` |
+| Settings GUI | `p50_visualizer_tk` (`p52_setting_app`) | `python -m avlite setting` |
+| Plugin manager | `p50_visualizer_tk` (`p53_plugins_app`) | `python -m avlite plugins` |
 | Headless runner | `p50_headless_mode` | `python -m avlite headless` |
 | Config CLI | `p50_config_cli` | `python -m avlite config-cli` |
 
-Built-in ``p50_*`` plugin packages are imported at startup via ``bootstrap_apps()`` in ``c51_app_strategy``. The merged ``p50_visualizer_tk`` package hosts shared Tk code (``p52_setting_views``, ``p53_ui_lib``, ``settings.py``) and three standalone ``AppStrategy`` entry modules. Stack core (``c10``–``c40``, ``c60``) may import ``c51_app_strategy``, ``c54_settings_schema``, ``c58_paths``, and ``c59_settings`` only; it must not import ``p50_*`` Tk apps.
+Built-in ``p50_*`` plugin packages are imported at startup via ``bootstrap_apps()`` in ``c51_app_strategy``. The merged ``p50_visualizer_tk`` package hosts shared Tk code (``p54_setting_views``, ``p55_ui_lib``, ``settings.py``) and three standalone ``AppStrategy`` entry modules. Stack core (``c10``–``c40``, ``c60``) may import ``c51_app_strategy``, ``c54_settings_schema``, ``c58_paths``, and ``c59_settings`` only; it must not import ``p50_*`` Tk apps.
 
 ## See Also
 
 Built-in plugins in `avlite/plugins/` (maintained by core team):
-- `p50_visualizer_tk` — Tk visualizer GUI, settings window (`avlite config`), and plugin browser (`avlite plugins`)
+- `p50_visualizer_tk` — Tk visualizer GUI, settings window (`avlite setting`), and plugin browser (`avlite plugins`)
 - `p50_headless_mode` — Headless terminal dashboard runner
 - `p50_config_cli` — Terminal profile validate/describe/import/export
 
-Optional plugins in `related-repos/` (install via `c50_community_plugins` in `c59_apps.yaml`):
+Optional plugins in `related-repos/` (install via `c52_community_plugins` in `c59_apps.yaml`):
 - `avlite-bridge-carla` — CARLA simulator world bridge
 - `avlite-bridge-gazebo` — Gazebo Ignition world bridge
 - `avlite-bridge-ROS2` — ROS2 world bridge

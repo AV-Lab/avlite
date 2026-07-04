@@ -74,11 +74,11 @@ def executor_factory(
     """
 
     if load_plugins:
-        sync_builtin_plugins(list(AppSettings.c50_default_plugins))
-        sync_community_plugins(AppSettings.c50_community_plugins)
+        sync_builtin_plugins(list(AppSettings.c52_default_plugins))
+        sync_community_plugins(AppSettings.c52_community_plugins)
     else:
         sync_builtin_plugins([])
-        for k in AppSettings.c50_community_plugins:
+        for k in AppSettings.c52_community_plugins:
             unregister_plugin_package(k)
 
     global_plan_path = DataPaths.resolve_stored(default_global_trajectory_file)
@@ -251,16 +251,16 @@ def load_stack_settings(profile: str = "default", load_plugins: bool | None = No
     StackSettingsSync.bootstrap_reference_point()
 
     if load_plugins is None:
-        load_plugins = AppSettings.c50_load_plugins
+        load_plugins = AppSettings.c52_load_plugins
     if not load_plugins:
         return
 
-    for name, stored in AppSettings.c50_community_plugins.items():
+    for name, stored in AppSettings.c52_community_plugins.items():
         path = PluginPaths.resolve(name, stored)
         if path.is_dir():
             import_plugin_modules(str(path), pkg_name=name)
 
-    for plugin in AppSettings.c50_default_plugins:
+    for plugin in AppSettings.c52_default_plugins:
         cls = load_builtin_plugin_settings(plugin)
         if cls is None:
             continue
