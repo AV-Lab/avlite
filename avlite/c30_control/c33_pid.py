@@ -5,7 +5,7 @@ from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
-from avlite.c20_planning.c21_planning_model import LocalPlan
+from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c39_settings import ControlSettings, ControlSettingsSchema
@@ -31,7 +31,7 @@ class PIDController(ControlStrategy):
         self.cte_v_sum = 0
 
 
-    def control(self, ego: EgoState, plan: Optional[LocalPlan]=None, control_dt=None) -> ControlCommand:
+    def control(self, ego: EgoState, plan: GlobalPlan | LocalPlan | None = None, control_dt=None) -> ControlCommand:
         if plan is not None:
             self.tj = plan.as_trajectory()
         elif self.tj is None:

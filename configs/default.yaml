@@ -154,4 +154,50 @@ plugins:
     log_buffer_size: 500
     stats_panel_height: 18
   p60_setting_cli: {}
-  p60_visualizer_tk: {}
+  p60_visualizer_tk:
+    p60_bg_color: '#333333'
+    p60_dark_mode: true
+    p60_fg_color: white
+    p60_hide_menubar: false
+    p60_next_profile: default
+    p60_shortcut_mode: false
+    p66_frenet_view_follow_planner: false
+    p66_frenet_zoom: 60.0
+    p66_global_plan_velocity_scale: relative
+    p66_global_view_follow_planner: false
+    p66_global_zoom: 810.8967345284556
+    p66_show_global_plan: true
+    p66_show_global_plan_boundaries: true
+    p66_show_legend: false
+    p66_show_lidar_clusters: true
+    p66_show_lidar_frenet: true
+    p66_show_lidar_global: true
+    p66_show_local_lattice: true
+    p66_show_local_plan: true
+    p66_show_past_locations: true
+    p66_show_race_boundary: true
+    p66_show_state: true
+    p66_xy_zoom: 130.0
+    p67_global_plan_view: true
+    p67_local_plan_view: true
+    p67_show_local_frenet_view: true
+    p67_show_local_global_view: false
+    p67_show_occupancy_flow: false
+    p67_show_perception_extras: false
+    p68_disable_log: false
+    p68_log_font: Courier
+    p68_log_font_size: 11
+    p68_log_pull_time: 50
+    p68_log_view_default_height: 12
+    p68_log_view_expanded: false
+    p68_log_view_expended_height: 35
+    p68_max_log_lines: 1000
+    p68_show_common_logs: true
+    p68_show_control_logs: true
+    p68_show_core_logs: true
+    p68_show_execute_logs: true
+    p68_show_perceive_logs: true
+    p68_show_plan_logs: true
+    p68_show_plugins_logs: true
+    p68_show_vis_logs: true
+    p69_mouse_drag_slowdown_factor: 0.5

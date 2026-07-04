@@ -116,6 +116,10 @@ class GlobalPlan:
             json.dump(data, f, indent=2)
         log.info("Global plan saved to %s", path_to_track)
 
+    def as_trajectory(self) -> Optional[TrajectoryTracker]:
+        """Return the plan's trajectory (same interface as LocalPlan)."""
+        return self.trajectory
+
 @dataclass
 class LocalPlan:
     """Minimal local-planning output consumed by the control layer.

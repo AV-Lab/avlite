@@ -4,7 +4,7 @@ from typing import Optional
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
-from avlite.c50_common.c51_capabilities import WorldCapability, LocalizationCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 from avlite.c50_common.c52_sensor_data import SensorFrame
 
 log = logging.getLogger(__name__)
@@ -20,11 +20,12 @@ class LocalizationStrategy(ABC):
     that downstream planning and control modules always see the latest pose.
 
     Subclasses must implement:
-        - ``requirements``  – the :class:`WorldCapability` set the bridge must
-          provide for this strategy to work.
-        - ``capabilities``  – the :class:`LocalizationCapability` set this
-          strategy advertises (e.g. GNSS, LIDAR_LOCALIZATION).
+        - ``world_requirements`` – the :class:`WorldCapability` set the bridge
+          must provide for this strategy to work.
         - ``localize(...)`` – the main estimation step.
+
+    ``capabilities`` defaults to ``{StackCapability.LOCALIZATION}`` and may be
+    overridden.
     """
 
     registry = {}
@@ -38,15 +39,19 @@ class LocalizationStrategy(ABC):
 
     @property
     @abstractmethod
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         """World capabilities required by this localization strategy."""
         pass
 
     @property
-    @abstractmethod
-    def capabilities(self) -> set[LocalizationCapability]:
-        """Localization capabilities provided by this strategy."""
-        pass
+    def stack_requirements(self) -> set[StackCapability]:
+        """Upstream stack capabilities this strategy depends on (default: none)."""
+        return set()
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        """Stack capabilities provided by this strategy."""
+        return {StackCapability.LOCALIZATION}
 
     @abstractmethod
     def localize(self, sensors: SensorFrame | None = None) -> None:

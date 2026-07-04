@@ -6,6 +6,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 if TYPE_CHECKING:
     from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -50,6 +51,20 @@ class LocalPlanningStrategy(ABC):
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
 
         self.lap: int = 0
+
+    @property
+    def world_requirements(self) -> set[WorldCapability]:
+        """World (sensor) capabilities this planner requires (default: none)."""
+        return set()
+
+    @property
+    def stack_requirements(self) -> set[StackCapability]:
+        """Upstream stack capabilities a local planner depends on."""
+        return {StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION}
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.LOCAL_PLAN}
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy: Optional[tuple[float, float]] = None) -> None:
         """Set the global plan for the local planner and reset localization.

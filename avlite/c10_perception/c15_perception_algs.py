@@ -21,7 +21,7 @@ class ConstantVelocityPrediction(PredictionStrategy):
     """
 
     @property
-    def requirements(self):
+    def world_requirements(self):
         return set()
 
     def predict(self, perception_model: PerceptionModel) -> PerceptionModel:
@@ -121,7 +121,7 @@ class KalmanTracker(TrackingStrategy):
         self._next_id = 0
 
     @property
-    def requirements(self) -> set:
+    def world_requirements(self) -> set:
         return set()
 
     def reset(self) -> None:
@@ -248,7 +248,7 @@ class FastBEVLidarDetection(DetectionStrategy):
         self._default_width = default_width
 
     @property
-    def requirements(self) -> set:
+    def world_requirements(self) -> set:
         return {AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)}
 
     def detect(

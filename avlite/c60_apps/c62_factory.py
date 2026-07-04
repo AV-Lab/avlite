@@ -165,7 +165,7 @@ def executor_factory(
     cn_cls = _RegistryChecks.require_registered(controller_strategy_name, ControlStrategy.registry, "controller")
     cn = cn_cls()
     if default_global_plan.trajectory is not None:
-        cn.set_trajectory(default_global_plan.trajectory)
+        cn.set_trajectory_tracker(default_global_plan.trajectory)
 
     #################
     # Loading world
