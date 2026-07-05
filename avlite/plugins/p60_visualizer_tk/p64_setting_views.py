@@ -11,6 +11,7 @@ import logging
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 
+from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c39_settings import ControlSettings
@@ -440,6 +441,33 @@ class SettingWindow:
         velocity_scale_cb.pack(side=tk.LEFT)
         velocity_scale_cb.bind("<<ComboboxSelected>>", lambda e: self.host.update_ui())
         attach_schema_tooltip(velocity_scale_cb, VisualizationSettings, "p66_global_plan_velocity_scale")
+
+        additional_setting_row_1d = ttk.Frame(additional_setting_frame)
+        additional_setting_row_1d.pack(fill=tk.X)
+        ttk.Label(additional_setting_row_1d, text="Perception:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        cb_show_prediction = ttk.Checkbutton(
+            additional_setting_row_1d, text="Show prediction",
+            variable=self.host.setting.p67_show_prediction, command=self.host.update_ui,
+        )
+        cb_show_prediction.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_show_prediction, VisualizationSettings, "p67_show_prediction")
+        cb_occupancy_flow = ttk.Checkbutton(
+            additional_setting_row_1d, text="Occupancy flow",
+            variable=self.host.setting.p67_show_occupancy_flow, command=self.host.update_ui,
+        )
+        cb_occupancy_flow.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_occupancy_flow, VisualizationSettings, "p67_show_occupancy_flow")
+        ttk.Label(additional_setting_row_1d, text="Mapping:").pack(side=tk.LEFT, padx=(10, 5))
+        # mapping_cb = ttk.Combobox(
+        #     additional_setting_row_1d,
+        #     textvariable=self.host.setting.mapping_type,
+        #     values=("",) + tuple(MappingStrategy.registry.keys()),
+        #     state="readonly",
+        #     width=12,
+        # )
+        # mapping_cb.pack(side=tk.LEFT)
+        # mapping_cb.bind("<<ComboboxSelected>>", lambda e: self.host.reload_stack(reload_code=False))
+        # attach_schema_tooltip(mapping_cb, ExecutionSettings, "c40_mapping")
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)

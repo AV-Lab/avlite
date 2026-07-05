@@ -157,9 +157,9 @@ plugins:
     stats_panel_height: 18
   p60_setting_cli: {}
   p60_visualizer_tk:
-    p60_bg_color: '#333333'
-    p60_dark_mode: true
-    p60_fg_color: white
+    p60_bg_color: white
+    p60_dark_mode: false
+    p60_fg_color: black
     p60_hide_menubar: false
     p60_next_profile: default
     p60_shortcut_mode: false
@@ -186,6 +186,7 @@ plugins:
     p67_show_local_global_view: false
     p67_show_occupancy_flow: false
     p67_show_perception_extras: false
+    p67_show_prediction: true
     p68_disable_log: false
     p68_log_font: Courier
     p68_log_font_size: 11

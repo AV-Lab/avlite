@@ -73,6 +73,7 @@ class PluginSettingsSchema(SettingsSchema):
     p66_global_zoom: float = Field(default=30, description="Global plot zoom level.")
     p67_show_occupancy_flow: bool = Field(default=False, description="Show occupancy flow visualization.")
     p67_show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
+    p67_show_prediction: bool = Field(default=True, description="Show predicted agent trajectories on plots.")
     p67_global_plan_view: bool = Field(default=True, description="Show global plan panel.")
     p67_local_plan_view: bool = Field(default=True, description="Show local plan panel.")
 
@@ -95,22 +96,6 @@ class PluginSettingsSchema(SettingsSchema):
 
 
 PluginSettings = PluginSettingsSchema()
-
-
-def _sync_exec_dt(attr: str, value: float) -> None:
-    """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
-    try:
-        name = "avlite-executer-ROS2"
-        stored = AppSettings.c62_community_plugins.get(name, name)
-        install = str(PluginPaths.resolve(name, stored))
-        cls = load_plugin_settings_class(name, install)
-        if cls is None:
-            return
-        patch_plugin_settings(cls, name, install)
-        setattr(cls, attr, float(value))
-        save_setting(cls, binder=TkSettingsBinder())
-    except Exception:
-        pass
 
 
 def sync_stack_settings_to_ui(setting: "VisualizationSettings") -> None:
@@ -155,6 +140,7 @@ class VisualizationSettings:
 
         self.p67_show_occupancy_flow = tk.BooleanVar(value=False)
         self.p67_show_perception_extras = tk.BooleanVar(value=False)
+        self.p67_show_prediction = tk.BooleanVar(value=True)
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
 
@@ -316,7 +302,7 @@ class VisualizationSettings:
             if self._syncing_stack:
                 return
             ExecutionSettings.c40_control_dt = float(self.control_dt.get())
-            _sync_exec_dt("control_dt", self.control_dt.get())
+            self._sync_exec_dt("control_dt", self.control_dt.get())
 
         self.control_dt.trace_add("write", _on_control_dt_change)
 
@@ -326,7 +312,7 @@ class VisualizationSettings:
             if self._syncing_stack:
                 return
             ExecutionSettings.c40_replan_dt = float(self.replan_dt.get())
-            _sync_exec_dt("replan_dt", self.replan_dt.get())
+            self._sync_exec_dt("replan_dt", self.replan_dt.get())
 
         self.replan_dt.trace_add("write", _on_replan_dt_change)
 
@@ -336,7 +322,7 @@ class VisualizationSettings:
             if self._syncing_stack:
                 return
             ExecutionSettings.c40_perception_dt = float(self.perception_dt.get())
-            _sync_exec_dt("perception_dt", self.perception_dt.get())
+            self._sync_exec_dt("perception_dt", self.perception_dt.get())
 
         self.perception_dt.trace_add("write", _on_perception_dt_change)
 
@@ -413,6 +399,21 @@ class VisualizationSettings:
         self.p60_bg_color = "#333333" if self.p60_dark_mode.get() else "white"
         self.p60_fg_color = "white" if self.p60_dark_mode.get() else "black"
         self.profile_list = []
+
+    def _sync_exec_dt(self, attr: str, value: float) -> None:
+        """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
+        try:
+            name = "avlite-executer-ROS2"
+            stored = AppSettings.c62_community_plugins.get(name, name)
+            install = str(PluginPaths.resolve(name, stored))
+            cls = load_plugin_settings_class(name, install)
+            if cls is None:
+                return
+            patch_plugin_settings(cls, name, install)
+            setattr(cls, attr, float(value))
+            save_setting(cls, binder=TkSettingsBinder())
+        except Exception:
+            pass
 
     def sync_app_from_singleton(self) -> None:
         """Copy AppSettings singleton values into Tk variables."""
