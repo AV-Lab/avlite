@@ -16,10 +16,10 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
-from avlite.c60_common.c62_sensor_data import SensorFrame
-from avlite.c60_common.c61_capabilities import (
+from avlite.c50_common.c52_sensor_datatypes import SensorFrame
+from avlite.c50_common.c51_capabilities import (
     AnyOf,
-    LocalizationCapability,
+    StackCapability,
     WorldCapability,
 )
 
@@ -76,15 +76,12 @@ class LidarLocalization(LocalizationStrategy):
     # ------------------------------------------------------------------
 
     @property
-    def requirements(self) -> set:
+    def world_requirements(self) -> set:
         return {AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)}
 
     @property
-    def capabilities(self) -> set[LocalizationCapability]:
-        return {
-            LocalizationCapability.LOCALIZATION_2D,
-            LocalizationCapability.LOCALIZATION_HEADING,
-        }
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.LOCALIZATION}
 
     # ------------------------------------------------------------------
     # Main estimation step

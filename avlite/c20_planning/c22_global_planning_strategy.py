@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import networkx as nx
 
 from avlite.c20_planning.c21_planning_model import GlobalPlan
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 log = logging.getLogger(__name__)
 
@@ -13,6 +14,20 @@ class GlobalPlannerStrategy(ABC):
         self.global_plan: GlobalPlan = GlobalPlan()
         self.start_point = None
         self.goal_point = None
+
+    @property
+    def world_requirements(self) -> set[WorldCapability]:
+        """World (sensor) capabilities this planner requires (default: none)."""
+        return set()
+
+    @property
+    def stack_requirements(self) -> set[StackCapability]:
+        """Upstream stack capabilities a global planner depends on."""
+        return {StackCapability.MAP, StackCapability.LOCALIZATION}
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.GLOBAL_PLAN}
 
     @abstractmethod
     def plan(self) -> GlobalPlan:

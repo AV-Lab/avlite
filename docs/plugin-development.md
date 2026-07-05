@@ -89,7 +89,7 @@ Do not commit a `.venv` inside your plugin directory — AVLite scans all `.py` 
 
 ## 1. Settings File (Optional)
 
-If your plugin has tunable parameters, add `settings.py` with a `PluginSettings` class. AVLite creates settings widgets automatically and saves profiles to `~/.config/avlite/plugin_<plugin_name>.yaml` (or under `AVLITE_CONFIG_DIR` if set). The filename uses the registry key / `c40_community_plugins` entry name — you do **not** need `exclude`, `filepath`, or a `config/` folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.
+If your plugin has tunable parameters, add `settings.py` with a `PluginSettings` class. AVLite creates settings widgets automatically and saves profiles to `~/.config/avlite/plugin_<plugin_name>.yaml` (or under `AVLITE_CONFIG_DIR` if set). The filename uses the registry key / `c62_community_plugins` entry name — you do **not** need `exclude`, `filepath`, or a `config/` folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.
 
 ```python
 # settings.py
@@ -108,7 +108,7 @@ Built-in plugins under `avlite/plugins/` are different: they set `filepath = "co
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
-from avlite.c60_common.c61_capabilities import WorldCapability, PerceptionCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 from .settings import PluginSettings
 
 class MyPerception(PerceptionStrategy):
@@ -116,13 +116,13 @@ class MyPerception(PerceptionStrategy):
         super().__init__(perception_model, setting)
     
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return {WorldCapability.CAMERA_RGB, WorldCapability.LIDAR_3D}
     
     @property
-    def capabilities(self) -> set[PerceptionCapability]:
-        return {PerceptionCapability.DETECTION, PerceptionCapability.TRACKING,
-                PerceptionCapability.PREDICTION}
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.DETECTION, StackCapability.TRACKING,
+                StackCapability.PREDICTION}
     
     def perceive(self, rgb_img=None, depth_img=None, lidar_data=None,
                  perception_model=None):
@@ -139,12 +139,12 @@ selected by name when **Perception** is set to `PerceptionPipeline`.
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import DetectionStrategy
-from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyDetector(DetectionStrategy):
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return {WorldCapability.CAMERA_RGB}
 
     def detect(self, perception_model: PerceptionModel,
@@ -155,12 +155,12 @@ class MyDetector(DetectionStrategy):
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import TrackingStrategy
-from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyTracker(TrackingStrategy):
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return set()
 
     def track(self, perception_model: PerceptionModel) -> PerceptionModel:
@@ -170,12 +170,12 @@ class MyTracker(TrackingStrategy):
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
-from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import WorldCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyPredictor(PredictionStrategy):
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return set()
 
     def predict(self, perception_model: PerceptionModel) -> PerceptionModel | None:
@@ -198,19 +198,19 @@ Localization strategies estimate the ego vehicle’s pose and update
 
 ```python
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c60_common.c61_capabilities import WorldCapability, LocalizationCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 
 class MyLocalization(LocalizationStrategy):
     def __init__(self, perception_model, setting=None):
         super().__init__(perception_model, setting)
     
     @property
-    def requirements(self) -> set[WorldCapability]:
+    def world_requirements(self) -> set[WorldCapability]:
         return {WorldCapability.LIDAR_3D}
     
     @property
-    def capabilities(self) -> set[LocalizationCapability]:
-        return {LocalizationCapability.LOCALIZATION_2D, LocalizationCapability.LOCALIZATION_HEADING}
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.LOCALIZATION}
     
     def localize(self, imu=None, lidar=None, rgb_img=None) -> None:
         # Estimate the ego pose from sensor data and update in-place
@@ -238,17 +238,21 @@ class MyLocalPlanner(LocalPlanningStrategy):
 ## 6. Example: Custom Controller
 
 ```python
+from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
 
 class MyController(ControlStrategy):
-    def control(self, ego, tj=None, control_dt=None) -> ControlCommandBase:
-        # Your logic here; ControlCommand is an alias for AckermannControlCommand
+    def control(self, ego, plan: GlobalPlan | LocalPlan | None = None, control_dt=None) -> ControlCommandBase:
+        if plan is not None:
+            self.set_plan(plan)
         return ControlCommand(steer=0.0, acceleration=1.0)
 
     def reset(self):
         pass
 ```
+
+Use `set_trajectory_tracker(tj)` when you already have a built `TrajectoryTracker`; use `set_plan(plan)` or the `plan` argument on `control()` when you hold a `GlobalPlan` or `LocalPlan`.
 
 ## 7. Multi-robot agents and control
 
@@ -360,12 +364,17 @@ path = pm.prediction.trajectories.get(agent.agent_id)  # [n_steps, 2] world x,y 
 from avlite.c10_perception.c11_perception_model import EGO_AGENT_ID
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c30_control.c31_control_model import ControlCommandBase
-from avlite.c60_common.c61_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 class MyBridge(WorldBridge):
     @property
-    def capabilities(self) -> set[WorldCapability]:
-        return {WorldCapability.LIDAR_2D, WorldCapability.GT_LOCALIZATION}
+    def world_capabilities(self) -> set[WorldCapability]:
+        return {WorldCapability.LIDAR_2D}
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        # Ground truth provided by the world (satisfies downstream stack_requirements)
+        return {StackCapability.LOCALIZATION}
 
     def control_ego_state(self, cmd: ControlCommandBase, dt=0.01):
         # Send control to your simulator or robot
@@ -403,12 +412,13 @@ When you rename a module file, update the import path in `__init__.py` to match 
 
 Double-click a community plugin in the list to view its **Package Name** and **Settings file** paths separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`) and dev checkout dirs (`avlite-community-plugins/`, `avlite-private-plugins/`).
 
-**Via settings file** (`configs/c40_execution.yaml` or your saved copy under `~/.config/avlite/`):
+**Via settings file** (the `c69_apps` section of `configs/<profile>.yaml`, or your saved copy under `~/.config/avlite/`):
 
 ```yaml
-c40_community_plugins:
-  my_plugin: my_plugin                    # installed under ~/.local/share/avlite/plugins/
-  dev_plugin: ~/src/my_plugin             # local dev checkout outside the plugins dir
+c69_apps:
+  c62_community_plugins:
+    my_plugin: my_plugin                  # installed under ~/.local/share/avlite/plugins/
+    dev_plugin: ~/src/my_plugin           # local dev checkout outside the plugins dir
 ```
 
 The map value is the **install path**, not the settings YAML path. When a plugin lives under `~/.local/share/avlite/plugins/` (override install root with `AVLITE_PLUGINS_DIR`), AVLite stores the name sentinel (`my_plugin: my_plugin`). Paths outside that directory are stored as `~/...` or an absolute path. Plugin settings always live in `~/.config/avlite/plugin_<name>.yaml`, independent of the install location.
@@ -485,7 +495,7 @@ plugins:
 | `MappingStrategy` | Map building, SLAM mapping, environment representation |
 | `PlanningStrategy` | Global/local planners, behavior planning, decision-making |
 | `ControlStrategy` | Vehicle controllers, actuation |
-| `Executer` | Runtime execution, scheduling, orchestration |
+| `ExecutionStrategy` | Runtime execution, scheduling, orchestration |
 | `WorldBridge` | Bridges to simulators, middleware, or external world interfaces |
 
 A plugin can list **multiple** categories if it exports more than one strategy type, e.g. `[PerceptionStrategy, LocalizationStrategy]`.
@@ -506,7 +516,7 @@ In the PR description, briefly state what layer(s) the plugin extends (perceptio
 
 ### After merge
 
-Once the PR is merged to `main`, AVLite fetches the updated registry automatically the next time a user opens **Plugins** (`python -m avlite plugins`). They can **Install**, then **Register** to add the plugin to their active execution profile (`c40_community_plugins`).
+Once the PR is merged to `main`, AVLite fetches the updated registry automatically the next time a user opens **Plugins** (`python -m avlite plugins`). They can **Install**, then **Register** to add the plugin to their active profile (`c62_community_plugins` in the `c69_apps` section of `configs/<profile>.yaml`).
 
 You do not need a new AVLite release for registry-only changes.
 
@@ -541,7 +551,7 @@ Logger names follow Python's `__name__`, e.g. `avlite.plugins.p30_controller_joy
 
 The visualizer log toolbar provides:
 
-- **Core** — master toggle for all core stack logs (`avlite.c10_*` … `avlite.c60_*`). Does not change the per-layer checkbox states.
+- **Core** — master toggle for all core stack logs (`avlite.c10_*` … `avlite.c50_*`). Does not change the per-layer checkbox states.
 - **Plugins** — master toggle for all `avlite.plugins.*` logs.
 - **Per-layer checkboxes** (Perception, Planning, Control, Execution, Visualization, Common) — filter core logs and plugin logs routed to that layer.
 
@@ -576,12 +586,28 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 | `ControlStrategy` | Vehicle control | `control()` |
 | `WorldBridge` | Simulator integration | `control_ego_state()`, `control_type(agent)`, `control_agent()`, `teleport_agent()`, `get_*(agent_id=...)`, `step()` |
 
+## Apps (`AppStrategy`)
+
+CLI and GUI entry points register via :class:`~avlite.c60_apps.c61_app_strategy.AppStrategy` (same auto-register pattern as perception/planning strategies). Subclass as ``class MyToolApp(AppStrategy)``, set ``cli_name`` and ``help``, implement ``run()``, and optionally ``configure_parser()`` for flags or nested subcommands. Built-in p50 entry classes use the ``*App`` suffix (e.g. ``SettingCliApp``, ``VisualizationApp``); the base framework class remains ``AppStrategy``. Importing the module registers the app.
+
+| App | Plugin / module | Command |
+|-----|-----------------|---------|
+| Visualizer (default) | `p60_visualizer_tk` (`p61_visualizer_app`) | `python -m avlite` |
+| Settings GUI | `p60_visualizer_tk` (`p62_setting_app`) | `python -m avlite setting` |
+| Plugin manager | `p60_visualizer_tk` (`p63_plugins_app`) | `python -m avlite plugins` |
+| Headless runner | `p60_headless_mode` | `python -m avlite headless` |
+| Setting CLI | `p60_setting_cli` | `python -m avlite setting-cli` |
+
+Built-in ``p60_*`` plugin packages are imported at startup via ``bootstrap_apps()`` in ``c61_app_strategy``. The merged ``p60_visualizer_tk`` package hosts shared Tk code (``p64_setting_views``, ``p65_ui_lib``, ``settings.py``) and three standalone ``AppStrategy`` entry modules. Stack core (``c10``–``c40``, ``c50_common``) may import ``c61_app_strategy``, ``c64_settings_schema``, ``c68_paths``, and ``c69_settings`` only; it must not import ``p60_*`` Tk apps.
+
 ## See Also
 
 Built-in plugins in `avlite/plugins/` (maintained by core team):
-- `p50_headless_mode` — Headless runner and config CLI
+- `p60_visualizer_tk` — Tk visualizer GUI, settings window (`avlite setting`), and plugin browser (`avlite plugins`)
+- `p60_headless_mode` — Headless terminal dashboard runner
+- `p60_setting_cli` — Terminal profile validate/describe/import/export
 
-Optional plugins in `related-repos/` (install via `c40_community_plugins`):
+Optional plugins in `related-repos/` (install via `c62_community_plugins` in the `c69_apps` section of `configs/<profile>.yaml`):
 - `avlite-bridge-carla` — CARLA simulator world bridge
 - `avlite-bridge-gazebo` — Gazebo Ignition world bridge
 - `avlite-bridge-ROS2` — ROS2 world bridge

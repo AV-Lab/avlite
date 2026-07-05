@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from avlite.c60_common.c68_settings_schema import SettingsSchema
+from avlite.c60_apps.c64_settings_schema import SettingsSchema
 
 
 class ExecutionSettingsSchema(SettingsSchema):
@@ -16,10 +16,10 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_global_planner: str = Field(default="GlobalCenterlineRacePlanner", description="Global planner class name.")
     c40_local_planner: str = Field(default="GreedyLatticePlanner", description="Local planner class name.")
     c40_controller: str = Field(default="StanleyController", description="Controller class name.")
-    c40_perception_dt: float = Field(default=0.5, description="Perception tick period (seconds).", ge=0.001)
-    c40_localization_dt: float = Field(default=0.1, description="Localization tick period (seconds).", ge=0.001)
-    c40_replan_dt: float = Field(default=0.5, description="Replanning period (seconds).", ge=0.001)
-    c40_control_dt: float = Field(default=0.05, description="Control loop period (seconds).", ge=0.001)
+    c40_perception_dt: float = Field(default=0.01, description="Perception tick period (seconds).", ge=0.001)
+    c40_localization_dt: float = Field(default=0.01, description="Localization tick period (seconds).", ge=0.001)
+    c40_replan_dt: float = Field(default=0.01, description="Replanning period (seconds).", ge=0.001)
+    c40_control_dt: float = Field(default=0.01, description="Control loop period (seconds).", ge=0.001)
     c40_sim_dt: float = Field(default=0.01, description="Simulation step period (seconds).", ge=0.001)
     c40_global_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="Default global plan JSON path.")
     c40_hd_map: str = Field(default="data/san_campus.xodr", description="HD map OpenDRIVE file path.")
@@ -27,16 +27,14 @@ class ExecutionSettingsSchema(SettingsSchema):
         default_factory=lambda: [24.46992202098782, 54.60522506805341],
         description="WGS84 map origin (lat, lon) in degrees; derived from selected map or set manually.",
     )
-    c40_community_plugins: dict[str, str] = Field(default_factory=dict, description="Community plugin name to directory map.")
-    c40_default_plugins: list[str] = Field(default_factory=list, description="Built-in plugins to load on startup.")
     c40_async_combined_perception_planning: bool = Field(default=True, description="Run perception and planning concurrently.")
     c40_log_level: str = Field(default="INFO", description="Python logging level.")
     c40_log_to_file: bool = Field(default=False, description="Write logs to file.")
 
-    c41_provide_ground_truth: bool = Field(default=False, description="Bridge exposes ground-truth perception.")
-    c41_provide_rgb: bool = Field(default=False, description="Bridge exposes RGB camera data.")
-    c41_provide_lidar: bool = Field(default=False, description="Bridge exposes LiDAR data.")
-    c41_provide_depth: bool = Field(default=False, description="Bridge exposes depth camera data.")
+    c41_provided: list[str] | None = Field(
+        default=None,
+        description="Capability names the bridge feeds the stack; null = all supported enabled.",
+    )
 
     c43_race_boundary_map: str = Field(default="data/race_boundary_yas_marina.map.json", description="Race boundary JSON for centerline planner.")
 
@@ -51,3 +49,18 @@ class ExecutionSettingsSchema(SettingsSchema):
 # Singleton instance: the runtime settings object. Mutated in place by the YAML
 # loader and reset helpers — never rebind this name (see settings invariant).
 ExecutionSettings = ExecutionSettingsSchema()
+
+
+def provided_capability_names() -> set[str] | None:
+    """Enabled capability names, or None when all supported capabilities are enabled."""
+    val = ExecutionSettings.c41_provided
+    return None if val is None else set(val)
+
+
+def is_capability_provided(cap) -> bool:
+    """Whether *cap* (a WorldCapability or StackCapability) is fed to the stack.
+
+    Returns True when the provide filter is unset (None = all supported enabled).
+    """
+    names = provided_capability_names()
+    return True if names is None else cap.name in names

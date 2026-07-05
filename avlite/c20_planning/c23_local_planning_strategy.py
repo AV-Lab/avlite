@@ -1,14 +1,13 @@
+import inspect
 from abc import ABC, abstractmethod
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-
-if TYPE_CHECKING:
-    from avlite.c30_control.c32_control_strategy import ControlStrategy
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 import logging
 log = logging.getLogger(__name__)
@@ -28,12 +27,10 @@ class LocalPlanningStrategy(ABC):
     registry = {}
 
     def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel,
-                 controller: Optional['ControlStrategy'] = None,
                  setting: PlanningSettingsSchema = PlanningSettings):
         """Initialize the local planner with a global plan and perception model."""
         self.global_plan: GlobalPlan = global_plan
         self.pm: PerceptionModel = pm
-        self.controller: Optional['ControlStrategy'] = controller
         self.global_trajectory: TrajectoryTracker = global_plan.trajectory
 
         self.traversed_x: list[float]
@@ -50,6 +47,20 @@ class LocalPlanningStrategy(ABC):
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
 
         self.lap: int = 0
+
+    @property
+    def world_requirements(self) -> set[WorldCapability]:
+        """World (sensor) capabilities this planner requires (default: none)."""
+        return set()
+
+    @property
+    def stack_requirements(self) -> set[StackCapability]:
+        """Upstream stack capabilities a local planner depends on."""
+        return {StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION}
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.LOCAL_PLAN}
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy: Optional[tuple[float, float]] = None) -> None:
         """Set the global plan for the local planner and reset localization.
@@ -155,3 +166,188 @@ class LocalPlanningStrategy(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:
             LocalPlanningStrategy.registry[cls.__name__] = cls
+
+
+class LocalBehavioralPlanningStrategy(ABC):
+    """Behavioral planning stage: decides high-level driving intent.
+
+    Consumes and returns the shared :class:`LocalPlan` working object, setting
+    :attr:`LocalPlan.behavior`. Mirrors the perception sub-strategy pattern.
+    """
+
+    registry = {}
+
+    @property
+    def world_requirements(self) -> set[WorldCapability]:
+        return set()
+
+    @property
+    def stack_requirements(self) -> set[StackCapability]:
+        return set()
+
+    @abstractmethod
+    def plan_behavior(self, plan: LocalPlan) -> LocalPlan:
+        """Decide the driving intent and store it on ``plan.behavior``."""
+        raise NotImplementedError
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            LocalBehavioralPlanningStrategy.registry[cls.__name__] = cls
+
+
+class LocalPathPlanningStrategy(ABC):
+    """Path planning stage: produces the geometric path for the local plan."""
+
+    registry = {}
+
+    @property
+    def world_requirements(self) -> set[WorldCapability]:
+        return set()
+
+    @property
+    def stack_requirements(self) -> set[StackCapability]:
+        return set()
+
+    @abstractmethod
+    def plan_path(self, plan: LocalPlan) -> LocalPlan:
+        """Fill ``plan.path``/``plan.trajectory`` with the planned geometry."""
+        raise NotImplementedError
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            LocalPathPlanningStrategy.registry[cls.__name__] = cls
+
+
+class LocalVelocityPlanningStrategy(ABC):
+    """Velocity planning stage: produces the velocity profile for the local plan."""
+
+    registry = {}
+
+    @property
+    def world_requirements(self) -> set[WorldCapability]:
+        return set()
+
+    @property
+    def stack_requirements(self) -> set[StackCapability]:
+        return set()
+
+    @abstractmethod
+    def plan_velocity(self, plan: LocalPlan) -> LocalPlan:
+        """Fill ``plan.velocity`` with the planned speed profile."""
+        raise NotImplementedError
+
+    def __init_subclass__(cls, abstract=False, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            LocalVelocityPlanningStrategy.registry[cls.__name__] = cls
+
+
+class LocalPlanningPipeline(LocalPlanningStrategy):
+    """Pipelined local-planning strategy: behavioral -> path -> velocity.
+
+    Each stage is resolved by name from its registry at construction time.
+    An empty name means that stage is skipped. A single mutable
+    :class:`LocalPlan` working object is threaded through the stages, mirroring
+    how :class:`PerceptionPipeline` threads a ``PerceptionModel``.
+    """
+
+    def __init__(self, global_plan: GlobalPlan, env: PerceptionModel,
+                 setting: PlanningSettingsSchema = PlanningSettings):
+        super().__init__(global_plan=global_plan, pm=env, setting=setting)
+        self._behavioral = self._resolve(
+            LocalBehavioralPlanningStrategy.registry, setting.c23_behavioral_strategy,
+            global_plan, env, setting)
+        self._path = self._resolve(
+            LocalPathPlanningStrategy.registry, setting.c23_path_strategy,
+            global_plan, env, setting)
+        self._velocity = self._resolve(
+            LocalVelocityPlanningStrategy.registry, setting.c23_velocity_strategy,
+            global_plan, env, setting)
+        self._working_plan: Optional[LocalPlan] = None
+
+    @staticmethod
+    def _resolve(registry: dict, name: str, global_plan: GlobalPlan, env: PerceptionModel,
+                 setting: PlanningSettingsSchema):
+        """Instantiate a stage by name, passing only the constructor args it accepts."""
+        if not name or name not in registry:
+            return None
+        cls = registry[name]
+        available = {
+            "global_plan": global_plan,
+            "env": env,
+            "pm": env,
+            "setting": setting,
+        }
+        try:
+            params = inspect.signature(cls.__init__).parameters
+        except (ValueError, TypeError):
+            return cls()
+        kwargs = {k: v for k, v in available.items() if k in params}
+        return cls(**kwargs)
+
+    @property
+    def _stages(self):
+        return (self._behavioral, self._path, self._velocity)
+
+    @property
+    def world_requirements(self) -> set[WorldCapability]:
+        reqs: set[WorldCapability] = set()
+        for stage in self._stages:
+            if stage is not None:
+                reqs |= stage.world_requirements
+        return reqs
+
+    @property
+    def stack_requirements(self) -> set[StackCapability]:
+        reqs = super().stack_requirements
+        for stage in self._stages:
+            if stage is not None:
+                reqs |= stage.stack_requirements
+        return reqs
+
+    @property
+    def stack_capabilities(self) -> set[StackCapability]:
+        return {StackCapability.LOCAL_PLAN}
+
+    def _child_planners(self):
+        """Stages that are also LocalPlanningStrategy instances (own localization)."""
+        return [s for s in self._stages if isinstance(s, LocalPlanningStrategy)]
+
+    def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
+        super().set_global_plan(global_plan, ego_xy=ego_xy)
+        for stage in self._child_planners():
+            stage.set_global_plan(global_plan, ego_xy=ego_xy)
+        self._working_plan = None
+
+    def reset(self, wp: int = 0):
+        super().reset(wp)
+        for stage in self._child_planners():
+            stage.reset(wp)
+        self._working_plan = None
+
+    def step(self, state: EgoState):
+        super().step(state)
+        for stage in self._child_planners():
+            stage.step(state)
+
+    def step_wp(self):
+        super().step_wp()
+        for stage in self._child_planners():
+            stage.step_wp()
+
+    def replan(self):
+        plan = LocalPlan.from_trajectory(self.global_trajectory)
+        if self._behavioral is not None:
+            plan = self._behavioral.plan_behavior(plan)
+        if self._path is not None:
+            plan = self._path.plan_path(plan)
+        if self._velocity is not None:
+            plan = self._velocity.plan_velocity(plan)
+        self._working_plan = plan
+
+    def get_local_plan(self) -> LocalPlan:
+        if self._working_plan is not None:
+            return self._working_plan
+        return super().get_local_plan()
