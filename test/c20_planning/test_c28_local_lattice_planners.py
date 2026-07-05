@@ -1,11 +1,14 @@
-"""Unit tests for GreedyLatticePlanner plan switching and edge-chain concat (c27)."""
+"""Unit tests for the frenet lattice planners and primitives (avlite.c20_planning.c28_local_lattice_planners).
+
+Covers both the lattice data structures (Node/Edge/Lattice) and the
+GreedyLatticePlanner plan-switching and edge-chain concatenation logic.
+"""
 
 import pytest
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c20_planning.c27_local_lattice_planners import GreedyLatticePlanner
-from avlite.c20_planning.c28_lattice import Edge, Node
+from avlite.c20_planning.c28_local_lattice_planners import Edge, GreedyLatticePlanner, Lattice, Node
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 
 _FIXED_PLANNER_TIME = 1000.0
@@ -14,7 +17,7 @@ _FIXED_PLANNER_TIME = 1000.0
 @pytest.fixture
 def fixed_planner_time(monkeypatch):
     monkeypatch.setattr(
-        "avlite.c20_planning.c27_local_lattice_planners.time.time",
+        "avlite.c20_planning.c28_local_lattice_planners.time.time",
         lambda: _FIXED_PLANNER_TIME,
     )
 
@@ -93,7 +96,7 @@ def _chain_has_collision(head: Edge) -> bool:
 def _plan_length_acceptable(
     planner: GreedyLatticePlanner, new_plan: Edge, new_clean: bool = True
 ) -> bool:
-    """Mirror replan commit gate in c27_local_lattice_planners."""
+    """Mirror replan commit gate in c28_local_lattice_planners."""
     new_len = planner.local_plan_len(new_plan)
     prev_len = planner.local_plan_len() if planner.selected_local_plan else None
     old_colliding = (
@@ -108,6 +111,40 @@ def _plan_length_acceptable(
             or (old_colliding and new_clean)
         )
     )
+
+
+class TestLatticeNode:
+    def test_equal_nodes_share_hash(self):
+        a = Node(s=1.0, d=0.0, x=1.0, y=0.0)
+        b = Node(s=1.0, d=0.0, x=1.0, y=0.0)
+        assert hash(a) == hash(b)
+
+
+class TestLatticeEdge:
+    def test_edge_builds_local_trajectory(self):
+        global_tj = _straight_global_plan().trajectory
+        start = Node(s=0.0, d=0.0, x=0.0, y=0.0)
+        end = Node(s=20.0, d=0.0, x=20.0, y=0.0)
+        edge = Edge(start=start, end=end, global_tj=global_tj, num_of_points=10)
+        assert edge.local_trajectory is not None
+        assert len(edge.local_trajectory.path_x) == 10
+
+
+class TestLatticeReset:
+    def test_reset_clears_accumulated_state(self):
+        global_tj = _straight_global_plan().trajectory
+        lattice = Lattice(
+            global_trajectory=global_tj,
+            ref_left_boundary_d=[3.0] * len(global_tj.path),
+            ref_right_boundary_d=[-3.0] * len(global_tj.path),
+            planning_horizon=1,
+        )
+        lattice.nodes.append(Node(s=5.0, d=0.0, x=5.0, y=0.0))
+        lattice.lattice_nodes_by_level[0].append(Node(s=0.0, d=0.0, x=0.0, y=0.0))
+        lattice.reset()
+        assert lattice.nodes == []
+        assert lattice.edges == []
+        assert len(lattice.lattice_nodes_by_level) == 0
 
 
 class TestShouldSwitchPlan:

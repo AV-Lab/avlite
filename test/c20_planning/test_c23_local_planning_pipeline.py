@@ -5,15 +5,17 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalBehavior, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import (
-    CruiseBehavioralPlanner,
     LocalBehavioralPlanningStrategy,
     LocalPathPlanningStrategy,
     LocalPlanningPipeline,
     LocalPlanningStrategy,
     LocalVelocityPlanningStrategy,
 )
-from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner
-from avlite.c20_planning.c27_local_lattice_planners import (
+from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import (
+    CruiseBehavioralPlanner,
+    VelocityLocalPlanner,
+)
+from avlite.c20_planning.c28_local_lattice_planners import (
     GreedyLatticePlanner,
     LatticePlanningStrategy,
 )

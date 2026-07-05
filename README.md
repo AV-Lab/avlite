@@ -241,9 +241,9 @@ avlite/
 │   ├── c23_local_planning_strategy.py
 │   ├── c24_global_hdmap_planners.py  # HDMapGlobalPlanner
 │   ├── c25_global_race_planners.py   # GlobalCenterlineRacePlanner
-│   ├── c26_local_planners.py
-│   ├── c27_local_lattice_planners.py
-│   ├── c28_lattice.py
+│   ├── c26_local_path_planners.py                    # ReferencePathPlanner
+│   ├── c27_local_behavioral_and_velocity_planners.py # CruiseBehavioralPlanner, VelocityLocalPlanner
+│   ├── c28_local_lattice_planners.py                 # Node/Edge/Lattice, GreedyLatticePlanner
 │   └── c29_settings.py
 ├── c30_control/            # Control components
 │   ├── c31_control_model.py

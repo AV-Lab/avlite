@@ -41,8 +41,12 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner  # noqa: F401 — registers in LocalPlanningStrategy.registry
-from avlite.c20_planning.c27_local_lattice_planners import GreedyLatticePlanner  # noqa: F401 — registers in LocalPlanningStrategy.registry
+from avlite.c20_planning.c26_local_path_planners import ReferencePathPlanner  # noqa: F401 — registers in LocalPlanningStrategy/LocalPathPlanningStrategy registries
+from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import (  # noqa: F401 — register in the pipeline stage registries
+    CruiseBehavioralPlanner,
+    VelocityLocalPlanner,
+)
+from avlite.c20_planning.c28_local_lattice_planners import GreedyLatticePlanner  # noqa: F401 — registers in LocalPlanningStrategy/LocalPathPlanningStrategy registries
 from avlite.c30_control.c33_pid import PIDController  # noqa: F401 — registers in ControlStrategy.registry
 from avlite.c30_control.c34_stanley import StanleyController  # noqa: F401 — registers in ControlStrategy.registry
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry

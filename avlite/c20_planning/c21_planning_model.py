@@ -81,7 +81,7 @@ class GlobalPlan:
             velocity = data["ReferenceSpeed"]
             if velocity and velocity[0] <= 0:
                 velocity = list(velocity)
-                velocity[0] = PlanningSettings.c27_min_ramp_start_velocity
+                velocity[0] = PlanningSettings.c20_min_ramp_start_velocity
             left_boundary_d=data["LeftBound"]
             right_boundary_d=data["RightBound"]
             trajectory = TrajectoryTracker(path=path, velocity=velocity)

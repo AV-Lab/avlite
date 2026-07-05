@@ -5,7 +5,7 @@ from typing import Optional
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
-from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan, LocalBehavior
+from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
@@ -242,14 +242,6 @@ class LocalVelocityPlanningStrategy(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:
             LocalVelocityPlanningStrategy.registry[cls.__name__] = cls
-
-
-class CruiseBehavioralPlanner(LocalBehavioralPlanningStrategy):
-    """Trivial behavioral planner: always cruise along the reference."""
-
-    def plan_behavior(self, plan: LocalPlan) -> LocalPlan:
-        plan.behavior = LocalBehavior.CRUISE
-        return plan
 
 
 class LocalPlanningPipeline(LocalPlanningStrategy):

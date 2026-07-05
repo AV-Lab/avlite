@@ -161,7 +161,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
        
         # setting velocity: ramp from min creep speed to max, cruise, then decel to zero at goal
         n = len(self.global_plan.path)
-        min_v = PlanningSettings.c27_min_ramp_start_velocity
+        min_v = PlanningSettings.c20_min_ramp_start_velocity
         if n < self.wp_to_full_velocity * 2:
             self.global_plan.velocity = [self.max_velocity] * n
         else:

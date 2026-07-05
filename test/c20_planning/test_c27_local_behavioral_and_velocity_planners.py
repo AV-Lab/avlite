@@ -1,10 +1,10 @@
-"""Unit tests for velocity local planner (avlite.c20_planning.c26_local_planners)."""
+"""Unit tests for the velocity local planner (avlite.c20_planning.c27_local_behavioral_and_velocity_planners)."""
 
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner
+from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import VelocityLocalPlanner
 from avlite.c20_planning.c29_settings import PlanningSettingsSchema
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 from avlite.c50_common.c54_collision_checking import check_collision
@@ -148,7 +148,7 @@ class TestVelocityLocalPlanner:
             start_point=path[0], goal_point=path[-1], path=path, velocity=velocity, trajectory=trajectory
         )
         pm = PerceptionModel(ego_vehicle=EgoState(x=30.0, y=0.0, theta=0.0, velocity=5.0))
-        setting = PlanningSettingsSchema(c26_planning_horizon_points=50)
+        setting = PlanningSettingsSchema(c27_planning_horizon_points=50)
         planner = VelocityLocalPlanner(global_plan=global_plan, env=pm, setting=setting)
         planner.global_trajectory.update_waypoint_by_xy(30.0, 0.0)
         planner.replan()
@@ -166,7 +166,7 @@ class TestVelocityLocalPlanner:
             start_point=path[0], goal_point=path[-1], path=path, velocity=velocity, trajectory=trajectory
         )
         pm = PerceptionModel(ego_vehicle=EgoState(x=30.0, y=0.0, theta=0.0, velocity=5.0))
-        setting = PlanningSettingsSchema(c26_planning_horizon_points=50)
+        setting = PlanningSettingsSchema(c27_planning_horizon_points=50)
         planner = VelocityLocalPlanner(global_plan=global_plan, env=pm, setting=setting)
         planner.global_trajectory.update_waypoint_by_xy(30.0, 0.0)
 
@@ -205,3 +205,17 @@ class TestVelocityLocalPlanner:
         planner.apply_speed_match(tj, collision_idx, 3.0, ref_velocity=None)
 
         assert tj.velocity[tj.current_wp] <= 3.5
+
+
+class TestCruiseBehavioralPlanner:
+    def test_sets_cruise_behavior(self):
+        from avlite.c20_planning.c21_planning_model import LocalBehavior, LocalPlan
+        from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import CruiseBehavioralPlanner
+
+        plan = CruiseBehavioralPlanner().plan_behavior(LocalPlan())
+        assert plan.behavior == LocalBehavior.CRUISE
+
+    def test_registers_in_behavioral_registry(self):
+        from avlite.c20_planning.c23_local_planning_strategy import LocalBehavioralPlanningStrategy
+
+        assert "CruiseBehavioralPlanner" in LocalBehavioralPlanningStrategy.registry

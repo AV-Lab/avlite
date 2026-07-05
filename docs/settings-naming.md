@@ -10,7 +10,7 @@ Each profile is a single `configs/<profile>.yaml` file whose top-level keys are 
    Example: only `c15_perception_algs.py` reads detection params → `c15_detection_z_min`.
 
 2. **Multiple consumer modules** in the same layer package → `c{decade}_{name}`  
-   Example: `c27_local_lattice_planners.py` and `c28_lattice.py` both use collision margin → `c20_collision_safety_margin`.
+   Example: `c28_local_lattice_planners.py` and `c27_local_behavioral_and_velocity_planners.py` both use collision margin → `c20_collision_safety_margin`.
 
 3. **Cross-layer orchestration** → setting lives on the **consuming** layer’s settings class, prefixed by the consumer module.  
    Example: factory fallback race map in `c62_factory.py` → `ExecutionSettings.c43_race_boundary_map`.  

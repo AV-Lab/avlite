@@ -22,15 +22,6 @@ log = logging.getLogger(__name__)
 EGO_AGENT_ID: int = 0
 
 
-class AgentType(Enum):
-    ACKERMANN = auto()
-    DIFF_DRIVE = auto()
-    AERIAL = auto()
-    SURFACE_VESSEL = auto()  # boats, USVs — water surface
-    UNDERWATER = auto()      # AUVs — subsurface
-    CYCLIST = auto()
-    PEDESTRIAN = auto()
-    DYNAMIC_OBJECT = auto()
 
 
 @dataclass
@@ -185,6 +176,16 @@ class State:
         return Polygon(self.get_bb_corners())
 
 
+class AgentType(Enum):
+    ACKERMANN = auto()
+    DIFF_DRIVE = auto()
+    AERIAL = auto()
+    SURFACE_VESSEL = auto()  # boats, USVs — water surface
+    UNDERWATER = auto()      # AUVs — subsurface
+    CYCLIST = auto()
+    PEDESTRIAN = auto()
+    DYNAMIC_OBJECT = auto()
+
 @dataclass
 class AgentState(State):
     velocity: float = 0.0
@@ -199,12 +200,6 @@ class AgentState(State):
         super().reset()
         self.velocity = self.__init_speed
 
-
-    #TODO 
-    def predict(self, dt):
-        pass
-        # self.x += self.velocity * np.cos(self.theta) * dt
-        # self.y += self.velocity * np.sin(self.theta) * dt
 
 
 @dataclass
@@ -296,12 +291,7 @@ class RaceMap(Map):
         right = np.array(data["RightBound"])[:, :2]
         ref = data["ReferencePoint"]
         ref_pt = (float(ref[0]), float(ref[1]))
-        return cls(
-            source_path=str(path),
-            left_bound=left,
-            right_bound=right,
-            _reference_point=ref_pt,
-        )
+        return cls(source_path=str(path), left_bound=left, right_bound=right, _reference_point=ref_pt,)
 
 
 @dataclass
