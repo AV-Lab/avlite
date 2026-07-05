@@ -28,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `VisualizerApp.on_community_plugins_changed()` — reload stack and refresh UI after community plugin install/uninstall
 - Clean visualizer shutdown (`WM_DELETE_WINDOW` stops execution before destroy); stop execution on profile switch
 - `load_boundary_segments()` and `boundary_segments_from_global_plan()` helpers in `c46_basic_sim.py`
-- `test/c50_apps/` — factory smoke, plugin settings, schema validation, log routing
-- `test/c60_common/test_import_boundary.py` — stack core (`c10`–`c40`, `c60`) must not import disallowed `c50_apps` or `p50_*` apps
+- `test/c60_apps/` — factory smoke, plugin settings, schema validation, log routing
+- `test/c50_common/test_c50_import_boundary.py` — stack core (`c10`–`c40`, `c50_common`) must not import disallowed `c60_apps` or `p60_*` apps
 - README, architecture, and plugin-development docs for optional community plugins (`avlite-bridge-*`, `avlite-executer-ROS2`, `avlite-controller-joystick`)
 
 ### Changed
@@ -104,7 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token persistence at `~/.config/avlite/github_oauth.json`; `AVLITE_GITHUB_OAUTH_CLIENT_ID` override
 - SAML SSO authorize-link handling on 403; Copy button for device-flow user code
 - Safety disclaimers on both plugin tabs
-- Tests in `test/c50_apps/test_community_plugins_github.py`
+- Tests in `test/c60_apps/test_c63_plugins.py`
 - UI logo resolved from repo `data/imgs/` independent of CWD
 
 ### Changed

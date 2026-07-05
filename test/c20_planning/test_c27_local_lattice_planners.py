@@ -1,7 +1,5 @@
 """Unit tests for GreedyLatticePlanner plan switching and edge-chain concat (c27)."""
 
-import time
-
 import pytest
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
@@ -9,6 +7,16 @@ from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c27_local_lattice_planners import GreedyLatticePlanner
 from avlite.c20_planning.c28_lattice import Edge, Node
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+
+_FIXED_PLANNER_TIME = 1000.0
+
+
+@pytest.fixture
+def fixed_planner_time(monkeypatch):
+    monkeypatch.setattr(
+        "avlite.c20_planning.c27_local_lattice_planners.time.time",
+        lambda: _FIXED_PLANNER_TIME,
+    )
 
 
 def _straight_global_plan(x_end: float = 100.0, n: int = 20, velocity: float = 10.0) -> GlobalPlan:
@@ -103,7 +111,7 @@ def _plan_length_acceptable(
 
 
 class TestShouldSwitchPlan:
-    def test_switches_to_faster_plan_when_current_not_marked_collision(self):
+    def test_switches_to_faster_plan_when_current_not_marked_collision(self, fixed_planner_time):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=3.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
@@ -112,13 +120,13 @@ class TestShouldSwitchPlan:
         fast_edge = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
 
         planner.selected_local_plan = slow_edge
-        planner._last_plan_change_time = time.time()
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
         assert planner.should_switch_plan(fast_edge) is False
 
         planner._last_plan_change_time = 0.0
         assert planner.should_switch_plan(fast_edge) is True
 
-    def test_keeps_clean_plan_when_faster_alternative_without_wait(self):
+    def test_keeps_clean_plan_when_faster_alternative_without_wait(self, fixed_planner_time):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=8.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
@@ -127,11 +135,11 @@ class TestShouldSwitchPlan:
         faster = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
 
         planner.selected_local_plan = current
-        planner._last_plan_change_time = time.time()
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
 
         assert planner.should_switch_plan(faster) is False
 
-    def test_switches_when_agent_cleared_on_colliding_head(self):
+    def test_switches_when_agent_cleared_on_colliding_head(self, fixed_planner_time):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=3.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
@@ -142,7 +150,7 @@ class TestShouldSwitchPlan:
         fast_clean = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
 
         planner.selected_local_plan = slow_colliding
-        planner._last_plan_change_time = time.time()
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
 
         assert planner.should_switch_plan(fast_clean) is True
 
@@ -171,11 +179,11 @@ class TestShouldSwitchPlan:
             _edge_at(global_plan.trajectory, 40.0, 60.0),
         ])
         planner.set_selected_plan(one)
-        planner._last_plan_change_time = time.time()
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
 
         assert planner.should_switch_plan(three) is True
 
-    def test_keeps_longer_by_one_without_wait_or_gain(self):
+    def test_keeps_longer_by_one_without_wait_or_gain(self, fixed_planner_time):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
@@ -186,7 +194,7 @@ class TestShouldSwitchPlan:
             _edge_at(global_plan.trajectory, 20.0, 40.0),
         ])
         planner.set_selected_plan(one)
-        planner._last_plan_change_time = time.time()
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
 
         assert planner.should_switch_plan(two) is False
 
@@ -221,7 +229,7 @@ class TestShouldSwitchPlan:
 
         assert planner.should_switch_plan(one_clean) is True
 
-    def test_keeps_collision_escape_without_wait_or_gain(self):
+    def test_keeps_collision_escape_without_wait_or_gain(self, fixed_planner_time):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
@@ -233,7 +241,7 @@ class TestShouldSwitchPlan:
         ])
         one_clean = _edge_at(global_plan.trajectory, 0.0, 20.0)
         planner.set_selected_plan(colliding_three)
-        planner._last_plan_change_time = time.time()
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
 
         assert planner.should_switch_plan(one_clean) is False
 
@@ -278,30 +286,6 @@ class TestGetLocalPlanConcatChain:
 
 
 class TestPlanLengthAcceptance:
-    @pytest.mark.parametrize(
-        "prev_len,new_len,old_colliding,new_clean,expected",
-        [
-            (None, 1, False, True, True),
-            (None, 0, False, True, False),
-            (1, 3, False, True, True),
-            (3, 2, False, True, True),
-            (3, 3, False, True, True),
-            (3, 4, False, True, True),
-            (3, 1, False, True, False),
-            (3, 1, True, True, True),
-            (3, 5, False, True, True),
-        ],
-    )
-    def test_acceptance_rule(self, prev_len, new_len, old_colliding, new_clean, expected):
-        acceptable = (prev_len is None and new_len >= 1) or (
-            prev_len is not None and (
-                new_len >= prev_len
-                or abs(new_len - prev_len) <= 1
-                or (old_colliding and new_clean)
-            )
-        )
-        assert acceptable == expected
-
     def test_accepts_growth_and_collision_escape_via_planner_state(self):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))

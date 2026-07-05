@@ -156,14 +156,17 @@ def test_list_profiles_respects_repo_target(monkeypatch, tmp_path):
     )
     ConfigPaths.set_repo_target(False)
     assert list_profiles() == ["default", "Carla_Town10", "robot"]
-    ConfigPaths.set_repo_target(True)
-    assert list_profiles() == ["default", "Carla_Town10"]
-    empty_user = tmp_path / "empty_user"
-    empty_user.mkdir()
-    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(empty_user))
-    ConfigPaths.set_repo_target(True)
-    assert list_profiles() == ["default", "Carla_Town10"]
-    assert not (empty_user / "default.yaml").exists()
+    try:
+        ConfigPaths.set_repo_target(True)
+        assert list_profiles() == ["default", "Carla_Town10"]
+        empty_user = tmp_path / "empty_user"
+        empty_user.mkdir()
+        monkeypatch.setenv("AVLITE_CONFIG_DIR", str(empty_user))
+        ConfigPaths.set_repo_target(True)
+        assert list_profiles() == ["default", "Carla_Town10"]
+        assert not (empty_user / "default.yaml").exists()
+    finally:
+        ConfigPaths.set_repo_target(False)
 
 
 def test_list_profiles_seeds_missing_bundled_profiles_in_user_mode(monkeypatch, tmp_path):

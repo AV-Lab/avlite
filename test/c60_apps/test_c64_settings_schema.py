@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import argparse
@@ -69,10 +68,11 @@ def test_field_description():
 
 
 def test_field_tooltip_text_description_first():
-    tip = field_tooltip_text(ExecutionSettings, "c40_control_dt")
-    assert tip is not None
-    assert tip.startswith("Control loop period")
-    assert tip.endswith("(float, default=0.05, config_name: c40_control_dt)")
+    field = ExecutionSettingsSchema.model_fields["c40_control_dt"]
+    expected = (
+        f"{field.description} (float, default={field.default!r}, config_name: c40_control_dt)"
+    )
+    assert field_tooltip_text(ExecutionSettingsSchema, "c40_control_dt") == expected
 
 
 def test_load_setting_valid_profile(monkeypatch, tmp_path):
@@ -105,12 +105,16 @@ def test_load_setting_invalid_type(monkeypatch, tmp_path):
 
 
 def test_save_setting_round_trip(monkeypatch, tmp_path):
+    from avlite.c60_apps.c65_setting_utils import profile_file_path
+
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
     (tmp_path / "testprof.yaml").write_text(yaml.dump({"c10_perception": {"c11_max_agents": 5}}))
     original_bridge = ExecutionSettings.c40_bridge
     ExecutionSettings.c40_bridge = "RoundTripBridge"
     try:
         save_setting(ExecutionSettings, profile="testprof")
+        write_path = Path(profile_file_path("testprof", for_write=True))
+        assert write_path.is_relative_to(tmp_path.resolve())
         with open(tmp_path / "testprof.yaml") as f:
             saved = yaml.safe_load(f)
         assert "c10_perception" in saved
