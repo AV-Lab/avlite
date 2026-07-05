@@ -20,3 +20,238 @@
   --md-accent-fg-color: #33bde7;
   --md-typeset-a-color: #33bde7;
 }
+
+/* ---------------------------------------------------------------------------
+   Landing page (docs/index.md)
+   The logo art sits on a near-black background, so the hero uses a dark band
+   in both light and dark themes to let the logo blend seamlessly.
+   --------------------------------------------------------------------------- */
+
+.hero,
+.hero-cta {
+  text-align: center;
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(0, 172, 225, 0.22), transparent 60%),
+    linear-gradient(180deg, #05070a 0%, #0a0f14 100%);
+  border: 1px solid rgba(0, 172, 225, 0.18);
+  box-shadow: 0 24px 60px -30px rgba(0, 172, 225, 0.45);
+}
+
+.hero {
+  padding: 3rem 1.5rem 2.5rem;
+  margin: 0 0 2.5rem;
+}
+
+.hero-cta {
+  padding: 2.25rem 1.5rem;
+  margin: 3rem 0 0;
+}
+
+.hero-logo {
+  width: 96px;
+  height: auto;
+  max-width: 36vw;
+  margin: 0 auto 0.15rem;
+  /* Brighter, punchier mark with a stronger cyan bloom. */
+  filter: brightness(1.12) saturate(1.1)
+    drop-shadow(0 0 10px rgba(0, 172, 225, 0.55))
+    drop-shadow(0 8px 26px rgba(0, 172, 225, 0.45));
+}
+
+/* Clean typographic wordmark, replacing the baked-in logo text. */
+.hero .hero-wordmark {
+  max-width: none !important;
+  margin: 0 auto 0.85rem !important;
+  color: #eaf6fb;
+  font-size: 2.9rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: 0 2px 18px rgba(0, 172, 225, 0.25);
+}
+
+.hero h1,
+.hero-cta h2 {
+  color: #eaf6fb;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0.2rem 0 0.75rem;
+}
+
+.hero h1 {
+  font-size: 2.4rem;
+  line-height: 1.1;
+}
+
+.hero > p {
+  color: #b7c6d0;
+  max-width: 42rem;
+  margin: 0 auto 1.25rem;
+  font-size: 0.95rem;
+}
+
+/* Center and constrain the install command inside the hero bands. */
+.hero .highlight,
+.hero-cta .highlight {
+  max-width: 22rem;
+  margin: 1.25rem auto;
+  text-align: left;
+}
+
+/* Button row spacing on the landing. */
+.hero .md-button,
+.hero-cta .md-button {
+  margin: 0.35rem 0.3rem 0;
+}
+
+/* Credibility badges under the hero buttons. */
+.hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: none !important;
+  margin: 1.5rem auto 0 !important;
+}
+
+.hero-badges img {
+  height: 20px;
+}
+
+/* One-line value / capability strip between hero and cards. */
+.md-typeset .value-strip {
+  text-align: center;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin: 0 0 2.5rem;
+}
+
+.md-typeset .value-strip .twemoji {
+  color: var(--md-accent-fg-color);
+  vertical-align: -0.15em;
+  margin-right: 0.15rem;
+}
+
+/* Feature cards: equal height, subtle lift, and an arrow that nudges. */
+.md-typeset .grid.cards > ul {
+  grid-auto-rows: 1fr;
+}
+
+.md-typeset .grid.cards > ul > li {
+  transition: border-color 125ms, box-shadow 125ms, transform 125ms;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 14px 34px -20px rgba(0, 172, 225, 0.55);
+  transform: translateY(-2px);
+}
+
+.md-typeset .grid.cards > ul > li a .twemoji {
+  transition: transform 125ms ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover a .twemoji {
+  transform: translateX(3px);
+}
+
+/* Landing screenshot as a product shot with faux window chrome. */
+.md-typeset figure.shot {
+  margin: 0 auto 1.5rem;
+}
+
+.shot-frame {
+  display: inline-block;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  border: 1px solid rgba(0, 172, 225, 0.25);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 26px 60px -30px rgba(0, 0, 0, 0.85);
+}
+
+.shot-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.7rem;
+  background: #0b0f14;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.shot-bar > span {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #39424c;
+}
+
+.shot-bar > span:nth-child(1) { background: #ff5f57; }
+.shot-bar > span:nth-child(2) { background: #febc2e; }
+.shot-bar > span:nth-child(3) { background: #28c840; }
+
+.landing-shot {
+  display: block;
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+   Landing header: transparent + blurred over the hero, solid once scrolled.
+   `landing-home` / `landing-scrolled` are toggled by javascripts/landing.js;
+   inner pages never get the class, so they keep the standard primary header.
+   --------------------------------------------------------------------------- */
+
+body.landing-home .md-header,
+body.landing-home .md-tabs {
+  background-color: rgba(5, 7, 10, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: none;
+  transition: background-color 250ms ease, box-shadow 250ms ease;
+}
+
+body.landing-home.landing-scrolled .md-header {
+  background-color: var(--md-primary-fg-color);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 0 0.2rem rgba(0, 0, 0, 0.1), 0 0.2rem 0.4rem rgba(0, 0, 0, 0.2);
+}
+
+body.landing-home.landing-scrolled .md-tabs {
+  background-color: var(--md-primary-fg-color);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Render the brand mark as a crisp white silhouette (via brightness/invert)
+   so it reads cleanly on both the blue header and the dark landing header,
+   and give it a bit more presence than the default logo size. */
+.md-header__button.md-logo img {
+  height: 1.7rem;
+  width: auto;
+  filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+@media screen and (max-width: 44.9375em) {
+  .hero .hero-wordmark {
+    font-size: 2.2rem;
+  }
+  .hero h1 {
+    font-size: 1.9rem;
+  }
+  .hero .md-button,
+  .hero-cta .md-button {
+    display: block;
+    margin: 0.5rem auto 0;
+    max-width: 18rem;
+  }
+  .md-typeset .value-strip {
+    font-size: 0.7rem;
+  }
+}
