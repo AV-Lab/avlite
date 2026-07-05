@@ -31,7 +31,7 @@ from avlite.c60_apps.c65_setting_utils import (
 from avlite.plugins.p60_setting_cli.p61_setting_cli import cmd_export_profile, cmd_import_profile
 
 REPO_EXEC = Path(__file__).resolve().parents[2] / "configs" / "c40_execution.yaml"
-REPO_DATA = Path(__file__).resolve().parents[2] / "data"
+REPO_DATA = Path(__file__).resolve().parents[2] / "avlite" / "data"
 SAMPLE_MAP = "data/san_campus.xodr"
 
 

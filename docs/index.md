@@ -182,10 +182,10 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 | **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
 | **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in the `c69_apps` section (`c62_community_plugins`) of the active profile | `AVLITE_PLUGINS_DIR` |
 | **Community plugin settings** | `~/.config/avlite/plugin_<name>.yaml` — user-only; no repo default | `AVLITE_CONFIG_DIR` |
-| **Maps & trajectories** | Read: `~/.config/avlite/data/` then `{repo}/data/`; save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
+| **Maps & trajectories** | Read: `~/.config/avlite/data/` then the bundled `avlite/data/` (shipped with the package); save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
 | **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
 
-Paths stored as `data/...` in YAML are resolved against the user data directory first, then the repository `data/` folder. Saved global plans and other writes never go into the repo tree. In the GUI, **Save Global Plan** (Planning panel ⬇) opens a file picker in `~/.config/avlite/data/` with a timestamped default filename.
+Paths stored as `data/...` in YAML are resolved against the user data directory first, then the bundled `avlite/data/` folder shipped with the package. Saved global plans and other writes never go into the repo tree. In the GUI, **Save Global Plan** (Planning panel ⬇) opens a file picker in `~/.config/avlite/data/` with a timestamped default filename.
 
 User and repo config files share the **same basenames** (`c10_perception.yaml`, `c40_execution.yaml`, `plugin_ros_executer.yaml`, …).
 

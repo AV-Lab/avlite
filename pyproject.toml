@@ -31,7 +31,10 @@ dev = [
 avlite = "avlite.__main__:main"
 
 [tool.setuptools.packages.find]
-exclude = ["test*", "build*", "site*"]
+include = ["avlite", "avlite.*"]
+
+[tool.setuptools.package-data]
+avlite = ["data/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

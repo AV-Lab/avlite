@@ -341,14 +341,11 @@ class DataPaths:
 
     @staticmethod
     def resolve(relative_path: str, *, for_write: bool = False) -> str:
-        """Resolve a data path: user dir first on read, repo ``data/`` fallback."""
+        """Resolve a data path: user dir first on read, bundled ``avlite/data`` fallback."""
         if os.path.isabs(relative_path):
             if for_write:
                 Path(relative_path).parent.mkdir(parents=True, exist_ok=True)
             return relative_path
-
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        repo_path = repo_root / relative_path
 
         rel = relative_path
         if rel.startswith("data/"):
@@ -373,7 +370,7 @@ class DataPaths:
         legacy_path = _legacy_data_dir() / rel
         if legacy_path.is_file():
             return str(legacy_path)
-        return str(repo_path)
+        return str(DataPaths._repo_data_root() / rel)
 
     @staticmethod
     def resolve_stored(stored: str, *, for_write: bool = False) -> str:
@@ -387,4 +384,5 @@ class DataPaths:
 
     @staticmethod
     def _repo_data_root() -> Path:
-        return Path(__file__).resolve().parent.parent.parent / "data"
+        """Bundled data shipped inside the package (``avlite/data``)."""
+        return Path(__file__).resolve().parent.parent / "data"
