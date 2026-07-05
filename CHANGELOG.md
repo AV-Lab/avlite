@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-07-05
+
+### Fixed
+- Bundled profile configs missing after `pip install` — ship `avlite/configs/` as package data so default profiles resolve without a git checkout
+
+### Changed
+- Bundled profiles moved from repo-root `configs/` to `avlite/configs/`; `ConfigPaths.bundled_dir()` resolves to the packaged directory
+
 ## [0.4.2] - 2026-07-05
 
 ### Fixed

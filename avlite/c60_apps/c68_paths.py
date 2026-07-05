@@ -33,8 +33,8 @@ class ConfigPaths:
 
     @staticmethod
     def bundled_dir() -> Path:
-        """Shipped YAML directory (git clone ``configs/``); missing after plain pip install."""
-        return Path(__file__).resolve().parent.parent.parent / "configs"
+        """Shipped profile YAML directory (bundled ``avlite/configs`` package data)."""
+        return Path(__file__).resolve().parent.parent / "configs"
 
     @staticmethod
     def can_edit_bundled() -> bool:

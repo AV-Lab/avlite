@@ -65,7 +65,7 @@ def isolated_config_environment(tmp_path, monkeypatch):
     from avlite.c60_apps.c68_paths import ConfigPaths
 
     repo_root = Path(__file__).resolve().parent.parent
-    real_bundled = repo_root / "configs"
+    real_bundled = repo_root / "avlite" / "configs"
     xdg = tmp_path / "pytest_xdg"
     config_dir = tmp_path / "pytest_config"
     bundled = tmp_path / "pytest_bundled"
