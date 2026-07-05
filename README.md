@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="data/imgs/logo-black-bg.png" alt="AVLite Logo" width="200">
+  <img src="https://raw.githubusercontent.com/AV-Lab/avlite/main/avlite/data/imgs/logo-black-bg.png" alt="AVLite Logo" width="200">
 </p>
 
 <h1 align="center">AVLite</h1>
@@ -51,7 +51,7 @@
 > **ROS2 & Autoware Ready** — Optional ROS2 executer plugin with native Autoware message support (`Trajectory`, `ControlCommand`, etc.).
 
 <p align="center">
-  <img src="docs/imgs/tk_visualizer.png" alt="AVLite Tk Visualizer" width="100%">
+  <img src="https://raw.githubusercontent.com/AV-Lab/avlite/main/docs/imgs/tk_visualizer.png" alt="AVLite Tk Visualizer" width="100%">
 </p>
 
 ## Architecture Overview
