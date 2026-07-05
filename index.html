@@ -14,7 +14,7 @@
       
       
       
-        <link rel="next" href="architecture/">
+        <link rel="next" href="quick-start/">
       
       
       <link rel="icon" href="imgs/logo-black-bg.png">
@@ -64,10 +64,12 @@
   
     
     
+      
     
     
     
-    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom">
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -118,7 +120,33 @@
     </div>
     
       
+        <form class="md-header__option" data-md-component="palette">
+  
     
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3 3.19.09m3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95 2.06.05m-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5c-.84 0-1.65.15-2.39.42L12 2M3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29L3.34 7m.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14L3.36 17M20.65 7l-1.77 3.79a7.023 7.023 0 0 0-2.38-4.15l4.15.36m-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29L20.64 17M12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44L12 22Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
     
@@ -138,6 +166,11 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7 0-.24-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91 1.61 0 2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08Z"/></svg>
+          </a>
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           
@@ -166,7 +199,7 @@
         <a href="https://github.com/AV-Lab/avlite" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
   </div>
   <div class="md-source__repository">
     AV-Lab/avlite
@@ -201,6 +234,23 @@
     
   
   Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="quick-start/" class="md-tabs__link">
+        
+  
+    
+  
+  Quick Start
 
       </a>
     </li>
@@ -295,9 +345,7 @@
   
 
 
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href="." title="AVLite Documentation" class="md-nav__button md-logo" aria-label="AVLite Documentation" data-md-component="logo">
       
@@ -312,7 +360,7 @@
       <a href="https://github.com/AV-Lab/avlite" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
   </div>
   <div class="md-source__repository">
     AV-Lab/avlite
@@ -394,18 +442,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#minimal-core-only" class="md-nav__link">
+  <a href="#core" class="md-nav__link">
     <span class="md-ellipsis">
-      Minimal (core only)
+      Core
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#full" class="md-nav__link">
+  <a href="#editable-with-dev-tools" class="md-nav__link">
     <span class="md-ellipsis">
-      Full
+      Editable (with dev tools)
     </span>
   </a>
   
@@ -436,36 +484,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-launch-the-application" class="md-nav__link">
+  <a href="#headless-mode-no-gui" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Launch the Application
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-using-the-gui" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Using the GUI
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-basic-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Basic Workflow
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-headless-mode-no-gui" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Headless Mode (no GUI)
+      Headless Mode (no GUI)
     </span>
   </a>
   
@@ -647,6 +668,26 @@
   
   
     <li class="md-nav__item">
+      <a href="quick-start/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="architecture/" class="md-nav__link">
         
   
@@ -727,6 +768,263 @@
               </div>
             
             
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editable-with-dev-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      Editable (with dev tools)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-integrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Optional Integrations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Start
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#headless-mode-no-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      Headless Mode (no GUI)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#community-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      Community Plugins
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Community Plugins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#browse-and-install-gui" class="md-nav__link">
+    <span class="md-ellipsis">
+      Browse and install (GUI)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#member-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      Member plugins
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#publish-your-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      Publish your plugin
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-files-live" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where files live
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config-files-one-per-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Config files (one per profile)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gui-profiles-and-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      GUI: profiles and reset
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#profile-transfer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Profile transfer
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      CLI validation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-switching-simulators" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Switching Simulators
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Documentation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#support" class="md-nav__link">
+    <span class="md-ellipsis">
+      Support
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      License
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           
             <div class="md-content" data-md-component="content">
@@ -746,14 +1044,14 @@
 <p>AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.</p>
 <div class="admonition tip">
 <p class="admonition-title">ROS2 &amp; Autoware Ready</p>
-<p>AVLite integrates optional ROS 2 plugins under <code>related-repos/</code> (e.g. <code>avlite-executer-ROS2</code>) with native Autoware message support when installed.</p>
+<p>AVLite supports ROS 2 and Autoware integration through optional world-bridge and executer plugins.</p>
 </div>
 <p><strong>Repository</strong>: <a href="https://github.com/AV-Lab/avlite">github.com/AV-Lab/avlite</a></p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Modular Architecture</strong>: Swap perception, localization, planning, and control algorithms at runtime</li>
 <li><strong>Multi-Simulator Support</strong>: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2</li>
-<li><strong>ROS2 &amp; Autoware Integration</strong>: Built-in plugin for ROS2 with native Autoware message types</li>
+<li><strong>ROS2 &amp; Autoware Integration</strong>: Optional plugin for ROS2 with native Autoware message types</li>
 <li><strong>Optional Perception &amp; Localization</strong>: Both perception and localization are optional — run with ground truth or plug in your own strategies</li>
 <li><strong>Real-time Visualization</strong>: Tkinter-based GUI for monitoring and debugging</li>
 <li><strong>Hot Reloading</strong>: Modify code without restarting the application</li>
@@ -762,63 +1060,39 @@
 <li><strong>Profile Management</strong>: Save and load different configurations</li>
 </ul>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<h3 id="minimal-core-only">Minimal (core only)<a class="headerlink" href="#minimal-core-only" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/AV-Lab/avlite.git
-<span class="nb">cd</span><span class="w"> </span>avlite
-pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-minimal.txt
-</code></pre></div>
-<h3 id="full">Full<a class="headerlink" href="#full" title="Permanent link">&para;</a></h3>
-<p>It includes support for ROS 2, CARLA 5, Autwoware Messages, dev tools, docs, among others.</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-full.txt
-</code></pre></div>
+<h3 id="core">Core<a class="headerlink" href="#core" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/AV-Lab/avlite.git
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>avlite
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</span></code></pre></div>
+<h3 id="editable-with-dev-tools">Editable (with dev tools)<a class="headerlink" href="#editable-with-dev-tools" title="Permanent link">&para;</a></h3>
+<p>Installs AVLite in editable mode with the optional development dependencies (pytest, coverage).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</span></code></pre></div>
+<p>Requires Python 3.10+. See the <a href="quick-start/">Quick Start</a> for a guided first run.</p>
 <h3 id="optional-integrations">Optional Integrations<a class="headerlink" href="#optional-integrations" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>CARLA</strong>: Install from <a href="https://github.com/carla-simulator/carla/releases">CARLA releases</a></li>
-<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code>. Clone <code>related-repos/avlite-executer-ROS2</code>, register it in the <code>c62_community_plugins</code> map (the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>), and set <code>c40_executer_type: ROSExecuter</code> — see <a href="optional-plugins.md">Optional Plugins</a> and <code>related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md</code> in the repository.</li>
+<li><strong>CARLA</strong>: Install from <a href="https://github.com/carla-simulator/carla/releases">CARLA releases</a>, then enable the CARLA world-bridge plugin.</li>
+<li><strong>Gazebo</strong>: Install ROS 2 and enable the Gazebo world-bridge plugin.</li>
+<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code>, then enable the ROS2 world-bridge or executer plugin (register it in the <code>c62_community_plugins</code> map in the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>, and set <code>c40_executer_type</code> to the ROS executer when using it).</li>
 </ul>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<h3 id="1-launch-the-application">1. Launch the Application<a class="headerlink" href="#1-launch-the-application" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite
-</code></pre></div>
-<h3 id="2-using-the-gui">2. Using the GUI<a class="headerlink" href="#2-using-the-gui" title="Permanent link">&para;</a></h3>
-<ol>
-<li><strong>Config Tab</strong>: Select a profile or create a new one</li>
-<li><strong>Start Stack</strong>: Click "Start/Stop Stack" to begin simulation</li>
-<li><strong>Spawn NPCs</strong>: Right-click on the plot to add vehicles</li>
-<li><strong>Adjust Parameters</strong>: Modify settings in real-time through the GUI panels</li>
-<li><strong>Save Global Plan</strong>: Use ⬇ in the Planning panel to export the current plan as JSON (save dialog opens in <code>~/.config/avlite/data/</code>)</li>
-</ol>
-<h3 id="3-basic-workflow">3. Basic Workflow<a class="headerlink" href="#3-basic-workflow" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>Load Profile → Configure Components → Start Stack → Monitor/Debug → Save Profile
-</code></pre></div>
-<h3 id="4-headless-mode-no-gui">4. Headless Mode (no GUI)<a class="headerlink" href="#4-headless-mode-no-gui" title="Permanent link">&para;</a></h3>
+<p>Launch the visualizer and drive the built-in simulator:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite
+</span></code></pre></div>
+<p>In the GUI, select a profile in the <strong>Config</strong> tab, click <strong>Start/Stop Stack</strong>,
+right-click the plot to spawn NPCs, and tune parameters live. For a full
+guided walkthrough (install, GUI basics, and headless deployment), see the
+<a href="quick-start/">Quick Start guide</a>.</p>
+<h3 id="headless-mode-no-gui">Headless Mode (no GUI)<a class="headerlink" href="#headless-mode-no-gui" title="Permanent link">&para;</a></h3>
 <p>For deployments on a robot, server, or CI runner, run AVLite without the
 Tkinter GUI using the same YAML profiles you saved from the visualizer:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Default profile</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless
-
-<span class="c1"># Pick a saved profile</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless<span class="w"> </span>-p<span class="w"> </span>my_robot_profile
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless<span class="w"> </span>my_robot_profile<span class="w">        </span><span class="c1"># positional shortcut</span>
-
-<span class="c1"># Tune log noise / loop rates</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless<span class="w"> </span>-p<span class="w"> </span>my_robot_profile<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--log-level<span class="w"> </span>WARNING<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--control-dt<span class="w"> </span><span class="m">0</span>.01<span class="w"> </span>--replan-dt<span class="w"> </span><span class="m">0</span>.5<span class="w"> </span>--perceive
-</code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>headless<span class="w"> </span>-p<span class="w"> </span>my_robot_profile
+</span></code></pre></div>
 <p>A live <code>rich</code> dashboard shows FPS, ego state, lap counter, and recent log
-lines. Press <strong>Ctrl+C</strong> to stop. Requires <code>pip install rich</code>.</p>
-<div class="admonition tip">
-<p class="admonition-title">Recommended workflow</p>
-<ol>
-<li><strong>Configure</strong> with <code>python -m avlite</code> — pick the bridge, strategies,
-   and tune parameters in the GUI.</li>
-<li><strong>Save</strong> the result as a named profile from the Config tab.</li>
-<li><strong>Deploy</strong> with <code>python -m avlite headless -p &lt;profile&gt;</code> on your
-   robot or server. The same YAML profile drives both modes, so what
-   you see in the visualizer is what the robot will run.</li>
-</ol>
-</div>
+lines. Press <strong>Ctrl+C</strong> to stop. Requires <code>pip install rich</code>. See the
+<a href="quick-start/#4-save-a-profile-and-run-headless">Quick Start guide</a> for all
+options.</p>
 <h2 id="community-plugins">Community Plugins<a class="headerlink" href="#community-plugins" title="Permanent link">&para;</a></h2>
 <p>AVLite has a community plugin system that lets anyone publish perception,
 planning, control, executer, or world-bridge strategies as a small Git
@@ -826,8 +1100,8 @@ repository. Community and member plugins are third-party or unverified code;
 AV-Lab does not guarantee their safety. Use for research and development at
 your own risk.</p>
 <h3 id="browse-and-install-gui">Browse and install (GUI)<a class="headerlink" href="#browse-and-install-gui" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>plugins
-</code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>plugins
+</span></code></pre></div>
 <p>The browser fetches the official registry from
 <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>,
 lets you install/uninstall plugins, and (de)registers them with the
@@ -835,35 +1109,27 @@ active profile. Installed plugins live under
 <code>$XDG_DATA_HOME/avlite/plugins</code> (or <code>~/.local/share/avlite/plugins</code>);
 override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 <h3 id="member-plugins">Member plugins<a class="headerlink" href="#member-plugins" title="Permanent link">&para;</a></h3>
-<p>The <strong>Members</strong> tab in <code>python -m avlite plugins</code> lists plugins from the
-<a href="https://github.com/AV-Lab/avlite-private-plugins">avlite-private-plugins</a> registry.
-Sign in with GitHub (Device Flow) to browse and install them. Your account must
-have access to that repository and to each listed plugin repo.</p>
-<p>AVLite stores the OAuth token at <code>~/.config/avlite/github_oauth.json</code> (mode <code>0600</code>).
-Distribution builds must set <code>AVLITE_GITHUB_OAUTH_CLIENT_ID</code> to the AV-Lab GitHub
-OAuth app client id (Device Flow enabled, <code>repo</code> scope).</p>
-<p>If you see <strong>403 Forbidden</strong> after sign-in but can open the registry repo in a browser,
-authorize the token for AV-Lab SAML SSO (AVLite will offer the authorization link),
-then click <strong>Refresh</strong>. If the error mentions OAuth App access restrictions, an
-AV-Lab org admin must approve the OAuth app under <strong>Organization Settings →
-Third-party access</strong>.</p>
+<p>The <strong>Members</strong> tab in <code>python -m avlite plugins</code> lists plugins from the AV-Lab
+private registry. Sign in with GitHub (Device Flow) to browse and install them;
+your account must have access to that registry and to each listed plugin repo.
+AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0600</code>).</p>
 <h3 id="publish-your-plugin">Publish your plugin<a class="headerlink" href="#publish-your-plugin" title="Permanent link">&para;</a></h3>
-<p>See <a href="plugin-development/#10-publish-to-the-community-registry-pull-request">Plugin Development — Publish to the community registry</a> for the full checklist. Summary:</p>
+<p>See <a href="plugin-development/#11-publish-to-the-community-registry-pull-request">Plugin Development — Publish to the community registry</a> for the full checklist. Summary:</p>
 <ol>
 <li>Build and test locally (<a href="plugin-development/">Plugin Development Guide</a>).</li>
 <li>Push your plugin to a <strong>public</strong> Git repository.</li>
 <li>
 <p>Fork <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>
    and add an entry to <code>plugins.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="nt">plugins</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_perception_plugin</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
-<span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
-<span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">        </span><span class="c1"># or a tag/commit SHA</span>
-<span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
-<span class="w">    </span><span class="nt">category</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
-</code></pre></div>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">plugins</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_perception_plugin</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">        </span><span class="c1"># or a tag/commit SHA</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">category</span><span class="p">:</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
+</span></code></pre></div>
 </li>
 <li>
 <p>Open a pull request. Once merged, the plugin appears in every user's
@@ -943,7 +1209,7 @@ Third-party access</strong>.</p>
 </tr>
 <tr>
 <td><strong>Maps &amp; trajectories</strong></td>
-<td>Read: <code>~/.config/avlite/data/</code> then <code>{repo}/data/</code>; save: user dir only (GUI save dialog opens in user data dir)</td>
+<td>Read: <code>~/.config/avlite/data/</code> then the bundled <code>avlite/data/</code> (shipped with the package); save: user dir only (GUI save dialog opens in user data dir)</td>
 <td><code>AVLITE_DATA_DIR</code></td>
 </tr>
 <tr>
@@ -953,7 +1219,7 @@ Third-party access</strong>.</p>
 </tr>
 </tbody>
 </table>
-<p>Paths stored as <code>data/...</code> in YAML are resolved against the user data directory first, then the repository <code>data/</code> folder. Saved global plans and other writes never go into the repo tree. In the GUI, <strong>Save Global Plan</strong> (Planning panel ⬇) opens a file picker in <code>~/.config/avlite/data/</code> with a timestamped default filename.</p>
+<p>Paths stored as <code>data/...</code> in YAML are resolved against the user data directory first, then the bundled <code>avlite/data/</code> folder shipped with the package. Saved global plans and other writes never go into the repo tree. In the GUI, <strong>Save Global Plan</strong> (Planning panel ⬇) opens a file picker in <code>~/.config/avlite/data/</code> with a timestamped default filename.</p>
 <p>User and repo config files share the <strong>same basenames</strong> (<code>c10_perception.yaml</code>, <code>c40_execution.yaml</code>, <code>plugin_ros_executer.yaml</code>, …).</p>
 <p><strong>Load order:</strong> for each settings file, AVLite reads <code>~/.config/avlite/&lt;name&gt;.yaml</code> if it exists; otherwise it falls back to <code>{repo}/configs/&lt;name&gt;.yaml</code>.</p>
 <p><strong>Save:</strong> GUI and settings window writes go to <code>~/.config/avlite/</code> unless <strong>Edit repository configs</strong> is enabled (then <code>{repo}/configs/</code>).</p>
@@ -979,52 +1245,45 @@ Third-party access</strong>.</p>
 </ul>
 <h3 id="profile-transfer">Profile transfer<a class="headerlink" href="#profile-transfer" title="Permanent link">&para;</a></h3>
 <p>Export a profile on one machine and import it on another (e.g. robot with <code>AVLITE_CONFIG_DIR</code> or <code>~/.config/avlite</code>), then run <code>python -m avlite headless -p &lt;profile&gt;</code>.</p>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span><span class="o">[</span>-o<span class="w"> </span>myprofile.yaml<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-stack<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-app<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-plugins<span class="o">]</span>
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>import-profile<span class="w"> </span>myprofile.yaml<span class="w"> </span><span class="o">[</span>--force<span class="o">]</span>
-</code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span><span class="o">[</span>-o<span class="w"> </span>myprofile.yaml<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-stack<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-app<span class="o">]</span><span class="w"> </span><span class="o">[</span>--no-plugins<span class="o">]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>import-profile<span class="w"> </span>myprofile.yaml<span class="w"> </span><span class="o">[</span>--force<span class="o">]</span>
+</span></code></pre></div>
 <p>Known sections (core layers, <code>c69_apps</code>, and built-in plugins) are validated against their Pydantic schemas on import; invalid profiles are rejected with field-level errors (same rules as <code>setting-cli validate</code>).</p>
 <h3 id="cli-validation">CLI validation<a class="headerlink" href="#cli-validation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>validate
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>validate<span class="w"> </span>--profile<span class="w"> </span>default
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span>-o<span class="w"> </span>myprofile.yaml
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>import-profile<span class="w"> </span>myprofile.yaml<span class="w"> </span>--force
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution
-python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution<span class="w"> </span>--field<span class="w"> </span>c40_control_dt
-</code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>validate
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>validate<span class="w"> </span>--profile<span class="w"> </span>default
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>export-profile<span class="w"> </span>myprofile<span class="w"> </span>-o<span class="w"> </span>myprofile.yaml
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>import-profile<span class="w"> </span>myprofile.yaml<span class="w"> </span>--force
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>setting-cli<span class="w"> </span>describe<span class="w"> </span>--layer<span class="w"> </span>execution<span class="w"> </span>--field<span class="w"> </span>c40_control_dt
+</span></code></pre></div>
 <p>Schema field descriptions appear as <strong>tooltips</strong> in the settings window and on main-page controls (dropdowns, Δt fields).</p>
 <p>See <a href="settings-naming/">Settings naming</a> for key prefixes and validation details.</p>
 <h3 id="example-switching-simulators">Example: Switching Simulators<a class="headerlink" href="#example-switching-simulators" title="Permanent link">&para;</a></h3>
 <p>In the GUI Config tab, change the <strong>Bridge</strong> dropdown:
 - <code>BasicSim</code> - Built-in 2D simulation (no external dependencies)
-- <code>CarlaBridge</code> - Connect to a running CARLA simulator (<code>avlite-bridge-carla</code> plugin)
-- <code>GazeboIgnitionBridge</code> - Connect to Gazebo Ignition via ROS2 (<code>avlite-bridge-gazebo</code> plugin)
-- <code>ROS2WorldBridge</code> - Use a ROS2 topic-based world bridge (<code>avlite-bridge-ROS2</code> plugin)</p>
+- <code>CarlaBridge</code> - Connect to a running CARLA simulator (optional world-bridge plugin)
+- <code>GazeboIgnitionBridge</code> - Connect to Gazebo Ignition via ROS2 (optional world-bridge plugin)
+- <code>ROS2WorldBridge</code> - Use a ROS2 topic-based world bridge (optional world-bridge plugin)</p>
 <h2 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>avlite/
-├── c10_perception/     # Perception interfaces
-├── c20_planning/       # Planning algorithms
-├── c30_control/        # Control strategies
-├── c40_execution/      # Execution and bridges
-├── c60_apps/  # App infrastructure (AppStrategy, paths)
-├── c50_common/         # Shared utilities
-└── plugins/            # Built-in apps and stack plugins
-    ├── p60_visualizer_tk/   # visualizer + config + plugins Tk apps
-    ├── p60_setting_cli/
-    └── p60_headless_mode/
-
-related-repos/          # Optional plugins (see related-repos/README.md)
-    ├── avlite-bridge-carla/
-    ├── avlite-bridge-gazebo/
-    ├── avlite-bridge-ROS2/
-    ├── avlite-controller-joystick/
-    └── avlite-executer-ROS2/
-</code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>avlite/
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>├── c10_perception/     # Perception interfaces
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>├── c20_planning/       # Planning algorithms
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>├── c30_control/        # Control strategies
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>├── c40_execution/      # Execution and bridges
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>├── c60_apps/  # App infrastructure (AppStrategy, paths)
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>├── c50_common/         # Shared utilities
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>└── plugins/            # Built-in apps and stack plugins
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    ├── p60_visualizer_tk/   # visualizer + config + plugins Tk apps
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    ├── p60_setting_cli/
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    └── p60_headless_mode/
+</span></code></pre></div>
 <p>Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="quick-start/">Quick Start</a> - Install, launch, and run headless</li>
 <li><a href="architecture/">Architecture</a> - System design and patterns</li>
 <li><a href="algorithms/">Algorithms</a> - Planning algorithms and lattice parameters</li>
-<li><a href="optional-plugins.md">Optional Plugins</a> - Related-repo bridges, ROS executer, joystick</li>
 <li><a href="plugin-development/">Plugin Development</a> - Create custom components</li>
 </ul>
 <h2 id="support">Support<a class="headerlink" href="#support" title="Permanent link">&para;</a></h2>
@@ -1051,21 +1310,80 @@ related-repos/          # Optional plugins (see related-repos/README.md)
             </div>
           
           
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
         
       </main>
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+        
+          
+          <a href="quick-start/" class="md-footer__link md-footer__link--next" aria-label="Next: Quick Start">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Quick Start
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
   
+    <div class="md-copyright__highlight">
+      Copyright &copy; AV-Lab
+    </div>
   
-    Made with
-    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-      Material for MkDocs
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/AV-Lab/avlite" target="_blank" rel="noopener" title="AVLite on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/AV-Lab/avlite/issues" target="_blank" rel="noopener" title="Issue tracker" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 12h-4v-2h4m0 6h-4v-2h4m6-6h-2.81a5.985 5.985 0 0 0-1.82-1.96L17 4.41 15.59 3l-2.17 2.17a6.002 6.002 0 0 0-2.83 0L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8Z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/AV-Lab/avlite/discussions" target="_blank" rel="noopener" title="Discussions" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 12V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v14l4-4h10a1 1 0 0 0 1-1m4-6h-2v9H6v2a1 1 0 0 0 1 1h11l4 4V7a1 1 0 0 0-1-1Z"/></svg>
     </a>
   
 </div>
@@ -1079,13 +1397,13 @@ related-repos/          # Optional plugins (see related-repos/README.md)
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
     
-    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight"], "search": "assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.footer", "navigation.instant", "navigation.instant.progress", "toc.follow", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "search.share"], "search": "assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="assets/javascripts/bundle.fe8b6f2b.min.js"></script>
-      
-        <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
       
     
   </body>

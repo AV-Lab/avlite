@@ -5,9 +5,18 @@
   --md-accent-fg-color: #00ace1;
 }
 
+/* Light scheme: darken accent/links for readable contrast on white. */
+[data-md-color-scheme="default"] {
+  --md-accent-fg-color: #0090bd;
+  --md-typeset-a-color: #0087b0;
+}
+
+/* Dark scheme: pure-black surfaces with the bright cyan brand accent. */
 [data-md-color-scheme="slate"] {
   --md-default-bg-color: #000000;
   --md-default-bg-color--light: #0a0a0a;
   --md-default-bg-color--lighter: #121212;
   --md-default-bg-color--lightest: #1a1a1a;
+  --md-accent-fg-color: #33bde7;
+  --md-typeset-a-color: #33bde7;
 }
