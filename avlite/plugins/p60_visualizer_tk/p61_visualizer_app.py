@@ -130,6 +130,9 @@ class VisualizerApp(tk.Tk):
     def _on_close(self):
         if hasattr(self, "exec_visualize_view"):
             self.exec_visualize_view.stop_exec()
+        if hasattr(self, "log_view"):
+            self.log_view.shutdown()
+        self.quit()
         self.destroy()
 
     def __update_grid_column_sizes(self,event=None):

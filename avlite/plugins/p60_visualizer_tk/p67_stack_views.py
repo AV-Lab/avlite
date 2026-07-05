@@ -565,6 +565,7 @@ class ExecView(ttk.Frame):
         super().__init__(root)
 
         self.root = root
+        self._exec_after_id: str | None = None
 
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
@@ -783,15 +784,23 @@ class ExecView(ttk.Frame):
                 next_frame_delay = _poll_delay
             else:
                 next_frame_delay = max(0.001, sim_dt - processing_time)
-            self.root.after(int(next_frame_delay * 1000), self._exec_loop)
+            self._exec_after_id = self.root.after(
+                int(next_frame_delay * 1000), self._exec_loop
+            )
 
     def stop_exec(self):
+        self.root.setting.exec_running = False
+        if self._exec_after_id is not None:
+            try:
+                self.root.after_cancel(self._exec_after_id)
+            except tk.TclError:
+                pass
+            self._exec_after_id = None
         if self.root.exec is not None:
             self.root.exec.stop()
         # self.start_exec_button.config(state=tk.NORMAL)
         self.start_exec_button.state(['!disabled'])
         self.root.update_ui()
-        self.root.setting.exec_running = False
 
     def step_exec(self):
         cn_dt = float(self.root.setting.control_dt.get())

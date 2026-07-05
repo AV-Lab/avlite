@@ -410,7 +410,7 @@ When you rename a module file, update the import path in `__init__.py` to match 
 3. Add entry under community plugins: `my_plugin` → install path (or use **Install** then **Register** from `python -m avlite plugins`)
 4. Save profile
 
-Double-click a community plugin in the list to view its **Package Name** and **Settings file** paths separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`) and dev checkout dirs (`avlite-community-plugins/`, `avlite-private-plugins/`).
+Double-click a community plugin in the list to view its **Package Name** and **Settings file** paths separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`).
 
 **Via settings file** (the `c69_apps` section of `configs/<profile>.yaml`, or your saved copy under `~/.config/avlite/`):
 
@@ -427,20 +427,11 @@ Your classes will now appear in the UI dropdowns.
 
 ## Member plugins (AV-Lab)
 
-The **Members** tab in `python -m avlite plugins` lists plugins from the
-[avlite-private-plugins](https://github.com/AV-Lab/avlite-private-plugins) registry.
-This is separate from the public community registry.
-
-**Access requirements:**
-
-- Sign in with GitHub (Device Flow) in the Members tab
-- Your GitHub account must have access to `AV-Lab/avlite-private-plugins` and to each listed plugin repository
-- If your org uses SAML SSO, authorize the token when AVLite prompts you (403 with SSO link)
-- If OAuth App access restrictions apply, an AV-Lab org admin must approve the AVLite OAuth app under **Organization Settings → Third-party access**
-
-**Publishing:** Member plugins are listed by AV-Lab maintainers in the private registry (not via the community PR flow in section 11). Install and register work the same as community plugins once you are signed in; private repos use authenticated git clone.
-
-See [Member plugins](../index.md#member-plugins) in the main docs for token storage and troubleshooting.
+The **Members** tab in `python -m avlite plugins` lists plugins from the AV-Lab
+private registry. Sign in with GitHub (Device Flow) to browse and install them;
+your GitHub account must have access to the registry and to each listed plugin
+repository. Install and register work the same as community plugins once you are
+signed in. See [Member plugins](overview.md#member-plugins) in the main docs.
 
 ## 11. Publish to the community registry (pull request)
 
@@ -607,11 +598,6 @@ Built-in plugins in `avlite/plugins/` (maintained by core team):
 - `p60_headless_mode` — Headless terminal dashboard runner
 - `p60_setting_cli` — Terminal profile validate/describe/import/export
 
-Optional plugins in `related-repos/` (install via `c62_community_plugins` in the `c69_apps` section of `configs/<profile>.yaml`):
-- `avlite-bridge-carla` — CARLA simulator world bridge
-- `avlite-bridge-gazebo` — Gazebo Ignition world bridge
-- `avlite-bridge-ROS2` — ROS2 world bridge
-- `avlite-executer-ROS2` — ROS2 executor (`related-repos/avlite-executer-ROS2/docs/ros2-executer-plugin.md`)
-- `avlite-controller-joystick` — Xbox-style joystick controller
+Additional world bridges (CARLA, Gazebo, ROS2), executers, and controllers are available as optional plugins, installed via `c62_community_plugins` in the `c69_apps` section of `configs/<profile>.yaml`.
 
 Settings for built-in plugins: `configs/plugin_*.yaml` in the repo (same basename under `~/.config/avlite/` when saved). Community plugin settings use the same `plugin_<name>.yaml` basename but live only under `~/.config/avlite/` (no repo default).

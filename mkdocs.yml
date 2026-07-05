@@ -1,28 +1,79 @@
-site_name: AVLite Documentation
+site_name: AVLite
 site_description: Modular Autonomous Vehicle Stack
 site_author: AV-Lab
 
 repo_name: AV-Lab/avlite
 repo_url: https://github.com/AV-Lab/avlite
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; AV-Lab
+
+# Pages intentionally link to repo source files (e.g. ../avlite/...), which are
+# not documentation pages. Keep those non-fatal while still enforcing anchor
+# integrity so --strict catches real broken cross-references.
+validation:
+  links:
+    not_found: info
+    anchors: warn
+    absolute_links: info
+    unrecognized_links: info
 
 theme:
   name: material
+  logo: imgs/logo-icon.png
   icon:
-    logo: material/fire
-  favicon: imgs/logo-black-bg.png
+    repo: fontawesome/brands/github
+  favicon: imgs/logo-icon.png
   palette:
-    scheme: slate
-    primary: custom
-    accent: custom
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
   features:
     - navigation.tabs
     - navigation.sections
-    - toc.integrate
+    - navigation.indexes
+    - navigation.top
+    - navigation.tracking
+    - navigation.footer
+    - navigation.instant
+    - navigation.instant.progress
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
     - search.suggest
     - search.highlight
+    - search.share
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/landing.js
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AV-Lab/avlite
+      name: AVLite on GitHub
+    - icon: material/bug
+      link: https://github.com/AV-Lab/avlite/issues
+      name: Issue tracker
+    - icon: material/forum
+      link: https://github.com/AV-Lab/avlite/discussions
+      name: Discussions
 
 plugins:
   - search
@@ -30,27 +81,55 @@ plugins:
       handlers:
         python:
           options:
+            docstring_style: google
             show_source: true
+            show_root_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            separate_signature: true
+            show_signature_annotations: true
+            merge_init_into_class: true
 
 nav:
   - Home: index.md
+  - Overview: overview.md
+  - Quick Start: quick-start.md
   - Architecture: architecture.md
   - Algorithms: algorithms.md
   - Settings Naming: settings-naming.md
   - Plugin Development: plugin-development.md
 
-extra_javascript:
-  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
-
 markdown_extensions:
+  - abbr
   - admonition
-  - codehilite
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
   - toc:
       permalink: true
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
-  - pymdownx.tabbed
-  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde

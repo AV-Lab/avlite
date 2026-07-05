@@ -36,6 +36,9 @@ c20_planning:
   c20_min_ramp_start_velocity: 3.0
   c20_min_velocity_threshold: 0.5
   c20_obstacle_inflation_margin: 0.5
+  c23_behavioral_strategy: ''
+  c23_path_strategy: GreedyLatticePlanner
+  c23_velocity_strategy: ''
   c27_follow_cruise_min_gap: 15.0
   c27_follow_gap_buffer: 0.5
   c27_max_deceleration: 3.0

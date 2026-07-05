@@ -4,7 +4,7 @@ c10_perception:
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
   c12_detection_strategy: FastBEVLidarDetection
-  c12_prediction_strategy: PluginBasicLSTMPredictor
+  c12_prediction_strategy: ConstantVelocityPrediction
   c12_tracking_strategy: KalmanTracker
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0
@@ -36,6 +36,9 @@ c20_planning:
   c20_min_ramp_start_velocity: 3.0
   c20_min_velocity_threshold: 0.5
   c20_obstacle_inflation_margin: 0.5
+  c23_behavioral_strategy: ''
+  c23_path_strategy: GreedyLatticePlanner
+  c23_velocity_strategy: ''
   c27_follow_cruise_min_gap: 15.0
   c27_follow_gap_buffer: 0.5
   c27_max_deceleration: 3.0
@@ -107,10 +110,8 @@ c40_execution:
   c40_sim_dt: 0.01
   c41_provided:
   - LIDAR_2D
-  - LIDAR_3D
-  - IMU
-  - GNSS
-  - WHEEL_ENCODER
+  - DETECTION
+  - LOCALIZATION
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c46_lidar_boundary_file: data/race_boundary_yas_marina.map.json
   c46_lidar_fov_deg: 360.0
@@ -152,6 +153,15 @@ plugins:
     stanley_gain: 2.0
     steering_deadband_deg: 2.5
     throttle_per_acceleration: 360.0
+  avlite-bridge-ROS2:
+    base_frame: base_link
+    control_out_topic: /control/command/control_cmd
+    lidar_topic: /sensing/lidar/concatenated/pointcloud
+    localization_topic: /localization/kinematic_state
+    map_frame: map
+    perception_topic: /perception/object_recognition/tracking/objects
+    rgb_topic: /sensing/camera/traffic_light/image_raw
+    use_autoware_msgs: true
   avlite_bridge_ROS2:
     base_frame: base_link
     control_out_topic: /control/command/control_cmd
@@ -225,11 +235,11 @@ plugins:
     p66_show_past_locations: true
     p66_show_race_boundary: true
     p66_show_state: true
-    p66_xy_zoom: 30.0
+    p66_xy_zoom: 170.0
     p67_global_plan_view: false
     p67_local_plan_view: true
     p67_show_local_frenet_view: true
-    p67_show_local_global_view: false
+    p67_show_local_global_view: true
     p67_show_occupancy_flow: true
     p67_show_perception_extras: false
     p68_disable_log: false

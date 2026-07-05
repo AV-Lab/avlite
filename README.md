@@ -2,13 +2,57 @@
   <img src="data/imgs/logo-black-bg.png" alt="AVLite Logo" width="200">
 </p>
 
-# AVLite - Modular Autonomous Vehicle Stack
+<h1 align="center">AVLite</h1>
 
-AVLite is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
+<p align="center">
+  <strong>Modular Autonomous Vehicle Stack for rapid prototyping, research, and education.</strong>
+</p>
 
-**ROS2 & Autoware Ready**: Optional ROS2 executer plugin (`avlite-executer-ROS2` in `related-repos/`) with native Autoware message support (Trajectory, ControlCommand, etc.).
+<p align="center">
+  <a href="https://github.com/AV-Lab/avlite/releases"><img alt="Release" src="https://img.shields.io/github/v/release/AV-Lab/avlite?display_name=tag&sort=semver&color=blue&logo=github"></a>
+  <a href="https://pypi.org/project/avlite/"><img alt="PyPI" src="https://img.shields.io/pypi/v/avlite?color=blue&logo=pypi&logoColor=white"></a>
+  <a href="https://pypi.org/project/avlite/"><img alt="Downloads" src="https://img.shields.io/pypi/dm/avlite?color=blue&logo=pypi&logoColor=white"></a>
+  <a href="https://github.com/AV-Lab/avlite/blob/main/pyproject.toml"><img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white"></a>
+  <a href="https://avlab.io/avlite/"><img alt="Documentation" src="https://img.shields.io/badge/docs-avlab.io-orange?logo=materialformkdocs&logoColor=white"></a>
+  <a href="https://github.com/AV-Lab/avlite/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/AV-Lab/avlite?color=green"></a>
+</p>
 
-![](docs/imgs/tk_visualizer.png)
+<p align="center">
+  <a href="https://github.com/AV-Lab/avlite/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/AV-Lab/avlite?style=social"></a>
+  <a href="https://github.com/AV-Lab/avlite/network/members"><img alt="Forks" src="https://img.shields.io/github/forks/AV-Lab/avlite?style=social"></a>
+  <a href="https://github.com/AV-Lab/avlite/issues"><img alt="Issues" src="https://img.shields.io/github/issues/AV-Lab/avlite?logo=github"></a>
+  <a href="https://github.com/AV-Lab/avlite/pulls"><img alt="Pull Requests" src="https://img.shields.io/github/issues-pr/AV-Lab/avlite?logo=github"></a>
+  <a href="https://github.com/AV-Lab/avlite/commits/main"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/AV-Lab/avlite?logo=git&logoColor=white"></a>
+  <img alt="Code Size" src="https://img.shields.io/github/languages/code-size/AV-Lab/avlite?logo=github">
+</p>
+
+<p align="center">
+  <img alt="NumPy" src="https://img.shields.io/badge/NumPy-2.0%2B-013243?logo=numpy&logoColor=white">
+  <img alt="SciPy" src="https://img.shields.io/badge/SciPy-1.11%2B-8CAAE6?logo=scipy&logoColor=white">
+  <img alt="Matplotlib" src="https://img.shields.io/badge/Matplotlib-3.8%2B-11557C?logo=matplotlib&logoColor=white">
+  <img alt="Shapely" src="https://img.shields.io/badge/Shapely-2.0%2B-3776AB">
+  <img alt="Pydantic" src="https://img.shields.io/badge/Pydantic-2.0%2B-E92063?logo=pydantic&logoColor=white">
+  <img alt="ROS2" src="https://img.shields.io/badge/ROS2-Autoware%20Ready-22314E?logo=ros&logoColor=white">
+</p>
+
+<p align="center">
+  <a href="#installation">Install</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#architecture-overview">Architecture</a> ·
+  <a href="https://avlab.io/avlite/">Documentation</a> ·
+  <a href="docs/plugin-development.md">Plugins</a> ·
+  <a href="#community-plugins">Community</a>
+</p>
+
+---
+
+**AVLite** is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
+
+> **ROS2 & Autoware Ready** — Optional ROS2 executer plugin with native Autoware message support (`Trajectory`, `ControlCommand`, etc.).
+
+<p align="center">
+  <img src="docs/imgs/tk_visualizer.png" alt="AVLite Tk Visualizer" width="100%">
+</p>
 
 ## Architecture Overview
 
@@ -49,7 +93,7 @@ flowchart TB
 - **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, and `replan_global()`
 - **c60_apps**: App infrastructure (`c61_app_strategy`, `c62_factory`, `c63_plugins`, `c64_settings_schema`, `c65_setting_utils`, `c68_paths`); no tkinter
 - **c50_common**: Algorithm utilities only (`c51`–`c55`: capabilities, sensor data, trajectory, collision, FPS)
-- **plugins** (`avlite/plugins/`): Built-in Tk visualizer package (`p60_visualizer_tk`), headless mode, config CLI; bridges and ROS executer live in `related-repos/`
+- **plugins** (`avlite/plugins/`): Built-in Tk visualizer package (`p60_visualizer_tk`), headless mode, config CLI; world bridges and alternative executers are available as optional plugins
 
 ### Key Features
 
@@ -70,7 +114,7 @@ flowchart TB
 ## Why AVLite?
 
 - **Lightweight**: Small codebase focused on clarity over production complexity
-- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via `avlite-executer-ROS2`
+- **No middleware lock-in**: Works standalone; ROS2/Autoware integration is optional via a world-bridge/executer plugin
 - **Multi-simulator**: Same code runs on BasicSim, Carla, or Gazebo
 - **Rapid iteration**: Hot-reload code and tune parameters without restarting
 - **Minimal dependencies**: Core needs only NumPy, Matplotlib, Tkinter
@@ -78,21 +122,25 @@ flowchart TB
 
 ## Installation
 
-**Minimal** (core functionality):
+**From PyPI** (recommended):
 ```bash
-pip install -r requirements-minimal.txt
+pip install avlite
 ```
 
-**Full** (dev tools, docs):
+**From source** (development):
 ```bash
-pip install -r requirements-full.txt
+git clone https://github.com/AV-Lab/avlite.git
+cd avlite
+pip install -e ".[dev]"
 ```
+
+Requires Python 3.10+.
 
 **Optional integrations** (install separately as needed):
-- **CARLA**: [CARLA releases](https://github.com/carla-simulator/carla/releases) + `avlite-bridge-carla` plugin
-- **Gazebo**: ROS 2 + `avlite-bridge-gazebo` plugin
-- **ROS2 + Autoware**: ROS 2 (Humble+) and optionally `autoware_auto_msgs`; clone `avlite-executer-ROS2` and/or `avlite-bridge-ROS2` from `related-repos/` (see [Optional plugins](docs/optional-plugins.md))
-- **Joystick**: `avlite-controller-joystick` plugin (`pip install -r related-repos/avlite-controller-joystick/requirements.txt`)
+- **CARLA**: [CARLA releases](https://github.com/carla-simulator/carla/releases) + the CARLA world-bridge plugin
+- **Gazebo**: ROS 2 + the Gazebo world-bridge plugin
+- **ROS2 + Autoware**: ROS 2 (Humble+) and optionally `autoware_auto_msgs`, plus the ROS2 world-bridge or executer plugin
+- **Joystick**: the joystick controller plugin
 
 Run from source:
 ```bash
@@ -166,7 +214,7 @@ python -m avlite setting-cli export-profile myprofile -o myprofile.yaml
 python -m avlite setting-cli import-profile myprofile.yaml --force
 ```
 
-See [Configuration](docs/index.md#configuration) in the docs for paths, CLI, and resetting to repo defaults.
+See [Configuration](docs/overview.md#configuration) in the docs for paths, CLI, and resetting to repo defaults.
 
 ## Community Plugins
 
@@ -190,16 +238,13 @@ Installed plugins live under `$XDG_DATA_HOME/avlite/plugins`
 (or `~/.local/share/avlite/plugins`); override with `AVLITE_PLUGINS_DIR`.
 
 **Member plugins** (Members tab): sign in with GitHub (Device Flow) to browse
-plugins from [avlite-private-plugins](https://github.com/AV-Lab/avlite-private-plugins).
-Your account must have access to that registry and each listed plugin repo.
-OAuth token is stored at `~/.config/avlite/github_oauth.json`. Distribution
-builds set `AVLITE_GITHUB_OAUTH_CLIENT_ID`. See
-[docs/index.md — Member plugins](docs/index.md#member-plugins) for SSO and
-OAuth troubleshooting.
+plugins from the AV-Lab private registry. Your account must have access to that
+registry and each listed plugin repo. See
+[docs/overview.md — Member plugins](docs/overview.md#member-plugins) for details.
 
 **Publish your own plugin**:
 
-See the [Plugin Development Guide — Publish via pull request](docs/plugin-development.md#10-publish-to-the-community-registry-pull-request) for prerequisites, registry fields, and a PR checklist. Summary:
+See the [Plugin Development Guide — Publish via pull request](docs/plugin-development.md#11-publish-to-the-community-registry-pull-request) for prerequisites, registry fields, and a PR checklist. Summary:
 
 1. Build a plugin following the [Plugin Development Guide](docs/plugin-development.md).
 2. Push it to a public Git repository.
@@ -275,28 +320,13 @@ avlite/
     ├── p60_visualizer_tk/        # Tk visualizer + config + plugins apps (p61–p69)
     ├── p60_setting_cli/
     └── p60_headless_mode/
-
-related-repos/             # Optional plugins (see related-repos/README.md)
-    ├── avlite-bridge-carla/
-    ├── avlite-bridge-gazebo/
-    ├── avlite-bridge-ROS2/
-    ├── avlite-controller-joystick/
-    └── avlite-executer-ROS2/
 ```
 
 The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley controller, etc.
 
-### Optional plugins (`related-repos/`)
+### Optional plugins
 
-| Plugin | Repository folder | Role |
-|--------|-------------------|------|
-| `avlite-bridge-carla` | `related-repos/avlite-bridge-carla/` | CARLA world bridge |
-| `avlite-bridge-gazebo` | `related-repos/avlite-bridge-gazebo/` | Gazebo Ignition bridge |
-| `avlite-bridge-ROS2` | `related-repos/avlite-bridge-ROS2/` | External ROS world bridge |
-| `avlite-controller-joystick` | `related-repos/avlite-controller-joystick/` | Gamepad controller |
-| `avlite-executer-ROS2` | `related-repos/avlite-executer-ROS2/` | Multiprocess ROS executer |
-
-Register in `c62_community_plugins` in the `c69_apps` section of `configs/<profile>.yaml` (shipped profiles already include repo-relative paths). Community plugin settings live under the profile's `plugins:` mapping, keyed by the plugin's dashed name, e.g. `avlite-bridge-carla`.
+Additional world bridges (CARLA, Gazebo, ROS2), executers, and controllers are available as optional plugins. Register them in `c62_community_plugins` in the `c69_apps` section of `configs/<profile>.yaml`; each plugin's settings live under the profile's `plugins:` mapping, keyed by the plugin's dashed name.
 
 ## Testing
 
@@ -325,9 +355,22 @@ Tests mirror the package layout under `test/`. Synthetic fixtures live in `test/
 
 See the [Plugin Development Guide](docs/plugin-development.md) for detailed instructions on creating custom perception, planning, and control components.
 
+## License
 
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
+---
 
+<p align="center">
+  Built with care by <a href="https://github.com/AV-Lab">AV-Lab</a> ·
+  <a href="https://avlab.io/avlite/">Documentation</a> ·
+  <a href="https://github.com/AV-Lab/avlite/issues">Report a bug</a> ·
+  <a href="https://github.com/AV-Lab/avlite/issues">Request a feature</a>
+</p>
+
+<p align="center">
+  <sub>If you find AVLite useful, please consider giving it a ⭐ on <a href="https://github.com/AV-Lab/avlite">GitHub</a>.</sub>
+</p>
 
 
 
