@@ -56,6 +56,13 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         self.lattice = Lattice(
             self.global_trajectory, global_plan.left_boundary_d, global_plan.right_boundary_d,
             planning_horizon=self.planning_horizon, num_of_points=self.num_of_edge_points)
+        # Drop the committed chain: its edges reference the previous global
+        # trajectory, so mixing them with edges built against the new one produces
+        # large XY discontinuities. get_local_plan() falls back to the new global
+        # trajectory until the next replan tick rebuilds the chain.
+        self.selected_local_plan = None
+        self._committed_trajectory = None
+        self._last_plan_change_time = 0.0
 
     def reset(self, wp: int = 0):
         super().reset(wp)

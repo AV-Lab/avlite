@@ -339,6 +339,16 @@ class GlobalHDMapPlot(GlobalPlot):
 
         self.road_arrow = None # for the road direction arrow
         self.lane_arrow = None # for the lane direction arrow
+        self._map_lane_artists: list[Line2D] = []
+
+    def reset(self):
+        """Clear route overlays only; keep the static HD map layer."""
+        self.clear_road_path_plots()
+
+    def _clear_map_lane_artists(self) -> None:
+        for ln in self._map_lane_artists:
+            ln.remove()
+        self._map_lane_artists.clear()
 
     def plot(self, exec: SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True,
              follow_vehicle=True, show_plan_boundaries: bool = True,
@@ -518,6 +528,8 @@ class GlobalHDMapPlot(GlobalPlot):
         all_x_coords = []
         all_y_coords = []
 
+        self._clear_map_lane_artists()
+
         # for r in hdmap.roads:
             # self.ax.plot(r.center_line[0], r.center_line[1], color='red', linewidth=2, alpha=0.5)
 
@@ -532,7 +544,8 @@ class GlobalHDMapPlot(GlobalPlot):
                 color = "gray"
                 alpha = 0.3
             
-            self.ax.plot(l.center_line[0], l.center_line[1], color=color, linewidth=2, alpha=alpha)
+            ln, = self.ax.plot(l.center_line[0], l.center_line[1], color=color, linewidth=2, alpha=alpha)
+            self._map_lane_artists.append(ln)
             all_x_coords.extend(l.center_line[0])
             all_y_coords.extend(l.center_line[1])
 

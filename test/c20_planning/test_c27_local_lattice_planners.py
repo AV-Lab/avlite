@@ -392,3 +392,28 @@ class TestOvertakeChainBuilding:
         chain = planner._build_selected_chain(passing, agent_blocks_ahead=True)
         assert not chain.collision
         assert planner.local_plan_len(chain) == 2
+
+
+class TestSetGlobalPlanClearsStaleChain:
+    def test_set_global_plan_drops_committed_chain(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        head = _link_edges([
+            _edge_at(global_plan.trajectory, 0.0, 20.0),
+            _edge_at(global_plan.trajectory, 20.0, 40.0),
+        ])
+        planner.set_selected_plan(head)
+        assert planner.selected_local_plan is not None
+        assert planner._committed_trajectory is not None
+
+        # A rebuilt global plan carries a fresh TrajectoryTracker; the old edge
+        # chain references the previous one, so it must be dropped on set.
+        new_global_plan = _straight_global_plan()
+        planner.set_global_plan(new_global_plan)
+
+        assert planner.selected_local_plan is None
+        assert planner._committed_trajectory is None
+        # get_local_plan falls back to the new global trajectory until next replan.
+        assert planner.get_local_plan() is not None

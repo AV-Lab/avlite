@@ -782,7 +782,7 @@ class TrajectoryTracker:
             bx = self.path[-1][0] + t * (other.path[0][0] - self.path[-1][0])
             by = self.path[-1][1] + t * (other.path[0][1] - self.path[-1][1])
             bridge_path = list(zip(bx.tolist(), by.tolist()))
-            if self.velocity and other.velocity:
+            if len(self.velocity) and len(other.velocity):
                 bv = (self.velocity[-1] + t * (other.velocity[0] - self.velocity[-1])).tolist()
             else:
                 bv = []

@@ -9,6 +9,7 @@ Tests verify:
 - Custom name is forwarded; default name combines both names.
 - Empty velocity lists are handled gracefully.
 """
+import numpy as np
 import pytest
 
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
@@ -116,3 +117,21 @@ class TestConcatenateEmptyVelocity:
         t2 = TrajectoryTracker(path=path2, velocity=[])
         result = t1.concatenate(t2)
         assert result.is_initialized
+
+
+class TestConcatenateNumpyVelocity:
+    """Local edge trajectories carry numpy velocity arrays (from np.interp).
+
+    Bridging must not evaluate array truthiness (would raise ValueError:
+    "The truth value of an array with more than one element is ambiguous").
+    """
+
+    def test_bridging_with_numpy_velocity_does_not_raise(self):
+        t1 = _straight(0, 10)
+        t2 = _straight(15, 25)   # gap = 5 m > default tolerance -> bridging
+        t1.velocity = np.asarray(t1.velocity, dtype=float)
+        t2.velocity = np.asarray(t2.velocity, dtype=float)
+        bridge_points = 4
+        result = t1.concatenate(t2, gap_tolerance=1.0, bridge_points=bridge_points)
+        assert len(result.path) == len(t1.path) + bridge_points + len(t2.path)
+        assert len(result.velocity) == len(result.path)
