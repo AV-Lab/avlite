@@ -62,6 +62,8 @@ class LogView(ttk.LabelFrame):
 
         self.log_blacklist = set()
         self._filter_state = dict(self._DEFAULT_FILTER_STATE)
+        self._poll_after_id: str | None = None
+        self._closed = False
 
         self.controls_frame = ttk.Frame(self)
         self.controls_frame.pack(fill=tk.X, side=tk.TOP)
@@ -161,7 +163,34 @@ class LogView(ttk.LabelFrame):
         sys.stderr = LogView.StreamToLogger(logger, logging.ERROR)
         self._sync_filter_state()
         log.info("Log initialized.")
-        self.after(self.root.setting.p68_log_pull_time, self.poll_log_queue)
+        self._schedule_poll()
+
+    def _schedule_poll(self) -> None:
+        if self._closed or not self.winfo_exists():
+            return
+        self._poll_after_id = self.after(
+            self.root.setting.p68_log_pull_time, self.poll_log_queue
+        )
+
+    def shutdown(self) -> None:
+        """Stop log polling and detach handlers before the Tk window is destroyed."""
+        self._closed = True
+        if self._poll_after_id is not None:
+            try:
+                self.after_cancel(self._poll_after_id)
+            except tk.TclError:
+                pass
+            self._poll_after_id = None
+        if hasattr(self, "log_handler"):
+            logging.getLogger().removeHandler(self.log_handler)
+        if self._file_handler is not None:
+            logging.getLogger().removeHandler(self._file_handler)
+            self._file_handler.close()
+            self._file_handler = None
+        if isinstance(sys.stderr, LogView.StreamToLogger):
+            sys.stderr = sys.__stderr__
+        if isinstance(sys.stdout, LogView.TextRedirector):
+            sys.stdout = sys.__stdout__
 
     def reset(self):
         self.update_log_filter()
@@ -301,6 +330,8 @@ class LogView(ttk.LabelFrame):
             self.after(50, self.process_log_queue)
 
     def poll_log_queue(self, max_per_poll: int = 20):
+        if self._closed or not self.winfo_exists():
+            return
         messages = []
         try:
             while len(messages) < max_per_poll:
@@ -339,8 +370,8 @@ class LogView(ttk.LabelFrame):
             self.log_area.configure(state="disabled")
             self.log_area.yview(tk.END)
 
-        if self.winfo_exists():
-            self.after(self.root.setting.p68_log_pull_time, self.poll_log_queue)
+        self._poll_after_id = None
+        self._schedule_poll()
 
 
     class TextRedirector:

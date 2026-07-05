@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-05
+
+### Added
+- Curated top-level public API in `avlite/__init__.py` — strategy base classes, data models, capabilities, sensor datatypes, `TrajectoryTracker`, factory helpers (`executor_factory`, `load_stack_settings`), and settings singletons re-exported for plugin authors (`from avlite import ControlStrategy, EgoState, …`)
+- Lazy loading (PEP 562 `__getattr__`) so `import avlite` stays lightweight; `TYPE_CHECKING` imports for IDE and static-analysis support
+- Bundled sample maps and plans under `avlite/data/` (included in distributions via `pyproject.toml` package-data)
+- `docs/quick-start.md` — guided install, visualizer walkthrough, and headless deployment
+- MkDocs Material theme upgrades: tabs, instant navigation, search suggest/highlight, footer, and copyright line
+
+### Changed
+- **Breaking:** Default bundled data moved from repo-root `data/` to `avlite/data/`; `DataPaths.resolve()` falls back to the packaged `avlite/data` directory after the user data dir and legacy `~/.config/avlite/data/`
+- README and docs index simplified: installation via `requirements.txt` / `pip install -e ".[dev]"`; removed `related-repos/` references; optional plugins described generically
+- Plugin development and architecture docs updated for the bundled-data layout and optional-plugin messaging
+- MkDocs nav restructured around the Quick Start guide; updated visualizer screenshot
+
+### Fixed
+- Log view: cancel scheduled poll timers and detach logging handlers on visualizer shutdown (`LogView.shutdown()`)
+- Visualizer window close: call `LogView.shutdown()` and `quit()` before destroy
+- Executer loop: cancel pending `after()` callback when stopping execution (`ExecView.stop_exec()`)
+
 ## [0.4.0] - 2026-07-04
 
 ### Added

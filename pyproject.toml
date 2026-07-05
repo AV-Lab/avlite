@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "avlite"
-version = "0.4.0"
+version = "0.4.1"
 description = "AVLite - Modular Autonomous Vehicle Stack for rapid prototyping, research, and education"
 readme = "README.md"
 license = { text = "MIT" }
@@ -31,7 +31,10 @@ dev = [
 avlite = "avlite.__main__:main"
 
 [tool.setuptools.packages.find]
-exclude = ["test*", "build*", "site*"]
+include = ["avlite", "avlite.*"]
+
+[tool.setuptools.package-data]
+avlite = ["data/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
