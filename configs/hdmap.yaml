@@ -35,11 +35,10 @@ c20_planning:
   c20_default_ego_velocity: 5.0
   c20_min_velocity_threshold: 0.5
   c20_obstacle_inflation_margin: 0.5
-  c26_fallback_deceleration: 3.0
   c26_follow_cruise_min_gap: 15.0
   c26_follow_gap_buffer: 0.5
+  c26_max_deceleration: 3.0
   c26_planning_horizon_points: 50
-  c26_stopping_decel_factor: 0.8
   c26_stopping_safety_buffer: 2.0
   c27_allow_boundary_violation_fallback: false
   c27_allow_curvature_fallback: false
@@ -134,13 +133,12 @@ c69_apps:
   - p60_visualizer_tk
   c62_load_plugins: true
 plugins:
-  p60_setting_cli: {}
   p60_headless_mode:
     dashboard_refresh_hz: 10.0
     log_buffer_size: 500
     stats_panel_height: 18
+  p60_setting_cli: {}
   p60_visualizer_tk:
-    p69_mouse_drag_slowdown_factor: 0.5
     p60_bg_color: '#333333'
     p60_dark_mode: true
     p60_fg_color: white
@@ -151,7 +149,7 @@ plugins:
     p66_frenet_zoom: 30.0
     p66_global_plan_velocity_scale: relative
     p66_global_view_follow_planner: false
-    p66_global_zoom: 217.88447824860305
+    p66_global_zoom: 218.54876019448292
     p66_show_global_plan: true
     p66_show_global_plan_boundaries: true
     p66_show_legend: false
@@ -186,3 +184,4 @@ plugins:
     p68_show_plan_logs: true
     p68_show_plugins_logs: true
     p68_show_vis_logs: true
+    p69_mouse_drag_slowdown_factor: 0.5

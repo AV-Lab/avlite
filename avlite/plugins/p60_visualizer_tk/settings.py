@@ -14,6 +14,7 @@ from avlite.c10_perception.c12_perception_strategy import (
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
@@ -170,6 +171,7 @@ class VisualizationSettings:
 
         self._syncing_stack = False
         self._syncing_perception_pipeline = False
+        self._syncing_local_planning_pipeline = False
         self.detection_strategy_type = tk.StringVar(value=PerceptionSettings.c12_detection_strategy)
 
         def _on_detection_change(*args):
@@ -246,6 +248,33 @@ class VisualizationSettings:
             ExecutionSettings.c40_local_planner = self.local_planner_type.get()
 
         self.local_planner_type.trace_add("write", _on_local_plan_change)
+
+        self.behavioral_strategy_type = tk.StringVar(value=PlanningSettings.c23_behavioral_strategy)
+
+        def _on_behavioral_change(*args):
+            if self._syncing_stack or self._syncing_local_planning_pipeline:
+                return
+            PlanningSettings.c23_behavioral_strategy = self.behavioral_strategy_type.get()
+
+        self.behavioral_strategy_type.trace_add("write", _on_behavioral_change)
+
+        self.path_strategy_type = tk.StringVar(value=PlanningSettings.c23_path_strategy)
+
+        def _on_path_change(*args):
+            if self._syncing_stack or self._syncing_local_planning_pipeline:
+                return
+            PlanningSettings.c23_path_strategy = self.path_strategy_type.get()
+
+        self.path_strategy_type.trace_add("write", _on_path_change)
+
+        self.velocity_strategy_type = tk.StringVar(value=PlanningSettings.c23_velocity_strategy)
+
+        def _on_velocity_change(*args):
+            if self._syncing_stack or self._syncing_local_planning_pipeline:
+                return
+            PlanningSettings.c23_velocity_strategy = self.velocity_strategy_type.get()
+
+        self.velocity_strategy_type.trace_add("write", _on_velocity_change)
 
         self.lap = tk.StringVar(value="0")
         self.current_wp = tk.StringVar(value="0")
@@ -405,6 +434,16 @@ class VisualizationSettings:
         finally:
             self._syncing_perception_pipeline = False
 
+    def sync_local_planning_pipeline_from_c29(self) -> None:
+        """Push c23 pipeline strategy names into main-UI Tk vars without write-back."""
+        self._syncing_local_planning_pipeline = True
+        try:
+            self.behavioral_strategy_type.set(PlanningSettings.c23_behavioral_strategy)
+            self.path_strategy_type.set(PlanningSettings.c23_path_strategy)
+            self.velocity_strategy_type.set(PlanningSettings.c23_velocity_strategy)
+        finally:
+            self._syncing_local_planning_pipeline = False
+
     def sync_stack_from_singletons(self) -> None:
         """Push stack singleton values into Tk vars without write-back."""
         self._syncing_stack = True
@@ -438,5 +477,6 @@ class VisualizationSettings:
             self.log_level.set(es.c40_log_level)
             self.log_to_file.set(es.c40_log_to_file)
             self.sync_perception_pipeline_from_c19()
+            self.sync_local_planning_pipeline_from_c29()
         finally:
             self._syncing_stack = False

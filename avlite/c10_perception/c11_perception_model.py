@@ -234,8 +234,8 @@ class Map(ABC):
     def from_path(cls, path: Path | str) -> Map:
         """Load a map instance from *path*."""
 
-    @classmethod
-    def open(cls, path: Path | str) -> Map | None:
+    @staticmethod
+    def open(path: Path | str) -> Map | None:
         """Dispatch to ``HDMap`` or ``RaceMap`` based on file format."""
         path = Path(path)
         if HDMap.is_loadable(path):

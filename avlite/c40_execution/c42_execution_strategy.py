@@ -16,7 +16,7 @@ from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c49_settings import ExecutionSettings, is_capability_provided
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability, satisfies_requirements
 from avlite.c50_common.c55_fps_tracker import FpsTracker
-from avlite.c50_common.c52_sensor_data import SensorFrame
+from avlite.c50_common.c52_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
 

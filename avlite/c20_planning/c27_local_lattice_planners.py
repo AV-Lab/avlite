@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 import math
 import time
 
@@ -8,14 +8,14 @@ import numpy as np
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c20_planning.c23_local_planning_strategy import (
+    LocalPlanningStrategy,
+    LocalPathPlanningStrategy,
+)
 from avlite.c20_planning.c26_local_planners import VelocityLocalPlanner
 from avlite.c20_planning.c28_lattice import Lattice, Node, Edge
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
-
-if TYPE_CHECKING:
-    from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 import logging
 log = logging.getLogger(__name__)
@@ -32,9 +32,8 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
 
     def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel,
                  planning_horizon: int = 3, num_of_edge_points: int = 10,
-                 controller: Optional['ControlStrategy'] = None,
                  setting: PlanningSettingsSchema = PlanningSettings):
-        super().__init__(global_plan=global_plan, pm=pm, controller=controller, setting=setting)
+        super().__init__(global_plan=global_plan, pm=pm, setting=setting)
 
         self.planning_horizon: int = planning_horizon
         self.num_of_edge_points: int = num_of_edge_points
@@ -75,6 +74,20 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         if self._committed_trajectory is not None:
             return LocalPlan.from_trajectory(self._committed_trajectory)
         return LocalPlan.from_trajectory(self.global_trajectory)
+
+    def plan_path(self, plan: LocalPlan) -> LocalPlan:
+        """Path stage: run the lattice replan and hand back the committed geometry.
+
+        The lattice profiles velocity along its edges as part of ``replan``, so
+        the returned velocity is provisional; a downstream velocity stage may
+        post-process it.
+        """
+        self.replan()
+        lp = self.get_local_plan()
+        plan.path = lp.path
+        plan.velocity = lp.velocity
+        plan.trajectory = lp.as_trajectory()
+        return plan
 
     def should_switch_plan(self, new_plan: Edge, force_if_collision: bool = True) -> bool:
         """
@@ -273,10 +286,10 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         return 1 + self.__plan_len(edge=edge.selected_next_local_plan)
 
 
-class GreedyLatticePlanner(LatticePlanningStrategy):
-    def __init__(self, global_plan: GlobalPlan, env: PerceptionModel, setting: PlanningSettingsSchema = PlanningSettings, controller=None):
+class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
+    def __init__(self, global_plan: GlobalPlan, env: PerceptionModel, setting: PlanningSettingsSchema = PlanningSettings):
 
-        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.c27_num_of_edge_points, planning_horizon=setting.c27_planning_horizon, controller=controller, setting=setting)
+        super().__init__(global_plan=global_plan, pm=env, num_of_edge_points=setting.c27_num_of_edge_points, planning_horizon=setting.c27_planning_horizon, setting=setting)
         self.maneuver_distance: float = setting.c27_maneuver_distance
         self.boundary_clearance: float = setting.c27_boundary_clearance
         self.sample_size: int = setting.c27_sample_size
@@ -287,7 +300,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy):
         self._min_ramp_start_velocity: float = setting.c27_min_ramp_start_velocity
         self._allow_curvature_fallback: bool = setting.c27_allow_curvature_fallback
         self._allow_boundary_violation_fallback: bool = setting.c27_allow_boundary_violation_fallback
-        self._velocity_planner = VelocityLocalPlanner(global_plan, env, controller, setting)
+        self._velocity_planner = VelocityLocalPlanner(global_plan, env, setting)
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)

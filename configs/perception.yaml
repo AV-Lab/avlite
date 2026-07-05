@@ -35,11 +35,10 @@ c20_planning:
   c20_default_ego_velocity: 5.0
   c20_min_velocity_threshold: 0.5
   c20_obstacle_inflation_margin: 0.5
-  c26_fallback_deceleration: 3.0
   c26_follow_cruise_min_gap: 15.0
   c26_follow_gap_buffer: 0.5
+  c26_max_deceleration: 3.0
   c26_planning_horizon_points: 50
-  c26_stopping_decel_factor: 0.8
   c26_stopping_safety_buffer: 2.0
   c27_allow_boundary_violation_fallback: false
   c27_allow_curvature_fallback: false
@@ -125,6 +124,8 @@ c69_apps:
     PixRoboEV: ~/.local/share/avlite/plugins/PixRoboEV
     avlite-bridge-ROS2: avlite-community-plugins/avlite-bridge-ROS2
     avlite-bridge-carla: avlite-community-plugins/avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-community-plugins/avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-community-plugins/avlite-controller-joystick
     avlite-executer-ROS2: avlite-community-plugins/avlite-executer-ROS2
     basic_predictor: avlite-community-plugins/basic_predictor
   c62_default_plugins:

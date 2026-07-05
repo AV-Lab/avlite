@@ -13,6 +13,8 @@ except ImportError:
 _PIL_AVAILABLE = Image is not None
 
 from avlite.c60_apps.c62_factory import executor_factory
+from avlite.c10_perception.c12_perception_strategy import PerceptionPipeline
+from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningPipeline
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c61_app_strategy import AppStrategy
@@ -495,6 +497,18 @@ class VisualizerApp(tk.Tk):
         else:
             self.perceive_plan_control_view.reset()
             self.exec_visualize_view.update_data()
+
+    def refresh_pipeline(self):
+        """Reconstruct active pipeline strategies from current settings (no full stack reload)."""
+        if self.exec is None:
+            return
+        if isinstance(self.exec.perception, PerceptionPipeline):
+            self.exec.perception = PerceptionPipeline(self.exec.pm)
+        if isinstance(self.exec.local_planner, LocalPlanningPipeline):
+            lp = self.exec.local_planner
+            self.exec.local_planner = LocalPlanningPipeline(global_plan=lp.global_plan, env=self.exec.pm)
+        self.exec._validate_stack()
+        self.update_ui()
 
     def reload_stack(self, reload_code:bool = True):
         if reload_code:

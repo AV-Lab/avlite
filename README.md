@@ -267,7 +267,7 @@ avlite/
 │   └── c68_paths.py              # ConfigPaths, PluginPaths, DataPaths
 ├── c50_common/             # Algorithm utilities (c51–c55)
 │   ├── c51_capabilities.py
-│   ├── c52_sensor_data.py
+│   ├── c52_sensor_datatypes.py
 │   ├── c53_trajectory_tracker.py
 │   ├── c54_collision_checking.py
 │   └── c55_fps_tracker.py

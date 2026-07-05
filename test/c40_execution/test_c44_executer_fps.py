@@ -10,15 +10,12 @@ Verifies that:
 All tests use lightweight stubs and avoid any file I/O or simulator initialization.
 """
 import time
-import threading
 from dataclasses import dataclass, field
 from typing import Optional
 
 import pytest
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
-from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -50,11 +47,6 @@ class _StubWorldBridge(WorldBridge):
     def control_ego_state(self, cmd: ControlCommand, dt: float = 0.01):
         if self.delay > 0.0:
             time.sleep(self.delay)
-
-
-class _StubGlobalPlanner(GlobalPlannerStrategy):
-    def plan(self) -> GlobalPlan:
-        return GlobalPlan()
 
 
 class _StubLocalPlanner(LocalPlanningStrategy):

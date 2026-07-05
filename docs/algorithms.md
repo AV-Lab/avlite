@@ -278,8 +278,7 @@ Used by `VelocityLocalPlanner` and for speed-matching on colliding lattice edges
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `c26_stopping_decel_factor` | `0.8` | Fraction of max decel used when stopping behind an agent |
-| `c26_fallback_deceleration` | `3.0` | Deceleration when max decel is unavailable (m/s²) |
+| `c26_max_deceleration` | `3.0` | Max deceleration magnitude used for speed profiling (m/s²) |
 | `c26_stopping_safety_buffer` | `2.0` | Extra standoff distance when stopping (m) |
 | `c26_follow_gap_buffer` | `0.5` | Bumper-to-bumper gap beyond vehicle lengths (m) |
 | `c26_follow_cruise_min_gap` | `15.0` | Gap before deferring back to global cruise speed (m) |

@@ -8,8 +8,11 @@ from avlite.c60_apps.c64_settings_schema import SettingsSchema
 class PlanningSettingsSchema(SettingsSchema):
     filepath: ClassVar[str] = "configs/c20_planning.yaml"
 
-    c26_stopping_decel_factor: float = Field(default=0.8, description="Deceleration factor when stopping (velocity planner).")
-    c26_fallback_deceleration: float = Field(default=3.0, description="Fallback deceleration (m/s²) for velocity planner.")
+    c23_behavioral_strategy: str = Field(default="", description="LocalPlanningPipeline behavioral stage class name (empty = skip).")
+    c23_path_strategy: str = Field(default="GreedyLatticePlanner", description="LocalPlanningPipeline path stage class name (empty = skip).")
+    c23_velocity_strategy: str = Field(default="", description="LocalPlanningPipeline velocity stage class name (empty = skip).")
+
+    c26_max_deceleration: float = Field(default=3.0, description="Max deceleration magnitude (m/s²) used by the velocity planner for speed profiling.")
     c26_stopping_safety_buffer: float = Field(default=2.0, description="Safety buffer distance when stopping (m) for velocity planner.")
     c26_follow_gap_buffer: float = Field(default=0.5, description="Extra standoff beyond bumper lengths when following (m).")
     c26_follow_cruise_min_gap: float = Field(default=15.0, description="Extra gap beyond stopping distance before deferring to global plan speed (m).")

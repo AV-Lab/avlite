@@ -14,7 +14,14 @@ from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c20_planning.c23_local_planning_strategy import (
+    LocalBehavioralPlanningStrategy,
+    LocalPathPlanningStrategy,
+    LocalPlanningPipeline,
+    LocalPlanningStrategy,
+    LocalVelocityPlanningStrategy,
+)
+from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
@@ -118,7 +125,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.detection_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.detection_strategy_type, state="readonly")
         self.detection_dropdown_menu["values"] = tuple(DetectionStrategy.registry.keys())
-        self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
         self.detection_dropdown_menu.grid(row=1, column=1, columnspan=2, sticky="ew")
 
         self._lbl_track = ttk.Label(self, text="Track:")
@@ -126,7 +133,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.tracking_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
         self.tracking_dropdown_menu["values"] = tuple(TrackingStrategy.registry.keys())
-        self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
         self.tracking_dropdown_menu.grid(row=2, column=1, columnspan=2, sticky="ew")
 
         self._lbl_predict = ttk.Label(self, text="Predict:")
@@ -134,7 +141,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.prediction_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.prediction_strategy_type, state="readonly")
         self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
-        self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
         self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=2, sticky="ew")
         attach_schema_tooltip(self.detection_dropdown_menu, PerceptionSettings, "c12_detection_strategy")
         attach_schema_tooltip(self.tracking_dropdown_menu, PerceptionSettings, "c12_tracking_strategy")
@@ -246,25 +253,20 @@ class PlanFrame(ttk.LabelFrame):
         btn_save_global.pack(side=tk.LEFT)
         attach_tooltip(btn_save_global, BUTTON_TOOLTIPS["plan_save_global"])
 
+        ttk.Separator(self, orient="horizontal").pack(fill=tk.X, pady=2)
+
         # - Local -----
         wp_frame = ttk.Frame(self)
         wp_frame.pack(fill=tk.X)
-        # ttk.Separator(wp_frame, orient='horizontal').pack(side=tk.TOP,fill='x', pady=2)
         local_show = ttk.Checkbutton(wp_frame, text="Local", command=self.root.update_views, variable=self.root.setting.p67_local_plan_view)
         local_show.pack(side=tk.LEFT)
         attach_schema_tooltip(local_show, VisualizationSettings, "p67_local_plan_view")
-        local_g = ttk.Checkbutton(wp_frame, text="G", variable=self.root.setting.p67_show_local_global_view, command=self.root.update_ui)
-        local_g.pack(side=tk.LEFT)
-        local_f = ttk.Checkbutton(wp_frame, text="F", variable=self.root.setting.p67_show_local_frenet_view, command=self.root.update_ui)
-        local_f.pack(side=tk.LEFT)
-        attach_schema_tooltip(local_g, VisualizationSettings, "p67_show_local_global_view")
-        attach_schema_tooltip(local_f, VisualizationSettings, "p67_show_local_frenet_view")
 
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
         self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
         self.local_planner_dropdown_menu.state(["readonly"])
         self.local_planner_dropdown_menu.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.local_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
+        self.local_planner_dropdown_menu.bind("<<ComboboxSelected>>", self._on_local_planner_selected)
         attach_schema_tooltip(self.local_planner_dropdown_menu, ExecutionSettings, "c40_local_planner")
 
         btn_set_wp = ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint)
@@ -275,7 +277,48 @@ class PlanFrame(ttk.LabelFrame):
         global_tj_wp_entry.bind("<Return>", self.text_on_enter)
         self._wp_count_label = ttk.Label(wp_frame, text="0")
         self._wp_count_label.pack(side=tk.LEFT, padx=5)
-        ttk.Label(self, text="Lap: ").pack(side=tk.LEFT, padx=5)
+
+        self._lap_label = ttk.Label(self, text="Lap: ")
+        self._local_sub_frame = ttk.Frame(self)
+        self._local_sub_frame.pack(fill=tk.X)
+        local_g = ttk.Checkbutton(self._local_sub_frame, text="G", variable=self.root.setting.p67_show_local_global_view, command=self.root.update_ui)
+        local_g.pack(side=tk.LEFT)
+        local_f = ttk.Checkbutton(self._local_sub_frame, text="F", variable=self.root.setting.p67_show_local_frenet_view, command=self.root.update_ui)
+        local_f.pack(side=tk.LEFT)
+        attach_schema_tooltip(local_g, VisualizationSettings, "p67_show_local_global_view")
+        attach_schema_tooltip(local_f, VisualizationSettings, "p67_show_local_frenet_view")
+
+        self._lbl_behavior = ttk.Label(self._local_sub_frame, text="Behavior:")
+        self.behavioral_dropdown_menu = ttk.Combobox(
+            self._local_sub_frame, textvariable=self.root.setting.behavioral_strategy_type, state="readonly", width=8)
+        self.behavioral_dropdown_menu["values"] = ("",) + tuple(LocalBehavioralPlanningStrategy.registry.keys())
+        self.behavioral_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
+        attach_schema_tooltip(self.behavioral_dropdown_menu, PlanningSettings, "c23_behavioral_strategy")
+        self._lbl_path = ttk.Label(self._local_sub_frame, text="Path:")
+        self.path_dropdown_menu = ttk.Combobox(
+            self._local_sub_frame, textvariable=self.root.setting.path_strategy_type, state="readonly", width=8)
+        self.path_dropdown_menu["values"] = ("",) + tuple(LocalPathPlanningStrategy.registry.keys())
+        self.path_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
+        attach_schema_tooltip(self.path_dropdown_menu, PlanningSettings, "c23_path_strategy")
+        self._lbl_speed = ttk.Label(self._local_sub_frame, text="Speed:")
+        self.velocity_dropdown_menu = ttk.Combobox(
+            self._local_sub_frame, textvariable=self.root.setting.velocity_strategy_type, state="readonly", width=8)
+        self.velocity_dropdown_menu["values"] = ("",) + tuple(LocalVelocityPlanningStrategy.registry.keys())
+        self.velocity_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
+        attach_schema_tooltip(self.velocity_dropdown_menu, PlanningSettings, "c23_velocity_strategy")
+        self._pipeline_widgets = (
+            (self._lbl_behavior, {"side": tk.LEFT, "padx": (5, 0)}),
+            (self.behavioral_dropdown_menu, {"side": tk.LEFT, "fill": tk.X, "expand": True}),
+            (self._lbl_path, {"side": tk.LEFT, "padx": (5, 0)}),
+            (self.path_dropdown_menu, {"side": tk.LEFT, "fill": tk.X, "expand": True}),
+            (self._lbl_speed, {"side": tk.LEFT, "padx": (5, 0)}),
+            (self.velocity_dropdown_menu, {"side": tk.LEFT, "fill": tk.X, "expand": True}),
+        )
+
+        self.root.setting.local_planner_type.trace_add("write", lambda *_: self._update_pipeline_visibility())
+        self._update_pipeline_visibility()
+
+        self._lap_label.pack(side=tk.LEFT, padx=5)
         ttk.Label(self, font=self.root.small_font,
                   textvariable=self.root.setting.lap).pack(side=tk.LEFT, padx=5)
 
@@ -292,12 +335,28 @@ class PlanFrame(ttk.LabelFrame):
         btn_local_replan.pack(side=tk.LEFT, fill=tk.X, expand=True)
         attach_tooltip(btn_local_replan, BUTTON_TOOLTIPS["plan_local_replan"])
 
+    def _on_local_planner_selected(self, event=None):
+        self._update_pipeline_visibility()
+        self.root.reload_stack(reload_code=False)
+
+    def _update_pipeline_visibility(self):
+        show = self.root.setting.local_planner_type.get() == LocalPlanningPipeline.__name__
+        for widget, pack_kwargs in self._pipeline_widgets:
+            if show:
+                widget.pack(**pack_kwargs)
+            else:
+                widget.pack_forget()
+
     def update_data(self):
         """Update data in the plan frame."""
         self.local_planner_dropdown_menu.delete(0, tk.END)  # Clear existing values
         self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
         self.global_planner_dropdown_menu.delete(0, tk.END)  # Clear existing values
         self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
+        self.behavioral_dropdown_menu["values"] = ("",) + tuple(LocalBehavioralPlanningStrategy.registry.keys())
+        self.path_dropdown_menu["values"] = ("",) + tuple(LocalPathPlanningStrategy.registry.keys())
+        self.velocity_dropdown_menu["values"] = ("",) + tuple(LocalVelocityPlanningStrategy.registry.keys())
+        self._update_pipeline_visibility()
         if self.root.exec is not None:
             self._wp_count_label.config(
                 text=f"{len(self.root.exec.local_planner.global_trajectory.path_x) - 1}"
@@ -330,7 +389,6 @@ class PlanFrame(ttk.LabelFrame):
 
     def replan_global(self):
         self.root.exec.replan_global()
-        self.root.global_plan_plot_view.global_plot.reset()
         self.root.local_plan_plot_view.reset()
         self.root.global_plan_plot_view.plot()
         self.root.local_plan_plot_view.plot()

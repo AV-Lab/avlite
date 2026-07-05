@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import numpy as np
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c20_planning.c23_local_planning_strategy import (
+    LocalPlanningStrategy,
+    LocalVelocityPlanningStrategy,
+)
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
 from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
-
-if TYPE_CHECKING:
-    from avlite.c30_control.c32_control_strategy import ControlStrategy
 
 log = logging.getLogger(__name__)
 
@@ -22,20 +22,22 @@ log = logging.getLogger(__name__)
 _DECEL_EPS = 0.3
 
 
-class VelocityLocalPlanner(LocalPlanningStrategy):
-    """Follow global path geometry; adjust velocity via speed-match when obstacles block the path."""
+class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy):
+    """Follow global path geometry; adjust velocity via speed-match when obstacles block the path.
+
+    Dual-role: usable standalone as a :class:`LocalPlanningStrategy`, or as the
+    velocity stage of :class:`LocalPlanningPipeline` via :meth:`plan_velocity`.
+    """
 
     def __init__(
         self,
         global_plan: GlobalPlan,
         env: PerceptionModel,
-        controller: Optional["ControlStrategy"] = None,
         setting: PlanningSettingsSchema = PlanningSettings,
     ):
-        super().__init__(global_plan=global_plan, pm=env, controller=controller, setting=setting)
+        super().__init__(global_plan=global_plan, pm=env, setting=setting)
         self._local_trajectory: Optional[TrajectoryTracker] = None
-        self._stopping_decel_factor = setting.c26_stopping_decel_factor
-        self._fallback_deceleration = setting.c26_fallback_deceleration
+        self._max_decel = setting.c26_max_deceleration
         self._stopping_safety_buffer = setting.c26_stopping_safety_buffer
         self._follow_gap_buffer = setting.c26_follow_gap_buffer
         self._follow_cruise_min_gap = setting.c26_follow_cruise_min_gap
@@ -63,6 +65,16 @@ class VelocityLocalPlanner(LocalPlanningStrategy):
         ref_velocity = np.asarray(local_tj.velocity, dtype=float)
         self.profile_trajectory(local_tj, ref_velocity=ref_velocity)
         self._local_trajectory = local_tj
+
+    def plan_velocity(self, plan: LocalPlan) -> LocalPlan:
+        """Velocity stage: profile the incoming plan's trajectory in place."""
+        tj = plan.as_trajectory()
+        if tj is not None:
+            ref_velocity = np.asarray(tj.velocity, dtype=float)
+            self.profile_trajectory(tj, ref_velocity=ref_velocity)
+            plan.velocity = list(tj.velocity)
+            plan.trajectory = tj
+        return plan
 
     def _large_gap_cruise_threshold(
         self, trajectory: TrajectoryTracker, collision_idx: int, target_vel: float
@@ -292,11 +304,7 @@ class VelocityLocalPlanner(LocalPlanningStrategy):
             velocity[i] = capped
 
     def _max_deceleration(self) -> float:
-        if self.controller is not None:
-            max_decel = abs(self.controller.ego_min_acceleration) * self._stopping_decel_factor
-        else:
-            max_decel = self._fallback_deceleration
-        return max_decel if max_decel >= 0.1 else self._fallback_deceleration
+        return self._max_decel if self._max_decel >= 0.1 else 3.0
 
     def _brake_start_index_from_s(
         self, trajectory: TrajectoryTracker, start_wp: int, target_dist: float

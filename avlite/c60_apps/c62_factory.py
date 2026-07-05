@@ -29,7 +29,13 @@ from avlite.c10_perception.c12_perception_strategy import (
     TrackingStrategy,
 )
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c20_planning.c23_local_planning_strategy import (
+    LocalBehavioralPlanningStrategy,
+    LocalPathPlanningStrategy,
+    LocalPlanningPipeline,
+    LocalPlanningStrategy,
+    LocalVelocityPlanningStrategy,
+)
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
@@ -157,6 +163,8 @@ def executor_factory(
     pl_cls = _RegistryChecks.require_registered(
         local_planner_strategy_name, LocalPlanningStrategy.registry, "local planner"
     )
+    if local_planner_strategy_name == LocalPlanningPipeline.__name__:
+        _RegistryChecks.require_local_pipeline_substrategies()
     pl = pl_cls(global_plan=local_global_plan, env=pm)
 
     #################
@@ -332,3 +340,22 @@ class _RegistryChecks:
         if missing:
             detail = ", ".join(f"{stage} '{name}'" for stage, name in missing)
             raise ValueError(f"Could not load PerceptionPipeline sub-strategies: {detail}")
+
+    @staticmethod
+    def missing_local_pipeline_substrategies() -> list[tuple[str, str]]:
+        missing: list[tuple[str, str]] = []
+        for stage, name, registry in (
+            ("behavioral", PlanningSettings.c23_behavioral_strategy, LocalBehavioralPlanningStrategy.registry),
+            ("path", PlanningSettings.c23_path_strategy, LocalPathPlanningStrategy.registry),
+            ("velocity", PlanningSettings.c23_velocity_strategy, LocalVelocityPlanningStrategy.registry),
+        ):
+            if name and name not in registry:
+                missing.append((stage, name))
+        return missing
+
+    @staticmethod
+    def require_local_pipeline_substrategies() -> None:
+        missing = _RegistryChecks.missing_local_pipeline_substrategies()
+        if missing:
+            detail = ", ".join(f"{stage} '{name}'" for stage, name in missing)
+            raise ValueError(f"Could not load LocalPlanningPipeline sub-strategies: {detail}")

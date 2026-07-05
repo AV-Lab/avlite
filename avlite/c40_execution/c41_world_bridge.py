@@ -9,7 +9,7 @@ from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommandBase
 from avlite.c30_control.c38_control_mapping import control_type_for_agent
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
-from avlite.c50_common.c52_sensor_data import (
+from avlite.c50_common.c52_sensor_datatypes import (
     GnssReading,
     ImuReading,
     SensorFrame,
@@ -121,17 +121,17 @@ class WorldBridge(ABC):
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     def get_rgb_image(self, agent_id: int = EGO_AGENT_ID) -> RgbImage | None:
-        """Returns the RGB image. Layout: ``RgbImage`` in c62_sensor_data."""
+        """Returns the RGB image. Layout: ``RgbImage`` in c52_sensor_datatypes."""
         self._require_ego_agent(agent_id, "rgb")
         return None
 
     def get_depth_image(self, agent_id: int = EGO_AGENT_ID) -> DepthImage | None:
-        """Returns the depth image. Layout: ``DepthImage`` in c62_sensor_data."""
+        """Returns the depth image. Layout: ``DepthImage`` in c52_sensor_datatypes."""
         self._require_ego_agent(agent_id, "depth")
         return None
 
     def get_lidar_data(self, agent_id: int = EGO_AGENT_ID) -> LidarCloud | None:
-        """Returns the lidar point cloud. Layout: ``LidarCloud`` in c62_sensor_data."""
+        """Returns the lidar point cloud. Layout: ``LidarCloud`` in c52_sensor_datatypes."""
         self._require_ego_agent(agent_id, "lidar")
         return None
 

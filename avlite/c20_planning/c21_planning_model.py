@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
+from enum import Enum, auto
 import logging
 import json
 
@@ -9,6 +10,7 @@ from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
+
 
 @dataclass
 class GlobalPlan:
@@ -120,6 +122,17 @@ class GlobalPlan:
         """Return the plan's trajectory (same interface as LocalPlan)."""
         return self.trajectory
 
+
+class LocalBehavior(Enum):
+    """High-level driving intent decided by the behavioral planning stage."""
+
+    CRUISE = auto()          # Track the reference at nominal speed
+    FOLLOW = auto()          # Match a lead vehicle's speed
+    STOP = auto()            # Come to a controlled stop
+    OVERTAKE = auto()        # Pass a blocking agent
+    LANE_CHANGE_LEFT = auto()
+    LANE_CHANGE_RIGHT = auto()
+
 @dataclass
 class LocalPlan:
     """Minimal local-planning output consumed by the control layer.
@@ -132,6 +145,9 @@ class LocalPlan:
     velocity: list[float] = field(default_factory=list)
 
     trajectory: Optional[TrajectoryTracker] = None
+
+    # High-level intent set by the behavioral planning stage of the pipeline.
+    behavior: LocalBehavior = LocalBehavior.CRUISE
 
     @classmethod
     def from_trajectory(cls, trajectory: TrajectoryTracker) -> "LocalPlan":

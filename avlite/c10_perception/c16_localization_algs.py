@@ -16,7 +16,7 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
-from avlite.c50_common.c52_sensor_data import SensorFrame
+from avlite.c50_common.c52_sensor_datatypes import SensorFrame
 from avlite.c50_common.c51_capabilities import (
     AnyOf,
     StackCapability,
