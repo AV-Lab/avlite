@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-04
+
 ### Added
+- `StackCapability` — unified enum for stack-produced/consumed capabilities (`DETECTION`, `TRACKING`, `PREDICTION`, `LOCAL_PLAN`, `GLOBAL_PLAN`, `CONTROL`, `LOCALIZATION`, `MAP`, `SLAM`), replacing the per-module `PerceptionCapability` / `LocalizationCapability` / `MappingCapability` enums
+- Consistent 2×2 capability contract: every strategy declares `world_requirements` (sensors) and `stack_requirements` (upstream modules) and advertises `stack_capabilities`; world bridges expose `world_capabilities` plus an optional `stack_capabilities` for supplying ground truth
+- Runtime enforcement of `stack_requirements` in the executer: modules whose upstream dependencies are unmet are warned at assembly and their steps are gated
+- Ego actuation now requires an available pose source: when `LOCALIZATION` is unavailable (no localization strategy and no ground-truth localization from the world) both sync and async executers halt ego control so the vehicle does not move (`Executer._can_actuate()`)
+- Bridge settings: scrollable, interactive checklist of the bridge's providable world/ground-truth capabilities that controls which data is fed to the stack, backed by `ExecutionSettings.c41_provided` and `is_capability_provided()` / `provided_capability_names()` helpers
+- `scripts/migrate_configs.py` — one-time migration from the old per-layer/per-plugin YAML files to the new per-profile `configs/<profile>.yaml` layout, applying field renames (`c52_*` → `c62_*`, `c50_selected_profile` → `c60_selected_profile`, `p5x_*` → `p6x_*`)
+- `c65_setting_utils.section_key()` / `profile_file_path()` and file-level `delete_profile()` / `rename_profile()` for the single-file-per-profile model
+- `setting-cli export-profile --no-app` / `--no-plugins` flags and Export dialog checkboxes (include app settings / include plugin settings)
+- `AppStrategy` registry in `c50_apps/c51_app_strategy.py` — pluggable CLI/GUI entry points (`setting`, `config-cli`, `plugins`, `headless`, default visualizer)
+- Standalone settings GUI: `python -m avlite setting` (no visualizer panels)
+- `p50_config_cli` built-in plugin — terminal profile validate/describe/import/export (`config-cli` subcommand)
 - Community plugin import infrastructure: `sync_community_plugins()`, `CommunityPluginFinder` meta-path hook, and dashed-name → Python import mapping (`plugin_import_name`)
 - `PluginPaths.repo_root()` and repo-relative community plugin path resolve/shorten
 - `Executer.apply_global_plan()` — shared helper to push a global plan to the local planner and controller
@@ -15,11 +28,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `VisualizerApp.on_community_plugins_changed()` — reload stack and refresh UI after community plugin install/uninstall
 - Clean visualizer shutdown (`WM_DELETE_WINDOW` stops execution before destroy); stop execution on profile switch
 - `load_boundary_segments()` and `boundary_segments_from_global_plan()` helpers in `c46_basic_sim.py`
-- `test/c60_common/test_c66_community_plugin_settings.py` — community plugin settings paths and import hook
-- `test/c60_common/test_import_boundary.py` — core layers (`c40`, `c60`, `plugins`) must not import `c50_visualization`
+- `test/c60_apps/` — factory smoke, plugin settings, schema validation, log routing
+- `test/c50_common/test_c50_import_boundary.py` — stack core (`c10`–`c40`, `c50_common`) must not import disallowed `c60_apps` or `p60_*` apps
 - README, architecture, and plugin-development docs for optional community plugins (`avlite-bridge-*`, `avlite-executer-ROS2`, `avlite-controller-joystick`)
+- `LocalPlanningPipeline` — staged local planning (behavioral → path → velocity), mirroring `PerceptionPipeline`; threads a mutable `LocalPlan` through stages
+- Stage interfaces and registries: `LocalBehavioralPlanningStrategy`, `LocalPathPlanningStrategy`, `LocalVelocityPlanningStrategy`
+- `LocalBehavior` enum and `LocalPlan.behavior` field
+- Pipeline stage planners: `CruiseBehavioralPlanner`, `ReferencePathPlanner`; dual-role `VelocityLocalPlanner` and `GreedyLatticePlanner` (standalone `LocalPlanningStrategy` and pipeline stage)
+- Planning settings: `c23_behavioral_strategy`, `c23_path_strategy`, `c23_velocity_strategy`
+- Planning panel: pipeline sub-strategy dropdowns when `LocalPlanningPipeline` is selected; in-place pipeline refresh without full stack reload
+- `test/c20_planning/test_c23_local_planning_pipeline.py`
 
 ### Changed
+- **Breaking:** Capability API renamed for symmetry — strategy `requirements` → `world_requirements`, strategy `capabilities` → `stack_capabilities`; `WorldBridge.capabilities` → `world_capabilities` (update any custom strategies/bridges)
+- Ground truth is now supplied through the world bridge's `stack_capabilities` (e.g. `BasicSim` provides `DETECTION`/`TRACKING`/`LOCALIZATION`) instead of dedicated `GT_*` world capabilities, and is filtered by the Bridge checklist
+- **Breaking:** Renamed terminal CLI `config-cli` → `setting-cli` and built-in plugin `p60_config_cli` → `p60_setting_cli` (pairs with GUI `avlite setting`)
+- **Breaking:** Profile export supports optional stack layer sections via `include_stack` / `--no-stack` and a **Stack settings** checkbox in the Export dialog (alongside app and plugin toggles)
+- **Breaking:** Renamed `c50_apps` → `c60_apps` (inner modules `c5x` → `c6x`) and `c60_common` → `c50_common` (inner modules `c6x` → `c5x`); built-in plugins `p50_*` → `p60_*` (`p60_visualizer_tk`, `p60_config_cli`, `p60_headless_mode`) with inner modules `p5x` → `p6x`
+- **Breaking:** App bootstrap fields renamed `c52_load_plugins` / `c52_default_plugins` / `c52_community_plugins` → `c62_*` and `c50_selected_profile` → `c60_selected_profile`; visualizer fields `p5x_*` → `p6x_*`
+- **Breaking:** Config layout is now **one file per profile** — `configs/<profile>.yaml` with sections `c10_perception`, `c20_planning`, `c30_control`, `c40_execution`, `c69_apps`, and `plugins:` (per-plugin settings keyed by directory name); replaces the per-layer (`c10_perception.yaml`, …) and per-plugin (`plugin_*.yaml`, `c59_apps.yaml`) files
+- **Breaking:** Profile export/import is a single `.yaml` (was a zip); `c65_setting_utils.export_profile()` / `import_profile()` gate stack layers, `c69_apps`, and `plugins` sections behind include flags
+- **Breaking:** `p50_visualizer_tk` modules renumbered to `p51`–`p59` (apps at `p51_visualizer_app`, `p52_setting_app`, `p53_plugins_app`); settings GUI CLI renamed from `avlite config` to `avlite setting`; visualization YAML keys updated (`p56_*` plot, `p57_*` stack panels, `p58_*` log)
+- **Breaking:** Merged Tk plugins into one package: `p50_visualizer_tk` hosts the visualizer, settings GUI (`avlite setting`), and plugin manager (`avlite plugins`); removed `p50_config_tk` and `p50_plugins_app_tk`
+- **Breaking:** App bootstrap settings moved to `c59_settings.py` / `configs/c59_apps.yaml` (`c50_load_plugins`, `c50_default_plugins`, `c50_community_plugins`, profile selection)
+- **Breaking:** Plugin lists removed from `c40_execution.yaml` (`c40_default_plugins`, `c40_community_plugins` → `c50_*` on `AppSettings`)
+- **Breaking:** Visualization YAML is `plugin_p50_visualizer_tk.yaml` only (deleted `plugin_p50_config_tk.yaml`, `plugin_p50_plugins_app_tk.yaml`; no legacy `c50_apps.yaml` fallback)
+- **Breaking:** Visualization settings fields use consumer prefixes (`p50_*`, `p56_*`, `p57_*`, `p58_*`, …) in `p50_visualizer_tk/settings.py`; `AppSettingsUI` Tk binder moved out of `c59_settings.py`
+- c50_apps private helpers grouped into module-local classes (public API unchanged)
+- p50 plugin modules use top-level imports for clearer inter-module dependencies (optional deps use try/except sentinels at module scope)
+- **Breaking:** p50 app entry classes renamed from `*AppStrategy` to `*App` (`VisualizationApp` for the default visualizer CLI entry; base class remains `AppStrategy`)
+- **Breaking:** Expand `c50_apps` to full app infrastructure: `c51_app_strategy`, `c52_factory`, `c53_plugins`, `c54_settings_schema`, `c55_setting_utils`, `c58_paths` (includes `DataPaths`); `c60_common` slimmed to `c61`–`c65` only
+- **Breaking:** Renamed `c50_app_strategy` → `c51_app_strategy`; moved `c43_factory` → `c52_factory`, `c66_plugins` → `c53_plugins`, `c68_settings_schema` → `c54_settings_schema`, `c69_setting_utils` → `c55_setting_utils`
+- **Breaking:** Stack core may import `c51_app_strategy`, `c54_settings_schema`, and `c58_paths` only (import-boundary allowlist)
+- **Breaking:** Slim `c50_apps` to non-Tk app infrastructure (prior release); shared Tk in `p50_config_tk`
+- **Breaking:** Tk apps moved from `c50_apps` to built-in plugins: `p50_visualizer_tk`, `p50_config_tk`, `p50_plugins_app_tk` (prior release)
+- **Breaking:** `import_app_plugins()` moved from `c66_plugins` to `c50_app_strategy`
+- **Breaking:** Terminal config commands moved from `avlite config validate|describe|…` to `avlite config-cli …`; `avlite config` opens the settings GUI
 - **Breaking:** Optional integrations moved out of `avlite/plugins/` into separate community plugins with new names:
   - `p40_bridge_carla` → `avlite-bridge-carla`
   - `p40_bridge_gazebo` → `avlite-bridge-gazebo`
@@ -34,17 +78,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ROS execution profile defaults updated (planner, perception pipeline, boundary file, sim timing)
 - Consolidated modules: deleted `c17_map.py`, `c50_stack_loader.py`, `_visualization_ui.py`, `c66_hdmap.py`
 - Stack orchestration moved into `c43_factory` (`load_stack_settings`, core `get_stack_settings_classes()`); GUI profile export uses `c59_settings.get_stack_settings_classes()` for visualization YAML
-- Renamed `c60_plugins.py` → `c66_plugins.py`
+- Renamed `c60_plugins.py` → `c53_plugins.py`
 - `c67_paths` slimmed to `ConfigPaths`, `PluginPaths`, and `DataPaths`; `c54_plugins` refactored into internal Git/plugin operation classes
 - `Map` / `RaceMap` live in `c11_perception_model.py`; OpenDRIVE `HDMap` parser in `c18_hdmap_parser.py`
 - `VisualizationSettings` Tk binder merged back into `c59_settings.py` (schema + runtime class)
+- **Breaking:** Local planning modules reorganized by pipeline stage:
+  - `c26_local_planners.py` → `c27_local_behavioral_and_velocity_planners.py`
+  - `c27_local_lattice_planners.py` + `c28_lattice.py` → `c28_local_lattice_planners.py`
+  - New `c26_local_path_planners.py` (`ReferencePathPlanner`)
+  - `c23_local_planning_strategy.py` trimmed to base + ABCs + pipeline only
+- **Breaking:** Planning settings renamed to match consumer file numbers in `c29_settings.py` and all `configs/*.yaml` profiles:
+  - Velocity `c26_*` → `c27_*` (e.g. `c27_max_deceleration`, `c27_planning_horizon_points`)
+  - Lattice `c27_*` → `c28_*` (e.g. `c28_planning_horizon`, `c28_maneuver_distance`)
+  - Shared `c27_min_ramp_start_velocity` → `c20_min_ramp_start_velocity`
+- Local planners decoupled from control layer: removed `controller` constructor parameter; velocity profiling uses `c27_max_deceleration` instead of control settings
+- Velocity/lattice planners: inlined thin single-use helpers (structure only; no behavior change)
+- Docs updated: `docs/algorithms.md`, `docs/settings-naming.md`, `README.md` module map
+- For extenders/custom YAML: update imports to `c27_local_behavioral_and_velocity_planners`, `c28_local_lattice_planners`, `c26_local_path_planners`; rename `c20_planning` keys per the table above
 
 ### Removed
+- **Breaking:** `PerceptionCapability`, `LocalizationCapability`, and `MappingCapability` enums (folded into `StackCapability`)
+- **Breaking:** `GT_DETECTION` / `GT_TRACKING` / `GT_LOCALIZATION` members of `WorldCapability` (ground truth now flows through world `stack_capabilities`)
+- **Breaking:** `ExecutionSettings.c41_provide_ground_truth` / `c41_provide_rgb` / `c41_provide_depth` / `c41_provide_lidar` booleans and their fixed Bridge checkboxes (replaced by the `c41_provided` capability checklist)
 - Built-in plugins: `p30_controller_joystick`, `p40_bridge_carla`, `p40_bridge_gazebo`, `p40_bridge_ROS2`, `p40_executer_ROS2` (now optional community plugins)
 - Bundled `configs/plugin_p30_controller_joystick.yaml` and `configs/plugin_p40_*.yaml`
-- `async` profile from `c40_execution.yaml` and `c50_visualization.yaml`
+- `async` profile from `c40_execution.yaml` and `c50_apps.yaml`
 - Per-profile embedded settings from `c10_perception.yaml`, `c20_planning.yaml`, and `c30_control.yaml`
 - `c17_mapping_algs.py` placeholder (mapping interface remains in `c14_mapping_strategy.py`)
+- **Breaking:** Deleted modules `c26_local_planners.py`, `c27_local_lattice_planners.py`, `c28_lattice.py` (no import shims)
+- **Breaking:** Removed planning settings `c26_stopping_decel_factor`, `c26_fallback_deceleration` (superseded by `c27_max_deceleration`)
 
 ### Fixed
 - Missing config file on load treated as defaults (debug log) instead of error in `load_setting`
@@ -56,7 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings window **Export profile** / **Import profile**: zip of per-file profile slices (including community plugin YAMLs when referenced); validated against Pydantic schemas on export and import
 - `avlite config export-profile` and `avlite config import-profile` CLI subcommands
 - **Edit repository configs** (settings window, git clone only): optional dev mode to switch read/write between user dir and `{repo}/configs/`; preference in `~/.config/avlite/config_target`
-- `c66_plugins.py` (plugin discovery, loading, log routing) and `c67_paths.py` (config/XDG paths)
+- `c53_plugins.py` (plugin discovery, loading, log routing) and `c58_paths.py` (config/XDG paths)
 - Thread-safe log filter snapshots in the visualizer (Core / Plugins / per-layer toggles)
 - Community plugin import skips `.venv`, `site-packages`, and similar vendor directories
 - Tabbed **Community** / **Members** plugin browser (`python -m avlite plugins`)
@@ -64,7 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth token persistence at `~/.config/avlite/github_oauth.json`; `AVLITE_GITHUB_OAUTH_CLIENT_ID` override
 - SAML SSO authorize-link handling on 403; Copy button for device-flow user code
 - Safety disclaimers on both plugin tabs
-- Tests in `test/c50_visualization/test_community_plugins_github.py`
+- Tests in `test/c60_apps/test_c63_plugins.py`
 - UI logo resolved from repo `data/imgs/` independent of CWD
 
 ### Changed

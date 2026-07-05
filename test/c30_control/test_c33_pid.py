@@ -12,7 +12,7 @@ from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c30_control.c33_pid import PIDController
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c39_settings import ControlSettingsSchema
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
 
 
 def _straight_path(x_end: float = 100.0, n: int = 20, velocity: float = 5.0) -> TrajectoryTracker:

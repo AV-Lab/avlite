@@ -1,0 +1,139 @@
+c10_perception:
+  c11_max_agents: 13
+  c11_predict_delta_t: 0.1
+  c11_prediction_grid_size: 100
+  c11_state_default_heading: 0
+  c12_detection_strategy: ''
+  c12_prediction_strategy: ConstantVelocityPrediction
+  c12_tracking_strategy: ''
+  c15_detection_default_length: 4.5
+  c15_detection_default_width: 2.0
+  c15_detection_delta_max: 6.0
+  c15_detection_delta_min: 1.0
+  c15_detection_min_length: 0.5
+  c15_detection_min_width: 0.5
+  c15_detection_mu: 0.5
+  c15_detection_z_max: 0.5
+  c15_detection_z_min: -1.5
+  c15_prediction_horizon: 2.0
+  c15_tracking_dt: 0.1
+  c15_tracking_gate_distance: 4.0
+  c15_tracking_init_velocity_var: 25.0
+  c15_tracking_max_missed: 12
+  c15_tracking_measurement_noise: 0.5
+  c15_tracking_min_speed: 0.5
+  c15_tracking_process_noise: 1.0
+  c16_localization_icp_max_correspondence_dist: 5.0
+  c16_localization_icp_max_iterations: 30
+  c16_localization_icp_tolerance: 0.0001
+  c16_localization_lidar_z_max: 2.0
+  c16_localization_lidar_z_min: -1.5
+  c16_localization_map_subsample: 1
+c20_planning:
+  c20_boundary_margin: 0.5
+  c20_collision_safety_margin: 0.3
+  c20_default_ego_velocity: 5.0
+  c20_min_ramp_start_velocity: 3.0
+  c20_min_velocity_threshold: 0.5
+  c20_obstacle_inflation_margin: 0.5
+  c27_follow_cruise_min_gap: 15.0
+  c27_follow_gap_buffer: 0.5
+  c27_max_deceleration: 3.0
+  c27_planning_horizon_points: 50
+  c27_stopping_safety_buffer: 2.0
+  c28_allow_boundary_violation_fallback: false
+  c28_allow_curvature_fallback: false
+  c28_boundary_clearance: 0.5
+  c28_d0_reference_threshold: 0.2
+  c28_disconnect_distance_threshold: 5.0
+  c28_maneuver_distance: 30
+  c28_match_speed_wp_buffer: 4
+  c28_max_lateral_accel: 4.0
+  c28_min_curvature_velocity: 3.0
+  c28_min_edge_progress_to_block: 0.2
+  c28_num_of_edge_points: 10
+  c28_planning_horizon: 3
+  c28_replan_wait_time: 2.5
+  c28_safety_margin_weight: 0.3
+  c28_sample_size: 3
+  c28_urgent_collision_threshold: 3
+c30_control:
+  c30_emergency_braking_factor: 0.9
+  c30_emergency_min_moving_velocity: 1.0
+  c30_emergency_velocity_threshold: 0.5
+  c32_ego_distance_front_axle: 2.5
+  c32_ego_max_acceleration: 10.0
+  c32_ego_max_steering: 0.7
+  c32_ego_max_velocity: 30.0
+  c32_ego_min_acceleration: -20.0
+  c32_ego_min_steering: -0.7
+  c33_pid_alpha: 0.01
+  c33_pid_beta: 0.001
+  c33_pid_gamma: 0.6
+  c33_pid_lookahead: 2
+  c33_pid_valpha: 0.8
+  c33_pid_vbeta: 0.01
+  c33_pid_vgamma: 0.3
+  c34_stanley_k: 5.0
+  c34_stanley_k_soft: 0.01
+  c34_stanley_lookahead: 5
+  c34_stanley_slow_down_cte: 0.5
+  c34_stanley_slow_down_heading_cte: 0.5235987755982988
+  c34_stanley_slow_down_vel_threshold: 3.0
+  c34_stanley_valpha: 0.8
+  c34_stanley_vbeta: 0.01
+  c34_stanley_vgamma: 0.3
+c40_execution:
+  c40_async_combined_perception_planning: true
+  c40_bridge: BasicSim
+  c40_control_dt: 0.01
+  c40_controller: StanleyController
+  c40_executer_type: AsyncThreadedExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
+  c40_hd_map: data/san_campus.xodr
+  c40_local_planner: GreedyLatticePlanner
+  c40_localization: ''
+  c40_localization_dt: 0.1
+  c40_log_level: DEBUG
+  c40_log_to_file: false
+  c40_mapping: ''
+  c40_perception: PerceptionPipeline
+  c40_perception_dt: 0.01
+  c40_reference_point:
+  - 24.46992202098782
+  - 54.60522506805341
+  c40_replan_dt: 0.01
+  c40_sim_dt: 0.01
+  c41_provided:
+  - IMU
+  - GNSS
+  - WHEEL_ENCODER
+  - DETECTION
+  - TRACKING
+  - LOCALIZATION
+  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
+  c46_lidar_boundary_file: data/race_boundary_yas_marina.map.json
+  c46_lidar_fov_deg: 360.0
+  c46_lidar_num_beams: 360
+  c46_lidar_range: 50.0
+  c46_npc_control: true
+  c46_npc_speed_factor: 0.8
+c69_apps:
+  c60_selected_profile: global planning
+  c62_community_plugins:
+    avlite-bridge-ROS2: avlite-bridge-ROS2
+    avlite-bridge-carla: avlite-bridge-carla
+    avlite-bridge-gazebo: avlite-bridge-gazebo
+    avlite-controller-joystick: avlite-controller-joystick
+    avlite-executer-ROS2: avlite-executer-ROS2
+    sample_avlite_plugin: sample_avlite_plugin
+  c62_default_plugins:
+  - p60_headless_mode
+  - p60_setting_cli
+  - p60_visualizer_tk
+  c62_load_plugins: true
+plugins:
+  p60_setting_cli: {}
+  p60_visualizer_tk:
+    p60_next_profile: global planning

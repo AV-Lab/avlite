@@ -1,14 +1,16 @@
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, field
+from enum import Enum, auto
 import logging
 import json
 
 from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
+
 
 @dataclass
 class GlobalPlan:
@@ -79,7 +81,7 @@ class GlobalPlan:
             velocity = data["ReferenceSpeed"]
             if velocity and velocity[0] <= 0:
                 velocity = list(velocity)
-                velocity[0] = PlanningSettings.c27_min_ramp_start_velocity
+                velocity[0] = PlanningSettings.c20_min_ramp_start_velocity
             left_boundary_d=data["LeftBound"]
             right_boundary_d=data["RightBound"]
             trajectory = TrajectoryTracker(path=path, velocity=velocity)
@@ -116,6 +118,21 @@ class GlobalPlan:
             json.dump(data, f, indent=2)
         log.info("Global plan saved to %s", path_to_track)
 
+    def as_trajectory(self) -> Optional[TrajectoryTracker]:
+        """Return the plan's trajectory (same interface as LocalPlan)."""
+        return self.trajectory
+
+
+class LocalBehavior(Enum):
+    """High-level driving intent decided by the behavioral planning stage."""
+
+    CRUISE = auto()          # Track the reference at nominal speed
+    FOLLOW = auto()          # Match a lead vehicle's speed
+    STOP = auto()            # Come to a controlled stop
+    OVERTAKE = auto()        # Pass a blocking agent
+    LANE_CHANGE_LEFT = auto()
+    LANE_CHANGE_RIGHT = auto()
+
 @dataclass
 class LocalPlan:
     """Minimal local-planning output consumed by the control layer.
@@ -128,6 +145,9 @@ class LocalPlan:
     velocity: list[float] = field(default_factory=list)
 
     trajectory: Optional[TrajectoryTracker] = None
+
+    # High-level intent set by the behavioral planning stage of the pipeline.
+    behavior: LocalBehavior = LocalBehavior.CRUISE
 
     @classmethod
     def from_trajectory(cls, trajectory: TrajectoryTracker) -> "LocalPlan":

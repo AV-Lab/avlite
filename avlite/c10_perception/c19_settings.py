@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from avlite.c60_common.c68_settings_schema import SettingsSchema
+from avlite.c60_apps.c64_settings_schema import SettingsSchema
 
 
 class PerceptionSettingsSchema(SettingsSchema):

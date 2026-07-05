@@ -8,7 +8,7 @@ from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c60_common.c63_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
+from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
        
         # setting velocity: ramp from min creep speed to max, cruise, then decel to zero at goal
         n = len(self.global_plan.path)
-        min_v = PlanningSettings.c27_min_ramp_start_velocity
+        min_v = PlanningSettings.c20_min_ramp_start_velocity
         if n < self.wp_to_full_velocity * 2:
             self.global_plan.velocity = [self.max_velocity] * n
         else:
