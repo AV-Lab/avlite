@@ -30,6 +30,8 @@ c10_perception:
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
 c20_planning:
+  c20_beside_agent_rear_window: 6.0
+  c20_beside_agent_sweep_time: 2.0
   c20_boundary_margin: 0.0
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
@@ -50,6 +52,7 @@ c20_planning:
   c28_boundary_clearance: 0.5
   c28_d0_reference_threshold: 0.2
   c28_disconnect_distance_threshold: 5.0
+  c28_kinematic_sampling: true
   c28_maneuver_distance: 30
   c28_match_speed_wp_buffer: 4
   c28_max_lateral_accel: 4.0
@@ -59,8 +62,10 @@ c20_planning:
   c28_planning_horizon: 3
   c28_replan_wait_time: 2.5
   c28_safety_margin_weight: 0.3
+  c28_sample_distribution: 1
+  c28_sample_reach_factor: 1.0
   c28_sample_size: 3
-  c28_urgent_collision_threshold: 3
+  c28_urgent_collision_threshold: 10.0
 c30_control:
   c30_emergency_braking_factor: 0.9
   c30_emergency_min_moving_velocity: 1.0
@@ -125,13 +130,7 @@ c40_execution:
   c46_npc_speed_factor: 0.8
 c69_apps:
   c60_selected_profile: global planning
-  c62_community_plugins:
-    avlite-bridge-ROS2: ~/.local/share/avlite/plugins/avlite-bridge-ROS2
-    avlite-bridge-carla: ~/.local/share/avlite/plugins/avlite-bridge-carla
-    avlite-bridge-gazebo: ~/.local/share/avlite/plugins/avlite-bridge-gazebo
-    avlite-controller-joystick: ~/.local/share/avlite/plugins/avlite-controller-joystick
-    avlite-executer-ROS2: ~/.local/share/avlite/plugins/avlite-executer-ROS2
-    sample_avlite_plugin: ~/.local/share/avlite/plugins/sample_avlite_plugin
+  c62_community_plugins: {}
   c62_default_plugins:
   - p60_headless_mode
   - p60_setting_cli
@@ -148,13 +147,13 @@ plugins:
     p60_dark_mode: true
     p60_fg_color: white
     p60_hide_menubar: false
-    p60_next_profile: global planning
+    p60_next_profile: local planning
     p60_shortcut_mode: false
     p66_frenet_view_follow_planner: false
     p66_frenet_zoom: 30.0
     p66_global_plan_velocity_scale: relative
     p66_global_view_follow_planner: false
-    p66_global_zoom: 30.0
+    p66_global_zoom: 810.8967345284556
     p66_show_global_plan: true
     p66_show_global_plan_boundaries: true
     p66_show_legend: false
@@ -166,10 +165,10 @@ plugins:
     p66_show_past_locations: true
     p66_show_race_boundary: true
     p66_show_state: true
-    p66_xy_zoom: 30.0
+    p66_xy_zoom: 200.0
     p67_global_plan_view: true
     p67_local_plan_view: true
-    p67_show_local_frenet_view: true
+    p67_show_local_frenet_view: false
     p67_show_local_global_view: true
     p67_show_occupancy_flow: false
     p67_show_perception_extras: false

@@ -169,8 +169,8 @@ class PerceptionFrame(ttk.LabelFrame):
             if community_prefixes and c.__module__.startswith(community_prefixes)
         }
         data = sorted(core_strategies | allowed_default_plugins | allowed_community_plugins)
-        log.warning("allowed_default_plugins: %s, allowed_community_plugins: %s", allowed_default_plugins, allowed_community_plugins)
-        log.warning(f"final Strategies: {data}")
+        log.info("allowed_default_plugins: %s, allowed_community_plugins: %s", allowed_default_plugins, allowed_community_plugins)
+        log.info(f"final Strategies: {data}")
 
         self.perception_dropdown_menu["values"] = tuple(data)
         if self.root.exec is None:
@@ -534,10 +534,10 @@ class ExecView(ttk.Frame):
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
         self.execution_factory_frame = ttk.LabelFrame(self, text="Execution")
-        self.execution_factory_frame.grid(row=0,column=0,pady=5, sticky="nsew")
+        self.execution_factory_frame.grid(row=0,column=0,pady=5, sticky="new")
 
         executer_frame = ExecSettingsFrame(self.root, self)
-        executer_frame.grid(row=0, column=1, pady=5, sticky="nsew")
+        executer_frame.grid(row=0, column=1, pady=5, sticky="new")
 
         ## Bridge 
         self.bridge_frame = BridgeFrame(self.root, self)
@@ -545,7 +545,7 @@ class ExecView(ttk.Frame):
         
         ## Execution Settings Frame
         exec_stats_frame = ExecStatsFrame(self.root, self)
-        exec_stats_frame.grid(row=0, column=3,pady=5, sticky="nsew")
+        exec_stats_frame.grid(row=0, column=3,pady=5, sticky="new")
 
         self.columnconfigure(0, weight=2)  # execution_frame wider
         # self.columnconfigure(1, weight=1)  # exec_setting_frame
@@ -832,7 +832,7 @@ class BridgeFrame(ttk.LabelFrame):
         """Create a scrollable inner frame at the given grid cell; return (canvas, inner)."""
         style = ttk.Style()
         bg_color = style.lookup("TFrame", "background")
-        canvas = tk.Canvas(self, width=120, highlightthickness=0, bd=0, background=bg_color)
+        canvas = tk.Canvas(self, width=120, height=96, highlightthickness=0, bd=0, background=bg_color)
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
         inner = ttk.Frame(canvas)
         canvas.configure(yscrollcommand=scrollbar.set)

@@ -28,8 +28,11 @@ class PlanningSettingsSchema(SettingsSchema):
     c28_replan_wait_time: float = Field(default=2.5, description="Minimum time (s) between replans.")
     c28_safety_margin_weight: float = Field(default=0.3, description="Weight for collision safety margin in cost.")
     c28_min_edge_progress_to_block: float = Field(default=0.2, description="Min edge progress before blocking replan.")
-    c28_urgent_collision_threshold: int = Field(default=3, description="Frames until urgent collision response.")
+    c28_urgent_collision_threshold: float = Field(default=10.0, description="Distance to collision (m) below which the planner switches plans immediately, bypassing the replan wait time.")
     c28_disconnect_distance_threshold: float = Field(default=5.0, description="Max distance (m) before path disconnect.")
+    c28_kinematic_sampling: bool = Field(default=True, description="Bound lattice lateral sampling to the speed-dependent kinematic reach (a_lat, curvature) instead of sampling the full road width.")
+    c28_sample_reach_factor: float = Field(default=1.0, description="Multiplier on the kinematic lateral reach used for sampling; <1 adds curvature-feasibility headroom, >1 widens exploration.")
+    c28_sample_distribution: int = Field(default=1, description="Lateral sample placement within the reach band: 0=even spread (interior bin-centers), 1=random uniform, 2=stratified (even bins + jitter).")
     c28_max_lateral_accel: float = Field(default=4.0, description="Max lateral acceleration for velocity profiling (m/s²).")
     c28_min_curvature_velocity: float = Field(default=3.0, description="Minimum velocity on high-curvature segments (m/s).")
     c28_d0_reference_threshold: float = Field(default=0.2, description="Frenet d₀ reference threshold (m).")
@@ -50,6 +53,7 @@ class PlanningSettingsSchema(SettingsSchema):
         description="Speed gate for agent motion in collision checks (m/s). Agents at or below this |v| are treated as static obstacles; pm.prediction trajectories are not used when building swept obstacle polygons (ahead agents only).",
     )
     c20_beside_agent_sweep_time: float = Field(default=2.0, description="Forward sweep time (s) applied to moving agents beside/just-behind the ego so the lattice stays clear of a just-passed agent before returning to the reference line (0 disables).")
+    c20_beside_agent_rear_window: float = Field(default=6.0, description="Max distance behind the ego (m) for which a beside/just-behind moving agent is still swept forward (overtake cut-back protection). Agents further back are treated as static; 0 disables the beside-sweep for behind agents.")
     c20_default_ego_velocity: float = Field(default=5.0, description="Default ego velocity when unknown (m/s).")
     c20_min_ramp_start_velocity: float = Field(default=3.0, description="Minimum ramp start velocity (m/s); shared by global plan loading and the lattice planner.")
 

@@ -16,17 +16,20 @@ def precompute_obstacle_polygons(
     min_velocity_threshold: float = 0.5,
     obstacle_inflation_margin: float = 0.0,
     beside_sweep_time: float = 0.0,
+    beside_rear_window: float = 0.0,
 ) -> list:
     """Build obstacle polygons (swept for movers, plain for statics) once per replan.
 
     Pass the returned list to check_collision via ``obstacle_polygons`` to avoid
     rebuilding N_agents polygons for every lattice edge.
 
-    Agents ahead of the ego are swept forward over ``total_time``. Agents beside or
-    just-behind the ego are swept over the shorter ``beside_sweep_time`` (0 disables),
-    which keeps the lattice clear of a just-passed agent before cutting back to the
-    reference line. Sweeping uses ``pm.prediction`` when available and falls back to a
-    constant-velocity projection otherwise, so it works even without a prediction plugin.
+    Forward sweeping requires an active predictor: agents are only projected forward
+    when ``pm.prediction`` supplies a trajectory for them. With prediction disabled every
+    agent stays a static box (no constant-velocity fabrication). Agents ahead of the ego
+    are swept over ``total_time``; agents abreast or just-behind the ego (within
+    ``beside_rear_window`` metres) are swept over the shorter ``beside_sweep_time``
+    (0 disables), keeping the lattice clear of a just-passed agent before cutting back to
+    the reference line. Agents further behind than ``beside_rear_window`` are never swept.
 
     Returns a list of (polygon, agent_velocity) tuples.
     """
@@ -39,19 +42,19 @@ def precompute_obstacle_polygons(
     for agent in pm.agent_vehicles:
         agent_polygon = agent.get_bb_polygon()
         to_agent = np.array([agent.x - ego.x, agent.y - ego.y])
-        agent_is_ahead = float(np.dot(ego_heading, to_agent)) >= 0.0
+        longitudinal = float(np.dot(ego_heading, to_agent))  # >=0 ahead, <0 behind
         moving = abs(agent.velocity) > min_velocity_threshold
-        sweep_time = total_time if agent_is_ahead else beside_sweep_time
-        if moving and sweep_time > 0:
-            agent_path = pred.trajectories.get(agent.agent_id) if pred is not None else None
-            if agent_path is not None:
-                n_steps = agent_path.shape[0]
-                step = min(int(sweep_time / pred.predict_delta_t), n_steps - 1)
-                predicted_x, predicted_y = agent_path[step, 0], agent_path[step, 1]
-            else:
-                # Constant-velocity fallback (used when no prediction plugin is active).
-                predicted_x = agent.x + agent.velocity * np.cos(agent.theta) * sweep_time
-                predicted_y = agent.y + agent.velocity * np.sin(agent.theta) * sweep_time
+        if longitudinal >= 0.0:
+            sweep_time = total_time
+        elif longitudinal >= -beside_rear_window:  # abreast / just-behind only
+            sweep_time = beside_sweep_time
+        else:
+            sweep_time = 0.0
+        agent_path = pred.trajectories.get(agent.agent_id) if pred is not None else None
+        if moving and sweep_time > 0 and agent_path is not None:
+            n_steps = agent_path.shape[0]
+            step = min(int(sweep_time / pred.predict_delta_t), n_steps - 1)
+            predicted_x, predicted_y = agent_path[step, 0], agent_path[step, 1]
             predicted_agent = AgentState(
                 x=predicted_x, y=predicted_y, theta=agent.theta,
                 velocity=agent.velocity, agent_id=agent.agent_id,

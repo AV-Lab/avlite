@@ -130,6 +130,41 @@ class TestLatticeEdge:
         assert len(edge.local_trajectory.path_x) == 10
 
 
+class TestSampleNodes:
+    def _lattice(self, planning_horizon: int = 2) -> Lattice:
+        global_tj = _straight_global_plan().trajectory
+        n = len(global_tj.path)
+        return Lattice(
+            global_trajectory=global_tj,
+            ref_left_boundary_d=[3.0] * n,   # upper limit (larger d)
+            ref_right_boundary_d=[-3.0] * n,  # lower limit (smaller d)
+            planning_horizon=planning_horizon,
+        )
+
+    def test_each_level_has_sample_size_distinct_offsets(self):
+        # Regression: with the boundary convention left(+) > right(-), the sampling
+        # band must not collapse — each level should carry `sample_size` distinct d's
+        # (reference node + sample_size-1 samples), not just 2 points.
+        lattice = self._lattice(planning_horizon=2)
+        sample_size = 5
+        lattice.sample_nodes(
+            s=0.0, d=0.0, sample_size=sample_size, maneuver_distance=20.0,
+            boundary_clearance=0.5, lateral_reach=float('inf'), sample_distribution=0,
+        )
+        for level in range(1, 3):
+            offsets = {round(node.d, 6) for node in lattice.lattice_nodes_by_level[level]}
+            assert len(offsets) == sample_size, (level, offsets)
+
+    def test_samples_stay_within_boundary_band(self):
+        lattice = self._lattice(planning_horizon=1)
+        lattice.sample_nodes(
+            s=0.0, d=0.0, sample_size=6, maneuver_distance=20.0,
+            boundary_clearance=0.5, lateral_reach=float('inf'), sample_distribution=1,
+        )
+        for node in lattice.lattice_nodes_by_level[1]:
+            assert -2.5 <= node.d <= 2.5  # [right + clr, left - clr]
+
+
 class TestLatticeReset:
     def test_reset_clears_accumulated_state(self):
         global_tj = _straight_global_plan().trajectory

@@ -292,7 +292,6 @@ class LocalPlanPlotView(ttk.Frame):
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # A tk.DrawingArea.
         self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        root.after(300, self.root.update_ui)
 
         self.canvas.mpl_connect("scroll_event", self.on_mouse_scroll)
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
@@ -486,9 +485,19 @@ class LocalPlanPlotView(ttk.Frame):
             show_global_view=self.root.setting.p67_show_local_global_view.get(),
             show_frenet_view=self.root.setting.p67_show_local_frenet_view.get(),
         )
-        self.canvas.draw()
+        # Always full_draw: TkAgg blit update drops animated scatter/markers on the 2nd frame.
+        self.local_plot.blit_manager.full_draw()
         log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
 
 
-def _canvas_ready(widget) -> bool:
-    return widget.winfo_width() > 1 and widget.winfo_height() > 1
+def _canvas_ready(widget, *, min_px: int = 80) -> bool:
+    w, h = widget.winfo_width(), widget.winfo_height()
+    if w < min_px or h < min_px:
+        return False
+    parent = widget.master
+    pw, ph = parent.winfo_width(), parent.winfo_height()
+    if pw > min_px and w < int(pw * 0.5):
+        return False
+    if ph > min_px and h < int(ph * 0.5):
+        return False
+    return True

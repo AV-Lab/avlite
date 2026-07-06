@@ -29,6 +29,32 @@ from avlite.c50_common.c54_collision_checking import check_collision, precompute
 
 log = logging.getLogger(__name__)
 
+# Peak curvature of a quintic (min-jerk) lateral transition of magnitude Δd over a
+# segment of length L is κ_peak ≈ _QUINTIC_CURVATURE_FACTOR · Δd / L². Used to bound
+# lateral sampling to the kinematically reachable band (see _lateral_reach).
+_QUINTIC_CURVATURE_FACTOR = 5.7735
+
+
+def _sample_lateral_offsets(lo: float, hi: float, n: int, distribution: int) -> np.ndarray:
+    """Place ``n`` lateral offsets strictly within the band ``[lo, hi]``.
+
+    All modes keep samples sandwiched between the limits (never on ``lo``/``hi``):
+    0 = deterministic even spread at interior bin-centers, 1 = independent random
+    uniform draws, 2 = stratified (one uniform draw per even bin). Degenerate bands
+    (``hi <= lo``) return ``n`` copies of ``lo``.
+    """
+    if n <= 0:
+        return np.empty(0)
+    if hi <= lo:
+        return np.full(n, lo)
+    if distribution == 1:  # random uniform, within the limits
+        return np.random.uniform(lo, hi, n)
+    edges = np.linspace(lo, hi, n + 1)
+    if distribution == 2:  # stratified: one uniform draw per even bin
+        return np.random.uniform(edges[:-1], edges[1:])
+    # distribution 0 (default): deterministic interior bin-centers (25%/75% for n=2)
+    return 0.5 * (edges[:-1] + edges[1:])
+
 
 @dataclass
 class Node:
@@ -95,7 +121,8 @@ class Lattice:
     incoming_edges: Dict[Node, list] = field(default_factory=lambda: defaultdict(list))
     outgoing_edges: Dict[Node, list] = field(default_factory=lambda: defaultdict(list))
 
-    def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance, orientation=0):
+    def sample_nodes(self, s, d, sample_size, maneuver_distance, boundary_clearance, orientation=0,
+                     lateral_reach: float = float('inf'), sample_distribution: int = 0):
         self.boundary_clearance = boundary_clearance  # stored for full-path boundary checks
         self.maneuver_distance = maneuver_distance   # stored for collision-prediction horizon
         s1_ = s
@@ -116,12 +143,25 @@ class Lattice:
             self.lattice_nodes_by_level[l].append(node)  # always a node at track line
             self.nodes.append(node)
 
-            for _ in np.arange(sample_size - 1):
-                target_wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
-                d1_ = np.random.uniform(
-                    self.ref_left_boundary_d[target_wp] - boundary_clearance,
-                    self.ref_right_boundary_d[target_wp] + boundary_clearance,
-                )
+            # Kinematically-aware band: reachable lateral offset fans out by l·reach
+            # (cumulative reach over l segments), centered on the ego's d, clipped to
+            # the road boundaries. lateral_reach = inf recovers full-width sampling.
+            target_wp = self.global_trajectory.get_closest_waypoint_frm_sd(s1_, 0)
+            # Road-boundary insets. left_boundary_d is the upper limit and
+            # right_boundary_d the lower one (see _check_boundary_violation), so order
+            # them explicitly — the raw values are not guaranteed lo <= hi.
+            inset_left = self.ref_left_boundary_d[target_wp] - boundary_clearance
+            inset_right = self.ref_right_boundary_d[target_wp] + boundary_clearance
+            bound_lo = min(inset_left, inset_right)
+            bound_hi = max(inset_left, inset_right)
+            lo, hi = bound_lo, bound_hi
+            if np.isfinite(lateral_reach):
+                lo = max(bound_lo, d - l * lateral_reach)
+                hi = min(bound_hi, d + l * lateral_reach)
+                if lo > hi:  # ego d outside boundaries: fall back to the nearest in-bounds d
+                    lo = hi = float(np.clip(d, bound_lo, bound_hi))
+            for d1_ in _sample_lateral_offsets(lo, hi, sample_size - 1, sample_distribution):
+                d1_ = float(d1_)
                 x, y = self.global_trajectory.convert_sd_to_xy(s1_, d1_)
                 n_ = Node(s1_, d1_, x, y)
                 self.nodes.append(n_)
@@ -141,6 +181,7 @@ class Lattice:
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
                 obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
                 beside_sweep_time=PlanningSettings.c20_beside_agent_sweep_time,
+                beside_rear_window=PlanningSettings.c20_beside_agent_rear_window,
             )
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
@@ -297,11 +338,19 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         # Current plan is colliding — attempt to escape to a collision-free plan
         if force_if_collision and self.selected_local_plan.collision:
             collision_idx = getattr(self.selected_local_plan, 'collision_idx', -1)
-            current_wp = self.selected_local_plan.local_trajectory.current_wp
-            waypoints_to_collision = collision_idx - current_wp if collision_idx >= 0 else float('inf')
-            if waypoints_to_collision <= self._urgent_collision_threshold:
+            local_tj = self.selected_local_plan.local_trajectory
+            # Metric distance (m) to the collision along the committed edge, from the
+            # ego's current waypoint. Uses the trajectory's cumulative arc length.
+            if collision_idx >= 0:
+                path_s = local_tj.path_s
+                col_i = min(collision_idx, len(path_s) - 1)
+                cur_i = min(max(local_tj.current_wp, 0), len(path_s) - 1)
+                distance_to_collision = float(path_s[col_i] - path_s[cur_i])
+            else:
+                distance_to_collision = float('inf')
+            if distance_to_collision <= self._urgent_collision_threshold:
                 # Imminent — switch immediately regardless of wait time
-                log.debug(f"Switching plan: urgent collision in {waypoints_to_collision} waypoints")
+                log.debug(f"Switching plan: urgent collision in {distance_to_collision:.1f} m")
                 return True
             # Agent cleared: new plan is collision-free with a materially better speed profile.
             # Allows immediate recovery when an obstacle leaves the path, without waiting
@@ -513,6 +562,25 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
 
         return feasible
 
+    def _lateral_reach(self) -> float:
+        """Per-segment kinematically reachable lateral half-width (m).
+
+        Inverts the curvature-feasibility relation used by _is_curvature_feasible:
+        for a quintic lateral shift Δd over one maneuver segment of length L, peak
+        curvature is ≈ _QUINTIC_CURVATURE_FACTOR · Δd / L². Setting that equal to the
+        limit a_lat / v² gives the largest Δd whose edge stays curvature-feasible:
+
+            R = a_lat_max · L² / (_QUINTIC_CURVATURE_FACTOR · v²)
+
+        Returns inf (no clamp — full-width sampling) when kinematic sampling is disabled.
+        """
+        if not PlanningSettings.c28_kinematic_sampling:
+            return float('inf')
+        v = max(self.pm.ego_vehicle.velocity, self.min_curvature_velocity)
+        L = float(self.maneuver_distance)
+        reach = self.max_lateral_accel * L * L / (_QUINTIC_CURVATURE_FACTOR * v * v)
+        return reach * PlanningSettings.c28_sample_reach_factor
+
     def _edge_cost(self, edge) -> float:
         """
         Compute cost for edge selection balancing reference tracking and safety.
@@ -611,6 +679,8 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
             maneuver_distance=self.maneuver_distance,
             boundary_clearance=self.boundary_clearance,
             sample_size=self.sample_size,
+            lateral_reach=self._lateral_reach(),
+            sample_distribution=PlanningSettings.c28_sample_distribution,
             # orientation = np.tan(self.pm.ego_vehicle.theta)/2 -  0.1* self.location_sd[1],
         )
 
@@ -759,10 +829,25 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         x_ref, y_ref = self.global_trajectory.convert_sd_to_xy(s_new, d_ref)
         candidate_nodes.append(Node(s_new, d_ref, x_ref, y_ref))
 
-        d_left = self.lattice.ref_left_boundary_d[wp_ref] - self.boundary_clearance
-        d_right = self.lattice.ref_right_boundary_d[wp_ref] + self.boundary_clearance
-        for _ in range(self.sample_size - 1):
-            d_rnd = np.random.uniform(d_left, d_right)
+        # Road-boundary insets, ordered (left_boundary_d is the upper limit, right the
+        # lower — the raw values are not guaranteed lo <= hi).
+        inset_left = self.lattice.ref_left_boundary_d[wp_ref] - self.boundary_clearance
+        inset_right = self.lattice.ref_right_boundary_d[wp_ref] + self.boundary_clearance
+        d_lo = min(inset_left, inset_right)
+        d_hi = max(inset_left, inset_right)
+        # Kinematically-aware band: a single-segment extension from the tail node, so
+        # candidates are drawn within one lateral reach R of the tail's d (clipped to
+        # boundaries). Infinite reach recovers full-width sampling.
+        reach = self._lateral_reach()
+        lo, hi = d_lo, d_hi
+        if np.isfinite(reach):
+            lo = max(d_lo, tail_node.d - reach)
+            hi = min(d_hi, tail_node.d + reach)
+            if lo > hi:  # tail d outside boundaries: fall back to the nearest in-bounds d
+                lo = hi = float(np.clip(tail_node.d, d_lo, d_hi))
+        for d_rnd in _sample_lateral_offsets(lo, hi, self.sample_size - 1,
+                                             PlanningSettings.c28_sample_distribution):
+            d_rnd = float(d_rnd)
             x_rnd, y_rnd = self.global_trajectory.convert_sd_to_xy(s_new, d_rnd)
             candidate_nodes.append(Node(s_new, d_rnd, x_rnd, y_rnd))
 
@@ -776,6 +861,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
                 obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
                 beside_sweep_time=PlanningSettings.c20_beside_agent_sweep_time,
+                beside_rear_window=PlanningSettings.c20_beside_agent_rear_window,
             )
 
         # Create and evaluate edges from tail_node to each candidate.
@@ -823,3 +909,61 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
             )
         else:
             log.warning("_partial_replan: no feasible extension edges at s=%.1f", s_new)
+
+
+class ShortestPathLatticePlanner(GreedyLatticePlanner):
+    """Lattice planner that commits to the globally optimal chain over the lattice DAG.
+
+    Where GreedyLatticePlanner extends the chain one locally-best edge at a time, this
+    planner runs a dynamic-programming search over the layered lattice (edge.next_edges)
+    and commits to the chain that reaches the deepest feasible horizon and, among equally
+    deep chains, has the minimum total _edge_cost. Edge cost, feasibility filtering,
+    velocity profiling, and the commit/switch machinery are inherited unchanged.
+    """
+
+    def _build_selected_chain(self, feasible_level0: list[Edge], agent_blocks_ahead: bool) -> Edge:
+        # DP over the layered lattice DAG. For each edge we memoize the best chain that
+        # starts at it, ranked by (depth, total_cost): reach the deepest feasible horizon
+        # first, then break ties by the smallest summed _edge_cost. As a side effect the
+        # chain is materialized by wiring each edge's selected_next_local_plan to its best
+        # successor, so the caller can walk selected_next_local_plan from the returned edge.
+        d0_threshold = PlanningSettings.c28_d0_reference_threshold
+        best_cont: dict[int, tuple[int, float]] = {}  # id(edge) -> (depth, total_cost)
+
+        def solve(edge: Edge) -> tuple[int, float]:
+            # Return (depth, total_cost) of the optimal chain rooted at `edge`.
+            cached = best_cont.get(id(edge))
+            if cached is not None:  # DAG: an edge is shared by several parents; solve once.
+                return cached
+
+            # Only expand into feasible successors, applying the same collision/boundary
+            # filtering and (when an agent blocks ahead) lateral-preference that greedy uses.
+            nexts = self._feasible_candidates(edge.next_edges, agent_blocks_ahead) if edge.next_edges else []
+            if agent_blocks_ahead and nexts:
+                lateral = [e for e in nexts if abs(e.end.d) >= d0_threshold]
+                if lateral:
+                    nexts = lateral
+
+            # Pick the successor whose subtree is deepest, then cheapest on ties.
+            best_next: Optional[Edge] = None
+            best_val: Optional[tuple[int, float]] = None
+            for ne in nexts:
+                depth_n, cost_n = solve(ne)
+                if best_val is None or depth_n > best_val[0] or (depth_n == best_val[0] and cost_n < best_val[1]):
+                    best_val, best_next = (depth_n, cost_n), ne
+
+            edge.selected_next_local_plan = best_next  # None when this edge is a chain leaf.
+            # This edge contributes depth 1 and its own cost on top of the chosen subtree.
+            result = (1, self._edge_cost(edge)) if best_val is None \
+                else (1 + best_val[0], self._edge_cost(edge) + best_val[1])
+            best_cont[id(edge)] = result
+            return result
+
+        # Root the search at each feasible level-0 edge and keep the globally best one.
+        best_edge: Optional[Edge] = None
+        best_val: Optional[tuple[int, float]] = None
+        for e in feasible_level0:
+            depth_e, cost_e = solve(e)
+            if best_val is None or depth_e > best_val[0] or (depth_e == best_val[0] and cost_e < best_val[1]):
+                best_val, best_edge = (depth_e, cost_e), e
+        return best_edge

@@ -46,7 +46,10 @@ from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import (  # 
     CruiseBehavioralPlanner,
     VelocityLocalPlanner,
 )
-from avlite.c20_planning.c28_local_lattice_planners import GreedyLatticePlanner  # noqa: F401 — registers in LocalPlanningStrategy/LocalPathPlanningStrategy registries
+from avlite.c20_planning.c28_local_lattice_planners import (  # noqa: F401 — registers in LocalPlanningStrategy/LocalPathPlanningStrategy registries
+    GreedyLatticePlanner,
+    ShortestPathLatticePlanner,
+)
 from avlite.c30_control.c33_pid import PIDController  # noqa: F401 — registers in ControlStrategy.registry
 from avlite.c30_control.c34_stanley import StanleyController  # noqa: F401 — registers in ControlStrategy.registry
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry

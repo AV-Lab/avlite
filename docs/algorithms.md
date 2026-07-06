@@ -184,7 +184,7 @@ The planner avoids swapping plans every replan tick so the controller can conver
 | No committed plan | Longer clean chain, or escape from colliding chain |
 | Emergency-stop recovery to clean plan | Requires **wait time** (`c28_replan_wait_time`) **or** chain **+2 edges** |
 | Current edge done, no successor | Same-length speed upgrade (+0.5 m/s) only after **wait time** |
-| Urgent collision (within `c28_urgent_collision_threshold` waypoints) | |
+| Urgent collision (within `c28_urgent_collision_threshold` m) | |
 | Geometric disconnect (`> c28_disconnect_distance_threshold` m from plan) | |
 | Head edge colliding, agent cleared (+0.5 m/s faster clean plan) | |
 
@@ -230,6 +230,19 @@ Defaults match [`PlanningSettings`](../avlite/c20_planning/c29_settings.py). Adj
 | `c28_num_of_edge_points` | `10` | Waypoints along each quintic edge |
 | `c28_boundary_clearance` | `0.5` | Inset from lane boundaries for sampling and violation checks (m) |
 | `c28_d0_reference_threshold` | `0.2` | Treat `\|d\|` below this as “on reference” for selection and lateral preference (m) |
+| `c28_kinematic_sampling` | `true` | Bound lateral samples to the speed-dependent kinematic reach instead of the full road width |
+| `c28_sample_reach_factor` | `1.0` | Multiplier on the kinematic reach; `<1` adds curvature headroom, `>1` widens exploration |
+| `c28_sample_distribution` | `1` | Sample placement in the reach band (always strictly inside the limits): `0` even spread (interior bin-centers), `1` random uniform, `2` stratified (even bins + jitter) |
+
+**Kinematic sampling.** When `c28_kinematic_sampling` is enabled, lateral samples are drawn within a reachable band rather than uniformly across the whole road. For a quintic lateral shift `Δd` over one maneuver segment of length `L`, peak curvature is `κ ≈ 5.7735·Δd / L²`; equating this to the curvature limit `a_lat / v²` (see [Edge feasibility](#edge-feasibility)) gives the per-segment reachable half-width
+
+\[
+R(v) = \frac{a_{\text{lat,max}} \cdot L^2}{5.7735 \cdot v^2} \cdot \texttt{c28\_sample\_reach\_factor}, \quad v = \max(v_{\text{ego}}, \texttt{c28\_min\_curvature\_velocity}).
+\]
+
+The band fans out by `l·R` at level `l` (cumulative reach), centered on the ego's current `d` and clipped to the boundaries, so almost all sampled edges pass the curvature check. As speed rises, `R` shrinks (`∝ 1/v²`), automatically narrowing the spread. Set `c28_kinematic_sampling: false` to restore full-width sampling.
+
+Each level has one node on the reference (center) plus `c28_sample_size − 1` samples placed strictly within the band (sandwiched between the limits, never on them) per `c28_sample_distribution`: `0` spreads them evenly at interior bin-centers (deterministic; the 25%/75% points for two samples), `1` draws each independently at random (uniform), and `2` is stratified (one random draw per even bin — coverage plus run-to-run variety). So `c28_sample_size = 3` yields three nodes per level: the reference plus two inside the limits.
 
 ### Feasibility and fallbacks
 
@@ -247,7 +260,7 @@ Boundary relaxation also applies automatically when an agent blocks ahead (overt
 | Key | Default | Description |
 |-----|---------|-------------|
 | `c28_replan_wait_time` | `2.5` | Minimum time between discretionary plan switches (s) |
-| `c28_urgent_collision_threshold` | `3` | Waypoints to collision before immediate switch |
+| `c28_urgent_collision_threshold` | `10.0` | Distance to collision before immediate switch (m) |
 | `c28_disconnect_distance_threshold` | `5.0` | Max distance from plan waypoint before forced switch (m) |
 | `c28_min_edge_progress_to_block` | `0.2` | Min fraction of edge progress before replan blocking (reserved) |
 
