@@ -1214,7 +1214,7 @@
 <p>[
 T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}{v_{\text{ego}}}
 ]</p>
-<p>Moving agents get swept polygons over that horizon; static agents use inflated footprints.</p>
+<p>Ahead agents with <code>|v| &gt; c20_min_velocity_threshold</code> get swept polygons from <code>pm.prediction</code> over that horizon; slower or behind agents use their current inflated footprint only.</p>
 <h3 id="edge-feasibility">Edge feasibility<a class="headerlink" href="#edge-feasibility" title="Permanent link">&para;</a></h3>
 <p>Each edge is evaluated on three axes:</p>
 <table>
@@ -1290,7 +1290,7 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 <td>Same-length speed upgrade (+0.5 m/s) only after <strong>wait time</strong></td>
 </tr>
 <tr>
-<td>Urgent collision (within <code>c28_urgent_collision_threshold</code> waypoints)</td>
+<td>Urgent collision (within <code>c28_urgent_collision_threshold</code> m)</td>
 <td></td>
 </tr>
 <tr>
@@ -1381,8 +1381,29 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 <td><code>0.2</code></td>
 <td>Treat <code>\|d\|</code> below this as “on reference” for selection and lateral preference (m)</td>
 </tr>
+<tr>
+<td><code>c28_kinematic_sampling</code></td>
+<td><code>true</code></td>
+<td>Bound lateral samples to the speed-dependent kinematic reach instead of the full road width</td>
+</tr>
+<tr>
+<td><code>c28_sample_reach_factor</code></td>
+<td><code>1.0</code></td>
+<td>Multiplier on the kinematic reach; <code>&lt;1</code> adds curvature headroom, <code>&gt;1</code> widens exploration</td>
+</tr>
+<tr>
+<td><code>c28_sample_distribution</code></td>
+<td><code>1</code></td>
+<td>Sample placement in the reach band (always strictly inside the limits): <code>0</code> even spread (interior bin-centers), <code>1</code> random uniform, <code>2</code> stratified (even bins + jitter)</td>
+</tr>
 </tbody>
 </table>
+<p><strong>Kinematic sampling.</strong> When <code>c28_kinematic_sampling</code> is enabled, lateral samples are drawn within a reachable band rather than uniformly across the whole road. For a quintic lateral shift <code>Δd</code> over one maneuver segment of length <code>L</code>, peak curvature is <code>κ ≈ 5.7735·Δd / L²</code>; equating this to the curvature limit <code>a_lat / v²</code> (see <a href="#edge-feasibility">Edge feasibility</a>) gives the per-segment reachable half-width</p>
+<p>[
+R(v) = \frac{a_{\text{lat,max}} \cdot L^2}{5.7735 \cdot v^2} \cdot \texttt{c28_sample_reach_factor}, \quad v = \max(v_{\text{ego}}, \texttt{c28_min_curvature_velocity}).
+]</p>
+<p>The band fans out by <code>l·R</code> at level <code>l</code> (cumulative reach), centered on the ego's current <code>d</code> and clipped to the boundaries, so almost all sampled edges pass the curvature check. As speed rises, <code>R</code> shrinks (<code>∝ 1/v²</code>), automatically narrowing the spread. Set <code>c28_kinematic_sampling: false</code> to restore full-width sampling.</p>
+<p>Each level has one node on the reference (center) plus <code>c28_sample_size − 1</code> samples placed strictly within the band (sandwiched between the limits, never on them) per <code>c28_sample_distribution</code>: <code>0</code> spreads them evenly at interior bin-centers (deterministic; the 25%/75% points for two samples), <code>1</code> draws each independently at random (uniform), and <code>2</code> is stratified (one random draw per even bin — coverage plus run-to-run variety). So <code>c28_sample_size = 3</code> yields three nodes per level: the reference plus two inside the limits.</p>
 <h3 id="feasibility-and-fallbacks">Feasibility and fallbacks<a class="headerlink" href="#feasibility-and-fallbacks" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -1433,8 +1454,8 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 </tr>
 <tr>
 <td><code>c28_urgent_collision_threshold</code></td>
-<td><code>3</code></td>
-<td>Waypoints to collision before immediate switch</td>
+<td><code>10.0</code></td>
+<td>Distance to collision before immediate switch (m)</td>
 </tr>
 <tr>
 <td><code>c28_disconnect_distance_threshold</code></td>
@@ -1489,12 +1510,12 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 <tr>
 <td><code>c20_collision_safety_margin</code></td>
 <td><code>0.3</code></td>
-<td>Extra inflation on ego footprint in collision checks (m)</td>
+<td>Extra clearance on the ego side of collision checks (m); expands the buffered trajectory corridor beyond half the ego width</td>
 </tr>
 <tr>
 <td><code>c20_obstacle_inflation_margin</code></td>
 <td><code>0.5</code></td>
-<td>Inflation on agent polygons for lattice prediction (m)</td>
+<td>Extra clearance around agent obstacle polygons in collision checks (m); inflates each agent bbox or prediction sweep before intersecting the ego corridor</td>
 </tr>
 <tr>
 <td><code>c20_default_ego_velocity</code></td>
@@ -1504,7 +1525,7 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 <tr>
 <td><code>c20_min_velocity_threshold</code></td>
 <td><code>0.5</code></td>
-<td>Speed below which ego/agents treated as stopped (m/s)</td>
+<td>Agent speed gate for collision prediction (m/s); at or below this |v|, agents are static and <code>pm.prediction</code> is not used for swept obstacles</td>
 </tr>
 <tr>
 <td><code>c20_boundary_margin</code></td>
@@ -1513,6 +1534,7 @@ T_{\text{pred}} = \frac{\text{planning_horizon} \times \text{maneuver_distance}}
 </tr>
 </tbody>
 </table>
+<p>Effective clearance between nominal vehicle bodies is approximately <code>c20_collision_safety_margin</code> (ego) plus <code>c20_obstacle_inflation_margin</code> (agents), on top of vehicle widths. Agents with <code>|v| ≤ c20_min_velocity_threshold</code> use their current footprint only; prediction sweeps apply only to ahead, moving agents.</p>
 <h3 id="velocity-planner-c27_">Velocity planner (<code>c27_*</code>)<a class="headerlink" href="#velocity-planner-c27_" title="Permanent link">&para;</a></h3>
 <p>Used by <code>VelocityLocalPlanner</code> and for speed-matching on colliding lattice edges.</p>
 <table>
