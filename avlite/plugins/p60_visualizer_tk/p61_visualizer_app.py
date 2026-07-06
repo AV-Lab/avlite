@@ -19,7 +19,11 @@ from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c61_app_strategy import AppStrategy
 from avlite.c60_apps.c69_settings import AppSettings
-from avlite.plugins.p60_visualizer_tk.p66_plot_views import LocalPlanPlotView, GlobalPlanPlotView
+from avlite.plugins.p60_visualizer_tk.p66_plot_views import (
+    LocalPlanPlotView,
+    GlobalPlanPlotView,
+    _canvas_ready,
+)
 from avlite.plugins.p60_visualizer_tk.p67_stack_views import PerceivePlanControlView, ExecView
 from avlite.c60_apps.c62_factory import load_stack_settings
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
@@ -76,6 +80,7 @@ class VisualizerApp(tk.Tk):
         self.title("AVlite Visualizer")
         s = self._dpi_scale
         self.geometry(f"{scaled(1200, s)}x{scaled(900, s)}")
+        self.withdraw()
         self.small_font = ("Courier", 10)
 
         # self.set_dark_mode()
@@ -106,12 +111,12 @@ class VisualizerApp(tk.Tk):
         self.grid_columnconfigure(0, weight=1)  # local view gets xx weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.grid_rowconfigure(0, weight=1)  # make the plot views expand
-        self.update_idletasks()
-        
+        self.update_views()
+
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_settings()
         log.warning(f"map is {ExecutionSettings.c40_hd_map}")
-        self.reload_stack(reload_code=False)
+        self.reload_stack(reload_code=False, preserve_plot_layout=True)
         log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
 
         # Bind to window resize to maintain ratio
@@ -119,8 +124,8 @@ class VisualizerApp(tk.Tk):
 
         self.validate_cmd = (self.register(self.validate_float_input), "%P")
         self.bind("<Configure>", self.__update_grid_column_sizes)
-        self.after(500, self.update_ui)
         self.last_resize_time = time.time()
+        self._finalize_startup_layout()
         self._create_menubar()
         self.ui_initialized = True
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -134,6 +139,34 @@ class VisualizerApp(tk.Tk):
             self.log_view.shutdown()
         self.quit()
         self.destroy()
+
+    def _plots_canvas_ready(self) -> bool:
+        local_ok = (
+            not self.setting.p67_local_plan_view.get()
+            or _canvas_ready(self.local_plan_plot_view.canvas.get_tk_widget())
+        )
+        global_ok = (
+            not self.setting.p67_global_plan_view.get()
+            or _canvas_ready(self.global_plan_plot_view.canvas.get_tk_widget())
+        )
+        return local_ok and global_ok
+
+    def _finalize_startup_layout(self, attempt: int = 0) -> None:
+        """Reveal the main window and plot only after canvases have final geometry."""
+        self.update_views()
+        if not self.winfo_viewable():
+            self.deiconify()
+        self.update_idletasks()
+        if self.exec is not None and self._plots_canvas_ready():
+            self.update_ui()
+            self.focus_set()
+            return
+        if attempt < 5:
+            self.after_idle(lambda: self._finalize_startup_layout(attempt + 1))
+            return
+        if self.exec is not None:
+            self.update_ui()
+        self.focus_set()
 
     def __update_grid_column_sizes(self,event=None):
         """Update column sizes when window is resized to maintain 3:1 ratio."""
@@ -305,6 +338,8 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
+        if hasattr(self, "exec_visualize_view"):
+            self.exec_visualize_view.bridge_frame.update_canvas_theme()
 
         if hasattr(self, "log_view") and hasattr(self, "setting_shortcut_view"):
             self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
@@ -334,6 +369,8 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
+        if hasattr(self, "exec_visualize_view"):
+            self.exec_visualize_view.bridge_frame.update_canvas_theme()
         if hasattr(self, "menubar"):
             bg = "white"
             fg = "black"
@@ -513,7 +550,7 @@ class VisualizerApp(tk.Tk):
         self.exec._validate_stack()
         self.update_ui()
 
-    def reload_stack(self, reload_code:bool = True):
+    def reload_stack(self, reload_code: bool = True, preserve_plot_layout: bool = False):
         if reload_code:
             self.show_loading_overlay("Reloading stack...")
         else:
@@ -521,8 +558,9 @@ class VisualizerApp(tk.Tk):
 
         self.exec_visualize_view.stop_exec()
         self.disable_frame(self)
-        self.local_plan_plot_view.grid_forget()
-        self.global_plan_plot_view.grid_forget()
+        if not preserve_plot_layout:
+            self.local_plan_plot_view.grid_forget()
+            self.global_plan_plot_view.grid_forget()
 
         error = None
         try:
@@ -558,7 +596,8 @@ class VisualizerApp(tk.Tk):
             self.perceive_plan_control_view.reset()
             self.exec_visualize_view.update_data()
             self.update_views()
-            self.update_ui()
+            if not preserve_plot_layout and self.winfo_viewable():
+                self.update_ui()
             self.enable_frame(self)
             if self.exec is not None:
                 self.exec_visualize_view.bridge_frame.update_for_bridge(

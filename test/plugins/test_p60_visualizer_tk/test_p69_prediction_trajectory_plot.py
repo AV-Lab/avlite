@@ -63,7 +63,7 @@ class TestPredictionTrajectoryPlot:
 
         plt.close(plot.fig)
 
-    def test_hides_prediction_for_agent_behind_ego(self):
+    def test_behind_agent_prediction_uses_distinct_color(self):
         agent = AgentState(x=-5.0, y=0.0, theta=np.pi, velocity=5.0, agent_id=0)
         trajectories = np.array([[[-4.0, 0.0], [-3.0, 0.0], [-2.0, 0.0]]], dtype=float)
 
@@ -81,8 +81,34 @@ class TestPredictionTrajectoryPlot:
             show_prediction=True,
         )
 
-        xdata, ydata = plot.prediction_lines_ax1[0].get_data()
-        assert len(xdata) == 0
-        assert len(ydata) == 0
+        line = plot.prediction_lines_ax1[0]
+        xdata, ydata = line.get_data()
+        # Behind-ego predictions are now drawn (agent pose + 3 predicted steps)…
+        assert len(xdata) == len(trajectories[0]) + 1
+        assert len(ydata) == len(trajectories[0]) + 1
+        # …in the distinct "behind" colour rather than the ahead colour.
+        assert line.get_color() == LocalPlot.PREDICTION_BEHIND_COLOR
+
+        plt.close(plot.fig)
+
+    def test_ahead_agent_prediction_uses_ahead_color(self):
+        agent = AgentState(x=10.0, y=0.0, theta=0.0, velocity=5.0, agent_id=0)
+        trajectories = _curved_trajectory((10.0, 0.0), radius=8.0, n_steps=6)[None, :, :]
+
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[agent],
+            prediction=SingleTrajectory(trajectories={0: trajectories[0]}),
+        )
+
+        plot = LocalPlot(max_plan_length=1, max_agent_count=1)
+        plot.update_perception_model_plots(
+            exec_pm=pm,
+            global_trajectory=_straight_reference_path(),
+            show_plot=True,
+            show_prediction=True,
+        )
+
+        assert plot.prediction_lines_ax1[0].get_color() == LocalPlot.PREDICTION_AHEAD_COLOR
 
         plt.close(plot.fig)

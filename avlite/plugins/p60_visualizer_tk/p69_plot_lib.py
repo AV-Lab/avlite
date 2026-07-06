@@ -26,6 +26,71 @@ log = logging.getLogger(__name__)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
+class BlitManager:
+    """Minimal matplotlib blitting helper for a multi-axes figure.
+
+    Caches each axis' background whenever a real ``draw()`` happens and, on the
+    fast path, restores those backgrounds and re-renders only the registered
+    ``animated`` artists. The caller decides when a full redraw is required
+    (e.g. the axis limits or canvas size changed); everything else can go
+    through :meth:`update`.
+    """
+
+    def __init__(self, fig, axes):
+        self.fig = fig
+        self.axes = list(axes)
+        self._artists: list = []
+        self._bg: dict = {}
+        self._connected_canvas = None
+
+    def add_artist(self, artist) -> None:
+        artist.set_animated(True)
+        self._artists.append(artist)
+
+    def _ensure_connected(self) -> None:
+        # The Tk canvas is created after the figure (FigureCanvasTkAgg replaces
+        # fig.canvas), so (re)connect the draw_event handler lazily.
+        canvas = self.fig.canvas
+        if canvas is not self._connected_canvas:
+            canvas.mpl_connect("draw_event", self._on_draw)
+            self._connected_canvas = canvas
+            self._bg = {}
+
+    def _on_draw(self, _event) -> None:
+        canvas = self.fig.canvas
+        self._bg = {ax: canvas.copy_from_bbox(ax.bbox) for ax in self.axes}
+
+    def full_draw(self) -> None:
+        """Full software redraw; repopulates the cached backgrounds."""
+        self._ensure_connected()
+        self.fig.canvas.draw()
+        self._blit_animated()
+
+    def update(self) -> None:
+        """Fast path: restore cached backgrounds and blit animated artists."""
+        self._ensure_connected()
+        if not self._bg:
+            self.full_draw()
+            return
+        self._blit_animated()
+
+    def _blit_animated(self) -> None:
+        canvas = self.fig.canvas
+        for ax in self.axes:
+            bg = self._bg.get(ax)
+            if bg is not None:
+                canvas.restore_region(bg)
+        for artist in sorted(self._artists, key=lambda a: a.get_zorder()):
+            ax = getattr(artist, "axes", None)
+            if ax is None or not ax.get_visible():
+                continue
+            ax.draw_artist(artist)
+        for ax in self.axes:
+            if ax.get_visible():
+                canvas.blit(ax.bbox)
+        canvas.flush_events()
+
+
 class GlobalPlot(ABC):
     def __init__(self, figsize=(8, 10), name="Global Plot"):
         self.fig, self.ax = plt.subplots(figsize=figsize)
@@ -131,10 +196,11 @@ class GlobalPlot(ABC):
                         x_pad = 0
                         y_pad = (target_height - map_height) / 2
                     
-                    self.ax.set_xlim(self.map_min_x - x_pad, self.map_max_x + x_pad)
-                    self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
-                    self.view_width = map_width + x_pad * 2
-                    self.view_height = map_height + y_pad * 2
+                    border = max(map_width, map_height) * 0.05
+                    self.ax.set_xlim(self.map_min_x - x_pad - border, self.map_max_x + x_pad + border)
+                    self.ax.set_ylim(self.map_min_y - y_pad - border, self.map_max_y + y_pad + border)
+                    self.view_width = map_width + x_pad * 2 + border * 2
+                    self.view_height = map_height + y_pad * 2 + border * 2
 
 
     def set_start(self, x, y):
@@ -557,6 +623,10 @@ class GlobalHDMapPlot(GlobalPlot):
             
 
 class LocalPlot:
+    _FRENET_EGO_X_FRAC = 0.25
+    # Prediction polyline colours: agents ahead of the ego vs. agents behind it.
+    PREDICTION_AHEAD_COLOR = "darkorange"
+    PREDICTION_BEHIND_COLOR = "mediumpurple"
     def __init__(self, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100), controller: Optional[ControlStrategy] = None):
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
@@ -586,7 +656,14 @@ class LocalPlot:
         self.view_height_ax2 = None
         
         self.orientation_arrow = None  # For the vehicle orientation arrow
-        
+
+        # Blitting / decimation state
+        self._ax1_window: Optional[tuple[float, float, float, float]] = None
+        self._gp_cache = None  # cached static global-plan geometry (keyed by plan identity)
+        self._tb_cache = None  # cached static track-boundary Frenet segments
+        # Set when a static (background) layer changed this frame, so the view
+        # forces a full redraw instead of a blit-only update.
+        self._needs_full_draw = False
 
         for i in range(self.MAX_PLAN_LENGTH):
             (local_plan_ax1,) = self.ax1.plot([], [], "r-", label=f"Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
@@ -669,12 +746,13 @@ class LocalPlot:
         )
         self.ax2.add_collection(self.track_boundary_collection_ax2)
 
-        # Prediction trajectories: one dotted orange polyline per agent on both views
+        # Prediction trajectories: one dotted polyline per agent on both views. Colour is
+        # set per-frame (ahead vs. behind the ego) in update_perception_model_plots.
         self.prediction_lines_ax1 = []
         self.prediction_lines_ax2 = []
         for _ in range(self.MAX_AGENT_COUNT):
-            l1, = self.ax1.plot([], [], color="darkorange", linewidth=1.5, linestyle="dotted", zorder=3)
-            l2, = self.ax2.plot([], [], color="darkorange", linewidth=1.5, linestyle="dotted", zorder=3)
+            l1, = self.ax1.plot([], [], color=self.PREDICTION_AHEAD_COLOR, linewidth=1.5, linestyle="dotted", zorder=3)
+            l2, = self.ax2.plot([], [], color=self.PREDICTION_AHEAD_COLOR, linewidth=1.5, linestyle="dotted", zorder=3)
             self.prediction_lines_ax1.append(l1)
             self.prediction_lines_ax2.append(l2)
 
@@ -701,6 +779,34 @@ class LocalPlot:
         for tick in self.ax2.yaxis.get_major_ticks():
             tick.label1.set_fontsize(8)
         self.legend_ax.axis("off")
+
+        self._init_blit()
+
+    def _init_blit(self) -> None:
+        """Register the per-frame (dynamic) artists for blitting.
+
+        Static artists (boundaries, reference trajectory, track boundary, the
+        legend and axes frame) are intentionally left non-animated so they end
+        up in the cached background and are only re-rendered on a full draw.
+        """
+        self.blit_manager = BlitManager(self.fig, [self.ax1, self.ax2])
+        animated = [
+            self.ego_vehicle_ax1, self.ego_vehicle_ax2,
+            self.car_heading_plot, self.car_location_plot,
+            self.last_locs_ax1, self.planner_loc_ax1,
+            self.last_locs_ax2, self.planner_loc_ax2,
+            self.g_wp_current_ax1, self.g_wp_current_ax2,
+            self.g_wp_next_ax1, self.g_wp_next_ax2,
+            self.current_wp_plot_ax1, self.current_wp_plot_ax2,
+            self.next_wp_plot_ax1, self.next_wp_plot_ax2,
+            self.lidar_scatter_ax1, self.lidar_scatter_ax2,
+            self.cluster_scatter_ax1, self.cluster_scatter_ax2,
+        ]
+        animated += self.local_plan_plots_ax1 + self.local_plan_plots_ax2
+        animated += self.pm_plots_ax1 + self.pm_plots_ax2
+        animated += self.prediction_lines_ax1 + self.prediction_lines_ax2
+        for art in animated:
+            self.blit_manager.add_artist(art)
 
     def plot(
         self,
@@ -730,6 +836,7 @@ class LocalPlot:
         show_frenet_view = True,
         plot_race_boundary = True,
     ):
+        self._needs_full_draw = False
         self.legend_ax.set_visible(show_legend)
         self.ax1.set_visible(show_global_view)
         self.ax2.set_visible(show_frenet_view)
@@ -751,12 +858,23 @@ class LocalPlot:
         center_sd = exec.local_planner.location_sd if frenet_follow_planner else \
             exec.local_planner.global_trajectory.convert_xy_to_sd(exec.ego_state.x, exec.ego_state.y)
         if xy_zoom is not None:
-            self.ax1.set_xlim(center_xy[0] - xy_zoom, center_xy[0] + xy_zoom)
-            self.ax1.set_ylim( center_xy[1] - xy_zoom / aspect_ratio / 2, center_xy[1] + xy_zoom / aspect_ratio / 2,)
+            _x0, _x1 = center_xy[0] - xy_zoom, center_xy[0] + xy_zoom
+            _y0 = center_xy[1] - xy_zoom / aspect_ratio / 2
+            _y1 = center_xy[1] + xy_zoom / aspect_ratio / 2
+            self.ax1.set_xlim(_x0, _x1)
+            self.ax1.set_ylim(_y0, _y1)
             self.view_width_ax1 = xy_zoom * 2
             self.view_height_ax1 = xy_zoom / aspect_ratio * 2
+            self._ax1_window = (_x0, _x1, _y0, _y1)
+        else:
+            self._ax1_window = None
         if frenet_zoom is not None:
-            self.ax2.set_xlim(center_sd[0] - frenet_zoom, center_sd[0] + frenet_zoom)
+            view_w = frenet_zoom * 2
+            ego_x_frac = self._FRENET_EGO_X_FRAC
+            self.ax2.set_xlim(
+                center_sd[0] - ego_x_frac * view_w,
+                center_sd[0] + (1 - ego_x_frac) * view_w,
+            )
             self.view_width_ax2 = frenet_zoom * 2
             self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
             self.view_height_ax2 = frenet_zoom / aspect_ratio * 2
@@ -814,35 +932,53 @@ class LocalPlot:
         if not show_plot or not hasattr(world_bridge, 'boundary_segments'):
             self.track_boundary_collection.set_segments([])
             self.track_boundary_collection_ax2.set_segments([])
+            self._tb_cache = None
             return
-        segs = world_bridge.boundary_segments  # (M, 2, 2) world-frame
+        segs = np.asarray(world_bridge.boundary_segments)  # (M, 2, 2) world-frame
         if len(segs) == 0 and fallback_plan is not None:
-            segs = boundary_segments_from_global_plan(fallback_plan)
-        self.track_boundary_collection.set_segments(segs if len(segs) else [])
+            segs = np.asarray(boundary_segments_from_global_plan(fallback_plan))
+
+        # ax1 (XY): draw only the segments whose midpoints fall in the view.
+        win = self._ax1_window
+        if len(segs) and win is not None:
+            mid = segs.mean(axis=1)
+            x0, x1, y0, y1 = win
+            mx = (x1 - x0) * 0.15
+            my = (y1 - y0) * 0.15
+            m = (mid[:, 0] >= x0 - mx) & (mid[:, 0] <= x1 + mx) & (mid[:, 1] >= y0 - my) & (mid[:, 1] <= y1 + my)
+            ax1_segs = segs[m]
+        else:
+            ax1_segs = segs
+        self.track_boundary_collection.set_segments(ax1_segs if len(ax1_segs) else [])
+
         if global_trajectory is None or len(segs) == 0:
             self.track_boundary_collection_ax2.set_segments([])
+            self._tb_cache = None
             return
-        # Convert all segment endpoints to Frenet (s, d) and draw on ax2.
-        # Filter out segments that span across the lap start/finish (wrap-around
-        # produces a huge s-difference and causes long diagonal lines in Frenet view).
-        pts = segs.reshape(-1, 2)                          # (M*2, 2)
-        sd  = global_trajectory.convert_xy_path_to_sd_path_np(pts)  # (M*2, 2)
-        sd_segs = sd.reshape(-1, 2, 2)                     # (M, 2, 2)
-        s_diff = np.abs(sd_segs[:, 1, 0] - sd_segs[:, 0, 0])
-        valid = s_diff < (np.median(s_diff) * 20 + 50.0)
-        self.track_boundary_collection_ax2.set_segments(sd_segs[valid] if valid.any() else [])
+
+        # ax2 (Frenet) conversion is expensive and view-independent; cache it and
+        # only rebuild when the trajectory or the segment set actually changes.
+        key = (
+            id(global_trajectory),
+            segs.shape,
+            float(segs.flat[0]), float(segs.flat[-1]),
+        )
+        if self._tb_cache is None or self._tb_cache[0] != key:
+            # Convert all segment endpoints to Frenet (s, d). Drop segments that
+            # span the lap start/finish (huge s-difference → long diagonal lines).
+            pts = segs.reshape(-1, 2)                          # (M*2, 2)
+            sd = global_trajectory.convert_xy_path_to_sd_path_np(pts)  # (M*2, 2)
+            sd_segs = sd.reshape(-1, 2, 2)                     # (M, 2, 2)
+            s_diff = np.abs(sd_segs[:, 1, 0] - sd_segs[:, 0, 0])
+            valid = s_diff < (np.median(s_diff) * 20 + 50.0)
+            self._tb_cache = (key, sd_segs[valid] if valid.any() else np.empty((0, 2, 2)))
+            self.track_boundary_collection_ax2.set_segments(
+                self._tb_cache[1] if len(self._tb_cache[1]) else []
+            )
+            self._needs_full_draw = True
 
     def redraw_plots(self):
-        self.ax1.draw_artist(self.ax1.patch)
-        self.ax2.draw_artist(self.ax2.patch)
-
-        for line in self.ax1.lines:
-            self.ax1.draw_artist(line)
-        for line in self.ax2.lines:
-            self.ax2.draw_artist(line)
-
-        self.fig.canvas.blit(self.ax1.bbox)
-        self.fig.canvas.blit(self.ax2.bbox)
+        self.blit_manager.full_draw()
 
     def update_global_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not show_plot:
@@ -856,59 +992,82 @@ class LocalPlot:
             self.right_boundry_ax2.set_data([], [])
             self.reference_trajectory_ax1.set_data([], [])
             self.reference_trajectory_ax2.set_data([], [])
+            self._gp_cache = None
             return
 
-        if not pl.global_plan.left_boundary_x or not pl.global_plan.right_boundary_x:
+        gt = pl.global_trajectory
+        key = (id(pl.global_plan), id(gt), len(gt.path_s))
+        if self._gp_cache is None or self._gp_cache[0] != key:
+            self._gp_cache = (key, self._compute_global_plan_geometry(pl))
+            self._needs_full_draw = True
+        geom = self._gp_cache[1]
+
+        # ax1 boundaries + reference: decimate the (whole-lap) geometry to the
+        # visible window so panning draws only the vertices on screen.
+        win = self._ax1_window
+        if geom["has_boundary"]:
+            self.left_boundry_x1.set_data(*_decimate_polyline(geom["lbx"], geom["lby"], win))
+            self.right_boundry_x1.set_data(*_decimate_polyline(geom["rbx"], geom["rby"], win))
+        else:
             self.left_boundry_x1.set_data([], [])
             self.right_boundry_x1.set_data([], [])
-            self.left_boundry_ax2.set_data([], [])
-            self.right_boundry_ax2.set_data([], [])
-        else:
-            self.left_boundry_x1.set_data(pl.global_plan.left_boundary_x, pl.global_plan.left_boundary_y)
-            self.right_boundry_x1.set_data(pl.global_plan.right_boundary_x, pl.global_plan.right_boundary_y)
-        _s = np.asarray(pl.global_trajectory.path_s, dtype=float)
-        _gaps = np.where(np.diff(_s) < 0)[0] + 1
-        if pl.global_plan.left_boundary_d and pl.global_plan.right_boundary_d:
-            if len(_gaps):
-                _s   = np.insert(_s,   _gaps, np.nan)
-                _ld  = np.insert(np.asarray(pl.global_plan.left_boundary_d,  dtype=float), _gaps, np.nan)
-                _rd  = np.insert(np.asarray(pl.global_plan.right_boundary_d, dtype=float), _gaps, np.nan)
-                _ref = np.insert(np.asarray(pl.global_trajectory.path_d,     dtype=float), _gaps, np.nan)
-            else:
-                _ld  = pl.global_plan.left_boundary_d
-                _rd  = pl.global_plan.right_boundary_d
-                _ref = pl.global_trajectory.path_d
-            self.left_boundry_ax2.set_data(_s, _ld)
-            self.right_boundry_ax2.set_data(_s, _rd)
-            self.reference_trajectory_ax2.set_data(_s, _ref)
-        else:
-            self.left_boundry_ax2.set_data([], [])
-            self.right_boundry_ax2.set_data([], [])
-            if len(_gaps):
-                _s = np.insert(_s, _gaps, np.nan)
-                _ref = np.insert(np.asarray(pl.global_trajectory.path_d, dtype=float), _gaps, np.nan)
-            else:
-                _ref = pl.global_trajectory.path_d
-            self.reference_trajectory_ax2.set_data(_s, _ref)
-        self.reference_trajectory_ax1.set_data(pl.global_trajectory.path_x, pl.global_trajectory.path_y)
+        self.reference_trajectory_ax1.set_data(*_decimate_polyline(geom["ref_x"], geom["ref_y"], win))
 
-        if pl.global_trajectory.next_wp is not None:
-            self.g_wp_current_ax1.set_data(
-                [pl.global_trajectory.path_x[pl.global_trajectory.current_wp]],
-                [pl.global_trajectory.path_y[pl.global_trajectory.current_wp]],
-            )
-            self.g_wp_current_ax2.set_data(
-                [pl.global_trajectory.path_s[pl.global_trajectory.current_wp]],
-                [pl.global_trajectory.path_d[pl.global_trajectory.current_wp]],
-            )
-            self.g_wp_next_ax1.set_data(
-                [pl.global_trajectory.path_x[pl.global_trajectory.next_wp]],
-                [pl.global_trajectory.path_y[pl.global_trajectory.next_wp]],
-            )
-            self.g_wp_next_ax2.set_data(
-                [pl.global_trajectory.path_s[pl.global_trajectory.next_wp]],
-                [pl.global_trajectory.path_d[pl.global_trajectory.next_wp]],
-            )
+        # ax2 (Frenet) geometry is view-independent; push it to the artists only
+        # when the cache was (re)built, not every frame.
+        if geom["refreshed"]:
+            if geom["has_boundary_d"]:
+                self.left_boundry_ax2.set_data(geom["s2"], geom["ld2"])
+                self.right_boundry_ax2.set_data(geom["s2"], geom["rd2"])
+            else:
+                self.left_boundry_ax2.set_data([], [])
+                self.right_boundry_ax2.set_data([], [])
+            self.reference_trajectory_ax2.set_data(geom["s2"], geom["ref2"])
+            geom["refreshed"] = False
+
+        if gt.next_wp is not None:
+            self.g_wp_current_ax1.set_data([gt.path_x[gt.current_wp]], [gt.path_y[gt.current_wp]])
+            self.g_wp_current_ax2.set_data([gt.path_s[gt.current_wp]], [gt.path_d[gt.current_wp]])
+            self.g_wp_next_ax1.set_data([gt.path_x[gt.next_wp]], [gt.path_y[gt.next_wp]])
+            self.g_wp_next_ax2.set_data([gt.path_s[gt.next_wp]], [gt.path_d[gt.next_wp]])
+
+    def _compute_global_plan_geometry(self, pl: LocalPlanningStrategy) -> dict:
+        """Precompute view-independent global-plan geometry once per plan.
+
+        Returns the whole-lap arrays (ax1 boundaries/reference are sliced to the
+        window each frame from these) plus the static Frenet arrays for ax2.
+        ``refreshed`` signals that the ax2 artists still need the new data.
+        """
+        gp = pl.global_plan
+        gt = pl.global_trajectory
+        has_boundary = bool(gp.left_boundary_x and gp.right_boundary_x)
+        geom = {
+            "refreshed": True,
+            "has_boundary": has_boundary,
+            "lbx": np.asarray(gp.left_boundary_x, dtype=float) if has_boundary else np.empty(0),
+            "lby": np.asarray(gp.left_boundary_y, dtype=float) if has_boundary else np.empty(0),
+            "rbx": np.asarray(gp.right_boundary_x, dtype=float) if has_boundary else np.empty(0),
+            "rby": np.asarray(gp.right_boundary_y, dtype=float) if has_boundary else np.empty(0),
+            "ref_x": np.asarray(gt.path_x, dtype=float),
+            "ref_y": np.asarray(gt.path_y, dtype=float),
+        }
+        _s = np.asarray(gt.path_s, dtype=float)
+        _gaps = np.where(np.diff(_s) < 0)[0] + 1
+        has_boundary_d = bool(gp.left_boundary_d and gp.right_boundary_d)
+        geom["has_boundary_d"] = has_boundary_d
+        if len(_gaps):
+            geom["s2"] = np.insert(_s, _gaps, np.nan)
+            geom["ref2"] = np.insert(np.asarray(gt.path_d, dtype=float), _gaps, np.nan)
+            if has_boundary_d:
+                geom["ld2"] = np.insert(np.asarray(gp.left_boundary_d, dtype=float), _gaps, np.nan)
+                geom["rd2"] = np.insert(np.asarray(gp.right_boundary_d, dtype=float), _gaps, np.nan)
+        else:
+            geom["s2"] = _s
+            geom["ref2"] = np.asarray(gt.path_d, dtype=float)
+            if has_boundary_d:
+                geom["ld2"] = np.asarray(gp.left_boundary_d, dtype=float)
+                geom["rd2"] = np.asarray(gp.right_boundary_d, dtype=float)
+        return geom
 
     def update_lattice_graph_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not show_plot or not hasattr(pl, "lattice") or len(pl.lattice.edges) == 0:
@@ -933,6 +1092,10 @@ class LocalPlot:
                 self.lattice_graph_plots_ax2.append(line_ax2)
                 self.lattice_graph_endpoints_ax1.append(endpoint_ax1)
                 self.lattice_graph_endpoints_ax2.append(endpoint_ax2)
+                # Lattice artists are created on demand; register them as
+                # animated so blitting keeps them in the dynamic layer.
+                for _art in (line_ax1, line_ax2, endpoint_ax1, endpoint_ax2):
+                    self.blit_manager.add_artist(_art)
 
 
             self.lattice_graph_plots_ax1[edge_index].set_data(
@@ -1108,20 +1271,22 @@ class LocalPlot:
         if use_prediction:
             ego_hdg = np.array([np.cos(exec_pm.ego_vehicle.theta), np.sin(exec_pm.ego_vehicle.theta)])
             for i, agent in enumerate(agents):
-                to_agent = np.array([agent.x - exec_pm.ego_vehicle.x, agent.y - exec_pm.ego_vehicle.y])
-                if float(np.dot(ego_hdg, to_agent)) < 0.0:
-                    self.prediction_lines_ax1[i].set_data([], [])
-                    self.prediction_lines_ax2[i].set_data([], [])
-                    continue
                 agent_path = pred.trajectories.get(agent.agent_id)
                 if agent_path is None:
                     self.prediction_lines_ax1[i].set_data([], [])
                     self.prediction_lines_ax2[i].set_data([], [])
                     continue
+                # Agents ahead of the ego use the primary colour; agents behind are
+                # tinted differently so they read as informational rather than a lead.
+                to_agent = np.array([agent.x - exec_pm.ego_vehicle.x, agent.y - exec_pm.ego_vehicle.y])
+                color = self.PREDICTION_BEHIND_COLOR if float(np.dot(ego_hdg, to_agent)) < 0.0 \
+                    else self.PREDICTION_AHEAD_COLOR
                 path_xy = np.vstack([[agent.x, agent.y], agent_path])
                 self.prediction_lines_ax1[i].set_data(path_xy[:, 0], path_xy[:, 1])
+                self.prediction_lines_ax1[i].set_color(color)
                 path_sd = global_trajectory.convert_xy_path_to_sd_path_np(path_xy)
                 self.prediction_lines_ax2[i].set_data(path_sd[:, 0], path_sd[:, 1])
+                self.prediction_lines_ax2[i].set_color(color)
         for i in range(n if use_prediction else 0, self.MAX_AGENT_COUNT):
             self.prediction_lines_ax1[i].set_data([], [])
             self.prediction_lines_ax2[i].set_data([], [])
@@ -1242,6 +1407,38 @@ class LocalPlot:
 
 
 # --- module helpers ---
+
+def _decimate_polyline(x: np.ndarray, y: np.ndarray, window, margin_frac: float = 0.15):
+    """Return only the polyline vertices near the visible window.
+
+    Contiguous visible runs are kept intact (each extended by one vertex so the
+    line meets the window edge); disjoint runs -- e.g. a closed lap whose start
+    and finish both fall in view -- are joined with a NaN break so the arcs are
+    not connected across the off-screen gap. Returns ``(x, y)`` ready for
+    ``set_data``.
+    """
+    if window is None or x.size == 0:
+        return x, y
+    x0, x1, y0, y1 = window
+    mx = (x1 - x0) * margin_frac
+    my = (y1 - y0) * margin_frac
+    inside = (x >= x0 - mx) & (x <= x1 + mx) & (y >= y0 - my) & (y <= y1 + my)
+    if not inside.any():
+        return x[:0], y[:0]
+    idx = np.flatnonzero(inside)
+    runs = np.split(idx, np.where(np.diff(idx) > 1)[0] + 1)
+    xs_parts, ys_parts = [], []
+    nan = np.array([np.nan])
+    for k, run in enumerate(runs):
+        a = max(int(run[0]) - 1, 0)
+        b = min(int(run[-1]) + 2, x.size)
+        if k > 0:
+            xs_parts.append(nan)
+            ys_parts.append(nan)
+        xs_parts.append(x[a:b])
+        ys_parts.append(y[a:b])
+    return np.concatenate(xs_parts), np.concatenate(ys_parts)
+
 
 # slow → fast : green → yellow → red (distinct from HD lane #427b58)
 _VELOCITY_CMAP = LinearSegmentedColormap.from_list(

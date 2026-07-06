@@ -30,6 +30,8 @@ c10_perception:
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
 c20_planning:
+  c20_beside_agent_rear_window: 6.0
+  c20_beside_agent_sweep_time: 2.0
   c20_boundary_margin: 0.0
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
@@ -41,6 +43,7 @@ c20_planning:
   c23_velocity_strategy: ''
   c27_follow_cruise_min_gap: 15.0
   c27_follow_gap_buffer: 0.5
+  c27_follow_gap_gain: 1.0
   c27_max_deceleration: 3.0
   c27_planning_horizon_points: 50
   c27_stopping_safety_buffer: 2.0
@@ -49,17 +52,20 @@ c20_planning:
   c28_boundary_clearance: 0.5
   c28_d0_reference_threshold: 0.2
   c28_disconnect_distance_threshold: 5.0
+  c28_kinematic_sampling: true
   c28_maneuver_distance: 30
   c28_match_speed_wp_buffer: 4
-  c28_max_lateral_accel: 4.0
+  c28_max_lateral_accel: 6.0
   c28_min_curvature_velocity: 3.0
   c28_min_edge_progress_to_block: 0.2
   c28_num_of_edge_points: 10
   c28_planning_horizon: 3
   c28_replan_wait_time: 2.5
   c28_safety_margin_weight: 0.3
+  c28_sample_distribution: 1
+  c28_sample_reach_factor: 1.0
   c28_sample_size: 3
-  c28_urgent_collision_threshold: 3
+  c28_urgent_collision_threshold: 10.0
 c30_control:
   c30_emergency_braking_factor: 0.9
   c30_emergency_min_moving_velocity: 1.0
@@ -95,7 +101,7 @@ c40_execution:
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c40_hd_map: data/san_campus.xodr
-  c40_local_planner: GreedyLatticePlanner
+  c40_local_planner: ShortestPathLatticePlanner
   c40_localization: ''
   c40_localization_dt: 0.1
   c40_log_level: WARN
@@ -161,10 +167,10 @@ plugins:
     p60_dark_mode: true
     p60_fg_color: white
     p60_hide_menubar: false
-    p60_next_profile: default
+    p60_next_profile: perception
     p60_shortcut_mode: false
     p66_frenet_view_follow_planner: false
-    p66_frenet_zoom: 60.0
+    p66_frenet_zoom: 40.0
     p66_global_plan_velocity_scale: relative
     p66_global_view_follow_planner: false
     p66_global_zoom: 810.8967345284556
@@ -186,6 +192,7 @@ plugins:
     p67_show_local_global_view: false
     p67_show_occupancy_flow: false
     p67_show_perception_extras: false
+    p67_show_prediction: true
     p68_disable_log: false
     p68_log_font: Courier
     p68_log_font_size: 11

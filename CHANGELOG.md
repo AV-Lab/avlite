@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Visualizer local plot: blitting for stable-view frames (limits/size unchanged) and view-window decimation of reference trajectory, boundaries, and track-boundary segments so follow-mode full redraws are cheaper; static Frenet (ax2) geometry is cached per plan instead of recomputed every frame — reduces main-thread plot cost that was capping planner FPS with the local plot enabled
+
+## [0.4.4] - 2026-07-06
+
+### Added
+- Visualizer settings: **Show prediction**, **Occupancy flow**, and **Mapping** row in the settings window (`p67_show_prediction` gates all prediction overlays)
+- Bridge Setting: side-by-side **world capabilities** / **stack capabilities** columns with scrollable checklists, capability tooltips, and theme-aware canvas backgrounds
+- Settings editor: per-section **Reset to stack defaults** / **Reset to plugin defaults** buttons (schema-validated source defaults)
+- Planning: `c27_follow_gap_gain` — proportional speed reduction when the ego is inside the follow-gap standoff
+- Planning: `c20_beside_agent_sweep_time` — shorter forward sweep for beside/just-behind agents in lattice collision precompute
+- Planning: `c20_beside_agent_rear_window` — bounds the beside-sweep to agents within N metres behind the ego (overtake cut-back protection); agents further back stay static boxes
+- Planning: `ShortestPathLatticePlanner` — lattice planner that commits to the globally optimal chain (dynamic programming over the lattice DAG: longest reachable depth first, then minimum summed edge cost) instead of greedy per-level selection
+- Docs: vim-style visualizer shortcut guide in overview and quick-start
+
+### Changed
+- Perception panel: removed **Show** / **Extras** checkboxes and the Extras row; **loc:** localization dropdown is inline on the main panel
+- Bridge capability panels use content-sized height (capped at 96px) instead of a fixed tall canvas
+- Frenet view: ego is positioned ~25% from the left (more s-range ahead) instead of centered
+- Global map full-view zoom: 5% border margin so the track no longer touches plot edges
+- Control gauges: label/gauge rows aligned via grid; value boxes tint by deviation magnitude
+- `_sync_exec_dt` moved onto `VisualizationSettings` as an instance method
+- Settings window: **Save** / **Close** moved to a shared footer (visualizer and standalone modes)
+- Stack/profile reset applies schema-validated source defaults per layer instead of reloading widgets only
+- Collision checking returns the **nearest** blocker (smallest path index), not the first agent in list order — cut-ins re-target onto the closest lead
+- Collision precompute forward-sweeps agents **only when a predictor supplies a trajectory** — the constant-velocity fallback was removed, so with prediction disabled every agent stays a static box (no fabricated forward projection)
+- Velocity planner: when inside the follow gap, brake proportionally to re-open standoff before resuming cruise speed
+- Planning settings: clearer `c20_collision_safety_margin` / `c20_obstacle_inflation_margin` / `c20_min_velocity_threshold` descriptions; schema defaults `c20_boundary_margin` 0.25 m and `c20_collision_safety_margin` 0.5 m
+- Bundled profiles: dark mode defaults restored; planning/control tuning for **local planning** and **global planning** profiles
+- Docs: algorithms collision-margin table aligned with ego-side vs agent-side clearance semantics; visualizer screenshot updated
+
+### Fixed
+- Far-behind agents painting front lattice edges red: with prediction disabled no forward sweep occurs, and with prediction on the beside-sweep is scoped to the rear window so a trailing vehicle no longer flags edges ahead of the ego
+- Lattice overtake sideswipe: beside/just-behind moving agents are swept forward (via predictor) so the ego stays clear of a just-passed agent before cutting back to the reference line
+- Startup layout jump in Bridge Setting (empty-then-shrink canvas height)
+- Plot views rendering with wrong aspect ratio before first layout pass (`_canvas_ready` guard + `after_idle` replot)
+- Light mode: world/stack capability canvases now refresh background when toggling dark/light theme
+- Premature `update_idletasks()` before plot views were gridded at startup
+- Standalone settings window (`python -m avlite setting`) closes cleanly instead of leaving a hidden host window
+
 ## [0.4.3] - 2026-07-05
 
 ### Fixed

@@ -11,7 +11,6 @@ from avlite.c10_perception.c12_perception_strategy import (
     PerceptionPipeline,
 )
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import (
@@ -35,6 +34,7 @@ from avlite.c60_apps.c69_settings import AppSettings
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ValueGauge,
     DataPicker,
+    attach_capability_tooltip,
     attach_schema_tooltip,
     attach_tooltip,
     BUTTON_TOOLTIPS,
@@ -69,23 +69,12 @@ class PerceivePlanControlView(ttk.Frame):
         self.control_frame = ControlFrame(root=self.root, view=top_bar)
         self.control_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
 
-        # Extras row – hidden until the checkbox enables it
-        self.perception_extras_frame = PerceptionExtrasFrame(root=self.root, view=self)
-        self.root.setting.p67_show_perception_extras.trace_add("write", lambda *_: self.toggle_perception_extras())
-        self.toggle_perception_extras()  # sync initial checkbox state
-
-    def toggle_perception_extras(self):
-        if self.root.setting.p67_show_perception_extras.get():
-            self.perception_extras_frame.pack(fill=tk.X, expand=True)
-        else:
-            self.perception_extras_frame.pack_forget()
-
     def reset(self):
         """Update data in the view."""
         self.perceive_frame.update_data()
         if self.root.exec is not None:
             stack_caps = self.root.exec.world.stack_capabilities
-            self.perception_extras_frame.localization_dropdown_menu["values"] = (
+            self.perceive_frame.localization_dropdown_menu["values"] = (
                 (("",) if StackCapability.LOCALIZATION in stack_caps else ())
                 + tuple(LocalizationStrategy.registry.keys())
             )
@@ -101,7 +90,7 @@ class PerceptionFrame(ttk.LabelFrame):
         super().__init__(view, text="Perception")
         self.root = root
 
-        # Row 0: main perception dropdown + Show checkbox + Extras checkbox
+        # Row 0: main perception dropdown + Localization dropdown
         self.perception_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.perception_type, state="readonly", width=14)
         self.perception_dropdown_menu["values"] = list(PerceptionStrategy.registry.keys())
@@ -109,15 +98,13 @@ class PerceptionFrame(ttk.LabelFrame):
         self.perception_dropdown_menu.grid(row=0, column=0, sticky="ew", padx=2)
         attach_schema_tooltip(self.perception_dropdown_menu, ExecutionSettings, "c40_perception")
 
-        show_occ = ttk.Checkbutton(self, text="Show", variable=self.root.setting.p67_show_occupancy_flow)
-        show_occ.grid(row=0, column=1, padx=2)
-        attach_schema_tooltip(show_occ, VisualizationSettings, "p67_show_occupancy_flow")
-        extras_cb = ttk.Checkbutton(
-            self, text="Extras", variable=self.root.setting.p67_show_perception_extras,
-            command=lambda: self.root.perceive_plan_control_view.toggle_perception_extras(),
-        )
-        extras_cb.grid(row=0, column=2, padx=2)
-        attach_schema_tooltip(extras_cb, VisualizationSettings, "p67_show_perception_extras")
+        ttk.Label(self, text="loc:").grid(row=0, column=1, sticky="e", padx=(4, 0))
+        self.localization_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
+        self.localization_dropdown_menu["values"] = tuple(LocalizationStrategy.registry.keys())
+        self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.localization_dropdown_menu.grid(row=0, column=2, sticky="ew", padx=2)
+        attach_schema_tooltip(self.localization_dropdown_menu, ExecutionSettings, "c40_localization")
 
         # Rows 1-3: pipeline sub-strategy widgets (shown only for PerceptionPipeline)
         self._lbl_detect = ttk.Label(self, text="Detect:")
@@ -182,8 +169,8 @@ class PerceptionFrame(ttk.LabelFrame):
             if community_prefixes and c.__module__.startswith(community_prefixes)
         }
         data = sorted(core_strategies | allowed_default_plugins | allowed_community_plugins)
-        log.warning("allowed_default_plugins: %s, allowed_community_plugins: %s", allowed_default_plugins, allowed_community_plugins)
-        log.warning(f"final Strategies: {data}")
+        log.info("allowed_default_plugins: %s, allowed_community_plugins: %s", allowed_default_plugins, allowed_community_plugins)
+        log.info(f"final Strategies: {data}")
 
         self.perception_dropdown_menu["values"] = tuple(data)
         if self.root.exec is None:
@@ -200,27 +187,6 @@ class PerceptionFrame(ttk.LabelFrame):
         self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
         self._update_pipeline_visibility()
 
-
-class PerceptionExtrasFrame(ttk.LabelFrame):
-    def __init__(self, root: VisualizerApp, view: ttk.Frame):
-        super().__init__(view, text="Perception Extras")
-        self.root = root
-
-        ttk.Label(self, text="Localization:").pack(side=tk.LEFT, padx=(5, 2))
-        self.localization_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
-        self.localization_dropdown_menu["values"] = tuple(LocalizationStrategy.registry.keys())
-        self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.localization_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
-        attach_schema_tooltip(self.localization_dropdown_menu, ExecutionSettings, "c40_localization")
-
-        ttk.Label(self, text="Mapping:").pack(side=tk.LEFT, padx=(5, 2))
-        self.mapping_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.mapping_type, state="readonly", width=12)
-        self.mapping_dropdown_menu["values"] = ("",) + tuple(MappingStrategy.registry.keys())
-        self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.mapping_dropdown_menu.pack(side=tk.LEFT, padx=(0, 10), fill=tk.X, expand=True)
-        attach_schema_tooltip(self.mapping_dropdown_menu, ExecutionSettings, "c40_mapping")
 
 # --------------------------------------------------------------------------------------------
 # -Plan---------------------------------------------------------------------------------------
@@ -469,43 +435,40 @@ class ControlFrame(ttk.LabelFrame):
         #################
         # Progress bars
         #################
+        # Each label sits on the same grid row as its gauge so they stay aligned.
         self.cte_frame = ttk.Frame(self)
         self.cte_frame.pack(fill=tk.X)
+        self.cte_frame.columnconfigure(1, weight=1)
 
-        self.cte_gauge_frame = ttk.Frame(self.cte_frame)
-        self.cte_gauge_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Label(self.cte_gauge_frame, text="Vel CTE", font=self.root.small_font).pack(side=tk.TOP)
-        ttk.Label(self.cte_gauge_frame, text="Pos CTE", font=self.root.small_font).pack(side=tk.TOP)
+        ttk.Label(self.cte_frame, text="Vel CTE", font=self.root.small_font).grid(row=0, column=0, sticky="w", padx=5)
         self.gauge_cte_vel = ValueGauge(self.cte_frame, min_value=-20, max_value=20, dpi_scale=self.root._dpi_scale)
-        self.gauge_cte_vel.pack(side=tk.TOP, fill=tk.X, expand=True)
+        self.gauge_cte_vel.grid(row=0, column=1, sticky="ew", pady=1)
 
+        ttk.Label(self.cte_frame, text="Pos CTE", font=self.root.small_font).grid(row=1, column=0, sticky="w", padx=5)
         self.gauge_cte_steer = ValueGauge(self.cte_frame, min_value=-20, max_value=20, dpi_scale=self.root._dpi_scale)
-        self.gauge_cte_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
+        self.gauge_cte_steer.grid(row=1, column=1, sticky="ew", pady=1)
+
         self.progress_frame = ttk.Frame(self)
         self.progress_frame.pack(fill=tk.X)
+        self.progress_frame.columnconfigure(1, weight=1)
 
-        self.progress_label_frame = ttk.Frame(self.progress_frame)
-        self.progress_label_frame.pack(side=tk.LEFT, padx=5)
-        ttk.Label(self.progress_label_frame, text="Accel", font=self.root.small_font).pack(side=tk.TOP)
-        ttk.Label(self.progress_label_frame, text="Steer", font=self.root.small_font).pack(side=tk.TOP)
-
+        ttk.Label(self.progress_frame, text="Accel", font=self.root.small_font).grid(row=0, column=0, sticky="w", padx=5)
         self.gauge_acc = ValueGauge(
             self.progress_frame,
             min_value=ControlSettings.c32_ego_min_acceleration,
             max_value=ControlSettings.c32_ego_max_acceleration,
             dpi_scale=self.root._dpi_scale,
         )
-        self.gauge_acc.pack(side=tk.TOP, fill=tk.X, expand=True)
-        # self.progressbar_acc.set_marker(0)
+        self.gauge_acc.grid(row=0, column=1, sticky="ew", pady=1)
 
+        ttk.Label(self.progress_frame, text="Steer", font=self.root.small_font).grid(row=1, column=0, sticky="w", padx=5)
         self.gauge_steer = ValueGauge(
             self.progress_frame,
             min_value=ControlSettings.c32_ego_min_steering,
             max_value=ControlSettings.c32_ego_max_steering,
             dpi_scale=self.root._dpi_scale,
         )
-        # self.progressbar_steer.set_marker(0)
-        self.gauge_steer.pack(side=tk.TOP, fill=tk.X, expand=True)
+        self.gauge_steer.grid(row=1, column=1, sticky="ew", pady=1)
         # ----
 
     def update_data(self):
@@ -571,18 +534,18 @@ class ExecView(ttk.Frame):
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
         self.execution_factory_frame = ttk.LabelFrame(self, text="Execution")
-        self.execution_factory_frame.grid(row=0,column=0,pady=5, sticky="nsew")
+        self.execution_factory_frame.grid(row=0,column=0,pady=5, sticky="new")
 
         executer_frame = ExecSettingsFrame(self.root, self)
-        executer_frame.grid(row=0, column=1, pady=5, sticky="nsew")
+        executer_frame.grid(row=0, column=1, pady=5, sticky="new")
 
         ## Bridge 
         self.bridge_frame = BridgeFrame(self.root, self)
-        self.bridge_frame.grid(row=0, column=2,pady=5, sticky="nsew")
+        self.bridge_frame.grid(row=0, column=2, pady=5, sticky="nsw")
         
         ## Execution Settings Frame
         exec_stats_frame = ExecStatsFrame(self.root, self)
-        exec_stats_frame.grid(row=0, column=3,pady=5, sticky="nsew")
+        exec_stats_frame.grid(row=0, column=3,pady=5, sticky="new")
 
         self.columnconfigure(0, weight=2)  # execution_frame wider
         # self.columnconfigure(1, weight=1)  # exec_setting_frame
@@ -643,7 +606,7 @@ class ExecView(ttk.Frame):
 
         ## Second frame
         self.start_exec_button = ttk.Button( exec_second_frame, text="Start", command=self.toggle_exec, style="Start.TButton", width=10,)
-        self.start_exec_button.pack(fill=tk.X, side=tk.LEFT)
+        self.start_exec_button.pack(fill=tk.X, side=tk.LEFT, padx = (5,0))
         attach_tooltip(self.start_exec_button, BUTTON_TOOLTIPS["exec_start"])
 
         btn_stop = ttk.Button( exec_second_frame, text="Stop", command=self.stop_exec, style="Stop.TButton",)
@@ -852,31 +815,41 @@ class BridgeFrame(ttk.LabelFrame):
         self.world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())
         self.world_bridge_dropdown_menu.state(["readonly"])
         self.world_bridge_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.world_bridge_dropdown_menu.grid(row=0, column=0, pady=(0, 4), sticky="we")
+        self.world_bridge_dropdown_menu.grid(row=0, column=0, columnspan=4, pady=(0, 4), sticky="we")
         attach_schema_tooltip(self.world_bridge_dropdown_menu, ExecutionSettings, "c40_bridge")
 
-        # Scrollable checklist of the bridge's providable capabilities.
-        style = ttk.Style()
-        bg_color = style.lookup("TFrame", "background")
-        self._caps_canvas = tk.Canvas(self, height=96, width=140, highlightthickness=0, bd=0, background=bg_color)
-        self._caps_scrollbar = ttk.Scrollbar(self, orient="vertical", command=self._caps_canvas.yview)
-        self._caps_inner = ttk.Frame(self._caps_canvas)
-        self._caps_canvas.configure(yscrollcommand=self._caps_scrollbar.set)
-        self._caps_inner.bind(
-            "<Configure>", lambda e: self._caps_canvas.configure(scrollregion=self._caps_canvas.bbox("all"))
-        )
-        self._caps_canvas.create_window((0, 0), window=self._caps_inner, anchor="nw")
-        self._caps_canvas.grid(row=1, column=0, sticky="nsew")
-        self._caps_scrollbar.grid(row=1, column=1, sticky="ns")
+        # Two scrollable checklists: world sensors and ground-truth stack capabilities.
+        ttk.Label(self, text="world capabilities", font=self.root.small_font).grid(row=1, column=0, sticky="w")
+        ttk.Label(self, text="stack capabilities", font=self.root.small_font).grid(row=1, column=2, sticky="w")
+        self._world_canvas, self._world_inner = self._make_scroll_column(row=2, column=0)
+        self._stack_canvas, self._stack_inner = self._make_scroll_column(row=2, column=2)
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.columnconfigure(2, weight=1)
 
         self._cap_vars: dict[str, tk.BooleanVar] = {}
-        self._build_capability_checks(set(), set())
+
+    def _make_scroll_column(self, row: int, column: int):
+        """Create a scrollable inner frame at the given grid cell; return (canvas, inner)."""
+        style = ttk.Style()
+        bg_color = style.lookup("TFrame", "background")
+        canvas = tk.Canvas(self, width=120, height=96, highlightthickness=0, bd=0, background=bg_color)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        def _resize_canvas(event, c=canvas):
+            c.configure(scrollregion=c.bbox("all"))
+            c.configure(height=min(event.height, 96))
+
+        inner.bind("<Configure>", _resize_canvas)
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.grid(row=row, column=column, sticky="new")
+        scrollbar.grid(row=row, column=column + 1, sticky="ns")
+        return canvas, inner
 
     def _build_capability_checks(self, world_capabilities: set, stack_capabilities: set):
-        """Rebuild the checklist for the data the selected bridge can feed the stack."""
-        for child in self._caps_inner.winfo_children():
+        """Rebuild the checklists for the data the selected bridge can feed the stack."""
+        for child in (*self._world_inner.winfo_children(), *self._stack_inner.winfo_children()):
             child.destroy()
         self._cap_vars = {}
 
@@ -884,12 +857,18 @@ class BridgeFrame(ttk.LabelFrame):
         actions = {WorldCapability.AGENT_SPAWN, WorldCapability.AGENT_CONTROL}
         sensors = sorted(set(world_capabilities) - actions, key=lambda c: c.value)
         ground_truth = sorted(set(stack_capabilities), key=lambda c: c.value)
-        for cap in (*sensors, *ground_truth):
-            var = tk.BooleanVar(value=is_capability_provided(cap))
-            var.trace_add("write", lambda *_: self._on_toggle())
-            chk = ttk.Checkbutton(self._caps_inner, text=cap.name, variable=var)
-            chk.pack(anchor="w")
-            self._cap_vars[cap.name] = var
+        for inner, caps in ((self._world_inner, sensors), (self._stack_inner, ground_truth)):
+            for cap in caps:
+                var = tk.BooleanVar(value=is_capability_provided(cap))
+                var.trace_add("write", lambda *_: self._on_toggle())
+                chk = ttk.Checkbutton(inner, text=cap.name, variable=var)
+                chk.pack(anchor="w")
+                attach_capability_tooltip(chk, cap)
+                self._cap_vars[cap.name] = var
+
+        for canvas, inner in ((self._world_canvas, self._world_inner), (self._stack_canvas, self._stack_inner)):
+            self.update_idletasks()
+            canvas.configure(height=min(inner.winfo_reqheight(), 96))
 
     def _on_toggle(self):
         """Persist the checked capabilities to the c41_provided filter and refresh plots."""
@@ -903,6 +882,11 @@ class BridgeFrame(ttk.LabelFrame):
     def update_for_bridge(self, capabilities: set, stack_capabilities: set | None = None):
         """Rebuild the capability checklist for the active bridge."""
         self._build_capability_checks(capabilities, stack_capabilities or set())
+
+    def update_canvas_theme(self):
+        bg = ttk.Style().lookup("TFrame", "background")
+        for canvas in (self._world_canvas, self._stack_canvas):
+            canvas.configure(background=bg)
 
 
 

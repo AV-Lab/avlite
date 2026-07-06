@@ -133,7 +133,7 @@ Lateral nodes are sampled uniformly between lane boundaries minus `c28_boundary_
 T_{\text{pred}} = \frac{\text{planning\_horizon} \times \text{maneuver\_distance}}{v_{\text{ego}}}
 \]
 
-Moving agents get swept polygons over that horizon; static agents use inflated footprints.
+Ahead agents with `|v| > c20_min_velocity_threshold` get swept polygons from `pm.prediction` over that horizon; slower or behind agents use their current inflated footprint only.
 
 ### Edge feasibility
 
@@ -184,7 +184,7 @@ The planner avoids swapping plans every replan tick so the controller can conver
 | No committed plan | Longer clean chain, or escape from colliding chain |
 | Emergency-stop recovery to clean plan | Requires **wait time** (`c28_replan_wait_time`) **or** chain **+2 edges** |
 | Current edge done, no successor | Same-length speed upgrade (+0.5 m/s) only after **wait time** |
-| Urgent collision (within `c28_urgent_collision_threshold` waypoints) | |
+| Urgent collision (within `c28_urgent_collision_threshold` m) | |
 | Geometric disconnect (`> c28_disconnect_distance_threshold` m from plan) | |
 | Head edge colliding, agent cleared (+0.5 m/s faster clean plan) | |
 
@@ -230,6 +230,19 @@ Defaults match [`PlanningSettings`](../avlite/c20_planning/c29_settings.py). Adj
 | `c28_num_of_edge_points` | `10` | Waypoints along each quintic edge |
 | `c28_boundary_clearance` | `0.5` | Inset from lane boundaries for sampling and violation checks (m) |
 | `c28_d0_reference_threshold` | `0.2` | Treat `\|d\|` below this as “on reference” for selection and lateral preference (m) |
+| `c28_kinematic_sampling` | `true` | Bound lateral samples to the speed-dependent kinematic reach instead of the full road width |
+| `c28_sample_reach_factor` | `1.0` | Multiplier on the kinematic reach; `<1` adds curvature headroom, `>1` widens exploration |
+| `c28_sample_distribution` | `1` | Sample placement in the reach band (always strictly inside the limits): `0` even spread (interior bin-centers), `1` random uniform, `2` stratified (even bins + jitter) |
+
+**Kinematic sampling.** When `c28_kinematic_sampling` is enabled, lateral samples are drawn within a reachable band rather than uniformly across the whole road. For a quintic lateral shift `Δd` over one maneuver segment of length `L`, peak curvature is `κ ≈ 5.7735·Δd / L²`; equating this to the curvature limit `a_lat / v²` (see [Edge feasibility](#edge-feasibility)) gives the per-segment reachable half-width
+
+\[
+R(v) = \frac{a_{\text{lat,max}} \cdot L^2}{5.7735 \cdot v^2} \cdot \texttt{c28\_sample\_reach\_factor}, \quad v = \max(v_{\text{ego}}, \texttt{c28\_min\_curvature\_velocity}).
+\]
+
+The band fans out by `l·R` at level `l` (cumulative reach), centered on the ego's current `d` and clipped to the boundaries, so almost all sampled edges pass the curvature check. As speed rises, `R` shrinks (`∝ 1/v²`), automatically narrowing the spread. Set `c28_kinematic_sampling: false` to restore full-width sampling.
+
+Each level has one node on the reference (center) plus `c28_sample_size − 1` samples placed strictly within the band (sandwiched between the limits, never on them) per `c28_sample_distribution`: `0` spreads them evenly at interior bin-centers (deterministic; the 25%/75% points for two samples), `1` draws each independently at random (uniform), and `2` is stratified (one random draw per even bin — coverage plus run-to-run variety). So `c28_sample_size = 3` yields three nodes per level: the reference plus two inside the limits.
 
 ### Feasibility and fallbacks
 
@@ -247,7 +260,7 @@ Boundary relaxation also applies automatically when an agent blocks ahead (overt
 | Key | Default | Description |
 |-----|---------|-------------|
 | `c28_replan_wait_time` | `2.5` | Minimum time between discretionary plan switches (s) |
-| `c28_urgent_collision_threshold` | `3` | Waypoints to collision before immediate switch |
+| `c28_urgent_collision_threshold` | `10.0` | Distance to collision before immediate switch (m) |
 | `c28_disconnect_distance_threshold` | `5.0` | Max distance from plan waypoint before forced switch (m) |
 | `c28_min_edge_progress_to_block` | `0.2` | Min fraction of edge progress before replan blocking (reserved) |
 
@@ -265,11 +278,13 @@ Used by lattice, velocity planner, and global boundary inset.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `c20_collision_safety_margin` | `0.3` | Extra inflation on ego footprint in collision checks (m) |
-| `c20_obstacle_inflation_margin` | `0.5` | Inflation on agent polygons for lattice prediction (m) |
+| `c20_collision_safety_margin` | `0.3` | Extra clearance on the ego side of collision checks (m); expands the buffered trajectory corridor beyond half the ego width |
+| `c20_obstacle_inflation_margin` | `0.5` | Extra clearance around agent obstacle polygons in collision checks (m); inflates each agent bbox or prediction sweep before intersecting the ego corridor |
 | `c20_default_ego_velocity` | `5.0` | Assumed ego speed when velocity is unknown (m/s) |
-| `c20_min_velocity_threshold` | `0.5` | Speed below which ego/agents treated as stopped (m/s) |
+| `c20_min_velocity_threshold` | `0.5` | Agent speed gate for collision prediction (m/s); at or below this \|v\|, agents are static and `pm.prediction` is not used for swept obstacles |
 | `c20_boundary_margin` | `0.0` | Global plan boundary inset from track or HD map edges (m) |
+
+Effective clearance between nominal vehicle bodies is approximately `c20_collision_safety_margin` (ego) plus `c20_obstacle_inflation_margin` (agents), on top of vehicle widths. Agents with `|v| ≤ c20_min_velocity_threshold` use their current footprint only; prediction sweeps apply only to ahead, moving agents.
 
 ### Velocity planner (`c27_*`)
 

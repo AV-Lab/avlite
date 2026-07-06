@@ -4,7 +4,7 @@ c10_perception:
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
   c12_detection_strategy: ''
-  c12_prediction_strategy: ''
+  c12_prediction_strategy: ConstantVelocityPrediction
   c12_tracking_strategy: ''
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0
@@ -30,14 +30,20 @@ c10_perception:
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
 c20_planning:
-  c20_boundary_margin: 0.0
-  c20_collision_safety_margin: 0.3
+  c20_beside_agent_rear_window: 6.0
+  c20_beside_agent_sweep_time: 2.0
+  c20_boundary_margin: 0.25
+  c20_collision_safety_margin: 0.5
   c20_default_ego_velocity: 5.0
   c20_min_ramp_start_velocity: 3.0
   c20_min_velocity_threshold: 0.5
   c20_obstacle_inflation_margin: 0.5
+  c23_behavioral_strategy: ''
+  c23_path_strategy: GreedyLatticePlanner
+  c23_velocity_strategy: ''
   c27_follow_cruise_min_gap: 15.0
   c27_follow_gap_buffer: 0.5
+  c27_follow_gap_gain: 1.0
   c27_max_deceleration: 3.0
   c27_planning_horizon_points: 50
   c27_stopping_safety_buffer: 2.0
@@ -46,17 +52,20 @@ c20_planning:
   c28_boundary_clearance: 0.5
   c28_d0_reference_threshold: 0.2
   c28_disconnect_distance_threshold: 5.0
+  c28_kinematic_sampling: true
   c28_maneuver_distance: 30
   c28_match_speed_wp_buffer: 4
-  c28_max_lateral_accel: 20.0
+  c28_max_lateral_accel: 4.0
   c28_min_curvature_velocity: 3.0
   c28_min_edge_progress_to_block: 0.2
   c28_num_of_edge_points: 10
   c28_planning_horizon: 3
   c28_replan_wait_time: 2.5
   c28_safety_margin_weight: 0.3
+  c28_sample_distribution: 1
+  c28_sample_reach_factor: 1.0
   c28_sample_size: 3
-  c28_urgent_collision_threshold: 3
+  c28_urgent_collision_threshold: 10.0
 c30_control:
   c30_emergency_braking_factor: 0.9
   c30_emergency_min_moving_velocity: 1.0
@@ -64,7 +73,7 @@ c30_control:
   c32_ego_distance_front_axle: 2.5
   c32_ego_max_acceleration: 10.0
   c32_ego_max_steering: 0.7
-  c32_ego_max_velocity: 30.0
+  c32_ego_max_velocity: 99.0
   c32_ego_min_acceleration: -20.0
   c32_ego_min_steering: -0.7
   c33_pid_alpha: 0.01
@@ -106,13 +115,7 @@ c40_execution:
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
   c41_provided:
-  - LIDAR_2D
-  - LIDAR_3D
-  - IMU
-  - GNSS
-  - WHEEL_ENCODER
   - DETECTION
-  - TRACKING
   - LOCALIZATION
   c43_race_boundary_map: data/race_boundary_yas_marina.map.json
   c46_lidar_boundary_file: data/race_boundary_yas_marina.map.json
@@ -123,18 +126,63 @@ c40_execution:
   c46_npc_speed_factor: 0.8
 c69_apps:
   c60_selected_profile: local planning
-  c62_community_plugins:
-    basic_predictor: ~/avlite-community-plugins/basic_predictor
+  c62_community_plugins: {}
   c62_default_plugins:
   - p60_headless_mode
   - p60_setting_cli
   - p60_visualizer_tk
   c62_load_plugins: true
 plugins:
-  p60_setting_cli: {}
   p60_headless_mode:
     dashboard_refresh_hz: 10.0
     log_buffer_size: 500
     stats_panel_height: 18
+  p60_setting_cli: {}
   p60_visualizer_tk:
-    p60_next_profile: local planning
+    p60_bg_color: '#333333'
+    p60_dark_mode: true
+    p60_fg_color: white
+    p60_hide_menubar: false
+    p60_next_profile: global planning
+    p60_shortcut_mode: false
+    p66_frenet_view_follow_planner: false
+    p66_frenet_zoom: 70.0
+    p66_global_plan_velocity_scale: relative
+    p66_global_view_follow_planner: false
+    p66_global_zoom: 810.8967345284556
+    p66_show_global_plan: true
+    p66_show_global_plan_boundaries: true
+    p66_show_legend: false
+    p66_show_lidar_clusters: true
+    p66_show_lidar_frenet: true
+    p66_show_lidar_global: true
+    p66_show_local_lattice: true
+    p66_show_local_plan: true
+    p66_show_past_locations: true
+    p66_show_race_boundary: true
+    p66_show_state: true
+    p66_xy_zoom: 110.0
+    p67_global_plan_view: false
+    p67_local_plan_view: true
+    p67_show_local_frenet_view: true
+    p67_show_local_global_view: false
+    p67_show_occupancy_flow: false
+    p67_show_perception_extras: false
+    p67_show_prediction: true
+    p68_disable_log: false
+    p68_log_font: Courier
+    p68_log_font_size: 11
+    p68_log_pull_time: 50
+    p68_log_view_default_height: 12
+    p68_log_view_expanded: false
+    p68_log_view_expended_height: 35
+    p68_max_log_lines: 1000
+    p68_show_common_logs: false
+    p68_show_control_logs: false
+    p68_show_core_logs: true
+    p68_show_execute_logs: false
+    p68_show_perceive_logs: false
+    p68_show_plan_logs: true
+    p68_show_plugins_logs: true
+    p68_show_vis_logs: false
+    p69_mouse_drag_slowdown_factor: 0.5

@@ -11,9 +11,13 @@ import logging
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 
+from avlite.c10_perception import c19_settings
 from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c20_planning import c29_settings
 from avlite.c20_planning.c29_settings import PlanningSettings
+from avlite.c30_control import c39_settings
 from avlite.c30_control.c39_settings import ControlSettings
+from avlite.c40_execution import c49_settings
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c68_paths import ConfigPaths, PluginPaths
@@ -59,10 +63,22 @@ from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     scaled,
     setup_dpi,
 )
-from avlite.c60_apps.c64_settings_schema import field_tooltip_text, setting_key
+from avlite.c60_apps.c64_settings_schema import (
+    apply_validated_to_setting,
+    field_tooltip_text,
+    schema_of,
+    setting_key,
+)
 from avlite.plugins.p60_visualizer_tk.p63_plugins_app import CommunityPluginsApp
 
 log = logging.getLogger(__name__)
+
+_STACK_SETTINGS_MODULES = {
+    type(PerceptionSettings): c19_settings,
+    type(PlanningSettings): c29_settings,
+    type(ControlSettings): c39_settings,
+    type(ExecutionSettings): c49_settings,
+}
 
 
 class SettingsHost(Protocol):
@@ -104,6 +120,25 @@ class SettingWindow:
         self._build_settings_canvas(settings_frame)
         if show_visualization_settings:
             self._build_viz_settings_panel(additional_setting_frame)
+
+        footer_row = 2 if show_visualization_settings else 1
+        footer_frame = ttk.Frame(self.frame)
+        footer_frame.grid(row=footer_row, column=0, columnspan=2, sticky="se", padx=5, pady=5)
+        self._build_action_buttons(footer_frame)
+
+        if show_visualization_settings:
+            self.window.protocol("WM_DELETE_WINDOW", self.hide)
+        else:
+            self.window.protocol("WM_DELETE_WINDOW", self._close_standalone)
+
+    def _build_action_buttons(self, parent: ttk.Frame) -> None:
+        close_cmd = self.hide if self.show_visualization_settings else self._close_standalone
+        btn_settings_close = ttk.Button(parent, text="Close", width=5, underline=0, command=close_cmd)
+        btn_settings_close.pack(side=tk.RIGHT, padx=5)
+        attach_tooltip(btn_settings_close, BUTTON_TOOLTIPS["settings_close"])
+        btn_settings_save = ttk.Button(parent, text="Save", width=5, underline=0, command=self.save_profile)
+        btn_settings_save.pack(side=tk.RIGHT, padx=5)
+        attach_tooltip(btn_settings_save, BUTTON_TOOLTIPS["settings_save"])
 
     def _widget_key(self, setting, plugin_name: str = "") -> str:
         return setting_key(setting) + plugin_name
@@ -348,7 +383,6 @@ class SettingWindow:
 
         self.window.update_idletasks()
         self.window.minsize(scaled(500, _s), scaled(400, _s))
-        self.window.protocol("WM_DELETE_WINDOW", self.hide)
 
         ttk.Label(self.settings_frame, text="Core Stack Settings", style="Big.TLabel").pack(
             anchor=tk.W, padx=5, pady=5
@@ -441,6 +475,33 @@ class SettingWindow:
         velocity_scale_cb.bind("<<ComboboxSelected>>", lambda e: self.host.update_ui())
         attach_schema_tooltip(velocity_scale_cb, VisualizationSettings, "p66_global_plan_velocity_scale")
 
+        additional_setting_row_1d = ttk.Frame(additional_setting_frame)
+        additional_setting_row_1d.pack(fill=tk.X)
+        ttk.Label(additional_setting_row_1d, text="Perception:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
+        cb_show_prediction = ttk.Checkbutton(
+            additional_setting_row_1d, text="Show prediction",
+            variable=self.host.setting.p67_show_prediction, command=self.host.update_ui,
+        )
+        cb_show_prediction.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_show_prediction, VisualizationSettings, "p67_show_prediction")
+        cb_occupancy_flow = ttk.Checkbutton(
+            additional_setting_row_1d, text="Occupancy flow",
+            variable=self.host.setting.p67_show_occupancy_flow, command=self.host.update_ui,
+        )
+        cb_occupancy_flow.pack(side=tk.LEFT)
+        attach_schema_tooltip(cb_occupancy_flow, VisualizationSettings, "p67_show_occupancy_flow")
+        ttk.Label(additional_setting_row_1d, text="Mapping:").pack(side=tk.LEFT, padx=(10, 5))
+        # mapping_cb = ttk.Combobox(
+        #     additional_setting_row_1d,
+        #     textvariable=self.host.setting.mapping_type,
+        #     values=("",) + tuple(MappingStrategy.registry.keys()),
+        #     state="readonly",
+        #     width=12,
+        # )
+        # mapping_cb.pack(side=tk.LEFT)
+        # mapping_cb.bind("<<ComboboxSelected>>", lambda e: self.host.reload_stack(reload_code=False))
+        # attach_schema_tooltip(mapping_cb, ExecutionSettings, "c40_mapping")
+
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
 
@@ -463,12 +524,6 @@ class SettingWindow:
         cb_hide_menubar = ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.host.setting.p60_hide_menubar)
         cb_hide_menubar.pack(anchor=tk.W, side=tk.LEFT)
         attach_schema_tooltip(cb_hide_menubar, VisualizationSettings, "p60_hide_menubar")
-        btn_settings_close = ttk.Button(additional_setting_row_2, text="Close", width=5, underline=0, command=self.hide)
-        btn_settings_close.pack(side=tk.RIGHT, padx=5)
-        attach_tooltip(btn_settings_close, BUTTON_TOOLTIPS["settings_close"])
-        btn_settings_save = ttk.Button(additional_setting_row_2, text="Save", width=5, underline=0, command=self.save_profile)
-        btn_settings_save.pack(side=tk.RIGHT, padx=5)
-        attach_tooltip(btn_settings_save, BUTTON_TOOLTIPS["settings_save"])
 
     def refresh_widgets(self) -> None:
         """Reload stack and plugin settings from disk into all editor widgets."""
@@ -954,18 +1009,45 @@ class SettingWindow:
         log.info(f"Selected profile: {event.widget.get()}")
         self.load_profile(event.widget.get())
 
+    def _settings_module(self, setting, plugin_name: str = ""):
+        if plugin_name:
+            name = plugin_name.removeprefix("community_")
+            return importlib.import_module(f"{plugin_module_prefix(name)}.settings")
+        return _STACK_SETTINGS_MODULES.get(type(setting))
+
+    def _schema_for_setting(self, setting, plugin_name: str = "", *, reload_module: bool = True):
+        mod = self._settings_module(setting, plugin_name)
+        if mod is None:
+            return schema_of(setting)
+        if reload_module:
+            importlib.reload(mod)
+        fresh = getattr(mod, setting_key(setting), None)
+        return schema_of(fresh) if fresh is not None else schema_of(setting)
+
+    def reset_section_to_source_defaults(
+        self, setting, plugin_name: str = "", *, reload_module: bool = True
+    ) -> None:
+        """Reset one settings section to source-code schema defaults."""
+        schema = self._schema_for_setting(setting, plugin_name, reload_module=reload_module)
+        if schema is None:
+            log.warning("No schema for %s", setting_key(setting))
+            return
+        apply_validated_to_setting(
+            setting,
+            schema.model_validate({}),
+            binder=TkSettingsBinder(),
+        )
+        self.update_widgets(setting, plugin_name=plugin_name)
+
     def reset_to_to_source_stack_values(self, exclude_execution=False):
         """ Reset the stack settings to the source code defaults, except for the UI as it is using some 
             some instant variables for tkinter.
         """
         reload_lib(exclude_stack=True, reload_plugins=True)
-        self.update_widgets(PerceptionSettings)
-        self.update_widgets(PlanningSettings)
-        self.update_widgets(ControlSettings)
-
+        for layer in (PerceptionSettings, PlanningSettings, ControlSettings):
+            self.reset_section_to_source_defaults(layer, reload_module=False)
         if not exclude_execution:
-            self.update_widgets(ExecutionSettings)
-
+            self.reset_section_to_source_defaults(ExecutionSettings, reload_module=False)
 
         self.update_plugins_widgets()
         
@@ -1051,7 +1133,20 @@ class SettingWindow:
                     HoverTooltip(entry, tip)
                 row += 1
 
-
+        frame.columnconfigure(1, weight=1)
+        reset_label = "Reset to plugin defaults" if plugin_name else "Reset to stack defaults"
+        reset_tooltip = (
+            BUTTON_TOOLTIPS["section_reset_plugin"]
+            if plugin_name
+            else BUTTON_TOOLTIPS["section_reset_stack"]
+        )
+        reset_btn = ttk.Button(
+            frame,
+            text=reset_label,
+            command=lambda s=setting, pn=plugin_name: self.reset_section_to_source_defaults(s, pn),
+        )
+        reset_btn.grid(row=row, column=0, columnspan=2, sticky="ew", padx=5, pady=(8, 2))
+        attach_tooltip(reset_btn, reset_tooltip)
 
     def save_from_widgets(self, setting, plugin_name=""):
         """ Save the settings from the widgets to the setting class. """
@@ -1141,6 +1236,10 @@ class SettingWindow:
     def hide(self):
         """Hide the window instead of destroying it."""
         self.window.withdraw()
+
+    def _close_standalone(self) -> None:
+        self.window.destroy()
+        self.host.destroy()
 
     def show(self):
         """Show the hidden window"""

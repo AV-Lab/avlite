@@ -16,6 +16,7 @@ from avlite.c10_perception.c11_perception_model import HDMap, RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c60_apps.c64_settings_schema import PlainBinder, field_tooltip_text
 from avlite.c60_apps.c68_paths import DataPaths
 
@@ -50,13 +51,13 @@ class ValueGauge(ttk.Frame):
         gauge_height = scaled(height, dpi_scale)
 
         if name != "":
-            tk.Label(self, text=name, font=self.font).pack(side=tk.LEFT, padx=0)
+            tk.Label(self, text=name, font=self.font).pack(side=tk.LEFT, padx=0, pady=1)
 
         min_label = tk.Label(self, text=f"{min_value:+.2f}", font=self.font)
-        min_label.pack(side=tk.LEFT, padx=0)
+        min_label.pack(side=tk.LEFT, padx=0, pady=1)
 
         max_label = tk.Label(self, text=f"{max_value:+.2f}", font=self.font)
-        max_label.pack(side=tk.RIGHT, padx=0)
+        max_label.pack(side=tk.RIGHT, padx=0, pady=1)
 
         self.canvas = tk.Canvas(self, height=gauge_height, bg="gray", highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
@@ -117,11 +118,21 @@ class ValueGauge(ttk.Frame):
         x = ((bounded_current - self.min_value) / (self.max_value - self.min_value)) * width
         y = height / 2
 
+        # Tint the value box by magnitude: calm near zero, warmer as it deviates.
+        half_span = max((self.max_value - self.min_value) / 2.0, 1e-6)
+        magnitude = abs(bounded_current) / half_span
+        if magnitude <= 0.1:
+            box_fill = "#1b5e20"  # green: within deadband
+        elif magnitude >= 0.6:
+            box_fill = "#9d0006"  # red: large deviation
+        else:
+            box_fill = "#d65d0e"  # orange: moderate deviation
+
         # Create rectangle first (will be behind text)
         text_id = self.canvas.create_text(x, y, text=text, fill="white", font=self.font, anchor="center", tags="value")
         bbox = self.canvas.bbox(text_id)
         # self.canvas.coords(text_id, x, y + 2)  # Move text down within the box
-        self.canvas.create_rectangle(bbox, fill="black", tags="bg")
+        self.canvas.create_rectangle(bbox, fill=box_fill, tags="bg")
         self.canvas.tag_raise("value")
         self.canvas.tag_raise(text_id)
 
@@ -429,6 +440,31 @@ def update_schema_tooltip(widget, settings_cls, field_name: str) -> None:
         attach_tooltip(widget, text)
 
 
+CAPABILITY_TOOLTIPS: dict = {
+    WorldCapability.CAMERA_RGB: "RGB camera image feed from the world.",
+    WorldCapability.CAMERA_DEPTH: "Depth camera image feed from the world.",
+    WorldCapability.LIDAR_3D: "3D LiDAR point cloud from the world.",
+    WorldCapability.LIDAR_2D: "2D LiDAR scan from the world.",
+    WorldCapability.RADAR: "Radar returns from the world.",
+    WorldCapability.WHEEL_ENCODER: "Wheel encoder odometry from the world.",
+    WorldCapability.IMU: "Inertial measurement unit data from the world.",
+    WorldCapability.GNSS: "GNSS / GPS receiver data from the world.",
+    StackCapability.DETECTION: "Ground-truth object detections provided by the world.",
+    StackCapability.TRACKING: "Ground-truth object tracks provided by the world.",
+    StackCapability.PREDICTION: "Ground-truth agent trajectory predictions provided by the world.",
+    StackCapability.LOCALIZATION: "Ground-truth ego localization provided by the world.",
+    StackCapability.MAP: "Ground-truth map provided by the world.",
+    StackCapability.SLAM: "Ground-truth simultaneous localization and mapping from the world.",
+    StackCapability.LOCAL_PLAN: "Ground-truth local plan provided by the world.",
+    StackCapability.GLOBAL_PLAN: "Ground-truth global plan provided by the world.",
+    StackCapability.CONTROL: "Ground-truth control commands provided by the world.",
+}
+
+
+def attach_capability_tooltip(widget, cap) -> HoverTooltip | None:
+    return attach_tooltip(widget, CAPABILITY_TOOLTIPS.get(cap, cap.name))
+
+
 BUTTON_TOOLTIPS: dict[str, str] = {
     # Toolbar
     "toolbar_settings": "Open settings to edit profiles, plugins, and visualization options.",
@@ -469,6 +505,8 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "profile_rename": "Rename the selected profile.",
     "profile_reset_all": "Reset every module setting to source-code defaults.",
     "profile_reset_non_exec": "Reset all settings except execution to defaults.",
+    "section_reset_stack": "Reset this layer's settings to source-code defaults.",
+    "section_reset_plugin": "Reset this plugin's settings to source-code defaults.",
     # Settings window — plugins
     "plugins_reset_builtin": "Restore the built-in plugin list to defaults.",
     "plugins_remove_builtin": (
