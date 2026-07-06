@@ -16,6 +16,7 @@ class PlanningSettingsSchema(SettingsSchema):
     c27_stopping_safety_buffer: float = Field(default=2.0, description="Safety buffer distance when stopping (m) for velocity planner.")
     c27_follow_gap_buffer: float = Field(default=0.5, description="Extra standoff beyond bumper lengths when following (m).")
     c27_follow_cruise_min_gap: float = Field(default=15.0, description="Extra gap beyond stopping distance before deferring to global plan speed (m).")
+    c27_follow_gap_gain: float = Field(default=1.0, description="Proportional gain (1/s) mapping follow-gap deficit to speed reduction below the lead when inside the safe gap.")
     c27_planning_horizon_points: int = Field(default=50, description="Max waypoints in velocity local plan window from current_wp.")
 
     c28_num_of_edge_points: int = Field(default=10, description="Number of points sampled along each lattice edge.")
@@ -35,13 +36,20 @@ class PlanningSettingsSchema(SettingsSchema):
     c28_allow_curvature_fallback: bool = Field(default=False, description="Allow fallback when curvature limits block plan.")
     c28_allow_boundary_violation_fallback: bool = Field(default=False, description="Allow fallback on boundary violation.")
 
-    c20_boundary_margin: float = Field(
-        default=0.0,
-        description="Inset applied to global plan boundaries from race boundary or HD map lane borders (m).",
+    c20_boundary_margin: float = Field(default=0.25, description="Inset applied to global plan boundaries from race boundary or HD map lane borders (m).",)
+    c20_collision_safety_margin: float = Field(
+        default=0.5,
+        description="Extra clearance added to the ego side of collision checks (m). Expands the buffered trajectory corridor beyond half the ego width before intersecting obstacles.",
     )
-    c20_collision_safety_margin: float = Field(default=0.3, description="Inflation margin for collision checks (m).")
-    c20_obstacle_inflation_margin: float = Field(default=0.5, description="Obstacle inflation for lattice planning (m).")
-    c20_min_velocity_threshold: float = Field(default=0.5, description="Speed below which ego is treated as stopped (m/s).")
+    c20_obstacle_inflation_margin: float = Field(
+        default=0.5,
+        description="Extra clearance added around agent obstacle polygons in collision checks (m). Inflates each agent bbox (or prediction sweep) before intersecting the ego corridor; used by lattice and velocity planners.",
+    )
+    c20_min_velocity_threshold: float = Field(
+        default=0.5,
+        description="Speed gate for agent motion in collision checks (m/s). Agents at or below this |v| are treated as static obstacles; pm.prediction trajectories are not used when building swept obstacle polygons (ahead agents only).",
+    )
+    c20_beside_agent_sweep_time: float = Field(default=2.0, description="Forward sweep time (s) applied to moving agents beside/just-behind the ego so the lattice stays clear of a just-passed agent before returning to the reference line (0 disables).")
     c20_default_ego_velocity: float = Field(default=5.0, description="Default ego velocity when unknown (m/s).")
     c20_min_ramp_start_velocity: float = Field(default=3.0, description="Minimum ramp start velocity (m/s); shared by global plan loading and the lattice planner.")
 

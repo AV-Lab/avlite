@@ -30,14 +30,18 @@ c10_perception:
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
 c20_planning:
-  c20_boundary_margin: 0.5
+  c20_boundary_margin: 0.0
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
   c20_min_ramp_start_velocity: 3.0
   c20_min_velocity_threshold: 0.5
   c20_obstacle_inflation_margin: 0.5
+  c23_behavioral_strategy: ''
+  c23_path_strategy: GreedyLatticePlanner
+  c23_velocity_strategy: ''
   c27_follow_cruise_min_gap: 15.0
   c27_follow_gap_buffer: 0.5
+  c27_follow_gap_gain: 1.0
   c27_max_deceleration: 3.0
   c27_planning_horizon_points: 50
   c27_stopping_safety_buffer: 2.0
@@ -122,18 +126,68 @@ c40_execution:
 c69_apps:
   c60_selected_profile: global planning
   c62_community_plugins:
-    avlite-bridge-ROS2: avlite-bridge-ROS2
-    avlite-bridge-carla: avlite-bridge-carla
-    avlite-bridge-gazebo: avlite-bridge-gazebo
-    avlite-controller-joystick: avlite-controller-joystick
-    avlite-executer-ROS2: avlite-executer-ROS2
-    sample_avlite_plugin: sample_avlite_plugin
+    avlite-bridge-ROS2: ~/.local/share/avlite/plugins/avlite-bridge-ROS2
+    avlite-bridge-carla: ~/.local/share/avlite/plugins/avlite-bridge-carla
+    avlite-bridge-gazebo: ~/.local/share/avlite/plugins/avlite-bridge-gazebo
+    avlite-controller-joystick: ~/.local/share/avlite/plugins/avlite-controller-joystick
+    avlite-executer-ROS2: ~/.local/share/avlite/plugins/avlite-executer-ROS2
+    sample_avlite_plugin: ~/.local/share/avlite/plugins/sample_avlite_plugin
   c62_default_plugins:
   - p60_headless_mode
   - p60_setting_cli
   - p60_visualizer_tk
   c62_load_plugins: true
 plugins:
+  p60_headless_mode:
+    dashboard_refresh_hz: 10.0
+    log_buffer_size: 500
+    stats_panel_height: 18
   p60_setting_cli: {}
   p60_visualizer_tk:
+    p60_bg_color: '#333333'
+    p60_dark_mode: true
+    p60_fg_color: white
+    p60_hide_menubar: false
     p60_next_profile: global planning
+    p60_shortcut_mode: false
+    p66_frenet_view_follow_planner: false
+    p66_frenet_zoom: 30.0
+    p66_global_plan_velocity_scale: relative
+    p66_global_view_follow_planner: false
+    p66_global_zoom: 30.0
+    p66_show_global_plan: true
+    p66_show_global_plan_boundaries: true
+    p66_show_legend: false
+    p66_show_lidar_clusters: true
+    p66_show_lidar_frenet: true
+    p66_show_lidar_global: true
+    p66_show_local_lattice: true
+    p66_show_local_plan: true
+    p66_show_past_locations: true
+    p66_show_race_boundary: true
+    p66_show_state: true
+    p66_xy_zoom: 30.0
+    p67_global_plan_view: true
+    p67_local_plan_view: true
+    p67_show_local_frenet_view: true
+    p67_show_local_global_view: true
+    p67_show_occupancy_flow: false
+    p67_show_perception_extras: false
+    p67_show_prediction: true
+    p68_disable_log: false
+    p68_log_font: Courier
+    p68_log_font_size: 11
+    p68_log_pull_time: 50
+    p68_log_view_default_height: 12
+    p68_log_view_expanded: false
+    p68_log_view_expended_height: 35
+    p68_max_log_lines: 1000
+    p68_show_common_logs: true
+    p68_show_control_logs: true
+    p68_show_core_logs: true
+    p68_show_execute_logs: true
+    p68_show_perceive_logs: true
+    p68_show_plan_logs: true
+    p68_show_plugins_logs: true
+    p68_show_vis_logs: true
+    p69_mouse_drag_slowdown_factor: 0.5

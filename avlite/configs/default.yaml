@@ -30,6 +30,7 @@ c10_perception:
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
 c20_planning:
+  c20_beside_agent_sweep_time: 2.0
   c20_boundary_margin: 0.0
   c20_collision_safety_margin: 0.3
   c20_default_ego_velocity: 5.0
@@ -41,6 +42,7 @@ c20_planning:
   c23_velocity_strategy: ''
   c27_follow_cruise_min_gap: 15.0
   c27_follow_gap_buffer: 0.5
+  c27_follow_gap_gain: 1.0
   c27_max_deceleration: 3.0
   c27_planning_horizon_points: 50
   c27_stopping_safety_buffer: 2.0
@@ -157,9 +159,9 @@ plugins:
     stats_panel_height: 18
   p60_setting_cli: {}
   p60_visualizer_tk:
-    p60_bg_color: white
-    p60_dark_mode: false
-    p60_fg_color: black
+    p60_bg_color: '#333333'
+    p60_dark_mode: true
+    p60_fg_color: white
     p60_hide_menubar: false
     p60_next_profile: default
     p60_shortcut_mode: false

@@ -827,7 +827,6 @@ class BridgeFrame(ttk.LabelFrame):
         self.columnconfigure(2, weight=1)
 
         self._cap_vars: dict[str, tk.BooleanVar] = {}
-        self._build_capability_checks(set(), set())
 
     def _make_scroll_column(self, row: int, column: int):
         """Create a scrollable inner frame at the given grid cell; return (canvas, inner)."""
@@ -867,6 +866,10 @@ class BridgeFrame(ttk.LabelFrame):
                 attach_capability_tooltip(chk, cap)
                 self._cap_vars[cap.name] = var
 
+        for canvas, inner in ((self._world_canvas, self._world_inner), (self._stack_canvas, self._stack_inner)):
+            self.update_idletasks()
+            canvas.configure(height=min(inner.winfo_reqheight(), 96))
+
     def _on_toggle(self):
         """Persist the checked capabilities to the c41_provided filter and refresh plots."""
         ExecutionSettings.c41_provided = [name for name, var in self._cap_vars.items() if var.get()]
@@ -879,6 +882,11 @@ class BridgeFrame(ttk.LabelFrame):
     def update_for_bridge(self, capabilities: set, stack_capabilities: set | None = None):
         """Rebuild the capability checklist for the active bridge."""
         self._build_capability_checks(capabilities, stack_capabilities or set())
+
+    def update_canvas_theme(self):
+        bg = ttk.Style().lookup("TFrame", "background")
+        for canvas in (self._world_canvas, self._stack_canvas):
+            canvas.configure(background=bg)
 
 
 

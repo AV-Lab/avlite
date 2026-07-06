@@ -15,11 +15,18 @@ def precompute_obstacle_polygons(
     total_time: float,
     min_velocity_threshold: float = 0.5,
     obstacle_inflation_margin: float = 0.0,
+    beside_sweep_time: float = 0.0,
 ) -> list:
     """Build obstacle polygons (swept for movers, plain for statics) once per replan.
 
     Pass the returned list to check_collision via ``obstacle_polygons`` to avoid
     rebuilding N_agents polygons for every lattice edge.
+
+    Agents ahead of the ego are swept forward over ``total_time``. Agents beside or
+    just-behind the ego are swept over the shorter ``beside_sweep_time`` (0 disables),
+    which keeps the lattice clear of a just-passed agent before cutting back to the
+    reference line. Sweeping uses ``pm.prediction`` when available and falls back to a
+    constant-velocity projection otherwise, so it works even without a prediction plugin.
 
     Returns a list of (polygon, agent_velocity) tuples.
     """
@@ -33,12 +40,18 @@ def precompute_obstacle_polygons(
         agent_polygon = agent.get_bb_polygon()
         to_agent = np.array([agent.x - ego.x, agent.y - ego.y])
         agent_is_ahead = float(np.dot(ego_heading, to_agent)) >= 0.0
-        agent_path = pred.trajectories.get(agent.agent_id) if pred is not None else None
-        use_predicted = agent_path is not None
-        if use_predicted and agent_is_ahead and abs(agent.velocity) > min_velocity_threshold:
-            n_steps = agent_path.shape[0]
-            step = min(int(total_time / pred.predict_delta_t), n_steps - 1)
-            predicted_x, predicted_y = agent_path[step, 0], agent_path[step, 1]
+        moving = abs(agent.velocity) > min_velocity_threshold
+        sweep_time = total_time if agent_is_ahead else beside_sweep_time
+        if moving and sweep_time > 0:
+            agent_path = pred.trajectories.get(agent.agent_id) if pred is not None else None
+            if agent_path is not None:
+                n_steps = agent_path.shape[0]
+                step = min(int(sweep_time / pred.predict_delta_t), n_steps - 1)
+                predicted_x, predicted_y = agent_path[step, 0], agent_path[step, 1]
+            else:
+                # Constant-velocity fallback (used when no prediction plugin is active).
+                predicted_x = agent.x + agent.velocity * np.cos(agent.theta) * sweep_time
+                predicted_y = agent.y + agent.velocity * np.sin(agent.theta) * sweep_time
             predicted_agent = AgentState(
                 x=predicted_x, y=predicted_y, theta=agent.theta,
                 velocity=agent.velocity, agent_id=agent.agent_id,
@@ -62,7 +75,6 @@ def precompute_obstacle_polygons(
 def check_collision(
     pm: PerceptionModel,
     trajectory: TrajectoryTracker,
-    sample_size=5,
     obstacle_polygons: Optional[list] = None,
     min_velocity_threshold: float = 0.5,
     collision_safety_margin: float = 0.3,
@@ -96,12 +108,18 @@ def check_collision(
     trajectory_corridor = trajectory_line.buffer(ego_half_width, cap_style='flat')
 
     if obstacle_polygons is not None:
-        # Fast path: polygons already built outside the edge loop
+        # Fast path: polygons already built outside the edge loop.
+        # Return the nearest blocker (smallest collision index), not the first in list order,
+        # so an overtaking cut-in re-targets the ego onto the new closest lead.
+        best_idx, best_vel = None, None
         for obstacle, agent_velocity in obstacle_polygons:
             if trajectory_corridor.intersects(obstacle):
-                collision_idx = _find_collision_index(trajectory_line, obstacle, path_x, path_y)
-                log.debug(f" └─ Collision at idx {collision_idx}, agent vel: {agent_velocity:.1f}m/s")
-                return True, collision_idx, agent_velocity
+                idx = _find_collision_index(trajectory_line, obstacle, path_x, path_y)
+                if best_idx is None or idx < best_idx:
+                    best_idx, best_vel = idx, agent_velocity
+        if best_idx is not None:
+            log.debug(f" └─ Nearest collision at idx {best_idx}, agent vel: {best_vel:.1f}m/s")
+            return True, best_idx, best_vel
         log.debug(" └─ ✅ No Collision (corridor check)")
         return False, -1, -1
 
@@ -119,6 +137,9 @@ def check_collision(
     avg_velocity = np.mean(ego_velocities)
     total_time = total_length / max(avg_velocity, 1.0)
 
+    # Track the nearest blocker (smallest collision index) across all agents rather than
+    # returning on the first intersecting one, so an overtaking cut-in re-targets the ego.
+    best_idx, best_vel = None, None
     for agent in pm.agent_vehicles:
         agent_polygon = agent.get_bb_polygon()
 
@@ -141,15 +162,18 @@ def check_collision(
                 swept_polygon = agent_polygon.union(predicted_polygon).convex_hull
 
             if trajectory_corridor.intersects(swept_polygon):
-                collision_idx = _find_collision_index(trajectory_line, swept_polygon, path_x, path_y)
-                log.debug(f" └─ Collision (moving agent) at idx {collision_idx}, "
-                         f"agent vel: {agent.velocity:.1f}m/s, traversal time: {total_time:.2f}s")
-                return True, collision_idx, agent.velocity
+                idx = _find_collision_index(trajectory_line, swept_polygon, path_x, path_y)
+                if best_idx is None or idx < best_idx:
+                    best_idx, best_vel = idx, agent.velocity
         else:
             if trajectory_corridor.intersects(agent_polygon):
-                collision_idx = _find_collision_index(trajectory_line, agent_polygon, path_x, path_y)
-                log.debug(f" └─ Collision (static agent) at idx {collision_idx}")
-                return True, collision_idx, agent.velocity
+                idx = _find_collision_index(trajectory_line, agent_polygon, path_x, path_y)
+                if best_idx is None or idx < best_idx:
+                    best_idx, best_vel = idx, agent.velocity
+
+    if best_idx is not None:
+        log.debug(f" └─ Nearest collision at idx {best_idx}, agent vel: {best_vel:.1f}m/s")
+        return True, best_idx, best_vel
 
     log.debug(f" └─ ✅ No Collision (corridor check)")
     return False, -1, -1

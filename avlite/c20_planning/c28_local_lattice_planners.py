@@ -140,6 +140,7 @@ class Lattice:
                 total_time=self.planning_horizon * maneuver_dist / ego_vel,
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
                 obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
+                beside_sweep_time=PlanningSettings.c20_beside_agent_sweep_time,
             )
         for l in range(self.planning_horizon + 1):
             for node in self.lattice_nodes_by_level[l]:
@@ -774,6 +775,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
                 total_time=self.maneuver_distance / ego_vel,
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
                 obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
+                beside_sweep_time=PlanningSettings.c20_beside_agent_sweep_time,
             )
 
         # Create and evaluate edges from tail_node to each candidate.

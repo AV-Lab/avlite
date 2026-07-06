@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 _CONTROL_GRACE_S = 0.5  # late Control after click still counts as drag
 
+
+
+
 class GlobalPlanPlotView(ttk.Frame):
     def __init__(self, root: VisualizerApp):
         super().__init__(root)
@@ -96,6 +99,10 @@ class GlobalPlanPlotView(ttk.Frame):
         return bool(event.key and "control" in event.key)
 
     def plot(self):
+        canvas_widget = self.canvas.get_tk_widget()
+        if not _canvas_ready(canvas_widget):
+            self.root.after_idle(self.plot)
+            return
         t1 = time.time()
         try:
             aspect_ratio = self.__get_aspect_ratio()
@@ -284,7 +291,6 @@ class LocalPlanPlotView(ttk.Frame):
         self.ax2 = self.local_plot.ax2
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # A tk.DrawingArea.
-        self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         root.after(300, self.root.update_ui)
 
@@ -433,6 +439,9 @@ class LocalPlanPlotView(ttk.Frame):
         if self.root.exec is None:
             return
         canvas_widget = self.canvas.get_tk_widget()
+        if not _canvas_ready(canvas_widget):
+            self.root.after_idle(self.plot)
+            return
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()
         aspect_ratio = width / height
@@ -479,3 +488,7 @@ class LocalPlanPlotView(ttk.Frame):
         )
         self.canvas.draw()
         log.debug(f"Local Plot Time: {(time.time()-t1)*1000:.2f} ms (aspect_ratio: {aspect_ratio:0.2f})")
+
+
+def _canvas_ready(widget) -> bool:
+    return widget.winfo_width() > 1 and widget.winfo_height() > 1

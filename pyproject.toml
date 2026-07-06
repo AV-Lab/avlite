@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "avlite"
-version = "0.4.3"
+version = "0.4.4"
 description = "AVLite - Modular Autonomous Vehicle Stack for rapid prototyping, research, and education"
 readme = "README.md"
 license = { text = "MIT" }

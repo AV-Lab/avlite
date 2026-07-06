@@ -131,10 +131,11 @@ class GlobalPlot(ABC):
                         x_pad = 0
                         y_pad = (target_height - map_height) / 2
                     
-                    self.ax.set_xlim(self.map_min_x - x_pad, self.map_max_x + x_pad)
-                    self.ax.set_ylim(self.map_min_y - y_pad, self.map_max_y + y_pad)
-                    self.view_width = map_width + x_pad * 2
-                    self.view_height = map_height + y_pad * 2
+                    border = max(map_width, map_height) * 0.05
+                    self.ax.set_xlim(self.map_min_x - x_pad - border, self.map_max_x + x_pad + border)
+                    self.ax.set_ylim(self.map_min_y - y_pad - border, self.map_max_y + y_pad + border)
+                    self.view_width = map_width + x_pad * 2 + border * 2
+                    self.view_height = map_height + y_pad * 2 + border * 2
 
 
     def set_start(self, x, y):
@@ -557,6 +558,7 @@ class GlobalHDMapPlot(GlobalPlot):
             
 
 class LocalPlot:
+    _FRENET_EGO_X_FRAC = 0.25
     def __init__(self, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100), controller: Optional[ControlStrategy] = None):
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
@@ -756,7 +758,12 @@ class LocalPlot:
             self.view_width_ax1 = xy_zoom * 2
             self.view_height_ax1 = xy_zoom / aspect_ratio * 2
         if frenet_zoom is not None:
-            self.ax2.set_xlim(center_sd[0] - frenet_zoom, center_sd[0] + frenet_zoom)
+            view_w = frenet_zoom * 2
+            ego_x_frac = self._FRENET_EGO_X_FRAC
+            self.ax2.set_xlim(
+                center_sd[0] - ego_x_frac * view_w,
+                center_sd[0] + (1 - ego_x_frac) * view_w,
+            )
             self.view_width_ax2 = frenet_zoom * 2
             self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
             self.view_height_ax2 = frenet_zoom / aspect_ratio * 2

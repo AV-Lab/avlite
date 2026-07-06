@@ -91,5 +91,4 @@ class SettingApp(AppStrategy):
         host.withdraw()
         host.load_settings()
         view = SettingWindow(host, show_visualization_settings=False)
-        view.window.protocol("WM_DELETE_WINDOW", host.destroy)
         host.mainloop()

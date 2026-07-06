@@ -106,8 +106,7 @@ class VisualizerApp(tk.Tk):
         self.grid_columnconfigure(0, weight=1)  # local view gets xx weight
         self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
         self.grid_rowconfigure(0, weight=1)  # make the plot views expand
-        self.update_idletasks()
-        
+
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_settings()
         log.warning(f"map is {ExecutionSettings.c40_hd_map}")
@@ -119,7 +118,7 @@ class VisualizerApp(tk.Tk):
 
         self.validate_cmd = (self.register(self.validate_float_input), "%P")
         self.bind("<Configure>", self.__update_grid_column_sizes)
-        self.after(500, self.update_ui)
+        self.after_idle(self.update_ui)
         self.last_resize_time = time.time()
         self._create_menubar()
         self.ui_initialized = True
@@ -305,6 +304,8 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
+        if hasattr(self, "exec_visualize_view"):
+            self.exec_visualize_view.bridge_frame.update_canvas_theme()
 
         if hasattr(self, "log_view") and hasattr(self, "setting_shortcut_view"):
             self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
@@ -334,6 +335,8 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
             self.local_plan_plot_view.update_plot_theme()
             self.global_plan_plot_view.update_plot_theme()
+        if hasattr(self, "exec_visualize_view"):
+            self.exec_visualize_view.bridge_frame.update_canvas_theme()
         if hasattr(self, "menubar"):
             bg = "white"
             fg = "black"

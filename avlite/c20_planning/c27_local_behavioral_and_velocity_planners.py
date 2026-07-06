@@ -57,6 +57,7 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
         self._stopping_safety_buffer = setting.c27_stopping_safety_buffer
         self._follow_gap_buffer = setting.c27_follow_gap_buffer
         self._follow_cruise_min_gap = setting.c27_follow_cruise_min_gap
+        self._follow_gap_gain = setting.c27_follow_gap_gain
         self._planning_horizon_points = setting.c27_planning_horizon_points
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
@@ -186,6 +187,14 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
         remaining = max(0.0, s_col - s_ego)
         return max(0.0, remaining - self._bumper_gap() - self._stopping_safety_buffer)
 
+    def _standoff_margin(self, trajectory: TrajectoryTracker, collision_idx: int) -> float:
+        """Signed follow-gap margin (m). Negative means the ego is inside the safe gap."""
+        ego = self.pm.ego_vehicle
+        s_ego, _ = trajectory.convert_xy_to_sd(ego.x, ego.y)
+        s_col = float(trajectory.path_s[min(collision_idx, len(trajectory.path_s) - 1)])
+        remaining = s_col - s_ego
+        return remaining - self._bumper_gap() - self._stopping_safety_buffer
+
     def _apply_speed_match_profile(
         self,
         trajectory: TrajectoryTracker,
@@ -224,16 +233,25 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
             return
 
         if stopping_distance >= effective_distance:
-            immediate_cap = math.sqrt(target_vel ** 2 + 2 * max_decel * effective_distance)
+            margin = self._standoff_margin(trajectory, collision_idx)
+            recovery_target = max(0.0, target_vel + self._follow_gap_gain * min(0.0, margin))
+            immediate_cap = math.sqrt(target_vel ** 2 + 2 * max_decel * max(0.0, margin))
             start_speed = min(current_vel, immediate_cap)
-            velocity[start_wp:] = np.linspace(start_speed, target_vel, upcoming)
+            velocity[start_wp:] = np.linspace(start_speed, recovery_target, upcoming)
             trajectory.velocity = velocity
-            log.warning(
-                "Insufficient room to speed-match — ramping from %.1f to %.1f m/s over %d waypoints",
-                start_speed,
-                target_vel,
-                upcoming,
-            )
+            if recovery_target < target_vel - _DECEL_EPS:
+                log.info(
+                    "Inside follow gap (%.1fm deficit) — braking to %.1f m/s to re-open gap",
+                    -margin,
+                    recovery_target,
+                )
+            else:
+                log.warning(
+                    "Insufficient room to speed-match — ramping from %.1f to %.1f m/s over %d waypoints",
+                    start_speed,
+                    recovery_target,
+                    upcoming,
+                )
             return
 
         # Hold current speed until the latest brake point, then ramp down to target.

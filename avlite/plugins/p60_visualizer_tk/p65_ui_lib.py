@@ -505,6 +505,8 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "profile_rename": "Rename the selected profile.",
     "profile_reset_all": "Reset every module setting to source-code defaults.",
     "profile_reset_non_exec": "Reset all settings except execution to defaults.",
+    "section_reset_stack": "Reset this layer's settings to source-code defaults.",
+    "section_reset_plugin": "Reset this plugin's settings to source-code defaults.",
     # Settings window — plugins
     "plugins_reset_builtin": "Restore the built-in plugin list to defaults.",
     "plugins_remove_builtin": (
