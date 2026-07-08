@@ -40,7 +40,7 @@ from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
-from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
+from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner, GlobalRacePlanner
 from avlite.c20_planning.c26_local_path_planners import ReferencePathPlanner  # noqa: F401 — registers in LocalPlanningStrategy/LocalPathPlanningStrategy registries
 from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import (  # noqa: F401 — register in the pipeline stage registries
     CruiseBehavioralPlanner,
@@ -115,6 +115,11 @@ def executor_factory(
         log.debug("GlobalHDMapPlanner loaded")
     elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
         gp = GlobalCenterlineRacePlanner(
+            DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
+        )
+        gp.global_plan = default_global_plan
+    elif global_planner_strategy_name == GlobalRacePlanner.__name__:
+        gp = GlobalRacePlanner(
             DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
         )
         gp.global_plan = default_global_plan

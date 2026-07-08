@@ -56,8 +56,8 @@ The default profile uses **BasicSim**, a dependency-free 2D simulator, so there 
 !!! tip "Vim-style shortcuts"
     The visualizer is fully keyboard-drivable with vim motions for a fast, mouse-free workflow: `j`/`k` (or `↑`/`↓`) scroll the log, `g`/`G` jump to top/bottom, and `Ctrl+u`/`Ctrl+d` half-page scroll. Single-key actions cover planning (`n`/`b`/`r`), control (`w`/`a`/`s`/`d`), and execution (`x`/`c`/`t`). The on-screen **Shortcuts** panel lists every binding.
 
-!!! tip "Switching simulators"
-    CARLA, Gazebo, and ROS2 are supported through optional **world-bridge plugins**. Install the bridge you need, then change the **Bridge** dropdown in the Config tab. See [Plugin Development](plugin-development.md) for how bridges are wired.
+!!! tip "Optional plugins (CARLA, Gazebo, ROS2, …)"
+    Install world-bridge and other community plugins from the **Plugins** browser (`avlite plugins`). Installing or updating needs `git` on your PATH (and `pip` if the plugin has extra dependencies). See [Community Plugins](overview.md#community-plugins) and [Plugin Development](plugin-development.md).
 
 ## 4. Save a profile and run headless
 

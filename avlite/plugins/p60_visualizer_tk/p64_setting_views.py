@@ -490,7 +490,7 @@ class SettingWindow:
         )
         cb_occupancy_flow.pack(side=tk.LEFT)
         attach_schema_tooltip(cb_occupancy_flow, VisualizationSettings, "p67_show_occupancy_flow")
-        ttk.Label(additional_setting_row_1d, text="Mapping:").pack(side=tk.LEFT, padx=(10, 5))
+        # ttk.Label(additional_setting_row_1d, text="Mapping:").pack(side=tk.LEFT, padx=(10, 5))
         # mapping_cb = ttk.Combobox(
         #     additional_setting_row_1d,
         #     textvariable=self.host.setting.mapping_type,
@@ -674,13 +674,14 @@ class SettingWindow:
             if load_builtin_plugin_settings(plugin_name) is not None
             else "\u2014"
         )
+        source_path = PluginPaths.format_display(PluginPaths.builtin_dir() / plugin_name)
         ThemedReadOnlyTwoFieldDialog(
             self.host,
-            "Plugin",
-            "Package Name",
+            f"Plugin: {plugin_name}",
             "Settings file",
-            plugin_name,
+            "Source file location",
             settings_path,
+            source_path,
         )
 
     def edit_community_plugin(self):
@@ -690,13 +691,16 @@ class SettingWindow:
             return
 
         plugin_name = self.listbox_community_plugins.get(selected)
+        stored = AppSettings.c62_community_plugins.get(plugin_name, plugin_name)
+        path = PluginPaths.load_path(plugin_name, stored)
+        source_path = PluginPaths.format_display(path) if path else "\u2014"
         ThemedReadOnlyTwoFieldDialog(
             self.host,
-            "Community Plugin",
-            "Package Name",
+            f"Community Plugin: {plugin_name}",
             "Settings file",
-            plugin_name,
+            "Source file location",
             self._plugin_settings_location(plugin_name),
+            source_path,
         )
 
     def update_community_plugin_list(self):

@@ -12,10 +12,17 @@ class PlanningSettingsSchema(SettingsSchema):
     c23_path_strategy: str = Field(default="GreedyLatticePlanner", description="LocalPlanningPipeline path stage class name (empty = skip).")
     c23_velocity_strategy: str = Field(default="", description="LocalPlanningPipeline velocity stage class name (empty = skip).")
 
+    c25_max_velocity: float = Field(default=75.0, description="GlobalRacePlanner top speed on straights (m/s). Default sized for a Dallara Super Formula platform (~270 km/h).")
+    c25_max_lateral_accel: float = Field(default=25.0, description="GlobalRacePlanner lateral acceleration limit for the curvature speed cap (m/s²). Default ~2.5 g (Dallara Super Formula with aero).")
+    c25_max_longitudinal_accel: float = Field(default=10.0, description="GlobalRacePlanner longitudinal acceleration limit for the forward velocity pass (m/s²). Default ~1 g (Dallara Super Formula).")
+    c25_max_braking_decel: float = Field(default=25.0, description="GlobalRacePlanner braking deceleration limit for the backward velocity pass (m/s²). Default ~2.5 g (Dallara Super Formula with aero).")
+    c25_curvature_weight: float = Field(default=0.75, description="GlobalRacePlanner raceline objective blend in [0, 1]: 1 = pure minimum curvature, 0 = pure shortest path.")
+    c25_optimization_iterations: int = Field(default=3, description="GlobalRacePlanner outer iterations re-linearizing normals/bounds around the previous raceline.")
+
     c27_max_deceleration: float = Field(default=3.0, description="Max deceleration magnitude (m/s²) used by the velocity planner for speed profiling.")
-    c27_stopping_safety_buffer: float = Field(default=2.0, description="Safety buffer distance when stopping (m) for velocity planner.")
-    c27_follow_gap_buffer: float = Field(default=0.5, description="Extra standoff beyond bumper lengths when following (m).")
-    c27_follow_cruise_min_gap: float = Field(default=15.0, description="Extra gap beyond stopping distance before deferring to global plan speed (m).")
+    c27_stopping_safety_buffer: float = Field(default=5.0, description="Safety buffer distance when stopping (m) for velocity planner.")
+    c27_follow_gap_buffer: float = Field(default=10, description="Extra standoff beyond bumper lengths when following (m).")
+    c27_follow_cruise_min_gap: float = Field(default=25.0, description="Extra gap beyond stopping distance before deferring to global plan speed (m).")
     c27_follow_gap_gain: float = Field(default=1.0, description="Proportional gain (1/s) mapping follow-gap deficit to speed reduction below the lead when inside the safe gap.")
     c27_planning_horizon_points: int = Field(default=50, description="Max waypoints in velocity local plan window from current_wp.")
 
@@ -26,6 +33,7 @@ class PlanningSettingsSchema(SettingsSchema):
     c28_sample_size: int = Field(default=3, description="Number of lateral samples per maneuver.")
     c28_match_speed_wp_buffer: int = Field(default=4, description="Waypoint buffer for speed matching.")
     c28_replan_wait_time: float = Field(default=2.5, description="Minimum time (s) between replans.")
+    c28_no_plan_release_ticks: int = Field(default=3, description="Consecutive replan ticks with no committable plan before a degraded single-edge plan is released to the global trajectory (debounces flicker from transient sampling misses).")
     c28_safety_margin_weight: float = Field(default=0.3, description="Weight for collision safety margin in cost.")
     c28_min_edge_progress_to_block: float = Field(default=0.2, description="Min edge progress before blocking replan.")
     c28_urgent_collision_threshold: float = Field(default=10.0, description="Distance to collision (m) below which the planner switches plans immediately, bypassing the replan wait time.")

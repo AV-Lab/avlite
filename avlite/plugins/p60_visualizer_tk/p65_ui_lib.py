@@ -527,6 +527,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     # Community plugins
     "cp_refresh": "Refresh the plugin list from the registry.",
     "cp_install": "Install the selected plugin.",
+    "cp_add_profile": "Add the installed plugin to the active profile.",
     "cp_uninstall": "Uninstall the selected plugin.",
     "cp_update": "Update the selected plugin to the latest version.",
     "cp_update_all": "Update all installed plugins that have updates.",

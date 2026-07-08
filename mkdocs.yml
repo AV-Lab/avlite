@@ -61,6 +61,8 @@ extra_css:
 
 extra_javascript:
   - javascripts/landing.js
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 extra:
   generator: false
@@ -109,6 +111,8 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+  - pymdownx.arithmatex:
+      generic: true
   - pymdownx.caret
   - pymdownx.details
   - pymdownx.emoji:

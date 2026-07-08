@@ -184,3 +184,10 @@ def test_notify_host_changed_no_op_without_host():
     panel = object.__new__(cp._PluginRegistryPanel)
     panel._host = None
     cp._PluginRegistryPanel._notify_host_changed(panel)
+
+
+def test_can_add_to_profile():
+    assert cp.can_add_to_profile(installed=False, in_profile=False) is False
+    assert cp.can_add_to_profile(installed=False, in_profile=True) is False
+    assert cp.can_add_to_profile(installed=True, in_profile=True) is False
+    assert cp.can_add_to_profile(installed=True, in_profile=False) is True

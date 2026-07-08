@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Planning: `GlobalRacePlanner` — raceline optimizer for race-boundary maps: blended minimum-curvature / shortest-path bounded least-squares optimization with a lateral + longitudinal acceleration-limited velocity profile (`c25_*` settings, defaults sized for a Dallara Super Formula platform); closed-track aware, with per-stage info logging. Documented in `docs/algorithms.md`
+- Visualizer global race plot: hover over the colored raceline to read the target speed at the nearest waypoint in m/s and km/h
+
+### Fixed
+- Visualizer: `GlobalRacePlanner` now maps to the race plot view (was unset, falling back with an error)
+- Visualizer: close the global matplotlib figure before plot recreation on stack reload or planner switch (fixes figure leak warning)
+
 ### Changed
-- Visualizer local plot: blitting for stable-view frames (limits/size unchanged) and view-window decimation of reference trajectory, boundaries, and track-boundary segments so follow-mode full redraws are cheaper; static Frenet (ax2) geometry is cached per plan instead of recomputed every frame — reduces main-thread plot cost that was capping planner FPS with the local plot enabled
+- Settings window: plugin double-click shows **Settings file** and **Source file location** instead of package name
 
 ## [0.4.4] - 2026-07-06
 
@@ -37,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Planning settings: clearer `c20_collision_safety_margin` / `c20_obstacle_inflation_margin` / `c20_min_velocity_threshold` descriptions; schema defaults `c20_boundary_margin` 0.25 m and `c20_collision_safety_margin` 0.5 m
 - Bundled profiles: dark mode defaults restored; planning/control tuning for **local planning** and **global planning** profiles
 - Docs: algorithms collision-margin table aligned with ego-side vs agent-side clearance semantics; visualizer screenshot updated
+- Visualizer local plot: blitting for stable-view frames (limits/size unchanged) and view-window decimation of reference trajectory, boundaries, and track-boundary segments so follow-mode full redraws are cheaper; static Frenet (ax2) geometry is cached per plan instead of recomputed every frame — reduces main-thread plot cost that was capping planner FPS with the local plot enabled
 
 ### Fixed
 - Far-behind agents painting front lattice edges red: with prediction disabled no forward sweep occurs, and with prediction on the beside-sweep is scoped to the rear window so a trailing vehicle no longer flags edges ahead of the ego

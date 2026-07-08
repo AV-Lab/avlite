@@ -270,6 +270,9 @@ class GlobalPlot(ABC):
     def reset(self):
         self.map_plotted = False
 
+    def close(self) -> None:
+        plt.close(self.fig)
+
 
 class GlobalRacePlot(GlobalPlot):
     def __init__(self, figsize=(8, 10)):
@@ -279,8 +282,21 @@ class GlobalRacePlot(GlobalPlot):
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
         self.reference_trajectory = LineCollection([], cmap=_VELOCITY_CMAP, linewidths=5, zorder=4)
         self.ax.add_collection(self.reference_trajectory)
-        
-      
+
+        # Hover-speed readout: a highlight marker on the nearest raceline point
+        # plus an annotation showing target speed in m/s and km/h.
+        self._raceline_xy: Optional[np.ndarray] = None
+        self._raceline_v: Optional[np.ndarray] = None
+        self._hover_marker, = self.ax.plot([], [], 'o', color="white", markersize=8,
+                                           markeredgecolor="black", zorder=10)
+        self._hover_text = self.ax.annotate(
+            "", xy=(0, 0), xytext=(12, 12), textcoords="offset points",
+            fontsize=9, color="white", zorder=11, visible=False,
+            bbox=dict(facecolor="#1d2021", alpha=0.8, pad=2, edgecolor="none",
+                      boxstyle="round,pad=0.3"),
+        )
+        self._hover_visible = False
+
         # self.ax.legend()
         
         # Adjust layout to align with LocalPlot
@@ -331,12 +347,64 @@ class GlobalRacePlot(GlobalPlot):
             self.reference_trajectory, traj.path_x, traj.path_y, traj.velocity,
             velocity_scale=self._velocity_scale,
         )
-        
+
+        # Cache raceline geometry + speed for hover lookups.
+        px = np.asarray(traj.path_x, dtype=float)
+        py = np.asarray(traj.path_y, dtype=float)
+        if len(px) >= 1:
+            self._raceline_xy = np.column_stack([px, py])
+            v = np.asarray(traj.velocity, dtype=float)
+            if len(v) < len(px):
+                v = np.pad(v, (0, len(px) - len(v)), mode="edge") if len(v) else np.zeros(len(px))
+            self._raceline_v = v[:len(px)]
+        else:
+            self._raceline_xy = None
+            self._raceline_v = None
+
         self.map_min_x = min(plan.left_boundary_x)
         self.map_max_x = max(plan.right_boundary_x)
         self.map_min_y = min(plan.left_boundary_y)
         self.map_max_y = max(plan.right_boundary_y)
         self.map_plotted = True
+
+    def show_speed_at(self, x: float, y: float) -> bool:
+        """Highlight the nearest raceline point and annotate its target speed.
+
+        Returns True when a nearby raceline point was found (and drawn), False
+        otherwise (annotation hidden). Only redraws when the displayed state
+        changes, to keep mouse-move handling cheap.
+        """
+        if self._raceline_xy is None or self._raceline_v is None or len(self._raceline_xy) == 0:
+            return self._hide_speed()
+
+        d = np.hypot(self._raceline_xy[:, 0] - x, self._raceline_xy[:, 1] - y)
+        idx = int(np.argmin(d))
+        # Tolerance scales with the current view so it works at any zoom level.
+        tol = (self.view_width or (self.map_max_x - self.map_min_x if self.map_max_x else 100)) * 0.03
+        if d[idx] > max(tol, 1.0):
+            return self._hide_speed()
+
+        wx, wy = self._raceline_xy[idx]
+        v = float(self._raceline_v[idx])
+        self._hover_marker.set_data([wx], [wy])
+        self._hover_text.xy = (wx, wy)
+        self._hover_text.set_text(f"{v:.1f} m/s  ({v * 3.6:.0f} km/h)")
+        self._hover_text.set_visible(True)
+        self._hover_visible = True
+        self.fig.canvas.draw_idle()
+        return True
+
+    def _hide_speed(self) -> bool:
+        if self._hover_visible:
+            self._hover_marker.set_data([], [])
+            self._hover_text.set_visible(False)
+            self._hover_visible = False
+            self.fig.canvas.draw_idle()
+        return False
+
+    def clear_tmp_plots(self):
+        super().clear_tmp_plots()
+        self._hide_speed()
             
 
 

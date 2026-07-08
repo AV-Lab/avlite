@@ -86,8 +86,13 @@ your own risk.
 ### Browse and install (GUI)
 
 ```bash
-python -m avlite plugins
+avlite plugins
 ```
+
+!!! note "Plugin manager prerequisites"
+    - **`git`** (on your PATH) — required to **Install** and **Update** plugins; AVLite clones/pulls the plugin repository from GitHub.
+    - **`pip`** — used only when a plugin ships a `requirements.txt`; AVLite offers to install its Python dependencies into the current environment.
+    - **Not required** for browsing the registry, GitHub sign-in, uninstalling, or adding an already-installed plugin to a profile.
 
 The browser fetches the official registry from
 [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins),
@@ -98,7 +103,7 @@ override with the `AVLITE_PLUGINS_DIR` environment variable.
 
 ### Member plugins
 
-The **Members** tab in `python -m avlite plugins` lists plugins from the AV-Lab
+The **Members** tab in `avlite plugins` lists plugins from the AV-Lab
 private registry. Sign in with GitHub (Device Flow) to browse and install them;
 your account must have access to that registry and to each listed plugin repo.
 AVLite stores the OAuth token under `~/.config/avlite/` (mode `0600`).
@@ -124,7 +129,7 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
     ```
 
 4. Open a pull request. Once merged, the plugin appears in every user's
-   `python -m avlite plugins` browser for install and register.
+   `avlite plugins` browser for install and register.
 
 ## Core Components
 

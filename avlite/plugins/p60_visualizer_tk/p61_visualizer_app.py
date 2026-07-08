@@ -115,9 +115,9 @@ class VisualizerApp(tk.Tk):
 
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_settings()
-        log.warning(f"map is {ExecutionSettings.c40_hd_map}")
+        # log.warning(f"map is {ExecutionSettings.c40_hd_map}")
         self.reload_stack(reload_code=False, preserve_plot_layout=True)
-        log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
+        # log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
 
         # Bind to window resize to maintain ratio
         self.update_shortcut_mode()

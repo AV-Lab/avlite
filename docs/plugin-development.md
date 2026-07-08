@@ -410,7 +410,7 @@ When you rename a module file, update the import path in `__init__.py` to match 
 3. Add entry under community plugins: `my_plugin` → install path (or use **Install** then **Register** from `python -m avlite plugins`)
 4. Save profile
 
-Double-click a community plugin in the list to view its **Package Name** and **Settings file** paths separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`).
+Double-click a plugin in the list to view its **Settings file** and **Source file location** separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`).
 
 **Via settings file** (the `c69_apps` section of `configs/<profile>.yaml`, or your saved copy under `~/.config/avlite/`):
 

@@ -859,6 +859,11 @@ class _PluginDetailsWindow:
         self.btn_install = ttk.Button(actions, text="Install", command=self._on_install)
         self.btn_install.pack(side=tk.LEFT, padx=(0, 6))
         attach_tooltip(self.btn_install, BUTTON_TOOLTIPS["cp_install"])
+        self.btn_add_profile = ttk.Button(
+            actions, text="Add to Profile", command=self._on_add_to_profile
+        )
+        self.btn_add_profile.pack(side=tk.LEFT, padx=(0, 6))
+        attach_tooltip(self.btn_add_profile, BUTTON_TOOLTIPS["cp_add_profile"])
         self.btn_uninstall = ttk.Button(actions, text="Uninstall", command=self._on_uninstall)
         self.btn_uninstall.pack(side=tk.LEFT, padx=(0, 6))
         attach_tooltip(self.btn_uninstall, BUTTON_TOOLTIPS["cp_uninstall"])
@@ -899,11 +904,17 @@ class _PluginDetailsWindow:
         busy = self.app._busy
         available = self.status == "Available" and self.registry_entry is not None
         installed = self.status.startswith("Installed") or self.status.startswith("Active")
+        in_profile = self.name in AppSettings.c62_community_plugins
         has_update = (
             installed
             and self.app._update_statuses.get(self.name) == "update-available"
         )
         self.btn_install.state(["!disabled"] if (available and not busy) else ["disabled"])
+        self.btn_add_profile.state(
+            ["!disabled"]
+            if (can_add_to_profile(installed=installed, in_profile=in_profile) and not busy)
+            else ["disabled"]
+        )
         self.btn_uninstall.state(["!disabled"] if (installed and not busy) else ["disabled"])
         self.btn_update.state(["!disabled"] if (has_update and not busy) else ["disabled"])
 
@@ -917,6 +928,10 @@ class _PluginDetailsWindow:
             parent=self.window,
             on_done=self._after_plugin_action,
         )
+
+    def _on_add_to_profile(self) -> None:
+        self.app._add_to_profile(self.name, parent=self.window)
+        self.sync_from_app()
 
     def _on_uninstall(self) -> None:
         self.app._uninstall_plugin(
@@ -1047,6 +1062,11 @@ _UPDATE_STATUS_LABELS = {
 }
 
 
+def can_add_to_profile(*, installed: bool, in_profile: bool) -> bool:
+    """Whether the Add to Profile action is available."""
+    return installed and not in_profile
+
+
 class _PluginRegistryPanel(ttk.Frame):
     """One registry tab: community or private AV-Lab plugins."""
 
@@ -1168,6 +1188,9 @@ class _PluginRegistryPanel(ttk.Frame):
 
         self.btn_refresh = ttk.Button(toolbar_row1, text="Refresh", command=self._refresh_async)
         self.btn_install = ttk.Button(toolbar_row1, text="Install", command=self._on_install)
+        self.btn_add_profile = ttk.Button(
+            toolbar_row1, text="Add to Profile", command=self._on_add_to_profile
+        )
         self.btn_uninstall = ttk.Button(toolbar_row1, text="Uninstall", command=self._on_uninstall)
         self.btn_update = ttk.Button(toolbar_row1, text="Update", command=self._on_update)
         self.btn_update_all = ttk.Button(toolbar_row1, text="Update All", command=self._on_update_all)
@@ -1178,6 +1201,7 @@ class _PluginRegistryPanel(ttk.Frame):
         for b, key in (
             (self.btn_refresh, "cp_refresh"),
             (self.btn_install, "cp_install"),
+            (self.btn_add_profile, "cp_add_profile"),
             (self.btn_uninstall, "cp_uninstall"),
             (self.btn_update, "cp_update"),
             (self.btn_update_all, "cp_update_all"),
@@ -1381,9 +1405,15 @@ class _PluginRegistryPanel(ttk.Frame):
         )
         has_any_update = any(s == "update-available" for s in self._update_statuses.values())
         has_github = ctx is not None and _PluginOperations.get_plugin_repository_url(ctx[2], ctx[3]) is not None
+        in_profile = sel is not None and sel[0] in AppSettings.c62_community_plugins
         enabled = signed_in and not busy
         self.btn_github.state(["!disabled"] if (has_github and enabled) else ["disabled"])
         self.btn_install.state(["!disabled"] if (available and enabled) else ["disabled"])
+        self.btn_add_profile.state(
+            ["!disabled"]
+            if (can_add_to_profile(installed=installed, in_profile=in_profile) and enabled)
+            else ["disabled"]
+        )
         self.btn_uninstall.state(["!disabled"] if (installed and enabled) else ["disabled"])
         self.btn_refresh.state(["disabled"] if busy or not signed_in else ["!disabled"])
         self.btn_update.state(["!disabled"] if (has_update and enabled) else ["disabled"])
@@ -1667,6 +1697,36 @@ class _PluginRegistryPanel(ttk.Frame):
         if not sel or sel[1] != "Available":
             return
         self._install_plugin(sel[0])
+
+    def _add_to_profile(
+        self,
+        name: str,
+        *,
+        parent: Optional[tk.Misc] = None,
+    ) -> None:
+        parent = parent or self.window
+        ctx = self._plugin_context_for_name(name)
+        if ctx is None:
+            return
+        _name, _status, _entry, install_path = ctx
+        if install_path is None or name in AppSettings.c62_community_plugins:
+            return
+        profile = self._active_profile()
+        try:
+            _PluginOperations.register_in_profile(
+                name, install_path, profile=profile, private=self._private
+            )
+            self._populate()
+            self._notify_host_changed()
+            self.status_var.set(f"Added {name} to profile")
+        except Exception as e:  # noqa: BLE001
+            messagebox.showerror("Add to profile failed", str(e), parent=parent)
+
+    def _on_add_to_profile(self) -> None:
+        sel = self._selected_entry()
+        if not sel:
+            return
+        self._add_to_profile(sel[0])
 
     def _handle_requirements(
         self, name: str, plugin_path: Path, *, parent: Optional[tk.Misc] = None

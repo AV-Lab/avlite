@@ -9,7 +9,7 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import AgentState
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
-from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
+from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner, GlobalRacePlanner
 from avlite.plugins.p60_visualizer_tk.p69_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 from avlite.c40_execution.c49_settings import is_capability_provided
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
@@ -30,7 +30,10 @@ class GlobalPlanPlotView(ttk.Frame):
         super().__init__(root)
         self.root = root
 
-        if self.root.setting.global_planner_type.get() == GlobalCenterlineRacePlanner.__name__:
+        if self.root.setting.global_planner_type.get() in (
+            GlobalCenterlineRacePlanner.__name__,
+            GlobalRacePlanner.__name__,
+        ):
             self.global_plot = GlobalRacePlot()
         elif self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
             self.global_plot = GlobalHDMapPlot()
@@ -136,12 +139,15 @@ class GlobalPlanPlotView(ttk.Frame):
 
         planner_type = self.root.setting.global_planner_type.get()
         log.debug(f"Updating Global Plot type {planner_type}...")
-        self.canvas.get_tk_widget().destroy()
+        if hasattr(self, "global_plot"):
+            self.global_plot.close()
+        if hasattr(self, "canvas"):
+            self.canvas.get_tk_widget().destroy()
 
         if planner_type not in GlobalPlannerStrategy.registry.keys():
             log.error(f"Global planner type '{planner_type}' not found in registry. Defaulting to race plot.")
             self.global_plot = GlobalRacePlot()
-        elif planner_type == GlobalCenterlineRacePlanner.__name__:
+        elif planner_type in (GlobalCenterlineRacePlanner.__name__, GlobalRacePlanner.__name__):
             self.global_plot = GlobalRacePlot()
             log.debug("Global Plot type changed to Race Plot.")
         elif planner_type == HDMapGlobalPlanner.__name__:
@@ -160,6 +166,12 @@ class GlobalPlanPlotView(ttk.Frame):
                 x, y = event.xdata, event.ydata
 
                 self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
+
+                # Hover speed readout on the colored raceline (idle only).
+                if (not self.left_mouse_button_pressed
+                        and not self._drag_mode
+                        and hasattr(self.global_plot, "show_speed_at")):
+                    self.global_plot.show_speed_at(x, y)
 
                 if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                     if not self.left_mouse_button_pressed:

@@ -19,6 +19,7 @@ The **global planner** produces a reference route with lane boundaries and a vel
 | Role | Class | Module |
 |------|-------|--------|
 | Global (race track) | `GlobalCenterlineRacePlanner` | [`c25_global_race_planners.py`](../avlite/c20_planning/c25_global_race_planners.py) |
+| Global (raceline optimization) | `GlobalRacePlanner` | [`c25_global_race_planners.py`](../avlite/c20_planning/c25_global_race_planners.py) |
 | Global (HD map) | `HDMapGlobalPlanner` | [`c24_global_hdmap_planners.py`](../avlite/c20_planning/c24_global_hdmap_planners.py) |
 | Local (lattice) | `GreedyLatticePlanner` | [`c28_local_lattice_planners.py`](../avlite/c20_planning/c28_local_lattice_planners.py) |
 | Local (velocity only) | `VelocityLocalPlanner` | [`c28_local_behavioral_and_velocity_planners.py`](../avlite/c20_planning/c28_local_behavioral_and_velocity_planners.py) |
@@ -36,6 +37,73 @@ Used on closed race tracks with left/right boundary polylines.
 - Extracts a centerline between boundaries.
 - Assigns a curvature-based velocity profile along the path.
 - Outputs a `GlobalPlan` with `left_boundary_d`, `right_boundary_d`, and a `TrajectoryTracker` reference — all consumed by the lattice.
+
+### Optimized raceline (`GlobalRacePlanner`)
+
+Computes a **raceline** inside the corridor instead of following the centerline: it minimizes a blend of curvature and path length subject to the track boundaries, then profiles velocity with lateral **and** longitudinal acceleration limits. Input is the same race-boundary JSON (or `RaceMap`) as the centerline planner.
+
+The formulation follows published work: the curvature/length blend is the racing-line compromise of Braghin et al. [1], and the iteratively re-linearized lateral-offset QP with a forward-backward velocity solver is the minimum-curvature approach of Heilmeier et al. [2] (TUM / Roborace), simplified here to a box-bounded least-squares problem.
+
+```mermaid
+flowchart LR
+    A[RaceMap boundaries] --> B[Resample centerline, normals, widths]
+    B --> C["Bounded LSQ raceline optimization (iterated)"]
+    C --> D["Velocity profile: lateral + longitudinal limits"]
+    D --> E[GlobalPlan + TrajectoryTracker]
+```
+
+**Raceline optimization.** The corridor centerline is resampled to uniform arc-length spacing and the raceline is parametrized by a lateral offset \(\alpha_i\) along the unit left normal \(n_i\) at each reference point \(c_i\):
+
+\[
+p_i = c_i + \alpha_i \, n_i
+\]
+
+Both \(x(\alpha)\) and \(y(\alpha)\) are affine in \(\alpha\), so the objective is a linear least-squares residual. With arc-length-normalized first/second difference operators \(D_1\) (\(\approx\) tangent) and \(D_2\) (\(\approx\) curvature), the planner minimizes
+
+\[
+w \left( \lVert D_2 x(\alpha) \rVert^2 + \lVert D_2 y(\alpha) \rVert^2 \right)
++ (1 - w) \left( \lVert D_1 x(\alpha) \rVert^2 + \lVert D_1 y(\alpha) \rVert^2 \right)
+\]
+
+where \(w =\) `c25_curvature_weight` blends **minimum curvature** (\(w = 1\), smooth and fast) against **shortest path** (\(w = 0\), tight corner cutting). The offsets are box-bounded to the corridor minus the boundary margin \(m =\) `c20_boundary_margin`:
+
+\[
+-(w_{\text{right},i} - m) \le \alpha_i \le w_{\text{left},i} - m
+\]
+
+The problem is solved as a box-bounded sparse quadratic program (L-BFGS-B on the banded normal equations, `scipy.optimize.minimize`); `c25_optimization_iterations` outer iterations re-resample the raceline and re-linearize normals and bounds around the previous solution. Closed tracks are detected automatically and use periodic difference operators so the raceline is seamless across the start/finish line. Progress (loading, per-iteration solve time, velocity profile, estimated lap time) is logged at info level.
+
+**Velocity profile.** Three constraints are applied in sequence over \(v^2\):
+
+1. lateral limit: \(v_i = \min\!\big(v_{\max}, \sqrt{a_{\text{lat}} / |\kappa_i|}\big)\)
+2. forward pass (acceleration): \(v_{i+1}^2 \le v_i^2 + 2\, a_{\text{accel}}\, \Delta s\)
+3. backward pass (braking): \(v_i^2 \le v_{i+1}^2 + 2\, a_{\text{brake}}\, \Delta s\)
+
+On closed tracks the passes iterate with wrap-around so the profile is consistent across the seam.
+
+**Output.** A `GlobalPlan` with the raceline path, velocity profile, a `TrajectoryTracker`, and per-waypoint `left_boundary_d` / `right_boundary_d` offsets **relative to the raceline** (margin-inset), so the lattice local planner works unchanged.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `c25_max_velocity` | `75.0` | Top speed on straights (m/s), ~270 km/h |
+| `c25_max_lateral_accel` | `25.0` | Lateral acceleration limit for the curvature speed cap (m/s²), ~2.5 g |
+| `c25_max_longitudinal_accel` | `10.0` | Acceleration limit for the forward velocity pass (m/s²), ~1 g |
+| `c25_max_braking_decel` | `25.0` | Braking limit for the backward velocity pass (m/s²), ~2.5 g |
+| `c25_curvature_weight` | `0.75` | Objective blend: `1` pure minimum curvature, `0` pure shortest path |
+| `c25_optimization_iterations` | `3` | Outer re-linearization iterations |
+
+Defaults are sized for a **Dallara Super Formula** platform (high-downforce open-wheeler). For a low-speed test vehicle use e.g. `c25_max_velocity: 10`, `c25_max_lateral_accel: 5`, `c25_max_longitudinal_accel: 3`, `c25_max_braking_decel: 5`.
+
+**References**
+
+1. F. Braghin, F. Cheli, S. Melzi, and E. Sabbioni, "Race driver model," *Computers & Structures*, vol. 86, no. 13–14, pp. 1503–1516, 2008. [doi:10.1016/j.compstruc.2007.04.028](https://doi.org/10.1016/j.compstruc.2007.04.028)
+2. A. Heilmeier, A. Wischnewski, L. Hermansdorfer, J. Betz, M. Lienkamp, and B. Lohmann, "Minimum curvature trajectory planning and control for an autonomous race car," *Vehicle System Dynamics*, vol. 58, no. 10, pp. 1497–1527, 2020. [doi:10.1080/00423114.2019.1631455](https://doi.org/10.1080/00423114.2019.1631455)
+
+!!! tip "Tuning notes"
+    - **Raceline clips corners too aggressively** — raise `c25_curvature_weight` toward `1` (smoother, higher-speed line) or increase `c20_boundary_margin`.
+    - **Raceline too conservative / long** — lower `c25_curvature_weight` toward `0` for a shorter line.
+    - **Wobbly line on noisy boundaries** — more `c25_optimization_iterations` help the linearization converge; the uniform resampling also filters boundary noise.
+    - **When to prefer the centerline planner** — very narrow corridors (little room to optimize) or when downstream components assume the reference is equidistant from both boundaries.
 
 ### HD map (`HDMapGlobalPlanner`)
 
@@ -155,6 +223,8 @@ Curvature uses the bicycle-model relation \(a_{\text{lat}} = v^2 \kappa\), with 
 2. **Curvature fallback** (if `c28_allow_curvature_fallback`) — collision-free and in bounds; curvature ignored.
 3. **Boundary fallback** (if agent blocks ahead **or** `c28_allow_boundary_violation_fallback`) — collision-free only.
 
+**Centerline exemption.** Within the strict tier, an edge returning to the reference (`|end.d| < c28_d0_reference_threshold`) whose lateral shift `|end.d − start.d|` is within the kinematic reach `R(v)` is treated as curvature-feasible even if the discretized `max_curvature()` marginally fails. The sampling math already deems that shift reachable, so this trusts it over the discretized measurement and keeps a stable centerline candidate available (prevents losing the plan to sampling/measurement noise). Collision and boundary checks still apply.
+
 **Agent blocks ahead** is true when any agent is in front of the ego (by heading dot product) within the planning horizon in `s`.
 
 When an agent blocks ahead, chain building **prefers lateral successors** with `|end.d| ≥ c28_d0_reference_threshold` so the planner keeps offset paths through an overtake instead of merging back to center too early.
@@ -187,10 +257,13 @@ The planner avoids swapping plans every replan tick so the controller can conver
 | Urgent collision (within `c28_urgent_collision_threshold` m) | |
 | Geometric disconnect (`> c28_disconnect_distance_threshold` m from plan) | |
 | Head edge colliding, agent cleared (+0.5 m/s faster clean plan) | |
+| Single-edge plan whose speed or lateral target **materially changed** | |
 
 A clean committed chain is **not** replaced for a slightly faster resampled plan on every replan cycle. Immediate +0.5 m/s applies only when recovering from a **colliding head edge** (obstacle just cleared). Emergency passing commits also go through `should_switch_plan`.
 
-Same-length clean alternatives with similar speed never switch (anti-jitter).
+Same-length multi-edge clean alternatives with similar speed never switch (anti-jitter).
+
+**Single-edge refresh.** When the committed plan is a single edge (horizon could not extend), a clean single-edge candidate is committed only when its mean speed differs by more than 0.5 m/s **or** its lateral target moves by more than `c28_d0_reference_threshold`; otherwise the current edge is held. This refreshes the speed profile when it matters while preventing per-tick re-commit flicker from random resampling.
 
 On switch, a **velocity ramp** over the first `c28_match_speed_wp_buffer` waypoints blends from ego speed into the plan when recovering from a stop.
 
@@ -199,8 +272,10 @@ On switch, a **velocity ramp** over the first `c28_match_speed_wp_buffer` waypoi
 If no strictly feasible level-0 edges exist:
 
 1. Retry with boundary relaxed (`agent_blocks_ahead=True` filtering) — commit only if `should_switch_plan` allows.
-2. If still blocked, pick the edge with the **latest** collision index (most reaction time) only when `should_switch_plan` allows; otherwise keep the current committed chain.
-3. If no edges are generated at all, decelerate the current committed trajectory to zero.
+2. If still blocked, pick the edge with the **latest** collision index (most reaction time) only when `should_switch_plan` allows; otherwise keep the current committed chain. If the committed plan has degraded to a **single edge** and no committable plan is found for `c28_no_plan_release_ticks` consecutive replan ticks, release it to the global trajectory (`get_local_plan` then falls back to the global reference, which carries a proper speed profile).
+3. If no edges are generated at all: a **multi-edge** committed trajectory decelerates to zero (emergency stop); a **single-edge** plan is released to the global trajectory after the same `c28_no_plan_release_ticks` debounce.
+
+The debounce holds the last committed plan through transient no-feasible ticks (random sampling can momentarily find no feasible edge), so the local plan does not blink between a committed edge and the global fallback.
 
 ### Debug visualization
 
@@ -262,6 +337,7 @@ Boundary relaxation also applies automatically when an agent blocks ahead (overt
 | `c28_replan_wait_time` | `2.5` | Minimum time between discretionary plan switches (s) |
 | `c28_urgent_collision_threshold` | `10.0` | Distance to collision before immediate switch (m) |
 | `c28_disconnect_distance_threshold` | `5.0` | Max distance from plan waypoint before forced switch (m) |
+| `c28_no_plan_release_ticks` | `3` | Consecutive replan ticks with no committable plan before a degraded single-edge plan is released to the global trajectory (debounces flicker from transient sampling misses) |
 | `c28_min_edge_progress_to_block` | `0.2` | Min fraction of edge progress before replan blocking (reserved) |
 
 ### Selection and velocity continuity
@@ -302,6 +378,7 @@ Used by `VelocityLocalPlanner` and for speed-matching on colliding lattice edges
     - **Many blue edges at high speed** — curvature limit tightens as \(v^2\); raise `c28_max_lateral_accel` or enable `c28_allow_curvature_fallback`.
     - **Overtake not lateral enough** — check agent detection horizon; boundary relax only triggers when `_agent_blocks_ahead` is true.
     - **Plan jitter / controller never settles** — increase `c28_replan_wait_time`; discretionary switches need wait or material gain (+2 edges or +0.5 m/s).
+    - **Single-edge plan flickers / blinks to the global line** — raise `c28_no_plan_release_ticks` so transient no-feasible ticks are held longer before releasing to global.
     - **Too conservative following** — reduce `c27_follow_cruise_min_gap` or collision margins (`c20_*`).
 
 ---
