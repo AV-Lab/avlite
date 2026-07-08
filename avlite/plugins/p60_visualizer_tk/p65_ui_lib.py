@@ -2,6 +2,7 @@ import ctypes
 import logging
 import os
 import platform
+import webbrowser
 import tkinter as tk
 import tkinter.font as tkfont
 from pathlib import Path
@@ -331,6 +332,7 @@ class ThemedReadOnlyTwoFieldDialog:
         label2: str = "",
         value1: str = "",
         value2: str = "",
+        github_url: str | None = None,
     ):
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
@@ -353,9 +355,15 @@ class ThemedReadOnlyTwoFieldDialog:
         ttk.Label(frame, text=value2, wraplength=scaled(280, s)).grid(
             row=1, column=1, padx=10, pady=10, sticky=tk.W
         )
-        ttk.Button(frame, text="OK", command=self.dialog.destroy).grid(
-            row=2, column=0, columnspan=2, padx=5, pady=10, sticky=tk.E
-        )
+        footer = ttk.Frame(frame)
+        footer.grid(row=2, column=0, columnspan=2, padx=5, pady=10, sticky=tk.E)
+        if github_url:
+            btn = ttk.Button(
+                footer, text="Open on GitHub", command=lambda: webbrowser.open(github_url)
+            )
+            btn.pack(side=tk.LEFT, padx=(0, 6))
+            attach_tooltip(btn, BUTTON_TOOLTIPS["cp_github"])
+        ttk.Button(footer, text="OK", command=self.dialog.destroy).pack(side=tk.RIGHT)
 
         self.dialog.transient(parent)
         self.dialog.update_idletasks()

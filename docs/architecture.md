@@ -2,20 +2,23 @@
 
 ## Overview
 
-AVLite follows a layered architecture with clear separation between interfaces and implementations.
+AVLite follows a layered architecture with clear separation between interfaces and implementations. Every layer is extendable: apps, executers, perception/planning/control strategies, and world bridges are all auto-registered strategies, and any of them can be added or overridden by a plugin.
 
 ```mermaid
 flowchart TB
-    subgraph ENTRY[" "]
+    subgraph ENTRY["Apps (AppStrategy)"]
         direction LR
-        VIZ["Visualization\nReal-time Tkinter GUI"]
-        HL["Headless Mode\nTerminal dashboard"]
-        VIZ ~~~ HL
+        VIZ["Visualizer (default)\nReal-time Tkinter GUI"]
+        SET["Settings GUI"]
+        PLG["Plugin Manager"]
+        HL["Headless\nTerminal dashboard"]
+        SCLI["Setting CLI"]
+        VIZ ~~~ SET ~~~ PLG ~~~ HL ~~~ SCLI
     end
 
-    EXEC["Execution\nSync/async executer and factory"]
+    EXEC["Execution (executer strategy)\nSync/async executer and factory"]
 
-    subgraph COMPONENTS[" "]
+    subgraph COMPONENTS["Stack modules (Strategy plugins)"]
         direction LR
         PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
@@ -30,6 +33,8 @@ flowchart TB
     EXEC --> COMPONENTS
     COMPONENTS --> COMMON
 ```
+
+Every box above the Common layer is a pluggable strategy: apps register via `AppStrategy`, and the stack modules (perception, planning, control, world bridge) plus the executer itself register via their own strategy base classes. See [Strategy Pattern with Auto-Registration](#strategy-pattern-with-auto-registration).
 
 ## Design Patterns
 
@@ -48,6 +53,32 @@ class PerceptionStrategy(ABC):
 ```
 
 When you create a subclass, it automatically registers itself and appears in the UI dropdowns. No manual registration needed.
+
+### App Strategy (CLI/GUI entry points)
+
+Every entry point — the Tkinter visualizer, the settings GUI, the plugin manager, the headless runner, the setting CLI — is just an *app*: an `AppStrategy` subclass that auto-registers exactly like `PerceptionStrategy`, keyed by `cli_name` (`None` marks the default app that runs when no subcommand is given).
+
+```python
+class MyToolApp(AppStrategy):
+    cli_name = "my-tool"        # None = default app
+    help = "Short description for avlite --help"
+
+    def run(self, args, unknown):
+        ...
+        return 0                 # optional; None = exit 0
+```
+
+The Tk visualizer and headless dashboard carry no special status — they are two of several built-in apps, and new apps drop in the same way (subclass, set `cli_name`, implement `run()`, optionally `configure_parser()` for flags). At startup [`__main__.py`](../avlite/__main__.py) drives the dispatch:
+
+```mermaid
+flowchart LR
+    boot["bootstrap_apps()\nimport p60_* app modules"]
+    reg["register_parsers(sub)\none subcommand per app"]
+    run["run_app(command, ...)\nregistry[command] or default"]
+    boot --> reg --> run
+```
+
+Built-in apps ship as `p60_*` plugins (`p60_visualizer_tk`, `p60_headless_mode`, `p60_setting_cli`), so the app layer is fully extendable — community plugins can register their own apps. See [Plugin Development → Apps](plugin-development.md#apps-appstrategy).
 
 ### Capability System
 
@@ -157,9 +188,15 @@ Vehicle control strategies (Stanley, PID) output actuation commands. Commands us
 
 World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in `BasicSim` bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via `c40_executer_type` and provided as optional plugins.
 
-### **Visualization**
+### **Apps**
 
-Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.
+CLI and GUI entry points, each an `AppStrategy` (see [App Strategy](#app-strategy-cligui-entry-points)). Built-in apps ship as `p60_*` plugins and the layer is extendable:
+
+- **Visualizer** (default, `avlite`) — Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.
+- **Settings GUI** (`avlite setting`) — full stack settings editor window.
+- **Plugin Manager** (`avlite plugins`) — browse, install, and register community plugins.
+- **Headless** (`avlite headless`) — runs the same YAML profile with a terminal dashboard, no GUI.
+- **Setting CLI** (`avlite setting-cli`) — validate/describe/import/export profiles from the terminal.
 
 ### **Common**
 
@@ -216,6 +253,6 @@ avlite/
 ~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 ```
 
-Plugins are loaded at startup. Classes inheriting from base strategies auto-register.
+Plugins are loaded at startup. Classes inheriting from base strategies auto-register. The built-in `p60_*` packages are the apps themselves (`AppStrategy` entry points); `bootstrap_apps()` in `c61_app_strategy` imports them at startup so their apps register before CLI parsing.
 
 See [Plugin Development](plugin-development.md) for creating community plugins, pNx naming, and log filtering.

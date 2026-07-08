@@ -127,6 +127,21 @@ class GlobalPlot(ABC):
         self.map_plotted = False
         self._velocity_scale = "relative"
 
+        # Hover-speed readout: a highlight marker on the nearest trajectory point
+        # plus an annotation showing target speed in m/s and km/h. Shared by all
+        # global plot types; each feeds its plotted trajectory via _set_hover_data.
+        self._hover_xy: Optional[np.ndarray] = None
+        self._hover_v: Optional[np.ndarray] = None
+        self._hover_marker, = self.ax.plot([], [], 'o', color="white", markersize=8,
+                                           markeredgecolor="black", zorder=10)
+        self._hover_text = self.ax.annotate(
+            "", xy=(0, 0), xytext=(12, 12), textcoords="offset points",
+            fontsize=9, color="white", zorder=11, visible=False,
+            bbox=dict(facecolor="#1d2021", alpha=0.8, pad=2, edgecolor="none",
+                      boxstyle="round,pad=0.3"),
+        )
+        self._hover_visible = False
+
 
     def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, show_plan_boundaries=True, velocity_scale="relative", delta:Optional[tuple[float,float]]=None):
         self._velocity_scale = velocity_scale
@@ -147,6 +162,56 @@ class GlobalPlot(ABC):
         self.vehicle_x, self.vehicle_y = ego.x, ego.y
         self.vehicle_location.set_data([self.vehicle_x], [self.vehicle_y ])
         self.vehicle_location_text.set_position((self.vehicle_x, self.vehicle_y))
+
+    def _set_hover_data(self, xs, ys, velocity):
+        """Cache the plotted trajectory geometry + speed for hover lookups."""
+        xs = np.asarray(xs, dtype=float)
+        ys = np.asarray(ys, dtype=float)
+        n = min(len(xs), len(ys))
+        if n < 1:
+            self._hover_xy = None
+            self._hover_v = None
+            return
+        self._hover_xy = np.column_stack([xs[:n], ys[:n]])
+        v = np.asarray(velocity, dtype=float)
+        if len(v) < n:
+            v = np.pad(v, (0, n - len(v)), mode="edge") if len(v) else np.zeros(n)
+        self._hover_v = v[:n]
+
+    def show_speed_at(self, x: float, y: float) -> bool:
+        """Highlight the nearest trajectory point and annotate its target speed.
+
+        Returns True when a nearby trajectory point was found (and drawn), False
+        otherwise (annotation hidden). Only redraws when the displayed state
+        changes, to keep mouse-move handling cheap.
+        """
+        if self._hover_xy is None or self._hover_v is None or len(self._hover_xy) == 0:
+            return self._hide_speed()
+
+        d = np.hypot(self._hover_xy[:, 0] - x, self._hover_xy[:, 1] - y)
+        idx = int(np.argmin(d))
+        # Tolerance scales with the current view so it works at any zoom level.
+        tol = (self.view_width or (self.map_max_x - self.map_min_x if self.map_max_x else 100)) * 0.03
+        if d[idx] > max(tol, 1.0):
+            return self._hide_speed()
+
+        wx, wy = self._hover_xy[idx]
+        v = float(self._hover_v[idx])
+        self._hover_marker.set_data([wx], [wy])
+        self._hover_text.xy = (wx, wy)
+        self._hover_text.set_text(f"{v:.1f} m/s  ({v * 3.6:.0f} km/h)")
+        self._hover_text.set_visible(True)
+        self._hover_visible = True
+        self.fig.canvas.draw_idle()
+        return True
+
+    def _hide_speed(self) -> bool:
+        if self._hover_visible:
+            self._hover_marker.set_data([], [])
+            self._hover_text.set_visible(False)
+            self._hover_visible = False
+            self.fig.canvas.draw_idle()
+        return False
 
     def clear_tmp_plots(self):
         """Clears temporary plots (e.g., cursor highlights)"""
@@ -241,6 +306,7 @@ class GlobalPlot(ABC):
     def clear_tmp_plots(self):
         self.orientation_arrow.remove() if self.orientation_arrow else None
         self.orientation_arrow = None
+        self._hide_speed()
 
 
     def set_plot_theme(self, bg_color="white", fg_color="black"):
@@ -282,20 +348,6 @@ class GlobalRacePlot(GlobalPlot):
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
         self.reference_trajectory = LineCollection([], cmap=_VELOCITY_CMAP, linewidths=5, zorder=4)
         self.ax.add_collection(self.reference_trajectory)
-
-        # Hover-speed readout: a highlight marker on the nearest raceline point
-        # plus an annotation showing target speed in m/s and km/h.
-        self._raceline_xy: Optional[np.ndarray] = None
-        self._raceline_v: Optional[np.ndarray] = None
-        self._hover_marker, = self.ax.plot([], [], 'o', color="white", markersize=8,
-                                           markeredgecolor="black", zorder=10)
-        self._hover_text = self.ax.annotate(
-            "", xy=(0, 0), xytext=(12, 12), textcoords="offset points",
-            fontsize=9, color="white", zorder=11, visible=False,
-            bbox=dict(facecolor="#1d2021", alpha=0.8, pad=2, edgecolor="none",
-                      boxstyle="round,pad=0.3"),
-        )
-        self._hover_visible = False
 
         # self.ax.legend()
         
@@ -347,65 +399,14 @@ class GlobalRacePlot(GlobalPlot):
             self.reference_trajectory, traj.path_x, traj.path_y, traj.velocity,
             velocity_scale=self._velocity_scale,
         )
-
-        # Cache raceline geometry + speed for hover lookups.
-        px = np.asarray(traj.path_x, dtype=float)
-        py = np.asarray(traj.path_y, dtype=float)
-        if len(px) >= 1:
-            self._raceline_xy = np.column_stack([px, py])
-            v = np.asarray(traj.velocity, dtype=float)
-            if len(v) < len(px):
-                v = np.pad(v, (0, len(px) - len(v)), mode="edge") if len(v) else np.zeros(len(px))
-            self._raceline_v = v[:len(px)]
-        else:
-            self._raceline_xy = None
-            self._raceline_v = None
+        # Cache raceline geometry + speed for the hover-speed readout.
+        self._set_hover_data(traj.path_x, traj.path_y, traj.velocity)
 
         self.map_min_x = min(plan.left_boundary_x)
         self.map_max_x = max(plan.right_boundary_x)
         self.map_min_y = min(plan.left_boundary_y)
         self.map_max_y = max(plan.right_boundary_y)
         self.map_plotted = True
-
-    def show_speed_at(self, x: float, y: float) -> bool:
-        """Highlight the nearest raceline point and annotate its target speed.
-
-        Returns True when a nearby raceline point was found (and drawn), False
-        otherwise (annotation hidden). Only redraws when the displayed state
-        changes, to keep mouse-move handling cheap.
-        """
-        if self._raceline_xy is None or self._raceline_v is None or len(self._raceline_xy) == 0:
-            return self._hide_speed()
-
-        d = np.hypot(self._raceline_xy[:, 0] - x, self._raceline_xy[:, 1] - y)
-        idx = int(np.argmin(d))
-        # Tolerance scales with the current view so it works at any zoom level.
-        tol = (self.view_width or (self.map_max_x - self.map_min_x if self.map_max_x else 100)) * 0.03
-        if d[idx] > max(tol, 1.0):
-            return self._hide_speed()
-
-        wx, wy = self._raceline_xy[idx]
-        v = float(self._raceline_v[idx])
-        self._hover_marker.set_data([wx], [wy])
-        self._hover_text.xy = (wx, wy)
-        self._hover_text.set_text(f"{v:.1f} m/s  ({v * 3.6:.0f} km/h)")
-        self._hover_text.set_visible(True)
-        self._hover_visible = True
-        self.fig.canvas.draw_idle()
-        return True
-
-    def _hide_speed(self) -> bool:
-        if self._hover_visible:
-            self._hover_marker.set_data([], [])
-            self._hover_text.set_visible(False)
-            self._hover_visible = False
-            self.fig.canvas.draw_idle()
-        return False
-
-    def clear_tmp_plots(self):
-        super().clear_tmp_plots()
-        self._hide_speed()
-            
 
 
 class GlobalHDMapPlot(GlobalPlot):
@@ -503,6 +504,7 @@ class GlobalHDMapPlot(GlobalPlot):
                 self.global_plan_path, path[0], path[1], velocity,
                 velocity_scale=self._velocity_scale,
             )
+            self._set_hover_data(path[0], path[1], velocity)
         self.fig.canvas.draw()
 
     def show_closest_road_and_lane(self,  x:int, y:int, map:HDMap):
@@ -582,10 +584,12 @@ class GlobalHDMapPlot(GlobalPlot):
                 self.global_plan_path, path[0], path[1], velocity,
                 velocity_scale=self._velocity_scale,
             )
+            self._set_hover_data(path[0], path[1], velocity)
             self.fig.canvas.draw()
         except Exception as e:
             log.error(f"Error plotting global plan: {e}")
             _update_velocity_colored_line(self.global_plan_path, [], [], [])
+            self._set_hover_data([], [], [])
 
 
     def clear_road_path_plots(self):
@@ -593,6 +597,7 @@ class GlobalHDMapPlot(GlobalPlot):
         for i in range(len(self.lane_path_plots)):
             self.lane_path_plots[i].set_data([], [])
         _update_velocity_colored_line(self.global_plan_path, [], [], [])
+        self._set_hover_data([], [], [])
         self.__clear_closest_road_and_lane()
 
     

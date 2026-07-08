@@ -579,7 +579,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 
 ## Apps (`AppStrategy`)
 
-CLI and GUI entry points register via :class:`~avlite.c60_apps.c61_app_strategy.AppStrategy` (same auto-register pattern as perception/planning strategies). Subclass as ``class MyToolApp(AppStrategy)``, set ``cli_name`` and ``help``, implement ``run()``, and optionally ``configure_parser()`` for flags or nested subcommands. Built-in p50 entry classes use the ``*App`` suffix (e.g. ``SettingCliApp``, ``VisualizationApp``); the base framework class remains ``AppStrategy``. Importing the module registers the app.
+CLI and GUI entry points register via :class:`~avlite.c60_apps.c61_app_strategy.AppStrategy` (same auto-register pattern as perception/planning strategies). Subclass as ``class MyToolApp(AppStrategy)``, set ``cli_name`` and ``help``, implement ``run()``, and optionally ``configure_parser()`` for flags or nested subcommands. Built-in p60 entry classes use the ``*App`` suffix (e.g. ``SettingCliApp``, ``VisualizationApp``); the base framework class remains ``AppStrategy``. Importing the module registers the app.
 
 | App | Plugin / module | Command |
 |-----|-----------------|---------|

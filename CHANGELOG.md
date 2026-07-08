@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Settings window: plugin double-click dialog adds **Open on GitHub**
 - Planning: `GlobalRacePlanner` — raceline optimizer for race-boundary maps: blended minimum-curvature / shortest-path bounded least-squares optimization with a lateral + longitudinal acceleration-limited velocity profile (`c25_*` settings, defaults sized for a Dallara Super Formula platform); closed-track aware, with per-stage info logging. Documented in `docs/algorithms.md`
 - Visualizer global race plot: hover over the colored raceline to read the target speed at the nearest waypoint in m/s and km/h
 

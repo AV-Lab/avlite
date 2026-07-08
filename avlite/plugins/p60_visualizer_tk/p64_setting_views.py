@@ -69,7 +69,7 @@ from avlite.c60_apps.c64_settings_schema import (
     schema_of,
     setting_key,
 )
-from avlite.plugins.p60_visualizer_tk.p63_plugins_app import CommunityPluginsApp
+from avlite.plugins.p60_visualizer_tk.p63_plugins_app import CommunityPluginsApp, _PluginOperations
 
 log = logging.getLogger(__name__)
 
@@ -675,6 +675,11 @@ class SettingWindow:
             else "\u2014"
         )
         source_path = PluginPaths.format_display(PluginPaths.builtin_dir() / plugin_name)
+        source_dir = PluginPaths.builtin_dir() / plugin_name
+        github_url = (
+            _PluginOperations.get_plugin_repository_url(None, source_dir)
+            or f"https://github.com/AV-Lab/avlite/tree/main/avlite/plugins/{plugin_name}"
+        )
         ThemedReadOnlyTwoFieldDialog(
             self.host,
             f"Plugin: {plugin_name}",
@@ -682,6 +687,7 @@ class SettingWindow:
             "Source file location",
             settings_path,
             source_path,
+            github_url=github_url,
         )
 
     def edit_community_plugin(self):
@@ -694,6 +700,7 @@ class SettingWindow:
         stored = AppSettings.c62_community_plugins.get(plugin_name, plugin_name)
         path = PluginPaths.load_path(plugin_name, stored)
         source_path = PluginPaths.format_display(path) if path else "\u2014"
+        github_url = _PluginOperations.get_plugin_repository_url(None, path)
         ThemedReadOnlyTwoFieldDialog(
             self.host,
             f"Community Plugin: {plugin_name}",
@@ -701,6 +708,7 @@ class SettingWindow:
             "Source file location",
             self._plugin_settings_location(plugin_name),
             source_path,
+            github_url=github_url,
         )
 
     def update_community_plugin_list(self):
