@@ -1135,8 +1135,16 @@ repository. Community and member plugins are third-party or unverified code;
 AV-Lab does not guarantee their safety. Use for research and development at
 your own risk.</p>
 <h3 id="browse-and-install-gui">Browse and install (GUI)<a class="headerlink" href="#browse-and-install-gui" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>-m<span class="w"> </span>avlite<span class="w"> </span>plugins
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>avlite<span class="w"> </span>plugins
 </span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Plugin manager prerequisites</p>
+<ul>
+<li><strong><code>git</code></strong> (on your PATH) — required to <strong>Install</strong> and <strong>Update</strong> plugins; AVLite clones/pulls the plugin repository from GitHub.</li>
+<li><strong><code>pip</code></strong> — used only when a plugin ships a <code>requirements.txt</code>; AVLite offers to install its Python dependencies into the current environment.</li>
+<li><strong>Not required</strong> for browsing the registry, GitHub sign-in, uninstalling, or adding an already-installed plugin to a profile.</li>
+</ul>
+</div>
 <p>The browser fetches the official registry from
 <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>,
 lets you install/uninstall plugins, and (de)registers them with the
@@ -1144,7 +1152,7 @@ active profile. Installed plugins live under
 <code>$XDG_DATA_HOME/avlite/plugins</code> (or <code>~/.local/share/avlite/plugins</code>);
 override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
 <h3 id="member-plugins">Member plugins<a class="headerlink" href="#member-plugins" title="Permanent link">&para;</a></h3>
-<p>The <strong>Members</strong> tab in <code>python -m avlite plugins</code> lists plugins from the AV-Lab
+<p>The <strong>Members</strong> tab in <code>avlite plugins</code> lists plugins from the AV-Lab
 private registry. Sign in with GitHub (Device Flow) to browse and install them;
 your account must have access to that registry and to each listed plugin repo.
 AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0600</code>).</p>
@@ -1168,7 +1176,7 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 </li>
 <li>
 <p>Open a pull request. Once merged, the plugin appears in every user's
-   <code>python -m avlite plugins</code> browser for install and register.</p>
+   <code>avlite plugins</code> browser for install and register.</p>
 </li>
 </ol>
 <h2 id="core-components">Core Components<a class="headerlink" href="#core-components" title="Permanent link">&para;</a></h2>
@@ -1457,6 +1465,10 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
       <script src="../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
       
         <script src="../javascripts/landing.js"></script>
+      
+        <script src="../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>
