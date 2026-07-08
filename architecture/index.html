@@ -528,6 +528,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#app-strategy-cligui-entry-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Strategy (CLI/GUI entry points)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#capability-system" class="md-nav__link">
     <span class="md-ellipsis">
       Capability System
@@ -615,9 +624,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#visualization" class="md-nav__link">
+  <a href="#apps" class="md-nav__link">
     <span class="md-ellipsis">
-      Visualization
+      Apps
     </span>
   </a>
   
@@ -778,6 +787,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#app-strategy-cligui-entry-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      App Strategy (CLI/GUI entry points)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#capability-system" class="md-nav__link">
     <span class="md-ellipsis">
       Capability System
@@ -865,9 +883,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#visualization" class="md-nav__link">
+  <a href="#apps" class="md-nav__link">
     <span class="md-ellipsis">
-      Visualization
+      Apps
     </span>
   </a>
   
@@ -925,18 +943,21 @@
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>AVLite follows a layered architecture with clear separation between interfaces and implementations.</p>
+<p>AVLite follows a layered architecture with clear separation between interfaces and implementations. Every layer is extendable: apps, executers, perception/planning/control strategies, and world bridges are all auto-registered strategies, and any of them can be added or overridden by a plugin.</p>
 <pre class="mermaid"><code>flowchart TB
-    subgraph ENTRY[" "]
+    subgraph ENTRY["Apps (AppStrategy)"]
         direction LR
-        VIZ["Visualization\nReal-time Tkinter GUI"]
-        HL["Headless Mode\nTerminal dashboard"]
-        VIZ ~~~ HL
+        VIZ["Visualizer (default)\nReal-time Tkinter GUI"]
+        SET["Settings GUI"]
+        PLG["Plugin Manager"]
+        HL["Headless\nTerminal dashboard"]
+        SCLI["Setting CLI"]
+        VIZ ~~~ SET ~~~ PLG ~~~ HL ~~~ SCLI
     end
 
-    EXEC["Execution\nSync/async executer and factory"]
+    EXEC["Execution (executer strategy)\nSync/async executer and factory"]
 
-    subgraph COMPONENTS[" "]
+    subgraph COMPONENTS["Stack modules (Strategy plugins)"]
         direction LR
         PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
@@ -950,6 +971,7 @@
     ENTRY --&gt; EXEC
     EXEC --&gt; COMPONENTS
     COMPONENTS --&gt; COMMON</code></pre>
+<p>Every box above the Common layer is a pluggable strategy: apps register via <code>AppStrategy</code>, and the stack modules (perception, planning, control, world bridge) plus the executer itself register via their own strategy base classes. See <a href="#strategy-pattern-with-auto-registration">Strategy Pattern with Auto-Registration</a>.</p>
 <h2 id="design-patterns">Design Patterns<a class="headerlink" href="#design-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="strategy-pattern-with-auto-registration">Strategy Pattern with Auto-Registration<a class="headerlink" href="#strategy-pattern-with-auto-registration" title="Permanent link">&para;</a></h3>
 <p>All major components use abstract base classes with automatic registration:</p>
@@ -962,6 +984,23 @@
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>            <span class="n">PerceptionStrategy</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span>
 </span></code></pre></div>
 <p>When you create a subclass, it automatically registers itself and appears in the UI dropdowns. No manual registration needed.</p>
+<h3 id="app-strategy-cligui-entry-points">App Strategy (CLI/GUI entry points)<a class="headerlink" href="#app-strategy-cligui-entry-points" title="Permanent link">&para;</a></h3>
+<p>Every entry point — the Tkinter visualizer, the settings GUI, the plugin manager, the headless runner, the setting CLI — is just an <em>app</em>: an <code>AppStrategy</code> subclass that auto-registers exactly like <code>PerceptionStrategy</code>, keyed by <code>cli_name</code> (<code>None</code> marks the default app that runs when no subcommand is given).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span> <span class="nc">MyToolApp</span><span class="p">(</span><span class="n">AppStrategy</span><span class="p">):</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">cli_name</span> <span class="o">=</span> <span class="s2">&quot;my-tool&quot;</span>        <span class="c1"># None = default app</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Short description for avlite --help&quot;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">unknown</span><span class="p">):</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="o">...</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="k">return</span> <span class="mi">0</span>                 <span class="c1"># optional; None = exit 0</span>
+</span></code></pre></div>
+<p>The Tk visualizer and headless dashboard carry no special status — they are two of several built-in apps, and new apps drop in the same way (subclass, set <code>cli_name</code>, implement <code>run()</code>, optionally <code>configure_parser()</code> for flags). At startup <a href="../avlite/__main__.py"><code>__main__.py</code></a> drives the dispatch:</p>
+<pre class="mermaid"><code>flowchart LR
+    boot["bootstrap_apps()\nimport p60_* app modules"]
+    reg["register_parsers(sub)\none subcommand per app"]
+    run["run_app(command, ...)\nregistry[command] or default"]
+    boot --&gt; reg --&gt; run</code></pre>
+<p>Built-in apps ship as <code>p60_*</code> plugins (<code>p60_visualizer_tk</code>, <code>p60_headless_mode</code>, <code>p60_setting_cli</code>), so the app layer is fully extendable — community plugins can register their own apps. See <a href="../plugin-development/#apps-appstrategy">Plugin Development → Apps</a>.</p>
 <h3 id="capability-system">Capability System<a class="headerlink" href="#capability-system" title="Permanent link">&para;</a></h3>
 <p>Components declare what they require and provide along a clean 2x2 grid keyed on capability space (world/sensor vs stack) and direction (requires vs provides):</p>
 <table>
@@ -989,16 +1028,16 @@
 <li>A <strong>strategy</strong> declares <code>world_requirements</code>, <code>stack_requirements</code> (non-abstract, per-module defaults), and <code>stack_capabilities</code> (what it produces).</li>
 <li>A <strong>world bridge</strong> declares <code>world_capabilities</code> (sensors it exposes) and <code>stack_capabilities</code> (ground truth it provides).</li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="nd">@property</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="c1"># What I need from the world/simulator (sensors)</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">}</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="nd">@property</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">def</span> <span class="nf">stack_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">StackCapability</span><span class="p">]:</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="c1"># What I provide to downstream modules</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="nd">@property</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="c1"># What I need from the world/simulator (sensors)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">}</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="nd">@property</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="k">def</span> <span class="nf">stack_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">StackCapability</span><span class="p">]:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="c1"># What I provide to downstream modules</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">}</span>
 </span></code></pre></div>
 <p><strong>World Capabilities</strong> (sensors / actuation the bridge provides):</p>
 <ul>
@@ -1028,13 +1067,13 @@
 <p><strong>Ground truth via the world bridge:</strong> a <code>WorldBridge</code> may advertise <code>stack_capabilities</code> (a <code>set[StackCapability]</code>, default empty) to satisfy downstream <code>stack_requirements</code> without a real module. For example, <code>BasicSim</code> provides <code>{DETECTION, TRACKING, LOCALIZATION}</code> as ground truth. The executer combines every present module's <code>stack_capabilities</code> with <code>world.stack_capabilities</code> and warns when a module's <code>stack_requirements</code> are unmet.</p>
 <h3 id="factory-pattern">Factory Pattern<a class="headerlink" href="#factory-pattern" title="Permanent link">&para;</a></h3>
 <p>The executor factory assembles components based on configuration:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">executer</span> <span class="o">=</span> <span class="n">executor_factory</span><span class="p">(</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">bridge</span><span class="o">=</span><span class="s2">&quot;BasicSim&quot;</span><span class="p">,</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">perception_strategy_name</span><span class="o">=</span><span class="s2">&quot;MultiObjectPredictor&quot;</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">localization_strategy_name</span><span class="o">=</span><span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">local_planner_strategy_name</span><span class="o">=</span><span class="s2">&quot;GreedyLatticePlanner&quot;</span><span class="p">,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">controller_strategy_name</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">executer</span> <span class="o">=</span> <span class="n">executor_factory</span><span class="p">(</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">bridge</span><span class="o">=</span><span class="s2">&quot;BasicSim&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">perception_strategy_name</span><span class="o">=</span><span class="s2">&quot;MultiObjectPredictor&quot;</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">localization_strategy_name</span><span class="o">=</span><span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">local_planner_strategy_name</span><span class="o">=</span><span class="s2">&quot;GreedyLatticePlanner&quot;</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">controller_strategy_name</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>It loads plugins, instantiates strategies from registries, and wires everything together. Both <code>perception_strategy_name</code> and <code>localization_strategy_name</code> are optional — pass an empty string or omit them to run without that component.</p>
 <p>Before calling <code>executor_factory()</code>, load YAML profiles with <code>load_stack_settings(profile, load_plugins)</code> in <a href="../avlite/c60_apps/c62_factory.py"><code>c62_factory.py</code></a>. Each setting reads its section from the single <code>configs/&lt;profile&gt;.yaml</code>: it loads the c10–c40 layer sections, <code>AppSettings</code> (the <code>c69_apps</code> section), and built-in plugin settings (the <code>plugins</code> section); the GUI loads the Tk <code>VisualizationSettings</code> binder separately.</p>
@@ -1042,7 +1081,7 @@
 <p>Stack core (<code>c10</code>–<code>c40</code>, <code>c50_common</code>) may import <code>c61_app_strategy</code>, <code>c64_settings_schema</code>, <code>c68_paths</code>, and <code>c69_settings</code> only. Profile export/import operates on a single per-profile YAML file (<code>c65_setting_utils.export_profile</code> / <code>import_profile</code>), with checkboxes to include the <code>c69_apps</code> and <code>plugins</code> sections. Tk binder <code>VisualizationSettings</code> lives in plugin <code>settings.py</code>; <code>c69_settings</code> is schema-only (plugin bootstrap fields use <code>c62_*</code>, consumed by <code>c62_factory</code>).</p>
 <h3 id="agent-model">Agent model<a class="headerlink" href="#agent-model" title="Permanent link">&para;</a></h3>
 <p>Agents are represented as a small class hierarchy in c11:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>State → AgentState → EgoState
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>State → AgentState → EgoState
 </span></code></pre></div>
 <ul>
 <li><strong><code>EGO_AGENT_ID = 0</code></strong> — reserved for the ego vehicle (<code>perception_model.ego_vehicle</code>).</li>
@@ -1061,30 +1100,37 @@
 <p>Vehicle control strategies (Stanley, PID) output actuation commands. Commands use a <code>ControlCommandBase</code> hierarchy (<code>AckermannControlCommand</code>, <code>DiffDriveControlCommand</code>, <code>BodyVelocityControlCommand</code> in c31); the built-in car stack still returns <code>ControlCommand</code> (Ackermann alias). Per-agent command type defaults are mapped from <code>AgentType</code> in c38. See <a href="../plugin-development/#7-multi-robot-agents-and-control">Plugin Development → Multi-robot agents and control</a>.</p>
 <h3 id="execution"><strong>Execution</strong><a class="headerlink" href="#execution" title="Permanent link">&para;</a></h3>
 <p>World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in <code>BasicSim</code> bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via <code>c40_executer_type</code> and provided as optional plugins.</p>
-<h3 id="visualization"><strong>Visualization</strong><a class="headerlink" href="#visualization" title="Permanent link">&para;</a></h3>
-<p>Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.</p>
+<h3 id="apps"><strong>Apps</strong><a class="headerlink" href="#apps" title="Permanent link">&para;</a></h3>
+<p>CLI and GUI entry points, each an <code>AppStrategy</code> (see <a href="#app-strategy-cligui-entry-points">App Strategy</a>). Built-in apps ship as <code>p60_*</code> plugins and the layer is extendable:</p>
+<ul>
+<li><strong>Visualizer</strong> (default, <code>avlite</code>) — Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.</li>
+<li><strong>Settings GUI</strong> (<code>avlite setting</code>) — full stack settings editor window.</li>
+<li><strong>Plugin Manager</strong> (<code>avlite plugins</code>) — browse, install, and register community plugins.</li>
+<li><strong>Headless</strong> (<code>avlite headless</code>) — runs the same YAML profile with a terminal dashboard, no GUI.</li>
+<li><strong>Setting CLI</strong> (<code>avlite setting-cli</code>) — validate/describe/import/export profiles from the terminal.</li>
+</ul>
 <h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
 <p>YAML profile load/save, hot reload, plugin discovery (<code>c63_plugins</code>), path resolution (<code>c68_paths</code>), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (<code>c64_settings_schema</code>).</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>World Bridge
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    │
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    ├─► Sensor Data ──► Localization ──► Ego Pose (updated in-place)
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    │                                          │
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    ├─► Sensor Data ──► Perception ───► Agents │
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    │                                          ▼
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    │                              Local Planner
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    │                                          │
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    │                                          ▼
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    │                              Trajectory
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    │                                          │
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    │                                          ▼
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    │                              Controller
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    │                                          │
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    └─────────────── Control Command ◄─────────┘
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>                          │
-</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>              (future: control_agent for NPC fleet)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>World Bridge
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    │
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    ├─► Sensor Data ──► Localization ──► Ego Pose (updated in-place)
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    │                                          │
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    ├─► Sensor Data ──► Perception ───► Agents │
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    │                                          ▼
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    │                              Local Planner
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    │                                          │
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    │                                          ▼
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    │                              Trajectory
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    │                                          │
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    │                                          ▼
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    │                              Controller
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    │                                          │
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    └─────────────── Control Command ◄─────────┘
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>                          │
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>              (future: control_agent for NPC fleet)
 </span></code></pre></div>
 <ol>
 <li><strong>World Bridge</strong> provides sensor data (IMU, LiDAR, camera, ground truth)</li>
@@ -1095,21 +1141,21 @@
 <li><strong>World Bridge</strong> executes control command via <code>control_ego_state</code> (ego path unchanged; <code>control_agent</code> and <code>step()</code> hooks exist for future multi-agent and sub-stepping)</li>
 </ol>
 <h2 id="plugin-system">Plugin System<a class="headerlink" href="#plugin-system" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>avlite/
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>└── plugins/            # Built-in (core team)
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    ├── p60_visualizer_tk/   # visualizer + config + plugins Tk apps
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    ├── p60_setting_cli/
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    └── p60_headless_mode/
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>~/.local/share/avlite/plugins/   # Community (installed)
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>└── my_plugin/
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    ├── __init__.py
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    ├── settings.py
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    └── ...
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>avlite/
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>└── plugins/            # Built-in (core team)
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    ├── p60_visualizer_tk/   # visualizer + config + plugins Tk apps
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    ├── p60_setting_cli/
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    └── p60_headless_mode/
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>~/.local/share/avlite/plugins/   # Community (installed)
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>└── my_plugin/
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    ├── __init__.py
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    ├── settings.py
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    └── ...
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 </span></code></pre></div>
-<p>Plugins are loaded at startup. Classes inheriting from base strategies auto-register.</p>
+<p>Plugins are loaded at startup. Classes inheriting from base strategies auto-register. The built-in <code>p60_*</code> packages are the apps themselves (<code>AppStrategy</code> entry points); <code>bootstrap_apps()</code> in <code>c61_app_strategy</code> imports them at startup so their apps register before CLI parsing.</p>
 <p>See <a href="../plugin-development/">Plugin Development</a> for creating community plugins, pNx naming, and log filtering.</p>
 
 

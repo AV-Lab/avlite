@@ -1992,7 +1992,7 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
 </tbody>
 </table>
 <h2 id="apps-appstrategy">Apps (<code>AppStrategy</code>)<a class="headerlink" href="#apps-appstrategy" title="Permanent link">&para;</a></h2>
-<p>CLI and GUI entry points register via :class:<code>~avlite.c60_apps.c61_app_strategy.AppStrategy</code> (same auto-register pattern as perception/planning strategies). Subclass as <code>class MyToolApp(AppStrategy)</code>, set <code>cli_name</code> and <code>help</code>, implement <code>run()</code>, and optionally <code>configure_parser()</code> for flags or nested subcommands. Built-in p50 entry classes use the <code>*App</code> suffix (e.g. <code>SettingCliApp</code>, <code>VisualizationApp</code>); the base framework class remains <code>AppStrategy</code>. Importing the module registers the app.</p>
+<p>CLI and GUI entry points register via :class:<code>~avlite.c60_apps.c61_app_strategy.AppStrategy</code> (same auto-register pattern as perception/planning strategies). Subclass as <code>class MyToolApp(AppStrategy)</code>, set <code>cli_name</code> and <code>help</code>, implement <code>run()</code>, and optionally <code>configure_parser()</code> for flags or nested subcommands. Built-in p60 entry classes use the <code>*App</code> suffix (e.g. <code>SettingCliApp</code>, <code>VisualizationApp</code>); the base framework class remains <code>AppStrategy</code>. Importing the module registers the app.</p>
 <table>
 <thead>
 <tr>
