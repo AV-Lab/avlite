@@ -7,7 +7,7 @@ import json
 
 from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
 
 log = logging.getLogger(__name__)
 

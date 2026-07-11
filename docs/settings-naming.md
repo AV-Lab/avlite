@@ -13,7 +13,7 @@ Each profile is a single `configs/<profile>.yaml` file whose top-level keys are 
    Example: `c28_local_lattice_planners.py` and `c27_local_behavioral_and_velocity_planners.py` both use collision margin → `c20_collision_safety_margin`.
 
 3. **Cross-layer orchestration** → setting lives on the **consuming** layer’s settings class, prefixed by the consumer module.  
-   Example: factory fallback race map in `c62_factory.py` → `ExecutionSettings.c43_race_boundary_map`.  
+   Example: default map path in `c62_factory.py` → `ExecutionSettings.c40_map`.  
    App bootstrap lives on `AppSettings` in c60: plugin lists and load gate use `c62_*` (consumer `c62_factory`); active profile selection uses `c60_selected_profile`.
 
 4. **Built-in Tk plugin (`p60_visualizer_tk`)** — prefix identifies the **consumer module**, not the settings file:

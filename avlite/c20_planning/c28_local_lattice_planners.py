@@ -24,8 +24,9 @@ from avlite.c20_planning.c23_local_planning_strategy import (
 )
 from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import VelocityLocalPlanner
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
-from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c51_capabilities import MayUse, StackCapability
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c55_collision_checking import check_collision, precompute_obstacle_polygons
 
 log = logging.getLogger(__name__)
 
@@ -533,6 +534,14 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         self._allow_boundary_violation_fallback: bool = setting.c28_allow_boundary_violation_fallback
         self._velocity_planner = VelocityLocalPlanner(global_plan, env, setting)
 
+    world_requirements = frozenset()
+    stack_requirements = frozenset({
+        StackCapability.GLOBAL_PLAN,
+        StackCapability.LOCALIZATION,
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+    })
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)
         self._velocity_planner.set_global_plan(global_plan, ego_xy=ego_xy)
@@ -675,7 +684,9 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
             if self.local_plan_len() <= prev_len:
                 break
 
-    def replan(self, back_to_ref_horizon=10):
+    def replan(self, perception_model=None, sensors=None, back_to_ref_horizon=10):
+        if perception_model is not None:
+            self.pm = perception_model
         if len(self.traversed_s) == 0:
             log.debug("Location unkown. Cannot replan")
             return

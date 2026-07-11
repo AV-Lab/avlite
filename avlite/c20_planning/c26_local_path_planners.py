@@ -16,6 +16,7 @@ from avlite.c20_planning.c23_local_planning_strategy import (
     LocalPlanningStrategy,
 )
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
+from avlite.c50_common.c51_capabilities import StackCapability
 
 log = logging.getLogger(__name__)
 
@@ -36,8 +37,18 @@ class ReferencePathPlanner(LocalPlanningStrategy, LocalPathPlanningStrategy):
     ):
         super().__init__(global_plan=global_plan, pm=env, setting=setting)
 
-    def replan(self):
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION})
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+
+    def replan(
+        self,
+        perception_model=None,
+        sensors=None,
+    ):
         # The path is simply the global reference; there is nothing to search.
+        if perception_model is not None:
+            self.pm = perception_model
         pass
 
     def plan_path(self, plan: LocalPlan) -> LocalPlan:

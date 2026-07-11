@@ -38,6 +38,7 @@ from avlite.c20_planning.c23_local_planning_strategy import (
 )
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
+from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner, GlobalRacePlanner
@@ -52,6 +53,10 @@ from avlite.c20_planning.c28_local_lattice_planners import (  # noqa: F401 — r
 )
 from avlite.c30_control.c33_pid import PIDController  # noqa: F401 — registers in ControlStrategy.registry
 from avlite.c30_control.c34_stanley import StanleyController  # noqa: F401 — registers in ControlStrategy.registry
+from avlite.c30_control.c35_pure_pursuit import (  # noqa: F401 — registers in ControlStrategy.registry
+    FollowTheGapController,
+    PurePursuitController,
+)
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
 from avlite.c10_perception.c16_localization_algs import LidarLocalization  # noqa: F401 — registers in LocalizationStrategy.registry
 from avlite.c40_execution.c41_world_bridge import WorldBridge
@@ -70,6 +75,7 @@ def executor_factory(
     bridge = ExecutionSettings.c40_bridge,
     perception_strategy_name = ExecutionSettings.c40_perception,
     localization_strategy_name = ExecutionSettings.c40_localization,
+    mapping_strategy_name = ExecutionSettings.c40_mapping,
     global_planner_strategy_name = ExecutionSettings.c40_global_planner,
     local_planner_strategy_name = ExecutionSettings.c40_local_planner,
     controller_strategy_name = ExecutionSettings.c40_controller,
@@ -78,7 +84,7 @@ def executor_factory(
     replan_dt = ExecutionSettings.c40_replan_dt,
     control_dt = ExecutionSettings.c40_control_dt,
     default_global_trajectory_file = ExecutionSettings.c40_global_trajectory,
-    hd_map = ExecutionSettings.c40_hd_map,
+    map_file = ExecutionSettings.c40_map,
     load_plugins=True,
     async_combined_perception_planning: bool = ExecutionSettings.c40_async_combined_perception_planning,
 ) -> "ExecutionStrategy":
@@ -94,41 +100,78 @@ def executor_factory(
         for k in AppSettings.c62_community_plugins:
             unregister_plugin_package(k)
 
-    global_plan_path = DataPaths.resolve_stored(default_global_trajectory_file)
-    default_global_plan = GlobalPlan.from_file(global_plan_path)
-    log.debug(f"Default global plan loaded from {global_plan_path}")
+    if default_global_trajectory_file:
+        global_plan_path = DataPaths.resolve_stored(default_global_trajectory_file)
+        default_global_plan = GlobalPlan.from_file(global_plan_path)
+        log.debug(f"Default global plan loaded from {global_plan_path}")
+    else:
+        default_global_plan = GlobalPlan()
+        log.debug("No default global plan; using empty GlobalPlan")
 
     ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
     ego_state.agent_id = EGO_AGENT_ID
     pm = PerceptionModel(ego_vehicle=ego_state)
 
     ###################
+    # Loading map once
+    ###################
+    loaded_map = Map.open(DataPaths.resolve_stored(map_file)) if map_file else None
+    if loaded_map is not None:
+        pm.map = loaded_map
+
+    ###################
+    # Loading mapping
+    ###################
+    mapping = None
+    if mapping_strategy_name:
+        if mapping_strategy_name == MapReader.__name__:
+            if loaded_map is None:
+                raise ValueError(f"{MapReader.__name__} requires a map file")
+            mapping = MapReader(loaded_map)
+        else:
+            map_cls = _RegistryChecks.require_registered(
+                mapping_strategy_name, MappingStrategy.registry, "mapping"
+            )
+            params = inspect.signature(map_cls.__init__).parameters
+            mapping = map_cls(map=loaded_map) if "map" in params else map_cls()
+        log.info("Mapping Module Loaded!")
+
+    ###################
     # Loading default
     # global planner
     ###################
 
-    if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
-        hdmap = HDMap(xodr_file_name=DataPaths.resolve_stored(hd_map))
-        pm.map = hdmap
-        gp = HDMapGlobalPlanner(hdmap)
-        gp.global_plan = default_global_plan
-        log.debug("GlobalHDMapPlanner loaded")
-    elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
-        gp = GlobalCenterlineRacePlanner(
-            DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
-        )
-        gp.global_plan = default_global_plan
-    elif global_planner_strategy_name == GlobalRacePlanner.__name__:
-        gp = GlobalRacePlanner(
-            DataPaths.resolve_stored(ExecutionSettings.c43_race_boundary_map),
-        )
-        gp.global_plan = default_global_plan
-    else:
-        gp_cls = _RegistryChecks.require_registered(
-            global_planner_strategy_name, GlobalPlannerStrategy.registry, "global planner"
-        )
-        gp = gp_cls()
-        gp.global_plan = default_global_plan
+    gp = None
+    if global_planner_strategy_name:
+        if global_planner_strategy_name == HDMapGlobalPlanner.__name__:
+            if not isinstance(loaded_map, HDMap):
+                raise ValueError(
+                    f"{HDMapGlobalPlanner.__name__} requires an HDMap; got {type(loaded_map).__name__}"
+                )
+            gp = HDMapGlobalPlanner(loaded_map)
+            gp.global_plan = default_global_plan
+            log.debug("GlobalHDMapPlanner loaded")
+        elif global_planner_strategy_name == GlobalCenterlineRacePlanner.__name__:
+            if not isinstance(loaded_map, RaceMap):
+                raise ValueError(
+                    f"{GlobalCenterlineRacePlanner.__name__} requires a RaceMap; got {type(loaded_map).__name__}"
+                )
+            gp = GlobalCenterlineRacePlanner(loaded_map)
+            gp.global_plan = default_global_plan
+        elif global_planner_strategy_name == GlobalRacePlanner.__name__:
+            if not isinstance(loaded_map, RaceMap):
+                raise ValueError(
+                    f"{GlobalRacePlanner.__name__} requires a RaceMap; got {type(loaded_map).__name__}"
+                )
+            gp = GlobalRacePlanner(loaded_map)
+            gp.global_plan = default_global_plan
+        else:
+            gp_cls = _RegistryChecks.require_registered(
+                global_planner_strategy_name, GlobalPlannerStrategy.registry, "global planner"
+            )
+            params = inspect.signature(gp_cls.__init__).parameters
+            gp = gp_cls(map=loaded_map) if "map" in params else gp_cls()
+            gp.global_plan = default_global_plan
 
     ##############################
     # Loading perception strategy
@@ -172,20 +215,26 @@ def executor_factory(
             right_boundary_y=default_global_plan.right_boundary_y,
         )
 
-    pl_cls = _RegistryChecks.require_registered(
-        local_planner_strategy_name, LocalPlanningStrategy.registry, "local planner"
-    )
-    if local_planner_strategy_name == LocalPlanningPipeline.__name__:
-        _RegistryChecks.require_local_pipeline_substrategies()
-    pl = pl_cls(global_plan=local_global_plan, env=pm)
+    pl = None
+    if local_planner_strategy_name:
+        pl_cls = _RegistryChecks.require_registered(
+            local_planner_strategy_name, LocalPlanningStrategy.registry, "local planner"
+        )
+        if local_planner_strategy_name == LocalPlanningPipeline.__name__:
+            _RegistryChecks.require_local_pipeline_substrategies()
+        pl = pl_cls(global_plan=local_global_plan, env=pm)
 
     #################
     # Loading controller
     #################
-    cn_cls = _RegistryChecks.require_registered(controller_strategy_name, ControlStrategy.registry, "controller")
-    cn = cn_cls()
-    if default_global_plan.trajectory is not None:
-        cn.set_trajectory_tracker(default_global_plan.trajectory)
+    cn = None
+    if controller_strategy_name:
+        cn_cls = _RegistryChecks.require_registered(
+            controller_strategy_name, ControlStrategy.registry, "controller"
+        )
+        cn = cn_cls()
+        if default_global_plan.trajectory is not None:
+            cn.set_trajectory_tracker(default_global_plan.trajectory)
 
     #################
     # Loading world
@@ -194,7 +243,7 @@ def executor_factory(
     # NPC agents / ground-truth state), kept separate from the executer's
     # perception model `pm` so that perception steps cannot wipe simulated
     # agents. Both share the same ego_state.
-    def _bridge_kwargs(bridge_cls, ego_state, world_pm):
+    def _bridge_kwargs(bridge_cls, ego_state, world_pm, loaded_map):
         def _reference_point_tuple():
             ref = ExecutionSettings.c40_reference_point
             if ref and len(ref) >= 2:
@@ -209,12 +258,14 @@ def executor_factory(
             kwargs["pm"] = world_pm
         if "reference_point" in params:
             kwargs["reference_point"] = _reference_point_tuple()
+        if "map" in params:
+            kwargs["map"] = loaded_map
         return kwargs
 
     world_pm = PerceptionModel(ego_vehicle=ego_state)
     bridge_cls = _RegistryChecks.require_registered(bridge, WorldBridge.registry, "world bridge")
     log.info(f"Loading registered world bridge {bridge}...")
-    world = bridge_cls(**_bridge_kwargs(bridge_cls, ego_state, world_pm))
+    world = bridge_cls(**_bridge_kwargs(bridge_cls, ego_state, world_pm, loaded_map))
 
     ego = world.ego_state
     if ego.agent_id != EGO_AGENT_ID:
@@ -232,6 +283,7 @@ def executor_factory(
         controller=cn,
         world=world,
         localization=loc,
+        mapping=mapping,
         perception_dt=perception_dt,
         replan_dt=replan_dt,
         control_dt=control_dt,
@@ -292,37 +344,35 @@ class StackSettingsSync:
 
     @staticmethod
     def apply_map_selection(rel_path: str) -> None:
-        """Route *rel_path* to execution map settings and update reference point."""
-        abs_path = DataPaths.resolve_stored(rel_path)
-        if rel_path.endswith(".xodr"):
-            ExecutionSettings.c40_hd_map = rel_path
-            ExecutionSettings.c46_lidar_boundary_file = ""
-        elif RaceMap.is_loadable(abs_path):
-            ExecutionSettings.c43_race_boundary_map = rel_path
-            ExecutionSettings.c46_lidar_boundary_file = rel_path
-        m = Map.open(abs_path)
+        """Set ``c40_map`` and update reference point from the selected file."""
+        if not rel_path:
+            ExecutionSettings.c40_map = ""
+            ExecutionSettings.c40_reference_point = None
+            return
+        ExecutionSettings.c40_map = rel_path
+        m = Map.open(DataPaths.resolve_stored(rel_path))
         ref = m.reference_point if m else None
         ExecutionSettings.c40_reference_point = list(ref) if ref else None
 
     @staticmethod
     def apply_global_plan_selection(rel_path: str) -> None:
-        """Set ``c40_global_trajectory`` when *rel_path* is a valid global-plan JSON."""
+        """Set ``c40_global_trajectory`` when *rel_path* is empty or a valid global-plan JSON."""
+        if not rel_path:
+            ExecutionSettings.c40_global_trajectory = ""
+            return
         if GlobalPlan.is_loadable(DataPaths.resolve_stored(rel_path)):
             ExecutionSettings.c40_global_trajectory = rel_path
 
     @staticmethod
     def bootstrap_reference_point() -> None:
-        """Fill ``c40_reference_point`` from configured maps when YAML omits it."""
+        """Fill ``c40_reference_point`` from configured map when YAML omits it."""
         if ExecutionSettings.c40_reference_point is not None:
             return
-        for rel_path in (
-            ExecutionSettings.c43_race_boundary_map,
-            ExecutionSettings.c40_hd_map,
-        ):
-            m = Map.open(DataPaths.resolve_stored(rel_path))
-            if m is not None and m.reference_point is not None:
-                ExecutionSettings.c40_reference_point = list(m.reference_point)
-                return
+        if not ExecutionSettings.c40_map:
+            return
+        m = Map.open(DataPaths.resolve_stored(ExecutionSettings.c40_map))
+        if m is not None and m.reference_point is not None:
+            ExecutionSettings.c40_reference_point = list(m.reference_point)
 
 
 class _RegistryChecks:

@@ -29,6 +29,69 @@ class ControlSettingsSchema(SettingsSchema):
     )
     c34_stanley_slow_down_vel_threshold: float = Field(default=3, description="Speed threshold for slow-down logic (m/s).")
 
+    c35_lookahead_distance: float = Field(
+        default=8.0,
+        description=(
+            "Nominal Pure Pursuit lookahead distance in metres. Used as the fixed Ld when "
+            "c35_lookahead_speed_gain is 0. Larger values smooth steering but cut corners; "
+            "smaller values track tighter but can oscillate."
+        ),
+    )
+    c35_min_lookahead: float = Field(
+        default=3.0,
+        description=(
+            "Lower clamp (m) for speed-adaptive lookahead when c35_lookahead_speed_gain > 0. "
+            "Prevents Ld from collapsing at low speed."
+        ),
+    )
+    c35_max_lookahead: float = Field(
+        default=20.0,
+        description=(
+            "Upper clamp (m) for speed-adaptive lookahead when c35_lookahead_speed_gain > 0. "
+            "Caps how far ahead the controller aims at high speed."
+        ),
+    )
+    c35_lookahead_speed_gain: float = Field(
+        default=0.0,
+        description=(
+            "If > 0, sets Ld = clip(gain * ego_speed, c35_min_lookahead, c35_max_lookahead). "
+            "If 0, uses the fixed c35_lookahead_distance instead."
+        ),
+    )
+    c35_valpha: float = Field(
+        default=0.8,
+        description="Pure Pursuit velocity PID proportional gain (same role as Stanley/PID valpha).",
+    )
+    c35_vbeta: float = Field(
+        default=0.01,
+        description="Pure Pursuit velocity PID integral gain (same role as Stanley/PID vbeta).",
+    )
+    c35_vgamma: float = Field(
+        default=0.3,
+        description="Pure Pursuit velocity PID derivative gain (same role as Stanley/PID vgamma).",
+    )
+    c35_cruise_velocity: float = Field(
+        default=5.0,
+        description=(
+            "Target speed (m/s) for FollowTheGapController when no plan/trajectory is "
+            "available. Ignored when a trajectory supplies a waypoint velocity."
+        ),
+    )
+    c35_lidar_z_min: float = Field(
+        default=-1.5,
+        description=(
+            "Minimum height (m) kept when squashing a 3D LiDAR cloud to 2D for "
+            "FollowTheGapController."
+        ),
+    )
+    c35_lidar_z_max: float = Field(
+        default=2.0,
+        description=(
+            "Maximum height (m) kept when squashing a 3D LiDAR cloud to 2D for "
+            "FollowTheGapController."
+        ),
+    )
+
     c30_emergency_velocity_threshold: float = Field(default=0.5, description="Speed threshold for emergency braking (m/s).")
     c30_emergency_min_moving_velocity: float = Field(default=1.0, description="Min speed treated as moving for emergency logic (m/s).")
     c30_emergency_braking_factor: float = Field(default=0.9, description="Emergency braking deceleration factor.")

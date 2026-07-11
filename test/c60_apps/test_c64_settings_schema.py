@@ -146,28 +146,10 @@ def test_run_setting_command_bare_setting_shows_help(capsys):
     assert "describe" in out
 
 
-def test_default_map_settings_field_race_planner():
-    from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
+def test_default_map_settings_field():
     from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DataPicker
 
-    original = ExecutionSettings.c40_global_planner
-    try:
-        ExecutionSettings.c40_global_planner = GlobalCenterlineRacePlanner.__name__
-        assert DataPicker.default_map_settings_field() == "c43_race_boundary_map"
-    finally:
-        ExecutionSettings.c40_global_planner = original
-
-
-def test_default_map_settings_field_hd_planner():
-    from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
-    from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DataPicker
-
-    original = ExecutionSettings.c40_global_planner
-    try:
-        ExecutionSettings.c40_global_planner = HDMapGlobalPlanner.__name__
-        assert DataPicker.default_map_settings_field() == "c40_hd_map"
-    finally:
-        ExecutionSettings.c40_global_planner = original
+    assert DataPicker.default_map_settings_field() == "c40_map"
 
 
 def test_run_setting_command_help_subcommand(capsys):

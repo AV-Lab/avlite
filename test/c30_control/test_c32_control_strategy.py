@@ -2,11 +2,13 @@ from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c50_common.c51_capabilities import AnyOf, StackCapability, satisfies_requirements
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
 class _StubController(ControlStrategy, abstract=True):
-    def control(self, ego, plan=None, control_dt=None) -> ControlCommand:
+    def control(
+        self, ego, plan=None, control_dt=None, perception_model=None, sensors=None,
+    ) -> ControlCommand:
         return ControlCommand()
 
     def reset(self):
@@ -23,8 +25,10 @@ def test_control_stack_requirements_any_of():
     ctrl = _StubController()
     reqs = ctrl.stack_requirements
     assert AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN) in reqs
-    assert satisfies_requirements(reqs, {StackCapability.GLOBAL_PLAN})
-    assert satisfies_requirements(reqs, {StackCapability.LOCAL_PLAN})
+    assert StackCapability.LOCALIZATION in reqs
+    assert satisfies_requirements(reqs, {StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION})
+    assert satisfies_requirements(reqs, {StackCapability.LOCAL_PLAN, StackCapability.LOCALIZATION})
+    assert not satisfies_requirements(reqs, {StackCapability.GLOBAL_PLAN})
     assert not satisfies_requirements(reqs, {StackCapability.CONTROL})
 
 

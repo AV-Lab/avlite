@@ -1,6 +1,6 @@
 # Algorithms
 
-This page describes the built-in **planning** algorithms in AVLite: how they fit together, how the greedy lattice local planner works, and which YAML parameters control behavior.
+This page describes the built-in **planning** and **control** algorithms in AVLite: how they fit together, how the greedy lattice local planner works, Pure Pursuit and Follow the Gap, and which YAML parameters control behavior.
 
 Configuration lives in [`configs/c20_planning.yaml`](../configs/c20_planning.yaml) and is validated by [`PlanningSettings`](../avlite/c20_planning/c29_settings.py). See [Settings naming](settings-naming.md) for key prefixes and GUI tooltips.
 
@@ -32,7 +32,7 @@ Select the local planner in the GUI or profile (`local_planner_strategy_name` in
 
 ### Race centerline (`GlobalCenterlineRacePlanner`)
 
-Used on closed race tracks with left/right boundary polylines.
+Used on closed race tracks with a `RaceMap` (left/right boundary polylines).
 
 - Extracts a centerline between boundaries.
 - Assigns a curvature-based velocity profile along the path.
@@ -40,7 +40,7 @@ Used on closed race tracks with left/right boundary polylines.
 
 ### Optimized raceline (`GlobalRacePlanner`)
 
-Computes a **raceline** inside the corridor instead of following the centerline: it minimizes a blend of curvature and path length subject to the track boundaries, then profiles velocity with lateral **and** longitudinal acceleration limits. Input is the same race-boundary JSON (or `RaceMap`) as the centerline planner.
+Computes a **raceline** inside the corridor instead of following the centerline: it minimizes a blend of curvature and path length subject to the track boundaries, then profiles velocity with lateral **and** longitudinal acceleration limits. Input is a `RaceMap` (same corridor as the centerline planner).
 
 The formulation follows published work: the curvature/length blend is the racing-line compromise of Braghin et al. [1], and the iteratively re-linearized lateral-offset QP with a forward-backward velocity solver is the minimum-curvature approach of Heilmeier et al. [2] (TUM / Roborace), simplified here to a box-bounded least-squares problem.
 
@@ -380,6 +380,46 @@ Used by `VelocityLocalPlanner` and for speed-matching on colliding lattice edges
     - **Plan jitter / controller never settles** — increase `c28_replan_wait_time`; discretionary switches need wait or material gain (+2 edges or +0.5 m/s).
     - **Single-edge plan flickers / blinks to the global line** — raise `c28_no_plan_release_ticks` so transient no-feasible ticks are held longer before releasing to global.
     - **Too conservative following** — reduce `c27_follow_cruise_min_gap` or collision margins (`c20_*`).
+
+---
+
+## Control: Pure Pursuit and Follow the Gap
+
+Pure Pursuit is a geometric path-tracking controller. It aims the vehicle at a **lookahead point** a distance \(L_d\) ahead and steers along the circular arc that reaches that point (bicycle model):
+
+\[
+\delta = \arctan\left(\frac{2 L \sin\alpha}{L_d}\right)
+\]
+
+where \(L\) is the wheelbase (`c32_ego_distance_front_axle`) and \(\alpha\) is the bearing of the lookahead point in the ego frame (x forward, y left).
+
+Configuration lives in [`ControlSettings`](../avlite/c30_control/c39_settings.py) (`c35_*` keys). Select the controller via `c40_controller`.
+
+| Class | Module | Lookahead source |
+|-------|--------|------------------|
+| `PurePursuitController` | [`c35_pure_pursuit.py`](../avlite/c30_control/c35_pure_pursuit.py) | Global/local path at arc-length \(L_d\) |
+| `FollowTheGapController` | same | Widest forward LiDAR free gap at range \(L_d\) |
+
+### Path Pure Pursuit (`PurePursuitController`)
+
+Requires a plan (global or local) and localization. Finds the ego’s progress \(s\) on the trajectory, takes the path point at \(s + L_d\), transforms it into the ego frame, and applies the formula above. Velocity tracks the trajectory waypoint with a PID (same emergency / anti-windup pattern as Stanley).
+
+### Follow the Gap (`FollowTheGapController`)
+
+Requires LiDAR (`LIDAR_2D` or `LIDAR_3D`) and localization; a plan is optional (used only for velocity when present). The executer passes a `SensorFrame`; the controller reads `sensors.lidar`. World-frame hits are squashed to 2D (optional z-band) and transformed into the ego frame. In the forward half-plane (`x>0`), the controller finds the widest angular gap between consecutive returns (and the ±90° edges), places a Pure Pursuit target at that mid-bearing and distance \(L_d\), then steers with the same bicycle-model law.
+
+Without a plan, speed tracks `c35_cruise_velocity`.
+
+### Pure Pursuit / Follow the Gap parameters
+
+| Key | Default | Role |
+|-----|---------|------|
+| `c35_lookahead_distance` | `8.0` | Fixed \(L_d\) (m) when speed gain is 0 |
+| `c35_min_lookahead` / `c35_max_lookahead` | `3.0` / `20.0` | Clamps for speed-adaptive \(L_d\) |
+| `c35_lookahead_speed_gain` | `0.0` | If > 0: \(L_d = \mathrm{clip}(k\cdot v, \min, \max)\); if 0: use fixed distance |
+| `c35_valpha` / `vbeta` / `vgamma` | `0.8` / `0.01` / `0.3` | Velocity PID gains |
+| `c35_cruise_velocity` | `5.0` | Follow-the-Gap cruise speed (m/s) when no plan |
+| `c35_lidar_z_min` / `c35_lidar_z_max` | `-1.5` / `2.0` | Height band (m) for 3D → 2D squash |
 
 ---
 

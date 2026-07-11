@@ -609,18 +609,29 @@ def test_data_picker_path_for_setting_shows_user_when_override_exists(monkeypatc
         shutil.rmtree(user_data.parent, ignore_errors=True)
 
 
-def test_apply_map_selection_xodr_clears_lidar_boundary():
-    ExecutionSettings.c46_lidar_boundary_file = "data/yasmarina.track.json"
+def test_apply_map_selection_sets_c40_map():
     StackSettingsSync.apply_map_selection("data/san_campus.xodr")
-    assert ExecutionSettings.c46_lidar_boundary_file == ""
-    assert ExecutionSettings.c40_hd_map == "data/san_campus.xodr"
+    assert ExecutionSettings.c40_map == "data/san_campus.xodr"
 
 
-def test_apply_map_selection_race_json_sets_lidar_boundary():
+def test_apply_map_selection_race_json():
     path = "data/race_boundary_yas_marina.map.json"
     StackSettingsSync.apply_map_selection(path)
-    assert ExecutionSettings.c43_race_boundary_map == path
-    assert ExecutionSettings.c46_lidar_boundary_file == path
+    assert ExecutionSettings.c40_map == path
+
+
+def test_apply_map_selection_empty_clears():
+    ExecutionSettings.c40_map = "data/san_campus.xodr"
+    ExecutionSettings.c40_reference_point = [1.0, 2.0]
+    StackSettingsSync.apply_map_selection("")
+    assert ExecutionSettings.c40_map == ""
+    assert ExecutionSettings.c40_reference_point is None
+
+
+def test_apply_global_plan_selection_empty_clears():
+    ExecutionSettings.c40_global_trajectory = "data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
+    StackSettingsSync.apply_global_plan_selection("")
+    assert ExecutionSettings.c40_global_trajectory == ""
 
 
 def test_order_profiles_for_dropdown_puts_default_first():

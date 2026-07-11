@@ -10,19 +10,22 @@ class ExecutionSettingsSchema(SettingsSchema):
 
     c40_executer_type: str = Field(default="SyncExecuter", description="Executer class name.")
     c40_bridge: str = Field(default="BasicSim", description="World bridge class name (e.g. BasicSim, CarlaBridge).")
-    c40_perception: str = Field(default="", description="Perception strategy class; empty uses UI/registry default.")
-    c40_localization: str = Field(default="", description="Localization strategy class; empty uses default.")
-    c40_mapping: str = Field(default="", description="Mapping strategy class; empty uses default.")
-    c40_global_planner: str = Field(default="GlobalCenterlineRacePlanner", description="Global planner class name.")
-    c40_local_planner: str = Field(default="GreedyLatticePlanner", description="Local planner class name.")
-    c40_controller: str = Field(default="StanleyController", description="Controller class name.")
+    c40_perception: str = Field(default="", description="Perception strategy class; empty omits the module.")
+    c40_localization: str = Field(default="", description="Localization strategy class; empty omits the module.")
+    c40_mapping: str = Field(default="MapReader", description="Mapping strategy class; empty omits the module.")
+    c40_global_planner: str = Field(default="GlobalCenterlineRacePlanner", description="Global planner class name; empty omits the module.")
+    c40_local_planner: str = Field(default="GreedyLatticePlanner", description="Local planner class name; empty omits the module.")
+    c40_controller: str = Field(default="StanleyController", description="Controller class name; empty omits the module.")
     c40_perception_dt: float = Field(default=0.01, description="Perception tick period (seconds).", ge=0.001)
     c40_localization_dt: float = Field(default=0.01, description="Localization tick period (seconds).", ge=0.001)
     c40_replan_dt: float = Field(default=0.01, description="Replanning period (seconds).", ge=0.001)
     c40_control_dt: float = Field(default=0.01, description="Control loop period (seconds).", ge=0.001)
     c40_sim_dt: float = Field(default=0.01, description="Simulation step period (seconds).", ge=0.001)
     c40_global_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="Default global plan JSON path.")
-    c40_hd_map: str = Field(default="data/san_campus.xodr", description="HD map OpenDRIVE file path.")
+    c40_map: str = Field(
+        default="data/race_boundary_yas_marina.map.json",
+        description="Map file path (OpenDRIVE .xodr or race-boundary JSON); empty omits the map.",
+    )
     c40_reference_point: list[float] | None = Field(
         default_factory=lambda: [24.46992202098782, 54.60522506805341],
         description="WGS84 map origin (lat, lon) in degrees; derived from selected map or set manually.",
@@ -31,16 +34,23 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_log_level: str = Field(default="INFO", description="Python logging level.")
     c40_log_to_file: bool = Field(default=False, description="Write logs to file.")
 
-    c41_provided: list[str] | None = Field(
+    c41_world_capabilities: list[str] | None = Field(
         default=None,
-        description="Capability names the bridge feeds the stack; null = all supported enabled.",
+        description=(
+            "WorldCapability names the bridge feeds into SensorFrame; "
+            "null = all advertised world capabilities enabled."
+        ),
     )
-
-    c43_race_boundary_map: str = Field(default="data/race_boundary_yas_marina.map.json", description="Race boundary JSON for centerline planner.")
+    c41_world_stack_capabilities: list[str] | None = Field(
+        default=None,
+        description=(
+            "StackCapability names the bridge feeds as ground truth; "
+            "null = all advertised world stack capabilities enabled."
+        ),
+    )
 
     c46_npc_speed_factor: float = Field(default=0.8, description="NPC speed as fraction of plan speed.")
     c46_npc_control: bool = Field(default=True, description="Enable NPC vehicle controllers in BasicSim.")
-    c46_lidar_boundary_file: str = Field(default="data/yasmarina.track.json", description="Track boundary file for simulated LiDAR.")
     c46_lidar_range: float = Field(default=50.0, description="Simulated LiDAR max range (m).")
     c46_lidar_num_beams: int = Field(default=360, description="Number of simulated LiDAR beams.")
     c46_lidar_fov_deg: float = Field(default=360.0, description="Simulated LiDAR field of view (degrees).")
@@ -49,18 +59,3 @@ class ExecutionSettingsSchema(SettingsSchema):
 # Singleton instance: the runtime settings object. Mutated in place by the YAML
 # loader and reset helpers — never rebind this name (see settings invariant).
 ExecutionSettings = ExecutionSettingsSchema()
-
-
-def provided_capability_names() -> set[str] | None:
-    """Enabled capability names, or None when all supported capabilities are enabled."""
-    val = ExecutionSettings.c41_provided
-    return None if val is None else set(val)
-
-
-def is_capability_provided(cap) -> bool:
-    """Whether *cap* (a WorldCapability or StackCapability) is fed to the stack.
-
-    Returns True when the provide filter is unset (None = all supported enabled).
-    """
-    names = provided_capability_names()
-    return True if names is None else cap.name in names

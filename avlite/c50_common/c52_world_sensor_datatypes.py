@@ -21,10 +21,13 @@ from enum import Enum
 
 import numpy as np
 
+from avlite.c50_common.c51_capabilities import WorldCapability
+
 # Semantic ndarray aliases — layout defined in module docstring above.
 RgbImage = np.ndarray  # (H, W, 3) uint8 RGB
 DepthImage = np.ndarray  # (H, W) float32 metres
 LidarCloud = np.ndarray  # (N, 4) float32 [x, y, z, intensity]
+
 
 
 @dataclass
@@ -83,7 +86,7 @@ class SensorFrame:
     """Snapshot of all sensor readings for one execution tick.
 
     Any field may be None when the bridge does not provide that sensor or when
-    gated off by the ExecutionSettings.c41_provided capability filter.
+    gated off by the ExecutionSettings.c41_world_capabilities filter.
     """
 
     # Camera: colour image from the ego-mounted RGB camera.
@@ -108,6 +111,20 @@ class SensorFrame:
 
     stamp: float | None = None  # acquisition time, seconds (sim or wall clock)
     frame_id: str | None = None  # coordinate frame name, e.g. "map" or "base_link"
+
+# WorldCapability → SensorFrame attribute name (None = no sensor field yet).
+WORLD_CAPABILITY_SENSOR_FIELDS: dict[WorldCapability, str | None] = {
+    WorldCapability.CAMERA_RGB: "rgb",
+    WorldCapability.CAMERA_DEPTH: "depth",
+    WorldCapability.LIDAR_3D: "lidar",
+    WorldCapability.LIDAR_2D: "lidar",
+    WorldCapability.IMU: "imu",
+    WorldCapability.GNSS: "gnss",
+    WorldCapability.WHEEL_ENCODER: "wheel_odometry",
+    WorldCapability.RADAR: None,
+    WorldCapability.AGENT_SPAWN: None,
+    WorldCapability.AGENT_CONTROL: None,
+}
 
 
 def lidar_2d_to_4(points_2d: np.ndarray) -> LidarCloud:

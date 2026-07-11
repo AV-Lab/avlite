@@ -4,7 +4,7 @@ from avlite.c10_perception.c11_perception_model import AggregatedOccupancyFlow, 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c28_local_lattice_planners import Edge
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c46_basic_sim import boundary_segments_from_global_plan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
@@ -145,7 +145,7 @@ class GlobalPlot(ABC):
 
     def plot(self, exec:SyncExecuter, aspect_ratio=4.0, zoom=None, show_legend=True, follow_vehicle=True, show_plan_boundaries=True, velocity_scale="relative", delta:Optional[tuple[float,float]]=None):
         self._velocity_scale = velocity_scale
-        if not self.map_plotted:
+        if not self.map_plotted and exec.global_planner is not None:
             self.plot_map(exec.global_planner)
 
         self.plot_vehicle(exec.ego_state) 
@@ -359,7 +359,8 @@ class GlobalRacePlot(GlobalPlot):
              velocity_scale: str = "relative",
              delta: Optional[tuple[float, float]] = None):
         self._velocity_scale = velocity_scale
-        self.plot_map(exec.global_planner, show_plan_boundaries=show_plan_boundaries)
+        if exec.global_planner is not None:
+            self.plot_map(exec.global_planner, show_plan_boundaries=show_plan_boundaries)
         self.plot_vehicle(exec.ego_state)
         self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
         self.fig.canvas.draw()
@@ -490,12 +491,15 @@ class GlobalHDMapPlot(GlobalPlot):
              velocity_scale: str = "relative",
              delta: Optional[tuple[float, float]] = None):
         self._velocity_scale = velocity_scale
-        if not self.map_plotted:
+        if not self.map_plotted and exec.global_planner is not None:
             self.plot_map(exec.global_planner)
         self.plot_vehicle(exec.ego_state)
         self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
+        if exec.global_planner is None:
+            self.fig.canvas.draw()
+            return
         plan = exec.global_planner.global_plan
-        if len(plan.path) < 2:
+        if len(plan.path) < 2 and exec.local_planner is not None:
             plan = exec.local_planner.global_plan
         if len(plan.path) >= 2:
             path = np.array(plan.path).T
@@ -927,9 +931,19 @@ class LocalPlot:
             _gs._row_height_ratios = [0.001, 1]
             self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1, hspace=0)
 
-        center_xy = exec.local_planner.location_xy if global_follow_planner else  (exec.ego_state.x, exec.ego_state.y)
-        center_sd = exec.local_planner.location_sd if frenet_follow_planner else \
-            exec.local_planner.global_trajectory.convert_xy_to_sd(exec.ego_state.x, exec.ego_state.y)
+        center_xy = (
+            exec.local_planner.location_xy
+            if global_follow_planner and exec.local_planner is not None
+            else (exec.ego_state.x, exec.ego_state.y)
+        )
+        if frenet_follow_planner and exec.local_planner is not None:
+            center_sd = exec.local_planner.location_sd
+        elif exec.local_planner is not None:
+            center_sd = exec.local_planner.global_trajectory.convert_xy_to_sd(
+                exec.ego_state.x, exec.ego_state.y
+            )
+        else:
+            center_sd = (0.0, 0.0)
         if xy_zoom is not None:
             _x0, _x1 = center_xy[0] - xy_zoom, center_xy[0] + xy_zoom
             _y0 = center_xy[1] - xy_zoom / aspect_ratio / 2
@@ -952,7 +966,7 @@ class LocalPlot:
             self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
             self.view_height_ax2 = frenet_zoom / aspect_ratio * 2
 
-        if plot_last_pts and num_plot_last_pts > 0:
+        if plot_last_pts and num_plot_last_pts > 0 and exec.local_planner is not None:
             self.last_locs_ax1.set_data( exec.local_planner.traversed_x[-num_plot_last_pts:], exec.local_planner.traversed_y[-num_plot_last_pts:])
             self.planner_loc_ax1.set_data([exec.local_planner.location_xy[0]], [exec.local_planner.location_xy[1]])
 
@@ -967,13 +981,16 @@ class LocalPlot:
         show_race_boundaries = plot_race_boundary and not isinstance(
             exec.global_planner, HDMapGlobalPlanner
         )
-        fallback_plan = getattr(exec.global_planner, "global_plan", None)
+        fallback_plan = getattr(exec.global_planner, "global_plan", None) if exec.global_planner else None
+        local_tj = exec.local_planner.global_trajectory if exec.local_planner else None
         self.update_track_boundary_plot(
             exec.world,
             show_plot=show_race_boundaries,
-            global_trajectory=exec.local_planner.global_trajectory,
+            global_trajectory=local_tj,
             fallback_plan=fallback_plan,
         )
+        if exec.local_planner is None:
+            return
         self.update_global_plan_plots(exec.local_planner, plot_global_plan)
         self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
         self.update_local_plan_plots(exec.local_planner, plot_local_plan)

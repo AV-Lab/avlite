@@ -21,8 +21,9 @@ from avlite.c20_planning.c23_local_planning_strategy import (
     LocalVelocityPlanningStrategy,
 )
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
-from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c51_capabilities import MayUse, StackCapability
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
+from avlite.c50_common.c55_collision_checking import check_collision, precompute_obstacle_polygons
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ _DECEL_EPS = 0.3
 
 class CruiseBehavioralPlanner(LocalBehavioralPlanningStrategy):
     """Trivial behavioral planner: always cruise along the reference."""
+
+    world_requirements = frozenset()
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset()
 
     def plan_behavior(self, plan: LocalPlan) -> LocalPlan:
         plan.behavior = LocalBehavior.CRUISE
@@ -60,6 +65,14 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
         self._follow_gap_gain = setting.c27_follow_gap_gain
         self._planning_horizon_points = setting.c27_planning_horizon_points
 
+    world_requirements = frozenset()
+    stack_requirements = frozenset({
+        StackCapability.GLOBAL_PLAN,
+        StackCapability.LOCALIZATION,
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+    })
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)
         self._local_trajectory = None
@@ -77,7 +90,13 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
         if self._local_trajectory is not None:
             self._local_trajectory.update_waypoint_by_xy(state.x, state.y)
 
-    def replan(self):
+    def replan(
+        self,
+        perception_model=None,
+        sensors=None,
+    ):
+        if perception_model is not None:
+            self.pm = perception_model
         local_tj = self._clone_global_trajectory()
         ref_velocity = np.asarray(local_tj.velocity, dtype=float)
         self.profile_trajectory(local_tj, ref_velocity=ref_velocity)

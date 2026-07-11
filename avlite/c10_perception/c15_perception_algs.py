@@ -7,7 +7,8 @@ from avlite.c10_perception.c12_perception_strategy import (
     TrackingStrategy,
 )
 from avlite.c10_perception.c19_settings import PerceptionSettings
-from avlite.c50_common.c51_capabilities import AnyOf, WorldCapability
+from avlite.c50_common.c51_capabilities import AnyOf, MayUse, StackCapability, WorldCapability
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 import logging 
 
@@ -20,11 +21,17 @@ class ConstantVelocityPrediction(PredictionStrategy):
     Writes results into ``pm.prediction`` as ``SingleTrajectory``.
     """
 
-    @property
-    def world_requirements(self):
-        return set()
+    world_requirements = frozenset()
+    stack_requirements = frozenset({MayUse(StackCapability.DETECTION, StackCapability.TRACKING)})
+    stack_capabilities = frozenset({StackCapability.PREDICTION})
 
-    def predict(self, perception_model: PerceptionModel) -> PerceptionModel:
+    def predict(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> PerceptionModel:
+        if perception_model is None:
+            raise ValueError("perception_model is required for prediction")
         agents = perception_model.agent_vehicles
         if not agents:
             perception_model.prediction = SingleTrajectory(
@@ -120,15 +127,21 @@ class KalmanTracker(TrackingStrategy):
         self._tracks: list[_Track] = []
         self._next_id = 0
 
-    @property
-    def world_requirements(self) -> set:
-        return set()
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.DETECTION})
+    stack_capabilities = frozenset({StackCapability.TRACKING})
 
     def reset(self) -> None:
         self._tracks = []
         self._next_id = 0
 
-    def track(self, perception_model: PerceptionModel) -> PerceptionModel:
+    def track(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> PerceptionModel:
+        if perception_model is None:
+            raise ValueError("perception_model is required for tracking")
         dt = self._dt
         for trk in self._tracks:
             trk.predict(dt, self._q)
@@ -247,17 +260,22 @@ class FastBEVLidarDetection(DetectionStrategy):
         self._default_length = default_length
         self._default_width = default_width
 
-    @property
-    def world_requirements(self) -> set:
-        return {AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)}
+    world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.DETECTION})
 
     def detect(
         self,
-        perception_model: PerceptionModel,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
         rgb_img=None,
         depth_img=None,
         lidar_data=None,
     ) -> PerceptionModel:
+        if perception_model is None:
+            raise ValueError("perception_model is required for detection")
+        if lidar_data is None and sensors is not None:
+            lidar_data = sensors.lidar
         if lidar_data is None or len(lidar_data) == 0:
             perception_model.detection_clusters = None
             return perception_model

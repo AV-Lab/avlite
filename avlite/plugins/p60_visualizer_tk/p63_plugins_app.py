@@ -50,13 +50,10 @@ from avlite.c60_apps.c65_setting_utils import (
 )
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     BUTTON_TOOLTIPS,
-    attach_tooltip,
+    DpiScale,
+    HoverTooltip,
     apply_ttk_theme,
     configure_treeview_style,
-    get_dpi_scale,
-    scaled,
-    scaled_font,
-    setup_dpi,
 )
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
 from avlite.c60_apps.c68_paths import (
@@ -691,14 +688,14 @@ class _DeviceFlowDialog:
         self.window.title("Sign in with GitHub")
         self.window.transient(parent)
         self.window.grab_set()
-        self.window.geometry(f"{scaled(460, dpi_scale)}x{scaled(220, dpi_scale)}")
+        self.window.geometry(f"{DpiScale.scaled(460, dpi_scale)}x{DpiScale.scaled(220, dpi_scale)}")
         self.window.protocol("WM_DELETE_WINDOW", self._on_cancel)
 
         outer = ttk.Frame(self.window, padding=12)
         outer.pack(fill=tk.BOTH, expand=True)
         ttk.Label(outer, text="1. Open the GitHub authorization page").pack(anchor=tk.W)
         self._uri_var = tk.StringVar(value="Starting…")
-        ttk.Label(outer, textvariable=self._uri_var, wraplength=scaled(420, dpi_scale)).pack(
+        ttk.Label(outer, textvariable=self._uri_var, wraplength=DpiScale.scaled(420, dpi_scale)).pack(
             anchor=tk.W, pady=(2, 8)
         )
         ttk.Label(outer, text="2. Enter this code:").pack(anchor=tk.W)
@@ -708,11 +705,11 @@ class _DeviceFlowDialog:
         ttk.Label(
             code_row,
             textvariable=self._code_var,
-            font=scaled_font(dpi_scale, "Courier", 14, weight="bold"),
+            font=DpiScale.scaled_font(dpi_scale, "Courier", 14, weight="bold"),
         ).pack(side=tk.LEFT, anchor=tk.W)
         self._btn_copy = ttk.Button(code_row, text="Copy", command=self._copy_code, state=tk.DISABLED)
         self._btn_copy.pack(side=tk.LEFT, padx=(6, 0))
-        attach_tooltip(self._btn_copy, BUTTON_TOOLTIPS["cp_copy_code"])
+        HoverTooltip.attach(self._btn_copy, BUTTON_TOOLTIPS["cp_copy_code"])
         self._status_var = tk.StringVar(value="Waiting for authorization…")
         ttk.Label(outer, textvariable=self._status_var, foreground="#666").pack(anchor=tk.W)
 
@@ -720,7 +717,7 @@ class _DeviceFlowDialog:
         btns.pack(fill=tk.X, pady=(12, 0))
         self._btn_open = ttk.Button(btns, text="Open in browser", command=self._open_browser, state=tk.DISABLED)
         self._btn_open.pack(side=tk.LEFT, padx=(0, 6))
-        attach_tooltip(self._btn_open, BUTTON_TOOLTIPS["cp_sign_in_browser"])
+        HoverTooltip.attach(self._btn_open, BUTTON_TOOLTIPS["cp_sign_in_browser"])
         ttk.Button(btns, text="Cancel", command=self._on_cancel).pack(side=tk.RIGHT)
 
         self._verification_uri = ""
@@ -815,8 +812,8 @@ class _PluginDetailsWindow:
         self.window = tk.Toplevel(app.window)
         self.window.title(name)
         self.window.transient(app.window)
-        self.window.geometry(f"{scaled(700, dpi_scale)}x{scaled(500, dpi_scale)}")
-        self.window.minsize(scaled(400, dpi_scale), scaled(300, dpi_scale))
+        self.window.geometry(f"{DpiScale.scaled(700, dpi_scale)}x{DpiScale.scaled(500, dpi_scale)}")
+        self.window.minsize(DpiScale.scaled(400, dpi_scale), DpiScale.scaled(300, dpi_scale))
         self.window.bind("<Escape>", lambda _e: self._on_close())
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -832,7 +829,7 @@ class _PluginDetailsWindow:
             row.pack(fill=tk.X, anchor=tk.W, pady=1)
             ttk.Label(row, text=f"{label}:", width=12).pack(side=tk.LEFT)
             value = entry.get(key, "") or "\u2014"
-            ttk.Label(row, text=value, wraplength=scaled(620, dpi_scale)).pack(
+            ttk.Label(row, text=value, wraplength=DpiScale.scaled(620, dpi_scale)).pack(
                 side=tk.LEFT, fill=tk.X, expand=True
             )
 
@@ -840,7 +837,7 @@ class _PluginDetailsWindow:
         text_frame.grid(row=1, column=0, sticky="nsew")
         text_frame.rowconfigure(0, weight=1)
         text_frame.columnconfigure(0, weight=1)
-        self.text = ScrolledText(text_frame, wrap=tk.WORD, state=tk.DISABLED, height=max(8, scaled(12, dpi_scale)))
+        self.text = ScrolledText(text_frame, wrap=tk.WORD, state=tk.DISABLED, height=max(8, DpiScale.scaled(12, dpi_scale)))
         self.text.grid(row=0, column=0, sticky="nsew")
 
         footer = ttk.Frame(outer)
@@ -855,24 +852,24 @@ class _PluginDetailsWindow:
                 command=lambda: webbrowser.open(self._repo_url),
             )
             btn_github.pack(side=tk.LEFT, padx=(0, 6))
-            attach_tooltip(btn_github, BUTTON_TOOLTIPS["cp_github"])
+            HoverTooltip.attach(btn_github, BUTTON_TOOLTIPS["cp_github"])
         self.btn_install = ttk.Button(actions, text="Install", command=self._on_install)
         self.btn_install.pack(side=tk.LEFT, padx=(0, 6))
-        attach_tooltip(self.btn_install, BUTTON_TOOLTIPS["cp_install"])
+        HoverTooltip.attach(self.btn_install, BUTTON_TOOLTIPS["cp_install"])
         self.btn_add_profile = ttk.Button(
             actions, text="Add to Profile", command=self._on_add_to_profile
         )
         self.btn_add_profile.pack(side=tk.LEFT, padx=(0, 6))
-        attach_tooltip(self.btn_add_profile, BUTTON_TOOLTIPS["cp_add_profile"])
+        HoverTooltip.attach(self.btn_add_profile, BUTTON_TOOLTIPS["cp_add_profile"])
         self.btn_uninstall = ttk.Button(actions, text="Uninstall", command=self._on_uninstall)
         self.btn_uninstall.pack(side=tk.LEFT, padx=(0, 6))
-        attach_tooltip(self.btn_uninstall, BUTTON_TOOLTIPS["cp_uninstall"])
+        HoverTooltip.attach(self.btn_uninstall, BUTTON_TOOLTIPS["cp_uninstall"])
         self.btn_update = ttk.Button(actions, text="Update", command=self._on_update)
         self.btn_update.pack(side=tk.LEFT, padx=(0, 6))
-        attach_tooltip(self.btn_update, BUTTON_TOOLTIPS["cp_update"])
+        HoverTooltip.attach(self.btn_update, BUTTON_TOOLTIPS["cp_update"])
         btn_close = ttk.Button(footer, text="Close", command=self._on_close)
         btn_close.pack(side=tk.RIGHT)
-        attach_tooltip(btn_close, BUTTON_TOOLTIPS["cp_close"])
+        HoverTooltip.attach(btn_close, BUTTON_TOOLTIPS["cp_close"])
 
         app._details_windows.append(self)
         self._sync_action_buttons()
@@ -1018,14 +1015,14 @@ class _PluginDetailsWindow:
     @staticmethod
     def _render_markdown(text: tk.Text, content: str, dpi_scale: float = 1.0) -> None:
         """Apply basic markdown formatting to a Tk Text widget."""
-        text.tag_configure("md_h1", font=scaled_font(dpi_scale, "Helvetica", 16, weight="bold"))
-        text.tag_configure("md_h2", font=scaled_font(dpi_scale, "Helvetica", 14, weight="bold"))
-        text.tag_configure("md_h3", font=scaled_font(dpi_scale, "Helvetica", 12, weight="bold"))
-        text.tag_configure("md_bold", font=scaled_font(dpi_scale, "Helvetica", 10, weight="bold"))
-        _base10 = scaled_font(dpi_scale, "Helvetica", 10)
+        text.tag_configure("md_h1", font=DpiScale.scaled_font(dpi_scale, "Helvetica", 16, weight="bold"))
+        text.tag_configure("md_h2", font=DpiScale.scaled_font(dpi_scale, "Helvetica", 14, weight="bold"))
+        text.tag_configure("md_h3", font=DpiScale.scaled_font(dpi_scale, "Helvetica", 12, weight="bold"))
+        text.tag_configure("md_bold", font=DpiScale.scaled_font(dpi_scale, "Helvetica", 10, weight="bold"))
+        _base10 = DpiScale.scaled_font(dpi_scale, "Helvetica", 10)
         text.tag_configure("md_italic", font=(_base10[0], _base10[1], "italic"))
-        text.tag_configure("md_code", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
-        text.tag_configure("md_codeblock", font=scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
+        text.tag_configure("md_code", font=DpiScale.scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
+        text.tag_configure("md_codeblock", font=DpiScale.scaled_font(dpi_scale, "Courier", 10), background="#f0f0f0")
         text.tag_configure("md_link", underline=True)
 
         in_code_block = False
@@ -1112,24 +1109,45 @@ class _PluginRegistryPanel(ttk.Frame):
         outer = ttk.Frame(self)
         outer.pack(fill=tk.BOTH, expand=True)
 
-        disclaimer = _MEMBERS_DISCLAIMER if self._private else _COMMUNITY_DISCLAIMER
-        ttk.Label(
-            outer,
-            text=disclaimer,
-            wraplength=scaled(1050, self._dpi_scale),
-            foreground="#996633",
-        ).pack(anchor=tk.W, pady=(0, 6))
-
         if self._private:
             auth = ttk.Frame(outer)
             auth.pack(fill=tk.X, pady=(0, 6))
             self._auth_label = ttk.Label(auth, foreground="#666")
             self._auth_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self._btn_sign_in = ttk.Button(auth, text="Sign in with GitHub", command=self._on_sign_in)
-            attach_tooltip(self._btn_sign_in, BUTTON_TOOLTIPS["cp_sign_in"])
+            HoverTooltip.attach(self._btn_sign_in, BUTTON_TOOLTIPS["cp_sign_in"])
             self._btn_sign_out = ttk.Button(auth, text="Sign out", command=self._on_sign_out)
-            attach_tooltip(self._btn_sign_out, BUTTON_TOOLTIPS["cp_sign_out"])
+            HoverTooltip.attach(self._btn_sign_out, BUTTON_TOOLTIPS["cp_sign_out"])
             self._sync_auth_bar()
+
+        disclaimer = _MEMBERS_DISCLAIMER if self._private else _COMMUNITY_DISCLAIMER
+        ttk.Label(
+            outer,
+            text=disclaimer,
+            wraplength=DpiScale.scaled(1050, self._dpi_scale),
+            foreground="#996633",
+        ).pack(anchor=tk.W, pady=(0, 6))
+
+        filters = ttk.Frame(outer)
+        filters.pack(fill=tk.X, pady=(0, 6))
+        self._show_installed_only = tk.BooleanVar(value=False)
+        self._show_active_only = tk.BooleanVar(value=False)
+        cb_installed = ttk.Checkbutton(
+            filters,
+            text="Show Installed only",
+            variable=self._show_installed_only,
+            command=self._populate,
+        )
+        cb_installed.pack(side=tk.LEFT, padx=(0, 12))
+        HoverTooltip.attach(cb_installed, BUTTON_TOOLTIPS["cp_show_installed"])
+        cb_active = ttk.Checkbutton(
+            filters,
+            text="Show Active only",
+            variable=self._show_active_only,
+            command=self._populate,
+        )
+        cb_active.pack(side=tk.LEFT)
+        HoverTooltip.attach(cb_active, BUTTON_TOOLTIPS["cp_show_active"])
 
         # Tree
         tree_frame = ttk.Frame(outer)
@@ -1158,7 +1176,7 @@ class _PluginRegistryPanel(ttk.Frame):
         s = self._dpi_scale
         for col, (label, width) in headings.items():
             self.tree.heading(col, text=label)
-            col_width = scaled(width, s)
+            col_width = DpiScale.scaled(width, s)
             self.tree.column(
                 col,
                 width=col_width,
@@ -1207,13 +1225,13 @@ class _PluginRegistryPanel(ttk.Frame):
             (self.btn_update_all, "cp_update_all"),
         ):
             b.pack(side=tk.LEFT, padx=(0, 6))
-            attach_tooltip(b, BUTTON_TOOLTIPS[key])
+            HoverTooltip.attach(b, BUTTON_TOOLTIPS[key])
         self.btn_github.pack(side=tk.LEFT, padx=(0, 6))
-        attach_tooltip(self.btn_github, BUTTON_TOOLTIPS["cp_github"])
+        HoverTooltip.attach(self.btn_github, BUTTON_TOOLTIPS["cp_github"])
         self.btn_open.pack(side=tk.LEFT, padx=(0, 6))
-        attach_tooltip(self.btn_open, BUTTON_TOOLTIPS["cp_open_folder"])
+        HoverTooltip.attach(self.btn_open, BUTTON_TOOLTIPS["cp_open_folder"])
         self.btn_close.pack(side=tk.RIGHT)
-        attach_tooltip(self.btn_close, BUTTON_TOOLTIPS["cp_close"])
+        HoverTooltip.attach(self.btn_close, BUTTON_TOOLTIPS["cp_close"])
 
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
@@ -1273,6 +1291,17 @@ class _PluginRegistryPanel(ttk.Frame):
             return "Checking\u2026"
         return _UPDATE_STATUS_LABELS.get(result, "\u2014")
 
+    def _status_visible(self, status: str) -> bool:
+        installed_only = self._show_installed_only.get()
+        active_only = self._show_active_only.get()
+        if not installed_only and not active_only:
+            return True
+        if active_only and status.startswith("Active"):
+            return True
+        if installed_only and status.startswith("Installed"):
+            return True
+        return False
+
     # -- Population ------------------------------------------------------
     def _populate(self) -> None:
         def _registered_plugins() -> dict[str, str]:
@@ -1315,6 +1344,9 @@ class _PluginRegistryPanel(ttk.Frame):
                     status += " ✓"
             else:
                 status = "Available"
+
+            if not self._status_visible(status):
+                continue
 
             if load is not None:
                 path = PluginPaths.format_display(load)
@@ -1849,7 +1881,7 @@ class CommunityPluginsApp:
         self._owns_root = parent is None
 
         if parent is None:
-            setup_dpi()
+            DpiScale.setup()
             self.window: tk.Misc = tk.Tk()
             apply_ttk_theme(self.window, dark=True)
         else:
@@ -1859,11 +1891,11 @@ class CommunityPluginsApp:
             except tk.TclError:
                 pass
 
-        self._dpi_scale = get_dpi_scale(self.window, parent=parent)
+        self._dpi_scale = DpiScale.for_widget(self.window, parent=parent)
         self.window.title("AVLite Plugins")
         s = self._dpi_scale
-        self.window.geometry(f"{scaled(1100, s)}x{scaled(560, s)}")
-        self.window.minsize(scaled(800, s), scaled(420, s))
+        self.window.geometry(f"{DpiScale.scaled(1100, s)}x{DpiScale.scaled(560, s)}")
+        self.window.minsize(DpiScale.scaled(800, s), DpiScale.scaled(420, s))
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         self.window.bind("<Escape>", lambda _e: self._on_close())
 
@@ -1931,7 +1963,7 @@ class CommunityPluginsApp:
             style="PluginsDev.TCheckbutton",
         )
         self._dev_mode_cb.grid(row=0, column=1, sticky="e", padx=(8, 0))
-        attach_tooltip(
+        HoverTooltip.attach(
             self._dev_mode_cb,
             "Clone editable git checkouts under repo directories ("
             f"{PluginPaths.format_display(PluginPaths.community_dev_dir())} | "

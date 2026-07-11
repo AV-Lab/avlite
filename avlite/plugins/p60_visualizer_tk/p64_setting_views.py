@@ -51,17 +51,13 @@ from avlite.c60_apps.c65_setting_utils import (
 )
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     BUTTON_TOOLTIPS,
+    DpiScale,
     HoverTooltip,
     ThemedInputDialog,
     ThemedReadOnlyTwoFieldDialog,
     ThemedTwoInputDialog,
     TkSettingsBinder,
     apply_ttk_theme,
-    attach_schema_tooltip,
-    attach_tooltip,
-    get_dpi_scale,
-    scaled,
-    setup_dpi,
 )
 from avlite.c60_apps.c64_settings_schema import (
     apply_validated_to_setting,
@@ -99,8 +95,8 @@ class SettingWindow:
         self.show_visualization_settings = show_visualization_settings
         self.setting = host.setting
         self.window = tk.Toplevel(host)
-        self._dpi_scale = get_dpi_scale(self.window, parent=host)
-        self.window.geometry(f"{scaled(550, self._dpi_scale)}x{scaled(450, self._dpi_scale)}")
+        self._dpi_scale = DpiScale.for_widget(self.window, parent=host)
+        self.window.geometry(f"{DpiScale.scaled(550, self._dpi_scale)}x{DpiScale.scaled(450, self._dpi_scale)}")
 
         self.frame = ttk.Frame(self.window)
         self.frame.pack(fill=tk.BOTH, expand=True)
@@ -135,10 +131,10 @@ class SettingWindow:
         close_cmd = self.hide if self.show_visualization_settings else self._close_standalone
         btn_settings_close = ttk.Button(parent, text="Close", width=5, underline=0, command=close_cmd)
         btn_settings_close.pack(side=tk.RIGHT, padx=5)
-        attach_tooltip(btn_settings_close, BUTTON_TOOLTIPS["settings_close"])
+        HoverTooltip.attach(btn_settings_close, BUTTON_TOOLTIPS["settings_close"])
         btn_settings_save = ttk.Button(parent, text="Save", width=5, underline=0, command=self.save_profile)
         btn_settings_save.pack(side=tk.RIGHT, padx=5)
-        attach_tooltip(btn_settings_save, BUTTON_TOOLTIPS["settings_save"])
+        HoverTooltip.attach(btn_settings_save, BUTTON_TOOLTIPS["settings_save"])
 
     def _widget_key(self, setting, plugin_name: str = "") -> str:
         return setting_key(setting) + plugin_name
@@ -235,41 +231,41 @@ class SettingWindow:
 
         btn_profile_new = ttk.Button(profile_ext_frame, text="New", command=self.create_profile)
         btn_profile_new.grid(row=2, column=0, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_profile_new, BUTTON_TOOLTIPS["profile_new"])
+        HoverTooltip.attach(btn_profile_new, BUTTON_TOOLTIPS["profile_new"])
         self._btn_profile_delete = ttk.Button(profile_ext_frame, text="Delete", command=self.delete_profile)
         self._btn_profile_delete.grid(row=2, column=1, padx=5, pady=5, sticky="we")
-        attach_tooltip(self._btn_profile_delete, BUTTON_TOOLTIPS["profile_delete"])
+        HoverTooltip.attach(self._btn_profile_delete, BUTTON_TOOLTIPS["profile_delete"])
         btn_profile_save = ttk.Button(profile_ext_frame, text="Save", underline=0, command=self.save_profile)
         btn_profile_save.grid(row=2, column=2, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_profile_save, BUTTON_TOOLTIPS["profile_save"])
+        HoverTooltip.attach(btn_profile_save, BUTTON_TOOLTIPS["profile_save"])
         btn_profile_export = ttk.Button(profile_ext_frame, text="Export", command=self.export_profile_file)
         btn_profile_export.grid(row=3, column=0, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_profile_export, BUTTON_TOOLTIPS["profile_export"])
+        HoverTooltip.attach(btn_profile_export, BUTTON_TOOLTIPS["profile_export"])
         btn_profile_import = ttk.Button(profile_ext_frame, text="Import", command=self.import_profile_file)
         btn_profile_import.grid(row=3, column=1, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_profile_import, BUTTON_TOOLTIPS["profile_import"])
+        HoverTooltip.attach(btn_profile_import, BUTTON_TOOLTIPS["profile_import"])
         btn_profile_rename = ttk.Button(profile_ext_frame, text="Rename", command=self.rename_profile)
         btn_profile_rename.grid(row=3, column=2, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_profile_rename, BUTTON_TOOLTIPS["profile_rename"])
+        HoverTooltip.attach(btn_profile_rename, BUTTON_TOOLTIPS["profile_rename"])
 
         ttk.Label(profile_ext_frame, text="Cycle Next (Shortcut F)").grid(row=4, column=0, columnspan=2, padx=5, pady=5, sticky="w")
         self.next_profile_dropdown_menu = ttk.Combobox(profile_ext_frame, width=10, textvariable=self.host.setting.p60_next_profile, state="readonly",)
         self.next_profile_dropdown_menu["values"] = self.host.setting.profile_list
         self.next_profile_dropdown_menu.state(["readonly"])
-        attach_schema_tooltip(self.next_profile_dropdown_menu, PluginSettings, "p60_next_profile")
+        HoverTooltip.attach_schema(self.next_profile_dropdown_menu, PluginSettings, "p60_next_profile")
         self.next_profile_dropdown_menu.grid(row=4, column=2, padx=5, pady=5, sticky="we")
         
         btn_reset_all = ttk.Button(
             profile_ext_frame, text="Reset all to source code defaults", command=self.reset_to_to_source_stack_values
         )
         btn_reset_all.grid(row=5, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_reset_all, BUTTON_TOOLTIPS["profile_reset_all"])
+        HoverTooltip.attach(btn_reset_all, BUTTON_TOOLTIPS["profile_reset_all"])
         btn_reset_non_exec = ttk.Button(
             profile_ext_frame, text="Reset all except Exectution",
             command=lambda: self.reset_to_to_source_stack_values(exclude_execution=True),
         )
         btn_reset_non_exec.grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="we")
-        attach_tooltip(btn_reset_non_exec, BUTTON_TOOLTIPS["profile_reset_non_exec"])
+        HoverTooltip.attach(btn_reset_non_exec, BUTTON_TOOLTIPS["profile_reset_non_exec"])
         if ConfigPaths.can_edit_bundled():
             self._edit_repo_configs_var = tk.BooleanVar(value=ConfigPaths.is_repo_target())
             cb_edit_repo = ttk.Checkbutton(
@@ -277,7 +273,7 @@ class SettingWindow:
                 command=self._edit_repo_configs_toggle,
             )
             cb_edit_repo.grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
-            attach_tooltip(cb_edit_repo, BUTTON_TOOLTIPS["edit_repo_configs"])
+            HoverTooltip.attach(cb_edit_repo, BUTTON_TOOLTIPS["edit_repo_configs"])
         ## Plugins
         ##############################################
         plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
@@ -287,14 +283,14 @@ class SettingWindow:
         plugin_frame.columnconfigure(0, weight=1)
         plugin_frame.columnconfigure(1, weight=1)
 
-        listbox_height = max(6, scaled(10, _s))
+        listbox_height = max(6, DpiScale.scaled(10, _s))
 
         cb_load_plugins = ttk.Checkbutton(
             plugin_frame, text="Load Plugins", variable=self.host.setting.c62_load_plugins,
             command=self._on_load_plugins_toggle,
         )
         cb_load_plugins.grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=5)
-        attach_schema_tooltip(cb_load_plugins, AppSettings, "c62_load_plugins")
+        HoverTooltip.attach_schema(cb_load_plugins, AppSettings, "c62_load_plugins")
 
         # built-in plugins
         ttk.Label(plugin_frame, text="Plugins").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
@@ -309,10 +305,10 @@ class SettingWindow:
         
         btn_reset_plugins = ttk.Button(plugin_frame, text="Reset Plugins", command=self.reset_default_plugins)
         btn_reset_plugins.grid(row=3, column=0, sticky="we", padx=5, pady=5)
-        attach_tooltip(btn_reset_plugins, BUTTON_TOOLTIPS["plugins_reset_builtin"])
+        HoverTooltip.attach(btn_reset_plugins, BUTTON_TOOLTIPS["plugins_reset_builtin"])
         self._btn_remove_builtin = ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin)
         self._btn_remove_builtin.grid(row=3, column=1, sticky="we", padx=5, pady=5)
-        attach_tooltip(self._btn_remove_builtin, BUTTON_TOOLTIPS["plugins_remove_builtin"])
+        HoverTooltip.attach(self._btn_remove_builtin, BUTTON_TOOLTIPS["plugins_remove_builtin"])
 
 
         # community plugins
@@ -337,16 +333,16 @@ class SettingWindow:
 
         btn_reset_community = ttk.Button(plugin_frame, text="Reset to Installed", command=self.reset_community_plugins)
         btn_reset_community.grid(row=6, column=0, columnspan=2, sticky="we", padx=5, pady=5)
-        attach_tooltip(btn_reset_community, BUTTON_TOOLTIPS["plugins_reset_community"])
+        HoverTooltip.attach(btn_reset_community, BUTTON_TOOLTIPS["plugins_reset_community"])
         btn_add_plugin = ttk.Button(plugin_frame, text="Add Plugin", command=self.add_community_plugin)
         btn_add_plugin.grid(row=7, column=0, sticky="we", padx=5, pady=5)
-        attach_tooltip(btn_add_plugin, BUTTON_TOOLTIPS["plugins_add"])
+        HoverTooltip.attach(btn_add_plugin, BUTTON_TOOLTIPS["plugins_add"])
         btn_remove_community = ttk.Button(plugin_frame, text="Remove Plugin", command=self.delete_community_plugin)
         btn_remove_community.grid(row=7, column=1, sticky="we", padx=5, pady=5)
-        attach_tooltip(btn_remove_community, BUTTON_TOOLTIPS["plugins_remove_community"])
+        HoverTooltip.attach(btn_remove_community, BUTTON_TOOLTIPS["plugins_remove_community"])
         btn_browse_plugins = ttk.Button(plugin_frame, text="Browse Community Plugins…", command=self.open_plugins_window)
         btn_browse_plugins.grid(row=8, column=0, columnspan=2, sticky="we", padx=5, pady=5)
-        attach_tooltip(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
+        HoverTooltip.attach(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
 
     def _build_settings_canvas(self, settings_frame: ttk.Frame) -> None:
         _s = self._dpi_scale
@@ -382,7 +378,7 @@ class SettingWindow:
         self.scrollbar.grid(row=0, column=1, sticky="ns")
 
         self.window.update_idletasks()
-        self.window.minsize(scaled(500, _s), scaled(400, _s))
+        self.window.minsize(DpiScale.scaled(500, _s), DpiScale.scaled(400, _s))
 
         ttk.Label(self.settings_frame, text="Core Stack Settings", style="Big.TLabel").pack(
             anchor=tk.W, padx=5, pady=5
@@ -424,7 +420,7 @@ class SettingWindow:
                 variable=getattr(self.host.setting, field), command=self.host.update_ui,
             )
             cb.pack(anchor=tk.W, side=tk.LEFT)
-            attach_schema_tooltip(cb, VisualizationSettings, field)
+            HoverTooltip.attach_schema(cb, VisualizationSettings, field)
 
         for text, field in (
             ("Follow Planner in Global", "p66_global_view_follow_planner"),
@@ -432,7 +428,7 @@ class SettingWindow:
         ):
             cb = ttk.Checkbutton(additional_setting_row_1, text=text, variable=getattr(self.host.setting, field))
             cb.pack(side=tk.LEFT)
-            attach_schema_tooltip(cb, VisualizationSettings, field)
+            HoverTooltip.attach_schema(cb, VisualizationSettings, field)
 
         additional_setting_row_1b = ttk.Frame(additional_setting_frame)
         additional_setting_row_1b.pack(fill=tk.X)
@@ -450,7 +446,7 @@ class SettingWindow:
                 variable=getattr(self.host.setting, field), command=self.host.update_ui,
             )
             cb.pack(side=tk.LEFT)
-            attach_schema_tooltip(cb, VisualizationSettings, field)
+            HoverTooltip.attach_schema(cb, VisualizationSettings, field)
 
         additional_setting_row_1c = ttk.Frame(additional_setting_frame)
         additional_setting_row_1c.pack(fill=tk.X)
@@ -462,7 +458,7 @@ class SettingWindow:
             command=self.host.update_ui,
         )
         cb_plan_boundaries.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_plan_boundaries, VisualizationSettings, "p66_show_global_plan_boundaries")
+        HoverTooltip.attach_schema(cb_plan_boundaries, VisualizationSettings, "p66_show_global_plan_boundaries")
         ttk.Label(additional_setting_row_1c, text="Velocity scale:").pack(side=tk.LEFT, padx=(10, 5))
         velocity_scale_cb = ttk.Combobox(
             additional_setting_row_1c,
@@ -473,7 +469,7 @@ class SettingWindow:
         )
         velocity_scale_cb.pack(side=tk.LEFT)
         velocity_scale_cb.bind("<<ComboboxSelected>>", lambda e: self.host.update_ui())
-        attach_schema_tooltip(velocity_scale_cb, VisualizationSettings, "p66_global_plan_velocity_scale")
+        HoverTooltip.attach_schema(velocity_scale_cb, VisualizationSettings, "p66_global_plan_velocity_scale")
 
         additional_setting_row_1d = ttk.Frame(additional_setting_frame)
         additional_setting_row_1d.pack(fill=tk.X)
@@ -483,13 +479,13 @@ class SettingWindow:
             variable=self.host.setting.p67_show_prediction, command=self.host.update_ui,
         )
         cb_show_prediction.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_show_prediction, VisualizationSettings, "p67_show_prediction")
+        HoverTooltip.attach_schema(cb_show_prediction, VisualizationSettings, "p67_show_prediction")
         cb_occupancy_flow = ttk.Checkbutton(
             additional_setting_row_1d, text="Occupancy flow",
             variable=self.host.setting.p67_show_occupancy_flow, command=self.host.update_ui,
         )
         cb_occupancy_flow.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_occupancy_flow, VisualizationSettings, "p67_show_occupancy_flow")
+        HoverTooltip.attach_schema(cb_occupancy_flow, VisualizationSettings, "p67_show_occupancy_flow")
         # ttk.Label(additional_setting_row_1d, text="Mapping:").pack(side=tk.LEFT, padx=(10, 5))
         # mapping_cb = ttk.Combobox(
         #     additional_setting_row_1d,
@@ -500,7 +496,7 @@ class SettingWindow:
         # )
         # mapping_cb.pack(side=tk.LEFT)
         # mapping_cb.bind("<<ComboboxSelected>>", lambda e: self.host.reload_stack(reload_code=False))
-        # attach_schema_tooltip(mapping_cb, ExecutionSettings, "c40_mapping")
+        # HoverTooltip.attach_schema(mapping_cb, ExecutionSettings, "c40_mapping")
 
         additional_setting_row_2 = ttk.Frame(additional_setting_frame)
         additional_setting_row_2.pack(fill=tk.X, padx=5)
@@ -508,7 +504,7 @@ class SettingWindow:
         ttk.Label(additional_setting_row_2, text="Log View:").pack(anchor=tk.W, side=tk.LEFT, padx=0)
         cb_expand_log = ttk.Checkbutton(additional_setting_row_2, text="Expand Log View", variable=self.host.setting.p68_log_view_expanded)
         cb_expand_log.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_expand_log, VisualizationSettings, "p68_log_view_expanded")
+        HoverTooltip.attach_schema(cb_expand_log, VisualizationSettings, "p68_log_view_expanded")
 
         ttk.Label(additional_setting_row_2, text="Default Log Height:").pack(side=tk.LEFT, padx=5)
         ttk.Entry(additional_setting_row_2, textvariable=self.host.setting.p68_log_view_default_height, width=5,
@@ -523,7 +519,7 @@ class SettingWindow:
         ttk.Label(additional_setting_row_3, text="Menu bar:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         cb_hide_menubar = ttk.Checkbutton(additional_setting_row_3, text="Hide", variable=self.host.setting.p60_hide_menubar)
         cb_hide_menubar.pack(anchor=tk.W, side=tk.LEFT)
-        attach_schema_tooltip(cb_hide_menubar, VisualizationSettings, "p60_hide_menubar")
+        HoverTooltip.attach_schema(cb_hide_menubar, VisualizationSettings, "p60_hide_menubar")
 
     def refresh_widgets(self) -> None:
         """Reload stack and plugin settings from disk into all editor widgets."""
@@ -1158,7 +1154,7 @@ class SettingWindow:
             command=lambda s=setting, pn=plugin_name: self.reset_section_to_source_defaults(s, pn),
         )
         reset_btn.grid(row=row, column=0, columnspan=2, sticky="ew", padx=5, pady=(8, 2))
-        attach_tooltip(reset_btn, reset_tooltip)
+        HoverTooltip.attach(reset_btn, reset_tooltip)
 
     def save_from_widgets(self, setting, plugin_name=""):
         """ Save the settings from the widgets to the setting class. """
@@ -1322,19 +1318,19 @@ class SettingShortcutView(ttk.LabelFrame):
 
         btn_settings = ttk.Button(self, text="⚙", command=self.open_settings_window, width=2)
         btn_settings.pack(side=tk.RIGHT)
-        attach_tooltip(btn_settings, BUTTON_TOOLTIPS["toolbar_settings"])
+        HoverTooltip.attach(btn_settings, BUTTON_TOOLTIPS["toolbar_settings"])
         btn_plugins = ttk.Button(self, text="Plugins", command=self.open_plugins_window)
         btn_plugins.pack(side=tk.RIGHT)
-        attach_tooltip(btn_plugins, BUTTON_TOOLTIPS["toolbar_plugins"])
+        HoverTooltip.attach(btn_plugins, BUTTON_TOOLTIPS["toolbar_plugins"])
         btn_reload = ttk.Button(self, text="Reload Stack", command=self.root.reload_stack)
         btn_reload.pack(side=tk.RIGHT)
-        attach_tooltip(btn_reload, BUTTON_TOOLTIPS["toolbar_reload_stack"])
+        HoverTooltip.attach(btn_reload, BUTTON_TOOLTIPS["toolbar_reload_stack"])
         btn_reset = ttk.Button(self, text="Reset Settings", command=self.root.load_settings)
         btn_reset.pack(side=tk.RIGHT)
-        attach_tooltip(btn_reset, BUTTON_TOOLTIPS["toolbar_reset_settings"])
+        HoverTooltip.attach(btn_reset, BUTTON_TOOLTIPS["toolbar_reset_settings"])
         btn_save = ttk.Button(self, text="Save Settings", command=self.save_settings)
         btn_save.pack(side=tk.RIGHT)
-        attach_tooltip(btn_save, BUTTON_TOOLTIPS["toolbar_save_settings"])
+        HoverTooltip.attach(btn_save, BUTTON_TOOLTIPS["toolbar_save_settings"])
 
         self.profile_dropdown_menu = ttk.Combobox(
             self,
@@ -1348,7 +1344,7 @@ class SettingShortcutView(ttk.LabelFrame):
         self.profile_dropdown_menu.state(["readonly"])
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
         self.profile_dropdown_menu.pack(side=tk.RIGHT)
-        attach_schema_tooltip(self.profile_dropdown_menu, AppSettings, "c60_selected_profile")
+        HoverTooltip.attach_schema(self.profile_dropdown_menu, AppSettings, "c60_selected_profile")
 
         shortcut_cb = ttk.Checkbutton(
             self,
@@ -1357,13 +1353,13 @@ class SettingShortcutView(ttk.LabelFrame):
             command=self.root.update_shortcut_mode,
         )
         shortcut_cb.pack(anchor=tk.W, side=tk.LEFT)
-        attach_schema_tooltip(shortcut_cb, VisualizationSettings, "p60_shortcut_mode")
+        HoverTooltip.attach_schema(shortcut_cb, VisualizationSettings, "p60_shortcut_mode")
 
         dark_cb = ttk.Checkbutton(
             self, text="Dark Mode", variable=self.root.setting.p60_dark_mode, command=self.toggle_dark_mode
         )
         dark_cb.pack(anchor=tk.W, side=tk.LEFT)
-        attach_schema_tooltip(dark_cb, VisualizationSettings, "p60_dark_mode")
+        HoverTooltip.attach_schema(dark_cb, VisualizationSettings, "p60_dark_mode")
 
         ttk.Label(self, textvariable=self.root.setting.perception_status_text, width=30).pack(
             side=tk.LEFT, padx=(25, 5), pady=5
@@ -1374,8 +1370,8 @@ class SettingShortcutView(ttk.LabelFrame):
         self.help_text = tk.Text(
             self.shortcut_frame,
             wrap=tk.WORD,
-            width=max(30, scaled(50, _s)),
-            height=max(5, scaled(7, _s)),
+            width=max(30, DpiScale.scaled(50, _s)),
+            height=max(5, DpiScale.scaled(7, _s)),
         )
         key_binding_info = """
 App:      Q - Quit             S - Toggle shortcut          F - Switch to next Profile  R - Reload imports

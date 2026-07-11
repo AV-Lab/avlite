@@ -13,6 +13,10 @@ from avlite.c20_planning.c25_global_race_planners import (
 from avlite.c60_apps.c68_paths import DataPaths
 
 
+def _race_map_from_path(path) -> RaceMap:
+    return RaceMap.from_path(path)
+
+
 def _max_corridor_bias(center_pts, left_pts, right_pts, n_samples: int = 200) -> float:
     left_ls = LineString(left_pts)
     right_ls = LineString(right_pts)
@@ -29,7 +33,7 @@ def _max_corridor_bias(center_pts, left_pts, right_pts, n_samples: int = 200) ->
 
 class TestGlobalCenterlineRacePlannerSynthetic:
     def test_centerline_is_corridor_centered(self, minimal_corridor_map_path):
-        planner = GlobalCenterlineRacePlanner(str(minimal_corridor_map_path), margin=0.0)
+        planner = GlobalCenterlineRacePlanner(_race_map_from_path(minimal_corridor_map_path), margin=0.0)
         plan = planner.plan()
 
         center = np.array(list(zip(plan.trajectory.path_x, plan.trajectory.path_y)))
@@ -40,8 +44,9 @@ class TestGlobalCenterlineRacePlannerSynthetic:
         assert _max_corridor_bias(center, left, right) < 0.1
 
     def test_margin_narrows_corridor(self, minimal_corridor_map_path):
-        plan_no_margin = GlobalCenterlineRacePlanner(str(minimal_corridor_map_path), margin=0.0).plan()
-        plan_with_margin = GlobalCenterlineRacePlanner(str(minimal_corridor_map_path), margin=0.5).plan()
+        race_map = _race_map_from_path(minimal_corridor_map_path)
+        plan_no_margin = GlobalCenterlineRacePlanner(race_map, margin=0.0).plan()
+        plan_with_margin = GlobalCenterlineRacePlanner(race_map, margin=0.5).plan()
 
         center_no = np.array(list(zip(plan_no_margin.trajectory.path_x, plan_no_margin.trajectory.path_y)))
         left_no = np.array(list(zip(plan_no_margin.left_boundary_x, plan_no_margin.left_boundary_y)))
@@ -95,7 +100,8 @@ def _quarter_arc_race_map(radius: float = 30.0, half_width: float = 5.0, n: int 
 class TestGlobalRacePlannerSynthetic:
     def test_straight_corridor_raceline_is_straight_and_in_bounds(self, minimal_corridor_map_path):
         margin = 0.5
-        plan = GlobalRacePlanner(str(minimal_corridor_map_path), margin=margin).plan()
+        race_map = _race_map_from_path(minimal_corridor_map_path)
+        plan = GlobalRacePlanner(race_map, margin=margin).plan()
         raceline = np.array(plan.path)
 
         assert len(raceline) > 5
@@ -105,7 +111,7 @@ class TestGlobalRacePlannerSynthetic:
         # Optimal line is straight: negligible curvature everywhere.
         assert float(np.max(_path_curvature(raceline)[2:-2])) < 1e-3
         # Not longer than the centerline.
-        centerline_plan = GlobalCenterlineRacePlanner(str(minimal_corridor_map_path), margin=margin).plan()
+        centerline_plan = GlobalCenterlineRacePlanner(race_map, margin=margin).plan()
         assert LineString(raceline).length <= LineString(centerline_plan.path).length + 0.1
 
     def test_corner_raceline_shorter_and_flatter_than_centerline(self):
@@ -176,7 +182,7 @@ def yas_marina_map_path():
 @pytest.mark.requires_data
 class TestGlobalCenterlineRacePlannerYasMarina:
     def test_centerline_is_corridor_centered(self, yas_marina_map_path):
-        planner = GlobalCenterlineRacePlanner(yas_marina_map_path, margin=0.0)
+        planner = GlobalCenterlineRacePlanner(_race_map_from_path(yas_marina_map_path), margin=0.0)
         plan = planner.plan()
 
         center = np.array(list(zip(plan.trajectory.path_x, plan.trajectory.path_y)))
@@ -187,7 +193,7 @@ class TestGlobalCenterlineRacePlannerYasMarina:
         assert _max_corridor_bias(center, left, right) < 0.1
 
     def test_hairpin_region_is_not_heavily_biased(self, yas_marina_map_path):
-        planner = GlobalCenterlineRacePlanner(yas_marina_map_path, margin=0.0)
+        planner = GlobalCenterlineRacePlanner(_race_map_from_path(yas_marina_map_path), margin=0.0)
         plan = planner.plan()
 
         center = np.array(list(zip(plan.trajectory.path_x, plan.trajectory.path_y)))
@@ -211,17 +217,17 @@ class TestGlobalRacePlannerYasMarina:
         # Same velocity limits for both planners so the lap-time comparison
         # reflects the raceline geometry, not the (Super Formula) c25 defaults.
         margin, v_max, a_lat = 0.5, 10.0, 5.0
+        race_map = _race_map_from_path(yas_marina_map_path)
         race_plan = GlobalRacePlanner(
-            yas_marina_map_path, max_velocity=v_max, max_lateral_accel=a_lat, margin=margin
+            race_map, max_velocity=v_max, max_lateral_accel=a_lat, margin=margin
         ).plan()
         center_plan = GlobalCenterlineRacePlanner(
-            yas_marina_map_path, max_velocity=v_max, max_lateral_accel=a_lat, margin=margin
+            race_map, max_velocity=v_max, max_lateral_accel=a_lat, margin=margin
         ).plan()
 
         raceline = np.array(race_plan.path)
         assert len(raceline) > 100
 
-        race_map = RaceMap.from_path(yas_marina_map_path)
         left_ls = LineString(race_map.left_bound)
         right_ls = LineString(race_map.right_bound)
         for p in raceline:

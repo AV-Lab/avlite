@@ -5,18 +5,25 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c20_planning.c21_planning_model import GlobalPlan
+from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c40_execution.c49_settings import ExecutionSettings, is_capability_provided
-from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability, satisfies_requirements
-from avlite.c50_common.c55_fps_tracker import FpsTracker
-from avlite.c50_common.c52_sensor_datatypes import SensorFrame
+from avlite.c40_execution.c41_world_bridge import (
+    WorldBridge,
+    is_world_capability_enabled,
+    is_world_stack_capability_enabled,
+)
+from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
+from avlite.c50_common.c52_world_sensor_datatypes import (
+    WORLD_CAPABILITY_SENSOR_FIELDS,
+    SensorFrame,
+)
+from avlite.c50_common.c56_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
 
@@ -28,11 +35,12 @@ class ExecutionStrategy(ABC):
         self,
         perception_model: PerceptionModel,
         perception: Optional[PerceptionStrategy],
-        global_planner: GlobalPlannerStrategy,
-        local_planner: LocalPlanningStrategy,
-        controller: ControlStrategy,
+        global_planner: Optional[GlobalPlannerStrategy],
+        local_planner: Optional[LocalPlanningStrategy],
+        controller: Optional[ControlStrategy],
         world: WorldBridge,
         localization: Optional[LocalizationStrategy] = None,
+        mapping: Optional[MappingStrategy] = None,
         perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.01,
@@ -44,10 +52,11 @@ class ExecutionStrategy(ABC):
         self.pm: PerceptionModel = perception_model
         self.perception: Optional[PerceptionStrategy] = perception
         self.localization: Optional[LocalizationStrategy] = localization
+        self.mapping: Optional[MappingStrategy] = mapping
         self.ego_state: EgoState = perception_model.ego_vehicle
-        self.global_planner: GlobalPlannerStrategy = global_planner
-        self.local_planner: LocalPlanningStrategy = local_planner
-        self.controller: ControlStrategy = controller
+        self.global_planner: Optional[GlobalPlannerStrategy] = global_planner
+        self.local_planner: Optional[LocalPlanningStrategy] = local_planner
+        self.controller: Optional[ControlStrategy] = controller
         self.world: WorldBridge = world
 
         self.perception_fps: float = 0.0
@@ -95,10 +104,11 @@ class ExecutionStrategy(ABC):
 
     def available_stack_capabilities(self) -> set:
         """StackCapabilities provided by the assembled stack plus world ground truth."""
-        caps = {c for c in self.world.stack_capabilities if is_capability_provided(c)}
+        caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
         for module in (
             self.perception,
             self.localization,
+            self.mapping,
             self.global_planner,
             self.local_planner,
             self.controller,
@@ -108,11 +118,20 @@ class ExecutionStrategy(ABC):
         return caps
 
     def _validate_stack(self) -> None:
-        """Warn once for each present module whose stack_requirements are unmet."""
+        """Raise on unmet module stack_requirements; warn on world deps and duplicates."""
         available = self.available_stack_capabilities()
+        if not satisfies_requirements(self.world.stack_requirements, available):
+            log.warning(
+                "world bridge %s stack_requirements not satisfied: required %s "
+                "(available: %s).",
+                type(self.world).__name__,
+                self.world.stack_requirements,
+                available,
+            )
         for label, module in (
             ("perception", self.perception),
             ("localization", self.localization),
+            ("mapping", self.mapping),
             ("global planner", self.global_planner),
             ("local planner", self.local_planner),
             ("controller", self.controller),
@@ -120,13 +139,34 @@ class ExecutionStrategy(ABC):
             if module is None:
                 continue
             if not satisfies_requirements(module.stack_requirements, available):
+                raise ValueError(
+                    f"{label} strategy {module.__class__.__name__} stack_requirements "
+                    f"not satisfied: required {module.stack_requirements} "
+                    f"(available: {available})."
+                )
+
+        providers: dict = {}
+        world_caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
+        for cap in world_caps:
+            providers.setdefault(cap, []).append(f"world/{type(self.world).__name__}")
+        for label, module in (
+            ("perception", self.perception),
+            ("localization", self.localization),
+            ("mapping", self.mapping),
+            ("global planner", self.global_planner),
+            ("local planner", self.local_planner),
+            ("controller", self.controller),
+        ):
+            if module is None:
+                continue
+            for cap in module.stack_capabilities:
+                providers.setdefault(cap, []).append(f"{label}/{module.__class__.__name__}")
+        for cap, sources in providers.items():
+            if len(sources) > 1:
                 log.warning(
-                    "%s strategy %s stack_requirements not satisfied: required %s "
-                    "(available: %s).",
-                    label,
-                    module.__class__.__name__,
-                    module.stack_requirements,
-                    available,
+                    "StackCapability.%s provided by multiple sources: %s.",
+                    cap.name,
+                    ", ".join(sources),
                 )
 
     @abstractmethod
@@ -186,8 +226,10 @@ class ExecutionStrategy(ABC):
             self.perception.reset()
         if self.localization:
             self.localization.reset()
-        self.local_planner.reset()
-        self.controller.reset()
+        if self.local_planner:
+            self.local_planner.reset()
+        if self.controller:
+            self.controller.reset()
         self.world.reset()
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
@@ -201,20 +243,21 @@ class ExecutionStrategy(ABC):
         self._localization_fps_tracker.reset()
 
     def _fetch_sensor_frame(self) -> SensorFrame:
-        """Build SensorFrame from world bridge, respecting the c41_provided filter."""
+        """Build SensorFrame from world bridge, respecting the c41_world_capabilities filter."""
         frame = self.world.get_sensor_frame()
-        if not is_capability_provided(WorldCapability.CAMERA_RGB):
-            frame.rgb = None
-        if not is_capability_provided(WorldCapability.CAMERA_DEPTH):
-            frame.depth = None
-        if not (is_capability_provided(WorldCapability.LIDAR_2D) or is_capability_provided(WorldCapability.LIDAR_3D)):
-            frame.lidar = None
-        if not is_capability_provided(WorldCapability.IMU):
-            frame.imu = None
-        if not is_capability_provided(WorldCapability.GNSS):
-            frame.gnss = None
-        if not is_capability_provided(WorldCapability.WHEEL_ENCODER):
-            frame.wheel_odometry = None
+        cleared: set[str] = set()
+        for cap, field in WORLD_CAPABILITY_SENSOR_FIELDS.items():
+            if field is None or field in cleared:
+                continue
+            if not is_world_capability_enabled(cap):
+                # LiDAR: keep the field if either 2D or 3D is still provided.
+                peers = [
+                    c for c, f in WORLD_CAPABILITY_SENSOR_FIELDS.items() if f == field
+                ]
+                if any(is_world_capability_enabled(c) for c in peers):
+                    continue
+                setattr(frame, field, None)
+                cleared.add(field)
         return frame
 
     def _localization_step(self) -> None:
@@ -226,7 +269,7 @@ class ExecutionStrategy(ABC):
         stack_ok = satisfies_requirements(self.localization.stack_requirements, self.available_stack_capabilities())
         if world_ok and stack_ok:
             sensors = self._fetch_sensor_frame()
-            self.localization.localize(sensors=sensors)
+            self.localization.localize(perception_model=self.pm, sensors=sensors)
             self.localization_fps = self._localization_fps_tracker.tick()
         else:
             log.warning(
@@ -239,13 +282,13 @@ class ExecutionStrategy(ABC):
     def _perception_step(self) -> None:
         """Run one perception iteration and update fps tracking."""
         if not self.perception:
-            log.error("Perception strategy is not set. Skipping perception step.")
+            log.debug("Perception strategy is not set. Skipping perception step.")
             return
 
         world_ok = satisfies_requirements(self.perception.world_requirements, self.world.world_capabilities)
         stack_ok = satisfies_requirements(self.perception.stack_requirements, self.available_stack_capabilities())
         if not (world_ok and stack_ok):
-            log.error(
+            log.debug(
                 f"Perception strategy {self.perception.__class__.__name__} requirements not satisfied "
                 f"(world_requirements {self.perception.world_requirements} vs {self.world.world_capabilities}; "
                 f"stack_requirements {self.perception.stack_requirements} vs {self.available_stack_capabilities()}). "
@@ -253,7 +296,7 @@ class ExecutionStrategy(ABC):
             )
             return
 
-        if is_capability_provided(StackCapability.DETECTION):
+        if is_world_stack_capability_enabled(StackCapability.DETECTION):
             gt = self.world.get_ground_truth_perception_model()
             # Copy the world's authoritative agents into the executer's own
             # perception model instead of aliasing to it, so that clearing the
@@ -271,58 +314,26 @@ class ExecutionStrategy(ABC):
 
     def _replan_step(self) -> None:
         """Run one planning iteration (replan) and update FPS."""
-        self.local_planner.replan()
+        if not self.local_planner:
+            return
+        sensors = self._fetch_sensor_frame()
+        self.local_planner.replan(perception_model=self.pm, sensors=sensors)
         self.planner_fps = self._planner_fps_tracker.tick()
     
     def _control_step(self, sim_dt: float) -> None:
         """Run one control iteration, apply to world, and update FPS."""
+        if not self.controller or not self.local_planner:
+            return
         if not self._can_actuate():
             return
-        local_tj = self.local_planner.get_local_plan()
-        cmd = self.controller.control(self.ego_state, local_tj, control_dt=sim_dt)
+        sensors = self._fetch_sensor_frame()
+        local_plan = self.local_planner.get_local_plan()
+        cmd = self.controller.control(
+            self.ego_state, local_plan, control_dt=sim_dt,
+            perception_model=self.pm, sensors=sensors,
+        )
         self.world.control_ego_state(cmd, dt=sim_dt)
         self.control_fps = self._control_fps_tracker.tick(floor_dt=sim_dt)
-
-    def replan_global(self) -> None:
-        """Recompute the global plan from the current ego pose and hand it to the local planner.
-
-        Keeps the existing goal, moves the start to the ego's current position,
-        re-runs the global planner, then pushes the resulting plan to the local
-        planner and controller so subsequent ticks follow the new route.
-        """
-        goal = self.global_planner.goal_point
-        if goal is not None:
-            self.global_planner.set_start_goal((self.ego_state.x, self.ego_state.y), goal)
-
-        new_plan = self.global_planner.plan()
-        if new_plan is None or new_plan.trajectory is None:
-            log.error("Global replan failed: planner returned no valid plan.")
-            return
-
-        self.apply_global_plan(new_plan)
-        log.info(f"Global replan complete; {len(new_plan.left_boundary_d)} boundary pts")
-
-    def apply_global_plan(
-        self,
-        global_plan: GlobalPlan,
-        ego_xy: Optional[tuple[float, float]] = None,
-    ) -> None:
-        """Push a global plan to the local planner and controller."""
-        if global_plan is None or global_plan.trajectory is None:
-            log.error("apply_global_plan: plan or trajectory is None")
-            return
-        if len(global_plan.trajectory.path_s) == 0:
-            log.error("apply_global_plan: trajectory is empty")
-            return
-        ego_xy = ego_xy if ego_xy is not None else (self.ego_state.x, self.ego_state.y)
-        self.local_planner.set_global_plan(global_plan, ego_xy=ego_xy)
-        self.controller.set_trajectory_tracker(global_plan.trajectory)
-        self.controller.reset()
-
-    def spawn_agent(self, agent_state: AgentState) -> None:
-        """Spawn an agent in the world using the ego's current global plan."""
-        self.world.spawn_agent(agent_state, global_plan=self.local_planner.global_plan)
-
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

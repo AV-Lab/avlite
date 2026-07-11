@@ -9,7 +9,7 @@ import pytest
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c28_local_lattice_planners import Edge, GreedyLatticePlanner, Lattice, Node
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 _FIXED_PLANNER_TIME = 1000.0
 

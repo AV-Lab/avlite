@@ -11,7 +11,10 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner, GlobalRacePlanner
 from avlite.plugins.p60_visualizer_tk.p69_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
-from avlite.c40_execution.c49_settings import is_capability_provided
+from avlite.c40_execution.c41_world_bridge import (
+    is_world_capability_enabled,
+    is_world_stack_capability_enabled,
+)
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 log = logging.getLogger(__name__)
@@ -229,14 +232,17 @@ class GlobalPlanPlotView(ttk.Frame):
                     self.root.exec.global_planner.set_start_goal(start_point=self.start_point, goal_point=(event.xdata, event.ydata))
                     log.info(f"Set start: {self.start_point}, goal: {(event.xdata, event.ydata)}")
 
-                    self.root.exec.global_planner.plan()
+                    self.root.exec.global_planner.plan(
+                        perception_model=self.root.exec.pm,
+                        sensors=self.root.exec._fetch_sensor_frame(),
+                    )
                     if len(self.root.exec.global_planner.global_plan.path) == 0:
                         log.warning("No global plan found. Please check the start and goal points.")
                         return
 
                     if self.root.setting.global_planner_type.get() == HDMapGlobalPlanner.__name__:
                         self.global_plot.plot_global_plan(self.root.exec.global_planner.global_plan)
-                        self.root.exec.apply_global_plan(
+                        self.root.apply_global_plan(
                             self.root.exec.global_planner.global_plan,
                             ego_xy=(self.root.exec.ego_state.x, self.root.exec.ego_state.y),
                         )
@@ -381,14 +387,14 @@ class LocalPlanPlotView(ttk.Frame):
         if x is not None and y is not None:
             t = self.root.exec.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.root.exec.spawn_agent(agent)
+            self.root.spawn_agent(agent)
         elif s is not None and d is not None:
             # Convert (s, d) to (x, y) using some transformation logic
             x, y = self.root.exec.local_planner.global_trajectory.convert_sd_to_xy(s, d)
             log.info(f"Spawning agent at (x, y) = ({x}, {y}) from (s, d) = ({s}, {d})")
             t = self.root.exec.ego_state.theta if theta is None else theta
             agent = AgentState(x=x, y=y, theta=t, velocity=0)
-            self.root.exec.spawn_agent(agent)
+            self.root.spawn_agent(agent)
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")
 
@@ -464,7 +470,7 @@ class LocalPlanPlotView(ttk.Frame):
         if show_gv != show_fv:
             aspect_ratio /= 2
 
-        bridge_lidar = is_capability_provided(WorldCapability.LIDAR_2D) or is_capability_provided(WorldCapability.LIDAR_3D)
+        bridge_lidar = is_world_capability_enabled(WorldCapability.LIDAR_2D) or is_world_capability_enabled(WorldCapability.LIDAR_3D)
         want_lidar = bridge_lidar and (
             self.root.setting.p66_show_lidar_global.get()
             or self.root.setting.p66_show_lidar_frenet.get()
@@ -492,7 +498,7 @@ class LocalPlanPlotView(ttk.Frame):
             plot_lidar_global=self.root.setting.p66_show_lidar_global.get(),
             plot_lidar_frenet=self.root.setting.p66_show_lidar_frenet.get(),
             plot_clusters=bridge_lidar and self.root.setting.p66_show_lidar_clusters.get(),
-            plot_ground_truth=is_capability_provided(StackCapability.DETECTION),
+            plot_ground_truth=is_world_stack_capability_enabled(StackCapability.DETECTION),
             plot_race_boundary=self.root.setting.p66_show_race_boundary.get(),
             show_global_view=self.root.setting.p67_show_local_global_view.get(),
             show_frenet_view=self.root.setting.p67_show_local_frenet_view.get(),

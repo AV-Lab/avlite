@@ -26,6 +26,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         controller: ControlStrategy = None,
         world: WorldBridge = None,
         localization=None,
+        mapping=None,
         perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.05,
@@ -33,7 +34,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         combined_perception_planning: bool = True,
     ):
         super().__init__(perception_model, perception, global_planner, local_planner, controller, world,
-                         localization=localization, perception_dt=perception_dt,
+                         localization=localization, mapping=mapping, perception_dt=perception_dt,
                          replan_dt=replan_dt, control_dt=control_dt, localization_dt=localization_dt)
 
         # When True, perception runs inside the planner thread (lower overhead).
@@ -123,11 +124,12 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     self.__planner_last_step_time = time.time()
                     self._replan_step()
 
-                self.controller.set_plan(self.local_planner.get_local_plan())
+                if self.local_planner and self.controller:
+                    self.controller.set_plan(self.local_planner.get_local_plan())
 
                 # Rate-limit local_planner.step to replan_dt — avoids flooding the GIL
                 # with continuous KD-tree queries that starve the controller thread
-                if t1 - __planner_step_last_t >= self.replan_dt:
+                if self.local_planner and t1 - __planner_step_last_t >= self.replan_dt:
                     state = self.world.get_ego_state()
                     self.local_planner.step(state)
                     __planner_step_last_t = t1
@@ -181,9 +183,17 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                         self.__controller_last_step_time = t1
 
                     with self.lock_world:
-                        if self._can_actuate():
-                            state = self.world.ego_state
-                            cmd = self.controller.control(state, control_dt=self.sim_dt)
+                        if self.controller and self._can_actuate():
+                            sensors = self._fetch_sensor_frame()
+                            local_plan = (
+                                self.local_planner.get_local_plan()
+                                if self.local_planner else None
+                            )
+                            cmd = self.controller.control(
+                                self.world.ego_state, local_plan,
+                                control_dt=self.sim_dt,
+                                perception_model=self.pm, sensors=sensors,
+                            )
                             self.world.control_ego_state(cmd, dt=self.sim_dt)
 
                     self.control_fps = self._control_fps_tracker.tick(floor_dt=self.sim_dt)

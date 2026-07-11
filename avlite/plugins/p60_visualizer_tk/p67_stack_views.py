@@ -11,6 +11,7 @@ from avlite.c10_perception.c12_perception_strategy import (
     PerceptionPipeline,
 )
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
+from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import (
@@ -24,22 +25,22 @@ from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings
-from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
-from avlite.c40_execution.c49_settings import (
-    ExecutionSettings,
-    is_capability_provided,
+from avlite.c40_execution.c41_world_bridge import (
+    WorldBridge,
+    is_world_capability_enabled,
+    is_world_stack_capability_enabled,
 )
+from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ValueGauge,
     DataPicker,
-    attach_capability_tooltip,
-    attach_schema_tooltip,
-    attach_tooltip,
     BUTTON_TOOLTIPS,
+    HoverTooltip,
     ThemedListPickerDialog,
-    update_schema_tooltip,
+    make_strategy_contract_controls,
+    make_world_bridge_contract_controls,
 )
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
 from avlite.c60_apps.c63_plugins import plugin_module_prefix
@@ -72,12 +73,6 @@ class PerceivePlanControlView(ttk.Frame):
     def reset(self):
         """Update data in the view."""
         self.perceive_frame.update_data()
-        if self.root.exec is not None:
-            stack_caps = self.root.exec.world.stack_capabilities
-            self.perceive_frame.localization_dropdown_menu["values"] = (
-                (("",) if StackCapability.LOCALIZATION in stack_caps else ())
-                + tuple(LocalizationStrategy.registry.keys())
-            )
         self.plan_frame.update_data()
         self.control_frame.update_data()
 
@@ -93,18 +88,26 @@ class PerceptionFrame(ttk.LabelFrame):
         # Row 0: main perception dropdown + Localization dropdown
         self.perception_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.perception_type, state="readonly", width=14)
-        self.perception_dropdown_menu["values"] = list(PerceptionStrategy.registry.keys())
+        self.perception_dropdown_menu["values"] = ("",) + tuple(PerceptionStrategy.registry.keys())
         self.perception_dropdown_menu.bind("<<ComboboxSelected>>", self._on_perception_selected)
         self.perception_dropdown_menu.grid(row=0, column=0, sticky="ew", padx=2)
-        attach_schema_tooltip(self.perception_dropdown_menu, ExecutionSettings, "c40_perception")
+        HoverTooltip.attach_schema(self.perception_dropdown_menu, ExecutionSettings, "c40_perception")
+        _, perc_info = make_strategy_contract_controls(
+            self, self.perception_dropdown_menu, PerceptionStrategy.registry, lambda: self.root.exec
+        )
+        perc_info.grid(row=0, column=1, padx=(0, 2))
 
-        ttk.Label(self, text="loc:").grid(row=0, column=1, sticky="e", padx=(4, 0))
+        ttk.Label(self, text="loc:").grid(row=0, column=2, sticky="e", padx=(4, 0))
         self.localization_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
-        self.localization_dropdown_menu["values"] = tuple(LocalizationStrategy.registry.keys())
+        self.localization_dropdown_menu["values"] = ("",) + tuple(LocalizationStrategy.registry.keys())
         self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.localization_dropdown_menu.grid(row=0, column=2, sticky="ew", padx=2)
-        attach_schema_tooltip(self.localization_dropdown_menu, ExecutionSettings, "c40_localization")
+        self.localization_dropdown_menu.grid(row=0, column=3, sticky="ew", padx=2)
+        HoverTooltip.attach_schema(self.localization_dropdown_menu, ExecutionSettings, "c40_localization")
+        _, loc_info = make_strategy_contract_controls(
+            self, self.localization_dropdown_menu, LocalizationStrategy.registry, lambda: self.root.exec
+        )
+        loc_info.grid(row=0, column=4, padx=(0, 2))
 
         # Rows 1-3: pipeline sub-strategy widgets (shown only for PerceptionPipeline)
         self._lbl_detect = ttk.Label(self, text="Detect:")
@@ -113,7 +116,11 @@ class PerceptionFrame(ttk.LabelFrame):
             self, textvariable=self.root.setting.detection_strategy_type, state="readonly")
         self.detection_dropdown_menu["values"] = tuple(DetectionStrategy.registry.keys())
         self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        self.detection_dropdown_menu.grid(row=1, column=1, columnspan=2, sticky="ew")
+        self.detection_dropdown_menu.grid(row=1, column=1, columnspan=3, sticky="ew")
+        _, det_info = make_strategy_contract_controls(
+            self, self.detection_dropdown_menu, DetectionStrategy.registry, lambda: self.root.exec
+        )
+        det_info.grid(row=1, column=4, padx=(0, 2))
 
         self._lbl_track = ttk.Label(self, text="Track:")
         self._lbl_track.grid(row=2, column=0, sticky="e", padx=(5, 0))
@@ -121,7 +128,11 @@ class PerceptionFrame(ttk.LabelFrame):
             self, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
         self.tracking_dropdown_menu["values"] = tuple(TrackingStrategy.registry.keys())
         self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        self.tracking_dropdown_menu.grid(row=2, column=1, columnspan=2, sticky="ew")
+        self.tracking_dropdown_menu.grid(row=2, column=1, columnspan=3, sticky="ew")
+        _, track_info = make_strategy_contract_controls(
+            self, self.tracking_dropdown_menu, TrackingStrategy.registry, lambda: self.root.exec
+        )
+        track_info.grid(row=2, column=4, padx=(0, 2))
 
         self._lbl_predict = ttk.Label(self, text="Predict:")
         self._lbl_predict.grid(row=3, column=0, sticky="e", padx=(5, 0))
@@ -129,26 +140,56 @@ class PerceptionFrame(ttk.LabelFrame):
             self, textvariable=self.root.setting.prediction_strategy_type, state="readonly")
         self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
         self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=2, sticky="ew")
-        attach_schema_tooltip(self.detection_dropdown_menu, PerceptionSettings, "c12_detection_strategy")
-        attach_schema_tooltip(self.tracking_dropdown_menu, PerceptionSettings, "c12_tracking_strategy")
-        attach_schema_tooltip(self.prediction_dropdown_menu, PerceptionSettings, "c12_prediction_strategy")
+        self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=3, sticky="ew")
+        _, pred_info = make_strategy_contract_controls(
+            self, self.prediction_dropdown_menu, PredictionStrategy.registry, lambda: self.root.exec
+        )
+        pred_info.grid(row=3, column=4, padx=(0, 2))
+        HoverTooltip.attach_schema(self.detection_dropdown_menu, PerceptionSettings, "c12_detection_strategy")
+        HoverTooltip.attach_schema(self.tracking_dropdown_menu, PerceptionSettings, "c12_tracking_strategy")
+        HoverTooltip.attach_schema(self.prediction_dropdown_menu, PerceptionSettings, "c12_prediction_strategy")
+
+        # Row 4 (last): mapping strategy + Default Map (map file shown only for MapReader)
+        self.mapping_dropdown_menu = ttk.Combobox(
+            self, textvariable=self.root.setting.mapping_type, state="readonly", width=14)
+        self.mapping_dropdown_menu["values"] = ("",) + tuple(MappingStrategy.registry.keys())
+        self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", self._on_mapping_selected)
+        self.mapping_dropdown_menu.grid(row=4, column=0, sticky="ew", padx=2)
+        HoverTooltip.attach_schema(self.mapping_dropdown_menu, ExecutionSettings, "c40_mapping")
+        _, map_info = make_strategy_contract_controls(
+            self, self.mapping_dropdown_menu, MappingStrategy.registry, lambda: self.root.exec
+        )
+        map_info.grid(row=4, column=1, padx=(0, 2))
+
+        self._default_map_lbl = ttk.Label(self, text="Default Map")
+        self._default_map_lbl.grid(row=4, column=2, sticky="e", padx=(8, 0))
+        self._default_map_entry = ttk.Entry(
+            self, textvariable=self.root.setting.default_map_file, width=15, state="readonly",
+        )
+        self._default_map_entry.grid(row=4, column=3, sticky="ew", padx=2)
+        self._default_map_entry.bind("<Button-1>", self._pick_default_map)
+        self.refresh_default_map_tooltips()
 
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-        self.columnconfigure(2, weight=1)
 
         self._pipeline_widgets = [
-            self._lbl_detect, self.detection_dropdown_menu,
-            self._lbl_track, self.tracking_dropdown_menu,
-            self._lbl_predict, self.prediction_dropdown_menu,
+            self._lbl_detect, self.detection_dropdown_menu, det_info,
+            self._lbl_track, self.tracking_dropdown_menu, track_info,
+            self._lbl_predict, self.prediction_dropdown_menu, pred_info,
         ]
+        self._default_map_widgets = [self._default_map_lbl, self._default_map_entry]
 
         self.root.setting.perception_type.trace_add("write", lambda *_: self._update_pipeline_visibility())
+        self.root.setting.mapping_type.trace_add("write", lambda *_: self._update_default_map_visibility())
         self._update_pipeline_visibility()
+        self._update_default_map_visibility()
 
     def _on_perception_selected(self, event=None):
         self._update_pipeline_visibility()
+        self.root.reload_stack(reload_code=False)
+
+    def _on_mapping_selected(self, event=None):
+        self._update_default_map_visibility()
         self.root.reload_stack(reload_code=False)
 
     def _update_pipeline_visibility(self):
@@ -158,6 +199,29 @@ class PerceptionFrame(ttk.LabelFrame):
                 w.grid()
             else:
                 w.grid_remove()
+
+    def _update_default_map_visibility(self):
+        show = self.root.setting.mapping_type.get() == MapReader.__name__
+        for w in self._default_map_widgets:
+            if show:
+                w.grid()
+            else:
+                w.grid_remove()
+
+    def refresh_default_map_tooltips(self):
+        field = DataPicker.default_map_settings_field()
+        HoverTooltip.update_schema(self._default_map_lbl, ExecutionSettings, field)
+        HoverTooltip.update_schema(self._default_map_entry, ExecutionSettings, field)
+
+    def _pick_default_map(self, _event=None):
+        current = DataPicker.display_path(self.root.setting.default_map_file.get())
+        items = DataPicker.list_map_candidates()
+        dialog = ThemedListPickerDialog(
+            self.root, "Default Map", items, initial=current,
+        )
+        if dialog.result is not None:
+            self.root.setting.default_map_file.set(dialog.result)
+            self.root.reload_stack(reload_code=False)
 
     def update_data(self):
         """Update data in the perception frame."""
@@ -172,8 +236,12 @@ class PerceptionFrame(ttk.LabelFrame):
         log.info("allowed_default_plugins: %s, allowed_community_plugins: %s", allowed_default_plugins, allowed_community_plugins)
         log.info(f"final Strategies: {data}")
 
-        self.perception_dropdown_menu["values"] = tuple(data)
+        self.perception_dropdown_menu["values"] = ("",) + tuple(data)
+        self.localization_dropdown_menu["values"] = ("",) + tuple(LocalizationStrategy.registry.keys())
+        self.mapping_dropdown_menu["values"] = ("",) + tuple(MappingStrategy.registry.keys())
         if self.root.exec is None:
+            self._update_pipeline_visibility()
+            self._update_default_map_visibility()
             return
         _stack_caps = self.root.exec.world.stack_capabilities
         self.detection_dropdown_menu["values"] = (
@@ -186,6 +254,7 @@ class PerceptionFrame(ttk.LabelFrame):
         )
         self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
         self._update_pipeline_visibility()
+        self._update_default_map_visibility()
 
 
 # --------------------------------------------------------------------------------------------
@@ -204,20 +273,39 @@ class PlanFrame(ttk.LabelFrame):
         global_frame.pack(fill=tk.X)
         global_show = ttk.Checkbutton(global_frame, text="Global", command=self.root.update_views, variable=self.root.setting.p67_global_plan_view)
         global_show.pack(side=tk.LEFT)
-        attach_schema_tooltip(global_show, VisualizationSettings, "p67_global_plan_view")
+        HoverTooltip.attach_schema(global_show, VisualizationSettings, "p67_global_plan_view")
         self.global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
-        self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
+        self.global_planner_dropdown_menu["values"] = ("",) + tuple(GlobalPlannerStrategy.registry.keys())
         self.global_planner_dropdown_menu.state(["readonly"])
         self.global_planner_dropdown_menu.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.global_planner_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
-        attach_schema_tooltip(self.global_planner_dropdown_menu, ExecutionSettings, "c40_global_planner")
+        HoverTooltip.attach_schema(self.global_planner_dropdown_menu, ExecutionSettings, "c40_global_planner")
+        _, gp_info = make_strategy_contract_controls(
+            global_frame, self.global_planner_dropdown_menu, GlobalPlannerStrategy.registry, lambda: self.root.exec
+        )
+        gp_info.pack(side=tk.LEFT)
 
         btn_global_replan = ttk.Button(global_frame, text="Global Replan", command=self.replan_global)
         btn_global_replan.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        attach_tooltip(btn_global_replan, BUTTON_TOOLTIPS["plan_global_replan"])
+        HoverTooltip.attach(btn_global_replan, BUTTON_TOOLTIPS["plan_global_replan"])
         btn_save_global = ttk.Button(global_frame, text="⬇", command=self.save_global_plan, width=3)
         btn_save_global.pack(side=tk.LEFT)
-        attach_tooltip(btn_save_global, BUTTON_TOOLTIPS["plan_save_global"])
+        HoverTooltip.attach(btn_save_global, BUTTON_TOOLTIPS["plan_save_global"])
+
+        global_plan_row = ttk.Frame(self)
+        global_plan_row.pack(fill=tk.X)
+        lbl = ttk.Label(global_plan_row, text="Default Global Plan")
+        lbl.pack(side=tk.LEFT, padx=(5, 0))
+        global_tj_file = ttk.Entry(
+            global_plan_row,
+            textvariable=self.root.setting.default_global_plan_file,
+            width=15,
+            state="readonly",
+        )
+        global_tj_file.pack(side=tk.LEFT,fill=tk.X, expand=True, padx=(5, 0))
+        global_tj_file.bind("<Button-1>", self._pick_default_global_plan)
+        HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_global_trajectory")
+        HoverTooltip.attach_schema(global_tj_file, ExecutionSettings, "c40_global_trajectory")
 
         ttk.Separator(self, orient="horizontal").pack(fill=tk.X, pady=2)
 
@@ -226,18 +314,22 @@ class PlanFrame(ttk.LabelFrame):
         wp_frame.pack(fill=tk.X)
         local_show = ttk.Checkbutton(wp_frame, text="Local", command=self.root.update_views, variable=self.root.setting.p67_local_plan_view)
         local_show.pack(side=tk.LEFT)
-        attach_schema_tooltip(local_show, VisualizationSettings, "p67_local_plan_view")
+        HoverTooltip.attach_schema(local_show, VisualizationSettings, "p67_local_plan_view")
 
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
-        self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
+        self.local_planner_dropdown_menu["values"] = ("",) + tuple(LocalPlanningStrategy.registry.keys())
         self.local_planner_dropdown_menu.state(["readonly"])
         self.local_planner_dropdown_menu.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.local_planner_dropdown_menu.bind("<<ComboboxSelected>>", self._on_local_planner_selected)
-        attach_schema_tooltip(self.local_planner_dropdown_menu, ExecutionSettings, "c40_local_planner")
+        HoverTooltip.attach_schema(self.local_planner_dropdown_menu, ExecutionSettings, "c40_local_planner")
+        _, lp_info = make_strategy_contract_controls(
+            wp_frame, self.local_planner_dropdown_menu, LocalPlanningStrategy.registry, lambda: self.root.exec
+        )
+        lp_info.pack(side=tk.LEFT)
 
         btn_set_wp = ttk.Button(wp_frame, text="Set Waypoint", command=self.set_waypoint)
         btn_set_wp.pack(side=tk.LEFT)
-        attach_tooltip(btn_set_wp, BUTTON_TOOLTIPS["plan_set_waypoint"])
+        HoverTooltip.attach(btn_set_wp, BUTTON_TOOLTIPS["plan_set_waypoint"])
         global_tj_wp_entry = ttk.Entry( wp_frame, width=6, textvariable=self.root.setting.current_wp)
         global_tj_wp_entry.pack(side=tk.LEFT, padx=5)
         global_tj_wp_entry.bind("<Return>", self.text_on_enter)
@@ -251,34 +343,49 @@ class PlanFrame(ttk.LabelFrame):
         local_g.pack(side=tk.LEFT)
         local_f = ttk.Checkbutton(self._local_sub_frame, text="F", variable=self.root.setting.p67_show_local_frenet_view, command=self.root.update_ui)
         local_f.pack(side=tk.LEFT)
-        attach_schema_tooltip(local_g, VisualizationSettings, "p67_show_local_global_view")
-        attach_schema_tooltip(local_f, VisualizationSettings, "p67_show_local_frenet_view")
+        HoverTooltip.attach_schema(local_g, VisualizationSettings, "p67_show_local_global_view")
+        HoverTooltip.attach_schema(local_f, VisualizationSettings, "p67_show_local_frenet_view")
 
         self._lbl_behavior = ttk.Label(self._local_sub_frame, text="Behavior:")
         self.behavioral_dropdown_menu = ttk.Combobox(
             self._local_sub_frame, textvariable=self.root.setting.behavioral_strategy_type, state="readonly", width=8)
         self.behavioral_dropdown_menu["values"] = ("",) + tuple(LocalBehavioralPlanningStrategy.registry.keys())
         self.behavioral_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        attach_schema_tooltip(self.behavioral_dropdown_menu, PlanningSettings, "c23_behavioral_strategy")
+        HoverTooltip.attach_schema(self.behavioral_dropdown_menu, PlanningSettings, "c23_behavioral_strategy")
+        _, beh_info = make_strategy_contract_controls(
+            self._local_sub_frame, self.behavioral_dropdown_menu,
+            LocalBehavioralPlanningStrategy.registry, lambda: self.root.exec,
+        )
         self._lbl_path = ttk.Label(self._local_sub_frame, text="Path:")
         self.path_dropdown_menu = ttk.Combobox(
             self._local_sub_frame, textvariable=self.root.setting.path_strategy_type, state="readonly", width=8)
         self.path_dropdown_menu["values"] = ("",) + tuple(LocalPathPlanningStrategy.registry.keys())
         self.path_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        attach_schema_tooltip(self.path_dropdown_menu, PlanningSettings, "c23_path_strategy")
+        HoverTooltip.attach_schema(self.path_dropdown_menu, PlanningSettings, "c23_path_strategy")
+        _, path_info = make_strategy_contract_controls(
+            self._local_sub_frame, self.path_dropdown_menu,
+            LocalPathPlanningStrategy.registry, lambda: self.root.exec,
+        )
         self._lbl_speed = ttk.Label(self._local_sub_frame, text="Speed:")
         self.velocity_dropdown_menu = ttk.Combobox(
             self._local_sub_frame, textvariable=self.root.setting.velocity_strategy_type, state="readonly", width=8)
         self.velocity_dropdown_menu["values"] = ("",) + tuple(LocalVelocityPlanningStrategy.registry.keys())
         self.velocity_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        attach_schema_tooltip(self.velocity_dropdown_menu, PlanningSettings, "c23_velocity_strategy")
+        HoverTooltip.attach_schema(self.velocity_dropdown_menu, PlanningSettings, "c23_velocity_strategy")
+        _, vel_info = make_strategy_contract_controls(
+            self._local_sub_frame, self.velocity_dropdown_menu,
+            LocalVelocityPlanningStrategy.registry, lambda: self.root.exec,
+        )
         self._pipeline_widgets = (
             (self._lbl_behavior, {"side": tk.LEFT, "padx": (5, 0)}),
             (self.behavioral_dropdown_menu, {"side": tk.LEFT, "fill": tk.X, "expand": True}),
+            (beh_info, {"side": tk.LEFT}),
             (self._lbl_path, {"side": tk.LEFT, "padx": (5, 0)}),
             (self.path_dropdown_menu, {"side": tk.LEFT, "fill": tk.X, "expand": True}),
+            (path_info, {"side": tk.LEFT}),
             (self._lbl_speed, {"side": tk.LEFT, "padx": (5, 0)}),
             (self.velocity_dropdown_menu, {"side": tk.LEFT, "fill": tk.X, "expand": True}),
+            (vel_info, {"side": tk.LEFT}),
         )
 
         self.root.setting.local_planner_type.trace_add("write", lambda *_: self._update_pipeline_visibility())
@@ -290,16 +397,16 @@ class PlanFrame(ttk.LabelFrame):
 
         btn_wp_back = ttk.Button(self, text="◀️", command=self.step_waypoint_back, width=2)
         btn_wp_back.pack(side=tk.LEFT)
-        attach_tooltip(btn_wp_back, BUTTON_TOOLTIPS["plan_wp_back"])
+        HoverTooltip.attach(btn_wp_back, BUTTON_TOOLTIPS["plan_wp_back"])
         btn_plan_step = ttk.Button(self, text="▶", command=self.step_plan, width=2)
         btn_plan_step.pack(side=tk.LEFT)
-        attach_tooltip(btn_plan_step, BUTTON_TOOLTIPS["plan_step"])
+        HoverTooltip.attach(btn_plan_step, BUTTON_TOOLTIPS["plan_step"])
         btn_plan_align = ttk.Button(self, text="Align", command=self.align_plan, width=4)
         btn_plan_align.pack(side=tk.LEFT)
-        attach_tooltip(btn_plan_align, BUTTON_TOOLTIPS["plan_align"])
+        HoverTooltip.attach(btn_plan_align, BUTTON_TOOLTIPS["plan_align"])
         btn_local_replan = ttk.Button(self, text="Local Replan", command=self.replan)
         btn_local_replan.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        attach_tooltip(btn_local_replan, BUTTON_TOOLTIPS["plan_local_replan"])
+        HoverTooltip.attach(btn_local_replan, BUTTON_TOOLTIPS["plan_local_replan"])
 
     def _on_local_planner_selected(self, event=None):
         self._update_pipeline_visibility()
@@ -313,26 +420,42 @@ class PlanFrame(ttk.LabelFrame):
             else:
                 widget.pack_forget()
 
+    def _pick_default_global_plan(self, _event=None):
+        current = DataPicker.display_path(self.root.setting.default_global_plan_file.get())
+        items = DataPicker.list_global_plan_candidates()
+        dialog = ThemedListPickerDialog(
+            self.root, "Default Global Plan", items, initial=current,
+        )
+        if dialog.result is not None:
+            self.root.setting.default_global_plan_file.set(dialog.result)
+            self.root.reload_stack(reload_code=False)
+
     def update_data(self):
         """Update data in the plan frame."""
         self.local_planner_dropdown_menu.delete(0, tk.END)  # Clear existing values
-        self.local_planner_dropdown_menu["values"] = tuple(LocalPlanningStrategy.registry.keys())
+        self.local_planner_dropdown_menu["values"] = ("",) + tuple(LocalPlanningStrategy.registry.keys())
         self.global_planner_dropdown_menu.delete(0, tk.END)  # Clear existing values
-        self.global_planner_dropdown_menu["values"] = tuple(GlobalPlannerStrategy.registry.keys())
+        self.global_planner_dropdown_menu["values"] = ("",) + tuple(GlobalPlannerStrategy.registry.keys())
         self.behavioral_dropdown_menu["values"] = ("",) + tuple(LocalBehavioralPlanningStrategy.registry.keys())
         self.path_dropdown_menu["values"] = ("",) + tuple(LocalPathPlanningStrategy.registry.keys())
         self.velocity_dropdown_menu["values"] = ("",) + tuple(LocalVelocityPlanningStrategy.registry.keys())
         self._update_pipeline_visibility()
-        if self.root.exec is not None:
+        if self.root.exec is not None and self.root.exec.local_planner is not None:
             self._wp_count_label.config(
                 text=f"{len(self.root.exec.local_planner.global_trajectory.path_x) - 1}"
             )
+        else:
+            self._wp_count_label.config(text="0")
 
     def set_waypoint(self):
+        if not self.root.exec or not self.root.exec.local_planner:
+            return
         self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
         self.root.update_ui()
     def step_waypoint_back(self):
         """ Step back to the previous waypoint in the local planner."""
+        if not self.root.exec or not self.root.exec.local_planner:
+            return
         self.root.setting.current_wp.set(str(int(self.root.setting.current_wp.get()) - 1))
         self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
         self.root.update_ui()
@@ -343,24 +466,35 @@ class PlanFrame(ttk.LabelFrame):
         self.root.validate_float_input(text)  # Validate the input
         log.debug("Text entered: %s", text)
         widget.tk_focusNext().focus_set()  # Move focus to the next widget
+        if not self.root.exec or not self.root.exec.local_planner:
+            return
         self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
         self.root.update_ui()
 
     def replan(self):
+        if not self.root.exec or not self.root.exec.local_planner:
+            return
         t1 = time.time()
-        self.root.exec.local_planner.replan()
+        self.root.exec.local_planner.replan(
+            perception_model=self.root.exec.pm,
+            sensors=self.root.exec._fetch_sensor_frame(),
+        )
         t2 = time.time()
         log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
         self.root.update_ui()
 
     def replan_global(self):
-        self.root.exec.replan_global()
+        if not self.root.exec or not self.root.exec.global_planner:
+            return
+        self.root.replan_global()
         self.root.local_plan_plot_view.reset()
         self.root.global_plan_plot_view.plot()
         self.root.local_plan_plot_view.plot()
         self.root.update_ui()
 
     def save_global_plan(self):
+        if not self.root.exec or not self.root.exec.global_planner:
+            return
         self.root.exec_visualize_view.stop_exec()
         data_dir = DataPaths.user_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -381,11 +515,15 @@ class PlanFrame(ttk.LabelFrame):
             messagebox.showerror("Save Failed", str(e), parent=self)
 
     def align_plan(self):
+        if not self.root.exec or not self.root.exec.local_planner:
+            return
         log.debug("Aligning plan with current ego state")
         self.root.exec.local_planner.step(self.root.exec.world.get_ego_state())
         self.root.update_ui()
 
     def step_plan(self):
+        if not self.root.exec or not self.root.exec.local_planner:
+            return
         # Placeholder for the method to step to the next waypoint
         t1 = time.time()
         self.root.exec.local_planner.step_wp()
@@ -407,30 +545,34 @@ class ControlFrame(ttk.LabelFrame):
         control_button_frame = ttk.Frame(self)
         control_button_frame.pack(fill=tk.X, expand=True)
         self.controller_dropdown_menu = ttk.Combobox(control_button_frame, textvariable=self.root.setting.controller_type, width=10)
-        self.controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
+        self.controller_dropdown_menu["values"] = ("",) + tuple(ControlStrategy.registry.keys())
         self.controller_dropdown_menu.state(["readonly"])
         self.controller_dropdown_menu.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.controller_dropdown_menu.bind("<<ComboboxSelected>>", lambda event: self.root.reload_stack(reload_code=False))
-        attach_schema_tooltip(self.controller_dropdown_menu, ExecutionSettings, "c40_controller")
+        HoverTooltip.attach_schema(self.controller_dropdown_menu, ExecutionSettings, "c40_controller")
+        _, cn_info = make_strategy_contract_controls(
+            control_button_frame, self.controller_dropdown_menu, ControlStrategy.registry, lambda: self.root.exec
+        )
+        cn_info.pack(side=tk.LEFT)
 
         btn_control_step = ttk.Button(control_button_frame, text="Step", command=self.step_control)
         btn_control_step.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        attach_tooltip(btn_control_step, BUTTON_TOOLTIPS["control_step"])
+        HoverTooltip.attach(btn_control_step, BUTTON_TOOLTIPS["control_step"])
         btn_control_align = ttk.Button(control_button_frame, text="Align", width=4, command=self.align_control)
         btn_control_align.pack(side=tk.LEFT)
-        attach_tooltip(btn_control_align, BUTTON_TOOLTIPS["control_align"])
+        HoverTooltip.attach(btn_control_align, BUTTON_TOOLTIPS["control_align"])
         btn_steer_left = ttk.Button(control_button_frame, text="◀️ ", width=2, command=self.step_steer_left)
         btn_steer_left.pack(side=tk.LEFT)
-        attach_tooltip(btn_steer_left, BUTTON_TOOLTIPS["control_steer_left"])
+        HoverTooltip.attach(btn_steer_left, BUTTON_TOOLTIPS["control_steer_left"])
         btn_steer_right = ttk.Button(control_button_frame, text="▶", width=2, command=self.step_steer_right)
         btn_steer_right.pack(side=tk.LEFT)
-        attach_tooltip(btn_steer_right, BUTTON_TOOLTIPS["control_steer_right"])
+        HoverTooltip.attach(btn_steer_right, BUTTON_TOOLTIPS["control_steer_right"])
         btn_accel = ttk.Button(control_button_frame, text="▲", width=2, command=self.step_acc)
         btn_accel.pack(side=tk.LEFT)
-        attach_tooltip(btn_accel, BUTTON_TOOLTIPS["control_accel"])
+        HoverTooltip.attach(btn_accel, BUTTON_TOOLTIPS["control_accel"])
         btn_decel = ttk.Button(control_button_frame, text="▼", width=2, command=self.step_dec)
         btn_decel.pack(side=tk.LEFT)
-        attach_tooltip(btn_decel, BUTTON_TOOLTIPS["control_decel"])
+        HoverTooltip.attach(btn_decel, BUTTON_TOOLTIPS["control_decel"])
 
         #################
         # Progress bars
@@ -474,17 +616,26 @@ class ControlFrame(ttk.LabelFrame):
     def update_data(self):
         """Update data in the control frame."""
         self.controller_dropdown_menu.delete(0, tk.END)  # Clear existing values
-        self.controller_dropdown_menu["values"] = tuple(ControlStrategy.registry.keys())
+        self.controller_dropdown_menu["values"] = ("",) + tuple(ControlStrategy.registry.keys())
 
     def step_control(self):
+        if not self.root.exec or not self.root.exec.controller or not self.root.exec.local_planner:
+            return
         cmd = self.root.exec.controller.control(
-            self.root.exec.ego_state, self.root.exec.local_planner.get_local_plan())
+            self.root.exec.ego_state,
+            self.root.exec.local_planner.get_local_plan(),
+            control_dt=self.root.setting.sim_dt.get(),
+            perception_model=self.root.exec.pm,
+            sensors=self.root.exec._fetch_sensor_frame(),
+        )
 
         self.root.exec.world.control_ego_state(
             cmd=cmd, dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def align_control(self):
+        if not self.root.exec or not self.root.exec.controller or not self.root.exec.local_planner:
+            return
         self.root.exec.ego_state.x, self.root.exec.ego_state.y = self.root.exec.local_planner.location_xy
         self.root.exec.controller.reset()
         self.root.update_ui()
@@ -530,27 +681,21 @@ class ExecView(ttk.Frame):
         self.root = root
         self._exec_after_id: str | None = None
 
-        # ----------------------------------------------------------------------
-        # ----------------------------------------------------------------------
-        # ----------------------------------------------------------------------
-        self.execution_factory_frame = ttk.LabelFrame(self, text="Execution")
-        self.execution_factory_frame.grid(row=0,column=0,pady=5, sticky="new")
+        # Side-by-side panes share height (same pattern as PerceivePlanControlView).
+        exec_bar = ttk.Frame(self)
+        exec_bar.pack(fill=tk.X)
 
-        executer_frame = ExecSettingsFrame(self.root, self)
-        executer_frame.grid(row=0, column=1, pady=5, sticky="new")
+        self.execution_factory_frame = ttk.LabelFrame(exec_bar, text="Execution")
+        self.execution_factory_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(0, 2))
 
-        ## Bridge 
-        self.bridge_frame = BridgeFrame(self.root, self)
-        self.bridge_frame.grid(row=0, column=2, pady=5, sticky="nsw")
-        
-        ## Execution Settings Frame
-        exec_stats_frame = ExecStatsFrame(self.root, self)
-        exec_stats_frame.grid(row=0, column=3,pady=5, sticky="new")
+        executer_frame = ExecSettingsFrame(self.root, exec_bar)
+        executer_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
 
-        self.columnconfigure(0, weight=2)  # execution_frame wider
-        # self.columnconfigure(1, weight=1)  # exec_setting_frame
-        # self.columnconfigure(2, weight=1)  # bridge_frame
-        
+        self.bridge_frame = BridgeFrame(self.root, exec_bar)
+        self.bridge_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
+
+        exec_stats_frame = ExecStatsFrame(self.root, exec_bar)
+        exec_stats_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(2, 0))
 
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
@@ -564,60 +709,63 @@ class ExecView(ttk.Frame):
         # ------------------------------------------------------------------------
         # ------------------------------------------------------------------------
         lbl = ttk.Label(exec_first_frame, text="Perception \u0394t ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        lbl.pack(side=tk.LEFT, padx=5, pady=1)
         dt_perception_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.perception_dt, width=5,)
         dt_perception_entry.pack(side=tk.LEFT)
         dt_perception_entry.bind("<Return>", self.text_on_enter)
-        attach_schema_tooltip(lbl, ExecutionSettings, "c40_perception_dt")
-        attach_schema_tooltip(dt_perception_entry, ExecutionSettings, "c40_perception_dt")
+        HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_perception_dt")
+        HoverTooltip.attach_schema(dt_perception_entry, ExecutionSettings, "c40_perception_dt")
 
         lbl = ttk.Label(exec_first_frame, text="Replan Δt ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        lbl.pack(side=tk.LEFT, padx=5, pady=1)
         dt_plan_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
         dt_plan_entry.pack(side=tk.LEFT)
         dt_plan_entry.bind("<Return>", self.text_on_enter)
-        attach_schema_tooltip(lbl, ExecutionSettings, "c40_replan_dt")
-        attach_schema_tooltip(dt_plan_entry, ExecutionSettings, "c40_replan_dt")
+        HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_replan_dt")
+        HoverTooltip.attach_schema(dt_plan_entry, ExecutionSettings, "c40_replan_dt")
 
         lbl = ttk.Label(exec_first_frame, text="Control Δt ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        lbl.pack(side=tk.LEFT, padx=5, pady=1)
         dt_control_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.control_dt, width=5,)
         dt_control_entry.pack(side=tk.LEFT)
         dt_control_entry.bind("<Return>", self.text_on_enter)
-        attach_schema_tooltip(lbl, ExecutionSettings, "c40_control_dt")
-        attach_schema_tooltip(dt_control_entry, ExecutionSettings, "c40_control_dt")
+        HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_control_dt")
+        HoverTooltip.attach_schema(dt_control_entry, ExecutionSettings, "c40_control_dt")
 
         lbl = ttk.Label(exec_first_frame, text="Sim Δt ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=5)
+        lbl.pack(side=tk.LEFT, padx=5, pady=1)
         sim_dt = ttk.Entry(exec_first_frame, textvariable=self.root.setting.sim_dt, width=5,)
         sim_dt.pack(side=tk.LEFT)
         sim_dt.bind("<Return>", self.text_on_enter)
-        attach_schema_tooltip(lbl, ExecutionSettings, "c40_sim_dt")
-        attach_schema_tooltip(sim_dt, ExecutionSettings, "c40_sim_dt")
+        HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_sim_dt")
+        HoverTooltip.attach_schema(sim_dt, ExecutionSettings, "c40_sim_dt")
 
-        self.executer_dropdown_menu = ttk.Combobox(exec_first_frame, textvariable=self.root.setting.executer_type, state="readonly",)
-        self.executer_dropdown_menu["values"] = list(ExecutionStrategy.registry.keys())
-        self.executer_dropdown_menu.state(["readonly"])
-        self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.executer_dropdown_menu.pack(side=tk.RIGHT)
-        attach_schema_tooltip(self.executer_dropdown_menu, ExecutionSettings, "c40_executer_type")
 
 
 
         ## Second frame
         self.start_exec_button = ttk.Button( exec_second_frame, text="Start", command=self.toggle_exec, style="Start.TButton", width=10,)
         self.start_exec_button.pack(fill=tk.X, side=tk.LEFT, padx = (5,0))
-        attach_tooltip(self.start_exec_button, BUTTON_TOOLTIPS["exec_start"])
+        HoverTooltip.attach(self.start_exec_button, BUTTON_TOOLTIPS["exec_start"])
 
         btn_stop = ttk.Button( exec_second_frame, text="Stop", command=self.stop_exec, style="Stop.TButton",)
         btn_stop.pack(side=tk.LEFT, padx=1)
-        attach_tooltip(btn_stop, BUTTON_TOOLTIPS["exec_stop"])
+        HoverTooltip.attach(btn_stop, BUTTON_TOOLTIPS["exec_stop"])
         btn_step = ttk.Button(exec_second_frame, text="Step", width=4, command=self.step_exec)
         btn_step.pack(side=tk.LEFT)
-        attach_tooltip(btn_step, BUTTON_TOOLTIPS["exec_step"])
+        HoverTooltip.attach(btn_step, BUTTON_TOOLTIPS["exec_step"])
         btn_reset = ttk.Button(exec_second_frame, text="Reset", width=4, command=self.reset_exec)
         btn_reset.pack(side=tk.LEFT)
-        attach_tooltip(btn_reset, BUTTON_TOOLTIPS["exec_reset"])
+        HoverTooltip.attach(btn_reset, BUTTON_TOOLTIPS["exec_reset"])
+        
+        self.executer_dropdown_menu = ttk.Combobox(exec_second_frame, textvariable=self.root.setting.executer_type, state="readonly",)
+        self.executer_dropdown_menu["values"] = list(ExecutionStrategy.registry.keys())
+        self.executer_dropdown_menu.state(["readonly"])
+        self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.executer_dropdown_menu.pack(side=tk.RIGHT)
+        HoverTooltip.attach_schema(self.executer_dropdown_menu, ExecutionSettings, "c40_executer_type")
+        
+        ttk.Label(exec_second_frame, text="Executer: ").pack(side=tk.RIGHT, padx=5)
 
 
         ## Third frame 
@@ -632,66 +780,7 @@ class ExecView(ttk.Frame):
         #     command=lambda: self.root.reload_stack(reload_code=False),
         # ).pack(side=tk.LEFT)
         vehicle_state_label = ttk.Label(exec_third_frame, font=self.root.small_font, textvariable=self.root.setting.vehicle_state)
-        vehicle_state_label.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
-
-
-        right_opts = ttk.Frame(exec_second_frame)
-        right_opts.pack(side=tk.RIGHT, padx=5, pady=5)
-
-        global_plan_row = ttk.Frame(right_opts)
-        global_plan_row.pack(side=tk.TOP, anchor=tk.E)
-        global_tj_file = ttk.Entry(
-            global_plan_row,
-            textvariable=self.root.setting.default_global_plan_file,
-            width=15,
-            state="readonly",
-        )
-        global_tj_file.pack(side=tk.RIGHT, padx=(5, 0))
-        global_tj_file.bind("<Button-1>", self._pick_default_global_plan)
-        lbl = ttk.Label(global_plan_row, text="Default Global Plan")
-        lbl.pack(side=tk.RIGHT, padx=(5, 0))
-        attach_schema_tooltip(lbl, ExecutionSettings, "c40_global_trajectory")
-        attach_schema_tooltip(global_tj_file, ExecutionSettings, "c40_global_trajectory")
-
-        map_row = ttk.Frame(right_opts)
-        map_row.pack(side=tk.TOP, anchor=tk.E, pady=(4, 0))
-        default_map_entry = ttk.Entry(
-            map_row, textvariable=self.root.setting.default_map_file, width=15, state="readonly",
-        )
-        default_map_entry.pack(side=tk.RIGHT, padx=(5, 0))
-        default_map_entry.bind("<Button-1>", self._pick_default_map)
-        map_lbl = ttk.Label(map_row, text="Default Map")
-        map_lbl.pack(side=tk.RIGHT, padx=(5, 0))
-        self._default_map_lbl = map_lbl
-        self._default_map_entry = default_map_entry
-        self.refresh_default_map_tooltips()
-
-
-    def refresh_default_map_tooltips(self):
-        field = DataPicker.default_map_settings_field()
-        update_schema_tooltip(self._default_map_lbl, ExecutionSettings, field)
-        update_schema_tooltip(self._default_map_entry, ExecutionSettings, field)
-
-
-    def _pick_default_global_plan(self, _event=None):
-        current = DataPicker.display_path(self.root.setting.default_global_plan_file.get())
-        items = DataPicker.list_global_plan_candidates()
-        dialog = ThemedListPickerDialog(
-            self.root, "Default Global Plan", items, initial=current,
-        )
-        if dialog.result:
-            self.root.setting.default_global_plan_file.set(dialog.result)
-            self.root.reload_stack(reload_code=False)
-
-    def _pick_default_map(self, _event=None):
-        current = DataPicker.display_path(self.root.setting.default_map_file.get())
-        items = DataPicker.list_map_candidates()
-        dialog = ThemedListPickerDialog(
-            self.root, "Default Map", items, initial=current,
-        )
-        if dialog.result:
-            self.root.setting.default_map_file.set(dialog.result)
-            self.root.reload_stack(reload_code=False)
+        vehicle_state_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1)
 
 
     def text_on_enter(self, event):
@@ -793,18 +882,20 @@ class ExecSettingsFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
         super().__init__(view, text="Executables")
         self.root = root
-        chk = ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control)
+        chk = ttk.Checkbutton(self, text="Perception", variable=self.root.setting.exec_perceive)
         chk.grid(row=0, column=0, sticky="w")
-        attach_schema_tooltip(chk, VisualizationSettings, "exec_control")
+        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_perceive")
         chk = ttk.Checkbutton(self, text="Planning", variable=self.root.setting.exec_plan)
         chk.grid(row=1, column=0, sticky="w")
-        attach_schema_tooltip(chk, VisualizationSettings, "exec_plan")
-        chk = ttk.Checkbutton(self, text="Perception", variable=self.root.setting.exec_perceive)
+        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_plan")
+        
+        chk = ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control)
         chk.grid(row=2, column=0, sticky="w")
-        attach_schema_tooltip(chk, VisualizationSettings, "exec_perceive")
+        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_control")
+
         chk = ttk.Checkbutton(self, text="Localization", variable=self.root.setting.exec_localize)
         chk.grid(row=3, column=0, sticky="w")
-        attach_schema_tooltip(chk, VisualizationSettings, "exec_localize")
+        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_localize")
 
 
 class BridgeFrame(ttk.LabelFrame):
@@ -815,64 +906,59 @@ class BridgeFrame(ttk.LabelFrame):
         self.world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())
         self.world_bridge_dropdown_menu.state(["readonly"])
         self.world_bridge_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.world_bridge_dropdown_menu.grid(row=0, column=0, columnspan=4, pady=(0, 4), sticky="we")
-        attach_schema_tooltip(self.world_bridge_dropdown_menu, ExecutionSettings, "c40_bridge")
+        self.world_bridge_dropdown_menu.grid(row=0, column=0, columnspan=2, pady=(0, 2), sticky="we")
+        HoverTooltip.attach_schema(self.world_bridge_dropdown_menu, ExecutionSettings, "c40_bridge")
+        _, bridge_info = make_world_bridge_contract_controls(
+            self, self.world_bridge_dropdown_menu, lambda: self.root.exec
+        )
+        bridge_info.grid(row=0, column=2, pady=(0, 2), padx=(2, 0), sticky="e")
 
-        # Two scrollable checklists: world sensors and ground-truth stack capabilities.
         ttk.Label(self, text="world capabilities", font=self.root.small_font).grid(row=1, column=0, sticky="w")
-        ttk.Label(self, text="stack capabilities", font=self.root.small_font).grid(row=1, column=2, sticky="w")
-        self._world_canvas, self._world_inner = self._make_scroll_column(row=2, column=0)
-        self._stack_canvas, self._stack_inner = self._make_scroll_column(row=2, column=2)
+        ttk.Label(self, text="stack capabilities", font=self.root.small_font).grid(row=1, column=1, sticky="w")
+        self._world_inner = ttk.Frame(self)
+        self._world_inner.grid(row=2, column=0, sticky="nw")
+        self._stack_inner = ttk.Frame(self)
+        self._stack_inner.grid(row=2, column=1, sticky="nw", padx=(8, 0))
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(2, weight=1)
+        self.columnconfigure(1, weight=1)
 
-        self._cap_vars: dict[str, tk.BooleanVar] = {}
-
-    def _make_scroll_column(self, row: int, column: int):
-        """Create a scrollable inner frame at the given grid cell; return (canvas, inner)."""
-        style = ttk.Style()
-        bg_color = style.lookup("TFrame", "background")
-        canvas = tk.Canvas(self, width=120, height=96, highlightthickness=0, bd=0, background=bg_color)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        inner = ttk.Frame(canvas)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        def _resize_canvas(event, c=canvas):
-            c.configure(scrollregion=c.bbox("all"))
-            c.configure(height=min(event.height, 96))
-
-        inner.bind("<Configure>", _resize_canvas)
-        canvas.create_window((0, 0), window=inner, anchor="nw")
-        canvas.grid(row=row, column=column, sticky="new")
-        scrollbar.grid(row=row, column=column + 1, sticky="ns")
-        return canvas, inner
+        self._world_cap_vars: dict[str, tk.BooleanVar] = {}
+        self._stack_cap_vars: dict[str, tk.BooleanVar] = {}
 
     def _build_capability_checks(self, world_capabilities: set, stack_capabilities: set):
         """Rebuild the checklists for the data the selected bridge can feed the stack."""
         for child in (*self._world_inner.winfo_children(), *self._stack_inner.winfo_children()):
             child.destroy()
-        self._cap_vars = {}
+        self._world_cap_vars = {}
+        self._stack_cap_vars = {}
 
         # World "action" capabilities are features, not data fed to the stack.
         actions = {WorldCapability.AGENT_SPAWN, WorldCapability.AGENT_CONTROL}
         sensors = sorted(set(world_capabilities) - actions, key=lambda c: c.value)
         ground_truth = sorted(set(stack_capabilities), key=lambda c: c.value)
-        for inner, caps in ((self._world_inner, sensors), (self._stack_inner, ground_truth)):
-            for cap in caps:
-                var = tk.BooleanVar(value=is_capability_provided(cap))
-                var.trace_add("write", lambda *_: self._on_toggle())
-                chk = ttk.Checkbutton(inner, text=cap.name, variable=var)
-                chk.pack(anchor="w")
-                attach_capability_tooltip(chk, cap)
-                self._cap_vars[cap.name] = var
-
-        for canvas, inner in ((self._world_canvas, self._world_inner), (self._stack_canvas, self._stack_inner)):
-            self.update_idletasks()
-            canvas.configure(height=min(inner.winfo_reqheight(), 96))
+        for cap in sensors:
+            var = tk.BooleanVar(value=is_world_capability_enabled(cap))
+            var.trace_add("write", lambda *_: self._on_toggle())
+            chk = ttk.Checkbutton(self._world_inner, text=cap.name, variable=var)
+            chk.pack(anchor="w")
+            HoverTooltip.attach_capability(chk, cap)
+            self._world_cap_vars[cap.name] = var
+        for cap in ground_truth:
+            var = tk.BooleanVar(value=is_world_stack_capability_enabled(cap))
+            var.trace_add("write", lambda *_: self._on_toggle())
+            chk = ttk.Checkbutton(self._stack_inner, text=cap.name, variable=var)
+            chk.pack(anchor="w")
+            HoverTooltip.attach_capability(chk, cap)
+            self._stack_cap_vars[cap.name] = var
 
     def _on_toggle(self):
-        """Persist the checked capabilities to the c41_provided filter and refresh plots."""
-        ExecutionSettings.c41_provided = [name for name, var in self._cap_vars.items() if var.get()]
+        """Persist the checked capabilities to the two c41_world_* filters and refresh plots."""
+        ExecutionSettings.c41_world_capabilities = [
+            name for name, var in self._world_cap_vars.items() if var.get()
+        ]
+        ExecutionSettings.c41_world_stack_capabilities = [
+            name for name, var in self._stack_cap_vars.items() if var.get()
+        ]
         self.root.update_views()
 
     def update_data(self):
@@ -884,9 +970,8 @@ class BridgeFrame(ttk.LabelFrame):
         self._build_capability_checks(capabilities, stack_capabilities or set())
 
     def update_canvas_theme(self):
-        bg = ttk.Style().lookup("TFrame", "background")
-        for canvas in (self._world_canvas, self._stack_canvas):
-            canvas.configure(background=bg)
+        """No-op: capability lists are ttk widgets (theme follows Style)."""
+        pass
 
 
 

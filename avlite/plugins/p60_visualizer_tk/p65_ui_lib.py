@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ctypes
 import logging
 import os
@@ -15,9 +17,14 @@ except ImportError:
 
 from avlite.c10_perception.c11_perception_model import HDMap, RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
+from avlite.c50_common.c51_capabilities import (
+    StackCapability,
+    WorldCapability,
+    is_any_of,
+    is_requirement_wrapper,
+    used_stack_capabilities,
+)
 from avlite.c60_apps.c64_settings_schema import PlainBinder, field_tooltip_text
 from avlite.c60_apps.c68_paths import DataPaths
 
@@ -39,7 +46,7 @@ class ValueGauge(ttk.Frame):
         if dpi_scale is None:
             dpi_scale = getattr(parent, "_dpi_scale", None)
         if dpi_scale is None:
-            dpi_scale = get_dpi_scale(parent)
+            dpi_scale = DpiScale.for_widget(parent)
 
         self.min_value = min_value
         self.max_value = max_value
@@ -49,7 +56,7 @@ class ValueGauge(ttk.Frame):
         self.pack_propagate(False)
         self.font = ("Helvetica", 7, "bold")
         self._old_value = 0  # used to not draw if value is same
-        gauge_height = scaled(height, dpi_scale)
+        gauge_height = DpiScale.scaled(height, dpi_scale)
 
         if name != "":
             tk.Label(self, text=name, font=self.font).pack(side=tk.LEFT, padx=0, pady=1)
@@ -146,8 +153,8 @@ class ThemedInputDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        s = get_dpi_scale(self.dialog, parent=parent)
-        self.dialog.minsize(scaled(300, s), scaled(100, s))
+        s = DpiScale.for_widget(self.dialog, parent=parent)
+        self.dialog.minsize(DpiScale.scaled(300, s), DpiScale.scaled(100, s))
         
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
 
@@ -161,7 +168,7 @@ class ThemedInputDialog:
 
         # Add prompt and entry field
         ttk.Label(top_frame, text=prompt).pack(side=tk.LEFT, padx=10)
-        self.entry = ttk.Entry(top_frame, width=max(10, scaled(20, s)))
+        self.entry = ttk.Entry(top_frame, width=max(10, DpiScale.scaled(20, s)))
         self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=10, pady=5)
         if initial:
             self.entry.insert(0, initial)
@@ -194,8 +201,8 @@ class ThemedTwoInputDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        s = get_dpi_scale(self.dialog, parent=parent)
-        self.dialog.minsize(scaled(360, s), scaled(140, s))
+        s = DpiScale.for_widget(self.dialog, parent=parent)
+        self.dialog.minsize(DpiScale.scaled(360, s), DpiScale.scaled(140, s))
         
         self.dialog.bind("<Escape>", lambda e: self.on_cancel())  # Bind Escape key to cancel
         
@@ -218,7 +225,7 @@ class ThemedTwoInputDialog:
         self.first_entry.insert(0, initial1)
         
         ttk.Label(frame, text=prompt2).grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
-        self.second_entry = ttk.Entry(frame, width=max(20, scaled(30, s)))
+        self.second_entry = ttk.Entry(frame, width=max(20, DpiScale.scaled(30, s)))
         self.second_entry.grid(row=1, column=1, padx=10, pady=5, sticky=tk.EW)
         self.second_entry.insert(0, initial2)
         
@@ -258,7 +265,7 @@ class ThemedListPickerDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        s = get_dpi_scale(self.dialog, parent=parent)
+        s = DpiScale.for_widget(self.dialog, parent=parent)
         self.dialog.bind("<Escape>", lambda _e: self.on_cancel())
 
         frame = ttk.Frame(self.dialog)
@@ -274,7 +281,7 @@ class ThemedListPickerDialog:
             height=listbox_height,
             selectmode=tk.SINGLE,
             exportselection=False,
-            width=max(30, scaled(40, s)),
+            width=max(30, DpiScale.scaled(40, s)),
         )
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.listbox.yview)
         self.listbox.configure(yscrollcommand=scrollbar.set)
@@ -285,7 +292,7 @@ class ThemedListPickerDialog:
         for item in items:
             self.listbox.insert(tk.END, item)
 
-        if initial and initial in items:
+        if initial is not None and initial in items:
             idx = items.index(initial)
             self.listbox.selection_set(idx)
             self.listbox.see(idx)
@@ -337,8 +344,8 @@ class ThemedReadOnlyTwoFieldDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
         self.dialog.transient(parent)
-        s = get_dpi_scale(self.dialog, parent=parent)
-        self.dialog.minsize(scaled(360, s), scaled(120, s))
+        s = DpiScale.for_widget(self.dialog, parent=parent)
+        self.dialog.minsize(DpiScale.scaled(360, s), DpiScale.scaled(120, s))
         self.dialog.bind("<Escape>", lambda _e: self.dialog.destroy())
 
         frame = ttk.Frame(self.dialog)
@@ -348,11 +355,11 @@ class ThemedReadOnlyTwoFieldDialog:
         frame.grid_columnconfigure(1, weight=1)
 
         ttk.Label(frame, text=label1).grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
-        ttk.Label(frame, text=value1, wraplength=scaled(280, s)).grid(
+        ttk.Label(frame, text=value1, wraplength=DpiScale.scaled(280, s)).grid(
             row=0, column=1, padx=10, pady=10, sticky=tk.W
         )
         ttk.Label(frame, text=label2).grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
-        ttk.Label(frame, text=value2, wraplength=scaled(280, s)).grid(
+        ttk.Label(frame, text=value2, wraplength=DpiScale.scaled(280, s)).grid(
             row=1, column=1, padx=10, pady=10, sticky=tk.W
         )
         footer = ttk.Frame(frame)
@@ -362,7 +369,7 @@ class ThemedReadOnlyTwoFieldDialog:
                 footer, text="Open on GitHub", command=lambda: webbrowser.open(github_url)
             )
             btn.pack(side=tk.LEFT, padx=(0, 6))
-            attach_tooltip(btn, BUTTON_TOOLTIPS["cp_github"])
+            HoverTooltip.attach(btn, BUTTON_TOOLTIPS["cp_github"])
         ttk.Button(footer, text="OK", command=self.dialog.destroy).pack(side=tk.RIGHT)
 
         self.dialog.transient(parent)
@@ -386,6 +393,31 @@ class HoverTooltip:
         widget.bind("<Leave>", self._hide, add="+")
         widget.bind("<ButtonPress>", self._hide, add="+")
 
+    @classmethod
+    def attach(cls, widget, text: str) -> HoverTooltip | None:
+        if text:
+            tooltip = cls(widget, text)
+            widget._hover_tooltip = tooltip
+            return tooltip
+        return None
+
+    @classmethod
+    def attach_schema(cls, widget, settings_cls, field_name: str) -> None:
+        cls.attach(widget, field_tooltip_text(settings_cls, field_name) or "")
+
+    @classmethod
+    def update_schema(cls, widget, settings_cls, field_name: str) -> None:
+        text = field_tooltip_text(settings_cls, field_name) or ""
+        tooltip = getattr(widget, "_hover_tooltip", None)
+        if tooltip is not None:
+            tooltip.text = text
+        else:
+            cls.attach(widget, text)
+
+    @classmethod
+    def attach_capability(cls, widget, cap) -> HoverTooltip | None:
+        return cls.attach(widget, CAPABILITY_TOOLTIPS.get(cap, cap.name))
+
     def _schedule(self, _event=None) -> None:
         self._cancel()
         self._after_id = self.widget.after(self.delay_ms, self._show)
@@ -400,9 +432,9 @@ class HoverTooltip:
         if self._tip is not None:
             return
 
-        s = get_dpi_scale(self.widget)
-        x = self.widget.winfo_rootx() + scaled(20, s)
-        y = self.widget.winfo_rooty() + self.widget.winfo_height() + scaled(4, s)
+        s = DpiScale.for_widget(self.widget)
+        x = self.widget.winfo_rootx() + DpiScale.scaled(20, s)
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + DpiScale.scaled(4, s)
         tip = tk.Toplevel(self.widget)
         tip.wm_overrideredirect(True)
         tip.wm_geometry(f"+{x}+{y}")
@@ -413,9 +445,9 @@ class HoverTooltip:
             background="#ffffe0",
             relief=tk.SOLID,
             borderwidth=1,
-            wraplength=scaled(360, s),
-            padx=scaled(6, s),
-            pady=scaled(4, s),
+            wraplength=DpiScale.scaled(360, s),
+            padx=DpiScale.scaled(6, s),
+            pady=DpiScale.scaled(4, s),
         )
         label.pack()
         self._tip = tip
@@ -425,27 +457,6 @@ class HoverTooltip:
         if self._tip is not None:
             self._tip.destroy()
             self._tip = None
-
-
-def attach_tooltip(widget, text: str) -> HoverTooltip | None:
-    if text:
-        tooltip = HoverTooltip(widget, text)
-        widget._hover_tooltip = tooltip
-        return tooltip
-    return None
-
-
-def attach_schema_tooltip(widget, settings_cls, field_name: str) -> None:
-    attach_tooltip(widget, field_tooltip_text(settings_cls, field_name) or "")
-
-
-def update_schema_tooltip(widget, settings_cls, field_name: str) -> None:
-    text = field_tooltip_text(settings_cls, field_name) or ""
-    tooltip = getattr(widget, "_hover_tooltip", None)
-    if tooltip is not None:
-        tooltip.text = text
-    else:
-        attach_tooltip(widget, text)
 
 
 CAPABILITY_TOOLTIPS: dict = {
@@ -461,16 +472,13 @@ CAPABILITY_TOOLTIPS: dict = {
     StackCapability.TRACKING: "Ground-truth object tracks provided by the world.",
     StackCapability.PREDICTION: "Ground-truth agent trajectory predictions provided by the world.",
     StackCapability.LOCALIZATION: "Ground-truth ego localization provided by the world.",
-    StackCapability.MAP: "Ground-truth map provided by the world.",
+    StackCapability.MAP_HD: "HD / OpenDRIVE map provided by a mapping module.",
+    StackCapability.MAP_RACE_TRACK: "Race-track corridor map provided by a mapping module.",
     StackCapability.SLAM: "Ground-truth simultaneous localization and mapping from the world.",
     StackCapability.LOCAL_PLAN: "Ground-truth local plan provided by the world.",
     StackCapability.GLOBAL_PLAN: "Ground-truth global plan provided by the world.",
     StackCapability.CONTROL: "Ground-truth control commands provided by the world.",
 }
-
-
-def attach_capability_tooltip(widget, cap) -> HoverTooltip | None:
-    return attach_tooltip(widget, CAPABILITY_TOOLTIPS.get(cap, cap.name))
 
 
 BUTTON_TOOLTIPS: dict[str, str] = {
@@ -546,6 +554,12 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "cp_sign_out": "Sign out of GitHub and clear saved credentials.",
     "cp_sign_in_browser": "Open GitHub in your browser to authorize AVLite.",
     "cp_copy_code": "Copy the GitHub sign-in code to the clipboard.",
+    "cp_show_installed": (
+        "Show only Installed plugins (downloaded locally, not in the active profile)."
+    ),
+    "cp_show_active": (
+        "Show only Active plugins (registered in the active profile and ready to load)."
+    ),
 }
 
 
@@ -664,117 +678,81 @@ class DpiScale:
 
     @staticmethod
     def setup() -> None:
-        setup_dpi_impl()
+        """Configure process DPI awareness and Tk OpenGL before any window is created."""
+        if platform.system() == "Linux":
+            os.environ.setdefault("TK_WINDOWS_FORCE_OPENGL", "1")
+            # GDK_SCALE (when set by the desktop) is read by for_widget().
+        else:
+            try:  # >= win 8.
+                ctypes.windll.shcore.SetProcessDpiAwareness(2)
+            except (AttributeError, OSError):  # win 8.0 or less
+                ctypes.windll.user32.SetProcessDPIAware()
+            os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
 
     @staticmethod
     def for_widget(widget: tk.Misc, parent: tk.Misc | None = None) -> float:
-        return get_dpi_scale_impl(widget, parent=parent)
+        """Pixels-per-inch normalised to 96 dpi, with font and GDK fallbacks."""
+        if parent is not None:
+            inherited = getattr(parent, "_dpi_scale", None)
+            if inherited is not None:
+                return float(inherited)
+
+        ppi_scale = _DPI_MIN
+        try:
+            widget.update_idletasks()
+            ppi_scale = max(_DPI_MIN, min(_DPI_MAX, widget.winfo_fpixels("1i") / 96.0))
+        except tk.TclError:
+            pass
+
+        gdk_scale = os.environ.get("GDK_SCALE")
+        env_scale = _DPI_MIN
+        if gdk_scale:
+            try:
+                env_scale = max(_DPI_MIN, min(_DPI_MAX, float(gdk_scale)))
+            except ValueError:
+                pass
+
+        font_scale = DpiScale._font_scale_from_default()
+        return max(ppi_scale, env_scale, font_scale)
 
     @staticmethod
     def scaled(n: float, scale: float) -> int:
-        return scaled_impl(n, scale)
+        """Scale a pixel value and round to int."""
+        return round(n * scale)
 
     @staticmethod
     def scaled_font(scale: float, family: str, size: int, **kwargs) -> tuple:
-        return scaled_font_impl(scale, family, size, **kwargs)
+        """Return a font tuple scaled for geometry scale (plugin README rendering only)."""
+        font_size = max(1, DpiScale.scaled(size, scale))
+        parts: list = [family, font_size]
+        if "weight" in kwargs:
+            parts.append(kwargs["weight"])
+        if "slant" in kwargs:
+            parts.append(kwargs["slant"])
+        return tuple(parts)
 
-
-def scaled(n: float, scale: float) -> int:
-    """Scale a pixel value and round to int."""
-    return scaled_impl(n, scale)
-
-
-def scaled_font(scale: float, family: str, size: int, **kwargs) -> tuple:
-    """Return a font tuple scaled for geometry scale (plugin README rendering only)."""
-    return scaled_font_impl(scale, family, size, **kwargs)
-
-
-def setup_dpi() -> None:
-    """Configure process DPI awareness and Tk OpenGL before any window is created."""
-    setup_dpi_impl()
-
-
-def get_dpi_scale(widget: tk.Misc, parent: tk.Misc | None = None) -> float:
-    """Pixels-per-inch normalised to 96 dpi, with font and GDK fallbacks."""
-    return get_dpi_scale_impl(widget, parent=parent)
-
-
-def scaled_impl(n: float, scale: float) -> int:
-    """Scale a pixel value and round to int."""
-    return round(n * scale)
-
-
-def scaled_font_impl(scale: float, family: str, size: int, **kwargs) -> tuple:
-    """Return a font tuple scaled for geometry scale (plugin README rendering only)."""
-    font_size = max(1, scaled_impl(size, scale))
-    parts: list = [family, font_size]
-    if "weight" in kwargs:
-        parts.append(kwargs["weight"])
-    if "slant" in kwargs:
-        parts.append(kwargs["slant"])
-    return tuple(parts)
-
-
-def _font_scale_from_default() -> float:
-    """Estimate scale from TkDefaultFont when PPI alone is insufficient (common on Linux)."""
-    try:
-        font = tkfont.nametofont("TkDefaultFont")
-        size = font.cget("size")
-        if isinstance(size, str):
-            size = int(size)
-        size = abs(int(size))
-        if size <= 0:
-            return _DPI_MIN
-        # Negative size is pixels; positive is points. Baseline ~10 pt / 12 px.
-        baseline = 12 if font.cget("size") < 0 else 10
-        return max(_DPI_MIN, min(_DPI_MAX, size / baseline))
-    except (tk.TclError, ValueError, TypeError):
-        return _DPI_MIN
-
-
-def setup_dpi_impl() -> None:
-    """Configure process DPI awareness and Tk OpenGL before any window is created."""
-    if platform.system() == "Linux":
-        os.environ.setdefault("TK_WINDOWS_FORCE_OPENGL", "1")
-        # GDK_SCALE (when set by the desktop) is read by get_dpi_scale().
-    else:
-        try:  # >= win 8.
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)
-        except (AttributeError, OSError):  # win 8.0 or less
-            ctypes.windll.user32.SetProcessDPIAware()
-        os.environ["TK_WINDOWS_FORCE_OPENGL"] = "1"
-
-
-def get_dpi_scale_impl(widget: tk.Misc, parent: tk.Misc | None = None) -> float:
-    """Pixels-per-inch normalised to 96 dpi, with font and GDK fallbacks."""
-    if parent is not None:
-        inherited = getattr(parent, "_dpi_scale", None)
-        if inherited is not None:
-            return float(inherited)
-
-    ppi_scale = _DPI_MIN
-    try:
-        widget.update_idletasks()
-        ppi_scale = max(_DPI_MIN, min(_DPI_MAX, widget.winfo_fpixels("1i") / 96.0))
-    except tk.TclError:
-        pass
-
-    gdk_scale = os.environ.get("GDK_SCALE")
-    env_scale = _DPI_MIN
-    if gdk_scale:
+    @staticmethod
+    def _font_scale_from_default() -> float:
+        """Estimate scale from TkDefaultFont when PPI alone is insufficient (common on Linux)."""
         try:
-            env_scale = max(_DPI_MIN, min(_DPI_MAX, float(gdk_scale)))
-        except ValueError:
-            pass
-
-    font_scale = _font_scale_from_default()
-    return max(ppi_scale, env_scale, font_scale)
+            font = tkfont.nametofont("TkDefaultFont")
+            size = font.cget("size")
+            if isinstance(size, str):
+                size = int(size)
+            size = abs(int(size))
+            if size <= 0:
+                return _DPI_MIN
+            # Negative size is pixels; positive is points. Baseline ~10 pt / 12 px.
+            baseline = 12 if font.cget("size") < 0 else 10
+            return max(_DPI_MIN, min(_DPI_MAX, size / baseline))
+        except (tk.TclError, ValueError, TypeError):
+            return _DPI_MIN
 
 
 def configure_treeview_style(style: ttk.Style, name: str, scale: float = 1.0) -> None:
     """Set Treeview row height and heading font to match the default UI font."""
     font = tkfont.nametofont("TkDefaultFont")
-    rowheight = font.metrics("linespace") + scaled(4, scale)
+    rowheight = font.metrics("linespace") + DpiScale.scaled(4, scale)
     style.configure(f"{name}.Treeview", rowheight=rowheight)
     style.configure(f"{name}.Treeview.Heading", font=font)
 
@@ -796,6 +774,8 @@ class DataPicker:
     @staticmethod
     def display_path(stored: str) -> str:
         """Format a stored settings path for picker display."""
+        if not stored:
+            return ""
         if stored.startswith("~/"):
             return stored
         abs_path = Path(DataPaths.resolve(stored)).resolve()
@@ -814,15 +794,11 @@ class DataPicker:
 
     @staticmethod
     def default_map_display_path() -> str:
-        if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
-            return DataPicker.display_path(ExecutionSettings.c40_hd_map)
-        return DataPicker.display_path(ExecutionSettings.c43_race_boundary_map)
+        return DataPicker.display_path(ExecutionSettings.c40_map)
 
     @staticmethod
     def default_map_settings_field() -> str:
-        if ExecutionSettings.c40_global_planner == HDMapGlobalPlanner.__name__:
-            return "c40_hd_map"
-        return "c43_race_boundary_map"
+        return "c40_map"
 
     @staticmethod
     def default_global_plan_display_path() -> str:
@@ -833,11 +809,11 @@ class DataPicker:
         def _is_map(path: Path) -> bool:
             return HDMap.is_loadable(path) or RaceMap.is_loadable(path)
 
-        return DataPicker._collect_candidates(_is_map)
+        return [""] + DataPicker._collect_candidates(_is_map)
 
     @staticmethod
     def list_global_plan_candidates() -> list[str]:
-        return DataPicker._collect_candidates(
+        return [""] + DataPicker._collect_candidates(
             lambda path: GlobalPlan.is_loadable(path)
         )
 
@@ -890,4 +866,415 @@ class DataPicker:
                 repo_candidates.append(picker_path)
 
         return sorted(user_candidates) + sorted(repo_candidates)
+
+
+# ---------------------------------------------------------------------------
+# Strategy contract popup (world / stack requirements + capabilities)
+# ---------------------------------------------------------------------------
+
+_CONTRACT_MET = "#6abf69"
+_CONTRACT_UNMET = "#e57373"
+_CONTRACT_CONSUMED = "#6abf69"
+_CONTRACT_UNUSED = "#888888"
+_CONTRACT_REDUNDANT = "#f0a040"
+
+
+def _contract_sets(target):
+    """Return (world_reqs, stack_reqs, provided) from a live instance or class.
+
+    Raises TypeError when *target* is a class whose contract is still an
+    instance ``@property`` (e.g. pipelines — stage-dependent).
+    """
+    def _get(name: str) -> set:
+        val = getattr(target, name, None)
+        if isinstance(val, property):
+            raise TypeError(name)
+        return set(val or ())
+
+    return (
+        _get("world_requirements"),
+        _get("stack_requirements"),
+        _get("stack_capabilities"),
+    )
+
+
+def _strategy_type_name(target) -> str:
+    """Class name of a live instance or class (reload-safe identity)."""
+    cls = target if isinstance(target, type) else type(target)
+    return cls.__name__
+
+
+def _live_strategy_from_exec(executer, cls):
+    """Return the live module instance if *cls* is currently loaded on *executer*.
+
+    Matches by class ``__name__`` so identity survives ``importlib.reload``.
+    """
+    if executer is None or cls is None:
+        return None
+    want = cls.__name__ if isinstance(cls, type) else type(cls).__name__
+    modules = [
+        getattr(executer, "perception", None),
+        getattr(executer, "localization", None),
+        getattr(executer, "mapping", None),
+        getattr(executer, "global_planner", None),
+        getattr(executer, "local_planner", None),
+        getattr(executer, "controller", None),
+    ]
+    stage_attrs = (
+        "_detector", "_tracker", "_predictor",
+        "_behavioral", "_path", "_velocity",
+    )
+    for m in modules:
+        if m is None:
+            continue
+        if type(m).__name__ == want:
+            return m
+        for attr in stage_attrs:
+            stage = getattr(m, attr, None)
+            if stage is not None and type(stage).__name__ == want:
+                return stage
+    return None
+
+
+def _finish_contract_popup(pop: tk.Toplevel, frame: ttk.Frame, anchor) -> tk.Toplevel:
+    """Legend, Close, Escape, place — shared by every popup path."""
+    ttk.Label(
+        frame,
+        text="green: met/consumed · red: unmet · orange: redundant · gray: unused/soft-absent",
+        foreground=_CONTRACT_UNUSED,
+    ).pack(anchor="w", pady=(8, 0))
+    ttk.Button(frame, text="Close", command=pop.destroy).pack(anchor="e", pady=(6, 0))
+    pop.bind("<Escape>", lambda e: pop.destroy())
+    _place_popup(pop, anchor)
+    pop.focus_set()
+    return pop
+
+
+def _pack_labeled_cap_row(parent, label: str, caps, available: set, *, soft: bool, joiner: str) -> None:
+    """Pack ``label · A | B`` (or ``&``) with per-member colors."""
+    row = ttk.Frame(parent)
+    row.pack(anchor="w")
+    ttk.Label(row, text=f"  {label} · ", foreground=_CONTRACT_UNUSED).pack(side=tk.LEFT)
+    for i, cap in enumerate(sorted(caps, key=lambda c: c.name)):
+        if i:
+            ttk.Label(row, text=f" {joiner} ", foreground=_CONTRACT_UNUSED).pack(side=tk.LEFT)
+        present = cap in available
+        if soft:
+            color = _CONTRACT_MET if present else _CONTRACT_UNUSED
+        else:
+            color = _CONTRACT_MET if present else _CONTRACT_UNMET
+        ttk.Label(row, text=cap.name, foreground=color).pack(side=tk.LEFT)
+
+
+def _pack_requirement_rows(parent, requirements: set, available: set) -> None:
+    if not requirements:
+        ttk.Label(parent, text="  (none)", foreground=_CONTRACT_UNUSED).pack(anchor="w")
+        return
+    plain: list = []
+    wrappers: list = []
+    for req in requirements:
+        if is_requirement_wrapper(req):
+            wrappers.append(req)
+        else:
+            plain.append(req)
+    if plain:
+        _pack_labeled_cap_row(parent, "all", plain, available, soft=False, joiner="&")
+    for req in sorted(wrappers, key=lambda r: " | ".join(sorted(c.name for c in r.capabilities))):
+        if is_any_of(req):
+            _pack_labeled_cap_row(parent, "any", req.capabilities, available, soft=False, joiner="|")
+        else:
+            _pack_labeled_cap_row(parent, "may", req.capabilities, available, soft=True, joiner="|")
+
+def _is_perception_stage(pipeline, target) -> bool:
+    """True when *target* is (or is the type of) a detect/track/predict stage."""
+    if pipeline is None or target is None:
+        return False
+    stages = (
+        getattr(pipeline, "_detector", None),
+        getattr(pipeline, "_tracker", None),
+        getattr(pipeline, "_predictor", None),
+    )
+    want = _strategy_type_name(target)
+    return any(s is not None and type(s).__name__ == want for s in stages)
+
+
+def _other_providers(executer, target) -> set:
+    """Stack caps provided by world GT and other top-level modules (not *target*).
+
+    World GT is filtered by Bridge Setting (``is_world_stack_capability_enabled``).
+    The parent ``PerceptionPipeline`` is excluded when *target* is one of its stages
+    so parent advertising does not mark a stage's caps as redundant.
+    """
+    caps: set = set()
+    if executer is None:
+        return caps
+    target_name = _strategy_type_name(target)
+    if getattr(executer, "world", None) is not None:
+        from avlite.c40_execution.c41_world_bridge import is_world_stack_capability_enabled
+
+        caps |= {
+            c for c in executer.world.stack_capabilities if is_world_stack_capability_enabled(c)
+        }
+    perception = getattr(executer, "perception", None)
+    for m in (
+        perception,
+        getattr(executer, "localization", None),
+        getattr(executer, "mapping", None),
+        getattr(executer, "global_planner", None),
+        getattr(executer, "local_planner", None),
+        getattr(executer, "controller", None),
+    ):
+        if m is None or type(m).__name__ == target_name:
+            continue
+        if m is perception and _is_perception_stage(perception, target):
+            continue
+        caps |= set(getattr(m, "stack_capabilities", set()) or set())
+    return caps
+
+def show_strategy_contract_popup(
+    anchor,
+    *,
+    name: str,
+    registry: dict,
+    get_exec,
+    title: str | None = None,
+):
+    """Show a color-coded contract popup for the selected strategy name."""
+    parent = anchor.winfo_toplevel()
+    pop = tk.Toplevel(parent)
+    pop.title(title or (name or "(none)"))
+    pop.transient(parent)
+    pop.resizable(False, False)
+
+    frame = ttk.Frame(pop, padding=8)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    if not name:
+        ttk.Label(frame, text="(none) — module omitted").pack(anchor="w")
+        return _finish_contract_popup(pop, frame, anchor)
+
+    cls = registry.get(name)
+    if cls is None:
+        ttk.Label(frame, text=f"Unknown strategy: {name}").pack(anchor="w")
+        return _finish_contract_popup(pop, frame, anchor)
+
+    executer = get_exec() if callable(get_exec) else get_exec
+    live = _live_strategy_from_exec(executer, cls)
+    target = live if live is not None else cls
+    try:
+        world_reqs, stack_reqs, provided = _contract_sets(target)
+    except TypeError:
+        ttk.Label(
+            frame,
+            text="Contract depends on configured stages — reload to inspect",
+            foreground=_CONTRACT_UNUSED,
+        ).pack(anchor="w")
+        return _finish_contract_popup(pop, frame, anchor)
+
+    world_caps: set = set()
+    stack_available: set = set()
+    if executer is not None:
+        if getattr(executer, "world", None) is not None:
+            from avlite.c40_execution.c41_world_bridge import is_world_capability_enabled
+
+            world_caps = {
+                c for c in executer.world.world_capabilities if is_world_capability_enabled(c)
+            }
+        if hasattr(executer, "available_stack_capabilities"):
+            stack_available = set(executer.available_stack_capabilities())
+
+    target_name = _strategy_type_name(target)
+    other_modules = []
+    if executer is not None:
+        for m in (
+            executer.perception,
+            executer.localization,
+            getattr(executer, "mapping", None),
+            executer.global_planner,
+            executer.local_planner,
+            executer.controller,
+        ):
+            if m is not None and type(m).__name__ != target_name:
+                other_modules.append(m)
+    consumed = used_stack_capabilities(other_modules)
+    if executer is not None and getattr(executer, "world", None) is not None:
+        consumed |= used_stack_capabilities([executer.world])
+    redundant = _other_providers(executer, target)
+
+    ttk.Label(frame, text="World requirements", font=("", 9, "bold")).pack(anchor="w")
+    _pack_requirement_rows(frame, world_reqs, world_caps)
+
+    ttk.Label(frame, text="Stack requirements", font=("", 9, "bold")).pack(
+        anchor="w", pady=(6, 0)
+    )
+    _pack_requirement_rows(frame, stack_reqs, stack_available)
+
+    ttk.Label(frame, text="Stack capabilities", font=("", 9, "bold")).pack(
+        anchor="w", pady=(6, 0)
+    )
+    if not provided:
+        ttk.Label(frame, text="  (none)", foreground=_CONTRACT_UNUSED).pack(anchor="w")
+    else:
+        for cap in sorted(provided, key=lambda c: c.name):
+            if cap in redundant:
+                color = _CONTRACT_REDUNDANT
+            elif cap in consumed:
+                color = _CONTRACT_CONSUMED
+            else:
+                color = _CONTRACT_UNUSED
+            ttk.Label(frame, text=f"  {cap.name}", foreground=color).pack(anchor="w")
+
+    return _finish_contract_popup(pop, frame, anchor)
+
+
+def _place_popup(pop: tk.Toplevel, anchor) -> None:
+    pop.update_idletasks()
+    try:
+        x = anchor.winfo_rootx()
+        y = anchor.winfo_rooty() + anchor.winfo_height()
+    except tk.TclError:
+        x, y = 100, 100
+    pop.geometry(f"+{x}+{y}")
+
+
+def make_strategy_contract_controls(parent, combobox, registry, get_exec):
+    """Bind right-click on *combobox*; return ``(show_popup, info_btn)``.
+
+    Caller places *info_btn* next to the Combobox.
+    """
+
+    def show_popup(_event=None):
+        show_strategy_contract_popup(
+            combobox,
+            name=combobox.get(),
+            registry=registry,
+            get_exec=get_exec,
+        )
+
+    combobox.bind("<Button-3>", show_popup)
+    info_btn = ttk.Button(parent, text="ⓘ", width=2, command=show_popup)
+    HoverTooltip.attach(info_btn, "World requirements, stack requirements & capabilities")
+    return show_popup, info_btn
+
+
+def show_world_bridge_contract_popup(
+    anchor,
+    *,
+    name: str,
+    registry: dict,
+    get_exec,
+    title: str | None = None,
+):
+    """Show a color-coded contract popup for the selected world bridge."""
+    from avlite.c40_execution.c41_world_bridge import (
+        is_world_capability_enabled,
+        is_world_stack_capability_enabled,
+    )
+
+    parent = anchor.winfo_toplevel()
+    pop = tk.Toplevel(parent)
+    pop.title(title or (name or "(none)"))
+    pop.transient(parent)
+    pop.resizable(False, False)
+
+    frame = ttk.Frame(pop, padding=8)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    if not name:
+        ttk.Label(frame, text="(none) — no bridge selected").pack(anchor="w")
+        return _finish_contract_popup(pop, frame, anchor)
+
+    cls = registry.get(name)
+    if cls is None:
+        ttk.Label(frame, text=f"Unknown bridge: {name}").pack(anchor="w")
+        return _finish_contract_popup(pop, frame, anchor)
+
+    executer = get_exec() if callable(get_exec) else get_exec
+    live = getattr(executer, "world", None) if executer is not None else None
+    target = live if live is not None and type(live).__name__ == cls.__name__ else cls
+
+    def _attr(obj, name_: str) -> set:
+        val = getattr(obj, name_, None)
+        if isinstance(val, property):
+            return set()
+        return set(val or ())
+
+    world_caps = _attr(target, "world_capabilities")
+    stack_reqs = _attr(target, "stack_requirements")
+    provided = _attr(target, "stack_capabilities")
+
+    stack_available: set = set()
+    if executer is not None and hasattr(executer, "available_stack_capabilities"):
+        stack_available = set(executer.available_stack_capabilities())
+
+    other_modules = []
+    if executer is not None:
+        for m in (
+            getattr(executer, "perception", None),
+            getattr(executer, "localization", None),
+            getattr(executer, "mapping", None),
+            getattr(executer, "global_planner", None),
+            getattr(executer, "local_planner", None),
+            getattr(executer, "controller", None),
+        ):
+            if m is not None:
+                other_modules.append(m)
+    consumed = used_stack_capabilities(other_modules)
+    redundant = set()
+    for m in other_modules:
+        redundant |= set(getattr(m, "stack_capabilities", set()) or set())
+
+    ttk.Label(frame, text="World capabilities", font=("", 9, "bold")).pack(anchor="w")
+    if not world_caps:
+        ttk.Label(frame, text="  (none)", foreground=_CONTRACT_UNUSED).pack(anchor="w")
+    else:
+        for cap in sorted(world_caps, key=lambda c: c.name):
+            if executer is None:
+                color = _CONTRACT_MET
+            else:
+                color = _CONTRACT_MET if is_world_capability_enabled(cap) else _CONTRACT_UNUSED
+            ttk.Label(frame, text=f"  {cap.name}", foreground=color).pack(anchor="w")
+
+    ttk.Label(frame, text="Stack requirements", font=("", 9, "bold")).pack(
+        anchor="w", pady=(6, 0)
+    )
+    _pack_requirement_rows(frame, stack_reqs, stack_available)
+
+    ttk.Label(frame, text="Stack capabilities", font=("", 9, "bold")).pack(
+        anchor="w", pady=(6, 0)
+    )
+    if not provided:
+        ttk.Label(frame, text="  (none)", foreground=_CONTRACT_UNUSED).pack(anchor="w")
+    else:
+        for cap in sorted(provided, key=lambda c: c.name):
+            enabled = executer is None or is_world_stack_capability_enabled(cap)
+            if not enabled:
+                color = _CONTRACT_UNUSED
+            elif cap in redundant:
+                color = _CONTRACT_REDUNDANT
+            elif cap in consumed:
+                color = _CONTRACT_CONSUMED
+            else:
+                color = _CONTRACT_UNUSED
+            ttk.Label(frame, text=f"  {cap.name}", foreground=color).pack(anchor="w")
+
+    return _finish_contract_popup(pop, frame, anchor)
+
+
+def make_world_bridge_contract_controls(parent, combobox, get_exec):
+    """Bind right-click on bridge *combobox*; return ``(show_popup, info_btn)``."""
+    from avlite.c40_execution.c41_world_bridge import WorldBridge
+
+    def show_popup(_event=None):
+        show_world_bridge_contract_popup(
+            combobox,
+            name=combobox.get(),
+            registry=WorldBridge.registry,
+            get_exec=get_exec,
+        )
+
+    combobox.bind("<Button-3>", show_popup)
+    info_btn = ttk.Button(parent, text="ⓘ", width=2, command=show_popup)
+    HoverTooltip.attach(info_btn, "World capabilities, stack requirements & capabilities")
+    return show_popup, info_btn
 

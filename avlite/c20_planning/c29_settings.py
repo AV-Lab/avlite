@@ -7,6 +7,24 @@ from avlite.c60_apps.c64_settings_schema import SettingsSchema
 
 class PlanningSettingsSchema(SettingsSchema):
     filepath: ClassVar[str] = "configs/c20_planning.yaml"
+    
+    c20_boundary_margin: float = Field(default=0.25, description="Inset applied to global plan boundaries from race boundary or HD map lane borders (m).",)
+    c20_collision_safety_margin: float = Field(
+        default=0.5,
+        description="Extra clearance added to the ego side of collision checks (m). Expands the buffered trajectory corridor beyond half the ego width before intersecting obstacles.",
+    )
+    c20_obstacle_inflation_margin: float = Field(
+        default=0.5,
+        description="Extra clearance added around agent obstacle polygons in collision checks (m). Inflates each agent bbox (or prediction sweep) before intersecting the ego corridor; used by lattice and velocity planners.",
+    )
+    c20_min_velocity_threshold: float = Field(
+        default=0.5,
+        description="Speed gate for agent motion in collision checks (m/s). Agents at or below this |v| are treated as static obstacles; pm.prediction trajectories are not used when building swept obstacle polygons (ahead agents only).",
+    )
+    c20_beside_agent_sweep_time: float = Field(default=4.0, description="Forward sweep time (s) applied to moving agents beside/just-behind the ego so the lattice stays clear of a just-passed agent before returning to the reference line (0 disables).")
+    c20_beside_agent_rear_window: float = Field(default=10.0, description="Max distance behind the ego (m) for which a beside/just-behind moving agent is still swept forward (overtake cut-back protection). Agents further back are treated as static; 0 disables the beside-sweep for behind agents.")
+    c20_default_ego_velocity: float = Field(default=5.0, description="Default ego velocity when unknown (m/s).")
+    c20_min_ramp_start_velocity: float = Field(default=3.0, description="Minimum ramp start velocity (m/s); shared by global plan loading and the lattice planner.")
 
     c23_behavioral_strategy: str = Field(default="", description="LocalPlanningPipeline behavioral stage class name (empty = skip).")
     c23_path_strategy: str = Field(default="GreedyLatticePlanner", description="LocalPlanningPipeline path stage class name (empty = skip).")
@@ -47,23 +65,6 @@ class PlanningSettingsSchema(SettingsSchema):
     c28_allow_curvature_fallback: bool = Field(default=False, description="Allow fallback when curvature limits block plan.")
     c28_allow_boundary_violation_fallback: bool = Field(default=False, description="Allow fallback on boundary violation.")
 
-    c20_boundary_margin: float = Field(default=0.25, description="Inset applied to global plan boundaries from race boundary or HD map lane borders (m).",)
-    c20_collision_safety_margin: float = Field(
-        default=0.5,
-        description="Extra clearance added to the ego side of collision checks (m). Expands the buffered trajectory corridor beyond half the ego width before intersecting obstacles.",
-    )
-    c20_obstacle_inflation_margin: float = Field(
-        default=0.5,
-        description="Extra clearance added around agent obstacle polygons in collision checks (m). Inflates each agent bbox (or prediction sweep) before intersecting the ego corridor; used by lattice and velocity planners.",
-    )
-    c20_min_velocity_threshold: float = Field(
-        default=0.5,
-        description="Speed gate for agent motion in collision checks (m/s). Agents at or below this |v| are treated as static obstacles; pm.prediction trajectories are not used when building swept obstacle polygons (ahead agents only).",
-    )
-    c20_beside_agent_sweep_time: float = Field(default=2.0, description="Forward sweep time (s) applied to moving agents beside/just-behind the ego so the lattice stays clear of a just-passed agent before returning to the reference line (0 disables).")
-    c20_beside_agent_rear_window: float = Field(default=6.0, description="Max distance behind the ego (m) for which a beside/just-behind moving agent is still swept forward (overtake cut-back protection). Agents further back are treated as static; 0 disables the beside-sweep for behind agents.")
-    c20_default_ego_velocity: float = Field(default=5.0, description="Default ego velocity when unknown (m/s).")
-    c20_min_ramp_start_velocity: float = Field(default=3.0, description="Minimum ramp start velocity (m/s); shared by global plan loading and the lattice planner.")
 
 
 # Singleton instance: mutated in place by the loader/reset helpers — never rebind.

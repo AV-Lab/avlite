@@ -4,10 +4,11 @@ from typing import Optional
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 import logging
 log = logging.getLogger(__name__)
@@ -20,11 +21,18 @@ class LocalPlanningStrategy(ABC):
     and the strategy registry. Concrete planners implement :meth:`replan` and
     return their result through :meth:`get_local_plan` as a :class:`LocalPlan`.
 
+    The tick entrypoint :meth:`replan` takes optional ``perception_model`` and
+    ``sensors``, supplied by the executer.
+
     Algorithm-specific machinery (e.g. lattice/edge search) lives in
     subclasses such as ``LatticePlanningStrategy``.
     """
 
     registry = {}
+
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION})
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 
     def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel,
                  setting: PlanningSettingsSchema = PlanningSettings):
@@ -47,20 +55,6 @@ class LocalPlanningStrategy(ABC):
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
 
         self.lap: int = 0
-
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        """World (sensor) capabilities this planner requires (default: none)."""
-        return set()
-
-    @property
-    def stack_requirements(self) -> set[StackCapability]:
-        """Upstream stack capabilities a local planner depends on."""
-        return {StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION}
-
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {StackCapability.LOCAL_PLAN}
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy: Optional[tuple[float, float]] = None) -> None:
         """Set the global plan for the local planner and reset localization.
@@ -94,7 +88,19 @@ class LocalPlanningStrategy(ABC):
         self.global_trajectory.update_waypoint_by_wp(wp)
 
     @abstractmethod
-    def replan(self):
+    def replan(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ):
+        """Run one local replan step.
+
+        Args:
+            perception_model: Stack world-state snapshot. When provided, becomes
+                the authoritative model for this step (also stored on ``self.pm``).
+                When omitted, use constructor-held ``self.pm``.
+            sensors: World sensor snapshot for this tick (``None`` if unused).
+        """
         pass
 
     def get_local_plan(self) -> LocalPlan:
@@ -177,13 +183,9 @@ class LocalBehavioralPlanningStrategy(ABC):
 
     registry = {}
 
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return set()
-
-    @property
-    def stack_requirements(self) -> set[StackCapability]:
-        return set()
+    world_requirements = frozenset()
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset()
 
     @abstractmethod
     def plan_behavior(self, plan: LocalPlan) -> LocalPlan:
@@ -201,13 +203,9 @@ class LocalPathPlanningStrategy(ABC):
 
     registry = {}
 
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return set()
-
-    @property
-    def stack_requirements(self) -> set[StackCapability]:
-        return set()
+    world_requirements = frozenset()
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 
     @abstractmethod
     def plan_path(self, plan: LocalPlan) -> LocalPlan:
@@ -225,13 +223,9 @@ class LocalVelocityPlanningStrategy(ABC):
 
     registry = {}
 
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return set()
-
-    @property
-    def stack_requirements(self) -> set[StackCapability]:
-        return set()
+    world_requirements = frozenset()
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 
     @abstractmethod
     def plan_velocity(self, plan: LocalPlan) -> LocalPlan:
@@ -293,15 +287,15 @@ class LocalPlanningPipeline(LocalPlanningStrategy):
 
     @property
     def world_requirements(self) -> set[WorldCapability]:
-        reqs: set[WorldCapability] = set()
+        reqs: set = set()
         for stage in self._stages:
             if stage is not None:
                 reqs |= stage.world_requirements
         return reqs
 
     @property
-    def stack_requirements(self) -> set[StackCapability]:
-        reqs = super().stack_requirements
+    def stack_requirements(self) -> set:
+        reqs: set = {StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION}
         for stage in self._stages:
             if stage is not None:
                 reqs |= stage.stack_requirements
@@ -337,7 +331,13 @@ class LocalPlanningPipeline(LocalPlanningStrategy):
         for stage in self._child_planners():
             stage.step_wp()
 
-    def replan(self):
+    def replan(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ):
+        if perception_model is not None:
+            self.pm = perception_model
         plan = LocalPlan.from_trajectory(self.global_trajectory)
         if self._behavioral is not None:
             plan = self._behavioral.plan_behavior(plan)

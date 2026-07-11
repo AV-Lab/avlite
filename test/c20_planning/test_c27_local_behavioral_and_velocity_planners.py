@@ -2,12 +2,12 @@
 
 import numpy as np
 
-from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel, SingleTrajectory
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import VelocityLocalPlanner
 from avlite.c20_planning.c29_settings import PlanningSettingsSchema
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
-from avlite.c50_common.c54_collision_checking import check_collision
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c55_collision_checking import check_collision
 
 
 def _straight_global_plan(x_end: float = 100.0, n: int = 20, velocity: float = 5.0) -> GlobalPlan:
@@ -55,11 +55,21 @@ class TestVelocityLocalPlanner:
     def test_moving_obstacle_matches_agent_speed(self):
         global_plan = _straight_global_plan()
         agent_speed = 3.0
+        agent = AgentState(x=50.0, y=0.0, theta=0.0, velocity=agent_speed, agent_id=1)
         pm = PerceptionModel(
-            ego_vehicle=EgoState(x=40.0, y=0.0, theta=0.0, velocity=5.0),
-            agent_vehicles=[AgentState(x=50.0, y=0.0, theta=0.0, velocity=agent_speed, agent_id=1)],
+            ego_vehicle=EgoState(x=20.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[agent],
         )
-        planner = _planner_at_ego_x(global_plan, pm, ego_x=40.0)
+        # Speed-match for movers needs prediction sweeps (no constant-velocity fallback).
+        dt = 0.1
+        n_steps = 50
+        steps = np.empty((n_steps, 2))
+        for t in range(n_steps):
+            time = (t + 1) * dt
+            steps[t, 0] = agent.x + agent.velocity * time
+            steps[t, 1] = agent.y
+        pm.prediction = SingleTrajectory(predict_delta_t=dt, trajectories={1: steps})
+        planner = _planner_at_ego_x(global_plan, pm, ego_x=20.0)
         planner.replan()
 
         velocity = np.asarray(planner.get_local_plan().velocity)

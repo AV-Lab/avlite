@@ -12,24 +12,15 @@ from avlite.c10_perception.c11_perception_model import RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c29_settings import PlanningSettings
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
-from avlite.c60_apps.c68_paths import DataPaths
+from avlite.c50_common.c51_capabilities import StackCapability
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 log = logging.getLogger(__name__)
 
 
 class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
-    """A global planner that reads a race-line JSON file with left/right
-    boundary coordinates and produces a centre-line path with curvature-adapted
-    target velocities.
-
-    Expected JSON format::
-
-        {
-            "LeftBound":      [[x, y, z], ...],
-            "RightBound":     [[x, y, z], ...],
-            "ReferencePoint": [lat, lon, alt]   # required WGS84 degrees
-        }
+    """A global planner that uses a ``RaceMap`` corridor and produces a
+    centre-line path with curvature-adapted target velocities.
 
     The path is the corridor centre between the left and right boundary polylines,
     refined from an index-wise midpoint so tight corners stay equidistant to both sides.
@@ -38,38 +29,35 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
         a_lat = v² · κ  →  v = min(v_max, sqrt(a_lat / κ))
     """
 
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.MAP_RACE_TRACK, StackCapability.LOCALIZATION})
+    stack_capabilities = frozenset({StackCapability.GLOBAL_PLAN})
+
     def __init__(
         self,
-        filepath: str | RaceMap,
+        map: RaceMap,
         max_velocity: float = 10.0,
         max_lateral_accel: float = 5.0,
         margin: float | None = None,
     ):
-        super().__init__()
-        if isinstance(filepath, RaceMap):
-            self._race_map = filepath
-            self.filepath = filepath.source_path
-        else:
-            self._race_map = None
-            self.filepath = filepath
+        super().__init__(map)
         self.max_velocity = max_velocity
         self.max_lateral_accel = max_lateral_accel
         self.margin = margin
 
-    def plan(self) -> GlobalPlan:
+    def plan(
+        self,
+        perception_model=None,
+        sensors=None,
+    ) -> GlobalPlan:
         margin = (
             self.margin
             if self.margin is not None
             else PlanningSettings.c20_boundary_margin
         )
 
-        if self._race_map is not None:
-            left = self._race_map.left_bound
-            right = self._race_map.right_bound
-        else:
-            race_map = RaceMap.from_path(DataPaths.resolve_stored(self.filepath))
-            left = race_map.left_bound
-            right = race_map.right_bound
+        left = self.map.left_bound
+        right = self.map.right_bound
 
         if len(left) != len(right):
             raise ValueError(
@@ -105,7 +93,11 @@ class GlobalCenterlineRacePlanner(GlobalPlannerStrategy):
             trajectory=trajectory,
             race_mode=True,
         )
-        log.debug(f"GlobalCenterlineRacePlanner: planned {len(path)} waypoints from {self.filepath}")
+        log.debug(
+            "GlobalCenterlineRacePlanner: planned %s waypoints from %s",
+            len(path),
+            self.map.source_path,
+        )
         return self.global_plan
 
     # ------------------------------------------------------------------
@@ -161,8 +153,8 @@ class GlobalRacePlanner(GlobalPlannerStrategy):
     acceleration limit (v = √(a_lat/κ)) plus longitudinal acceleration and
     braking limits via forward/backward passes over v².
 
-    Accepts the same race-boundary JSON (or ``RaceMap``) as
-    :class:`GlobalCenterlineRacePlanner`.
+    Accepts a :class:`RaceMap` (same corridor as
+    :class:`GlobalCenterlineRacePlanner`).
 
     Formulation based on Braghin et al., "Race driver model" (Computers &
     Structures, 2008) for the curvature/length blend, and Heilmeier et al.,
@@ -172,12 +164,16 @@ class GlobalRacePlanner(GlobalPlannerStrategy):
     docs/algorithms.md for full citations.
     """
 
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.MAP_RACE_TRACK, StackCapability.LOCALIZATION})
+    stack_capabilities = frozenset({StackCapability.GLOBAL_PLAN})
+
     #: Uniform arc-length spacing (m) of the optimization reference.
     RESAMPLE_STEP = 3.0
 
     def __init__(
         self,
-        filepath: str | RaceMap,
+        map: RaceMap,
         max_velocity: float | None = None,
         max_lateral_accel: float | None = None,
         max_longitudinal_accel: float | None = None,
@@ -186,13 +182,7 @@ class GlobalRacePlanner(GlobalPlannerStrategy):
         optimization_iterations: int | None = None,
         margin: float | None = None,
     ):
-        super().__init__()
-        if isinstance(filepath, RaceMap):
-            self._race_map = filepath
-            self.filepath = filepath.source_path
-        else:
-            self._race_map = None
-            self.filepath = filepath
+        super().__init__(map)
         self.max_velocity = max_velocity
         self.max_lateral_accel = max_lateral_accel
         self.max_longitudinal_accel = max_longitudinal_accel
@@ -201,7 +191,11 @@ class GlobalRacePlanner(GlobalPlannerStrategy):
         self.optimization_iterations = optimization_iterations
         self.margin = margin
 
-    def plan(self) -> GlobalPlan:
+    def plan(
+        self,
+        perception_model=None,
+        sensors=None,
+    ) -> GlobalPlan:
         s = PlanningSettings
         max_velocity = self.max_velocity if self.max_velocity is not None else s.c25_max_velocity
         max_lat_accel = self.max_lateral_accel if self.max_lateral_accel is not None else s.c25_max_lateral_accel
@@ -217,11 +211,7 @@ class GlobalRacePlanner(GlobalPlannerStrategy):
         curv_weight = float(np.clip(curv_weight, 0.0, 1.0))
 
         t_start = time.perf_counter()
-        race_map = self._race_map
-        if race_map is None:
-            resolved = DataPaths.resolve_stored(self.filepath)
-            log.info(f"GlobalRacePlanner: loading race boundaries from {resolved}")
-            race_map = RaceMap.from_path(resolved)
+        race_map = self.map
         left = np.asarray(race_map.left_bound, dtype=float)
         right = np.asarray(race_map.right_bound, dtype=float)
         if len(left) < 2 or len(right) < 2:

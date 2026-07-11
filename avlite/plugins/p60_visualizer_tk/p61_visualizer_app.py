@@ -4,6 +4,7 @@ import subprocess
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
+from typing import Optional
 
 try:
     from PIL import Image, ImageTk
@@ -13,8 +14,8 @@ except ImportError:
 _PIL_AVAILABLE = Image is not None
 
 from avlite.c60_apps.c62_factory import executor_factory
-from avlite.c10_perception.c12_perception_strategy import PerceptionPipeline
-from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningPipeline
+from avlite.c10_perception.c11_perception_model import AgentState
+from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c61_app_strategy import AppStrategy
@@ -28,12 +29,10 @@ from avlite.plugins.p60_visualizer_tk.p67_stack_views import PerceivePlanControl
 from avlite.c60_apps.c62_factory import load_stack_settings
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
+    DpiScale,
     TkSettingsBinder,
     UiAssets,
     apply_ttk_theme,
-    get_dpi_scale,
-    scaled,
-    setup_dpi,
 )
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DataPicker
 from avlite.plugins.p60_visualizer_tk.p68_log_view import LogView
@@ -53,10 +52,10 @@ class VisualizerApp(tk.Tk):
     hosting_plugin_name = "p60_visualizer_tk"
 
     def __init__(self):
-        setup_dpi()
+        DpiScale.setup()
         super().__init__()
         apply_ttk_theme(self, dark=True)
-        self._dpi_scale: float = get_dpi_scale(self)
+        self._dpi_scale: float = DpiScale.for_widget(self)
         self.exec = None
         self.loading_overlay = None
         self.ui_initialized = False
@@ -79,7 +78,7 @@ class VisualizerApp(tk.Tk):
     def __initialize_ui(self):
         self.title("AVlite Visualizer")
         s = self._dpi_scale
-        self.geometry(f"{scaled(1200, s)}x{scaled(900, s)}")
+        self.geometry(f"{DpiScale.scaled(1200, s)}x{DpiScale.scaled(900, s)}")
         self.withdraw()
         self.small_font = ("Courier", 10)
 
@@ -115,9 +114,7 @@ class VisualizerApp(tk.Tk):
 
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_settings()
-        # log.warning(f"map is {ExecutionSettings.c40_hd_map}")
         self.reload_stack(reload_code=False, preserve_plot_layout=True)
-        # log.warning(f"map after is {ExecutionSettings.c40_hd_map}")
 
         # Bind to window resize to maintain ratio
         self.update_shortcut_mode()
@@ -418,28 +415,28 @@ class VisualizerApp(tk.Tk):
         win.configure(bg="black")
         s = self._dpi_scale
 
-        inner = tk.Frame(win, bg="black", padx=scaled(40, s), pady=0)
+        inner = tk.Frame(win, bg="black", padx=DpiScale.scaled(40, s), pady=0)
         inner.pack(fill="both", expand=True)
 
         try:
             if not _PIL_AVAILABLE:
                 raise ImportError("PIL not available")
             logo_img = Image.open(UiAssets.resolve("logo.png"))
-            logo_size = scaled(200, s)
+            logo_size = DpiScale.scaled(200, s)
             logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
             win._logo_photo = ImageTk.PhotoImage(logo_img)
-            tk.Label(inner, image=win._logo_photo, bg="black").pack(pady=(scaled(24, s), scaled(8, s)))
+            tk.Label(inner, image=win._logo_photo, bg="black").pack(pady=(DpiScale.scaled(24, s), DpiScale.scaled(8, s)))
         except Exception:
             log.warning("Failed to load logo for About dialog.")
 
         tk.Label(inner, text="AVLite", fg="#10bfe8", bg="black",
                  font=("Arial", 16, "bold")).pack()
         tk.Label(inner, text=f"Version {__version__}", fg="#10bfe8", bg="black",
-                 font=("Arial", 11)).pack(pady=(scaled(4, s), 0))
+                 font=("Arial", 11)).pack(pady=(DpiScale.scaled(4, s), 0))
         tk.Label(inner, text="A lightweight autonomous vehicle software stack.",
-                 fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(scaled(6, s), scaled(24, s)))
+                 fg="#10bfe8", bg="black", font=("Arial", 10)).pack(pady=(DpiScale.scaled(6, s), DpiScale.scaled(24, s)))
 
-        ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, scaled(20, s)))
+        ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, DpiScale.scaled(20, s)))
         win.grab_set()
         win.focus_set()
 
@@ -478,24 +475,91 @@ class VisualizerApp(tk.Tk):
 
         if not self.setting.p60_shortcut_mode.get():
             self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), Vel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+5.1f}")
-            self.setting.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
+            if self.exec.local_planner is not None:
+                self.setting.current_wp.set(str(self.exec.local_planner.global_trajectory.current_wp))
+                self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
+            else:
+                self.setting.current_wp.set("0")
+                self.setting.lap.set("0")
 
             # TODO: need to connect to a tkinter variable instead
-            self.perceive_plan_control_view.control_frame.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
-            self.perceive_plan_control_view.control_frame.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
-            self.perceive_plan_control_view.control_frame.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
-            self.perceive_plan_control_view.control_frame.gauge_steer.set_value(self.exec.controller.cmd.steer)
+            if self.exec.controller is not None:
+                self.perceive_plan_control_view.control_frame.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
+                self.perceive_plan_control_view.control_frame.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
+                self.perceive_plan_control_view.control_frame.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
+                self.perceive_plan_control_view.control_frame.gauge_steer.set_value(self.exec.controller.cmd.steer)
 
             self.setting.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
             self.setting.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
             self.setting.replan_fps.set(f"{self.exec.planner_fps:6.1f}")
             self.setting.control_fps.set(f"{self.exec.control_fps:6.1f}")
             self.setting.perception_fps.set(f"{self.exec.perception_fps:6.1f}")
-            self.setting.lap.set(f"{self.exec.local_planner.lap:5d}")
 
 
         log.debug("UI Update Time: %.2f ms", (time.time() - t1) * 1000)
-    
+
+    def apply_global_plan(
+        self,
+        global_plan: GlobalPlan,
+        ego_xy: Optional[tuple[float, float]] = None,
+    ) -> None:
+        """Push a global plan to the local planner and controller."""
+        if self.exec is None:
+            return
+        # ROSExecuter (and similar) own proxy update + worker publish.
+        if "apply_global_plan" in vars(type(self.exec)):
+            self.exec.apply_global_plan(global_plan, ego_xy=ego_xy)
+            return
+        if global_plan is None or global_plan.trajectory is None:
+            log.error("apply_global_plan: plan or trajectory is None")
+            return
+        if len(global_plan.trajectory.path_s) == 0:
+            log.error("apply_global_plan: trajectory is empty")
+            return
+        ego_xy = ego_xy if ego_xy is not None else (self.exec.ego_state.x, self.exec.ego_state.y)
+        if self.exec.local_planner:
+            self.exec.local_planner.set_global_plan(global_plan, ego_xy=ego_xy)
+        if self.exec.controller:
+            self.exec.controller.set_trajectory_tracker(global_plan.trajectory)
+            self.exec.controller.reset()
+
+    def replan_global(self) -> None:
+        """Recompute the global plan from the current ego pose and hand it to the local planner.
+
+        Keeps the existing goal, moves the start to the ego's current position,
+        re-runs the global planner, then pushes the resulting plan to the local
+        planner and controller so subsequent ticks follow the new route.
+        """
+        if self.exec is None:
+            return
+        if not self.exec.global_planner:
+            log.error("Global replan failed: no global planner.")
+            return
+        goal = self.exec.global_planner.goal_point
+        if goal is not None:
+            self.exec.global_planner.set_start_goal(
+                (self.exec.ego_state.x, self.exec.ego_state.y), goal
+            )
+
+        new_plan = self.exec.global_planner.plan(
+            perception_model=self.exec.pm,
+            sensors=self.exec._fetch_sensor_frame(),
+        )
+        if new_plan is None or new_plan.trajectory is None:
+            log.error("Global replan failed: planner returned no valid plan.")
+            return
+
+        self.apply_global_plan(new_plan)
+        log.info(f"Global replan complete; {len(new_plan.left_boundary_d)} boundary pts")
+
+    def spawn_agent(self, agent_state: AgentState) -> None:
+        """Spawn an agent in the world using the ego's current global plan."""
+        if self.exec is None:
+            return
+        global_plan = (
+            self.exec.local_planner.global_plan if self.exec.local_planner else None
+        )
+        self.exec.world.spawn_agent(agent_state, global_plan=global_plan)
 
     def load_settings(self, only_stack=False, profile=None):
         """Load settings from a profile or the current settings. Uses c55_setting_utils files plus UI housekeeping."""
@@ -517,7 +581,7 @@ class VisualizerApp(tk.Tk):
         sync_stack_settings_to_ui(self.setting)
         self.setting.default_map_file.set(DataPicker.default_map_display_path())
         self.setting.default_global_plan_file.set(DataPicker.default_global_plan_display_path())
-        self.exec_visualize_view.refresh_default_map_tooltips()
+        self.perceive_plan_control_view.perceive_frame.refresh_default_map_tooltips()
         self.setting_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 
@@ -542,11 +606,16 @@ class VisualizerApp(tk.Tk):
         """Reconstruct active pipeline strategies from current settings (no full stack reload)."""
         if self.exec is None:
             return
-        if isinstance(self.exec.perception, PerceptionPipeline):
-            self.exec.perception = PerceptionPipeline(self.exec.pm)
-        if isinstance(self.exec.local_planner, LocalPlanningPipeline):
+        # Re-import so construction uses post-reload_lib classes; match by name
+        # because isinstance fails across importlib.reload class identities.
+        from avlite.c10_perception.c12_perception_strategy import PerceptionPipeline as PercPipe
+        from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningPipeline as LocPipe
+
+        if type(self.exec.perception).__name__ == "PerceptionPipeline":
+            self.exec.perception = PercPipe(self.exec.pm)
+        if self.exec.local_planner is not None and type(self.exec.local_planner).__name__ == "LocalPlanningPipeline":
             lp = self.exec.local_planner
-            self.exec.local_planner = LocalPlanningPipeline(global_plan=lp.global_plan, env=self.exec.pm)
+            self.exec.local_planner = LocPipe(global_plan=lp.global_plan, env=self.exec.pm)
         self.exec._validate_stack()
         self.update_ui()
 
@@ -571,6 +640,7 @@ class VisualizerApp(tk.Tk):
                 bridge=self.setting.execution_bridge.get(),
                 perception_strategy_name=self.setting.perception_type.get(),
                 localization_strategy_name=self.setting.localization_type.get(),
+                mapping_strategy_name=self.setting.mapping_type.get(),
                 global_planner_strategy_name=self.setting.global_planner_type.get(),
                 local_planner_strategy_name=self.setting.local_planner_type.get(),
                 controller_strategy_name=self.setting.controller_type.get(),
@@ -578,14 +648,14 @@ class VisualizerApp(tk.Tk):
                 localization_dt=self.setting.localization_dt.get(),
                 replan_dt=self.setting.replan_dt.get(),
                 control_dt=self.setting.control_dt.get(),
-                hd_map=ExecutionSettings.c40_hd_map,
+                map_file=ExecutionSettings.c40_map,
                 default_global_trajectory_file=self.setting.default_global_plan_file.get(),
                 load_plugins=self.setting.c62_load_plugins.get(),
                 async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
             )
 
             self.setting.default_map_file.set(DataPicker.default_map_display_path())
-            self.exec_visualize_view.refresh_default_map_tooltips()
+            self.perceive_plan_control_view.perceive_frame.refresh_default_map_tooltips()
 
         except Exception as e:
             error = e
