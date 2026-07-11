@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from avlite.plugins.p60_visualizer_tk.p65_ui_lib import attach_schema_tooltip, attach_tooltip, BUTTON_TOOLTIPS
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import BUTTON_TOOLTIPS, HoverTooltip
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
 from avlite.c60_apps.c64_settings_schema import field_tooltip_text
 from avlite.c60_apps.c63_plugins import (
@@ -72,34 +72,34 @@ class LogView(ttk.LabelFrame):
             self.controls_frame, text="Core", variable=self.root.setting.p68_show_core_logs, command=self.update_log_filter,
         )
         cb_core.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_core, VisualizationSettings, "p68_show_core_logs")
+        HoverTooltip.attach_schema(cb_core, VisualizationSettings, "p68_show_core_logs")
         cb_plugins = ttk.Checkbutton(
             self.controls_frame, text="Plugins", variable=self.root.setting.p68_show_plugins_logs, command=self.update_log_filter,
         )
         cb_plugins.pack(side=tk.LEFT)
-        attach_schema_tooltip(cb_plugins, VisualizationSettings, "p68_show_plugins_logs")
+        HoverTooltip.attach_schema(cb_plugins, VisualizationSettings, "p68_show_plugins_logs")
         self.cb_perceive = ttk.Checkbutton( self.controls_frame, text="Perception", variable=self.root.setting.p68_show_perceive_logs, command=self.update_log_filter,)
         self.cb_perceive.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_perceive, VisualizationSettings, "p68_show_perceive_logs")
+        HoverTooltip.attach_schema(self.cb_perceive, VisualizationSettings, "p68_show_perceive_logs")
         self.cb_plan = ttk.Checkbutton( self.controls_frame, text="Planning", variable=self.root.setting.p68_show_plan_logs, command=self.update_log_filter,)
         self.cb_plan.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_plan, VisualizationSettings, "p68_show_plan_logs")
+        HoverTooltip.attach_schema(self.cb_plan, VisualizationSettings, "p68_show_plan_logs")
         self.cb_control = ttk.Checkbutton( self.controls_frame, text="Control", variable=self.root.setting.p68_show_control_logs, command=self.update_log_filter,)
         self.cb_control.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_control, VisualizationSettings, "p68_show_control_logs")
+        HoverTooltip.attach_schema(self.cb_control, VisualizationSettings, "p68_show_control_logs")
         self.cb_execute = ttk.Checkbutton( self.controls_frame, text="Execution", variable=self.root.setting.p68_show_execute_logs, command=self.update_log_filter,)
         self.cb_execute.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_execute, VisualizationSettings, "p68_show_execute_logs")
+        HoverTooltip.attach_schema(self.cb_execute, VisualizationSettings, "p68_show_execute_logs")
         self.cb_vis = ttk.Checkbutton( self.controls_frame, text="Visualization", variable=self.root.setting.p68_show_vis_logs, command=self.update_log_filter,)
         self.cb_vis.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_vis, VisualizationSettings, "p68_show_vis_logs")
+        HoverTooltip.attach_schema(self.cb_vis, VisualizationSettings, "p68_show_vis_logs")
         self.cb_common = ttk.Checkbutton( self.controls_frame, text="Common", variable=self.root.setting.p68_show_common_logs, command=self.update_log_filter,)
         self.cb_common.pack(side=tk.LEFT)
-        attach_schema_tooltip(self.cb_common, VisualizationSettings, "p68_show_common_logs")
+        HoverTooltip.attach_schema(self.cb_common, VisualizationSettings, "p68_show_common_logs")
 
         cb_file = ttk.Checkbutton(self.controls_frame, text="File", variable=self.root.setting.log_to_file, command=self.update_log_to_file)
         cb_file.pack(side=tk.RIGHT)
-        attach_schema_tooltip(cb_file, VisualizationSettings, "log_to_file")
+        HoverTooltip.attach_schema(cb_file, VisualizationSettings, "log_to_file")
 
         self.rb_db_stdout = ttk.Radiobutton( self.controls_frame, text="STDOUT", variable=self.root.setting.log_level, value="STDOUT", command=self.update_log_level,)
         self.rb_db_stdout.pack(side=tk.RIGHT)
@@ -120,20 +120,20 @@ class LogView(ttk.LabelFrame):
             (self.rb_db_info, "INFO", "Show info, warnings, and errors."),
             (self.rb_db_debug, "DEBUG", "Show all messages including debug."),
         ):
-            attach_tooltip(rb, f"{_log_level_tip} Selects {value}. {hint}")
+            HoverTooltip.attach(rb, f"{_log_level_tip} Selects {value}. {hint}")
         
         btn_clear = ttk.Button(self.controls_frame, text="Clear", command=self.clear_log, width=4)
         btn_clear.pack(side=tk.RIGHT)
-        attach_tooltip(btn_clear, BUTTON_TOOLTIPS["log_clear"])
+        HoverTooltip.attach(btn_clear, BUTTON_TOOLTIPS["log_clear"])
         self.root.setting.p68_log_view_expanded.trace_add("write", lambda *_: self._sync_expand_button())
         btn_copy = ttk.Button(self.controls_frame, text="Copy", command=self.copy_log, width=4)
         btn_copy.pack(side=tk.RIGHT)
-        attach_tooltip(btn_copy, BUTTON_TOOLTIPS["log_copy"])
+        HoverTooltip.attach(btn_copy, BUTTON_TOOLTIPS["log_copy"])
         self._btn_expand = ttk.Button( self.controls_frame, text="▾", width=3,
             command=lambda: self.update_log_view_height(reverse=True),
         )
         self._btn_expand.pack(side=tk.RIGHT, padx=(0, 2))
-        attach_tooltip(self._btn_expand, BUTTON_TOOLTIPS["log_toggle_height"])
+        HoverTooltip.attach(self._btn_expand, BUTTON_TOOLTIPS["log_toggle_height"])
         self._sync_expand_button()
 
         

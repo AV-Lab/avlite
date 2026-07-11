@@ -2,10 +2,13 @@
 
 import math
 
-from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+import numpy as np
+
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel, RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c40_execution.c46_basic_sim import BasicSim
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c40_execution.c46_basic_sim import BasicSim, boundary_segments_from_map
+from avlite.c50_common.c51_capabilities import StackCapability
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
 def _straight_global_plan() -> GlobalPlan:
@@ -47,3 +50,31 @@ def test_spawn_agent_without_global_plan_skips_controller():
 
     assert len(pm.agent_vehicles) == 1
     assert sim.npc_controllers == {}
+
+
+def test_basic_sim_segments_and_no_map_capability_from_race_map():
+    left = np.array([[0.0, 1.0], [10.0, 1.0], [20.0, 1.0]])
+    right = np.array([[0.0, -1.0], [10.0, -1.0], [20.0, -1.0]])
+    race_map = RaceMap(source_path="synthetic", left_bound=left, right_bound=right)
+    ego = EgoState()
+    sim = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego), map=race_map)
+
+    assert StackCapability.MAP_HD not in sim.stack_capabilities
+    assert StackCapability.MAP_RACE_TRACK not in sim.stack_capabilities
+    assert sim.boundary_segments.shape[0] == 4  # 2 segs per bound × 2 bounds
+    np.testing.assert_array_equal(sim.boundary_segments, boundary_segments_from_map(race_map))
+
+
+def test_basic_sim_no_map_has_empty_segments():
+    ego = EgoState()
+    sim = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego), map=None)
+    assert StackCapability.MAP_HD not in sim.stack_capabilities
+    assert StackCapability.MAP_RACE_TRACK not in sim.stack_capabilities
+    assert sim.boundary_segments.shape == (0, 2, 2)
+
+
+def test_basic_sim_stack_requirements_control_readable_from_class():
+    assert BasicSim.stack_requirements == frozenset({StackCapability.CONTROL})
+    assert StackCapability.DETECTION in BasicSim.stack_capabilities
+    assert StackCapability.TRACKING in BasicSim.stack_capabilities
+    assert StackCapability.LOCALIZATION in BasicSim.stack_capabilities

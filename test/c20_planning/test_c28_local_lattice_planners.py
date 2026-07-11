@@ -9,7 +9,7 @@ import pytest
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c28_local_lattice_planners import Edge, GreedyLatticePlanner, Lattice, Node
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 _FIXED_PLANNER_TIME = 1000.0
 
@@ -91,6 +91,17 @@ def _chain_has_collision(head: Edge) -> bool:
             return True
         edge = edge.selected_next_local_plan
     return False
+
+
+def _chain_with_uniform_velocity(global_tj: TrajectoryTracker, velocity: float, n_edges: int = 3) -> Edge:
+    edges = []
+    for i in range(n_edges):
+        s0 = i * 20.0
+        s1 = (i + 1) * 20.0
+        edge = _edge_at(global_tj, s0, s1)
+        edge.local_trajectory.velocity = [velocity] * len(edge.local_trajectory.velocity)
+        edges.append(edge)
+    return _link_edges(edges)
 
 
 def _plan_length_acceptable(
@@ -188,17 +199,30 @@ class TestShouldSwitchPlan:
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=3.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
 
-        slow_edge = _edge_with_velocity(global_plan.trajectory, velocity=3.0, collision=False)
-        fast_edge = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
+        slow_chain = _chain_with_uniform_velocity(global_plan.trajectory, velocity=3.0)
+        fast_chain = _chain_with_uniform_velocity(global_plan.trajectory, velocity=10.0)
 
-        planner.selected_local_plan = slow_edge
+        planner.selected_local_plan = slow_chain
         planner._last_plan_change_time = _FIXED_PLANNER_TIME
-        assert planner.should_switch_plan(fast_edge) is False
+        assert planner.should_switch_plan(fast_chain) is False
 
         planner._last_plan_change_time = 0.0
-        assert planner.should_switch_plan(fast_edge) is True
+        assert planner.should_switch_plan(fast_chain) is True
 
     def test_keeps_clean_plan_when_faster_alternative_without_wait(self, fixed_planner_time):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=8.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        current = _chain_with_uniform_velocity(global_plan.trajectory, velocity=8.0)
+        faster = _chain_with_uniform_velocity(global_plan.trajectory, velocity=10.0)
+
+        planner.selected_local_plan = current
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
+
+        assert planner.should_switch_plan(faster) is False
+
+    def test_refreshes_single_edge_without_wait(self, fixed_planner_time):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=8.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
@@ -206,10 +230,23 @@ class TestShouldSwitchPlan:
         current = _edge_with_velocity(global_plan.trajectory, velocity=8.0, collision=False)
         faster = _edge_with_velocity(global_plan.trajectory, velocity=10.0, collision=False)
 
-        planner.selected_local_plan = current
+        planner.set_selected_plan(current)
         planner._last_plan_change_time = _FIXED_PLANNER_TIME
 
-        assert planner.should_switch_plan(faster) is False
+        assert planner.should_switch_plan(faster) is True
+
+    def test_holds_single_edge_when_unchanged(self, fixed_planner_time):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=8.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        current = _edge_with_velocity(global_plan.trajectory, velocity=8.0, collision=False)
+        near_identical = _edge_with_velocity(global_plan.trajectory, velocity=8.2, collision=False)
+
+        planner.set_selected_plan(current)
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
+
+        assert planner.should_switch_plan(near_identical) is False
 
     def test_switches_when_agent_cleared_on_colliding_head(self, fixed_planner_time):
         global_plan = _straight_global_plan()
@@ -231,8 +268,8 @@ class TestShouldSwitchPlan:
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=8.0))
         planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
 
-        current = _edge_with_velocity(global_plan.trajectory, velocity=8.0, collision=False)
-        similar = _edge_with_velocity(global_plan.trajectory, velocity=8.2, collision=False)
+        current = _chain_with_uniform_velocity(global_plan.trajectory, velocity=8.0)
+        similar = _chain_with_uniform_velocity(global_plan.trajectory, velocity=8.2)
 
         planner.selected_local_plan = current
         planner._last_plan_change_time = 0.0
@@ -404,6 +441,27 @@ class TestOvertakeChainBuilding:
         assert planner._feasible_candidates(edges, agent_blocks_ahead=False) == []
         assert planner._feasible_candidates(edges, agent_blocks_ahead=True) == [boundary_pass]
 
+    def test_centerline_edge_feasible_within_reach(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        # High ego speed shrinks the kinematic reach so the reach gate is meaningful.
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=20.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        # Simulate the discretized curvature measurement spuriously rejecting everything.
+        monkeypatch.setattr(planner, "_is_curvature_feasible", lambda e: False)
+
+        reach = planner._lateral_reach()
+        assert reach < 3.0  # ensure the "beyond reach" case is actually beyond
+
+        ref_within = _edge_at(global_plan.trajectory, 0.0, 20.0)  # start.d=end.d=0
+        ref_beyond = _edge_at_sd(global_plan.trajectory, 0.0, 3.0, 20.0, 0.0)  # shift > reach
+        non_ref = _edge_at_sd(global_plan.trajectory, 0.0, 0.0, 20.0, 2.0)  # end.d beyond d0
+
+        candidates = planner._feasible_candidates(
+            [ref_within, ref_beyond, non_ref], agent_blocks_ahead=False
+        )
+        assert candidates == [ref_within]
+
     def test_build_chain_prefers_lateral_successor_when_agent_ahead(self):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
@@ -473,3 +531,33 @@ class TestSetGlobalPlanClearsStaleChain:
         assert planner._committed_trajectory is None
         # get_local_plan falls back to the new global trajectory until next replan.
         assert planner.get_local_plan() is not None
+
+
+class TestDebounceRelease:
+    def test_single_edge_release_is_debounced(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        # Commit a single-edge plan.
+        planner.set_selected_plan(_edge_at(global_plan.trajectory, 0.0, 20.0))
+        assert planner.local_plan_len() == 1
+
+        # Force the miss path deterministically: level-0 edges exist but none feasible,
+        # and should_switch_plan refuses the fallback colliding edge.
+        dummy = _edge_at(global_plan.trajectory, 0.0, 20.0, collision=True)
+        monkeypatch.setattr(planner.lattice, "reset", lambda *a, **k: None)
+        monkeypatch.setattr(planner.lattice, "sample_nodes", lambda *a, **k: None)
+        monkeypatch.setattr(planner.lattice, "generate_lattice_from_nodes", lambda *a, **k: None)
+        planner.lattice.level0_edges = [dummy]
+        monkeypatch.setattr(planner, "_feasible_candidates", lambda *a, **k: [])
+        monkeypatch.setattr(planner, "should_switch_plan", lambda *a, **k: False)
+
+        release_ticks = planner._no_plan_release_ticks
+        for _ in range(release_ticks - 1):
+            planner.replan()
+            assert planner.selected_local_plan is not None  # held, no blink
+
+        planner.replan()
+        assert planner.selected_local_plan is None
+        assert planner._committed_trajectory is None

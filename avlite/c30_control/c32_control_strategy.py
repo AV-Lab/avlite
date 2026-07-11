@@ -2,20 +2,35 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 
-from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
 from avlite.c30_control.c39_settings import ControlSettings
-from avlite.c50_common.c51_capabilities import AnyOf, StackCapability, WorldCapability
+from avlite.c50_common.c51_capabilities import AnyOf, StackCapability
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
 
 
 class ControlStrategy(ABC):
+    """Abstract base for vehicle controllers.
+
+    The tick entrypoint :meth:`control` takes ``ego`` / optional ``plan`` /
+    ``control_dt``, plus optional ``perception_model`` and ``sensors`` supplied
+    by the executer for stack/world context.
+    """
     registry = {}
 
+    world_requirements = frozenset()
+    stack_requirements = frozenset({
+        AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN),
+        StackCapability.LOCALIZATION,
+    })
+    stack_capabilities = frozenset({StackCapability.CONTROL})
+
     def __init__(self, tj: TrajectoryTracker | None = None):
+
         self.tj: TrajectoryTracker | None = tj
         self.cmd: ControlCommand = ControlCommand()
         self.cte_steer: float = 0
@@ -28,20 +43,6 @@ class ControlStrategy(ABC):
         self.ego_min_acceleration: float = ControlSettings.c32_ego_min_acceleration
         self.ego_max_steering: float = ControlSettings.c32_ego_max_steering
         self.ego_min_steering: float = ControlSettings.c32_ego_min_steering
-
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        """World (sensor) capabilities this controller requires (default: none)."""
-        return set()
-
-    @property
-    def stack_requirements(self) -> set:
-        """Upstream stack capabilities a controller depends on."""
-        return {AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN)}
-
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {StackCapability.CONTROL}
 
     def set_trajectory_tracker(self, tj: TrajectoryTracker | None = None) -> None:
         """Set the active reference path from a built TrajectoryTracker.
@@ -61,7 +62,26 @@ class ControlStrategy(ABC):
         self.tj = plan.as_trajectory()
 
     @abstractmethod
-    def control(self, ego: EgoState, plan: GlobalPlan | LocalPlan | None = None, control_dt: float = None) -> ControlCommandBase:
+    def control(
+        self,
+        ego: EgoState,
+        plan: GlobalPlan | LocalPlan | None = None,
+        control_dt: float | None = None,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> ControlCommandBase:
+        """Run one control step.
+
+        Args:
+            ego: Ego pose/velocity for this tick.
+            plan: Optional global/local plan; when set, updates ``self.tj``.
+            control_dt: Control timestep [s].
+            perception_model: Optional stack world-state snapshot.
+            sensors: Optional world sensor snapshot (e.g. ``sensors.lidar``).
+
+        Returns:
+            Actuation command for the world bridge.
+        """
         pass
 
 
@@ -74,4 +94,3 @@ class ControlStrategy(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:  
             ControlStrategy.registry[cls.__name__] = cls
-    

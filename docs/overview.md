@@ -86,8 +86,13 @@ your own risk.
 ### Browse and install (GUI)
 
 ```bash
-python -m avlite plugins
+avlite plugins
 ```
+
+!!! note "Plugin manager prerequisites"
+    - **`git`** (on your PATH) — required to **Install** and **Update** plugins; AVLite clones/pulls the plugin repository from GitHub.
+    - **`pip`** — used only when a plugin ships a `requirements.txt`; AVLite offers to install its Python dependencies into the current environment.
+    - **Not required** for browsing the registry, GitHub sign-in, uninstalling, or adding an already-installed plugin to a profile.
 
 The browser fetches the official registry from
 [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins),
@@ -98,7 +103,7 @@ override with the `AVLITE_PLUGINS_DIR` environment variable.
 
 ### Member plugins
 
-The **Members** tab in `python -m avlite plugins` lists plugins from the AV-Lab
+The **Members** tab in `avlite plugins` lists plugins from the AV-Lab
 private registry. Sign in with GitHub (Device Flow) to browse and install them;
 your account must have access to that registry and to each listed plugin repo.
 AVLite stores the OAuth token under `~/.config/avlite/` (mode `0600`).
@@ -124,7 +129,7 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
     ```
 
 4. Open a pull request. Once merged, the plugin appears in every user's
-   `python -m avlite plugins` browser for install and register.
+   `avlite plugins` browser for install and register.
 
 ## Core Components
 
@@ -132,11 +137,11 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 |-----------|-------------|
 | **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` / `HDMap` (c11), OpenDRIVE parser (c18) |
 | **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, `GreedyLatticePlanner`, lattice-based) |
-| **c30_control** | Vehicle controllers (Stanley, PID) |
-| **c40_execution** | Execution orchestration, `replan_global()`, simulator bridges (BasicSim, CARLA, Gazebo) |
+| **c30_control** | Vehicle controllers (Stanley, PID, Pure Pursuit, Follow the Gap) |
+| **c40_execution** | Execution orchestration, simulator bridges (BasicSim, CARLA, Gazebo) |
 | **c60_apps** | App infrastructure: `c61_app_strategy`, `c62_factory`, `c63_plugins`, `c64_settings_schema`, `c65_setting_utils`, `c68_paths`, `c69_settings` |
 | **p60_visualizer_tk** | Tk visualizer, settings GUI (`avlite setting`), plugin manager (`avlite plugins`) |
-| **c50_common** | Algorithm utilities only (`c51`–`c55`: capabilities, sensor layouts, collision, FPS) |
+| **c50_common** | Algorithm utilities only (`c51`–`c56`: capabilities, world/stack datatypes, collision, FPS) |
 
 ## Configuration
 
@@ -234,7 +239,7 @@ avlite/
     └── p60_headless_mode/
 ```
 
-Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.
+Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley, "c35" for Pure Pursuit, etc.
 
 ## Documentation
 

@@ -2,9 +2,12 @@ import time
 
 from avlite.c30_control.c31_control_model import (
     AckermannControlCommand,
+    BodyVelocityControlCommand,
+    CONTROL_COMMAND_REGISTRY,
     ControlCommand,
     ControlCommandBase,
     ControlComand,
+    DiffDriveControlCommand,
 )
 
 
@@ -35,8 +38,6 @@ def test_isinstance_base():
 
 
 def test_diff_drive_command_fields():
-    from avlite.c30_control.c31_control_model import DiffDriveControlCommand
-
     cmd = DiffDriveControlCommand(linear=1.0, angular=0.5)
     assert cmd.linear == 1.0
     assert cmd.angular == 0.5
@@ -44,11 +45,17 @@ def test_diff_drive_command_fields():
 
 
 def test_body_velocity_command_fields():
-    from avlite.c30_control.c31_control_model import BodyVelocityControlCommand
-
     cmd = BodyVelocityControlCommand(vx=1.0, vy=0.5, vz=-0.2, yaw_rate=0.1)
     assert cmd.vx == 1.0
     assert cmd.vy == 0.5
     assert cmd.vz == -0.2
     assert cmd.yaw_rate == 0.1
     assert isinstance(cmd, ControlCommandBase)
+
+
+def test_control_command_registry():
+    assert set(CONTROL_COMMAND_REGISTRY) == {
+        "AckermannControlCommand",
+        "DiffDriveControlCommand",
+        "BodyVelocityControlCommand",
+    }

@@ -7,8 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-07-11
+
+### Added
+- Visualizer: Help → **Update…** checks PyPI and can `pip install --upgrade avlite`; quiet startup toast when a newer version is available and exec is idle (`c66_app_update.AppUpdater`)
+- Capabilities: `MAP_HD` and `MAP_RACE_TRACK` replace generic `MAP`; `MapReader` advertises the matching cap from the loaded map type; HD/race global planners require the typed cap
+- Capabilities: `MayUse(...)` soft requirement — never blocks stack assembly; modules may use listed caps when present (e.g. local planners + DETECTION/PREDICTION)
+- Capabilities: `used_stack_capabilities` — flattens hard + soft (`MayUse`) deps for visualizer “consumed” coloring (assembly still uses hard-only `required_stack_capabilities`)
+- Visualizer: stack Combobox **ⓘ** / right-click contract popup shows world requirements, stack requirements (incl. world GT), and provided capabilities; labeled `all ·` / `any ·` / `may ·` rows; Escape and Close always work
+- Visualizer: Bridge Setting Combobox **ⓘ** / right-click shows world capabilities, stack requirements, and stack capabilities for the selected `WorldBridge`
+- Control: `PurePursuitController` (`c35_pure_pursuit`) — geometric path Pure Pursuit with speed-adaptive lookahead and velocity PID (`c35_*` settings)
+- Control: `FollowTheGapController` (`c35_pure_pursuit`) — LiDAR Follow-the-Gap (widest forward free gap → Pure Pursuit steer; optional cruise speed when no plan); documented with Pure Pursuit in `docs/algorithms.md`
+- Plugins browser: **Show Installed only** / **Show Active only** filter checkboxes with status tooltips
+- Settings window: plugin double-click dialog adds **Open on GitHub**
+- Planning: `GlobalRacePlanner` — raceline optimizer for race-boundary maps: blended minimum-curvature / shortest-path bounded least-squares optimization with a lateral + longitudinal acceleration-limited velocity profile (`c25_*` settings, defaults sized for a Dallara Super Formula platform); closed-track aware, with per-stage info logging. Documented in `docs/algorithms.md`
+- Visualizer global race plot: hover over the colored raceline to read the target speed at the nearest waypoint in m/s and km/h
+- `c50_common`: `c53_stack_datatypes` — `StackCapability` → payload type registry and `AgentType` → control command map (`control_type_for_agent`); `WORLD_CAPABILITY_SENSOR_FIELDS` on world sensor datatypes
+
+### Fixed
+- Visualizer: contract popup no longer crashes on `MayUse` after stack reload, and `PerceptionPipeline` ⓘ shows stage requirements/capabilities after selecting tracker/predictor (reload-safe name matching)
+- Perception: empty detect/track stages no longer hard-require `DETECTION`/`TRACKING` on `PerceptionPipeline` (requirements come only from active children; world GT injection stays a bridge concern)
+- Execution: `BasicSim` advertises `TRACKING` ground truth so default `PerceptionPipeline` (empty detect/track) no longer skips every perception step when those caps are still required by active stages
+- Perception: `PerceptionPipeline` drops redundant `MayUse` stack deps already covered by hard child requirements (e.g. tracker `DETECTION` + predictor soft deps)
+- Visualizer: `PREDICTION` contract coloring — local planners soft-use prediction (not tracking); green includes `MayUse`; orange ignores parent `PerceptionPipeline` for stages and respects Bridge Setting checkboxes for world GT
+- Visualizer: controller `CONTROL` capability colored consumed (green) when the world bridge declares it in `stack_requirements`
+- Visualizer: Perception map row starts at column 0; Default Map sits beside mapping without stretching the frame
+- Perception: empty detect/track stages no longer advertise `DETECTION`/`TRACKING` on `PerceptionPipeline` (still required from world GT)
+- Visualizer: `GlobalRacePlanner` now maps to the race plot view (was unset, falling back with an error)
+- Visualizer: close the global matplotlib figure before plot recreation on stack reload or planner switch (fixes figure leak warning)
+
 ### Changed
-- Visualizer local plot: blitting for stable-view frames (limits/size unchanged) and view-window decimation of reference trajectory, boundaries, and track-boundary segments so follow-mode full redraws are cheaper; static Frenet (ax2) geometry is cached per plan instead of recomputed every frame — reduces main-thread plot cost that was capping planner FPS with the local plot enabled
+- Control: `FollowTheGapController` — safety bubble (`c35_bubble_radius`), prefer interior gaps over ±90° edges, and path-biased gap pick when a trajectory is available (`c35_min_gap_width`)
+- Executer: unmet hard **module** `stack_requirements` raise `ValueError` at stack build (world unmet deps and duplicate providers still warn)
+- **Breaking:** Key strategy methods gain optional `(perception_model, sensors)` in addition to existing args (executer / pipeline / UI supply both). Control keeps `control(ego, plan=None, control_dt=None, …)`; detect keeps optional `rgb_img`/`depth_img`/`lidar_data` alongside `sensors`. LiDAR for FTG via `sensors.lidar`. Docs: `architecture.md`, `plugin-development.md`, `algorithms.md`
+- Bridge Setting: split `c41_provided` into `c41_world_capabilities` (sensors) and `c41_world_stack_capabilities` (bridge GT); helpers moved to `c41_world_bridge` (`is_world_capability_enabled` / `is_world_stack_capability_enabled`); settings stay data-only
+- WorldBridge: optional `stack_requirements` (default empty); `BasicSim` requires `CONTROL`; executer validates world deps with other modules
+- Map interface: unified `c40_map` setting (replaces `c40_hd_map` / `c43_race_boundary_map`); factory loads once via `Map.open` into planners, `MapReader`, and WorldBridge
+- Mapping: `MapReader` (`MappingStrategy`) is the optional stack MAP provider; BasicSim stays standalone (`DETECTION` + `TRACKING` + `LOCALIZATION` only) and may hold `map` for LiDAR geometry without advertising MAP
+- Executer: optional `mapping=` module; removed special-case MAP injection from `world.map`
+- Visualizer: mapping Combobox next to localization; Default Map picker always binds to `c40_map`
+- Global planners take `Map` / `RaceMap` / `HDMap` objects (not filepaths)
+- Removed `c46_lidar_boundary_file`; sim geometry comes from the injected map
+- Executer `_validate_stack` warns on unmet requirements and duplicate capability providers
+- Visualizer: Default Map and Default Global Plan pickers include an empty option
+- Capabilities: leaf strategies declare contracts as public `frozenset` class attributes (ABC abstract `@property` still enforced); pipelines keep dynamic instance `@property`; visualizer contract popup reads class attrs without stub construction (`_peek_strategy` removed)
+- Planning: `GlobalPlannerStrategy` world/stack requirements and capabilities are abstract; `HDMapGlobalPlanner`, `GlobalCenterlineRacePlanner`, and `GlobalRacePlanner` declare them explicitly
+- Execution: `WorldBridge.stack_capabilities` is abstract (with `world_capabilities`); concretes such as `BasicSim` must declare both
+- Planning: velocity and lattice local planners soft-depend on `MayUse(DETECTION, PREDICTION)` instead of `DETECTION`/`TRACKING`
+- Perception: `PerceptionPipeline.stack_capabilities` follows active stages only (no `PREDICTION` unless a predictor is set; empty detect/track require world GT via `stack_requirements` and do not re-advertise those caps)
+- Perception: detect/track/predict, localization, and mapping capability contracts are abstract; concretes declare them explicitly
+- Visualizer contract popup: orange for redundantly provided stack capabilities (also offered by another top-level module or checked world GT)
+- Planning: local planner / sub-stage capability contracts are abstract; concretes declare `world_requirements`, `stack_requirements`, and `stack_capabilities` explicitly
+- Visualizer: empty selection allowed for perception, localization, global/local planner, and controller (module omitted from the stack)
+- Visualizer: moved `spawn_agent`, `replan_global`, and `apply_global_plan` from `ExecutionStrategy` onto `VisualizerApp` (interactive helpers; executer stays tick/lifecycle only)
+- Plugins Members tab: sign-in status and button moved above the warning
+- Settings window: plugin double-click shows **Settings file** and **Source file location** instead of package name
+- Control: agent-type → command mapping (`control_type_for_agent`, registries) moved from `c38_control_mapping.py` into `c31_control_model.py`; `c38` removed
+- `c50_common` renumber: `c52_world_sensor_datatypes`, `c53_stack_datatypes`, `c54_trajectory_tracker`, `c55_collision_checking`, `c56_fps_tracker`
+- Strategy ABCs: capability attrs are soft class-level defaults (algorithm methods stay abstract) so older plugins load without declaring `stack_*`
+- `control_type_for_agent` / `DEFAULT_CONTROL_TYPE_BY_AGENT` live in `c53_stack_datatypes` (not `c31`)
 
 ## [0.4.4] - 2026-07-06
 
@@ -37,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Planning settings: clearer `c20_collision_safety_margin` / `c20_obstacle_inflation_margin` / `c20_min_velocity_threshold` descriptions; schema defaults `c20_boundary_margin` 0.25 m and `c20_collision_safety_margin` 0.5 m
 - Bundled profiles: dark mode defaults restored; planning/control tuning for **local planning** and **global planning** profiles
 - Docs: algorithms collision-margin table aligned with ego-side vs agent-side clearance semantics; visualizer screenshot updated
+- Visualizer local plot: blitting for stable-view frames (limits/size unchanged) and view-window decimation of reference trajectory, boundaries, and track-boundary segments so follow-mode full redraws are cheaper; static Frenet (ax2) geometry is cached per plan instead of recomputed every frame — reduces main-thread plot cost that was capping planner FPS with the local plot enabled
 
 ### Fixed
 - Far-behind agents painting front lattice edges red: with prediction disabled no forward sweep occurs, and with prediction on the beside-sweep is scoped to the rear window so a trailing vehicle no longer flags edges ahead of the ego

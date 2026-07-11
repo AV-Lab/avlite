@@ -24,8 +24,9 @@ from avlite.c20_planning.c23_local_planning_strategy import (
 )
 from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import VelocityLocalPlanner
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
-from avlite.c50_common.c54_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c51_capabilities import MayUse, StackCapability
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c55_collision_checking import check_collision, precompute_obstacle_polygons
 
 log = logging.getLogger(__name__)
 
@@ -261,6 +262,9 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         self._min_edge_progress_to_block: float = setting.c28_min_edge_progress_to_block
         self._urgent_collision_threshold: int = setting.c28_urgent_collision_threshold
         self._disconnect_distance_threshold: float = setting.c28_disconnect_distance_threshold
+        # Debounce release-to-global: consecutive replan ticks with no committable plan.
+        self._no_plan_release_ticks: int = setting.c28_no_plan_release_ticks
+        self._no_feasible_streak: int = 0
 
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)
@@ -281,6 +285,7 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         self._committed_trajectory = None
         self.lattice.reset()
         self._last_plan_change_time = 0.0
+        self._no_feasible_streak = 0
 
     def get_local_plan(self) -> LocalPlan:
         if self._committed_trajectory is not None:
@@ -378,9 +383,15 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         if new_clean:
             prev_len = self.local_plan_len()
             new_len = self.local_plan_len(new_plan)
-            waited = time.time() - self._last_plan_change_time >= self._replan_wait_time
             cur_v = float(np.mean(np.asarray(cur_vel))) if cur_vel is not None and len(cur_vel) > 0 else 0.0
             new_v = float(np.mean(np.asarray(new_plan.local_trajectory.velocity)))
+            # Single-edge refresh: keep the committed edge unless the maneuver
+            # materially changed, so random resampling does not re-commit every tick.
+            if prev_len == 1 and new_len == 1:
+                lateral_changed = abs(new_plan.end.d - self.selected_local_plan.end.d) > PlanningSettings.c28_d0_reference_threshold
+                speed_changed = abs(new_v - cur_v) > 0.5
+                return lateral_changed or speed_changed
+            waited = time.time() - self._last_plan_change_time >= self._replan_wait_time
             material_gain = new_len >= prev_len + 2
             speed_gain = new_v > cur_v + 0.5
 
@@ -405,6 +416,7 @@ class LatticePlanningStrategy(LocalPlanningStrategy, abstract=True):
         """Set the selected plan and update the change timestamp."""
         self.selected_local_plan = new_plan
         self._last_plan_change_time = time.time()
+        self._no_feasible_streak = 0
         traj = self.selected_local_plan.local_trajectory
         edge = self.selected_local_plan.selected_next_local_plan
         while edge is not None:
@@ -522,6 +534,14 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         self._allow_boundary_violation_fallback: bool = setting.c28_allow_boundary_violation_fallback
         self._velocity_planner = VelocityLocalPlanner(global_plan, env, setting)
 
+    world_requirements = frozenset()
+    stack_requirements = frozenset({
+        StackCapability.GLOBAL_PLAN,
+        StackCapability.LOCALIZATION,
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+    })
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+
     def set_global_plan(self, global_plan: GlobalPlan, ego_xy=None) -> None:
         super().set_global_plan(global_plan, ego_xy=ego_xy)
         self._velocity_planner.set_global_plan(global_plan, ego_xy=ego_xy)
@@ -623,9 +643,15 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
     def _feasible_candidates(self, edges: list[Edge], agent_blocks_ahead: bool) -> list[Edge]:
         relax_boundary = agent_blocks_ahead or self._allow_boundary_violation_fallback
         relax_curvature = self._allow_curvature_fallback
+        reach = self._lateral_reach()
+        d0 = PlanningSettings.c28_d0_reference_threshold
         candidates = [
             e for e in edges
-            if not e.collision and not e.boundary_violation and self._is_curvature_feasible(e)
+            if not e.collision and not e.boundary_violation
+            and (self._is_curvature_feasible(e)
+                 # Centerline return: within kinematic reach, trust sampling math
+                 # over the discretized curvature measurement.
+                 or (abs(e.end.d) < d0 and abs(e.end.d - e.start.d) <= reach))
         ]
         if not candidates and relax_curvature:
             candidates = [e for e in edges if not e.collision and not e.boundary_violation]
@@ -658,7 +684,9 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
             if self.local_plan_len() <= prev_len:
                 break
 
-    def replan(self, back_to_ref_horizon=10):
+    def replan(self, perception_model=None, sensors=None, back_to_ref_horizon=10):
+        if perception_model is not None:
+            self.pm = perception_model
         if len(self.traversed_s) == 0:
             log.debug("Location unkown. Cannot replan")
             return
@@ -691,6 +719,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         feasible_edges = self._feasible_candidates(self.lattice.level0_edges, agent_blocks_ahead)
 
         if feasible_edges:
+            self._no_feasible_streak = 0
             current_plan = self._build_selected_chain(feasible_edges, agent_blocks_ahead)
 
             new_len = self.local_plan_len(current_plan)
@@ -765,6 +794,13 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
             if self.should_switch_plan(edges_sorted[0]):
                 self.set_selected_plan(edges_sorted[0])
             else:
+                self._no_feasible_streak += 1
+                if (self.local_plan_len() == 1
+                        and self._no_feasible_streak >= self._no_plan_release_ticks):
+                    log.debug("No committable plan for %d ticks; releasing single-edge plan to global",
+                              self._no_feasible_streak)
+                    self.selected_local_plan = None
+                    self._committed_trajectory = None
                 return
             idx = getattr(self.selected_local_plan, 'collision_idx', 0)
 
@@ -778,9 +814,17 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
 
             log.warning(f"No feasible edges. Collision at idx {idx}, initiating speed-match/emergency stop.")
         else:
-            # No edges at all - emergency stop
-            log.error("No lattice edges generated - emergency stop")
-            if self.selected_local_plan is not None:
+            # No edges at all - emergency stop (multi-edge) or hand off to global (single-edge)
+            self._no_feasible_streak += 1
+            if self.selected_local_plan is not None and self.local_plan_len() == 1:
+                if self._no_feasible_streak >= self._no_plan_release_ticks:
+                    log.debug("No lattice edges for %d ticks; releasing single-edge plan to global",
+                              self._no_feasible_streak)
+                    self.selected_local_plan = None
+                    self._committed_trajectory = None
+                # Below threshold: hold the last committed trajectory (no blink).
+            elif self.selected_local_plan is not None:
+                log.error("No lattice edges generated - emergency stop")
                 tj = self.selected_local_plan.local_trajectory
                 self._velocity_planner.apply_speed_match(tj, len(tj.path) - 1, 0.0)
                 traj = self.selected_local_plan.local_trajectory

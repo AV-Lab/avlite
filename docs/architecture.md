@@ -2,24 +2,27 @@
 
 ## Overview
 
-AVLite follows a layered architecture with clear separation between interfaces and implementations.
+AVLite follows a layered architecture with clear separation between interfaces and implementations. Every layer is extendable: apps, executers, perception/planning/control strategies, and world bridges are all auto-registered strategies, and any of them can be added or overridden by a plugin.
 
 ```mermaid
 flowchart TB
-    subgraph ENTRY[" "]
+    subgraph ENTRY["Apps (AppStrategy)"]
         direction LR
-        VIZ["Visualization\nReal-time Tkinter GUI"]
-        HL["Headless Mode\nTerminal dashboard"]
-        VIZ ~~~ HL
+        VIZ["Visualizer (default)\nReal-time Tkinter GUI"]
+        SET["Settings GUI"]
+        PLG["Plugin Manager"]
+        HL["Headless\nTerminal dashboard"]
+        SCLI["Setting CLI"]
+        VIZ ~~~ SET ~~~ PLG ~~~ HL ~~~ SCLI
     end
 
-    EXEC["Execution\nSync/async executer and factory"]
+    EXEC["Execution (executer strategy)\nSync/async executer and factory"]
 
-    subgraph COMPONENTS[" "]
+    subgraph COMPONENTS["Stack modules (Strategy plugins)"]
         direction LR
         PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
-        CTRL["Control\nStanley · PID"]
+        CTRL["Control\nStanley · PID · Pure Pursuit · FTG"]
         WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
@@ -30,6 +33,8 @@ flowchart TB
     EXEC --> COMPONENTS
     COMPONENTS --> COMMON
 ```
+
+Every box above the Common layer is a pluggable strategy: apps register via `AppStrategy`, and the stack modules (perception, planning, control, world bridge) plus the executer itself register via their own strategy base classes. See [Strategy Pattern with Auto-Registration](#strategy-pattern-with-auto-registration).
 
 ## Design Patterns
 
@@ -49,6 +54,32 @@ class PerceptionStrategy(ABC):
 
 When you create a subclass, it automatically registers itself and appears in the UI dropdowns. No manual registration needed.
 
+### App Strategy (CLI/GUI entry points)
+
+Every entry point — the Tkinter visualizer, the settings GUI, the plugin manager, the headless runner, the setting CLI — is just an *app*: an `AppStrategy` subclass that auto-registers exactly like `PerceptionStrategy`, keyed by `cli_name` (`None` marks the default app that runs when no subcommand is given).
+
+```python
+class MyToolApp(AppStrategy):
+    cli_name = "my-tool"        # None = default app
+    help = "Short description for avlite --help"
+
+    def run(self, args, unknown):
+        ...
+        return 0                 # optional; None = exit 0
+```
+
+The Tk visualizer and headless dashboard carry no special status — they are two of several built-in apps, and new apps drop in the same way (subclass, set `cli_name`, implement `run()`, optionally `configure_parser()` for flags). At startup [`__main__.py`](../avlite/__main__.py) drives the dispatch:
+
+```mermaid
+flowchart LR
+    boot["bootstrap_apps()\nimport p60_* app modules"]
+    reg["register_parsers(sub)\none subcommand per app"]
+    run["run_app(command, ...)\nregistry[command] or default"]
+    boot --> reg --> run
+```
+
+Built-in apps ship as `p60_*` plugins (`p60_visualizer_tk`, `p60_headless_mode`, `p60_setting_cli`), so the app layer is fully extendable — community plugins can register their own apps. See [Plugin Development → Apps](plugin-development.md#apps-appstrategy).
+
 ### Capability System
 
 Components declare what they require and provide along a clean 2x2 grid keyed on capability space (world/sensor vs stack) and direction (requires vs provides):
@@ -58,20 +89,46 @@ Components declare what they require and provide along a clean 2x2 grid keyed on
 | **World layer** (`WorldCapability`) | `world_requirements` | `world_capabilities` (world bridge only) |
 | **Stack layer** (`StackCapability`) | `stack_requirements` | `stack_capabilities` |
 
-- A **strategy** declares `world_requirements`, `stack_requirements` (non-abstract, per-module defaults), and `stack_capabilities` (what it produces).
+- A **strategy** declares `world_requirements`, `stack_requirements`, and `stack_capabilities` (what it produces). Strategy ABCs keep these as **abstract** `@property`; leaf concretes satisfy them with public **`frozenset` class attributes** (readable without constructing an instance). Pipelines keep instance `@property` aggregators over their stages.
 - A **world bridge** declares `world_capabilities` (sensors it exposes) and `stack_capabilities` (ground truth it provides).
+
+Requirement entries may be plain capabilities or wrappers:
+
+- **Plain caps (AND)** — every listed capability must be present (`all · A & B` in the visualizer popup).
+- **`AnyOf(A, B, …)`** — hard OR: at least one member must be present (`any · A | B`).
+- **`MayUse(A, B, …)`** — soft: never blocks assembly; the module uses these when available (`may · A | B`).
+
+**Runtime payloads (who passes what):** capability enums declare *need*; they are not a message bus. Key strategy methods also take optional ``perception_model`` + ``sensors`` (supplied by the executer, pipeline, or UI) **in addition to** any method-specific args:
+
+```python
+# Shared optional pair on every key method
+perception_model=None,  # stack world-state (PerceptionModel)
+sensors=None,           # world SensorFrame
+
+# Control keeps its prior args as well:
+control(ego, plan=None, control_dt=None, perception_model=None, sensors=None)
+
+# Detect keeps optional unpacked sensor convenience args as well:
+detect(perception_model=None, sensors=None, rgb_img=None, depth_img=None, lidar_data=None)
+```
+
+Modules read fields they need (e.g. `sensors.lidar`, or `ego` / `plan` on control). Global start/goal stay via `set_start_goal` before `plan(...)`.
 
 ```python
 class MyPerception(PerceptionStrategy):
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        # What I need from the world/simulator (sensors)
-        return {WorldCapability.CAMERA_RGB}
+    world_requirements = frozenset({WorldCapability.CAMERA_RGB})
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.DETECTION})
 
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        # What I provide to downstream modules
-        return {StackCapability.DETECTION}
+
+class MyLocalPlanner(LocalPlanningStrategy):
+    world_requirements = frozenset()
+    stack_requirements = frozenset({
+        StackCapability.GLOBAL_PLAN,
+        StackCapability.LOCALIZATION,
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+    })
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 ```
 
 **World Capabilities** (sensors / actuation the bridge provides):
@@ -96,11 +153,13 @@ class MyPerception(PerceptionStrategy):
 - `GLOBAL_PLAN` - Global plan (produced by the global planner)
 - `CONTROL` - Control commands (produced by the controller)
 - `LOCALIZATION` - Ego localization
-- `MAP` - Map
+- `MAP_HD` - HD / OpenDRIVE map (from a mapping module such as `MapReader`)
+- `MAP_RACE_TRACK` - Race-track corridor map (from a mapping module such as `MapReader`)
 - `SLAM` - Simultaneous localization and mapping
 
-**Ground truth via the world bridge:** a `WorldBridge` may advertise `stack_capabilities` (a `set[StackCapability]`, default empty) to satisfy downstream `stack_requirements` without a real module. For example, `BasicSim` provides `{DETECTION, TRACKING, LOCALIZATION}` as ground truth. The executer combines every present module's `stack_capabilities` with `world.stack_capabilities` and warns when a module's `stack_requirements` are unmet.
+**Ground truth via the world bridge:** a `WorldBridge` may advertise `stack_capabilities` (a `set[StackCapability]`, default empty) to satisfy downstream `stack_requirements` without a real module. For example, `BasicSim` provides `{DETECTION, TRACKING, LOCALIZATION}` as ground truth and declares `stack_requirements = {CONTROL}`. Optional `WorldBridge.map` is simulation-only (e.g. LiDAR geometry) and does **not** advertise `MAP_HD` / `MAP_RACE_TRACK`. Typed stack map caps come from a mapping module such as `MapReader` (holds a pre-loaded `Map`; advertises `MAP_HD` or `MAP_RACE_TRACK` from the concrete type; format sniff/load stays on `Map.open` / `Map.from_path`). Global planners require the matching typed cap (`HDMapGlobalPlanner` → `MAP_HD`; race planners → `MAP_RACE_TRACK`). The executer’s `available_stack_capabilities()` unions every present module’s `stack_capabilities` with filtered `world.stack_capabilities`. At stack build it **raises** when a module’s hard `stack_requirements` are unmet (`MayUse` never fails that check), and **warns** when the world’s hard requirements are unmet or when the same capability is provided by more than one source.
 
+In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against `available_stack_capabilities`, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected `WorldBridge`: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled `all ·` / `any ·` / `may ·`. Provided caps: green = consumed by another module’s hard or soft (`MayUse`) requirements or by the world bridge’s `stack_requirements`; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (`c41_world_stack_capabilities`); gray = unused. Parent `PerceptionPipeline` advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use `DETECTION` and `PREDICTION` (agents + motion sweeps), not `TRACKING`. Bridge Setting’s world column (`c41_world_capabilities`) gates which sensors are fed into `SensorFrame`.
 ### Factory Pattern
 
 The executor factory assembles components based on configuration:
@@ -110,12 +169,13 @@ executer = executor_factory(
     bridge="BasicSim",
     perception_strategy_name="MultiObjectPredictor",
     localization_strategy_name="MyLocalization",
+    mapping_strategy_name="MapReader",
     local_planner_strategy_name="GreedyLatticePlanner",
     controller_strategy_name="StanleyController"
 )
 ```
 
-It loads plugins, instantiates strategies from registries, and wires everything together. Both `perception_strategy_name` and `localization_strategy_name` are optional — pass an empty string or omit them to run without that component.
+It loads plugins, opens `ExecutionSettings.c40_map` once via `Map.open` (shared by `MapReader`, global planners, and `WorldBridge`), instantiates strategies from registries, and wires everything together. Perception, localization, and mapping strategy names are optional — pass an empty string or omit them to run without that component.
 
 Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c62_factory.py`](../avlite/c60_apps/c62_factory.py). Each setting reads its section from the single `configs/<profile>.yaml`: it loads the c10–c40 layer sections, `AppSettings` (the `c69_apps` section), and built-in plugin settings (the `plugins` section); the GUI loads the Tk `VisualizationSettings` binder separately.
 
@@ -137,7 +197,7 @@ State → AgentState → EgoState
 - **Default state** — pose (`x`, `y`, `z`, `theta`) plus scalar `velocity` (car-centric; used by planning, collision, and viz).
 - **Future** — specialized subclasses (e.g. `DroneAgentState`) when kinematics need body velocity or 3D integration; see [Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control).
 
-Control actuation is a separate layer: `ControlCommandBase` subclasses in c31, with default `AgentType` → command mapping in c38. The car stack still uses the `ControlCommand` alias for `AckermannControlCommand`.
+Control actuation is a separate layer: `ControlCommandBase` subclasses and default `AgentType` → command mapping in c31. The car stack still uses the `ControlCommand` alias for `AckermannControlCommand`.
 
 ## Layers
 
@@ -151,15 +211,21 @@ Global route planning and reactive local planning (lattice-based). Produces traj
 
 ### **Control**
 
-Vehicle control strategies (Stanley, PID) output actuation commands. Commands use a `ControlCommandBase` hierarchy (`AckermannControlCommand`, `DiffDriveControlCommand`, `BodyVelocityControlCommand` in c31); the built-in car stack still returns `ControlCommand` (Ackermann alias). Per-agent command type defaults are mapped from `AgentType` in c38. See [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control).
+Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. Commands use a `ControlCommandBase` hierarchy (`AckermannControlCommand`, `DiffDriveControlCommand`, `BodyVelocityControlCommand` in c31); the built-in car stack still returns `ControlCommand` (Ackermann alias). Per-agent command type defaults are mapped from `AgentType` in c31. See [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control). Pure Pursuit and Follow the Gap are documented in [Algorithms](algorithms.md#control-pure-pursuit-and-follow-the-gap).
 
 ### **Execution**
 
 World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in `BasicSim` bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via `c40_executer_type` and provided as optional plugins.
 
-### **Visualization**
+### **Apps**
 
-Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.
+CLI and GUI entry points, each an `AppStrategy` (see [App Strategy](#app-strategy-cligui-entry-points)). Built-in apps ship as `p60_*` plugins and the layer is extendable:
+
+- **Visualizer** (default, `avlite`) — Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.
+- **Settings GUI** (`avlite setting`) — full stack settings editor window.
+- **Plugin Manager** (`avlite plugins`) — browse, install, and register community plugins.
+- **Headless** (`avlite headless`) — runs the same YAML profile with a terminal dashboard, no GUI.
+- **Setting CLI** (`avlite setting-cli`) — validate/describe/import/export profiles from the terminal.
 
 ### **Common**
 
@@ -216,6 +282,6 @@ avlite/
 ~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 ```
 
-Plugins are loaded at startup. Classes inheriting from base strategies auto-register.
+Plugins are loaded at startup. Classes inheriting from base strategies auto-register. The built-in `p60_*` packages are the apps themselves (`AppStrategy` entry points); `bootstrap_apps()` in `c61_app_strategy` imports them at startup so their apps register before CLI parsing.
 
 See [Plugin Development](plugin-development.md) for creating community plugins, pNx naming, and log filtering.

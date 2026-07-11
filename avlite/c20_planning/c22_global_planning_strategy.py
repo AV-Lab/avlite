@@ -1,37 +1,50 @@
 import logging
 from abc import ABC, abstractmethod
-import networkx as nx
 
+from avlite.c10_perception.c11_perception_model import Map, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
 
+
 class GlobalPlannerStrategy(ABC):
+    """Abstract base for global route planners.
+
+    Entrypoint :meth:`plan` takes optional ``perception_model`` and ``sensors``,
+    supplied by the UI/executer. Start and goal are set beforehand via
+    :meth:`set_start_goal` (not part of the snapshot pair).
+    """
     registry = {}
 
-    def __init__(self):
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.LOCALIZATION})
+    stack_capabilities = frozenset({StackCapability.GLOBAL_PLAN})
+
+    def __init__(self, map: Map | None = None):
+        self.map = map
         self.global_plan: GlobalPlan = GlobalPlan()
         self.start_point = None
         self.goal_point = None
 
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        """World (sensor) capabilities this planner requires (default: none)."""
-        return set()
-
-    @property
-    def stack_requirements(self) -> set[StackCapability]:
-        """Upstream stack capabilities a global planner depends on."""
-        return {StackCapability.MAP, StackCapability.LOCALIZATION}
-
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {StackCapability.GLOBAL_PLAN}
-
     @abstractmethod
-    def plan(self) -> GlobalPlan:
-        """Plan a path from start to goal."""
+    def plan(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> GlobalPlan:
+        """Plan a path from start to goal.
+
+        Args:
+            perception_model: Stack world-state snapshot (e.g. live ego).
+                Built-ins may ignore it and use :attr:`start_point` /
+                :attr:`goal_point` from :meth:`set_start_goal`.
+            sensors: World sensor snapshot for this call (``None`` if unused).
+
+        Returns:
+            The computed :class:`GlobalPlan` (also stored on ``self.global_plan``).
+        """
         pass
 
     
@@ -46,6 +59,3 @@ class GlobalPlannerStrategy(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:  
             GlobalPlannerStrategy.registry[cls.__name__] = cls
-
-
-

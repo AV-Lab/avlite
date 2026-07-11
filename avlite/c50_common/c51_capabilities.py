@@ -31,15 +31,28 @@ class StackCapability(Enum):
     CONTROL = auto() # Whether the strategy produces control commands
 
     LOCALIZATION = auto() # Whether the strategy provides ego localization
-    MAP = auto() # Whether the strategy provides a map
+    MAP_HD = auto() # Whether the strategy provides an HD / OpenDRIVE map
+    MAP_RACE_TRACK = auto() # Whether the strategy provides a race-track corridor map
     SLAM = auto() # Whether the strategy provides simultaneous localization and mapping
 
 
+def is_any_of(req) -> bool:
+    """True when *req* is an :class:`AnyOf` (reload-safe; not ``isinstance``)."""
+    return type(req).__name__ == "AnyOf" and hasattr(req, "capabilities")
 
+
+def is_may_use(req) -> bool:
+    """True when *req* is a :class:`MayUse` (reload-safe; not ``isinstance``)."""
+    return type(req).__name__ == "MayUse" and hasattr(req, "capabilities")
+
+
+def is_requirement_wrapper(req) -> bool:
+    """True when *req* is :class:`AnyOf` or :class:`MayUse` (reload-safe)."""
+    return is_any_of(req) or is_may_use(req)
 
 
 class AnyOf:
-    """Requirement satisfied when the world provides *at least one* of the listed capabilities.
+    """Requirement satisfied when *at least one* of the listed capabilities is present.
 
     Usage::
 
@@ -52,24 +65,88 @@ class AnyOf:
         self.capabilities = frozenset(caps)
 
     def __hash__(self):
-        return hash(self.capabilities)
+        return hash(("AnyOf", self.capabilities))
 
     def __eq__(self, other):
-        return isinstance(other, AnyOf) and self.capabilities == other.capabilities
+        return is_any_of(other) and self.capabilities == other.capabilities
 
     def __repr__(self):
         names = ", ".join(c.name for c in self.capabilities)
         return f"AnyOf({names})"
 
 
-def satisfies_requirements(requirements: set, capabilities: set) -> bool:
-    """Return True when every requirement in *requirements* is met by *capabilities*.
+class MayUse:
+    """Soft requirement: never blocks assembly; the module uses these if present.
 
-    Plain :class:`WorldCapability` entries require an exact match (AND semantics).
-    :class:`AnyOf` entries require at least one of their members to be present (OR semantics).
+    Usage::
+
+        @property
+        def stack_requirements(self):
+            return {StackCapability.LOCALIZATION, MayUse(StackCapability.DETECTION)}
+    """
+
+    def __init__(self, *caps):
+        self.capabilities = frozenset(caps)
+
+    def __hash__(self):
+        return hash(("MayUse", self.capabilities))
+
+    def __eq__(self, other):
+        return is_may_use(other) and self.capabilities == other.capabilities
+
+    def __repr__(self):
+        names = ", ".join(c.name for c in self.capabilities)
+        return f"MayUse({names})"
+
+
+def required_stack_capabilities(modules) -> set:
+    """Flatten hard ``stack_requirements`` from *modules* (``AnyOf`` → members).
+
+    ``MayUse`` entries are ignored — soft deps do not count as consumed for assembly.
+    """
+    needed: set = set()
+    for module in modules:
+        if module is None:
+            continue
+        for req in module.stack_requirements:
+            if is_may_use(req):
+                continue
+            if is_any_of(req):
+                needed |= set(req.capabilities)
+            else:
+                needed.add(req)
+    return needed
+
+
+def used_stack_capabilities(modules) -> set:
+    """Flatten hard and soft ``stack_requirements`` from *modules* for UI coloring.
+
+    Includes ``MayUse`` members (soft use) and ``AnyOf`` members. Assembly
+    validation still uses :func:`required_stack_capabilities` (hard only).
+    """
+    used: set = set()
+    for module in modules:
+        if module is None:
+            continue
+        for req in module.stack_requirements:
+            if is_requirement_wrapper(req):
+                used |= set(req.capabilities)
+            else:
+                used.add(req)
+    return used
+
+
+def satisfies_requirements(requirements: set, capabilities: set) -> bool:
+    """Return True when every hard requirement in *requirements* is met.
+
+    - Plain capability entries require an exact match (AND).
+    - :class:`AnyOf` requires at least one member present (OR).
+    - :class:`MayUse` is always satisfied (soft / optional).
     """
     for req in requirements:
-        if isinstance(req, AnyOf):
+        if is_may_use(req):
+            continue
+        if is_any_of(req):
             if not (req.capabilities & capabilities):
                 return False
         elif req not in capabilities:

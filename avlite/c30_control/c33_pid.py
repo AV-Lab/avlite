@@ -3,12 +3,13 @@ import copy
 import logging
 from typing import Optional
 
-from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c39_settings import ControlSettings, ControlSettingsSchema
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +32,14 @@ class PIDController(ControlStrategy):
         self.cte_v_sum = 0
 
 
-    def control(self, ego: EgoState, plan: GlobalPlan | LocalPlan | None = None, control_dt=None) -> ControlCommand:
+    def control(
+        self,
+        ego: EgoState,
+        plan: GlobalPlan | LocalPlan | None = None,
+        control_dt=None,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> ControlCommand:
         if plan is not None:
             self.tj = plan.as_trajectory()
         elif self.tj is None:

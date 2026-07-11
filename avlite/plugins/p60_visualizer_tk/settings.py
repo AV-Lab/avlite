@@ -144,9 +144,7 @@ class VisualizationSettings:
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
         self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
 
-        self.perception_type = tk.StringVar(
-            value=_strategy_default(PerceptionStrategy.registry, ExecutionSettings.c40_perception)
-        )
+        self.perception_type = tk.StringVar(value=ExecutionSettings.c40_perception or "")
 
         def _on_perception_change(*args):
             if self._syncing_stack:
@@ -211,11 +209,7 @@ class VisualizationSettings:
 
         self.mapping_type.trace_add("write", _on_mapping_change)
 
-        self.global_planner_type = tk.StringVar(
-            value=ExecutionSettings.c40_global_planner
-            if ExecutionSettings.c40_global_planner
-            else (list(GlobalPlannerStrategy.registry.keys())[0] if GlobalPlannerStrategy.registry else None)
-        )
+        self.global_planner_type = tk.StringVar(value=ExecutionSettings.c40_global_planner or "")
 
         def _on_global_plan_change(*args):
             if self._syncing_stack:
@@ -224,9 +218,7 @@ class VisualizationSettings:
 
         self.global_planner_type.trace_add("write", _on_global_plan_change)
 
-        self.local_planner_type = tk.StringVar(
-            value=_strategy_default(LocalPlanningStrategy.registry, ExecutionSettings.c40_local_planner)
-        )
+        self.local_planner_type = tk.StringVar(value=ExecutionSettings.c40_local_planner or "")
 
         def _on_local_plan_change(*args):
             if self._syncing_stack:
@@ -265,9 +257,7 @@ class VisualizationSettings:
         self.lap = tk.StringVar(value="0")
         self.current_wp = tk.StringVar(value="0")
 
-        self.controller_type = tk.StringVar(
-            value=_strategy_default(ControlStrategy.registry, ExecutionSettings.c40_controller)
-        )
+        self.controller_type = tk.StringVar(value=ExecutionSettings.c40_controller or "")
 
         def _on_controller_change(*args):
             if self._syncing_stack:
@@ -455,19 +445,9 @@ class VisualizationSettings:
             self.localization_type.set(es.c40_localization or "")
             self.localization_dt.set(es.c40_localization_dt)
             self.mapping_type.set(es.c40_mapping or "")
-            self.global_planner_type.set(
-                es.c40_global_planner
-                or _strategy_default(GlobalPlannerStrategy.registry, None)
-                or ""
-            )
-            self.local_planner_type.set(
-                es.c40_local_planner
-                or _strategy_default(LocalPlanningStrategy.registry, None)
-                or ""
-            )
-            self.controller_type.set(
-                es.c40_controller or _strategy_default(ControlStrategy.registry, None) or ""
-            )
+            self.global_planner_type.set(es.c40_global_planner or "")
+            self.local_planner_type.set(es.c40_local_planner or "")
+            self.controller_type.set(es.c40_controller or "")
             self.executer_type.set(
                 es.c40_executer_type or _strategy_default(ExecutionStrategy.registry, None) or ""
             )

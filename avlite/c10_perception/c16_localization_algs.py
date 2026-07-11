@@ -16,7 +16,7 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
-from avlite.c50_common.c52_sensor_datatypes import SensorFrame
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 from avlite.c50_common.c51_capabilities import (
     AnyOf,
     StackCapability,
@@ -71,23 +71,21 @@ class LidarLocalization(LocalizationStrategy):
         self._theta: Optional[float] = None
         self._map: Optional[np.ndarray] = None
 
-    # ------------------------------------------------------------------
-    # Capability declaration
-    # ------------------------------------------------------------------
-
-    @property
-    def world_requirements(self) -> set:
-        return {AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)}
-
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {StackCapability.LOCALIZATION}
+    world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.LOCALIZATION})
 
     # ------------------------------------------------------------------
     # Main estimation step
     # ------------------------------------------------------------------
 
-    def localize(self, sensors: SensorFrame | None = None) -> None:
+    def localize(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> None:
+        if perception_model is not None:
+            self.perception_model = perception_model
         lidar_data = sensors.lidar if sensors is not None else None
         scan = self._squash(lidar_data)
         if scan is None or len(scan) < 3:

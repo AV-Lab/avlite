@@ -13,11 +13,9 @@ from avlite.c60_apps.c68_paths import ConfigPaths
 from avlite.c60_apps.c65_setting_utils import list_profiles, load_setting
 from avlite.plugins.p60_visualizer_tk.p64_setting_views import SettingWindow
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
+    DpiScale,
     TkSettingsBinder,
     apply_ttk_theme,
-    get_dpi_scale,
-    scaled,
-    setup_dpi,
 )
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
 
@@ -30,12 +28,12 @@ class SettingAppHost(tk.Tk):
     hosting_plugin_name = "p60_visualizer_tk"
 
     def __init__(self) -> None:
-        setup_dpi()
+        DpiScale.setup()
         super().__init__()
         apply_ttk_theme(self, dark=True)
         self.title("AVLite Settings")
-        _s = get_dpi_scale(self)
-        self.geometry(f"{scaled(900, _s)}x{scaled(700, _s)}")
+        _s = DpiScale.for_widget(self)
+        self.geometry(f"{DpiScale.scaled(900, _s)}x{DpiScale.scaled(700, _s)}")
 
         self.setting = VisualizationSettings()
         self.setting.profile_list = list_profiles(AppSettings)

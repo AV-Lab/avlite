@@ -50,6 +50,7 @@ _LAZY: dict[str, str] = {
     "LocalizationStrategy": "avlite.c10_perception.c13_localization_strategy",
     # Mapping
     "MappingStrategy": "avlite.c10_perception.c14_mapping_strategy",
+    "MapReader": "avlite.c10_perception.c14_mapping_strategy",
     # Global planning
     "GlobalPlannerStrategy": "avlite.c20_planning.c22_global_planning_strategy",
     # Local planning
@@ -91,15 +92,22 @@ _LAZY: dict[str, str] = {
     "AnyOf": "avlite.c50_common.c51_capabilities",
     "satisfies_requirements": "avlite.c50_common.c51_capabilities",
     # -- Sensor datatypes ---------------------------------------------------
-    "SensorFrame": "avlite.c50_common.c52_sensor_datatypes",
-    "ImuReading": "avlite.c50_common.c52_sensor_datatypes",
-    "GnssReading": "avlite.c50_common.c52_sensor_datatypes",
-    "WheelOdometry": "avlite.c50_common.c52_sensor_datatypes",
-    "RgbImage": "avlite.c50_common.c52_sensor_datatypes",
-    "DepthImage": "avlite.c50_common.c52_sensor_datatypes",
-    "LidarCloud": "avlite.c50_common.c52_sensor_datatypes",
+    "SensorFrame": "avlite.c50_common.c52_world_sensor_datatypes",
+    "ImuReading": "avlite.c50_common.c52_world_sensor_datatypes",
+    "GnssReading": "avlite.c50_common.c52_world_sensor_datatypes",
+    "WheelOdometry": "avlite.c50_common.c52_world_sensor_datatypes",
+    "RgbImage": "avlite.c50_common.c52_world_sensor_datatypes",
+    "DepthImage": "avlite.c50_common.c52_world_sensor_datatypes",
+    "LidarCloud": "avlite.c50_common.c52_world_sensor_datatypes",
+    "WORLD_CAPABILITY_SENSOR_FIELDS": "avlite.c50_common.c52_world_sensor_datatypes",
+    # -- Stack datatype registries ------------------------------------------
+    "STACK_CAPABILITY_DATATYPES": "avlite.c50_common.c53_stack_datatypes",
+    "datatype_for": "avlite.c50_common.c53_stack_datatypes",
+    "capabilities_for": "avlite.c50_common.c53_stack_datatypes",
+    "DEFAULT_CONTROL_TYPE_BY_AGENT": "avlite.c50_common.c53_stack_datatypes",
+    "control_type_for_agent": "avlite.c50_common.c53_stack_datatypes",
     # -- Trajectory ---------------------------------------------------------
-    "TrajectoryTracker": "avlite.c50_common.c53_trajectory_tracker",
+    "TrajectoryTracker": "avlite.c50_common.c54_trajectory_tracker",
     # -- Runtime helpers ----------------------------------------------------
     "executor_factory": "avlite.c60_apps.c62_factory",
     "load_stack_settings": "avlite.c60_apps.c62_factory",
@@ -149,7 +157,7 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         TrackingStrategy,
     )
     from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-    from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
+    from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
     from avlite.c10_perception.c19_settings import PerceptionSettings
     from avlite.c20_planning.c21_planning_model import (
         GlobalPlan,
@@ -183,7 +191,8 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         WorldCapability,
         satisfies_requirements,
     )
-    from avlite.c50_common.c52_sensor_datatypes import (
+    from avlite.c50_common.c52_world_sensor_datatypes import (
+        WORLD_CAPABILITY_SENSOR_FIELDS,
         DepthImage,
         GnssReading,
         ImuReading,
@@ -192,7 +201,14 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         SensorFrame,
         WheelOdometry,
     )
-    from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+    from avlite.c50_common.c53_stack_datatypes import (
+        DEFAULT_CONTROL_TYPE_BY_AGENT,
+        STACK_CAPABILITY_DATATYPES,
+        capabilities_for,
+        control_type_for_agent,
+        datatype_for,
+    )
+    from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
     from avlite.c60_apps.c61_app_strategy import AppStrategy
     from avlite.c60_apps.c62_factory import executor_factory, load_stack_settings
     from avlite.c60_apps.c69_settings import AppSettings

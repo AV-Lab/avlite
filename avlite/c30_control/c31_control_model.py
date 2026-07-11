@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-
 @dataclass
 class ControlCommandBase:
     """Base for all control commands. Subclasses add actuation fields."""
@@ -33,3 +32,9 @@ class BodyVelocityControlCommand(ControlCommandBase):
 # Backward compatibility — existing code keeps working unchanged
 ControlCommand = AckermannControlCommand
 ControlComand = AckermannControlCommand
+
+CONTROL_COMMAND_REGISTRY: dict[str, type[ControlCommandBase]] = {
+    "AckermannControlCommand": AckermannControlCommand,
+    "DiffDriveControlCommand": DiffDriveControlCommand,
+    "BodyVelocityControlCommand": BodyVelocityControlCommand,
+}

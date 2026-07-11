@@ -114,22 +114,31 @@ from .settings import PluginSettings
 class MyPerception(PerceptionStrategy):
     def __init__(self, perception_model, setting=None):
         super().__init__(perception_model, setting)
+
+    world_requirements = frozenset({WorldCapability.CAMERA_RGB, WorldCapability.LIDAR_3D})
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({
+        StackCapability.DETECTION, StackCapability.TRACKING, StackCapability.PREDICTION,
+    })
     
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return {WorldCapability.CAMERA_RGB, WorldCapability.LIDAR_3D}
-    
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {StackCapability.DETECTION, StackCapability.TRACKING,
-                StackCapability.PREDICTION}
-    
-    def perceive(self, rgb_img=None, depth_img=None, lidar_data=None,
-                 perception_model=None):
-        # Fuse camera and LiDAR to detect, track, and predict agents
-        # Update self.perception_model.agents in-place, then return it
+    def perceive(self, perception_model=None, sensors=None):
+        # Fuse camera and LiDAR to detect, track, and predict agents.
+        # Read sensors.rgb / sensors.lidar as needed; update perception_model.
+        if perception_model is not None:
+            self.perception_model = perception_model
         return self.perception_model
 ```
+
+Leaf strategies declare contracts as public ``frozenset`` class attributes (satisfies
+the ABC abstract ``@property`` without constructing an instance). Pipelines keep
+instance ``@property`` aggregators. ``@property`` overrides remain supported.
+In the visualizer, **ⓘ** / right-click shows `all ·` / `any ·` / `may ·`
+requirement rows and colors provided caps green (consumed, including soft `MayUse`),
+orange (redundant with another top-level module or checked world GT), or gray (unused).
+
+All key methods (`perceive`, `detect`, `track`, `predict`, `localize`, `replan`,
+`plan`, `control`) take the same optional pair ``perception_model`` + ``sensors``,
+supplied by the executer, pipeline, or UI. See [Architecture → Capability System](architecture.md#capability-system).
 
 ## 3. Example: Detection, Tracking, or Prediction Sub-Strategy
 
@@ -139,46 +148,52 @@ selected by name when **Perception** is set to `PerceptionPipeline`.
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import DetectionStrategy
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyDetector(DetectionStrategy):
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return {WorldCapability.CAMERA_RGB}
+    world_requirements = frozenset({WorldCapability.CAMERA_RGB})
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.DETECTION})
 
-    def detect(self, perception_model: PerceptionModel,
-               rgb_img=None, depth_img=None, lidar_data=None) -> PerceptionModel:
-        # Your detection logic here
+    def detect(
+        self,
+        perception_model=None,
+        sensors=None,
+        rgb_img=None,
+        depth_img=None,
+        lidar_data=None,
+    ) -> PerceptionModel:
+        # Prefer sensors.rgb / sensors.lidar; unpacked args remain for convenience
         return perception_model
 ```
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import TrackingStrategy
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyTracker(TrackingStrategy):
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return set()
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.DETECTION})
+    stack_capabilities = frozenset({StackCapability.TRACKING})
 
-    def track(self, perception_model: PerceptionModel) -> PerceptionModel:
+    def track(self, perception_model=None, sensors=None) -> PerceptionModel:
         # Your tracking logic here
         return perception_model
 ```
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
-from avlite.c50_common.c51_capabilities import WorldCapability
+from avlite.c50_common.c51_capabilities import MayUse, WorldCapability, StackCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyPredictor(PredictionStrategy):
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return set()
+    world_requirements = frozenset()
+    stack_requirements = frozenset({MayUse(StackCapability.DETECTION, StackCapability.TRACKING)})
+    stack_capabilities = frozenset({StackCapability.PREDICTION})
 
-    def predict(self, perception_model: PerceptionModel) -> PerceptionModel | None:
+    def predict(self, perception_model=None, sensors=None) -> PerceptionModel | None:
         # Your prediction logic here
         return perception_model
 ```
@@ -203,18 +218,16 @@ from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 class MyLocalization(LocalizationStrategy):
     def __init__(self, perception_model, setting=None):
         super().__init__(perception_model, setting)
+
+    world_requirements = frozenset({WorldCapability.LIDAR_3D})
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.LOCALIZATION})
     
-    @property
-    def world_requirements(self) -> set[WorldCapability]:
-        return {WorldCapability.LIDAR_3D}
-    
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {StackCapability.LOCALIZATION}
-    
-    def localize(self, imu=None, lidar=None, rgb_img=None) -> None:
-        # Estimate the ego pose from sensor data and update in-place
-        if lidar is not None:
+    def localize(self, perception_model=None, sensors=None) -> None:
+        # Estimate the ego pose from sensors and update in-place
+        if perception_model is not None:
+            self.perception_model = perception_model
+        if sensors is not None and sensors.lidar is not None:
             # ... your scan-matching / localization logic ...
             self.perception_model.ego_vehicle.x = estimated_x
             self.perception_model.ego_vehicle.y = estimated_y
@@ -226,24 +239,52 @@ class MyLocalization(LocalizationStrategy):
 
 ## 5. Example: Custom Planner
 
+Local planning strategies (and behavioral / path / velocity sub-stages) must declare
+`world_requirements`, `stack_requirements`, and `stack_capabilities` explicitly.
+Use `MayUse(...)` for soft deps the planner utilizes when present (e.g. detections
+and prediction trajectories for collision sweeps) but does not require for assembly.
+
+In the visualizer, click **ⓘ** (or right-click the Combobox) to inspect a strategy’s
+contract against the live stack and world bridge.
+
 ```python
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
+from avlite.c50_common.c51_capabilities import MayUse, StackCapability, WorldCapability
 
 class MyLocalPlanner(LocalPlanningStrategy):
-    def replan(self, perception_model, global_trajectory=None):
-        # Your local planning logic; return a Trajectory or None
-        return self.local_trajectory
+    world_requirements = frozenset()
+    stack_requirements = frozenset({
+        StackCapability.GLOBAL_PLAN,
+        StackCapability.LOCALIZATION,
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+    })
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+
+    def replan(self, perception_model=None, sensors=None):
+        # Your local planning logic; use self.pm / perception_model for agents
+        pass
 ```
+
+Hard OR requirements use `AnyOf` (e.g. LiDAR 2D or 3D). Soft optional deps use `MayUse`.
 
 ## 6. Example: Custom Controller
 
 ```python
+from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 class MyController(ControlStrategy):
-    def control(self, ego, plan: GlobalPlan | LocalPlan | None = None, control_dt=None) -> ControlCommandBase:
+    def control(
+        self,
+        ego: EgoState,
+        plan: GlobalPlan | LocalPlan | None = None,
+        control_dt=None,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> ControlCommandBase:
         if plan is not None:
             self.set_plan(plan)
         return ControlCommand(steer=0.0, acceleration=1.0)
@@ -252,7 +293,7 @@ class MyController(ControlStrategy):
         pass
 ```
 
-Use `set_trajectory_tracker(tj)` when you already have a built `TrajectoryTracker`; use `set_plan(plan)` or the `plan` argument on `control()` when you hold a `GlobalPlan` or `LocalPlan`.
+Use `set_trajectory_tracker(tj)` when you already have a built `TrajectoryTracker`; use `set_plan(plan)` or the `plan` argument on `control()` when you hold a `GlobalPlan` or `LocalPlan`. The executer also passes optional `perception_model` and `sensors`.
 
 ## 7. Multi-robot agents and control
 
@@ -280,14 +321,14 @@ IDs are stable integers — not `Enum.auto()` values and not random — so bridg
 flowchart LR
   AgentType["AgentType on AgentState\nplatform metadata"]
   CmdClass["ControlCommandBase subclass\nactuation payload"]
-  Map["control_type_for_agent()\nc38_control_mapping.py"]
+  Map["control_type_for_agent()\nc53_stack_datatypes.py"]
   Bridge["WorldBridge.control_type(agent)"]
   AgentType --> Map --> CmdClass
   Bridge --> Map
 ```
 
 - **`AgentType`** — platform category on [`AgentState`](../avlite/c10_perception/c11_perception_model.py) (Ackermann car, diff-drive, aerial, pedestrian, …).
-- **Control command classes** — actuation payload in [`c31_control_model.py`](../avlite/c30_control/c31_control_model.py); default mapping in [`c38_control_mapping.py`](../avlite/c30_control/c38_control_mapping.py).
+- **Control command classes** — actuation payload dataclasses in [`c31_control_model.py`](../avlite/c30_control/c31_control_model.py); default `AgentType` → command mapping in [`c53_stack_datatypes.py`](../avlite/c50_common/c53_stack_datatypes.py).
 
 ### Default control mapping
 
@@ -307,9 +348,10 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 
 ### WorldBridge API (phase 1 vs future)
 
-| Method | Phase 1 today | Future |
+| Method / field | Phase 1 today | Future |
 |--------|---------------|--------|
 | `control_ego_state(cmd)` | Required; all bridges implement this | Unchanged |
+| `map` | Optional `Map \| None` for **simulation** (e.g. LiDAR geometry); does not advertise stack `MAP_HD` / `MAP_RACE_TRACK` — use `MapReader` / mapping module for that | Unchanged |
 | `control_type(agent)` | Default: `control_type_for_agent(agent)` | Override only for bridge-specific exceptions |
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
 | `teleport_agent(id, x, y, theta)` | Default: ego delegates to `teleport_ego`; NPC raises `NotImplementedError` | Override for sim teleport of any agent |
@@ -367,14 +409,11 @@ from avlite.c30_control.c31_control_model import ControlCommandBase
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 
 class MyBridge(WorldBridge):
-    @property
-    def world_capabilities(self) -> set[WorldCapability]:
-        return {WorldCapability.LIDAR_2D}
-
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        # Ground truth provided by the world (satisfies downstream stack_requirements)
-        return {StackCapability.LOCALIZATION}
+    world_capabilities = frozenset({WorldCapability.LIDAR_2D})
+    # Ground truth provided by the world (satisfies downstream stack_requirements)
+    stack_capabilities = frozenset({StackCapability.LOCALIZATION})
+    # Optional: what the bridge needs from the stack (BasicSim uses CONTROL)
+    stack_requirements = frozenset({StackCapability.CONTROL})
 
     def control_ego_state(self, cmd: ControlCommandBase, dt=0.01):
         # Send control to your simulator or robot
@@ -388,7 +427,7 @@ class MyBridge(WorldBridge):
         ...
 ```
 
-`control_type(agent)` defaults to `control_type_for_agent(agent)` from [`c38_control_mapping.py`](../avlite/c30_control/c38_control_mapping.py). Use `world.step(dt)` to advance the sim without a new command from the stack (default no-op until a bridge overrides it and the executer wires sub-stepping).
+`control_type(agent)` defaults to `control_type_for_agent(agent)` from [`c53_stack_datatypes.py`](../avlite/c50_common/c53_stack_datatypes.py). Use `world.step(dt)` to advance the sim without a new command from the stack (default no-op until a bridge overrides it and the executer wires sub-stepping).
 
 ## 9. Export Classes
 
@@ -410,7 +449,7 @@ When you rename a module file, update the import path in `__init__.py` to match 
 3. Add entry under community plugins: `my_plugin` → install path (or use **Install** then **Register** from `python -m avlite plugins`)
 4. Save profile
 
-Double-click a community plugin in the list to view its **Package Name** and **Settings file** paths separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`).
+Double-click a plugin in the list to view its **Settings file** and **Source file location** separately. **Reset to Installed** repopulates the list from plugin directories under the user install dir (`~/.local/share/avlite/plugins/`).
 
 **Via settings file** (the `c69_apps` section of `configs/<profile>.yaml`, or your saved copy under `~/.config/avlite/`):
 
@@ -579,7 +618,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 
 ## Apps (`AppStrategy`)
 
-CLI and GUI entry points register via :class:`~avlite.c60_apps.c61_app_strategy.AppStrategy` (same auto-register pattern as perception/planning strategies). Subclass as ``class MyToolApp(AppStrategy)``, set ``cli_name`` and ``help``, implement ``run()``, and optionally ``configure_parser()`` for flags or nested subcommands. Built-in p50 entry classes use the ``*App`` suffix (e.g. ``SettingCliApp``, ``VisualizationApp``); the base framework class remains ``AppStrategy``. Importing the module registers the app.
+CLI and GUI entry points register via :class:`~avlite.c60_apps.c61_app_strategy.AppStrategy` (same auto-register pattern as perception/planning strategies). Subclass as ``class MyToolApp(AppStrategy)``, set ``cli_name`` and ``help``, implement ``run()``, and optionally ``configure_parser()`` for flags or nested subcommands. Built-in p60 entry classes use the ``*App`` suffix (e.g. ``SettingCliApp``, ``VisualizationApp``); the base framework class remains ``AppStrategy``. Importing the module registers the app.
 
 | App | Plugin / module | Command |
 |-----|-----------------|---------|

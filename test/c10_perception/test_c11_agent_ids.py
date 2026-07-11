@@ -12,7 +12,6 @@ from avlite.c10_perception.c11_perception_model import (
 )
 from avlite.c30_control.c31_control_model import AckermannControlCommand, ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
-from avlite.c50_common.c51_capabilities import WorldCapability
 
 
 def test_ego_agent_id_default():
@@ -39,9 +38,8 @@ class _StubBridge(WorldBridge, abstract=True):
     last_cmd: Optional[ControlCommand] = None
     last_teleport: Optional[tuple[float, float, Optional[float]]] = None
 
-    @property
-    def world_capabilities(self) -> set[WorldCapability]:
-        return set()
+    world_capabilities = frozenset()
+    stack_capabilities = frozenset()
 
     def control_ego_state(self, cmd, dt=0.01):
         self.last_cmd = cmd

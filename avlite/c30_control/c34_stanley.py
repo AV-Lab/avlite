@@ -2,12 +2,13 @@ import logging
 from typing import Optional
 import numpy as np
 
-from avlite.c10_perception.c11_perception_model import EgoState
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings, ControlSettingsSchema
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +42,14 @@ class StanleyController(ControlStrategy):
         self.previous_heading = None
 
 
-    def control(self, ego: EgoState, plan: GlobalPlan | LocalPlan | None = None, control_dt = None) -> ControlCommand:
+    def control(
+        self,
+        ego: EgoState,
+        plan: GlobalPlan | LocalPlan | None = None,
+        control_dt=None,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> ControlCommand:
         if plan is not None:
             self.tj = plan.as_trajectory()
         elif self.tj is None:
@@ -74,9 +82,6 @@ class StanleyController(ControlStrategy):
         steer1 = heading_error + np.arctan2(self.k * -cte, ego.velocity + self.k_soft)
         log.debug( f"Steer: {steer1:+6.2f} ")
         steer = np.clip(steer1, -self.ego_max_steering, self.ego_max_steering)
-        # if steer1 !=  steer:
-        #     log.warning(f"Steering angle {steer1:+6.2f} clipped to {steer:+6.2f} due to limits [{ego.min_steering:+6.2f}, {ego.max_steering:+6.2f}]. Heading error: {heading_error:+6.2f} ")
-
 
         ##################################
         # Compute the velocity control PID

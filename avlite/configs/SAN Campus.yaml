@@ -4,7 +4,7 @@ c10_perception:
   c11_prediction_grid_size: 100
   c11_state_default_heading: 0
   c12_detection_strategy: ''
-  c12_prediction_strategy: ''
+  c12_prediction_strategy: ConstantVelocityPrediction
   c12_tracking_strategy: ''
   c15_detection_default_length: 4.5
   c15_detection_default_width: 2.0
@@ -30,10 +30,10 @@ c10_perception:
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
 c20_planning:
-  c20_beside_agent_rear_window: 6.0
-  c20_beside_agent_sweep_time: 2.0
-  c20_boundary_margin: 0.0
-  c20_collision_safety_margin: 0.3
+  c20_beside_agent_rear_window: 10.0
+  c20_beside_agent_sweep_time: 4.0
+  c20_boundary_margin: 0.25
+  c20_collision_safety_margin: 0.5
   c20_default_ego_velocity: 5.0
   c20_min_ramp_start_velocity: 3.0
   c20_min_velocity_threshold: 0.5
@@ -41,12 +41,18 @@ c20_planning:
   c23_behavioral_strategy: ''
   c23_path_strategy: GreedyLatticePlanner
   c23_velocity_strategy: ''
-  c27_follow_cruise_min_gap: 15.0
-  c27_follow_gap_buffer: 0.5
+  c25_curvature_weight: 0.75
+  c25_max_braking_decel: 25.0
+  c25_max_lateral_accel: 25.0
+  c25_max_longitudinal_accel: 10.0
+  c25_max_velocity: 75.0
+  c25_optimization_iterations: 3
+  c27_follow_cruise_min_gap: 25.0
+  c27_follow_gap_buffer: 10.0
   c27_follow_gap_gain: 1.0
   c27_max_deceleration: 3.0
   c27_planning_horizon_points: 50
-  c27_stopping_safety_buffer: 2.0
+  c27_stopping_safety_buffer: 5.0
   c28_allow_boundary_violation_fallback: false
   c28_allow_curvature_fallback: false
   c28_boundary_clearance: 0.5
@@ -58,6 +64,7 @@ c20_planning:
   c28_max_lateral_accel: 4.0
   c28_min_curvature_velocity: 3.0
   c28_min_edge_progress_to_block: 0.2
+  c28_no_plan_release_ticks: 3
   c28_num_of_edge_points: 10
   c28_planning_horizon: 3
   c28_replan_wait_time: 2.5
@@ -73,7 +80,7 @@ c30_control:
   c32_ego_distance_front_axle: 2.5
   c32_ego_max_acceleration: 10.0
   c32_ego_max_steering: 0.7
-  c32_ego_max_velocity: 30.0
+  c32_ego_max_velocity: 99.0
   c32_ego_min_acceleration: -20.0
   c32_ego_min_steering: -0.7
   c33_pid_alpha: 0.01
@@ -92,6 +99,16 @@ c30_control:
   c34_stanley_valpha: 0.8
   c34_stanley_vbeta: 0.01
   c34_stanley_vgamma: 0.3
+  c35_cruise_velocity: 5.0
+  c35_lidar_z_max: 2.0
+  c35_lidar_z_min: -1.5
+  c35_lookahead_distance: 8.0
+  c35_lookahead_speed_gain: 0.0
+  c35_max_lookahead: 20.0
+  c35_min_lookahead: 3.0
+  c35_valpha: 0.8
+  c35_vbeta: 0.01
+  c35_vgamma: 0.3
 c40_execution:
   c40_async_combined_perception_planning: true
   c40_bridge: BasicSim
@@ -100,27 +117,26 @@ c40_execution:
   c40_executer_type: AsyncThreadedExecuter
   c40_global_planner: HDMapGlobalPlanner
   c40_global_trajectory: data/san_campus.json
-  c40_hd_map: data/san_campus.xodr
   c40_local_planner: VelocityLocalPlanner
   c40_localization: ''
   c40_localization_dt: 0.1
   c40_log_level: INFO
   c40_log_to_file: false
-  c40_mapping: ''
+  c40_map: data/san_campus.xodr
+  c40_mapping: MapReader
   c40_perception: PerceptionPipeline
-  c40_perception_dt: 0.5
-  c40_reference_point: []
-  c40_replan_dt: 0.5
+  c40_perception_dt: 0.01
+  c40_reference_point: null
+  c40_replan_dt: 0.01
   c40_sim_dt: 0.01
-  c41_provided:
+  c41_world_capabilities:
   - IMU
   - GNSS
   - WHEEL_ENCODER
+  c41_world_stack_capabilities:
   - DETECTION
   - TRACKING
   - LOCALIZATION
-  c43_race_boundary_map: data/race_boundary_yas_marina.map.json
-  c46_lidar_boundary_file: ''
   c46_lidar_fov_deg: 360.0
   c46_lidar_num_beams: 360
   c46_lidar_range: 50.0
@@ -148,10 +164,10 @@ plugins:
     p60_next_profile: default
     p60_shortcut_mode: false
     p66_frenet_view_follow_planner: false
-    p66_frenet_zoom: 30.0
+    p66_frenet_zoom: 20.0
     p66_global_plan_velocity_scale: relative
     p66_global_view_follow_planner: false
-    p66_global_zoom: 628.4865797598677
+    p66_global_zoom: 468.4865797598677
     p66_show_global_plan: true
     p66_show_global_plan_boundaries: true
     p66_show_legend: false

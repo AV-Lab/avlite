@@ -13,7 +13,7 @@ from avlite.c10_perception.c11_perception_model import (
     SingleTrajectory,
 )
 from avlite.plugins.p60_visualizer_tk.p69_plot_lib import LocalPlot
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
 def _straight_reference_path(n: int = 50) -> TrajectoryTracker:

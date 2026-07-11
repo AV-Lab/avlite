@@ -35,14 +35,9 @@ class _StubWorldBridge(WorldBridge):
     perception_model: Optional[PerceptionModel] = None
     delay: float = 0.0  # artificial latency per control_ego_state call
 
-    @property
-    def world_capabilities(self):
-        return set()
-
-    @property
-    def stack_capabilities(self):
-        # Provide ground-truth localization so the executer may actuate the ego.
-        return {StackCapability.LOCALIZATION}
+    world_capabilities = frozenset()
+    # Provide ground-truth localization so the executer may actuate the ego.
+    stack_capabilities = frozenset({StackCapability.LOCALIZATION})
 
     def control_ego_state(self, cmd: ControlCommand, dt: float = 0.01):
         if self.delay > 0.0:
@@ -52,12 +47,16 @@ class _StubWorldBridge(WorldBridge):
 class _StubLocalPlanner(LocalPlanningStrategy):
     """Local planner with no trajectory data — just satisfies the interface."""
 
+    world_requirements = frozenset()
+    stack_requirements = frozenset()
+    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+
     def __init__(self):
         # Bypass the heavy base __init__ (needs GlobalPlan + PerceptionModel)
         self.lap = 0
         self._tj = None
 
-    def replan(self):
+    def replan(self, perception_model=None, sensors=None):
         pass
 
     def step(self, ego_state):
@@ -74,7 +73,9 @@ class _StubLocalPlanner(LocalPlanningStrategy):
 
 
 class _StubController(ControlStrategy, abstract=True):
-    def control(self, ego, tj=None, control_dt=None) -> ControlCommand:
+    def control(
+        self, ego, plan=None, control_dt=None, perception_model=None, sensors=None,
+    ) -> ControlCommand:
         return ControlCommand()
 
     def reset(self):

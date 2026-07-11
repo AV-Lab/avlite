@@ -73,7 +73,7 @@ flowchart TB
         direction LR
         PERC["Perception · c10 (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning · c20\nGlobal · Local · Lattice"]
-        CTRL["Control · c30\nStanley · PID"]
+        CTRL["Control · c30\nStanley · PID · Pure Pursuit · FTG"]
         WB["World Bridge · c40\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
@@ -89,10 +89,10 @@ flowchart TB
 
 - **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`); `Map` / `RaceMap` in c11; OpenDRIVE `HDMap` parser in c18
 - **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, lattice-based `GreedyLatticePlanner`)
-- **c30_control**: Vehicle control algorithms (Stanley, PID)
-- **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, and `replan_global()`
+- **c30_control**: Vehicle control algorithms (Stanley, PID, Pure Pursuit, Follow the Gap)
+- **c40_execution**: Execution orchestration with sync/async modes and simulator bridges
 - **c60_apps**: App infrastructure (`c61_app_strategy`, `c62_factory`, `c63_plugins`, `c64_settings_schema`, `c65_setting_utils`, `c68_paths`); no tkinter
-- **c50_common**: Algorithm utilities only (`c51`–`c55`: capabilities, sensor data, trajectory, collision, FPS)
+- **c50_common**: Algorithm utilities only (`c51`–`c56`: capabilities, world/stack datatypes, trajectory, collision, FPS)
 - **plugins** (`avlite/plugins/`): Built-in Tk visualizer package (`p60_visualizer_tk`), headless mode, config CLI; world bridges and alternative executers are available as optional plugins
 
 ### Key Features
@@ -295,6 +295,7 @@ avlite/
 │   ├── c32_control_strategy.py
 │   ├── c33_pid.py
 │   ├── c34_stanley.py
+│   ├── c35_pure_pursuit.py
 │   └── c39_settings.py
 ├── c40_execution/          # Execution and simulation
 │   ├── c41_world_bridge.py
@@ -310,19 +311,20 @@ avlite/
 │   ├── c64_settings_schema.py    # SettingsSchema, validation
 │   ├── c65_setting_utils.py      # YAML profile load/save/export
 │   └── c68_paths.py              # ConfigPaths, PluginPaths, DataPaths
-├── c50_common/             # Algorithm utilities (c51–c55)
+├── c50_common/             # Algorithm utilities (c51–c56)
 │   ├── c51_capabilities.py
-│   ├── c52_sensor_datatypes.py
-│   ├── c53_trajectory_tracker.py
-│   ├── c54_collision_checking.py
-│   └── c55_fps_tracker.py
+│   ├── c52_world_sensor_datatypes.py
+│   ├── c53_stack_datatypes.py
+│   ├── c54_trajectory_tracker.py
+│   ├── c55_collision_checking.py
+│   └── c56_fps_tracker.py
 └── plugins/               # Built-in plugins
     ├── p60_visualizer_tk/        # Tk visualizer + config + plugins apps (p61–p69)
     ├── p60_setting_cli/
     └── p60_headless_mode/
 ```
 
-The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley controller, etc.
+The numbering scheme allows quick navigation: search for "c23" to find local planning, "c34" for Stanley, "c35" for Pure Pursuit, etc.
 
 ### Optional plugins
 

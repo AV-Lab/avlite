@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from avlite.c50_common.c52_sensor_datatypes import (
+from avlite.c50_common.c52_world_sensor_datatypes import (
     DepthImage,
     GnssDatum,
     GnssReading,
@@ -38,6 +38,17 @@ def test_sensor_frame_defaults():
     frame = SensorFrame()
     assert frame.rgb is None
     assert frame.lidar is None
+
+
+def test_world_capability_sensor_fields_cover_all_caps():
+    from avlite.c50_common.c51_capabilities import WorldCapability
+    from avlite.c50_common.c52_world_sensor_datatypes import WORLD_CAPABILITY_SENSOR_FIELDS
+
+    assert set(WORLD_CAPABILITY_SENSOR_FIELDS) == set(WorldCapability)
+    assert WORLD_CAPABILITY_SENSOR_FIELDS[WorldCapability.CAMERA_RGB] == "rgb"
+    assert WORLD_CAPABILITY_SENSOR_FIELDS[WorldCapability.LIDAR_2D] == "lidar"
+    assert WORLD_CAPABILITY_SENSOR_FIELDS[WorldCapability.LIDAR_3D] == "lidar"
+    assert WORLD_CAPABILITY_SENSOR_FIELDS[WorldCapability.RADAR] is None
 
 
 def test_gnss_reading_datum():

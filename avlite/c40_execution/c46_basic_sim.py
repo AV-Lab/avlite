@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 
-from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel
+from avlite.c10_perception.c11_perception_model import AgentState, Map, PerceptionModel, RaceMap
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommand
@@ -12,9 +12,8 @@ from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c60_apps.c68_paths import DataPaths
-from avlite.c50_common.c52_sensor_datatypes import LidarCloud, lidar_2d_to_4
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c52_world_sensor_datatypes import LidarCloud, lidar_2d_to_4
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
 import logging
@@ -24,28 +23,27 @@ log = logging.getLogger(__name__)
 
 
 class BasicSim(WorldBridge):
-    @property
-    def world_capabilities(self) -> set[WorldCapability]:
-        return {
-            WorldCapability.LIDAR_2D,
-            WorldCapability.AGENT_SPAWN,
-        }
-
-    @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {
-            StackCapability.DETECTION,
-            StackCapability.LOCALIZATION,
-        }
+    world_capabilities = frozenset({
+        WorldCapability.LIDAR_2D,
+        WorldCapability.AGENT_SPAWN,
+    })
+    stack_capabilities = frozenset({
+        StackCapability.DETECTION,
+        StackCapability.TRACKING,
+        StackCapability.LOCALIZATION,
+    })
+    stack_requirements = frozenset({StackCapability.CONTROL})
 
     def __init__(self, ego_state: EgoState, pm: Optional[PerceptionModel] = None,
                  controller: Optional[ControlStrategy] = None,
                  setting: ExecutionSettingsSchema = ExecutionSettings,
-                 reference_point: tuple[float, float] | None = None):
+                 reference_point: tuple[float, float] | None = None,
+                 map: Map | None = None):
         self.setting = setting
         self.ego_state = ego_state
         self.pm = pm
         self.reference_point = reference_point
+        self.map = map
         self.ego_controller = controller
         self.supports_ground_truth_detection = True
         self.supports_ground_truth_localization = True
@@ -58,7 +56,7 @@ class BasicSim(WorldBridge):
         #   axis 1 — endpoint: 0 = start, 1 = end
         #   axis 2 — coordinate: 0 = x, 1 = y
         # Used by __collect_segments() for LiDAR raycasting and by c57 for visualization.
-        self.boundary_segments: np.ndarray = load_boundary_segments(setting.c46_lidar_boundary_file)
+        self.boundary_segments: np.ndarray = boundary_segments_from_map(map)
 
 
     def control_ego_state(self, cmd:ControlCommand, dt=0.01):
@@ -81,7 +79,10 @@ class BasicSim(WorldBridge):
             if ctrl is None:
                 continue
 
-            cmd = ctrl.control(agent, control_dt=dt)
+            cmd = ctrl.control(
+                agent, control_dt=dt,
+                perception_model=PerceptionModel(ego_vehicle=agent),
+            )
 
             prev_steer = getattr(ctrl, "_npc_steer", cmd.steer)
             steer = float(np.clip(cmd.steer, prev_steer - max_dsteer, prev_steer + max_dsteer))
@@ -207,28 +208,20 @@ class BasicSim(WorldBridge):
         dirs = directions[hit]
         return origin + ranges[:, None] * dirs
 
-def load_boundary_segments(boundary_file: Optional[str]) -> np.ndarray:
-    """Load road boundaries as line segments of shape (M, 2, 2)."""
-    if not boundary_file:
+def boundary_segments_from_map(map: Map | None) -> np.ndarray:
+    """Build (M, 2, 2) LiDAR raycast segments from a RaceMap; empty for other maps."""
+    if not isinstance(map, RaceMap):
         return np.empty((0, 2, 2))
-    try:
-        import json
-        with open(DataPaths.resolve_stored(boundary_file)) as f:
-            data = json.load(f)
-        segments = []
-        for key in ("LeftBound", "RightBound"):
-            pts = np.asarray(data.get(key, []), dtype=float)
-            if pts.ndim == 1:
-                continue
-            pts = pts[:, :2]
-            if len(pts) >= 2:
-                segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
-        if not segments:
-            return np.empty((0, 2, 2))
-        return np.concatenate(segments, axis=0)
-    except Exception as e:
-        log.error(f"Failed to load lidar boundary file {boundary_file}: {e}")
+    segments = []
+    for pts in (map.left_bound, map.right_bound):
+        pts = np.asarray(pts, dtype=float)
+        if pts.ndim != 2 or len(pts) < 2:
+            continue
+        pts = pts[:, :2]
+        segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
+    if not segments:
         return np.empty((0, 2, 2))
+    return np.concatenate(segments, axis=0)
 
 
 def boundary_segments_from_global_plan(plan) -> np.ndarray:

@@ -12,7 +12,7 @@ Tests verify:
 import numpy as np
 import pytest
 
-from avlite.c50_common.c53_trajectory_tracker import TrajectoryTracker
+from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
 def _straight(x_start, x_end, n=10, velocity=1.0):
@@ -62,7 +62,7 @@ class TestConcatenateBridging:
 
     def test_large_gap_emits_warning(self):
         from unittest.mock import patch
-        import avlite.c50_common.c53_trajectory_tracker as mod
+        import avlite.c50_common.c54_trajectory_tracker as mod
         t1 = _straight(0, 10)
         t2 = _straight(15, 25)
         with patch.object(mod.log, "warning") as mock_warn:

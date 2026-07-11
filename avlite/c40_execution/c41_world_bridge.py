@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-from avlite.c10_perception.c11_perception_model import AgentState, EgoState, EGO_AGENT_ID, PerceptionModel
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, EGO_AGENT_ID, Map, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommandBase
-from avlite.c30_control.c38_control_mapping import control_type_for_agent
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
-from avlite.c50_common.c52_sensor_datatypes import (
+from avlite.c50_common.c53_stack_datatypes import control_type_for_agent
+from avlite.c50_common.c52_world_sensor_datatypes import (
     GnssReading,
     ImuReading,
     SensorFrame,
@@ -30,25 +30,22 @@ class WorldBridge(ABC):
     ego_state: EgoState
     perception_model: Optional[PerceptionModel] = None  # Simulators can provide ground truth perception model
     reference_point: tuple[float, float] | None = None  # WGS84 (lat_deg, lon_deg) map origin
+    map: Map | None = None  # Static map for simulation (LiDAR geometry, GT MAP); None for real-world bridges
 
     registry = {}
+
+    # Soft default: bridges may declare stack deps (e.g. CONTROL) without subclass boilerplate.
+    stack_requirements = frozenset()
 
     @property
     @abstractmethod
     def world_capabilities(self) -> set[WorldCapability]:
-        """Set of supported sensor capabilities (must be implemented by subclass)."""
-        pass
+        """Sensors / actuation this bridge exposes to the stack."""
 
     @property
+    @abstractmethod
     def stack_capabilities(self) -> set[StackCapability]:
-        """Stack capabilities the world provides as ground truth (default: none).
-
-        A simulator can advertise e.g. ``{StackCapability.DETECTION,
-        StackCapability.TRACKING, StackCapability.LOCALIZATION}`` to satisfy
-        downstream ``stack_requirements`` without a real perception/localization
-        module (ground-truth provision).
-        """
-        return set()
+        """Ground-truth stack capabilities this bridge provides (may be empty)."""
 
     @abstractmethod
     def control_ego_state(self, cmd: ControlCommandBase, dt: Optional[float] = 0.01):
@@ -121,17 +118,17 @@ class WorldBridge(ABC):
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
     def get_rgb_image(self, agent_id: int = EGO_AGENT_ID) -> RgbImage | None:
-        """Returns the RGB image. Layout: ``RgbImage`` in c52_sensor_datatypes."""
+        """Returns the RGB image. Layout: ``RgbImage`` in c52_world_sensor_datatypes."""
         self._require_ego_agent(agent_id, "rgb")
         return None
 
     def get_depth_image(self, agent_id: int = EGO_AGENT_ID) -> DepthImage | None:
-        """Returns the depth image. Layout: ``DepthImage`` in c52_sensor_datatypes."""
+        """Returns the depth image. Layout: ``DepthImage`` in c52_world_sensor_datatypes."""
         self._require_ego_agent(agent_id, "depth")
         return None
 
     def get_lidar_data(self, agent_id: int = EGO_AGENT_ID) -> LidarCloud | None:
-        """Returns the lidar point cloud. Layout: ``LidarCloud`` in c52_sensor_datatypes."""
+        """Returns the lidar point cloud. Layout: ``LidarCloud`` in c52_world_sensor_datatypes."""
         self._require_ego_agent(agent_id, "lidar")
         return None
 
@@ -180,3 +177,25 @@ class WorldBridge(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:
             WorldBridge.registry[cls.__name__] = cls
+
+
+def is_world_capability_enabled(cap: WorldCapability) -> bool:
+    """Whether *cap* is enabled in the Bridge Setting world-capability filter.
+
+    ``None`` on ``ExecutionSettings.c41_world_capabilities`` means all enabled.
+    """
+    from avlite.c40_execution.c49_settings import ExecutionSettings
+
+    val = ExecutionSettings.c41_world_capabilities
+    return True if val is None else cap.name in val
+
+
+def is_world_stack_capability_enabled(cap: StackCapability) -> bool:
+    """Whether bridge GT *cap* is enabled in the Bridge Setting stack filter.
+
+    ``None`` on ``ExecutionSettings.c41_world_stack_capabilities`` means all enabled.
+    """
+    from avlite.c40_execution.c49_settings import ExecutionSettings
+
+    val = ExecutionSettings.c41_world_stack_capabilities
+    return True if val is None else cap.name in val
