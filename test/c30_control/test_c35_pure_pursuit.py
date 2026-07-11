@@ -28,12 +28,33 @@ def _pp_settings(**overrides) -> ControlSettingsSchema:
         "c35_cruise_velocity": 5.0,
         "c35_lidar_z_min": -1.5,
         "c35_lidar_z_max": 2.0,
+        "c35_bubble_radius": 1.0,
+        "c35_min_gap_width": 0.2,
         "c32_ego_distance_front_axle": 2.5,
         "c32_ego_max_steering": 0.7,
         "c32_ego_min_steering": -0.7,
     }
     defaults.update(overrides)
     return ControlSettingsSchema(**defaults)
+
+
+def _lidar_at_angles(
+    angles: np.ndarray,
+    ranges: float | np.ndarray = 5.0,
+    ego: EgoState | None = None,
+) -> np.ndarray:
+    """(N, 4) LiDAR hits: ego-frame bearings, expressed in world frame for ``ego``."""
+    angles = np.asarray(angles, dtype=float)
+    ranges = np.full_like(angles, ranges, dtype=float) if np.isscalar(ranges) else np.asarray(ranges, dtype=float)
+    ex = ranges * np.cos(angles)
+    ey = ranges * np.sin(angles)
+    if ego is None:
+        xs, ys = ex, ey
+    else:
+        c, s_th = np.cos(ego.theta), np.sin(ego.theta)
+        xs = ego.x + c * ex - s_th * ey
+        ys = ego.y + s_th * ex + c * ey
+    return np.column_stack([xs, ys, np.zeros_like(xs), np.ones_like(xs)]).astype(np.float32)
 
 
 class TestPurePursuitController:
@@ -62,16 +83,14 @@ class TestPurePursuitController:
 
 class TestFollowTheGapController:
     def test_largest_gap_aims_into_opening(self):
-        """Dense returns on the right, open left → positive (left) steer."""
+        """Dense right wall, sparse left wall → widest interior gap steers left."""
         setting = _pp_settings(c35_lookahead_distance=8.0)
         controller = FollowTheGapController(setting=setting)
         ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
-        # Forward half-plane: cluster of hits on the right (negative y), open on the left.
-        angles = np.linspace(-np.pi / 2 + 0.05, -0.2, 20)
-        ranges = np.full_like(angles, 5.0)
-        xs = ranges * np.cos(angles)
-        ys = ranges * np.sin(angles)
-        lidar = np.column_stack([xs, ys, np.zeros_like(xs), np.ones_like(xs)]).astype(np.float32)
+        # Interior gap between right cluster and a left wall return is the opening.
+        right = np.linspace(-np.pi / 2 + 0.05, -0.2, 20)
+        left = np.array([0.9])
+        lidar = _lidar_at_angles(np.concatenate([right, left]))
         cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
         assert cmd.steer > 0.0
 
@@ -97,12 +116,36 @@ class TestFollowTheGapController:
         )
         controller = FollowTheGapController(setting=setting)
         ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
-        # Symmetric forward returns so a gap mid-bearing exists near straight ahead.
-        angles = np.array([-0.4, -0.2, 0.2, 0.4])
-        ranges = np.full_like(angles, 5.0, dtype=float)
-        xs = ranges * np.cos(angles)
-        ys = ranges * np.sin(angles)
-        lidar = np.column_stack([xs, ys, np.zeros_like(xs), np.ones_like(xs)]).astype(np.float32)
+        lidar = _lidar_at_angles(np.array([-0.4, -0.2, 0.2, 0.4]))
         cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
         # Below cruise → positive acceleration from P-term.
         assert cmd.acceleration > 0.0
+
+    def test_corridor_with_path_stays_near_center(self):
+        """Symmetric corridor walls + straight path → near-zero steer."""
+        trajectory = _straight_path()
+        controller = FollowTheGapController(tj=trajectory, setting=_pp_settings())
+        ego = EgoState(x=20.0, y=0.0, theta=0.0, velocity=5.0)
+        # Parallel walls at ±0.5 rad (corridor opening centered ahead).
+        right = np.linspace(-1.0, -0.5, 8)
+        left = np.linspace(0.5, 1.0, 8)
+        lidar = _lidar_at_angles(np.concatenate([right, left]), ego=ego)
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
+        assert cmd.steer == pytest.approx(0.0, abs=0.1)
+
+    def test_path_bias_prefers_path_aligned_gap(self):
+        """Wider side opening ignored when path aims straight ahead."""
+        trajectory = _straight_path()
+        controller = FollowTheGapController(tj=trajectory, setting=_pp_settings())
+        ego = EgoState(x=20.0, y=0.0, theta=0.0, velocity=5.0)
+        # Narrow gap ahead (~0 bearing) and a much wider gap on the left.
+        angles = np.array([-0.8, -0.15, 0.15, 0.35, 1.2])
+        lidar = _lidar_at_angles(angles, ego=ego)
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
+        # Path-biased pick should stay near center, not yank hard left into the wide gap.
+        assert abs(cmd.steer) < 0.25
+        # Without a path, widest interior gap is the left opening → positive steer.
+        no_path = FollowTheGapController(tj=None, setting=_pp_settings())
+        cmd_wide = no_path.control(ego, sensors=SensorFrame(lidar=lidar))
+        assert cmd_wide.steer > cmd.steer
+        assert cmd_wide.steer > 0.0

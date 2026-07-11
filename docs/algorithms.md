@@ -398,7 +398,7 @@ Configuration lives in [`ControlSettings`](../avlite/c30_control/c39_settings.py
 | Class | Module | Lookahead source |
 |-------|--------|------------------|
 | `PurePursuitController` | [`c35_pure_pursuit.py`](../avlite/c30_control/c35_pure_pursuit.py) | Global/local path at arc-length \(L_d\) |
-| `FollowTheGapController` | same | Widest forward LiDAR free gap at range \(L_d\) |
+| `FollowTheGapController` | same | Path-biased forward LiDAR free gap at range \(L_d\) |
 
 ### Path Pure Pursuit (`PurePursuitController`)
 
@@ -406,9 +406,9 @@ Requires a plan (global or local) and localization. Finds the ego’s progress \
 
 ### Follow the Gap (`FollowTheGapController`)
 
-Requires LiDAR (`LIDAR_2D` or `LIDAR_3D`) and localization; a plan is optional (used only for velocity when present). The executer passes a `SensorFrame`; the controller reads `sensors.lidar`. World-frame hits are squashed to 2D (optional z-band) and transformed into the ego frame. In the forward half-plane (`x>0`), the controller finds the widest angular gap between consecutive returns (and the ±90° edges), places a Pure Pursuit target at that mid-bearing and distance \(L_d\), then steers with the same bicycle-model law.
+Requires LiDAR (`LIDAR_2D` or `LIDAR_3D`) and localization; a plan is optional. The executer passes a `SensorFrame`; the controller reads `sensors.lidar`. World-frame hits are squashed to 2D (optional z-band), transformed into the ego frame, and points inside `c35_bubble_radius` are dropped. In the forward half-plane (`x>0`), the controller finds angular gaps between consecutive returns. Interior gaps are preferred over the ±90° FOV-edge candidates. When a trajectory is available, among gaps at least `c35_min_gap_width` wide it picks the mid-bearing closest to the path lookahead; otherwise it picks the widest interior gap. A Pure Pursuit target is placed at that bearing and distance \(L_d\).
 
-Without a plan, speed tracks `c35_cruise_velocity`.
+Without a plan, speed tracks `c35_cruise_velocity`; with a plan, waypoint velocity is used (steering still comes from the gap).
 
 ### Pure Pursuit / Follow the Gap parameters
 
@@ -420,6 +420,8 @@ Without a plan, speed tracks `c35_cruise_velocity`.
 | `c35_valpha` / `vbeta` / `vgamma` | `0.8` / `0.01` / `0.3` | Velocity PID gains |
 | `c35_cruise_velocity` | `5.0` | Follow-the-Gap cruise speed (m/s) when no plan |
 | `c35_lidar_z_min` / `c35_lidar_z_max` | `-1.5` / `2.0` | Height band (m) for 3D → 2D squash |
+| `c35_bubble_radius` | `1.0` | Drop ego-frame hits closer than this (m) before gap finding |
+| `c35_min_gap_width` | `0.2` | Min angular gap (rad) for path-biased selection |
 
 ---
 

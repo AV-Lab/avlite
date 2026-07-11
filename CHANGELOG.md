@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.5] - 2026-07-11
 
 ### Added
+- Visualizer: Help → **Update…** checks PyPI and can `pip install --upgrade avlite`; quiet startup toast when a newer version is available and exec is idle (`c66_app_update.AppUpdater`)
 - Capabilities: `MAP_HD` and `MAP_RACE_TRACK` replace generic `MAP`; `MapReader` advertises the matching cap from the loaded map type; HD/race global planners require the typed cap
 - Capabilities: `MayUse(...)` soft requirement — never blocks stack assembly; modules may use listed caps when present (e.g. local planners + DETECTION/PREDICTION)
 - Capabilities: `used_stack_capabilities` — flattens hard + soft (`MayUse`) deps for visualizer “consumed” coloring (assembly still uses hard-only `required_stack_capabilities`)
@@ -36,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visualizer: close the global matplotlib figure before plot recreation on stack reload or planner switch (fixes figure leak warning)
 
 ### Changed
+- Control: `FollowTheGapController` — safety bubble (`c35_bubble_radius`), prefer interior gaps over ±90° edges, and path-biased gap pick when a trajectory is available (`c35_min_gap_width`)
 - Executer: unmet hard **module** `stack_requirements` raise `ValueError` at stack build (world unmet deps and duplicate providers still warn)
 - **Breaking:** Key strategy methods gain optional `(perception_model, sensors)` in addition to existing args (executer / pipeline / UI supply both). Control keeps `control(ego, plan=None, control_dt=None, …)`; detect keeps optional `rgb_img`/`depth_img`/`lidar_data` alongside `sensors`. LiDAR for FTG via `sensors.lidar`. Docs: `architecture.md`, `plugin-development.md`, `algorithms.md`
 - Bridge Setting: split `c41_provided` into `c41_world_capabilities` (sensors) and `c41_world_stack_capabilities` (bridge GT); helpers moved to `c41_world_bridge` (`is_world_capability_enabled` / `is_world_stack_capability_enabled`); settings stay data-only

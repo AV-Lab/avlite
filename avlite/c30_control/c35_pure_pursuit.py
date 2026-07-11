@@ -114,6 +114,25 @@ class PurePursuitBase(ControlStrategy, abstract=True):
         )
         return acc
 
+    def find_path_lookahead(self, ego: EgoState, ld: float) -> tuple[float, float] | None:
+        """Return ego-frame (x, y) of the path point at arc-length ego_s + Ld."""
+        if self.tj is None or not self.tj.is_initialized:
+            return None
+        self.tj.update_waypoint_by_xy(ego.x, ego.y)
+        s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
+        # Aim ahead along the path; clamp to the end of the trajectory.
+        s_target = min(s + ld, float(self.tj.path_s[-1]))
+        gx, gy = self.tj.convert_sd_to_xy(s_target, 0.0)
+
+        # World → ego: x forward, y left.
+        dx = gx - ego.x
+        dy = gy - ego.y
+        c, s_th = np.cos(ego.theta), np.sin(ego.theta)
+        ex = c * dx + s_th * dy
+        ey = -s_th * dx + c * dy
+        self.cte_steer = float(cte)
+        return float(ex), float(ey)
+
     def reset(self):
         self.cte_v_sum = 0.0
         self.cte_velocity = 0.0
@@ -166,26 +185,9 @@ class PurePursuitController(PurePursuitBase):
         self.cmd = cmd
         return cmd
 
-    def find_path_lookahead(self, ego: EgoState, ld: float) -> tuple[float, float] | None:
-        """Return ego-frame (x, y) of the path point at arc-length ego_s + Ld."""
-        self.tj.update_waypoint_by_xy(ego.x, ego.y)
-        s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
-        # Aim ahead along the path; clamp to the end of the trajectory.
-        s_target = min(s + ld, float(self.tj.path_s[-1]))
-        gx, gy = self.tj.convert_sd_to_xy(s_target, 0.0)
-
-        # World → ego: x forward, y left.
-        dx = gx - ego.x
-        dy = gy - ego.y
-        c, s_th = np.cos(ego.theta), np.sin(ego.theta)
-        ex = c * dx + s_th * dy
-        ey = -s_th * dx + c * dy
-        self.cte_steer = float(cte)
-        return float(ex), float(ey)
-
 
 class FollowTheGapController(PurePursuitBase):
-    """Follow the Gap: aim Pure Pursuit at the widest forward LiDAR free gap."""
+    """Follow the Gap: aim Pure Pursuit at a forward LiDAR free gap (path-biased)."""
 
     def __init__(
         self,
@@ -196,6 +198,8 @@ class FollowTheGapController(PurePursuitBase):
         self.cruise_velocity = setting.c35_cruise_velocity
         self.lidar_z_min = setting.c35_lidar_z_min
         self.lidar_z_max = setting.c35_lidar_z_max
+        self.bubble_radius = setting.c35_bubble_radius
+        self.min_gap_width = setting.c35_min_gap_width
 
     world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
     # LiDAR steering does not need a plan; localization provides ego pose.
@@ -215,7 +219,7 @@ class FollowTheGapController(PurePursuitBase):
         ld = self.effective_lookahead(ego.velocity)
 
         ##################################
-        # Lookahead: widest forward gap
+        # Lookahead: path-biased free gap
         ##################################
         lidar_data = sensors.lidar if sensors is not None else None
         ego_pts = self.to_ego_frame(lidar_data, ego)
@@ -223,7 +227,12 @@ class FollowTheGapController(PurePursuitBase):
             log.warning("No LiDAR points available. Commanding zero.")
             return ControlCommand(steer=0, acceleration=0)
 
-        target_ego = self.largest_gap_target(ego_pts, ld)
+        preferred = None
+        path_pt = self.find_path_lookahead(ego, ld)
+        if path_pt is not None:
+            preferred = float(np.arctan2(path_pt[1], path_pt[0]))
+
+        target_ego = self.largest_gap_target(ego_pts, ld, preferred_bearing=preferred)
         if target_ego is None:
             log.warning("Could not derive Follow-the-Gap lookahead. Commanding zero.")
             return ControlCommand(steer=0, acceleration=0)
@@ -277,26 +286,41 @@ class FollowTheGapController(PurePursuitBase):
         ey = -s_th * dx + c * dy
         return np.column_stack([ex, ey])
 
-    def largest_gap_target(self, ego_pts: np.ndarray, ld: float) -> tuple[float, float] | None:
-        """Aim at the midpoint bearing of the widest gap in the forward half-plane."""
+    def largest_gap_target(
+        self,
+        ego_pts: np.ndarray,
+        ld: float,
+        preferred_bearing: float | None = None,
+    ) -> tuple[float, float] | None:
+        """Aim at a forward free-gap mid-bearing (path-biased when preferred is set)."""
+        # Safety bubble: ignore returns inside the ego footprint.
+        r = np.hypot(ego_pts[:, 0], ego_pts[:, 1])
+        ego_pts = ego_pts[r >= self.bubble_radius]
         forward = ego_pts[ego_pts[:, 0] > 0]
         if len(forward) == 0:
             return None
 
         # Bearings in (-pi/2, pi/2) for x>0; sort ascending (right → left).
         bearings = np.arctan2(forward[:, 1], forward[:, 0])
-        order = np.argsort(bearings)
-        bearings = bearings[order]
+        bearings = np.sort(bearings)
 
-        # Gaps between consecutive returns, plus edges at ±pi/2.
         edge_lo, edge_hi = -0.5 * np.pi, 0.5 * np.pi
-        candidates = []  # (gap_width, mid_bearing)
-        candidates.append((float(bearings[0] - edge_lo), float(0.5 * (bearings[0] + edge_lo))))
+        interior: list[tuple[float, float]] = []
         for i in range(len(bearings) - 1):
             gap = float(bearings[i + 1] - bearings[i])
             mid = float(0.5 * (bearings[i] + bearings[i + 1]))
-            candidates.append((gap, mid))
-        candidates.append((float(edge_hi - bearings[-1]), float(0.5 * (bearings[-1] + edge_hi))))
+            interior.append((gap, mid))
+        edges = [
+            (float(bearings[0] - edge_lo), float(0.5 * (bearings[0] + edge_lo))),
+            (float(edge_hi - bearings[-1]), float(0.5 * (bearings[-1] + edge_hi))),
+        ]
+        # Prefer interior gaps (corridor ahead); fall back to ±90° edges only if needed.
+        pool = interior if interior else edges
 
-        _width, mid_bearing = max(candidates, key=lambda t: t[0])
+        if preferred_bearing is not None:
+            wide = [c for c in pool if c[0] >= self.min_gap_width] or pool
+            _width, mid_bearing = min(wide, key=lambda t: abs(t[1] - preferred_bearing))
+        else:
+            _width, mid_bearing = max(pool, key=lambda t: t[0])
+
         return float(ld * np.cos(mid_bearing)), float(ld * np.sin(mid_bearing))

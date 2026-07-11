@@ -1,6 +1,7 @@
 import logging
 import re
 import subprocess
+import threading
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -40,8 +41,9 @@ from avlite.plugins.p60_visualizer_tk.p64_setting_views import SettingShortcutVi
 from avlite.c60_apps.c63_plugins import reload_lib
 from avlite.c60_apps.c68_paths import ConfigPaths
 from avlite.c60_apps.c65_setting_utils import load_setting, list_profiles
+from avlite.c60_apps.c66_app_update import AppUpdater
 from avlite import __version__
-    
+
 
 log = logging.getLogger(__name__)
 logging.getLogger("PIL").setLevel(logging.WARNING)
@@ -126,7 +128,8 @@ class VisualizerApp(tk.Tk):
         self._create_menubar()
         self.ui_initialized = True
         self.protocol("WM_DELETE_WINDOW", self._on_close)
-        
+        self.after(4000, self._maybe_offer_update)
+
         log.info(f"Available profiles: {self.setting.profile_list}")
 
     def _on_close(self):
@@ -314,6 +317,10 @@ class VisualizerApp(tk.Tk):
             frame, text=message, fg="#10bfe8", bg="black",
             font=("Arial", 12),
         ).pack(pady=10)
+        tk.Label(
+            frame, text=f"v{__version__}", fg="#0a7a96", bg="black",
+            font=("Arial", 10),
+        ).place(relx=1.0, rely=1.0, anchor="se", x=-10, y=-8)
         
         # Update the window to make it visible
         self.loading_window.update_idletasks()
@@ -392,6 +399,7 @@ class VisualizerApp(tk.Tk):
         self.menus.append(file_menu)
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
+        help_menu.add_command(label="Update…", command=self._on_check_update)
         help_menu.add_command(label="About AVLite", command=self._show_about)
         self.menubar.add_cascade(label="Help", menu=help_menu)
         self.menus.append(help_menu)
@@ -439,6 +447,136 @@ class VisualizerApp(tk.Tk):
         ttk.Button(inner, text="OK", command=win.destroy).pack(pady=(0, DpiScale.scaled(20, s)))
         win.grab_set()
         win.focus_set()
+
+    def _on_check_update(self):
+        if getattr(self, "_update_busy", False):
+            return
+        self._update_busy = True
+
+        def work():
+            try:
+                latest = AppUpdater.latest()
+                newer = AppUpdater.is_newer(latest)
+                err = None
+            except Exception as e:
+                latest, newer, err = None, False, e
+
+            def done():
+                self._update_busy = False
+                if err is not None:
+                    log.warning("Update check failed: %s", err)
+                    messagebox.showerror(
+                        "Update",
+                        f"Could not check for updates.\n\n{err}",
+                        parent=self,
+                    )
+                    return
+                if not newer:
+                    log.info("AVLite is up to date (%s)", __version__)
+                    messagebox.showinfo(
+                        "Update",
+                        f"AVLite is up to date ({__version__}).",
+                        parent=self,
+                    )
+                    return
+                log.info("Update available: %s → %s", __version__, latest)
+                if not messagebox.askyesno(
+                    "Update",
+                    f"Update available: {__version__} → {latest}\n\n"
+                    "Install with pip now?",
+                    parent=self,
+                ):
+                    log.info("User declined avlite upgrade")
+                    return
+                self._update_busy = True
+
+                def upgrade_work():
+                    try:
+                        AppUpdater.upgrade()
+                        up_err = None
+                    except Exception as e:
+                        up_err = e
+
+                    def upgrade_done():
+                        self._update_busy = False
+                        if up_err is not None:
+                            log.warning("Upgrade failed: %s", up_err)
+                            messagebox.showerror(
+                                "Update",
+                                f"Upgrade failed.\n\n{up_err}",
+                                parent=self,
+                            )
+                            return
+                        log.info("Updated to %s; restart required", latest)
+                        messagebox.showinfo(
+                            "Update",
+                            f"Updated to {latest}.\n\nRestart AVLite to use the new version.",
+                            parent=self,
+                        )
+
+                    self.after(0, upgrade_done)
+
+                threading.Thread(target=upgrade_work, daemon=True).start()
+
+            self.after(0, done)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _maybe_offer_update(self):
+        if self.setting.exec_running:
+            return
+
+        def work():
+            try:
+                latest = AppUpdater.latest()
+                if not AppUpdater.is_newer(latest):
+                    log.info("Startup update check: up to date (%s)", __version__)
+                    return
+            except Exception as e:
+                log.info("Startup update check skipped: %s", e)
+                return
+
+            def show_toast():
+                if self.setting.exec_running:
+                    return
+                if getattr(self, "_update_toast", None) is not None:
+                    return
+                s = self._dpi_scale
+                toast = tk.Frame(self, bg="#1a1a1a", highlightbackground="#10bfe8", highlightthickness=1)
+                toast.place(relx=1.0, rely=0.0, anchor="ne", x=-DpiScale.scaled(12, s), y=DpiScale.scaled(12, s))
+                self._update_toast = toast
+                log.info("Showing update toast: %s → %s", __version__, latest)
+                msg = tk.Label(
+                    toast,
+                    text=f"Update available: {__version__} → {latest}",
+                    fg="#10bfe8",
+                    bg="#1a1a1a",
+                    font=("Arial", 10),
+                    padx=DpiScale.scaled(12, s),
+                    pady=DpiScale.scaled(8, s),
+                )
+                msg.pack(side="left")
+
+                def dismiss():
+                    if getattr(self, "_update_toast", None) is toast:
+                        toast.destroy()
+                        self._update_toast = None
+
+                def on_update():
+                    dismiss()
+                    self._on_check_update()
+
+                ttk.Button(toast, text="Update", command=on_update).pack(
+                    side="left", padx=(0, DpiScale.scaled(6, s)), pady=DpiScale.scaled(4, s)
+                )
+                ttk.Button(toast, text="✕", width=2, command=dismiss).pack(
+                    side="left", padx=(0, DpiScale.scaled(6, s)), pady=DpiScale.scaled(4, s)
+                )
+                self.after(12000, dismiss)
+
+            self.after(0, show_toast)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _apply_menubar_visibility(self):
         if self.setting.p60_hide_menubar.get():

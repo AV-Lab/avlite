@@ -91,6 +91,20 @@ class ControlSettingsSchema(SettingsSchema):
             "FollowTheGapController."
         ),
     )
+    c35_bubble_radius: float = Field(
+        default=1.0,
+        description=(
+            "Safety bubble (m) for FollowTheGapController: ego-frame LiDAR hits "
+            "closer than this are dropped before gap finding."
+        ),
+    )
+    c35_min_gap_width: float = Field(
+        default=0.2,
+        description=(
+            "Minimum angular gap width (rad) considered when path-biased gap "
+            "selection is active in FollowTheGapController."
+        ),
+    )
 
     c30_emergency_velocity_threshold: float = Field(default=0.5, description="Speed threshold for emergency braking (m/s).")
     c30_emergency_min_moving_velocity: float = Field(default=1.0, description="Min speed treated as moving for emergency logic (m/s).")
