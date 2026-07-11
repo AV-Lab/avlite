@@ -1198,11 +1198,11 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 </tr>
 <tr>
 <td><strong>c30_control</strong></td>
-<td>Vehicle controllers (Stanley, PID)</td>
+<td>Vehicle controllers (Stanley, PID, Pure Pursuit, Follow the Gap)</td>
 </tr>
 <tr>
 <td><strong>c40_execution</strong></td>
-<td>Execution orchestration, <code>replan_global()</code>, simulator bridges (BasicSim, CARLA, Gazebo)</td>
+<td>Execution orchestration, simulator bridges (BasicSim, CARLA, Gazebo)</td>
 </tr>
 <tr>
 <td><strong>c60_apps</strong></td>
@@ -1214,7 +1214,7 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 </tr>
 <tr>
 <td><strong>c50_common</strong></td>
-<td>Algorithm utilities only (<code>c51</code>–<code>c55</code>: capabilities, sensor layouts, collision, FPS)</td>
+<td>Algorithm utilities only (<code>c51</code>–<code>c56</code>: capabilities, world/stack datatypes, collision, FPS)</td>
 </tr>
 </tbody>
 </table>
@@ -1321,7 +1321,7 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 </span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    ├── p60_setting_cli/
 </span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    └── p60_headless_mode/
 </span></code></pre></div>
-<p>Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley controller, etc.</p>
+<p>Modules use numbered prefixes (c10, c20, etc.) for easy navigation. Search for "c23" to find local planning, "c34" for Stanley, "c35" for Pure Pursuit, etc.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../quick-start/">Quick Start</a> - Install, launch, and run headless</li>

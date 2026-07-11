@@ -961,7 +961,7 @@
         direction LR
         PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
-        CTRL["Control\nStanley · PID"]
+        CTRL["Control\nStanley · PID · Pure Pursuit · FTG"]
         WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
@@ -1025,19 +1025,41 @@
 </tbody>
 </table>
 <ul>
-<li>A <strong>strategy</strong> declares <code>world_requirements</code>, <code>stack_requirements</code> (non-abstract, per-module defaults), and <code>stack_capabilities</code> (what it produces).</li>
+<li>A <strong>strategy</strong> declares <code>world_requirements</code>, <code>stack_requirements</code>, and <code>stack_capabilities</code> (what it produces). Strategy ABCs keep these as <strong>abstract</strong> <code>@property</code>; leaf concretes satisfy them with public <strong><code>frozenset</code> class attributes</strong> (readable without constructing an instance). Pipelines keep instance <code>@property</code> aggregators over their stages.</li>
 <li>A <strong>world bridge</strong> declares <code>world_capabilities</code> (sensors it exposes) and <code>stack_capabilities</code> (ground truth it provides).</li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="nd">@property</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="k">def</span> <span class="nf">world_requirements</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">WorldCapability</span><span class="p">]:</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="c1"># What I need from the world/simulator (sensors)</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">}</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="nd">@property</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="k">def</span> <span class="nf">stack_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">StackCapability</span><span class="p">]:</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="c1"># What I provide to downstream modules</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">}</span>
+<p>Requirement entries may be plain capabilities or wrappers:</p>
+<ul>
+<li><strong>Plain caps (AND)</strong> — every listed capability must be present (<code>all · A &amp; B</code> in the visualizer popup).</li>
+<li><strong><code>AnyOf(A, B, …)</code></strong> — hard OR: at least one member must be present (<code>any · A | B</code>).</li>
+<li><strong><code>MayUse(A, B, …)</code></strong> — soft: never blocks assembly; the module uses these when available (<code>may · A | B</code>).</li>
+</ul>
+<p><strong>Runtime payloads (who passes what):</strong> capability enums declare <em>need</em>; they are not a message bus. Key strategy methods also take optional <code>perception_model</code> + <code>sensors</code> (supplied by the executer, pipeline, or UI) <strong>in addition to</strong> any method-specific args:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Shared optional pair on every key method</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># stack world-state (PerceptionModel)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>           <span class="c1"># world SensorFrame</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Control keeps its prior args as well:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">control</span><span class="p">(</span><span class="n">ego</span><span class="p">,</span> <span class="n">plan</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">control_dt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Detect keeps optional unpacked sensor convenience args as well:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">detect</span><span class="p">(</span><span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rgb_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">depth_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lidar_data</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Modules read fields they need (e.g. <code>sensors.lidar</code>, or <code>ego</code> / <code>plan</code> on control). Global start/goal stay via <code>set_start_goal</code> before <code>plan(...)</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">})</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">})</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="k">class</span> <span class="nc">MyLocalPlanner</span><span class="p">(</span><span class="n">LocalPlanningStrategy</span><span class="p">):</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">GLOBAL_PLAN</span><span class="p">,</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">,</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">MayUse</span><span class="p">(</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">),</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="p">})</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCAL_PLAN</span><span class="p">})</span>
 </span></code></pre></div>
 <p><strong>World Capabilities</strong> (sensors / actuation the bridge provides):</p>
 <ul>
@@ -1061,27 +1083,30 @@
 <li><code>GLOBAL_PLAN</code> - Global plan (produced by the global planner)</li>
 <li><code>CONTROL</code> - Control commands (produced by the controller)</li>
 <li><code>LOCALIZATION</code> - Ego localization</li>
-<li><code>MAP</code> - Map</li>
+<li><code>MAP_HD</code> - HD / OpenDRIVE map (from a mapping module such as <code>MapReader</code>)</li>
+<li><code>MAP_RACE_TRACK</code> - Race-track corridor map (from a mapping module such as <code>MapReader</code>)</li>
 <li><code>SLAM</code> - Simultaneous localization and mapping</li>
 </ul>
-<p><strong>Ground truth via the world bridge:</strong> a <code>WorldBridge</code> may advertise <code>stack_capabilities</code> (a <code>set[StackCapability]</code>, default empty) to satisfy downstream <code>stack_requirements</code> without a real module. For example, <code>BasicSim</code> provides <code>{DETECTION, TRACKING, LOCALIZATION}</code> as ground truth. The executer combines every present module's <code>stack_capabilities</code> with <code>world.stack_capabilities</code> and warns when a module's <code>stack_requirements</code> are unmet.</p>
+<p><strong>Ground truth via the world bridge:</strong> a <code>WorldBridge</code> may advertise <code>stack_capabilities</code> (a <code>set[StackCapability]</code>, default empty) to satisfy downstream <code>stack_requirements</code> without a real module. For example, <code>BasicSim</code> provides <code>{DETECTION, TRACKING, LOCALIZATION}</code> as ground truth and declares <code>stack_requirements = {CONTROL}</code>. Optional <code>WorldBridge.map</code> is simulation-only (e.g. LiDAR geometry) and does <strong>not</strong> advertise <code>MAP_HD</code> / <code>MAP_RACE_TRACK</code>. Typed stack map caps come from a mapping module such as <code>MapReader</code> (holds a pre-loaded <code>Map</code>; advertises <code>MAP_HD</code> or <code>MAP_RACE_TRACK</code> from the concrete type; format sniff/load stays on <code>Map.open</code> / <code>Map.from_path</code>). Global planners require the matching typed cap (<code>HDMapGlobalPlanner</code> → <code>MAP_HD</code>; race planners → <code>MAP_RACE_TRACK</code>). The executer’s <code>available_stack_capabilities()</code> unions every present module’s <code>stack_capabilities</code> with filtered <code>world.stack_capabilities</code>. At stack build it <strong>raises</strong> when a module’s hard <code>stack_requirements</code> are unmet (<code>MayUse</code> never fails that check), and <strong>warns</strong> when the world’s hard requirements are unmet or when the same capability is provided by more than one source.</p>
+<p>In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against <code>available_stack_capabilities</code>, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected <code>WorldBridge</code>: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled <code>all ·</code> / <code>any ·</code> / <code>may ·</code>. Provided caps: green = consumed by another module’s hard or soft (<code>MayUse</code>) requirements or by the world bridge’s <code>stack_requirements</code>; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (<code>c41_world_stack_capabilities</code>); gray = unused. Parent <code>PerceptionPipeline</code> advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use <code>DETECTION</code> and <code>PREDICTION</code> (agents + motion sweeps), not <code>TRACKING</code>. Bridge Setting’s world column (<code>c41_world_capabilities</code>) gates which sensors are fed into <code>SensorFrame</code>.</p>
 <h3 id="factory-pattern">Factory Pattern<a class="headerlink" href="#factory-pattern" title="Permanent link">&para;</a></h3>
 <p>The executor factory assembles components based on configuration:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">executer</span> <span class="o">=</span> <span class="n">executor_factory</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">bridge</span><span class="o">=</span><span class="s2">&quot;BasicSim&quot;</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">perception_strategy_name</span><span class="o">=</span><span class="s2">&quot;MultiObjectPredictor&quot;</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">localization_strategy_name</span><span class="o">=</span><span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">local_planner_strategy_name</span><span class="o">=</span><span class="s2">&quot;GreedyLatticePlanner&quot;</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">controller_strategy_name</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">executer</span> <span class="o">=</span> <span class="n">executor_factory</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">bridge</span><span class="o">=</span><span class="s2">&quot;BasicSim&quot;</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">perception_strategy_name</span><span class="o">=</span><span class="s2">&quot;MultiObjectPredictor&quot;</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">localization_strategy_name</span><span class="o">=</span><span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">mapping_strategy_name</span><span class="o">=</span><span class="s2">&quot;MapReader&quot;</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">local_planner_strategy_name</span><span class="o">=</span><span class="s2">&quot;GreedyLatticePlanner&quot;</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">controller_strategy_name</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>It loads plugins, instantiates strategies from registries, and wires everything together. Both <code>perception_strategy_name</code> and <code>localization_strategy_name</code> are optional — pass an empty string or omit them to run without that component.</p>
+<p>It loads plugins, opens <code>ExecutionSettings.c40_map</code> once via <code>Map.open</code> (shared by <code>MapReader</code>, global planners, and <code>WorldBridge</code>), instantiates strategies from registries, and wires everything together. Perception, localization, and mapping strategy names are optional — pass an empty string or omit them to run without that component.</p>
 <p>Before calling <code>executor_factory()</code>, load YAML profiles with <code>load_stack_settings(profile, load_plugins)</code> in <a href="../avlite/c60_apps/c62_factory.py"><code>c62_factory.py</code></a>. Each setting reads its section from the single <code>configs/&lt;profile&gt;.yaml</code>: it loads the c10–c40 layer sections, <code>AppSettings</code> (the <code>c69_apps</code> section), and built-in plugin settings (the <code>plugins</code> section); the GUI loads the Tk <code>VisualizationSettings</code> binder separately.</p>
 <h3 id="layer-import-rules">Layer import rules<a class="headerlink" href="#layer-import-rules" title="Permanent link">&para;</a></h3>
 <p>Stack core (<code>c10</code>–<code>c40</code>, <code>c50_common</code>) may import <code>c61_app_strategy</code>, <code>c64_settings_schema</code>, <code>c68_paths</code>, and <code>c69_settings</code> only. Profile export/import operates on a single per-profile YAML file (<code>c65_setting_utils.export_profile</code> / <code>import_profile</code>), with checkboxes to include the <code>c69_apps</code> and <code>plugins</code> sections. Tk binder <code>VisualizationSettings</code> lives in plugin <code>settings.py</code>; <code>c69_settings</code> is schema-only (plugin bootstrap fields use <code>c62_*</code>, consumed by <code>c62_factory</code>).</p>
 <h3 id="agent-model">Agent model<a class="headerlink" href="#agent-model" title="Permanent link">&para;</a></h3>
 <p>Agents are represented as a small class hierarchy in c11:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>State → AgentState → EgoState
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>State → AgentState → EgoState
 </span></code></pre></div>
 <ul>
 <li><strong><code>EGO_AGENT_ID = 0</code></strong> — reserved for the ego vehicle (<code>perception_model.ego_vehicle</code>).</li>
@@ -1090,14 +1115,14 @@
 <li><strong>Default state</strong> — pose (<code>x</code>, <code>y</code>, <code>z</code>, <code>theta</code>) plus scalar <code>velocity</code> (car-centric; used by planning, collision, and viz).</li>
 <li><strong>Future</strong> — specialized subclasses (e.g. <code>DroneAgentState</code>) when kinematics need body velocity or 3D integration; see <a href="../plugin-development/#7-multi-robot-agents-and-control">Multi-robot agents and control</a>.</li>
 </ul>
-<p>Control actuation is a separate layer: <code>ControlCommandBase</code> subclasses in c31, with default <code>AgentType</code> → command mapping in c38. The car stack still uses the <code>ControlCommand</code> alias for <code>AckermannControlCommand</code>.</p>
+<p>Control actuation is a separate layer: <code>ControlCommandBase</code> subclasses and default <code>AgentType</code> → command mapping in c31. The car stack still uses the <code>ControlCommand</code> alias for <code>AckermannControlCommand</code>.</p>
 <h2 id="layers">Layers<a class="headerlink" href="#layers" title="Permanent link">&para;</a></h2>
 <h3 id="perception"><strong>Perception</strong><a class="headerlink" href="#perception" title="Permanent link">&para;</a></h3>
 <p>Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. Static map types (<code>Map</code>, <code>RaceMap</code>, <code>HDMap</code>) live in c11; OpenDRIVE parsing is in c18. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
 <h3 id="planning"><strong>Planning</strong><a class="headerlink" href="#planning" title="Permanent link">&para;</a></h3>
 <p>Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller. See <a href="../algorithms/">Algorithms</a> for lattice planner details.</p>
 <h3 id="control"><strong>Control</strong><a class="headerlink" href="#control" title="Permanent link">&para;</a></h3>
-<p>Vehicle control strategies (Stanley, PID) output actuation commands. Commands use a <code>ControlCommandBase</code> hierarchy (<code>AckermannControlCommand</code>, <code>DiffDriveControlCommand</code>, <code>BodyVelocityControlCommand</code> in c31); the built-in car stack still returns <code>ControlCommand</code> (Ackermann alias). Per-agent command type defaults are mapped from <code>AgentType</code> in c38. See <a href="../plugin-development/#7-multi-robot-agents-and-control">Plugin Development → Multi-robot agents and control</a>.</p>
+<p>Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. Commands use a <code>ControlCommandBase</code> hierarchy (<code>AckermannControlCommand</code>, <code>DiffDriveControlCommand</code>, <code>BodyVelocityControlCommand</code> in c31); the built-in car stack still returns <code>ControlCommand</code> (Ackermann alias). Per-agent command type defaults are mapped from <code>AgentType</code> in c31. See <a href="../plugin-development/#7-multi-robot-agents-and-control">Plugin Development → Multi-robot agents and control</a>. Pure Pursuit and Follow the Gap are documented in <a href="../algorithms/#control-pure-pursuit-and-follow-the-gap">Algorithms</a>.</p>
 <h3 id="execution"><strong>Execution</strong><a class="headerlink" href="#execution" title="Permanent link">&para;</a></h3>
 <p>World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in <code>BasicSim</code> bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via <code>c40_executer_type</code> and provided as optional plugins.</p>
 <h3 id="apps"><strong>Apps</strong><a class="headerlink" href="#apps" title="Permanent link">&para;</a></h3>
@@ -1112,25 +1137,25 @@
 <h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
 <p>YAML profile load/save, hot reload, plugin discovery (<code>c63_plugins</code>), path resolution (<code>c68_paths</code>), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (<code>c64_settings_schema</code>).</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>World Bridge
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    │
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    ├─► Sensor Data ──► Localization ──► Ego Pose (updated in-place)
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    │                                          │
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    ├─► Sensor Data ──► Perception ───► Agents │
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    │                                          ▼
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    │                              Local Planner
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    │                                          │
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    │                                          ▼
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    │                              Trajectory
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    │                                          │
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    │                                          ▼
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    │                              Controller
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    │                                          │
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    └─────────────── Control Command ◄─────────┘
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>                          │
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>              (future: control_agent for NPC fleet)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>World Bridge
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    │
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    ├─► Sensor Data ──► Localization ──► Ego Pose (updated in-place)
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    │                                          │
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    ├─► Sensor Data ──► Perception ───► Agents │
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    │                                          ▼
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    │                              Local Planner
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    │                                          │
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    │                                          ▼
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    │                              Trajectory
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    │                                          │
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    │                                          ▼
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    │                              Controller
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    │                                          │
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    └─────────────── Control Command ◄─────────┘
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>                          │
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>              (future: control_agent for NPC fleet)
 </span></code></pre></div>
 <ol>
 <li><strong>World Bridge</strong> provides sensor data (IMU, LiDAR, camera, ground truth)</li>
@@ -1141,19 +1166,19 @@
 <li><strong>World Bridge</strong> executes control command via <code>control_ego_state</code> (ego path unchanged; <code>control_agent</code> and <code>step()</code> hooks exist for future multi-agent and sub-stepping)</li>
 </ol>
 <h2 id="plugin-system">Plugin System<a class="headerlink" href="#plugin-system" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>avlite/
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>└── plugins/            # Built-in (core team)
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    ├── p60_visualizer_tk/   # visualizer + config + plugins Tk apps
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    ├── p60_setting_cli/
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    └── p60_headless_mode/
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>~/.local/share/avlite/plugins/   # Community (installed)
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>└── my_plugin/
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    ├── __init__.py
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    ├── settings.py
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    └── ...
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>avlite/
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>└── plugins/            # Built-in (core team)
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    ├── p60_visualizer_tk/   # visualizer + config + plugins Tk apps
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    ├── p60_setting_cli/
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    └── p60_headless_mode/
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>~/.local/share/avlite/plugins/   # Community (installed)
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>└── my_plugin/
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    ├── __init__.py
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    ├── settings.py
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    └── ...
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 </span></code></pre></div>
 <p>Plugins are loaded at startup. Classes inheriting from base strategies auto-register. The built-in <code>p60_*</code> packages are the apps themselves (<code>AppStrategy</code> entry points); <code>bootstrap_apps()</code> in <code>c61_app_strategy</code> imports them at startup so their apps register before CLI parsing.</p>
 <p>See <a href="../plugin-development/">Plugin Development</a> for creating community plugins, pNx naming, and log filtering.</p>

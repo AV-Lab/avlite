@@ -754,6 +754,48 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#control-pure-pursuit-and-follow-the-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control: Pure Pursuit and Follow the Gap
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control: Pure Pursuit and Follow the Gap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-pure-pursuit-purepursuitcontroller" class="md-nav__link">
+    <span class="md-ellipsis">
+      Path Pure Pursuit (PurePursuitController)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#follow-the-gap-followthegapcontroller" class="md-nav__link">
+    <span class="md-ellipsis">
+      Follow the Gap (FollowTheGapController)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pure-pursuit-follow-the-gap-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pure Pursuit / Follow the Gap parameters
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related-reading" class="md-nav__link">
     <span class="md-ellipsis">
       Related reading
@@ -1071,6 +1113,48 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#control-pure-pursuit-and-follow-the-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control: Pure Pursuit and Follow the Gap
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control: Pure Pursuit and Follow the Gap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-pure-pursuit-purepursuitcontroller" class="md-nav__link">
+    <span class="md-ellipsis">
+      Path Pure Pursuit (PurePursuitController)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#follow-the-gap-followthegapcontroller" class="md-nav__link">
+    <span class="md-ellipsis">
+      Follow the Gap (FollowTheGapController)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pure-pursuit-follow-the-gap-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pure Pursuit / Follow the Gap parameters
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related-reading" class="md-nav__link">
     <span class="md-ellipsis">
       Related reading
@@ -1098,7 +1182,7 @@
 
 
 <h1 id="algorithms">Algorithms<a class="headerlink" href="#algorithms" title="Permanent link">&para;</a></h1>
-<p>This page describes the built-in <strong>planning</strong> algorithms in AVLite: how they fit together, how the greedy lattice local planner works, and which YAML parameters control behavior.</p>
+<p>This page describes the built-in <strong>planning</strong> and <strong>control</strong> algorithms in AVLite: how they fit together, how the greedy lattice local planner works, Pure Pursuit and Follow the Gap, and which YAML parameters control behavior.</p>
 <p>Configuration lives in <a href="../configs/c20_planning.yaml"><code>configs/c20_planning.yaml</code></a> and is validated by <a href="../avlite/c20_planning/c29_settings.py"><code>PlanningSettings</code></a>. See <a href="../settings-naming/">Settings naming</a> for key prefixes and GUI tooltips.</p>
 <h2 id="planning-in-the-stack">Planning in the stack<a class="headerlink" href="#planning-in-the-stack" title="Permanent link">&para;</a></h2>
 <p>Planning runs after perception (optional) and before control:</p>
@@ -1147,14 +1231,14 @@
 <hr />
 <h2 id="global-planning">Global planning<a class="headerlink" href="#global-planning" title="Permanent link">&para;</a></h2>
 <h3 id="race-centerline-globalcenterlineraceplanner">Race centerline (<code>GlobalCenterlineRacePlanner</code>)<a class="headerlink" href="#race-centerline-globalcenterlineraceplanner" title="Permanent link">&para;</a></h3>
-<p>Used on closed race tracks with left/right boundary polylines.</p>
+<p>Used on closed race tracks with a <code>RaceMap</code> (left/right boundary polylines).</p>
 <ul>
 <li>Extracts a centerline between boundaries.</li>
 <li>Assigns a curvature-based velocity profile along the path.</li>
 <li>Outputs a <code>GlobalPlan</code> with <code>left_boundary_d</code>, <code>right_boundary_d</code>, and a <code>TrajectoryTracker</code> reference — all consumed by the lattice.</li>
 </ul>
 <h3 id="optimized-raceline-globalraceplanner">Optimized raceline (<code>GlobalRacePlanner</code>)<a class="headerlink" href="#optimized-raceline-globalraceplanner" title="Permanent link">&para;</a></h3>
-<p>Computes a <strong>raceline</strong> inside the corridor instead of following the centerline: it minimizes a blend of curvature and path length subject to the track boundaries, then profiles velocity with lateral <strong>and</strong> longitudinal acceleration limits. Input is the same race-boundary JSON (or <code>RaceMap</code>) as the centerline planner.</p>
+<p>Computes a <strong>raceline</strong> inside the corridor instead of following the centerline: it minimizes a blend of curvature and path length subject to the track boundaries, then profiles velocity with lateral <strong>and</strong> longitudinal acceleration limits. Input is a <code>RaceMap</code> (same corridor as the centerline planner).</p>
 <p>The formulation follows published work: the curvature/length blend is the racing-line compromise of Braghin et al. [1], and the iteratively re-linearized lateral-offset QP with a forward-backward velocity solver is the minimum-curvature approach of Heilmeier et al. [2] (TUM / Roborace), simplified here to a box-bounded least-squares problem.</p>
 <pre class="mermaid"><code>flowchart LR
     A[RaceMap boundaries] --&gt; B[Resample centerline, normals, widths]
@@ -1704,6 +1788,92 @@ R(v) = \frac{a_{\text{lat,max}} \cdot L^2}{5.7735 \cdot v^2} \cdot \texttt{c28\_
 <li><strong>Too conservative following</strong> — reduce <code>c27_follow_cruise_min_gap</code> or collision margins (<code>c20_*</code>).</li>
 </ul>
 </div>
+<hr />
+<h2 id="control-pure-pursuit-and-follow-the-gap">Control: Pure Pursuit and Follow the Gap<a class="headerlink" href="#control-pure-pursuit-and-follow-the-gap" title="Permanent link">&para;</a></h2>
+<p>Pure Pursuit is a geometric path-tracking controller. It aims the vehicle at a <strong>lookahead point</strong> a distance <span class="arithmatex">\(L_d\)</span> ahead and steers along the circular arc that reaches that point (bicycle model):</p>
+<div class="arithmatex">\[
+\delta = \arctan\left(\frac{2 L \sin\alpha}{L_d}\right)
+\]</div>
+<p>where <span class="arithmatex">\(L\)</span> is the wheelbase (<code>c32_ego_distance_front_axle</code>) and <span class="arithmatex">\(\alpha\)</span> is the bearing of the lookahead point in the ego frame (x forward, y left).</p>
+<p>Configuration lives in <a href="../avlite/c30_control/c39_settings.py"><code>ControlSettings</code></a> (<code>c35_*</code> keys). Select the controller via <code>c40_controller</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Module</th>
+<th>Lookahead source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PurePursuitController</code></td>
+<td><a href="../avlite/c30_control/c35_pure_pursuit.py"><code>c35_pure_pursuit.py</code></a></td>
+<td>Global/local path at arc-length <span class="arithmatex">\(L_d\)</span></td>
+</tr>
+<tr>
+<td><code>FollowTheGapController</code></td>
+<td>same</td>
+<td>Path-biased forward LiDAR free gap at range <span class="arithmatex">\(L_d\)</span></td>
+</tr>
+</tbody>
+</table>
+<h3 id="path-pure-pursuit-purepursuitcontroller">Path Pure Pursuit (<code>PurePursuitController</code>)<a class="headerlink" href="#path-pure-pursuit-purepursuitcontroller" title="Permanent link">&para;</a></h3>
+<p>Requires a plan (global or local) and localization. Finds the ego’s progress <span class="arithmatex">\(s\)</span> on the trajectory, takes the path point at <span class="arithmatex">\(s + L_d\)</span>, transforms it into the ego frame, and applies the formula above. Velocity tracks the trajectory waypoint with a PID (same emergency / anti-windup pattern as Stanley).</p>
+<h3 id="follow-the-gap-followthegapcontroller">Follow the Gap (<code>FollowTheGapController</code>)<a class="headerlink" href="#follow-the-gap-followthegapcontroller" title="Permanent link">&para;</a></h3>
+<p>Requires LiDAR (<code>LIDAR_2D</code> or <code>LIDAR_3D</code>) and localization; a plan is optional. The executer passes a <code>SensorFrame</code>; the controller reads <code>sensors.lidar</code>. World-frame hits are squashed to 2D (optional z-band), transformed into the ego frame, and points inside <code>c35_bubble_radius</code> are dropped. In the forward half-plane (<code>x&gt;0</code>), the controller finds angular gaps between consecutive returns. Interior gaps are preferred over the ±90° FOV-edge candidates. When a trajectory is available, among gaps at least <code>c35_min_gap_width</code> wide it picks the mid-bearing closest to the path lookahead; otherwise it picks the widest interior gap. A Pure Pursuit target is placed at that bearing and distance <span class="arithmatex">\(L_d\)</span>.</p>
+<p>Without a plan, speed tracks <code>c35_cruise_velocity</code>; with a plan, waypoint velocity is used (steering still comes from the gap).</p>
+<h3 id="pure-pursuit-follow-the-gap-parameters">Pure Pursuit / Follow the Gap parameters<a class="headerlink" href="#pure-pursuit-follow-the-gap-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c35_lookahead_distance</code></td>
+<td><code>8.0</code></td>
+<td>Fixed <span class="arithmatex">\(L_d\)</span> (m) when speed gain is 0</td>
+</tr>
+<tr>
+<td><code>c35_min_lookahead</code> / <code>c35_max_lookahead</code></td>
+<td><code>3.0</code> / <code>20.0</code></td>
+<td>Clamps for speed-adaptive <span class="arithmatex">\(L_d\)</span></td>
+</tr>
+<tr>
+<td><code>c35_lookahead_speed_gain</code></td>
+<td><code>0.0</code></td>
+<td>If &gt; 0: <span class="arithmatex">\(L_d = \mathrm{clip}(k\cdot v, \min, \max)\)</span>; if 0: use fixed distance</td>
+</tr>
+<tr>
+<td><code>c35_valpha</code> / <code>vbeta</code> / <code>vgamma</code></td>
+<td><code>0.8</code> / <code>0.01</code> / <code>0.3</code></td>
+<td>Velocity PID gains</td>
+</tr>
+<tr>
+<td><code>c35_cruise_velocity</code></td>
+<td><code>5.0</code></td>
+<td>Follow-the-Gap cruise speed (m/s) when no plan</td>
+</tr>
+<tr>
+<td><code>c35_lidar_z_min</code> / <code>c35_lidar_z_max</code></td>
+<td><code>-1.5</code> / <code>2.0</code></td>
+<td>Height band (m) for 3D → 2D squash</td>
+</tr>
+<tr>
+<td><code>c35_bubble_radius</code></td>
+<td><code>1.0</code></td>
+<td>Drop ego-frame hits closer than this (m) before gap finding</td>
+</tr>
+<tr>
+<td><code>c35_min_gap_width</code></td>
+<td><code>0.2</code></td>
+<td>Min angular gap (rad) for path-biased selection</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="related-reading">Related reading<a class="headerlink" href="#related-reading" title="Permanent link">&para;</a></h2>
 <ul>
