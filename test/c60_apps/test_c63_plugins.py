@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import logging
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -158,3 +159,120 @@ def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatc
 
     prefix = plugin_module_prefix(_PLUGIN_NAME)
     assert f"{prefix}.settings" in sys.modules
+
+
+def test_reload_lib_reloads_core_before_plugins(monkeypatch):
+    """Core ABCs reload before plugin packages (public-API cache cleared between)."""
+    from avlite.c60_apps.c63_plugins import reload_lib
+
+    reloaded: list[str] = []
+    real_reload = importlib.reload
+
+    def _track(module):
+        name = getattr(module, "__name__", "")
+        reloaded.append(name)
+        # Skip reloading c63 itself so this test's monkeypatch / caller stay intact.
+        if name == "avlite.c60_apps.c63_plugins":
+            return module
+        return real_reload(module)
+
+    monkeypatch.setattr(importlib, "reload", _track)
+
+    fake_plugin = types.ModuleType("avlite.plugins._test_reload_order")
+    # Give importlib.reload a trivial spec so tracking can record the name.
+    fake_plugin.__spec__ = importlib.machinery.ModuleSpec(
+        "avlite.plugins._test_reload_order", loader=None
+    )
+    sys.modules["avlite.plugins._test_reload_order"] = fake_plugin
+    try:
+        reload_lib(reload_plugins=True, exclude_settings=True)
+    finally:
+        sys.modules.pop("avlite.plugins._test_reload_order", None)
+
+    assert reloaded and reloaded[0] == "avlite"
+    core_idxs = [i for i, n in enumerate(reloaded) if n.startswith("avlite.c")]
+    plugin_idxs = [i for i, n in enumerate(reloaded) if n.startswith("avlite.plugins.")]
+    assert core_idxs, "expected core modules to reload"
+    assert plugin_idxs, "expected plugin modules to reload"
+    assert max(core_idxs) < min(plugin_idxs)
+
+
+def test_avlite_public_api_survives_package_reload():
+    """New _LAZY exports become importable after importlib.reload(avlite)."""
+    import avlite as av
+
+    assert "SingleTrajectory" in av._LAZY
+    av._LAZY.pop("SingleTrajectory", None)
+    av.__dict__.pop("SingleTrajectory", None)
+    with pytest.raises(AttributeError):
+        getattr(av, "SingleTrajectory")
+
+    importlib.reload(av)
+    from avlite import SingleTrajectory
+
+    assert SingleTrajectory is not None
+    assert "SingleTrajectory" in av._LAZY
+
+
+def test_reload_lib_public_api_prediction_strategy_matches_submodule():
+    """After reload_lib, ``from avlite import PredictionStrategy`` is the live ABC."""
+    from avlite.c60_apps.c63_plugins import reload_lib
+
+    # Prime the lazy cache with whatever is current.
+    import avlite as av
+    from avlite import PredictionStrategy as _primed  # noqa: F401
+
+    assert "PredictionStrategy" in av.__dict__
+
+    reload_lib(reload_plugins=False, exclude_settings=True)
+
+    import avlite.c10_perception.c12_perception_strategy as c12
+    from avlite import PredictionStrategy as api_ps
+
+    assert api_ps is c12.PredictionStrategy
+    assert "ConstantVelocityPrediction" in api_ps.registry
+
+
+def test_reload_lib_plugin_via_public_api_registers_on_live_abc(tmp_path):
+    """Plugin subclassing PredictionStrategy via ``avlite`` lands in the live registry."""
+    from avlite.c60_apps.c63_plugins import reload_lib
+
+    plugin_dir = tmp_path / "api_pred_plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "__init__.py").write_text("", encoding="utf-8")
+    (plugin_dir / "predictor.py").write_text(
+        "from avlite import PredictionStrategy, StackCapability\n"
+        "\n"
+        "class PluginApiReloadPredictor(PredictionStrategy):\n"
+        "    world_requirements = frozenset()\n"
+        "    stack_requirements = frozenset()\n"
+        "    stack_capabilities = frozenset({StackCapability.PREDICTION})\n"
+        "\n"
+        "    def predict(self, perception_model=None, sensors=None):\n"
+        "        return perception_model\n",
+        encoding="utf-8",
+    )
+
+    pkg = "avlite.plugins.api_pred_plugin"
+    # Clear any prior load.
+    for name in list(sys.modules):
+        if name == pkg or name.startswith(pkg + "."):
+            del sys.modules[name]
+
+    import_plugin_modules(str(plugin_dir), pkg_name="api_pred_plugin")
+    from avlite import PredictionStrategy as before_ps
+
+    assert "PluginApiReloadPredictor" in before_ps.registry
+
+    # Cache a stale public-API binding, then reload — plugin must re-bind to new ABC.
+    import avlite as av
+
+    _ = av.PredictionStrategy  # ensure cached
+    reload_lib(reload_plugins=True, exclude_settings=True)
+
+    import avlite.c10_perception.c12_perception_strategy as c12
+    from avlite import PredictionStrategy as after_ps
+
+    assert after_ps is c12.PredictionStrategy
+    assert "PluginApiReloadPredictor" in after_ps.registry
+    assert after_ps.registry["PluginApiReloadPredictor"].__module__.startswith(pkg)

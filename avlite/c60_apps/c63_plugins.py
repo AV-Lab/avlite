@@ -429,6 +429,32 @@ def import_plugin_modules(
             patch_plugin_settings(ps, display_name, str(pkg_path))
 
 
+def _invalidate_avlite_lazy_cache() -> None:
+    """Drop cached ``from avlite import X`` bindings so they re-resolve via ``__getattr__``.
+
+    After ``importlib.reload`` of strategy ABCs, the top-level package can still hold
+    stale class objects. Plugins that import from ``avlite`` must see the post-reload
+    ABC so ``__init_subclass__`` registers into the live registry.
+    """
+    mod = sys.modules.get("avlite")
+    if mod is None:
+        return
+    for name in getattr(mod, "_LAZY", {}):
+        mod.__dict__.pop(name, None)
+
+
+def _reload_modules(module_names: list[str]) -> None:
+    """Reload each name that is present in ``sys.modules`` (log and continue on error)."""
+    for module_name in module_names:
+        if module_name not in sys.modules:
+            continue
+        try:
+            importlib.reload(sys.modules[module_name])
+            log.debug("Reloaded: %s", module_name)
+        except Exception as e:
+            log.error("Failed to reload %s: %s", module_name, e)
+
+
 def reload_lib(
     reload_plugins: bool = True,
     exclude_settings: bool = False,
@@ -437,7 +463,6 @@ def reload_lib(
     """Dynamically reload stack and plugin modules."""
     log.info("Reloading imports...")
 
-    project_modules: list[str] = []
     base_prefixes = [
         "avlite.c10_perception",
         "avlite.c20_planning",
@@ -461,38 +486,53 @@ def reload_lib(
     ]
 
     if exclude_stack:
-        project_modules = stack_settings
+        project_modules = list(stack_settings)
         if reload_plugins:
             log.debug("Reloading plugins...")
             project_modules += [f"plugins.{p}.settings" for p in list_plugins()]
-    else:
-        if reload_plugins:
-            plugins = [plugin_module_prefix(p) for p in list_plugins()]
-            project_modules.extend(plugins)
-        else:
-            plugins = []
+        _reload_modules(project_modules)
+        return
 
-        for module_name in list(sys.modules.keys()):
-            if any(module_name.startswith(prefix) for prefix in base_prefixes):
-                project_modules.append(module_name)
-            elif any(module_name.startswith(prefix) for prefix in app_modules):
-                project_modules.append(module_name)
-            elif reload_plugins and is_plugin_logger(module_name):
-                project_modules.append(module_name)
+    core_modules: list[str] = []
+    plugin_modules: list[str] = []
 
-        project_modules.sort(key=lambda x: x.count("."))
+    if reload_plugins:
+        plugin_modules.extend(plugin_module_prefix(p) for p in list_plugins())
 
-        if exclude_settings:
-            project_modules = [mod for mod in project_modules if mod not in stack_settings]
+    for module_name in list(sys.modules.keys()):
+        if any(module_name.startswith(prefix) for prefix in base_prefixes):
+            core_modules.append(module_name)
+        elif any(module_name.startswith(prefix) for prefix in app_modules):
+            core_modules.append(module_name)
+        elif reload_plugins and is_plugin_logger(module_name):
+            plugin_modules.append(module_name)
 
-    for module_name in project_modules:
-        if module_name in sys.modules:
-            try:
-                module = sys.modules[module_name]
-                importlib.reload(module)
-                log.debug("Reloaded: %s", module_name)
-            except Exception as e:
-                log.error("Failed to reload %s: %s", module_name, e)
+    # Deduplicate while preserving order (stable sort by depth afterward).
+    def _unique(names: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for name in names:
+            if name not in seen:
+                seen.add(name)
+                out.append(name)
+        return out
+
+    core_modules = _unique(core_modules)
+    plugin_modules = _unique(plugin_modules)
+    core_modules.sort(key=lambda x: x.count("."))
+    plugin_modules.sort(key=lambda x: x.count("."))
+
+    if exclude_settings:
+        skip = set(stack_settings)
+        core_modules = [m for m in core_modules if m not in skip]
+        plugin_modules = [m for m in plugin_modules if m not in skip]
+
+    # 1) Top-level package + core (fresh ABC registries), 2) drop stale public API
+    # cache, 3) plugins so ``from avlite import PredictionStrategy`` hits new ABCs.
+    _reload_modules(["avlite", *core_modules])
+    _invalidate_avlite_lazy_cache()
+    if reload_plugins:
+        _reload_modules(plugin_modules)
 
 
 class _PluginSettingsIO:

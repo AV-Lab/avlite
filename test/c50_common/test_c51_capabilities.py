@@ -119,7 +119,7 @@ def test_concrete_perception_modules_declare_contracts():
     assert trk.stack_capabilities == {StackCapability.TRACKING}
 
     pred = ConstantVelocityPrediction()
-    assert MayUse(StackCapability.DETECTION, StackCapability.TRACKING) in pred.stack_requirements
+    assert pred.stack_requirements == {StackCapability.DETECTION, StackCapability.TRACKING}
     assert pred.stack_capabilities == {StackCapability.PREDICTION}
 
     loc = LidarLocalization(PerceptionModel(ego_vehicle=EgoState()))
@@ -143,16 +143,16 @@ def test_perception_pipeline_stack_capabilities_follow_stages():
     assert empty.stack_requirements == set()
     assert StackCapability.PREDICTION not in empty.stack_capabilities
 
-    # Empty detect/track + predictor: soft MayUse only (no hard GT reqs).
+    # Empty detect/track + predictor: hard DETECTION + TRACKING from predictor.
     gt_plus_pred = PerceptionPipeline(pm, PerceptionSettingsSchema(
         c12_detection_strategy="",
         c12_tracking_strategy="",
         c12_prediction_strategy="ConstantVelocityPrediction",
     ))
     assert gt_plus_pred.stack_capabilities == {StackCapability.PREDICTION}
-    assert StackCapability.DETECTION not in gt_plus_pred.stack_requirements
-    assert StackCapability.TRACKING not in gt_plus_pred.stack_requirements
-    assert MayUse(StackCapability.DETECTION, StackCapability.TRACKING) in gt_plus_pred.stack_requirements
+    assert gt_plus_pred.stack_requirements == {
+        StackCapability.DETECTION, StackCapability.TRACKING,
+    }
 
     with_pred = PerceptionPipeline(pm, PerceptionSettingsSchema(
         c12_detection_strategy="FastBEVLidarDetection",
@@ -164,12 +164,11 @@ def test_perception_pipeline_stack_capabilities_follow_stages():
         StackCapability.TRACKING,
         StackCapability.PREDICTION,
     }
-    # Tracker hard-requires DETECTION; predictor MayUse shrinks to TRACKING only.
-    assert MayUse(StackCapability.TRACKING) in with_pred.stack_requirements
-    assert not any(
-        MayUse.matches(r) and StackCapability.DETECTION in r.capabilities
-        for r in with_pred.stack_requirements
-    )
+    # Tracker hard-requires DETECTION; predictor hard-requires both — no soft leftover.
+    assert with_pred.stack_requirements == {
+        StackCapability.DETECTION, StackCapability.TRACKING,
+    }
+    assert not any(MayUse.matches(r) for r in with_pred.stack_requirements)
 
 
 def test_reload_safe_wrapper_helpers_and_eq():
@@ -276,7 +275,9 @@ def test_live_strategy_from_exec_matches_by_name_across_reload():
         c12_prediction_strategy="ConstantVelocityPrediction",
     ))
     assert rebuilt.stack_capabilities == {StackCapability.TRACKING, StackCapability.PREDICTION}
-    assert MayUse(StackCapability.TRACKING) in rebuilt.stack_requirements
+    assert rebuilt.stack_requirements == {
+        StackCapability.DETECTION, StackCapability.TRACKING,
+    }
 
 
 def test_leaf_contracts_readable_without_init():

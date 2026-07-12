@@ -206,12 +206,12 @@ class MyTracker(TrackingStrategy):
 
 ```python
 from avlite.c10_perception.c12_perception_strategy import PredictionStrategy
-from avlite.c50_common.c51_capabilities import MayUse, WorldCapability, StackCapability
+from avlite.c50_common.c51_capabilities import WorldCapability, StackCapability
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 
 class MyPredictor(PredictionStrategy):
     world_requirements = frozenset()
-    stack_requirements = frozenset({MayUse(StackCapability.DETECTION, StackCapability.TRACKING)})
+    stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
     stack_capabilities = frozenset({StackCapability.PREDICTION})
 
     def predict(self, perception_model=None, sensors=None) -> PerceptionModel | None:

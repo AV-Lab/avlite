@@ -78,6 +78,7 @@ _LAZY: dict[str, str] = {
     "EgoState": "avlite.c10_perception.c11_perception_model",
     "AgentType": "avlite.c10_perception.c11_perception_model",
     "EGO_AGENT_ID": "avlite.c10_perception.c11_perception_model",
+    "SingleTrajectory": "avlite.c10_perception.c11_perception_model",
     "Map": "avlite.c10_perception.c11_perception_model",
     "HDMap": "avlite.c10_perception.c11_perception_model",
     "RaceMap": "avlite.c10_perception.c11_perception_model",
@@ -152,6 +153,7 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         Map,
         PerceptionModel,
         RaceMap,
+        SingleTrajectory,
         State,
     )
     from avlite.c10_perception.c12_perception_strategy import (

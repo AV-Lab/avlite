@@ -754,7 +754,11 @@ class VisualizerApp(tk.Tk):
         if self.exec.local_planner is not None and type(self.exec.local_planner).__name__ == "LocalPlanningPipeline":
             lp = self.exec.local_planner
             self.exec.local_planner = LocPipe(global_plan=lp.global_plan, env=self.exec.pm)
-        self.exec._validate_stack()
+        try:
+            self.exec._validate_stack()
+        except ValueError as e:
+            log.error(f"Pipeline refresh failed: {e}")
+
         self.update_ui()
 
     def reload_stack(self, reload_code: bool = True, preserve_plot_layout: bool = False):
