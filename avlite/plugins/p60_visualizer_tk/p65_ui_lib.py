@@ -19,11 +19,12 @@ from avlite.c10_perception.c11_perception_model import HDMap, RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_common.c51_capabilities import (
+    AnyOf,
+    CapabilityGroup,
+    MayUse,
     StackCapability,
     WorldCapability,
-    is_any_of,
-    is_requirement_wrapper,
-    used_stack_capabilities,
+    combine_stack_requirements,
 )
 from avlite.c60_apps.c64_settings_schema import PlainBinder, field_tooltip_text
 from avlite.c60_apps.c68_paths import DataPaths
@@ -938,11 +939,25 @@ def _live_strategy_from_exec(executer, cls):
 
 def _finish_contract_popup(pop: tk.Toplevel, frame: ttk.Frame, anchor) -> tk.Toplevel:
     """Legend, Close, Escape, place — shared by every popup path."""
-    ttk.Label(
-        frame,
-        text="green: met/consumed · red: unmet · orange: redundant · gray: unused/soft-absent",
-        foreground=_CONTRACT_UNUSED,
-    ).pack(anchor="w", pady=(8, 0))
+    legend = ttk.Frame(frame)
+    legend.pack(anchor="w", pady=(8, 0))
+    style = ttk.Style(pop)
+    style.configure("ContractLegend.Title.TLabel", foreground=_CONTRACT_UNUSED, font=("", 8, "bold"))
+    ttk.Label(legend, text="Legend", style="ContractLegend.Title.TLabel").grid(
+        row=0, column=0, columnspan=2, sticky="w", pady=(0, 2)
+    )
+    entries = (
+        ("met / consumed", _CONTRACT_MET, "Met"),
+        ("unmet", _CONTRACT_UNMET, "Unmet"),
+        ("redundant", _CONTRACT_REDUNDANT, "Redundant"),
+        ("unused", _CONTRACT_UNUSED, "Unused"),
+    )
+    for i, (text, color, key) in enumerate(entries):
+        style_name = f"ContractLegend.{key}.TLabel"
+        style.configure(style_name, foreground=color, font=("", 8))
+        ttk.Label(legend, text=text, style=style_name).grid(
+            row=1 + i // 2, column=i % 2, sticky="w", padx=(0, 12)
+        )
     ttk.Button(frame, text="Close", command=pop.destroy).pack(anchor="e", pady=(6, 0))
     pop.bind("<Escape>", lambda e: pop.destroy())
     _place_popup(pop, anchor)
@@ -966,6 +981,17 @@ def _pack_labeled_cap_row(parent, label: str, caps, available: set, *, soft: boo
         ttk.Label(row, text=cap.name, foreground=color).pack(side=tk.LEFT)
 
 
+def _mentioned_caps(requirements: set) -> set:
+    """Plain caps + AnyOf/MayUse members — for ``cap in consumed`` coloring."""
+    out: set = set()
+    for req in requirements:
+        if CapabilityGroup.matches(req):
+            out |= set(req.capabilities)
+        else:
+            out.add(req)
+    return out
+
+
 def _pack_requirement_rows(parent, requirements: set, available: set) -> None:
     if not requirements:
         ttk.Label(parent, text="  (none)", foreground=_CONTRACT_UNUSED).pack(anchor="w")
@@ -973,17 +999,17 @@ def _pack_requirement_rows(parent, requirements: set, available: set) -> None:
     plain: list = []
     wrappers: list = []
     for req in requirements:
-        if is_requirement_wrapper(req):
+        if AnyOf.matches(req) or MayUse.matches(req):
             wrappers.append(req)
         else:
             plain.append(req)
     if plain:
         _pack_labeled_cap_row(parent, "all", plain, available, soft=False, joiner="&")
     for req in sorted(wrappers, key=lambda r: " | ".join(sorted(c.name for c in r.capabilities))):
-        if is_any_of(req):
+        if AnyOf.matches(req):
             _pack_labeled_cap_row(parent, "any", req.capabilities, available, soft=False, joiner="|")
         else:
-            _pack_labeled_cap_row(parent, "may", req.capabilities, available, soft=True, joiner="|")
+            _pack_labeled_cap_row(parent, "optional", req.capabilities, available, soft=True, joiner="|")
 
 def _is_perception_stage(pipeline, target) -> bool:
     """True when *target* is (or is the type of) a detect/track/predict stage."""
@@ -1096,9 +1122,10 @@ def show_strategy_contract_popup(
         ):
             if m is not None and type(m).__name__ != target_name:
                 other_modules.append(m)
-    consumed = used_stack_capabilities(other_modules)
+    combined = combine_stack_requirements(other_modules, soft=True)
     if executer is not None and getattr(executer, "world", None) is not None:
-        consumed |= used_stack_capabilities([executer.world])
+        combined |= combine_stack_requirements([executer.world], soft=True)
+    consumed = _mentioned_caps(combined)
     redundant = _other_providers(executer, target)
 
     ttk.Label(frame, text="World requirements", font=("", 9, "bold")).pack(anchor="w")
@@ -1219,7 +1246,7 @@ def show_world_bridge_contract_popup(
         ):
             if m is not None:
                 other_modules.append(m)
-    consumed = used_stack_capabilities(other_modules)
+    consumed = _mentioned_caps(combine_stack_requirements(other_modules, soft=True))
     redundant = set()
     for m in other_modules:
         redundant |= set(getattr(m, "stack_capabilities", set()) or set())

@@ -12,14 +12,11 @@ from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import (
 from avlite.c20_planning.c28_local_lattice_planners import GreedyLatticePlanner
 from avlite.c50_common.c51_capabilities import (
     AnyOf,
+    CapabilityGroup,
     MayUse,
     StackCapability,
-    is_any_of,
-    is_may_use,
-    is_requirement_wrapper,
-    required_stack_capabilities,
+    combine_stack_requirements,
     satisfies_requirements,
-    used_stack_capabilities,
 )
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
@@ -29,17 +26,18 @@ class _Mod:
         self.stack_requirements = reqs
 
 
-def test_required_stack_capabilities_flattens_any_of():
+def test_combine_stack_requirements_preserves_any_of():
     mods = [
         _Mod({AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN), StackCapability.LOCALIZATION}),
         _Mod({StackCapability.DETECTION}),
         None,
     ]
-    needed = required_stack_capabilities(mods)
-    assert StackCapability.GLOBAL_PLAN in needed
-    assert StackCapability.LOCAL_PLAN in needed
-    assert StackCapability.LOCALIZATION in needed
-    assert StackCapability.DETECTION in needed
+    combined = combine_stack_requirements(mods, soft=False)
+    assert StackCapability.LOCALIZATION in combined
+    assert StackCapability.DETECTION in combined
+    assert AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN) in combined
+    assert StackCapability.GLOBAL_PLAN not in combined
+    assert StackCapability.LOCAL_PLAN not in combined
 
 
 def test_may_use_never_blocks_satisfies_requirements():
@@ -52,34 +50,30 @@ def test_may_use_never_blocks_satisfies_requirements():
     assert not satisfies_requirements(reqs, set())
 
 
-def test_required_stack_capabilities_ignores_may_use():
+def test_combine_stack_requirements_hard_omits_may_use():
     mods = [
         _Mod({
             StackCapability.LOCALIZATION,
             MayUse(StackCapability.DETECTION, StackCapability.TRACKING),
         }),
     ]
-    needed = required_stack_capabilities(mods)
-    assert StackCapability.LOCALIZATION in needed
-    assert StackCapability.DETECTION not in needed
-    assert StackCapability.TRACKING not in needed
+    combined = combine_stack_requirements(mods, soft=False)
+    assert combined == {StackCapability.LOCALIZATION}
 
 
-def test_used_stack_capabilities_includes_may_use():
+def test_combine_stack_requirements_soft_merges_may_use_and_prunes_and():
     mods = [
         _Mod({
             StackCapability.LOCALIZATION,
-            MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+            MayUse(StackCapability.DETECTION, StackCapability.LOCALIZATION, StackCapability.PREDICTION),
         }),
         _Mod({AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN)}),
     ]
-    used = used_stack_capabilities(mods)
-    assert StackCapability.LOCALIZATION in used
-    assert StackCapability.DETECTION in used
-    assert StackCapability.PREDICTION in used
-    assert StackCapability.GLOBAL_PLAN in used
-    assert StackCapability.LOCAL_PLAN in used
-    assert StackCapability.TRACKING not in used
+    combined = combine_stack_requirements(mods, soft=True)
+    assert StackCapability.LOCALIZATION in combined
+    assert AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN) in combined
+    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION) in combined
+    assert MayUse(StackCapability.DETECTION, StackCapability.LOCALIZATION, StackCapability.PREDICTION) not in combined
 
 
 def test_concrete_local_planners_declare_contracts():
@@ -173,13 +167,13 @@ def test_perception_pipeline_stack_capabilities_follow_stages():
     # Tracker hard-requires DETECTION; predictor MayUse shrinks to TRACKING only.
     assert MayUse(StackCapability.TRACKING) in with_pred.stack_requirements
     assert not any(
-        is_may_use(r) and StackCapability.DETECTION in r.capabilities
+        MayUse.matches(r) and StackCapability.DETECTION in r.capabilities
         for r in with_pred.stack_requirements
     )
 
 
 def test_reload_safe_wrapper_helpers_and_eq():
-    """is_may_use / __eq__ key off type name, not class identity."""
+    """MayUse.matches / __eq__ key off type name, not class identity."""
     # Local classes with the same names simulate post-importlib.reload identities.
     class AnyOf:
         def __init__(self, *caps):
@@ -199,17 +193,22 @@ def test_reload_safe_wrapper_helpers_and_eq():
     ).AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN)
 
     assert type(stale_may) is not type(fresh_may)
-    assert is_may_use(stale_may)
-    assert is_may_use(fresh_may)
-    assert is_any_of(stale_any)
-    assert is_any_of(fresh_any)
-    assert is_requirement_wrapper(stale_may)
+    from avlite.c50_common.c51_capabilities import AnyOf as RealAnyOf, MayUse as RealMayUse
+
+    assert RealMayUse.matches(stale_may)
+    assert RealMayUse.matches(fresh_may)
+    assert RealAnyOf.matches(stale_any)
+    assert RealAnyOf.matches(fresh_any)
     assert stale_may == fresh_may
     assert fresh_may == stale_may
     assert stale_any == fresh_any
     assert satisfies_requirements({stale_may, StackCapability.LOCALIZATION}, {StackCapability.LOCALIZATION})
-    assert StackCapability.DETECTION in used_stack_capabilities([_Mod({stale_may})])
-    assert StackCapability.DETECTION not in required_stack_capabilities([_Mod({stale_may})])
+    soft_combined = combine_stack_requirements([_Mod({stale_may})], soft=True)
+    hard_combined = combine_stack_requirements([_Mod({stale_may})], soft=False)
+    assert RealMayUse(StackCapability.DETECTION, StackCapability.TRACKING) in soft_combined
+    assert soft_combined != hard_combined
+    assert hard_combined == set()
+    assert CapabilityGroup.matches(stale_may)
 
 
 def test_pack_requirement_rows_survives_mayuse_reload():
@@ -229,7 +228,7 @@ def test_pack_requirement_rows_survives_mayuse_reload():
         StackCapability.LOCALIZATION,
         MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
     }
-    soft = next(r for r in reqs if is_may_use(r))
+    soft = next(r for r in reqs if RealMayUse.matches(r))
     assert not isinstance(soft, RealMayUse)
 
     root = tk.Tk()

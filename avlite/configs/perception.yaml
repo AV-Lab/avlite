@@ -99,12 +99,14 @@ c30_control:
   c34_stanley_valpha: 0.8
   c34_stanley_vbeta: 0.01
   c34_stanley_vgamma: 0.3
+  c35_bubble_radius: 1.0
   c35_cruise_velocity: 5.0
   c35_lidar_z_max: 2.0
   c35_lidar_z_min: -1.5
   c35_lookahead_distance: 8.0
   c35_lookahead_speed_gain: 0.0
   c35_max_lookahead: 20.0
+  c35_min_gap_width: 0.2
   c35_min_lookahead: 3.0
   c35_valpha: 0.8
   c35_vbeta: 0.01
@@ -235,7 +237,7 @@ plugins:
     p66_show_lidar_clusters: true
     p66_show_lidar_frenet: true
     p66_show_lidar_global: true
-    p66_show_local_lattice: true
+    p66_show_local_lattice: false
     p66_show_local_plan: true
     p66_show_past_locations: true
     p66_show_race_boundary: true

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Visualizer: contract popup soft-requirement label `may ·` → `optional ·` (API still `MayUse`)
+- Capabilities: shared `CapabilityGroup` base for `AnyOf`/`MayUse` with reload-safe `.matches()`; structured `combine_stack_requirements(..., soft=)` (keeps each `AnyOf`, merges `MayUse`, strips AND-covered caps) replaces `required_stack_capabilities` / `used_stack_capabilities` / `flatten_stack_requirements`; removed `is_any_of` / `is_may_use` / `is_requirement_wrapper`
+
 ## [0.4.5] - 2026-07-11
 
 ### Added

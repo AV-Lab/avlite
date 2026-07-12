@@ -132,7 +132,7 @@ class MyPerception(PerceptionStrategy):
 Leaf strategies declare contracts as public ``frozenset`` class attributes (satisfies
 the ABC abstract ``@property`` without constructing an instance). Pipelines keep
 instance ``@property`` aggregators. ``@property`` overrides remain supported.
-In the visualizer, **ⓘ** / right-click shows `all ·` / `any ·` / `may ·`
+In the visualizer, **ⓘ** / right-click shows `all ·` / `any ·` / `optional ·`
 requirement rows and colors provided caps green (consumed, including soft `MayUse`),
 orange (redundant with another top-level module or checked world GT), or gray (unused).
 
