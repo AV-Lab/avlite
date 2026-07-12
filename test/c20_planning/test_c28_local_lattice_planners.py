@@ -476,6 +476,34 @@ class TestOvertakeChainBuilding:
         assert chain.selected_next_local_plan is e1_lateral
         assert planner.local_plan_len(chain) == 2
 
+    def test_level0_prefers_lateral_when_agent_ahead(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        # Skim centerline return vs staying out — both clear, but agent ahead must keep lateral.
+        e0_center = _edge_at_sd(global_plan.trajectory, 0.0, 2.0, 20.0, 0.0)
+        e0_lateral = _edge_at_sd(global_plan.trajectory, 0.0, 2.0, 20.0, 2.0)
+        e0_center.min_clearance = 0.1  # below preferred extra clearance
+        e0_lateral.min_clearance = 2.0
+
+        chain = planner._build_selected_chain([e0_center, e0_lateral], agent_blocks_ahead=True)
+        assert chain is e0_lateral
+
+    def test_select_best_skips_unsafe_d0_hard_prefer(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        d0_skim = _edge_at(global_plan.trajectory, 0.0, 20.0)
+        d0_skim.min_clearance = 0.1
+        wider = _edge_at_sd(global_plan.trajectory, 0.0, 0.0, 20.0, 1.5)
+        wider.min_clearance = 2.0
+
+        # No agent_blocks_ahead filter here — only the d0 clearance gate.
+        best = planner._select_best_edge([d0_skim, wider])
+        assert best is wider
+
     def test_agent_blocks_ahead_detects_agent_in_front(self):
         from avlite.c10_perception.c11_perception_model import AgentState
 

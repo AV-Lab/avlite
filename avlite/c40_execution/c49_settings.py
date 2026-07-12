@@ -16,6 +16,10 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_global_planner: str = Field(default="GlobalCenterlineRacePlanner", description="Global planner class name; empty omits the module.")
     c40_local_planner: str = Field(default="GreedyLatticePlanner", description="Local planner class name; empty omits the module.")
     c40_controller: str = Field(default="StanleyController", description="Controller class name; empty omits the module.")
+    c40_execution_tasks: list[str] = Field(
+        default_factory=list,
+        description="TaskStrategy class names to append after each stack tick; empty disables tasks.",
+    )
     c40_perception_dt: float = Field(default=0.01, description="Perception tick period (seconds).", ge=0.001)
     c40_localization_dt: float = Field(default=0.01, description="Localization tick period (seconds).", ge=0.001)
     c40_replan_dt: float = Field(default=0.01, description="Replanning period (seconds).", ge=0.001)

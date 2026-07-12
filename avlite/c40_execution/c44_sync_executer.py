@@ -10,6 +10,7 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+from avlite.c40_execution.c43_task_strategy import TaskStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_common.c51_capabilities import WorldCapability
 
@@ -30,13 +31,14 @@ class SyncExecuter(ExecutionStrategy):
         replan_dt=ExecutionSettings.c40_replan_dt,
         control_dt=ExecutionSettings.c40_control_dt,
         localization_dt=ExecutionSettings.c40_localization_dt,
+        tasks: list[TaskStrategy] | None = None,
     ):
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         super().__init__(perception_model,perception, global_planner, local_planner, controller, world,
                          localization=localization, mapping=mapping, perception_dt=perception_dt, replan_dt=replan_dt,
-                         control_dt=control_dt, localization_dt=localization_dt)
+                         control_dt=control_dt, localization_dt=localization_dt, tasks=tasks)
 
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
@@ -95,6 +97,8 @@ class SyncExecuter(ExecutionStrategy):
         delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
+
+        self._task_runner.step(self)
 
         log.debug(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {loc_time_txt} {pr_time_txt} {sim_time_txt}")
         log.debug( f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec")

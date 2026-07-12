@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Planning: `c28_preferred_extra_clearance` — gate hard-preferring centerline (`d≈0`) lattice edges on corridor-to-obstacle clearance beyond the collision hard floor
+- Collision: `check_collision` returns `min_clearance` (approx. line–obstacle distance minus ego half-width + safety margin); lattice edges store it for cost
+- Execution: `TaskStrategy` / `TaskRunner` (`c43`) with `EVERY_CYCLE` / `INTERVAL` / `ON_EVENT`; lifecycle + domain `notify`; built-ins `GoalArrivalMonitor`, `StopAtGoalTask`, `TelemetryTask` (`c47`); setting `c40_execution_tasks`
+- Planning: optional `stack_event` on `LocalPlan` / `GlobalPlan`; executer harvests after replan
+- Visualizer: Execution **Tasks** chip row (registry `+` picker, per-chip ⓘ / ×, wraps on resize)
+
+### Fixed
+- Collision: ego trajectory corridor extends by half vehicle length before buffering so front/rear body is covered (flat-cap tube)
+- Lattice: when an agent blocks ahead, level-0 / partial-replan / ShortestPath share lateral preference via `_candidates_for_selection` (avoids early cut-back into side traffic)
+- Lattice: `_edge_cost` uses real `min_clearance` (was a dead default); d≈0 hard-prefer only when clearance ≥ `c28_preferred_extra_clearance`
+- Velocity: tight-gap speed-match commits a max-decel step at `current_wp` so async replan actually brakes (was re-commanding current speed at the stop budget)
+- Velocity: matched-speed follow below the cruise-gap threshold uses the gap-aware kinematic profile instead of only painting lead speed
+
 ### Changed
 - Visualizer: contract popup soft-requirement label `may ·` → `optional ·` (API still `MayUse`)
 - Capabilities: shared `CapabilityGroup` base for `AnyOf`/`MayUse` with reload-safe `.matches()`; structured `combine_stack_requirements(..., soft=)` (keeps each `AnyOf`, merges `MayUse`, strips AND-covered caps) replaces `required_stack_capabilities` / `used_stack_capabilities` / `flatten_stack_requirements`; removed `is_any_of` / `is_may_use` / `is_requirement_wrapper`

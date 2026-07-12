@@ -16,7 +16,7 @@ This guide covers creating community plugins. Classes inheriting from base strat
 | **Mapping** | `MappingStrategy` | Extendable via plugin; registry-based like other strategies |
 | **Planning** | `GlobalPlannerStrategy`, `LocalPlanningStrategy` | Global / local planner dropdowns |
 | **Control** | `ControlStrategy` | Controller dropdown |
-| **Execution** | `WorldBridge` | **Bridge** dropdown (BasicSim, Carla, Gazebo, ROS2, or custom) |
+| **Execution** | `WorldBridge`, `ExecutionStrategy`, `TaskStrategy` | Bridge / executer dropdowns; `c40_execution_tasks` list |
 
 ### Perception: monolithic vs pipeline
 
@@ -69,6 +69,27 @@ c12_prediction_strategy: MyPredictor    # empty → prediction stage skipped
 - **Planning** — subclass `GlobalPlannerStrategy` (`plan()`) or `LocalPlanningStrategy` (`replan()`); selected via global/local planner dropdowns; configured in `c40_execution.yaml` (`c40_global_planner`, `c40_local_planner`).
 - **Control** — subclass `ControlStrategy` (`control()`); selected via controller dropdown (`c40_controller`).
 - **World bridge** — subclass `WorldBridge`; implement sensor getters and `control_ego_state()`; selected via **Bridge** dropdown (`c40_bridge`). See built-in `p40_bridge_*` plugins for reference.
+- **Execution tasks** — subclass `TaskStrategy` (`c43_task_strategy.py`) and implement `execute(executer, event=None)`. Declare `schedule` (`EVERY_CYCLE` / `INTERVAL` / `ON_EVENT`), optional `placement` (`INLINE` / `THREAD` / `PROCESS`), and for events `listen_events`. List class names in `c40_execution_tasks` (YAML) or pick them in the visualizer Execution **Tasks** chip row (`+` registry picker; not free text). Tasks append after the stack tick; they do not replace perception/plan/control. **Monitors** detect domain facts and call `executer.notify(event)`; **responses** listen with `ON_EVENT`. Optionally stamp `stack_event` on `LocalPlan` / `GlobalPlan` — the executer harvests after replan. Built-in examples live in `c47_execution_tasks.py` (`GoalArrivalMonitor`, `StopAtGoalTask`, `TelemetryTask`).
+
+```python
+# Built-in (already registered):
+# from avlite.c40_execution.c47_execution_tasks import GoalArrivalMonitor, StopAtGoalTask
+
+# Or write your own plugin task:
+from avlite import TaskStrategy, TaskSchedule, StackEvent
+
+class MyStopAtGoalTask(TaskStrategy):
+    schedule = TaskSchedule.ON_EVENT
+    listen_events = frozenset({StackEvent.GOAL_ARRIVED})
+
+    def execute(self, executer, event=None) -> None:
+        executer.stop()
+```
+
+```yaml
+c40_execution:
+  c40_execution_tasks: [GoalArrivalMonitor, StopAtGoalTask, TelemetryTask]
+```
 
 ## Community Plugin Structure
 
@@ -526,6 +547,7 @@ plugins:
 | `PlanningStrategy` | Global/local planners, behavior planning, decision-making |
 | `ControlStrategy` | Vehicle controllers, actuation |
 | `ExecutionStrategy` | Runtime execution, scheduling, orchestration |
+| `TaskStrategy` | Append-only tasks after the stack tick (cycle / interval / event) |
 | `WorldBridge` | Bridges to simulators, middleware, or external world interfaces |
 
 A plugin can list **multiple** categories if it exports more than one strategy type, e.g. `[PerceptionStrategy, LocalizationStrategy]`.
@@ -614,6 +636,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 | `LocalPlanningStrategy` | Local planning | `replan()` |
 | `GlobalPlannerStrategy` | Global planning | `plan()` |
 | `ControlStrategy` | Vehicle control | `control()` |
+| `TaskStrategy` | Append-only execution tasks | `execute(executer, event=None)` |
 | `WorldBridge` | Simulator integration | `control_ego_state()`, `control_type(agent)`, `control_agent()`, `teleport_agent()`, `get_*(agent_id=...)`, `step()` |
 
 ## Apps (`AppStrategy`)

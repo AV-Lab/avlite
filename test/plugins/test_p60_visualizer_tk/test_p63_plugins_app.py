@@ -191,3 +191,75 @@ def test_can_add_to_profile():
     assert cp.can_add_to_profile(installed=False, in_profile=True) is False
     assert cp.can_add_to_profile(installed=True, in_profile=True) is False
     assert cp.can_add_to_profile(installed=True, in_profile=False) is True
+
+
+def test_meets_min_avlite_empty_or_missing(monkeypatch):
+    import avlite
+
+    monkeypatch.setattr(avlite, "__version__", "0.4.5")
+    monkeypatch.setattr(cp, "_PACKAGING_AVAILABLE", True)
+    ok, current, required = cp._PluginOperations.meets_min_avlite({})
+    assert ok is True
+    assert current == "0.4.5"
+    assert required == ""
+    ok, current, required = cp._PluginOperations.meets_min_avlite({"min_avlite_version": "  "})
+    assert ok is True
+    assert required == ""
+
+
+def test_meets_min_avlite_compare(monkeypatch):
+    import avlite
+
+    monkeypatch.setattr(avlite, "__version__", "0.4.5")
+    monkeypatch.setattr(cp, "_PACKAGING_AVAILABLE", True)
+
+    ok, current, required = cp._PluginOperations.meets_min_avlite(
+        {"min_avlite_version": "0.4.5"}
+    )
+    assert ok is True
+    assert current == "0.4.5"
+    assert required == "0.4.5"
+
+    ok, _, required = cp._PluginOperations.meets_min_avlite(
+        {"min_avlite_version": "0.4.0"}
+    )
+    assert ok is True
+    assert required == "0.4.0"
+
+    ok, current, required = cp._PluginOperations.meets_min_avlite(
+        {"min_avlite_version": "0.5.0"}
+    )
+    assert ok is False
+    assert current == "0.4.5"
+    assert required == "0.5.0"
+
+    ok, _, required = cp._PluginOperations.meets_min_avlite(
+        {"min_avlite_version": "v0.5.0"}
+    )
+    assert ok is False
+    assert required == "v0.5.0"
+
+
+def test_meets_min_avlite_without_packaging(monkeypatch):
+    import avlite
+
+    monkeypatch.setattr(avlite, "__version__", "0.4.5")
+    monkeypatch.setattr(cp, "_PACKAGING_AVAILABLE", False)
+    ok, current, required = cp._PluginOperations.meets_min_avlite(
+        {"min_avlite_version": "0.4.0"}
+    )
+    assert ok is False
+    assert current == "0.4.5"
+    assert required == "0.4.0"
+
+
+def test_dependency_notes():
+    assert cp._PluginOperations.dependency_notes({}) == ""
+    assert cp._PluginOperations.dependency_notes({"dependency_notes": None}) == ""
+    assert cp._PluginOperations.dependency_notes({"dependency_notes": "  "}) == ""
+    assert (
+        cp._PluginOperations.dependency_notes(
+            {"dependency_notes": "  Source ROS 2 before running.  "}
+        )
+        == "Source ROS 2 before running."
+    )

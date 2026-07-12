@@ -266,6 +266,17 @@ class VisualizationSettings:
 
         self.controller_type.trace_add("write", _on_controller_change)
 
+        self.execution_tasks = tk.StringVar(
+            value=",".join(ExecutionSettings.c40_execution_tasks or [])
+        )
+
+        def _on_execution_tasks_change(*args):
+            if self._syncing_stack:
+                return
+            ExecutionSettings.c40_execution_tasks = list(self.execution_task_names())
+
+        self.execution_tasks.trace_add("write", _on_execution_tasks_change)
+
         self.p67_global_plan_view = tk.BooleanVar(value=True)
         self.p67_local_plan_view = tk.BooleanVar(value=True)
 
@@ -435,6 +446,10 @@ class VisualizationSettings:
         finally:
             self._syncing_local_planning_pipeline = False
 
+    def execution_task_names(self) -> list[str]:
+        """Parsed TaskStrategy class names from the comma-joined StringVar."""
+        return [part.strip() for part in self.execution_tasks.get().split(",") if part.strip()]
+
     def sync_stack_from_singletons(self) -> None:
         """Push stack singleton values into Tk vars without write-back."""
         self._syncing_stack = True
@@ -448,6 +463,7 @@ class VisualizationSettings:
             self.global_planner_type.set(es.c40_global_planner or "")
             self.local_planner_type.set(es.c40_local_planner or "")
             self.controller_type.set(es.c40_controller or "")
+            self.execution_tasks.set(",".join(es.c40_execution_tasks or []))
             self.executer_type.set(
                 es.c40_executer_type or _strategy_default(ExecutionStrategy.registry, None) or ""
             )

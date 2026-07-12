@@ -7,6 +7,7 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+from avlite.c40_execution.c43_task_strategy import StackEvent, TaskStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 
 import threading
@@ -32,10 +33,12 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         control_dt=0.05,
         localization_dt=0.1,
         combined_perception_planning: bool = True,
+        tasks: list[TaskStrategy] | None = None,
     ):
         super().__init__(perception_model, perception, global_planner, local_planner, controller, world,
                          localization=localization, mapping=mapping, perception_dt=perception_dt,
-                         replan_dt=replan_dt, control_dt=control_dt, localization_dt=localization_dt)
+                         replan_dt=replan_dt, control_dt=control_dt, localization_dt=localization_dt,
+                         tasks=tasks)
 
         # When True, perception runs inside the planner thread (lower overhead).
         # When False, perception gets its own dedicated thread.
@@ -199,6 +202,8 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     self.control_fps = self._control_fps_tracker.tick(floor_dt=self.sim_dt)
                     self.elapsed_sim_time += self.control_dt
                     self.elapsed_real_time += dt
+                    # EVERY_CYCLE means every control cycle under async (not UI poll).
+                    self._task_runner.step(self)
 
                 t2 = time.time()
                 sleep_time = max(0, self.control_dt - (t2 - t1))
@@ -227,34 +232,42 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         return 0.05
 
     def stop(self):
+        already_stopped = self._stop_event.is_set()
         self._stop_event.set()
-        count = 0
-        for t in self.threads:
+        if not already_stopped:
+            self.notify(StackEvent.EXECUTION_STOPPED)
+
+        # Safe to call from a worker: set kill flag, join peers, never join self.
+        self.__kill_flag = True
+        current = threading.current_thread()
+        threads = list(self.threads)
+        count = sum(1 for t in threads if t and t.is_alive())
+        for t in threads:
             if t and t.is_alive():
                 log.info(f"Stopping thread {t.name}")
-                count += 1
-                self.__kill_flag = True
 
-        # Wait for threads to terminate
-        for t in self.threads:
-            if t and t.is_alive():
-                t.join(timeout=1.0)
-                if t.is_alive():
-                    log.warning(f"Thread {t.name} is still running after stop request")
-
-        log.info(f"Async Executer Threads Stopped. {count}/{len(self.threads)} threads signaled to stop.")
-        self.threads = []
-        self.planner_thread = None
-        self.controller_thread = None
-        self.perception_thread = None
-        self.threads_started = False
+        try:
+            for t in threads:
+                if t and t.is_alive() and t is not current:
+                    t.join(timeout=1.0)
+                    if t.is_alive():
+                        log.warning(f"Thread {t.name} is still running after stop request")
+        finally:
+            log.info(
+                f"Async Executer Threads Stopped. {count}/{len(threads)} threads signaled to stop."
+            )
+            self.threads = []
+            self.planner_thread = None
+            self.controller_thread = None
+            self.perception_thread = None
+            self.threads_started = False
 
     def create_threads(self):
         log.info(f"Creating threads...")
         # Make threads daemon so they exit when main thread exits
         self.threads = []
 
-        if self.planner_thread is None or self.planner_thread.is_alive():
+        if self.planner_thread is None or not self.planner_thread.is_alive():
             self.planner_thread = threading.Thread( target=self.worker_planning, name="Planner", daemon=True,  )
             self.threads.append(self.planner_thread)
             log.info(f"Planner thread created: {self.planner_thread.name}")

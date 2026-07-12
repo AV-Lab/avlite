@@ -485,6 +485,29 @@ class _PluginOperations:
         )
 
     @staticmethod
+    def meets_min_avlite(entry: dict) -> tuple[bool, str, str]:
+        """Return ``(ok, current, required)``.
+
+        ``ok`` is True when ``min_avlite_version`` is missing/empty or current
+        AVLite is >= that version. If a min is set but packaging is unavailable,
+        ``ok`` is False.
+        """
+        from avlite import __version__ as current
+
+        required = str(entry.get("min_avlite_version") or "").strip()
+        if not required:
+            return True, current, ""
+        if not _PACKAGING_AVAILABLE:
+            return False, current, required
+        ok = Version(current) >= Version(required.lstrip("v"))
+        return ok, current, required
+
+    @staticmethod
+    def dependency_notes(entry: dict) -> str:
+        """Return stripped ``dependency_notes``, or ``""`` when absent/blank."""
+        return str(entry.get("dependency_notes") or "").strip()
+
+    @staticmethod
     def check_plugin_update(
         plugin_path: Path,
         registry_entry: Optional[dict],
@@ -1699,6 +1722,14 @@ class _PluginRegistryPanel(ttk.Frame):
         entry = next((e for e in self._registry if e["name"] == name), None)
         if entry is None:
             return
+        ok, current, required = _PluginOperations.meets_min_avlite(entry)
+        if not ok:
+            messagebox.showerror(
+                "AVLite version too old",
+                f"'{name}' requires AVLite >= {required} (current {current}).",
+                parent=parent,
+            )
+            return
         profile = self._active_profile()
         self._set_busy(True, f"Installing {name}…")
 
@@ -1716,6 +1747,13 @@ class _PluginRegistryPanel(ttk.Frame):
                 messagebox.showerror("Install failed", msg, parent=parent)
                 return
             self._handle_requirements(name, path, parent=parent)
+            notes = _PluginOperations.dependency_notes(entry)
+            if notes:
+                messagebox.showinfo(
+                    "Dependency notes",
+                    f"'{name}'\n\nDependency notes:\n{notes}",
+                    parent=parent,
+                )
             self._set_busy(False, f"Installed {name} at {path}")
             self._populate()
             self._notify_host_changed()

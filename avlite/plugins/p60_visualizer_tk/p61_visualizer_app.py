@@ -782,6 +782,7 @@ class VisualizerApp(tk.Tk):
                 global_planner_strategy_name=self.setting.global_planner_type.get(),
                 local_planner_strategy_name=self.setting.local_planner_type.get(),
                 controller_strategy_name=self.setting.controller_type.get(),
+                execution_task_names=self.setting.execution_task_names(),
                 perception_dt=self.setting.perception_dt.get(),
                 localization_dt=self.setting.localization_dt.get(),
                 replan_dt=self.setting.replan_dt.get(),

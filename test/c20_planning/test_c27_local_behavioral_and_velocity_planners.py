@@ -47,7 +47,7 @@ class TestVelocityLocalPlanner:
         planner.replan()
 
         velocity = np.asarray(planner.get_local_plan().velocity)
-        hit, collision_idx, _ = check_collision(pm, global_plan.trajectory)
+        hit, collision_idx, *_ = check_collision(pm, global_plan.trajectory)
         assert hit is True
         assert np.mean(velocity) < np.mean(global_plan.velocity)
         assert velocity[collision_idx:].max() < 0.5
@@ -103,6 +103,25 @@ class TestVelocityLocalPlanner:
         assert tj is not None
         assert tj.velocity[tj.current_wp] <= 3.5
 
+    def test_tight_gap_faster_than_lead_brakes_at_current_wp(self):
+        """Gap at/under the stop budget must drop current_wp this tick (async replan seam)."""
+        ego_v = 12.0
+        global_plan = _straight_global_plan(x_end=200.0, n=100, velocity=ego_v)
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=20.0, y=0.0, theta=0.0, velocity=ego_v),
+            agent_vehicles=[AgentState(x=50.0, y=0.0, theta=0.0, velocity=0.0, agent_id=1)],
+        )
+        planner = _planner_at_ego_x(global_plan, pm, ego_x=20.0)
+        planner.replan()
+
+        tj = planner.get_local_plan().as_trajectory()
+        assert tj is not None
+        # Must commit brake at current_wp, not only later along the path.
+        assert tj.velocity[tj.current_wp] <= ego_v - 0.5
+        hit, collision_idx, *_ = check_collision(pm, tj)
+        assert hit is True
+        assert tj.velocity[collision_idx:].max() <= 0.5
+
     def test_far_follow_moving_lead_still_brakes(self):
         global_plan = _straight_global_plan()
         pm = PerceptionModel(
@@ -130,13 +149,14 @@ class TestVelocityLocalPlanner:
         assert tj.velocity[tj.current_wp] >= 12.5
 
     def test_slightly_slower_than_lead_matches_without_emergency_decel(self):
+        # Gap must clear bumper+stop buffers (~20m) so matched-speed follow is not "inside gap".
         global_plan = _straight_global_plan(x_end=200.0, n=50, velocity=5.0)
         agent_speed = 4.9
         pm = PerceptionModel(
-            ego_vehicle=EgoState(x=48.0, y=0.0, theta=0.0, velocity=4.6),
+            ego_vehicle=EgoState(x=20.0, y=0.0, theta=0.0, velocity=4.6),
             agent_vehicles=[AgentState(x=55.0, y=0.0, theta=0.0, velocity=agent_speed, agent_id=1)],
         )
-        planner = _planner_at_ego_x(global_plan, pm, ego_x=48.0)
+        planner = _planner_at_ego_x(global_plan, pm, ego_x=20.0)
         planner.replan()
 
         tj = planner.get_local_plan().as_trajectory()

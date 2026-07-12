@@ -200,6 +200,7 @@ def unregister_plugin_package(plugin_name: str) -> None:
     from avlite.c30_control.c32_control_strategy import ControlStrategy
     from avlite.c40_execution.c41_world_bridge import WorldBridge
     from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+    from avlite.c40_execution.c43_task_strategy import TaskStrategy
 
     registries = [
         PerceptionStrategy.registry,
@@ -208,6 +209,7 @@ def unregister_plugin_package(plugin_name: str) -> None:
         ControlStrategy.registry,
         ExecutionStrategy.registry,
         WorldBridge.registry,
+        TaskStrategy.registry,
     ]
     # App registry, only if the app layer was loaded (c50_common must not import c60_apps).
     app_strategy_mod = sys.modules.get("avlite.c60_apps.c61_app_strategy")

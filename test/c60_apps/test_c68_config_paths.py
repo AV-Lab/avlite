@@ -231,7 +231,7 @@ def test_installed_community_plugins_map(monkeypatch, tmp_path):
     (install_dir / ".hidden").mkdir()
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(install_dir))
-    assert PluginPaths.installed_map() == {"foo": "~/plugins/foo"}
+    assert PluginPaths.installed_map() == {"foo": "foo"}
 
 
 def test_installed_map_ignores_repo_dev_checkouts_when_off(monkeypatch, tmp_path):
@@ -268,7 +268,7 @@ def test_installed_map_install_dir_takes_priority(monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(install_dir))
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
     PluginPaths.set_dev_mode(True)
-    assert PluginPaths.installed_map() == {"foo": "~/plugins/foo"}
+    assert PluginPaths.installed_map() == {"foo": "foo"}
 
 
 def test_resolve_plugin_path_legacy_absolute(tmp_path):
@@ -298,6 +298,31 @@ def test_normalize_stored_repo_relative(monkeypatch, tmp_path):
         "avlite-executer-ROS2", str(plugin_dir)
     )
     assert stored == "avlite-community-plugins/avlite-executer-ROS2"
+
+
+def test_normalize_stored_repo_relative_independent_of_cwd(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "avlite-community-plugins" / "foo"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    monkeypatch.chdir(home)
+    assert PluginPaths.normalize_stored("foo", "avlite-community-plugins/foo") == (
+        "avlite-community-plugins/foo"
+    )
+
+
+def test_resolve_heals_corrupted_tilde_repo_relative(monkeypatch, tmp_path):
+    repo_root = tmp_path / "repo"
+    plugin_dir = repo_root / "avlite-community-plugins" / "foo"
+    plugin_dir.mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
+    assert PluginPaths.resolve("foo", "~/avlite-community-plugins/foo") == plugin_dir.resolve()
 
 
 def test_dev_mode_preference_round_trip(monkeypatch, tmp_path):
@@ -407,7 +432,7 @@ def test_install_dir_dev_mode(monkeypatch, tmp_path):
     assert PluginPaths.install_dir() == (tmp_path / "plugins").resolve()
 
 
-def test_register_stored_path_uses_explicit_home_path(monkeypatch, tmp_path):
+def test_register_stored_path_uses_name_or_repo_relative(monkeypatch, tmp_path):
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -417,8 +442,8 @@ def test_register_stored_path_uses_explicit_home_path(monkeypatch, tmp_path):
     monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: repo_root))
 
     PluginPaths.set_dev_mode(False)
-    assert PluginPaths.register_stored_path("foo", private=False) == "~/plugins/foo"
-    assert PluginPaths.register_stored_path("bar", private=True) == "~/plugins/bar"
+    assert PluginPaths.register_stored_path("foo", private=False) == "foo"
+    assert PluginPaths.register_stored_path("bar", private=True) == "bar"
 
     PluginPaths.set_dev_mode(True)
     assert PluginPaths.register_stored_path("foo", private=False) == "avlite-community-plugins/foo"
@@ -464,7 +489,7 @@ def test_normalize_community_plugin_stored_under_plugins_dir(monkeypatch, tmp_pa
     monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(plugins_dir))
     install = plugins_dir / "my_plugin"
     install.mkdir()
-    assert PluginPaths.normalize_stored("my_plugin", str(install)) == "~/plugins/my_plugin"
+    assert PluginPaths.normalize_stored("my_plugin", str(install)) == "my_plugin"
 
 
 def test_normalize_community_plugin_stored_home_relative(monkeypatch, tmp_path):

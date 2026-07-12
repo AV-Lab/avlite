@@ -786,6 +786,24 @@ class LocalPlot:
         (self.car_heading_plot,) = self.ax1.plot([], [], "-", color="darkslategray", label="Car Heading")
         (self.car_location_plot,) = self.ax1.plot([], [], "ko", markersize=7, label="Car Location")
 
+        # Paused-hover distance ruler (front center → cursor).
+        self._ruler_line_ax1, = self.ax1.plot([], [], color="0.7", lw=1, alpha=0.8, zorder=20)
+        self._ruler_text_ax1 = self.ax1.annotate(
+            "", xy=(0, 0), xytext=(10, 10), textcoords="offset points",
+            fontsize=9, color="0.85", zorder=21, visible=False,
+            bbox=dict(facecolor="#1d2021", alpha=0.75, pad=2, edgecolor="none",
+                      boxstyle="round,pad=0.3"),
+        )
+        self._ruler_line_ax2, = self.ax2.plot([], [], color="0.7", lw=1, alpha=0.8, zorder=20)
+        self._ruler_text_ax2 = self.ax2.annotate(
+            "", xy=(0, 0), xytext=(10, 10), textcoords="offset points",
+            fontsize=9, color="0.85", zorder=21, visible=False,
+            bbox=dict(facecolor="#1d2021", alpha=0.75, pad=2, edgecolor="none",
+                      boxstyle="round,pad=0.3"),
+        )
+        self._ruler_visible = False
+        self._ruler_last = None  # (ax_id, x0, y0, x1, y1, dist) for no-op skip
+
         self.ego_vehicle_ax1 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
         self.ego_vehicle_ax2 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
         self.ax1.add_patch(self.ego_vehicle_ax1)
@@ -878,6 +896,8 @@ class LocalPlot:
             self.next_wp_plot_ax1, self.next_wp_plot_ax2,
             self.lidar_scatter_ax1, self.lidar_scatter_ax2,
             self.cluster_scatter_ax1, self.cluster_scatter_ax2,
+            self._ruler_line_ax1, self._ruler_text_ax1,
+            self._ruler_line_ax2, self._ruler_text_ax2,
         ]
         animated += self.local_plan_plots_ax1 + self.local_plan_plots_ax2
         animated += self.pm_plots_ax1 + self.pm_plots_ax2
@@ -1488,9 +1508,49 @@ class LocalPlot:
         self.orientation_arrow = self.ax2.annotate('', xy=(s2, d2), xytext=(s,d), arrowprops=dict(arrowstyle='->',
                                                      mutation_scale=20, color="red", lw=5), zorder=5)
 
+    def show_distance_ruler(self, ax, x0, y0, x1, y1, dist_m: float) -> None:
+        """Draw a light line from (x0, y0) to cursor with world-XY distance label."""
+        if ax is self.ax1:
+            line, text, other_line, other_text = (
+                self._ruler_line_ax1, self._ruler_text_ax1,
+                self._ruler_line_ax2, self._ruler_text_ax2,
+            )
+        elif ax is self.ax2:
+            line, text, other_line, other_text = (
+                self._ruler_line_ax2, self._ruler_text_ax2,
+                self._ruler_line_ax1, self._ruler_text_ax1,
+            )
+        else:
+            return
+        key = (id(ax), float(x0), float(y0), float(x1), float(y1), round(float(dist_m), 1))
+        if self._ruler_visible and key == self._ruler_last:
+            return
+        other_line.set_data([], [])
+        other_text.set_visible(False)
+        line.set_data([x0, x1], [y0, y1])
+        text.xy = (x1, y1)
+        text.set_text(f"{dist_m:.1f} m")
+        text.set_visible(True)
+        self._ruler_visible = True
+        self._ruler_last = key
+        # Blit only: draw_idle skips animated artists and wipes the dynamic layer.
+        self.blit_manager.update()
+
+    def hide_distance_ruler(self) -> None:
+        if not self._ruler_visible:
+            return
+        self._ruler_line_ax1.set_data([], [])
+        self._ruler_line_ax2.set_data([], [])
+        self._ruler_text_ax1.set_visible(False)
+        self._ruler_text_ax2.set_visible(False)
+        self._ruler_visible = False
+        self._ruler_last = None
+        self.blit_manager.update()
+
     def clear_tmp_plots(self):
         self.orientation_arrow.remove() if self.orientation_arrow else None
         self.orientation_arrow = None
+        self.hide_distance_ruler()
 
     def reset(self):
         self.update_pm_occupancy_flow_plots(None, show_plot=False)

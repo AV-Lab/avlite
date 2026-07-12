@@ -934,6 +934,11 @@ def _live_strategy_from_exec(executer, cls):
             stage = getattr(m, attr, None)
             if stage is not None and type(stage).__name__ == want:
                 return stage
+    runner = getattr(executer, "_task_runner", None)
+    if runner is not None:
+        for task in getattr(runner, "tasks", []) or []:
+            if type(task).__name__ == want:
+                return task
     return None
 
 

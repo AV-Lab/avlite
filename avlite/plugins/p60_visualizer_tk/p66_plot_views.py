@@ -352,6 +352,35 @@ class LocalPlanPlotView(ttk.Frame):
         else:
             self.root.setting.perception_status_text.set("Click on the plot.")
 
+        # Paused-only distance ruler from ego front center to cursor.
+        if (
+            self.root.setting.exec_running
+            or self.left_mouse_button_pressed
+            or event.inaxes not in (self.ax1, self.ax2)
+            or self.root.exec is None
+        ):
+            self.local_plot.hide_distance_ruler()
+            return
+        ego = self.root.exec.ego_state
+        ctrl = self.root.exec.controller
+        L_f = float(getattr(ctrl, "ego_distance_front_axle", 2.5) if ctrl is not None else 2.5)
+        fx = float(ego.x) + L_f * float(np.cos(ego.theta))
+        fy = float(ego.y) + L_f * float(np.sin(ego.theta))
+        mx, my = float(event.xdata), float(event.ydata)
+        if event.inaxes == self.ax1:
+            dist = float(np.hypot(mx - fx, my - fy))
+            self.local_plot.show_distance_ruler(self.ax1, fx, fy, mx, my, dist)
+            return
+        # Frenet: draw in (s, d); distance in world XY meters.
+        traj = getattr(getattr(self.root.exec, "local_planner", None), "global_trajectory", None)
+        if traj is None:
+            self.local_plot.hide_distance_ruler()
+            return
+        fs, fd = traj.convert_xy_to_sd(fx, fy)
+        cx, cy = traj.convert_sd_to_xy(mx, my)
+        dist = float(np.hypot(cx - fx, cy - fy))
+        self.local_plot.show_distance_ruler(self.ax2, fs, fd, mx, my, dist)
+
     def on_mouse_click(self, event):
         if event.button == 3:
             if event.inaxes == self.ax1:

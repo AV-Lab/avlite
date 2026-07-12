@@ -31,6 +31,7 @@ from avlite.c40_execution.c41_world_bridge import (
     is_world_stack_capability_enabled,
 )
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+from avlite.c40_execution.c43_task_strategy import TaskStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
@@ -41,6 +42,7 @@ from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ThemedListPickerDialog,
     make_strategy_contract_controls,
     make_world_bridge_contract_controls,
+    show_strategy_contract_popup,
 )
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
 from avlite.c60_apps.c63_plugins import plugin_module_prefix
@@ -768,20 +770,103 @@ class ExecView(ttk.Frame):
         ttk.Label(exec_second_frame, text="Executer: ").pack(side=tk.RIGHT, padx=5)
 
 
-        ## Third frame 
-        # ttk.Label(exec_third_frame, text="World Bridge: ").pack(side=tk.LEFT)
-        # ttk.Radiobutton( exec_third_frame, text="Basic Sim", variable=self.root.setting.execution_bridge, value=BasicSim.__name__,
-        #     command=lambda: self.root.reload_stack(reload_code=False),
-        # ).pack(side=tk.LEFT)
-        # ttk.Radiobutton( exec_third_frame, text="Carla", variable=self.root.setting.execution_bridge, value=CarlaBridge.__name__,
-        #     command=lambda: self.root.reload_stack(reload_code=False),
-        # ).pack(side=tk.LEFT)
-        # ttk.Radiobutton( exec_third_frame, text="Gazebo Ign", variable=self.root.setting.execution_bridge, value="GazeboIgnitionBridge",
-        #     command=lambda: self.root.reload_stack(reload_code=False),
-        # ).pack(side=tk.LEFT)
+        ## Third frame — Tasks label, wrapping chips, and + on one row
+        tasks_row = ttk.Frame(exec_third_frame)
+        tasks_row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1)
+        lbl_tasks = ttk.Label(tasks_row, text="Tasks:")
+        lbl_tasks.pack(side=tk.LEFT)
+        HoverTooltip.attach_schema(lbl_tasks, ExecutionSettings, "c40_execution_tasks")
+        self._tasks_add_btn = ttk.Button(tasks_row, text="+", width=2, command=self._add_execution_task)
+        self._tasks_add_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        HoverTooltip.attach(
+            self._tasks_add_btn,
+            "Add a TaskStrategy from the registry (append). Reload stack after change.",
+        )
+        self._tasks_chips = ttk.Frame(tasks_row)
+        self._tasks_chips.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(4, 0))
+        self._task_chip_widgets: list = []
+        self._tasks_chips_last_width = None
+        self._tasks_chips.bind("<Configure>", self._rebuild_task_chips)
+        self.root.setting.execution_tasks.trace_add("write", lambda *_: self._rebuild_task_chips())
+        self._rebuild_task_chips()
+
         vehicle_state_label = ttk.Label(exec_third_frame, font=self.root.small_font, textvariable=self.root.setting.vehicle_state)
         vehicle_state_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1)
 
+
+    def _rebuild_task_chips(self, event=None) -> None:
+        if event is not None and event.widget is not self._tasks_chips:
+            return
+        if event is None:
+            for child in self._tasks_chips.winfo_children():
+                child.destroy()
+            self._task_chip_widgets = []
+            for name in self.root.setting.execution_task_names():
+                chip = ttk.Frame(self._tasks_chips)
+                ttk.Label(chip, text=name, font=self.root.small_font).pack(side=tk.LEFT)
+                info_btn = ttk.Button(chip, text="ⓘ", width=2)
+                info_btn.configure(
+                    command=lambda n=name, btn=info_btn: show_strategy_contract_popup(
+                        btn,
+                        name=n,
+                        registry=TaskStrategy.registry,
+                        get_exec=lambda: self.root.exec,
+                    )
+                )
+                info_btn.pack(side=tk.LEFT)
+                HoverTooltip.attach(
+                    info_btn,
+                    "World requirements, stack requirements & capabilities",
+                )
+                ttk.Button(
+                    chip,
+                    text="\u00d7",
+                    width=2,
+                    command=lambda n=name: self._remove_execution_task(n),
+                ).pack(side=tk.LEFT)
+                self._task_chip_widgets.append(chip)
+
+        if event is not None:
+            width = max(int(event.width), 1)
+        else:
+            self._tasks_chips.update_idletasks()
+            width = max(int(self._tasks_chips.winfo_width()), 1)
+        if width == self._tasks_chips_last_width and event is not None:
+            return
+        self._tasks_chips_last_width = width
+
+        row = col = used = 0
+        for chip in self._task_chip_widgets:
+            chip.update_idletasks()
+            need = int(chip.winfo_reqwidth()) + 4
+            if col and used + need > width:
+                row += 1
+                col = 0
+                used = 0
+            chip.grid(row=row, column=col, sticky="w", padx=(0, 4), pady=1)
+            used += need
+            col += 1
+
+    def _set_execution_task_names(self, names: list[str], *, reload: bool) -> None:
+        self.root.setting.execution_tasks.set(",".join(names))
+        if reload:
+            self.root.reload_stack(reload_code=False)
+
+    def _add_execution_task(self) -> None:
+        selected = set(self.root.setting.execution_task_names())
+        available = sorted(n for n in TaskStrategy.registry if n not in selected)
+        if not available:
+            messagebox.showinfo("Add Task", "All registered tasks are already selected.")
+            return
+        dialog = ThemedListPickerDialog(self.root, "Add Task", available)
+        if dialog.result:
+            names = self.root.setting.execution_task_names()
+            names.append(dialog.result)
+            self._set_execution_task_names(names, reload=True)
+
+    def _remove_execution_task(self, name: str) -> None:
+        names = [n for n in self.root.setting.execution_task_names() if n != name]
+        self._set_execution_task_names(names, reload=True)
 
     def text_on_enter(self, event):
         widget = event.widget  # Get the widget that triggered the event
