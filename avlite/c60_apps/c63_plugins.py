@@ -429,32 +429,6 @@ def import_plugin_modules(
             patch_plugin_settings(ps, display_name, str(pkg_path))
 
 
-def _invalidate_avlite_lazy_cache() -> None:
-    """Drop cached ``from avlite import X`` bindings so they re-resolve via ``__getattr__``.
-
-    After ``importlib.reload`` of strategy ABCs, the top-level package can still hold
-    stale class objects. Plugins that import from ``avlite`` must see the post-reload
-    ABC so ``__init_subclass__`` registers into the live registry.
-    """
-    mod = sys.modules.get("avlite")
-    if mod is None:
-        return
-    for name in getattr(mod, "_LAZY", {}):
-        mod.__dict__.pop(name, None)
-
-
-def _reload_modules(module_names: list[str]) -> None:
-    """Reload each name that is present in ``sys.modules`` (log and continue on error)."""
-    for module_name in module_names:
-        if module_name not in sys.modules:
-            continue
-        try:
-            importlib.reload(sys.modules[module_name])
-            log.debug("Reloaded: %s", module_name)
-        except Exception as e:
-            log.error("Failed to reload %s: %s", module_name, e)
-
-
 def reload_lib(
     reload_plugins: bool = True,
     exclude_settings: bool = False,
@@ -470,13 +444,12 @@ def reload_lib(
         "avlite.c40_execution",
         "avlite.c50_common",
     ]
+    # Hot-reload only stack assembly seams. Keep c64/c65/c68 stable: long-lived
+    # imports (and tests) hold SettingsValidationError / PluginPaths / ConfigPaths
+    # identities that break if those modules are reloaded mid-process.
     app_modules = [
-        "avlite.c60_apps.c61_app_strategy",
         "avlite.c60_apps.c62_factory",
         "avlite.c60_apps.c63_plugins",
-        "avlite.c60_apps.c64_settings_schema",
-        "avlite.c60_apps.c65_setting_utils",
-        "avlite.c60_apps.c68_paths",
     ]
     stack_settings = [
         "avlite.c10_perception.c19_settings",
@@ -490,7 +463,7 @@ def reload_lib(
         if reload_plugins:
             log.debug("Reloading plugins...")
             project_modules += [f"plugins.{p}.settings" for p in list_plugins()]
-        _reload_modules(project_modules)
+        _StackReload.reload_modules(project_modules)
         return
 
     core_modules: list[str] = []
@@ -507,18 +480,9 @@ def reload_lib(
         elif reload_plugins and is_plugin_logger(module_name):
             plugin_modules.append(module_name)
 
-    # Deduplicate while preserving order (stable sort by depth afterward).
-    def _unique(names: list[str]) -> list[str]:
-        seen: set[str] = set()
-        out: list[str] = []
-        for name in names:
-            if name not in seen:
-                seen.add(name)
-                out.append(name)
-        return out
-
-    core_modules = _unique(core_modules)
-    plugin_modules = _unique(plugin_modules)
+    # Deduplicate while preserving order, then sort by import depth.
+    core_modules = list(dict.fromkeys(core_modules))
+    plugin_modules = list(dict.fromkeys(plugin_modules))
     core_modules.sort(key=lambda x: x.count("."))
     plugin_modules.sort(key=lambda x: x.count("."))
 
@@ -529,10 +493,40 @@ def reload_lib(
 
     # 1) Top-level package + core (fresh ABC registries), 2) drop stale public API
     # cache, 3) plugins so ``from avlite import PredictionStrategy`` hits new ABCs.
-    _reload_modules(["avlite", *core_modules])
-    _invalidate_avlite_lazy_cache()
+    _StackReload.reload_modules(["avlite", *core_modules])
+    _StackReload.invalidate_avlite_lazy_cache()
     if reload_plugins:
-        _reload_modules(plugin_modules)
+        _StackReload.reload_modules(plugin_modules)
+
+
+class _StackReload:
+    """Reload mechanics for ``reload_lib`` (module-private)."""
+
+    @staticmethod
+    def invalidate_avlite_lazy_cache() -> None:
+        """Drop cached ``from avlite import X`` bindings so they re-resolve via ``__getattr__``.
+
+        After ``importlib.reload`` of strategy ABCs, the top-level package can still hold
+        stale class objects. Plugins that import from ``avlite`` must see the post-reload
+        ABC so ``__init_subclass__`` registers into the live registry.
+        """
+        mod = sys.modules.get("avlite")
+        if mod is None:
+            return
+        for name in getattr(mod, "_LAZY", {}):
+            mod.__dict__.pop(name, None)
+
+    @staticmethod
+    def reload_modules(module_names: list[str]) -> None:
+        """Reload each name that is present in ``sys.modules`` (log and continue on error)."""
+        for module_name in module_names:
+            if module_name not in sys.modules:
+                continue
+            try:
+                importlib.reload(sys.modules[module_name])
+                log.debug("Reloaded: %s", module_name)
+            except Exception as e:
+                log.error("Failed to reload %s: %s", module_name, e)
 
 
 class _PluginSettingsIO:

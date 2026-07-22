@@ -42,6 +42,8 @@ class BlitManager:
         self._artists: list = []
         self._bg: dict = {}
         self._connected_canvas = None
+        self._drawing = False
+        self._pending = False
 
     def add_artist(self, artist) -> None:
         artist.set_animated(True)
@@ -63,18 +65,40 @@ class BlitManager:
     def full_draw(self) -> None:
         """Full software redraw; repopulates the cached backgrounds."""
         self._ensure_connected()
-        self.fig.canvas.draw()
-        self._blit_animated()
+        if self._drawing:
+            self._pending = True
+            return
+        self._drawing = True
+        try:
+            self.fig.canvas.draw()
+            self._blit_animated()
+            if self._pending:
+                self._pending = False
+                self._blit_animated()
+        finally:
+            self._drawing = False
 
     def update(self) -> None:
         """Fast path: restore cached backgrounds and blit animated artists."""
         self._ensure_connected()
+        if self._drawing:
+            self._pending = True
+            return
         if not self._bg:
             self.full_draw()
             return
-        self._blit_animated()
+        self._drawing = True
+        try:
+            self._blit_animated()
+            if self._pending:
+                self._pending = False
+                self._blit_animated()
+        finally:
+            self._drawing = False
 
     def _blit_animated(self) -> None:
+        # No flush_events here: under TkAgg it re-enters motion handlers and
+        # nests blits until RecursionError. canvas.blit() already updates the UI.
         canvas = self.fig.canvas
         for ax in self.axes:
             bg = self._bg.get(ax)
@@ -88,7 +112,6 @@ class BlitManager:
         for ax in self.axes:
             if ax.get_visible():
                 canvas.blit(ax.bbox)
-        canvas.flush_events()
 
 
 class GlobalPlot(ABC):

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Planning: `c28_preferred_extra_clearance` — gate hard-preferring centerline (`d≈0`) lattice edges on corridor-to-obstacle clearance beyond the collision hard floor
 - Collision: `check_collision` returns `min_clearance` (approx. line–obstacle distance minus ego half-width + safety margin); lattice edges store it for cost
-- Execution: `TaskStrategy` / `TaskRunner` (`c43`) with `EVERY_CYCLE` / `INTERVAL` / `ON_EVENT`; lifecycle + domain `notify`; built-ins `GoalArrivalMonitor`, `StopAtGoalTask`, `TelemetryTask` (`c47`); setting `c40_execution_tasks`
+- Execution: `TaskStrategy` / `TaskRunner` (`c43`) with `EVERY_CYCLE` / `INTERVAL` / `ON_EVENT`; lifecycle + domain `notify`; built-ins `GoalArrivalMonitor`, `StopExecAtGoalTask`, `TelemetryTask` (`c47`); setting `c40_execution_tasks`
 - Planning: optional `stack_event` on `LocalPlan` / `GlobalPlan`; executer harvests after replan
 - Visualizer: Execution **Tasks** chip row (registry `+` picker, per-chip ⓘ / ×, wraps on resize)
 

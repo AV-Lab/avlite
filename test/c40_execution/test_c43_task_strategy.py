@@ -19,7 +19,7 @@ from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim
 from avlite.c40_execution.c47_execution_tasks import (
     GoalArrivalMonitor,
-    StopAtGoalTask,
+    StopExecAtGoalTask,
     TelemetryTask,
 )
 from avlite.c40_execution.c49_settings import ExecutionSettings
@@ -157,7 +157,7 @@ def test_interval_fires_only_when_due():
 
 def test_goal_monitor_notifies_stop_at_goal_once():
     monitor = GoalArrivalMonitor()
-    runner = TaskRunner([monitor, StopAtGoalTask()])
+    runner = TaskRunner([monitor, StopExecAtGoalTask()])
     executer = _FakeExecuter(x=0.0, y=0.0, goal=(10.0, 0.0))
     executer._task_runner = runner
 
@@ -174,7 +174,7 @@ def test_goal_monitor_notifies_stop_at_goal_once():
 
 
 def test_notify_during_step_flushes_to_on_event():
-    runner = TaskRunner([NotifyDuringCycleTask(), StopAtGoalTask()])
+    runner = TaskRunner([NotifyDuringCycleTask(), StopExecAtGoalTask()])
     executer = _FakeExecuter()
     executer._task_runner = runner
     runner.step(executer)
@@ -241,10 +241,10 @@ def test_non_inline_placement_falls_back_to_inline():
 
 def test_builtin_tasks_are_registered():
     assert "GoalArrivalMonitor" in TaskStrategy.registry
-    assert "StopAtGoalTask" in TaskStrategy.registry
+    assert "StopExecAtGoalTask" in TaskStrategy.registry
     assert "TelemetryTask" in TaskStrategy.registry
     assert TaskStrategy.registry["GoalArrivalMonitor"] is GoalArrivalMonitor
-    assert TaskStrategy.registry["StopAtGoalTask"] is StopAtGoalTask
+    assert TaskStrategy.registry["StopExecAtGoalTask"] is StopExecAtGoalTask
     assert TaskStrategy.registry["TelemetryTask"] is TelemetryTask
 
 
@@ -271,7 +271,7 @@ def test_factory_wires_builtin_stop_at_goal(minimal_corridor_map_path):
         load_plugins=False,
         executer_type=SyncExecuter.__name__,
         bridge="BasicSim",
-        execution_task_names=["GoalArrivalMonitor", "StopAtGoalTask"],
+        execution_task_names=["GoalArrivalMonitor", "StopExecAtGoalTask"],
         mapping_strategy_name="",
         global_planner_strategy_name="",
         local_planner_strategy_name="",
@@ -281,4 +281,4 @@ def test_factory_wires_builtin_stop_at_goal(minimal_corridor_map_path):
     )
     assert len(executer._task_runner.tasks) == 2
     assert isinstance(executer._task_runner.tasks[0], GoalArrivalMonitor)
-    assert isinstance(executer._task_runner.tasks[1], StopAtGoalTask)
+    assert isinstance(executer._task_runner.tasks[1], StopExecAtGoalTask)

@@ -41,7 +41,7 @@ class GoalArrivalMonitor(TaskStrategy):
         return math.hypot(float(ego.x) - float(goal[0]), float(ego.y) - float(goal[1])) <= radius_m
 
 
-class StopAtGoalTask(TaskStrategy):
+class StopExecAtGoalTask(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
     listen_events = frozenset({StackEvent.GOAL_ARRIVED})
 

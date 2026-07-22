@@ -76,7 +76,7 @@ def _make_async_executer() -> AsyncThreadedExecuter:
 
 
 def test_stop_from_worker_thread_does_not_raise():
-    """stop() must skip joining the calling worker (StopAtGoalTask path)."""
+    """stop() must skip joining the calling worker (StopExecAtGoalTask path)."""
     exec_ = _make_async_executer()
 
     result = {"error": None}

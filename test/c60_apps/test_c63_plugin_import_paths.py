@@ -2,7 +2,6 @@
 
 import sys
 
-from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c60_apps.c63_plugins import (
     import_plugin_modules,
     plugin_module_prefix,
@@ -48,11 +47,15 @@ def test_sync_community_plugins_unloads_removed(tmp_path):
     for name in list(sys.modules):
         if name == prefix or name.startswith(prefix + "."):
             del sys.modules[name]
-    ControlStrategy.registry.pop("SamplePluginController", None)
+
+    # Use the live module attribute (survives reload_lib identity splits in other tests).
+    import avlite.c30_control.c32_control_strategy as c32
+
+    c32.ControlStrategy.registry.pop("SamplePluginController", None)
 
     sync_community_plugins({"sample_plugin": str(plugin_dir)})
-    assert "SamplePluginController" in ControlStrategy.registry
+    assert "SamplePluginController" in c32.ControlStrategy.registry
 
     sync_community_plugins({})
-    assert "SamplePluginController" not in ControlStrategy.registry
+    assert "SamplePluginController" not in c32.ControlStrategy.registry
     assert prefix not in sys.modules
