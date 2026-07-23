@@ -71,7 +71,7 @@ flowchart TB
 
     subgraph COMPONENTS[" "]
         direction LR
-        PERC["Perception · c10 (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
+        PERC["Perception · c10\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning · c20\nGlobal · Local · Lattice"]
         CTRL["Control · c30\nStanley · PID · Pure Pursuit · FTG"]
         WB["World Bridge · c40\nBasicSim · Carla · Gazebo · ROS2"]
@@ -90,7 +90,7 @@ flowchart TB
 - **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`); `Map` / `RaceMap` in c11; OpenDRIVE `HDMap` parser in c18
 - **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, lattice-based `GreedyLatticePlanner`)
 - **c30_control**: Vehicle control algorithms (Stanley, PID, Pure Pursuit, Follow the Gap)
-- **c40_execution**: Execution orchestration with sync/async modes and simulator bridges
+- **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, and execution tasks (`TaskStrategy` / `TaskRunner`) as a stack extension layer
 - **c60_apps**: App infrastructure (`c61_app_strategy`, `c62_factory`, `c63_plugins`, `c64_settings_schema`, `c65_setting_utils`, `c68_paths`); no tkinter
 - **c50_common**: Algorithm utilities only (`c51`–`c56`: capabilities, world/stack datatypes, trajectory, collision, FPS)
 - **plugins** (`avlite/plugins/`): Built-in Tk visualizer package (`p60_visualizer_tk`), headless mode, config CLI; world bridges and alternative executers are available as optional plugins
@@ -101,7 +101,7 @@ flowchart TB
 
 **Capability-Based System**: Components declare their requirements and capabilities, enabling automatic compatibility checking between perception/localization strategies and world bridges.
 
-**Optional Perception & Localization**: Both perception and localization are optional in the execution pipeline. Run with ground truth data or plug in your own strategies as needed.
+**Flexible stack composition**: Any stack module can be omitted. Run a classic pipeline, use world-bridge ground truth, or ship end-to-end plugins (sensors→control, sensors→local plan) via capability contracts.
 
 **YAML-Based Configuration**: Profile-based configuration system allows quick switching between different algorithm combinations and parameters.
 
@@ -109,7 +109,9 @@ flowchart TB
 
 **Multiple Simulator Support**: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2/Autoware through abstract world bridge interface.
 
-**Extensible Plugin System**: Add custom perception, planning, or control algorithms as plugins without modifying core code.
+**Extensible Plugin System**: Add custom perception, planning, control, world-bridge, or execution-task (`TaskStrategy`) plugins without modifying core code.
+
+**Execution Tasks**: Orthogonal extension of the running stack via `TaskRunner` — mission logic, supervision, and instrumentation around a stable pipeline, without replacing perceive/plan/control.
 
 ## Why AVLite?
 

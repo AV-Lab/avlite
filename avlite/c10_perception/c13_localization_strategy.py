@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
-from avlite.c50_common.c51_capabilities import StackCapability
+from avlite.c50_common.c51_capabilities import StackCapability, StackRequirement, WorldRequirement
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
@@ -24,9 +27,9 @@ class LocalizationStrategy(ABC):
 
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset({StackCapability.LOCALIZATION})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.LOCALIZATION})
 
     def __init__(self, perception_model: PerceptionModel, setting: PerceptionSettingsSchema = PerceptionSettings):
         self.perception_model = perception_model

@@ -202,13 +202,18 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Landing header: transparent + blurred over the hero, solid once scrolled.
-   `landing-home` / `landing-scrolled` are toggled by javascripts/landing.js;
-   inner pages never get the class, so they keep the standard primary header.
+   Header chrome. No top tabs — peer pages live in the left sidebar.
+   Dark mode: simple black banner (landing uses glass until scroll).
+   Light mode: brand primary (landing included — dark glass muddies on white).
+   `landing-home` / `landing-scrolled` come from javascripts/landing.js.
    --------------------------------------------------------------------------- */
 
-body.landing-home .md-header,
-body.landing-home .md-tabs {
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #000000;
+  box-shadow: none;
+}
+
+[data-md-color-scheme="slate"] body.landing-home .md-header {
   background-color: rgba(5, 7, 10, 0.55);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -216,26 +221,361 @@ body.landing-home .md-tabs {
   transition: background-color 250ms ease, box-shadow 250ms ease;
 }
 
-body.landing-home.landing-scrolled .md-header {
+[data-md-color-scheme="slate"] body.landing-home.landing-scrolled .md-header {
+  background-color: #000000;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+[data-md-color-scheme="default"] body.landing-home .md-header {
   background-color: var(--md-primary-fg-color);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow: 0 0 0.2rem rgba(0, 0, 0, 0.1), 0 0.2rem 0.4rem rgba(0, 0, 0, 0.2);
 }
 
-body.landing-home.landing-scrolled .md-tabs {
-  background-color: var(--md-primary-fg-color);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+/* Primary left nav: make the active page obvious in both schemes. */
+.md-nav--primary .md-nav__link--active {
+  color: var(--md-accent-fg-color);
+  font-weight: 700;
+  border-left: 3px solid var(--md-primary-fg-color);
+  padding-left: 0.6rem;
+  margin-left: -3px;
+  background-color: color-mix(in srgb, var(--md-primary-fg-color) 12%, transparent);
+  border-radius: 0 0.2rem 0.2rem 0;
 }
 
 /* Render the brand mark as a crisp white silhouette (via brightness/invert)
-   so it reads cleanly on both the blue header and the dark landing header,
-   and give it a bit more presence than the default logo size. */
+   so it reads cleanly on the black or brand header, and give it a bit more
+   presence than the default logo size. */
 .md-header__button.md-logo img {
   height: 1.7rem;
   width: auto;
   filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+/* ---------------------------------------------------------------------------
+   Community Plugins page (docs/community.md) — "app store" card grid.
+   Rendered client-side by javascripts/community.js.
+   --------------------------------------------------------------------------- */
+
+.plugin-store > h1 {
+  display: none; /* page title lives in the hero band instead */
+}
+
+.store-hero {
+  text-align: center;
+  border-radius: 1rem;
+  padding: 2.5rem 1.5rem 2rem;
+  margin: 0 0 1.75rem;
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(0, 172, 225, 0.22), transparent 60%),
+    linear-gradient(180deg, #05070a 0%, #0a0f14 100%);
+  border: 1px solid rgba(0, 172, 225, 0.18);
+  box-shadow: 0 24px 60px -30px rgba(0, 172, 225, 0.45);
+}
+
+.md-typeset .store-hero h2 {
+  color: #eaf6fb;
+  font-weight: 800;
+  font-size: 2rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.75rem;
+}
+
+.store-hero > p {
+  color: #b7c6d0;
+  max-width: 42rem;
+  margin: 0 auto 1.25rem;
+  font-size: 0.85rem;
+}
+
+.store-hero a:not(.md-button) {
+  color: #5fd0f3;
+}
+
+.store-hero .md-button {
+  margin: 0.35rem 0.3rem 0;
+}
+
+.store-counters {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+  margin: 0 0 1.4rem;
+}
+
+.store-counter {
+  display: flex;
+  flex-direction: column;
+}
+
+.store-counter-value {
+  color: #eaf6fb;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.store-counter-label {
+  color: #7d8f9b;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Toolbar: search + category chips + sort. */
+.store-toolbar[hidden] {
+  display: none;
+}
+
+.store-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1.25rem;
+}
+
+.store-search {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--md-typeset-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 2rem;
+  outline: none;
+  transition: border-color 125ms;
+}
+
+.store-search:focus {
+  border-color: var(--md-accent-fg-color);
+}
+
+.store-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.store-sort-label {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.store-sort {
+  margin-left: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--md-typeset-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.35rem;
+}
+
+/* Chips: category tags on cards and filter buttons in the toolbar. */
+.store-chip {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--md-accent-fg-color);
+  background: color-mix(in srgb, var(--md-accent-fg-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--md-accent-fg-color) 30%, transparent);
+  border-radius: 2rem;
+  white-space: nowrap;
+}
+
+.store-chip--version {
+  color: var(--md-default-fg-color--light);
+  background: color-mix(in srgb, var(--md-default-fg-color) 6%, transparent);
+  border-color: var(--md-default-fg-color--lightest);
+}
+
+.store-chip--filter {
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 600;
+  transition: background 125ms, color 125ms;
+}
+
+.store-chip--filter:hover {
+  background: color-mix(in srgb, var(--md-accent-fg-color) 22%, transparent);
+}
+
+.store-chip--filter.is-active {
+  color: #fff;
+  background: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+}
+
+/* Card grid. */
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.9rem;
+  margin: 0 0 2rem;
+}
+
+.md-typeset a.store-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1rem 1.1rem;
+  color: var(--md-typeset-color);
+  background: var(--md-default-bg-color--light, var(--md-default-bg-color));
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.7rem;
+  transition: border-color 125ms, box-shadow 125ms, transform 125ms;
+}
+
+.md-typeset a.store-card:hover,
+.md-typeset a.store-card:focus {
+  color: var(--md-typeset-color);
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 14px 34px -20px rgba(0, 172, 225, 0.55);
+  transform: translateY(-2px);
+}
+
+.store-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.store-card-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  flex: none;
+}
+
+.store-card-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.store-card-author {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.store-card-desc {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--md-default-fg-color--light);
+  flex-grow: 1;
+}
+
+.store-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.store-card-notes {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  color: var(--md-default-fg-color--light);
+  border-left: 2px solid color-mix(in srgb, var(--md-accent-fg-color) 45%, transparent);
+  padding-left: 0.5rem;
+}
+
+.store-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  font-size: 0.65rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.store-card-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.store-card-stats svg {
+  opacity: 0.75;
+}
+
+/* Loading skeletons. */
+.store-card--skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.7rem;
+}
+
+.store-skel {
+  border-radius: 0.3rem;
+  background: linear-gradient(
+    90deg,
+    var(--md-default-fg-color--lightest) 25%,
+    color-mix(in srgb, var(--md-default-fg-color) 3%, transparent) 50%,
+    var(--md-default-fg-color--lightest) 75%
+  );
+  background-size: 200% 100%;
+  animation: store-shimmer 1.4s infinite;
+}
+
+.store-skel--title { height: 1rem; width: 55%; }
+.store-skel--line { height: 0.6rem; width: 90%; }
+.store-skel--line.short { width: 65%; }
+.store-skel--chip { height: 0.9rem; width: 30%; border-radius: 2rem; }
+
+@keyframes store-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.store-empty,
+.store-fallback {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.75rem;
+}
+
+.store-install {
+  border-radius: 0.7rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  padding: 1rem 1.4rem 1.2rem;
+  margin: 0 0 1rem;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .store-counters {
+    gap: 1.5rem;
+  }
+  .store-sort-label {
+    margin-left: 0;
+  }
+  .store-hero .md-button {
+    display: block;
+    margin: 0.5rem auto 0;
+    max-width: 18rem;
+  }
 }
 
 @media screen and (max-width: 44.9375em) {

@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 import inspect
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import ClassVar, Optional
 
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
-from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, StackRequirement, WorldRequirement
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 import logging
@@ -30,9 +32,12 @@ class LocalPlanningStrategy(ABC):
 
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset({StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION})
-    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset({
+        StackCapability.GLOBAL_PLAN,
+        StackCapability.LOCALIZATION,
+    })
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.LOCAL_PLAN})
 
     def __init__(self, global_plan: GlobalPlan, pm: PerceptionModel,
                  setting: PlanningSettingsSchema = PlanningSettings):
@@ -183,9 +188,9 @@ class LocalBehavioralPlanningStrategy(ABC):
 
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset()
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset()
 
     @abstractmethod
     def plan_behavior(self, plan: LocalPlan) -> LocalPlan:
@@ -203,9 +208,9 @@ class LocalPathPlanningStrategy(ABC):
 
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.LOCAL_PLAN})
 
     @abstractmethod
     def plan_path(self, plan: LocalPlan) -> LocalPlan:
@@ -223,9 +228,9 @@ class LocalVelocityPlanningStrategy(ABC):
 
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.LOCAL_PLAN})
 
     @abstractmethod
     def plan_velocity(self, plan: LocalPlan) -> LocalPlan:
@@ -286,24 +291,24 @@ class LocalPlanningPipeline(LocalPlanningStrategy):
         return (self._behavioral, self._path, self._velocity)
 
     @property
-    def world_requirements(self) -> set[WorldCapability]:
-        reqs: set = set()
+    def world_requirements(self) -> frozenset[WorldRequirement]:
+        reqs: set[WorldRequirement] = set()
         for stage in self._stages:
             if stage is not None:
                 reqs |= stage.world_requirements
-        return reqs
+        return frozenset(reqs)
 
     @property
-    def stack_requirements(self) -> set:
-        reqs: set = {StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION}
+    def stack_requirements(self) -> frozenset[StackRequirement]:
+        reqs: set[StackRequirement] = {StackCapability.GLOBAL_PLAN, StackCapability.LOCALIZATION}
         for stage in self._stages:
             if stage is not None:
                 reqs |= stage.stack_requirements
-        return reqs
+        return frozenset(reqs)
 
     @property
-    def stack_capabilities(self) -> set[StackCapability]:
-        return {StackCapability.LOCAL_PLAN}
+    def stack_capabilities(self) -> frozenset[StackCapability]:
+        return frozenset({StackCapability.LOCAL_PLAN})
 
     def _child_planners(self):
         """Stages that are also LocalPlanningStrategy instances (own localization)."""

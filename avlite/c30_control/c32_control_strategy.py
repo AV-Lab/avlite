@@ -1,13 +1,14 @@
 from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c31_control_model import ControlCommand, ControlCommandBase
 from avlite.c30_control.c39_settings import ControlSettings
-from avlite.c50_common.c51_capabilities import AnyOf, StackCapability
+from avlite.c50_common.c51_capabilities import AnyOf, StackCapability, StackRequirement, WorldRequirement
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
@@ -22,12 +23,12 @@ class ControlStrategy(ABC):
     """
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset({
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset({
         AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN),
         StackCapability.LOCALIZATION,
     })
-    stack_capabilities = frozenset({StackCapability.CONTROL})
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.CONTROL})
 
     def __init__(self, tj: TrajectoryTracker | None = None):
 

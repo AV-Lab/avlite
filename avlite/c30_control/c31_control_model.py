@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from avlite.c40_execution.c43_task_strategy import StackEvent
+
 
 @dataclass
 class ControlCommandBase:
     """Base for all control commands. Subclasses add actuation fields."""
     timestamp: float = field(default_factory=time.time)
+    # Optional outcome signal for TaskRunner harvest (see StackEvent); default None.
+    stack_event: Optional[StackEvent] = None
 
 
 @dataclass

@@ -12,9 +12,10 @@ hide:
 
 # Autonomy, made lite
 
-AVLite is a lightweight, modular autonomous-vehicle stack for perception,
-planning, and control — from a 2D simulator on your laptop to headless
-deployment on a real robot.
+AVLite is a lightweight, modular autonomous-vehicle stack — from a 2D
+simulator on your laptop to headless deployment on a real robot. Swap
+classic perception, planning, and control modules, or plug in an end-to-end
+system.
 
 ```bash
 pip install avlite   # install
@@ -23,6 +24,7 @@ avlite               # launch the visualizer
 
 [Get Started](quick-start.md){ .md-button .md-button--primary }
 [Overview](overview.md){ .md-button }
+[Community](community.md){ .md-button target=_blank rel=noopener }
 [GitHub](https://github.com/AV-Lab/avlite){ .md-button }
 
 <p class="hero-badges">
@@ -36,7 +38,7 @@ avlite               # launch the visualizer
 
 <div class="value-strip" markdown>
 
-:material-check-decagram: BasicSim included &nbsp;&middot;&nbsp; :material-car-multiple: CARLA / Gazebo / ROS2 ready &nbsp;&middot;&nbsp; :material-monitor-dashboard: GUI + headless &nbsp;&middot;&nbsp; :material-language-python: Pure Python
+:material-check-decagram: BasicSim included &nbsp;&middot;&nbsp; :material-car-multiple: CARLA / Gazebo / ROS2 ready &nbsp;&middot;&nbsp; :material-vector-polyline: End-to-end plugins &nbsp;&middot;&nbsp; :material-monitor-dashboard: GUI + headless &nbsp;&middot;&nbsp; :material-language-python: Pure Python
 
 </div>
 
@@ -54,7 +56,7 @@ avlite               # launch the visualizer
 
     ---
 
-    Layered strategy pattern with auto-registration and a capability system.
+    Capability-driven composition: omit any module, or run sensors→plan / sensors→control end-to-end.
 
     [:octicons-arrow-right-24: How it fits together](architecture.md)
 
@@ -70,9 +72,26 @@ avlite               # launch the visualizer
 
     ---
 
-    Add perception, planning, control, or world-bridge strategies as plugins.
+    Add perception, planning, control, world-bridge, or `TaskStrategy` execution tasks as plugins.
 
     [:octicons-arrow-right-24: Build a plugin](plugin-development.md)
+
+-   :material-storefront:{ .lg .middle } &nbsp; **Community Plugins**
+
+    ---
+
+    Browse community-built bridges, controllers, and predictors — with live
+    GitHub stats.
+
+    [:octicons-arrow-right-24: Explore the ecosystem](community.md){ target=_blank rel=noopener }
+
+-   :material-playlist-check:{ .lg .middle } &nbsp; **Execution Tasks**
+
+    ---
+
+    Orthogonal extension of the running stack — mission, supervision, instrumentation around a stable pipeline.
+
+    [:octicons-arrow-right-24: TaskRunner guide](execution-tasks.md)
 
 -   :material-cog:{ .lg .middle } &nbsp; **Configuration**
 

@@ -2,7 +2,18 @@
 
 ## Overview
 
-AVLite follows a layered architecture with clear separation between interfaces and implementations. Every layer is extendable: apps, executers, perception/planning/control strategies, and world bridges are all auto-registered strategies, and any of them can be added or overridden by a plugin.
+AVLite follows a layered architecture with clear separation between interfaces and implementations. Every layer is extendable: apps, executers, perception/planning/control strategies, world bridges, and execution tasks (`TaskStrategy`) as an orthogonal stack extension are all auto-registered strategies, and any of them can be added or overridden by a plugin.
+
+### Flexible composition (not only a pipeline)
+
+The classic bridge → localize → perceive → plan → control flow is the **default shape**, not a requirement.
+
+- **Any stack module can be omitted** — leave the class name empty in the profile (`c40_perception`, `c40_localization`, `c40_mapping`, `c40_global_planner`, `c40_local_planner`, `c40_controller`). Perception is not special; planning and control can be empty too.
+- **End-to-end plugins** are first-class: register in the slot that matches what you *produce*, declare `world_requirements` / `stack_requirements` / `stack_capabilities`, and read `sensors` (and optional `perception_model`) inside that strategy. You do not have to follow a traditional pipelined stack.
+- Examples:
+  - **Sensors → control** — a `ControlStrategy` with e.g. `world_requirements = {LIDAR_2D}` and `stack_capabilities = {CONTROL}`, perception and planning left empty: reactive control from the `SensorFrame`.
+  - **Sensors → local plan** — a `LocalPlanningStrategy` that consumes sensors and advertises `LOCAL_PLAN`, with no separate perception module.
+- Assembly still validates hard requirements against available capabilities (world-bridge ground truth can satisfy some stack needs). Details: [Capability System](#capability-system).
 
 ```mermaid
 flowchart TB
@@ -18,9 +29,9 @@ flowchart TB
 
     EXEC["Execution (executer strategy)\nSync/async executer and factory"]
 
-    subgraph COMPONENTS["Stack modules (Strategy plugins)"]
+    subgraph COMPONENTS["Stack modules — any may be omitted"]
         direction LR
-        PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
+        PERC["Perception\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
         CTRL["Control\nStanley · PID · Pure Pursuit · FTG"]
         WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
@@ -34,7 +45,7 @@ flowchart TB
     COMPONENTS --> COMMON
 ```
 
-Every box above the Common layer is a pluggable strategy: apps register via `AppStrategy`, and the stack modules (perception, planning, control, world bridge) plus the executer itself register via their own strategy base classes. See [Strategy Pattern with Auto-Registration](#strategy-pattern-with-auto-registration).
+Every box above the Common layer is a pluggable strategy: apps register via `AppStrategy`, and the stack modules (perception, planning, control, world bridge) plus the executer and `TaskStrategy` tasks register via their own strategy base classes. See [Strategy Pattern with Auto-Registration](#strategy-pattern-with-auto-registration) and [Execution Tasks](execution-tasks.md).
 
 ## Design Patterns
 
@@ -175,7 +186,7 @@ executer = executor_factory(
 )
 ```
 
-It loads plugins, opens `ExecutionSettings.c40_map` once via `Map.open` (shared by `MapReader`, global planners, and `WorldBridge`), instantiates strategies from registries, and wires everything together. Perception, localization, and mapping strategy names are optional — pass an empty string or omit them to run without that component.
+It loads plugins, opens `ExecutionSettings.c40_map` once via `Map.open` (shared by `MapReader`, global planners, and `WorldBridge`), instantiates strategies from registries, and wires everything together. **Any** strategy slot may be empty or omitted (perception, localization, mapping, global/local planner, controller) to run without that module — see [Flexible composition](#flexible-composition-not-only-a-pipeline).
 
 Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c62_factory.py`](../avlite/c60_apps/c62_factory.py). Each setting reads its section from the single `configs/<profile>.yaml`: it loads the c10–c40 layer sections, `AppSettings` (the `c69_apps` section), and built-in plugin settings (the `plugins` section); the GUI loads the Tk `VisualizationSettings` binder separately.
 
@@ -203,19 +214,21 @@ Control actuation is a separate layer: `ControlCommandBase` subclasses and defau
 
 ### **Perception**
 
-Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. Static map types (`Map`, `RaceMap`, `HDMap`) live in c11; OpenDRIVE parsing is in c18. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
+Monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns; leave the slot empty like any other module when unused. Static map types (`Map`, `RaceMap`, `HDMap`) live in c11; OpenDRIVE parsing is in c18. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
 
 ### **Planning**
 
-Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller. See [Algorithms](algorithms.md) for lattice planner details.
+Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller. Either planner slot can be omitted, or a local planner can consume sensors end-to-end without a separate perception module. See [Algorithms](algorithms.md) for lattice planner details.
 
 ### **Control**
 
-Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. Commands use a `ControlCommandBase` hierarchy (`AckermannControlCommand`, `DiffDriveControlCommand`, `BodyVelocityControlCommand` in c31); the built-in car stack still returns `ControlCommand` (Ackermann alias). Per-agent command type defaults are mapped from `AgentType` in c31. See [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control). Pure Pursuit and Follow the Gap are documented in [Algorithms](algorithms.md#control-pure-pursuit-and-follow-the-gap).
+Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. A controller can also be an end-to-end plugin (sensors → actuation) when perception/planning are omitted. Commands use a `ControlCommandBase` hierarchy (`AckermannControlCommand`, `DiffDriveControlCommand`, `BodyVelocityControlCommand` in c31); the built-in car stack still returns `ControlCommand` (Ackermann alias). Per-agent command type defaults are mapped from `AgentType` in c31. See [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control). Pure Pursuit and Follow the Gap are documented in [Algorithms](algorithms.md#control-pure-pursuit-and-follow-the-gap).
 
 ### **Execution**
 
 World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in `BasicSim` bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via `c40_executer_type` and provided as optional plugins.
+
+After each stack tick, [`TaskRunner`](../avlite/c40_execution/c43_task_strategy.py) runs [`TaskStrategy`](../avlite/c40_execution/c43_task_strategy.py) instances listed in `c40_execution_tasks` — an orthogonal extension layer for mission logic, supervision, and instrumentation around the drive stack, not a second planner. Stack modules can stamp optional `stack_event` on `PerceptionModel`, plans, or control commands; the executer harvests those into `task_runner.notify`. See [Execution Tasks](execution-tasks.md#raising-events).
 
 ### **Apps**
 
@@ -232,6 +245,8 @@ CLI and GUI entry points, each an `AppStrategy` (see [App Strategy](#app-strateg
 YAML profile load/save, hot reload, plugin discovery (`c63_plugins`), path resolution (`c68_paths`), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (`c64_settings_schema`).
 
 ## Data Flow
+
+The **typical** pipeline (any stage may be skipped or collapsed into one plugin via [capabilities](#capability-system)):
 
 ```
 World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
@@ -258,11 +273,12 @@ World Bridge
 ```
 
 1. **World Bridge** provides sensor data (IMU, LiDAR, camera, ground truth)
-2. **Localization** (optional) estimates the ego pose from sensor data, updating `PerceptionModel.ego_vehicle` in-place
-3. **Perception** (optional) detects/tracks/predicts surrounding agents
-4. **Local Planner** generates trajectory avoiding obstacles
-5. **Controller** computes steering and throttle (Ackermann today; other command types reserved for multi-robot plugins)
+2. **Localization** (if configured) estimates the ego pose from sensor data, updating `PerceptionModel.ego_vehicle` in-place
+3. **Perception** (if configured) detects/tracks/predicts surrounding agents
+4. **Local Planner** (if configured) generates a trajectory; may read sensors directly when used end-to-end
+5. **Controller** (if configured) computes actuation; may read sensors directly when used end-to-end
 6. **World Bridge** executes control command via `control_ego_state` (ego path unchanged; `control_agent` and `step()` hooks exist for future multi-agent and sub-stepping)
+7. **TaskRunner** runs configured execution tasks after the tick (stack extension: mission, supervision, instrumentation) — see [Execution Tasks](execution-tasks.md)
 
 ## Plugin System
 
@@ -282,6 +298,6 @@ avlite/
 ~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 ```
 
-Plugins are loaded at startup. Classes inheriting from base strategies auto-register. The built-in `p60_*` packages are the apps themselves (`AppStrategy` entry points); `bootstrap_apps()` in `c61_app_strategy` imports them at startup so their apps register before CLI parsing.
+**Load order:** [`c63_plugins`](../avlite/c60_apps/c63_plugins.py) discovers and imports built-in / community / member packages into the `avlite.plugins` namespace; the factory (`c62_factory`) syncs the active profile’s plugin lists when building the stack; subclasses of strategy ABCs auto-register on import. The built-in `p60_*` packages are the apps themselves (`AppStrategy` entry points); `bootstrap_apps()` in `c61_app_strategy` imports them at startup so their apps register before CLI parsing.
 
 See [Plugin Development](plugin-development.md) for creating community plugins, pNx naming, and log filtering.

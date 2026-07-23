@@ -12,11 +12,12 @@ AVLite is a lightweight, extensible autonomous vehicle software stack for rapid 
 - **Modular Architecture**: Swap perception, localization, planning, and control algorithms at runtime
 - **Multi-Simulator Support**: Works with BasicSim (built-in), CARLA, Gazebo, and ROS2
 - **ROS2 & Autoware Integration**: Optional plugin for ROS2 with native Autoware message types
-- **Optional Perception & Localization**: Both perception and localization are optional — run with ground truth or plug in your own strategies
+- **Flexible stack composition**: Any module can be omitted (perception, planning, control, …). Build a classic pipeline or end-to-end plugins (e.g. sensors→control, sensors→local plan) via capability contracts — see [Architecture](architecture.md#flexible-composition-not-only-a-pipeline)
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
 - **Vim-style Shortcuts**: Fast, mouse-free control of the visualizer with vim motions (`j`/`k`, `g`/`G`, `Ctrl+u`/`Ctrl+d`)
 - **Hot Reloading**: Modify code without restarting the application
 - **Plugin System**: Extend functionality with community and member plugins
+- **Execution tasks**: Orthogonal extension of the running stack — mission logic, supervision, and instrumentation via `TaskRunner`, without replacing perceive/plan/control — see [Execution Tasks](execution-tasks.md)
 - **Multi-robot ready (extensible)**: `AgentType`, per-agent control command mapping, and `WorldBridge.control_agent` / `step()` hooks for future drones, diff-drive, and fleet sims — see [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control)
 - **Profile Management**: Save and load different configurations
 
@@ -138,7 +139,7 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 | **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` / `HDMap` (c11), OpenDRIVE parser (c18) |
 | **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, `GreedyLatticePlanner`, lattice-based) |
 | **c30_control** | Vehicle controllers (Stanley, PID, Pure Pursuit, Follow the Gap) |
-| **c40_execution** | Execution orchestration, simulator bridges (BasicSim, CARLA, Gazebo) |
+| **c40_execution** | Execution orchestration, `TaskRunner` / execution tasks, simulator bridges (BasicSim, CARLA, Gazebo) |
 | **c60_apps** | App infrastructure: `c61_app_strategy`, `c62_factory`, `c63_plugins`, `c64_settings_schema`, `c65_setting_utils`, `c68_paths`, `c69_settings` |
 | **p60_visualizer_tk** | Tk visualizer, settings GUI (`avlite setting`), plugin manager (`avlite plugins`) |
 | **c50_common** | Algorithm utilities only (`c51`–`c56`: capabilities, world/stack datatypes, collision, FPS) |
@@ -160,9 +161,9 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 
 Paths stored as `data/...` in YAML are resolved against the user data directory first, then the bundled `avlite/data/` folder shipped with the package. Saved global plans and other writes never go into the repo tree. In the GUI, **Save Global Plan** (Planning panel ⬇) opens a file picker in `~/.config/avlite/data/` with a timestamped default filename.
 
-User and repo config files share the **same basenames** (`c10_perception.yaml`, `c40_execution.yaml`, `plugin_ros_executer.yaml`, …).
+User and repo config files share the **same basenames** (`default.yaml`, `ros.yaml`, … — one file per profile).
 
-**Load order:** for each settings file, AVLite reads `~/.config/avlite/<name>.yaml` if it exists; otherwise it falls back to `{repo}/configs/<name>.yaml`.
+**Load order:** for each profile, AVLite reads `~/.config/avlite/<profile>.yaml` if it exists; otherwise it falls back to `{repo}/configs/<profile>.yaml`.
 
 **Save:** GUI and settings window writes go to `~/.config/avlite/` unless **Edit repository configs** is enabled (then `{repo}/configs/`).
 

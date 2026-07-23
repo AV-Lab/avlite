@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-23
+
+### Added
+- Execution: optional `stack_event` on `PerceptionModel` and `ControlCommandBase`; executer harvests after localize / perceive / control (same clear-once pattern as plans)
+- Docs: Execution Tasks page (philosophy-first TaskRunner / stack extension); Raising events (stamp vs `task_runner.notify` vs lifecycle)
+- Docs: flexible stack composition (any module optional; end-to-end sensors→plan / sensors→control via capabilities)
+- Docs: Community Plugins page — live registry card grid with GitHub stats, search/filter/sort
+
+### Changed
+- Docs: MkDocs landing chrome (dark black header, no Home/Docs tabs; left nav peer pages with active highlight); light-mode landing header uses brand primary
+
 ## [0.5.0] - 2026-07-23
 
 ### Added

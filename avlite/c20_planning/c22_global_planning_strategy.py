@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from avlite.c10_perception.c11_perception_model import Map, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c50_common.c51_capabilities import StackCapability
+from avlite.c50_common.c51_capabilities import StackCapability, StackRequirement, WorldRequirement
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
 log = logging.getLogger(__name__)
@@ -18,9 +21,9 @@ class GlobalPlannerStrategy(ABC):
     """
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset({StackCapability.LOCALIZATION})
-    stack_capabilities = frozenset({StackCapability.GLOBAL_PLAN})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset({StackCapability.LOCALIZATION})
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.GLOBAL_PLAN})
 
     def __init__(self, map: Map | None = None):
         self.map = map

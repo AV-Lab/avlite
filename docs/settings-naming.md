@@ -37,6 +37,12 @@ All sections below live in the single per-profile file `configs/<profile>.yaml` 
 | Apps (bootstrap) | `avlite/c60_apps/c69_settings.py` (schema only; no Tk) | `c69_apps` |
 | Visualization | `avlite/plugins/p60_visualizer_tk/settings.py` (`PluginSettingsSchema`) | `plugins.p60_visualizer_tk` |
 
+Notable execution fields:
+
+| Field | Meaning |
+|-------|---------|
+| `c40_execution_tasks` | List of `TaskStrategy` class names appended after each stack tick; empty disables tasks. See [Execution Tasks](execution-tasks.md). |
+
 Every plugin (built-in or community) stores its settings under the profile's `plugins:` mapping, keyed by the plugin's directory name.
 
 ## Stack load and export
