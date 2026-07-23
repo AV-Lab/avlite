@@ -681,7 +681,7 @@ class VisualizerApp(tk.Tk):
 
         new_plan = self.exec.global_planner.plan(
             perception_model=self.exec.pm,
-            sensors=self.exec._fetch_sensor_frame(),
+            sensors=self.exec.world.get_sensor_frame(),
         )
         if new_plan is None or new_plan.trajectory is None:
             log.error("Global replan failed: planner returned no valid plan.")
@@ -754,7 +754,11 @@ class VisualizerApp(tk.Tk):
         if self.exec.local_planner is not None and type(self.exec.local_planner).__name__ == "LocalPlanningPipeline":
             lp = self.exec.local_planner
             self.exec.local_planner = LocPipe(global_plan=lp.global_plan, env=self.exec.pm)
-        self.exec._validate_stack()
+        try:
+            self.exec._validate_stack()
+        except ValueError as e:
+            log.error(f"Pipeline refresh failed: {e}")
+
         self.update_ui()
 
     def reload_stack(self, reload_code: bool = True, preserve_plot_layout: bool = False):
@@ -782,6 +786,7 @@ class VisualizerApp(tk.Tk):
                 global_planner_strategy_name=self.setting.global_planner_type.get(),
                 local_planner_strategy_name=self.setting.local_planner_type.get(),
                 controller_strategy_name=self.setting.controller_type.get(),
+                execution_task_names=self.setting.execution_task_names(),
                 perception_dt=self.setting.perception_dt.get(),
                 localization_dt=self.setting.localization_dt.get(),
                 replan_dt=self.setting.replan_dt.get(),

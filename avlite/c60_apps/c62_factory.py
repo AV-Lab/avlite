@@ -61,9 +61,11 @@ from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction
 from avlite.c10_perception.c16_localization_algs import LidarLocalization  # noqa: F401 — registers in LocalizationStrategy.registry
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+from avlite.c40_execution.c43_task_strategy import TaskStrategy
 from avlite.c40_execution.c44_sync_executer import SyncExecuter  # noqa: F401 — registers in ExecutionStrategy.registry
 from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim  # noqa: F401 — registers in WorldBridge.registry
+from avlite.c40_execution import c47_execution_tasks  # noqa: F401 — registers TaskStrategy.registry
 
 
 
@@ -79,6 +81,7 @@ def executor_factory(
     global_planner_strategy_name = ExecutionSettings.c40_global_planner,
     local_planner_strategy_name = ExecutionSettings.c40_local_planner,
     controller_strategy_name = ExecutionSettings.c40_controller,
+    execution_task_names = None,
     perception_dt = ExecutionSettings.c40_perception_dt,
     localization_dt = ExecutionSettings.c40_localization_dt,
     replan_dt = ExecutionSettings.c40_replan_dt,
@@ -91,6 +94,8 @@ def executor_factory(
     """
     Factory method to create an instance of the ExecutionStrategy class based on the provided configuration.
     """
+    if execution_task_names is None:
+        execution_task_names = list(ExecutionSettings.c40_execution_tasks)
 
     if load_plugins:
         sync_builtin_plugins(list(AppSettings.c62_default_plugins))
@@ -274,6 +279,20 @@ def executor_factory(
     #################
     # Creating Executer
     #################
+    tasks = []
+    for task_name in execution_task_names:
+        name = (task_name or "").strip()
+        if not name:
+            continue
+        task_cls = _RegistryChecks.require_registered(name, TaskStrategy.registry, "execution task")
+        params = inspect.signature(task_cls.__init__).parameters
+        task_kwargs: dict = {}
+        if "perception_model" in params:
+            task_kwargs["perception_model"] = pm
+        elif "pm" in params:
+            task_kwargs["pm"] = pm
+        tasks.append(task_cls(**task_kwargs))
+
     executer_cls = _RegistryChecks.require_registered(executer_type, ExecutionStrategy.registry, "executer")
     kwargs = dict(
         perception_model=pm,
@@ -288,6 +307,7 @@ def executor_factory(
         replan_dt=replan_dt,
         control_dt=control_dt,
         localization_dt=localization_dt,
+        tasks=tasks,
     )
     if issubclass(executer_cls, AsyncThreadedExecuter):
         kwargs["combined_perception_planning"] = async_combined_perception_planning

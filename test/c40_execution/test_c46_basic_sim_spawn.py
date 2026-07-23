@@ -31,13 +31,13 @@ def test_spawn_agent_uses_provided_global_plan():
     sim = BasicSim(ego_state=ego, pm=pm)
     plan = _straight_global_plan()
 
-    agent = AgentState(x=1.0, y=0.0, theta=0.0, velocity=0.0)
+    agent = AgentState(x=1.0, y=0.0, theta=math.pi / 2, velocity=0.0)
     sim.spawn_agent(agent, global_plan=plan)
 
     assert len(pm.agent_vehicles) == 1
     assert agent.agent_id in sim.npc_controllers
     assert agent.velocity == 5.0 * sim.speed_factor
-    assert math.isclose(agent.theta, 0.0, abs_tol=1e-6)
+    assert math.isclose(agent.theta, math.pi / 2, abs_tol=1e-6)
 
 
 def test_spawn_agent_without_global_plan_skips_controller():

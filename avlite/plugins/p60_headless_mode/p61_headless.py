@@ -14,6 +14,7 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
+from avlite.c40_execution.c43_task_strategy import StackEvent
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c61_app_strategy import AppStrategy
 from avlite.c60_apps.c62_factory import executor_factory, load_stack_settings
@@ -394,15 +395,39 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
     if deque_handler not in root_logger.handlers:
         root_logger.addHandler(deque_handler)
 
+    # Driver-owned pace event: wakes the runner on Ctrl+C without living on ExecutionStrategy.
+    pace = threading.Event()
+    rdt = replan_dt if replan_dt is not None else executer.replan_dt
+    cdt = control_dt if control_dt is not None else executer.control_dt
+    pdt = executer.perception_dt
+    ldt = executer.localization_dt
+    sdt = ExecutionSettings.c40_sim_dt
+
+    def _runner() -> None:
+        executer.reset()
+        executer.task_runner.notify(StackEvent.EXECUTION_STARTED)
+        while not executer.stopped:
+            try:
+                executer.step(
+                    perception_dt=pdt,
+                    control_dt=cdt,
+                    replan_dt=rdt,
+                    localization_dt=ldt,
+                    sim_dt=sdt,
+                    call_replan=True,
+                    call_control=True,
+                    call_perceive=perceive,
+                    call_localize=True,
+                )
+            except Exception as e:
+                log.error("Headless step error: %s", e, exc_info=True)
+            if executer.stopped:
+                break
+            if pace.wait(timeout=cdt):
+                break
+
     runner = threading.Thread(
-        target=executer.run,
-        kwargs={
-            "replan_dt": replan_dt,
-            "control_dt": control_dt,
-            "call_replan": True,
-            "call_control": True,
-            "call_perceive": perceive,
-        },
+        target=_runner,
         daemon=True,
         name="avlite-headless-runner",
     )
@@ -428,6 +453,7 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
                 live.update(_build_layout(executer, profile, log_buffer, _log_height(), stats_panel_height))
     except KeyboardInterrupt:
         try:
+            pace.set()
             executer.stop()
         except Exception:
             pass

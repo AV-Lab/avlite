@@ -64,6 +64,11 @@ _LAZY: dict[str, str] = {
     # Execution
     "ExecutionStrategy": "avlite.c40_execution.c42_execution_strategy",
     "WorldBridge": "avlite.c40_execution.c41_world_bridge",
+    "TaskStrategy": "avlite.c40_execution.c43_task_strategy",
+    "TaskSchedule": "avlite.c40_execution.c43_task_strategy",
+    "TaskPlacement": "avlite.c40_execution.c43_task_strategy",
+    "StackEvent": "avlite.c40_execution.c43_task_strategy",
+    "TaskRunner": "avlite.c40_execution.c43_task_strategy",
     # Apps
     "AppStrategy": "avlite.c60_apps.c61_app_strategy",
     # -- Perception / world data models -------------------------------------
@@ -73,6 +78,7 @@ _LAZY: dict[str, str] = {
     "EgoState": "avlite.c10_perception.c11_perception_model",
     "AgentType": "avlite.c10_perception.c11_perception_model",
     "EGO_AGENT_ID": "avlite.c10_perception.c11_perception_model",
+    "SingleTrajectory": "avlite.c10_perception.c11_perception_model",
     "Map": "avlite.c10_perception.c11_perception_model",
     "HDMap": "avlite.c10_perception.c11_perception_model",
     "RaceMap": "avlite.c10_perception.c11_perception_model",
@@ -147,6 +153,7 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         Map,
         PerceptionModel,
         RaceMap,
+        SingleTrajectory,
         State,
     )
     from avlite.c10_perception.c12_perception_strategy import (
@@ -184,6 +191,13 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
     from avlite.c30_control.c39_settings import ControlSettings
     from avlite.c40_execution.c41_world_bridge import WorldBridge
     from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+    from avlite.c40_execution.c43_task_strategy import (
+        StackEvent,
+        TaskPlacement,
+        TaskRunner,
+        TaskSchedule,
+        TaskStrategy,
+    )
     from avlite.c40_execution.c49_settings import ExecutionSettings
     from avlite.c50_common.c51_capabilities import (
         AnyOf,

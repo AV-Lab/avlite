@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-23
+
+### Added
+- Planning: `c28_preferred_extra_clearance` — gate hard-preferring centerline (`d≈0`) lattice edges on corridor-to-obstacle clearance beyond the collision hard floor
+- Collision: `check_collision` returns `min_clearance` (approx. line–obstacle distance minus ego half-width + safety margin); lattice edges store it for cost
+- Execution: `TaskStrategy` / `TaskRunner` (`c43`) with `EVERY_CYCLE` / `INTERVAL` / `ON_EVENT`; lifecycle + domain `notify`; built-ins `GoalArrivalMonitor`, `StopExecAtGoalTask`, `TelemetryTask` (`c47`); setting `c40_execution_tasks`
+- Planning: optional `stack_event` on `LocalPlan` / `GlobalPlan`; executer harvests after replan
+- Visualizer: Execution **Tasks** chip row (registry `+` picker, per-chip ⓘ / ×, wraps on resize)
+- Visualizer: local-plan right-click spawn — hold and drag to set agent heading (blue orientation arrow); spawn on release
+
+### Fixed
+- Collision: ego trajectory corridor extends by half vehicle length before buffering so front/rear body is covered (flat-cap tube)
+- Lattice: when an agent blocks ahead, level-0 / partial-replan / ShortestPath share lateral preference via `_candidates_for_selection` (avoids early cut-back into side traffic)
+- Lattice: `_edge_cost` uses real `min_clearance` (was a dead default); d≈0 hard-prefer only when clearance ≥ `c28_preferred_extra_clearance`
+- Velocity: tight-gap speed-match commits a max-decel step at `current_wp` so async replan actually brakes (was re-commanding current speed at the stop budget)
+- Velocity: matched-speed follow below the cruise-gap threshold uses the gap-aware kinematic profile instead of only painting lead speed
+
+### Changed
+- Execution: `BasicSim.spawn_agent` keeps the caller-provided `theta` (no longer overwrites with route heading under NPC control)
+- Execution: remove `ExecutionStrategy.run()` and `_stop_event`; cooperative cancel is `stop()` / public `stopped` flag. Headless owns the paced step loop and Ctrl+C `threading.Event`; `AsyncThreadedExecuter` drops `__kill_flag` and checks `stopped`
+- Execution: public `task_runner` (was `_task_runner`); remove `ExecutionStrategy.notify` — callers use `executer.task_runner.notify(event)`; `TaskRunner` binds its owning executer
+- Execution: world-capability sensor filtering lives in `WorldBridge.get_sensor_frame()` (removed `ExecutionStrategy._fetch_sensor_frame`); `ExecutionStrategy` public API grouped above private helpers
+- Visualizer: contract popup soft-requirement label `may ·` → `optional ·` (API still `MayUse`)
+- Capabilities: shared `CapabilityGroup` base for `AnyOf`/`MayUse` with reload-safe `.matches()`; structured `combine_stack_requirements(..., soft=)` (keeps each `AnyOf`, merges `MayUse`, strips AND-covered caps) replaces `required_stack_capabilities` / `used_stack_capabilities` / `flatten_stack_requirements`; removed `is_any_of` / `is_may_use` / `is_requirement_wrapper`
+
 ## [0.4.5] - 2026-07-11
 
 ### Added

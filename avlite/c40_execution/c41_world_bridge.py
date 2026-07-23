@@ -10,6 +10,7 @@ from avlite.c30_control.c31_control_model import ControlCommandBase
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c50_common.c53_stack_datatypes import control_type_for_agent
 from avlite.c50_common.c52_world_sensor_datatypes import (
+    WORLD_CAPABILITY_SENSOR_FIELDS,
     GnssReading,
     ImuReading,
     SensorFrame,
@@ -145,9 +146,13 @@ class WorldBridge(ABC):
         return None
 
     def get_sensor_frame(self, agent_id: int = EGO_AGENT_ID) -> SensorFrame:
-        """Compose a sensor snapshot from individual getters. Override for atomic reads."""
+        """Compose a sensor snapshot from individual getters, respecting Bridge Setting filters.
+
+        Override for atomic reads; call :meth:`_apply_world_capability_filter` on the
+        returned frame if you bypass this default compose path.
+        """
         if agent_id == EGO_AGENT_ID:
-            return SensorFrame(
+            frame = SensorFrame(
                 rgb=self.get_rgb_image(),
                 depth=self.get_depth_image(),
                 lidar=self.get_lidar_data(),
@@ -155,14 +160,34 @@ class WorldBridge(ABC):
                 gnss=self.get_gnss(),
                 wheel_odometry=self.get_wheel_odometry(),
             )
-        return SensorFrame(
-            rgb=self.get_rgb_image(agent_id=agent_id),
-            depth=self.get_depth_image(agent_id=agent_id),
-            lidar=self.get_lidar_data(agent_id=agent_id),
-            imu=self.get_imu(agent_id=agent_id),
-            gnss=self.get_gnss(agent_id=agent_id),
-            wheel_odometry=self.get_wheel_odometry(agent_id=agent_id),
-        )
+        else:
+            frame = SensorFrame(
+                rgb=self.get_rgb_image(agent_id=agent_id),
+                depth=self.get_depth_image(agent_id=agent_id),
+                lidar=self.get_lidar_data(agent_id=agent_id),
+                imu=self.get_imu(agent_id=agent_id),
+                gnss=self.get_gnss(agent_id=agent_id),
+                wheel_odometry=self.get_wheel_odometry(agent_id=agent_id),
+            )
+        return self._apply_world_capability_filter(frame)
+
+    @staticmethod
+    def _apply_world_capability_filter(frame: SensorFrame) -> SensorFrame:
+        """Null sensor fields whose world capabilities are disabled in Bridge Setting."""
+        cleared: set[str] = set()
+        for cap, field in WORLD_CAPABILITY_SENSOR_FIELDS.items():
+            if field is None or field in cleared:
+                continue
+            if not is_world_capability_enabled(cap):
+                # LiDAR: keep the field if either 2D or 3D is still provided.
+                peers = [
+                    c for c, f in WORLD_CAPABILITY_SENSOR_FIELDS.items() if f == field
+                ]
+                if any(is_world_capability_enabled(c) for c in peers):
+                    continue
+                setattr(frame, field, None)
+                cleared.add(field)
+        return frame
 
     def _require_ego_agent(self, agent_id: int, method: str) -> None:
         if agent_id != EGO_AGENT_ID:

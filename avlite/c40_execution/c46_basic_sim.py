@@ -113,7 +113,6 @@ class BasicSim(WorldBridge):
             velocity=[v * self.speed_factor for v in ref.velocity],
         )
         tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
-        agent_state.theta = tj.get_current_heading()
         agent_state.velocity = tj.velocity[tj.current_wp]
 
         controller = StanleyController(tj=tj)

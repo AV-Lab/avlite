@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -14,15 +13,15 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import (
     WorldBridge,
-    is_world_capability_enabled,
     is_world_stack_capability_enabled,
 )
-from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
-from avlite.c50_common.c52_world_sensor_datatypes import (
-    WORLD_CAPABILITY_SENSOR_FIELDS,
-    SensorFrame,
+from avlite.c40_execution.c43_task_strategy import (
+    StackEvent,
+    TaskPlacement,
+    TaskRunner,
+    TaskStrategy,
 )
+from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
 from avlite.c50_common.c56_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
@@ -45,6 +44,7 @@ class ExecutionStrategy(ABC):
         replan_dt=0.5,
         control_dt=0.01,
         localization_dt=0.1,
+        tasks: Optional[list[TaskStrategy]] = None,
     ):
         """
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
@@ -58,6 +58,7 @@ class ExecutionStrategy(ABC):
         self.local_planner: Optional[LocalPlanningStrategy] = local_planner
         self.controller: Optional[ControlStrategy] = controller
         self.world: WorldBridge = world
+        self.task_runner = TaskRunner(tasks or [], executer=self)
 
         self.perception_fps: float = 0.0
         self.planner_fps: float = 0.0
@@ -77,136 +78,47 @@ class ExecutionStrategy(ABC):
         self._control_fps_tracker = FpsTracker()
         self._localization_fps_tracker = FpsTracker()
 
-        self._stop_event = threading.Event()
+        self.stopped = False
 
         self._localization_missing_warned = False
 
         self._validate_stack()
 
-    def _can_actuate(self) -> bool:
-        """Whether the ego may be actuated this tick.
+    # --- public API ---
 
-        Actuation requires an available ego pose source: either a localization
-        strategy that provides ``LOCALIZATION`` or ground-truth localization from
-        the world. Without it there is no trustworthy ego pose, so the vehicle
-        must not move (warns once per state transition).
+    def dispatch_task(self, task: TaskStrategy, event: StackEvent | None = None,) -> None:
+        """Run a due task, honoring :attr:`TaskStrategy.placement` when possible.
+
+        Base implementation always runs ``INLINE``. Non-INLINE placements log a
+        warning and fall back to INLINE until a concrete executer overrides this.
         """
-        if StackCapability.LOCALIZATION in self.available_stack_capabilities():
-            self._localization_missing_warned = False
-            return True
-        if not self._localization_missing_warned:
+        if task.placement is not TaskPlacement.INLINE:
             log.warning(
-                "LOCALIZATION unavailable (no localization strategy or ground-truth "
-                "localization provided); halting ego control."
+                "Task %s requested placement %s; running INLINE",
+                type(task).__name__,
+                task.placement.name,
             )
-            self._localization_missing_warned = True
-        return False
+        task.execute(self, event=event)
 
     def available_stack_capabilities(self) -> set:
         """StackCapabilities provided by the assembled stack plus world ground truth."""
         caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
-        for module in (
-            self.perception,
-            self.localization,
-            self.mapping,
-            self.global_planner,
-            self.local_planner,
-            self.controller,
-        ):
+        for _, module in self._stack_modules():
             if module is not None:
                 caps |= module.stack_capabilities
         return caps
-
-    def _validate_stack(self) -> None:
-        """Raise on unmet module stack_requirements; warn on world deps and duplicates."""
-        available = self.available_stack_capabilities()
-        if not satisfies_requirements(self.world.stack_requirements, available):
-            log.warning(
-                "world bridge %s stack_requirements not satisfied: required %s "
-                "(available: %s).",
-                type(self.world).__name__,
-                self.world.stack_requirements,
-                available,
-            )
-        for label, module in (
-            ("perception", self.perception),
-            ("localization", self.localization),
-            ("mapping", self.mapping),
-            ("global planner", self.global_planner),
-            ("local planner", self.local_planner),
-            ("controller", self.controller),
-        ):
-            if module is None:
-                continue
-            if not satisfies_requirements(module.stack_requirements, available):
-                raise ValueError(
-                    f"{label} strategy {module.__class__.__name__} stack_requirements "
-                    f"not satisfied: required {module.stack_requirements} "
-                    f"(available: {available})."
-                )
-
-        providers: dict = {}
-        world_caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
-        for cap in world_caps:
-            providers.setdefault(cap, []).append(f"world/{type(self.world).__name__}")
-        for label, module in (
-            ("perception", self.perception),
-            ("localization", self.localization),
-            ("mapping", self.mapping),
-            ("global planner", self.global_planner),
-            ("local planner", self.local_planner),
-            ("controller", self.controller),
-        ):
-            if module is None:
-                continue
-            for cap in module.stack_capabilities:
-                providers.setdefault(cap, []).append(f"{label}/{module.__class__.__name__}")
-        for cap, sources in providers.items():
-            if len(sources) > 1:
-                log.warning(
-                    "StackCapability.%s provided by multiple sources: %s.",
-                    cap.name,
-                    ", ".join(sources),
-                )
 
     @abstractmethod
     def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True, call_localize=True,) -> None:
         """ Steps the executer for one time step. This method should be implemented by the specific executer class. """
         pass
 
-    def run(self, replan_dt=None, control_dt=None, call_replan=True, call_control=True, call_perceive=False, call_localize=True):
-        """Generic run loop that repeatedly calls step() until stop() is called.
-
-        Subclasses may override for specialized scheduling.
-        """
-        self.reset()
-        self._stop_event.clear()
-        rdt = replan_dt if replan_dt is not None else self.replan_dt
-        cdt = control_dt if control_dt is not None else self.control_dt
-        pdt = self.perception_dt
-        ldt = self.localization_dt
-        sdt = ExecutionSettings.c40_sim_dt
-        while not self._stop_event.is_set():
-            try:
-                self.step(
-                    perception_dt=pdt,
-                    control_dt=cdt,
-                    replan_dt=rdt,
-                    localization_dt=ldt,
-                    sim_dt=sdt,
-                    call_replan=call_replan,
-                    call_control=call_control,
-                    call_perceive=call_perceive,
-                    call_localize=call_localize,
-                )
-            except Exception as e:
-                log.error(f"ExecutionStrategy step error: {e}", exc_info=True)
-            if self._stop_event.wait(timeout=cdt):
-                break
-
     def stop(self):
-        """Signal run() to exit. Subclasses may override to also tear down threads/resources."""
-        self._stop_event.set()
+        """Request cooperative shutdown. Subclasses may override to tear down threads/resources."""
+        if self.stopped:
+            return
+        self.stopped = True
+        self.task_runner.notify(StackEvent.EXECUTION_STOPPED)
 
     @property
     def ui_poll_delay(self) -> Optional[float]:
@@ -241,24 +153,79 @@ class ExecutionStrategy(ABC):
         self._planner_fps_tracker.reset()
         self._control_fps_tracker.reset()
         self._localization_fps_tracker.reset()
+        self.task_runner.reset()
+        self.stopped = False
+        self.task_runner.notify(StackEvent.EXECUTION_RESET)
 
-    def _fetch_sensor_frame(self) -> SensorFrame:
-        """Build SensorFrame from world bridge, respecting the c41_world_capabilities filter."""
-        frame = self.world.get_sensor_frame()
-        cleared: set[str] = set()
-        for cap, field in WORLD_CAPABILITY_SENSOR_FIELDS.items():
-            if field is None or field in cleared:
+    # --- stack helpers ---
+
+    def _stack_modules(self):
+        """Yield ``(label, module)`` for each assembled stack strategy (may be None)."""
+        yield "perception", self.perception
+        yield "localization", self.localization
+        yield "mapping", self.mapping
+        yield "global planner", self.global_planner
+        yield "local planner", self.local_planner
+        yield "controller", self.controller
+
+    def _validate_stack(self) -> None:
+        """Raise on unmet module stack_requirements; warn on world deps and duplicates."""
+        available = self.available_stack_capabilities()
+        if not satisfies_requirements(self.world.stack_requirements, available):
+            log.warning(
+                "world bridge %s stack_requirements not satisfied: required %s "
+                "(available: %s).",
+                type(self.world).__name__,
+                self.world.stack_requirements,
+                available,
+            )
+        for label, module in self._stack_modules():
+            if module is None:
                 continue
-            if not is_world_capability_enabled(cap):
-                # LiDAR: keep the field if either 2D or 3D is still provided.
-                peers = [
-                    c for c, f in WORLD_CAPABILITY_SENSOR_FIELDS.items() if f == field
-                ]
-                if any(is_world_capability_enabled(c) for c in peers):
-                    continue
-                setattr(frame, field, None)
-                cleared.add(field)
-        return frame
+            if not satisfies_requirements(module.stack_requirements, available):
+                raise ValueError(
+                    f"{label} strategy {module.__class__.__name__} stack_requirements "
+                    f"not satisfied: required {module.stack_requirements} "
+                    f"(available: {available})."
+                )
+
+        providers: dict = {}
+        world_caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
+        for cap in world_caps:
+            providers.setdefault(cap, []).append(f"world/{type(self.world).__name__}")
+        for label, module in self._stack_modules():
+            if module is None:
+                continue
+            for cap in module.stack_capabilities:
+                providers.setdefault(cap, []).append(f"{label}/{module.__class__.__name__}")
+        for cap, sources in providers.items():
+            if len(sources) > 1:
+                log.warning(
+                    "StackCapability.%s provided by multiple sources: %s.",
+                    cap.name,
+                    ", ".join(sources),
+                )
+
+    def _can_actuate(self) -> bool:
+        """Whether the ego may be actuated this tick.
+
+        Actuation requires an available ego pose source: either a localization
+        strategy that provides ``LOCALIZATION`` or ground-truth localization from
+        the world. Without it there is no trustworthy ego pose, so the vehicle
+        must not move (warns once per state transition).
+        """
+        if StackCapability.LOCALIZATION in self.available_stack_capabilities():
+            self._localization_missing_warned = False
+            return True
+        if not self._localization_missing_warned:
+            log.warning(
+                "LOCALIZATION unavailable (no localization strategy or ground-truth "
+                "localization provided); halting ego control."
+            )
+            self._localization_missing_warned = True
+        return False
+
+    # --- tick helpers ---
 
     def _localization_step(self) -> None:
         """Run one localization iteration using the current world capabilities."""
@@ -268,7 +235,7 @@ class ExecutionStrategy(ABC):
         world_ok = satisfies_requirements(self.localization.world_requirements, self.world.world_capabilities)
         stack_ok = satisfies_requirements(self.localization.stack_requirements, self.available_stack_capabilities())
         if world_ok and stack_ok:
-            sensors = self._fetch_sensor_frame()
+            sensors = self.world.get_sensor_frame()
             self.localization.localize(perception_model=self.pm, sensors=sensors)
             self.localization_fps = self._localization_fps_tracker.tick()
         else:
@@ -307,7 +274,7 @@ class ExecutionStrategy(ABC):
         else:
             self.pm.agent_vehicles = []
 
-        sensors = self._fetch_sensor_frame()
+        sensors = self.world.get_sensor_frame()
         self.perception.perceive(perception_model=self.pm, sensors=sensors)
 
         self.perception_fps = self._perception_fps_tracker.tick()
@@ -316,17 +283,33 @@ class ExecutionStrategy(ABC):
         """Run one planning iteration (replan) and update FPS."""
         if not self.local_planner:
             return
-        sensors = self._fetch_sensor_frame()
+        sensors = self.world.get_sensor_frame()
         self.local_planner.replan(perception_model=self.pm, sensors=sensors)
         self.planner_fps = self._planner_fps_tracker.tick()
-    
+        # Harvest optional stack_event stamps from plan artifacts (notify once, then clear).
+        try:
+            local_plan = self.local_planner.get_local_plan()
+        except Exception:
+            local_plan = None
+        if local_plan is not None:
+            event = getattr(local_plan, "stack_event", None)
+            if event is not None:
+                local_plan.stack_event = None
+                self.task_runner.notify(event)
+        gp = getattr(self.local_planner, "global_plan", None)
+        if gp is not None:
+            event = getattr(gp, "stack_event", None)
+            if event is not None:
+                gp.stack_event = None
+                self.task_runner.notify(event)
+
     def _control_step(self, sim_dt: float) -> None:
         """Run one control iteration, apply to world, and update FPS."""
         if not self.controller or not self.local_planner:
             return
         if not self._can_actuate():
             return
-        sensors = self._fetch_sensor_frame()
+        sensors = self.world.get_sensor_frame()
         local_plan = self.local_planner.get_local_plan()
         cmd = self.controller.control(
             self.ego_state, local_plan, control_dt=sim_dt,

@@ -22,7 +22,7 @@ class ConstantVelocityPrediction(PredictionStrategy):
     """
 
     world_requirements = frozenset()
-    stack_requirements = frozenset({MayUse(StackCapability.DETECTION, StackCapability.TRACKING)})
+    stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
     stack_capabilities = frozenset({StackCapability.PREDICTION})
 
     def predict(

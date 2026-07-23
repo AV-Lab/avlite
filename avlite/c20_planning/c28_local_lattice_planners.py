@@ -86,6 +86,7 @@ class Edge:
     collision: bool = False
     collision_agent_velocity: float = 0.0
     collision_idx: int = -1  # Index of the collision point in the local trajectory
+    min_clearance: float = 10.0  # Corridor-to-obstacle gap (m); 0 on collision
     cost: float = 0
     risk: float = 0
     boundary_violation: bool = False  # True if the path exits road boundaries (with clearance)
@@ -190,7 +191,8 @@ class Lattice:
                     assert node != next_node
                     edge = Edge(start=node, end=next_node, global_tj=self.global_trajectory, num_of_points=self.num_of_points)
                     if pm is not None:
-                        edge.collision, edge.collision_idx, edge.collision_agent_velocity = check_collision(
+                        (edge.collision, edge.collision_idx,
+                         edge.collision_agent_velocity, edge.min_clearance) = check_collision(
                             pm, edge.local_trajectory,
                             obstacle_polygons=obstacle_polygons,
                             min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
@@ -606,24 +608,36 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         Compute cost for edge selection balancing reference tracking and safety.
         Lower cost = better edge.
         """
-        # Cost for deviation from reference (d=0)
         ref_cost = abs(edge.end.d)
-
-        # Safety cost: prefer edges with more clearance (higher min_clearance = lower cost)
-        clearance = getattr(edge, 'min_clearance', 10.0)
+        clearance = edge.min_clearance
         safety_cost = 1.0 / (clearance + 0.1)  # inverse: more clearance = lower cost
-
         return ref_cost + self.safety_margin_weight * safety_cost * 10.0
 
     def _select_best_edge(self, edges: list):
         """Select best edge from candidates considering both reference and safety.
-        Hard-prefers edges ending at d=0 (within tolerance) when any exist."""
+
+        Hard-prefers d≈0 only when that edge still has comfortable extra clearance;
+        otherwise all candidates compete on weighted cost so wider paths can win.
+        """
         if not edges:
             return None
-        d0_edges = [e for e in edges if abs(e.end.d) < PlanningSettings.c28_d0_reference_threshold]
+        d0 = PlanningSettings.c28_d0_reference_threshold
+        preferred = PlanningSettings.c28_preferred_extra_clearance
+        d0_edges = [
+            e for e in edges
+            if abs(e.end.d) < d0 and e.min_clearance >= preferred
+        ]
         if d0_edges:
             return min(d0_edges, key=self._edge_cost)
         return min(edges, key=self._edge_cost)
+
+    def _candidates_for_selection(self, edges: list[Edge], agent_blocks_ahead: bool) -> list[Edge]:
+        """Prefer lateral targets while an agent blocks ahead (overtake / sideswipe)."""
+        if not edges or not agent_blocks_ahead:
+            return edges
+        d0 = PlanningSettings.c28_d0_reference_threshold
+        lateral = [e for e in edges if abs(e.end.d) >= d0]
+        return lateral if lateral else edges
 
     def _agent_blocks_ahead(self) -> bool:
         if len(self.pm.agent_vehicles) == 0:
@@ -660,19 +674,16 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         return candidates
 
     def _build_selected_chain(self, feasible_level0: list[Edge], agent_blocks_ahead: bool) -> Edge:
-        edge = self._select_best_edge(feasible_level0)
+        edge = self._select_best_edge(
+            self._candidates_for_selection(feasible_level0, agent_blocks_ahead)
+        )
         current_plan = edge
-        d0_threshold = PlanningSettings.c28_d0_reference_threshold
         while edge is not None and len(edge.next_edges) > 0:
             next_feasible = self._feasible_candidates(edge.next_edges, agent_blocks_ahead)
             if not next_feasible:
                 edge.selected_next_local_plan = None
                 break
-            candidates = next_feasible
-            if agent_blocks_ahead:
-                lateral = [e for e in candidates if abs(e.end.d) >= d0_threshold]
-                if lateral:
-                    candidates = lateral
+            candidates = self._candidates_for_selection(next_feasible, agent_blocks_ahead)
             edge.selected_next_local_plan = self._select_best_edge(candidates)
             edge = edge.selected_next_local_plan
         return current_plan
@@ -917,7 +928,8 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
                 global_tj=self.global_trajectory,
                 num_of_points=self.num_of_edge_points,
             )
-            edge.collision, edge.collision_idx, edge.collision_agent_velocity = check_collision(
+            (edge.collision, edge.collision_idx,
+             edge.collision_agent_velocity, edge.min_clearance) = check_collision(
                 self.pm, edge.local_trajectory,
                 obstacle_polygons=obstacle_polygons,
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
@@ -930,12 +942,10 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         self._profile_lattice_edges(new_edges)
 
         agent_blocks_ahead = self._agent_blocks_ahead()
-        feasible = self._feasible_candidates(new_edges, agent_blocks_ahead)
-        if agent_blocks_ahead:
-            d0_threshold = PlanningSettings.c28_d0_reference_threshold
-            lateral = [e for e in feasible if abs(e.end.d) >= d0_threshold]
-            if lateral:
-                feasible = lateral
+        feasible = self._candidates_for_selection(
+            self._feasible_candidates(new_edges, agent_blocks_ahead),
+            agent_blocks_ahead,
+        )
 
         if feasible:
             best = self._select_best_edge(feasible)
@@ -971,7 +981,6 @@ class ShortestPathLatticePlanner(GreedyLatticePlanner):
         # first, then break ties by the smallest summed _edge_cost. As a side effect the
         # chain is materialized by wiring each edge's selected_next_local_plan to its best
         # successor, so the caller can walk selected_next_local_plan from the returned edge.
-        d0_threshold = PlanningSettings.c28_d0_reference_threshold
         best_cont: dict[int, tuple[int, float]] = {}  # id(edge) -> (depth, total_cost)
 
         def solve(edge: Edge) -> tuple[int, float]:
@@ -983,10 +992,7 @@ class ShortestPathLatticePlanner(GreedyLatticePlanner):
             # Only expand into feasible successors, applying the same collision/boundary
             # filtering and (when an agent blocks ahead) lateral-preference that greedy uses.
             nexts = self._feasible_candidates(edge.next_edges, agent_blocks_ahead) if edge.next_edges else []
-            if agent_blocks_ahead and nexts:
-                lateral = [e for e in nexts if abs(e.end.d) >= d0_threshold]
-                if lateral:
-                    nexts = lateral
+            nexts = self._candidates_for_selection(nexts, agent_blocks_ahead)
 
             # Pick the successor whose subtree is deepest, then cheapest on ties.
             best_next: Optional[Edge] = None
@@ -1003,10 +1009,12 @@ class ShortestPathLatticePlanner(GreedyLatticePlanner):
             best_cont[id(edge)] = result
             return result
 
-        # Root the search at each feasible level-0 edge and keep the globally best one.
+        # Root the search at each feasible level-0 edge (with lateral preference) and keep
+        # the globally best one.
+        roots = self._candidates_for_selection(feasible_level0, agent_blocks_ahead)
         best_edge: Optional[Edge] = None
         best_val: Optional[tuple[int, float]] = None
-        for e in feasible_level0:
+        for e in roots:
             depth_e, cost_e = solve(e)
             if best_val is None or depth_e > best_val[0] or (depth_e == best_val[0] and cost_e < best_val[1]):
                 best_val, best_edge = (depth_e, cost_e), e

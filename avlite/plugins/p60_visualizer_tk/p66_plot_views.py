@@ -234,7 +234,7 @@ class GlobalPlanPlotView(ttk.Frame):
 
                     self.root.exec.global_planner.plan(
                         perception_model=self.root.exec.pm,
-                        sensors=self.root.exec._fetch_sensor_frame(),
+                        sensors=self.root.exec.world.get_sensor_frame(),
                     )
                     if len(self.root.exec.global_planner.global_plan.path) == 0:
                         log.warning("No global plan found. Please check the start and goal points.")
@@ -322,7 +322,15 @@ class LocalPlanPlotView(ttk.Frame):
         self.teleport_y = 0.0
         self.teleport_s = 0.0
         self.teleport_d = 0.0
-        self.teleport_orientation = 0.0  
+        self.teleport_orientation = 0.0
+
+        self.right_mouse_button_pressed = False
+        self.spawn_in_ax1 = True
+        self.spawn_x = 0.0
+        self.spawn_y = 0.0
+        self.spawn_s = 0.0
+        self.spawn_d = 0.0
+        self.spawn_orientation = 0.0
         
 
     def reset(self):
@@ -340,6 +348,12 @@ class LocalPlanPlotView(ttk.Frame):
                     self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
                     self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
                     self.root.update_ui()
+                elif self.right_mouse_button_pressed and self.spawn_in_ax1:
+                    self.spawn_orientation = np.arctan2(y - self.spawn_y, x - self.spawn_x)
+                    self.local_plot.show_vehicle_orientation_ax1(
+                        self.spawn_x, self.spawn_y, self.spawn_orientation, color="blue"
+                    )
+                    self.root.update_ui()
             elif event.inaxes == self.ax2:
                 if self.left_mouse_button_pressed:
                     teleport_orientation = np.arctan2(y - self.teleport_d, x - self.teleport_s)
@@ -348,19 +362,78 @@ class LocalPlanPlotView(ttk.Frame):
                     self.root.exec.world.teleport_ego(self.teleport_x, self.teleport_y,theta)
                     self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
                     self.root.update_ui()
+                elif self.right_mouse_button_pressed and not self.spawn_in_ax1:
+                    plot_theta = np.arctan2(y - self.spawn_d, x - self.spawn_s)
+                    self.local_plot.show_vehicle_orientation_ax2(
+                        s=self.spawn_s, d=self.spawn_d, theta=plot_theta, color="blue"
+                    )
+                    _, _, self.spawn_orientation = (
+                        self.root.exec.local_planner.global_plan.trajectory
+                        .convert_sd_orientation_to_xy_orientation(self.spawn_s, self.spawn_d, plot_theta)
+                    )
+                    self.root.update_ui()
                 self.root.setting.perception_status_text.set(f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
         else:
             self.root.setting.perception_status_text.set("Click on the plot.")
+
+        # Paused-only distance ruler from ego front center to cursor.
+        if (
+            self.root.setting.exec_running
+            or self.left_mouse_button_pressed
+            or self.right_mouse_button_pressed
+            or event.inaxes not in (self.ax1, self.ax2)
+            or self.root.exec is None
+        ):
+            self.local_plot.hide_distance_ruler()
+            return
+        ego = self.root.exec.ego_state
+        ctrl = self.root.exec.controller
+        L_f = float(getattr(ctrl, "ego_distance_front_axle", 2.5) if ctrl is not None else 2.5)
+        fx = float(ego.x) + L_f * float(np.cos(ego.theta))
+        fy = float(ego.y) + L_f * float(np.sin(ego.theta))
+        mx, my = float(event.xdata), float(event.ydata)
+        if event.inaxes == self.ax1:
+            dist = float(np.hypot(mx - fx, my - fy))
+            self.local_plot.show_distance_ruler(self.ax1, fx, fy, mx, my, dist)
+            return
+        # Frenet: draw in (s, d); distance in world XY meters.
+        traj = getattr(getattr(self.root.exec, "local_planner", None), "global_trajectory", None)
+        if traj is None:
+            self.local_plot.hide_distance_ruler()
+            return
+        fs, fd = traj.convert_xy_to_sd(fx, fy)
+        cx, cy = traj.convert_sd_to_xy(mx, my)
+        dist = float(np.hypot(cx - fx, cy - fy))
+        self.local_plot.show_distance_ruler(self.ax2, fs, fd, mx, my, dist)
 
     def on_mouse_click(self, event):
         if event.button == 3:
             if event.inaxes == self.ax1:
                 x, y = event.xdata, event.ydata
-                self.__spawn_agent(x=x, y=y)
+                self.right_mouse_button_pressed = True
+                self.spawn_in_ax1 = True
+                self.spawn_x = x
+                self.spawn_y = y
+                self.spawn_orientation = self.root.exec.ego_state.theta
+                self.local_plot.show_vehicle_orientation_ax1(
+                    x, y, self.spawn_orientation, color="blue"
+                )
                 self.root.update_ui()
             elif event.inaxes == self.ax2:
                 s, d = event.xdata, event.ydata
-                self.__spawn_agent(d=d, s=s)
+                traj = self.root.exec.local_planner.global_plan.trajectory
+                x, y = traj.convert_sd_to_xy(s, d)
+                self.right_mouse_button_pressed = True
+                self.spawn_in_ax1 = False
+                self.spawn_s = s
+                self.spawn_d = d
+                self.spawn_x = x
+                self.spawn_y = y
+                self.spawn_orientation = self.root.exec.ego_state.theta
+                _, _, path_heading = traj.convert_sd_orientation_to_xy_orientation(s, d, 0.0)
+                self.local_plot.show_vehicle_orientation_ax2(
+                    s=s, d=d, theta=self.spawn_orientation - path_heading, color="blue"
+                )
                 self.root.update_ui()
 
         elif event.button == 1:
@@ -408,6 +481,18 @@ class LocalPlanPlotView(ttk.Frame):
             self.root.exec.controller.reset()
             self.root.update_ui()
             log.debug(f"Teleport Ego to X: {self.teleport_x:.2f}, Y: {self.teleport_y:.2f}, Orientation: {self.teleport_orientation:.2f}")
+        elif event.button == 3 and self.right_mouse_button_pressed:
+            self.right_mouse_button_pressed = False
+            if self.spawn_in_ax1:
+                self.__spawn_agent(x=self.spawn_x, y=self.spawn_y, theta=self.spawn_orientation)
+            else:
+                self.__spawn_agent(s=self.spawn_s, d=self.spawn_d, theta=self.spawn_orientation)
+            self.local_plot.clear_tmp_plots()
+            self.root.update_ui()
+            log.debug(
+                f"Spawn Agent at X: {self.spawn_x:.2f}, Y: {self.spawn_y:.2f}, "
+                f"Orientation: {self.spawn_orientation:.2f}"
+            )
 
 
     def on_mouse_scroll(self, event, increment=10):

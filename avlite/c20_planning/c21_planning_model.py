@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from dataclasses import dataclass, field
 from enum import Enum, auto
 import logging
@@ -8,6 +10,9 @@ import json
 from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker, convert_sd_path_to_xy_path
+
+if TYPE_CHECKING:
+    from avlite.c40_execution.c43_task_strategy import StackEvent
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +43,9 @@ class GlobalPlan:
     # Optional HDMap and lane path for global planning
     hdmap: Optional[HDMap] = None  
     lane_path: Optional[list[HDMap.Lane]] = None
+
+    # Optional outcome signal for TaskRunner harvest (see StackEvent); default None.
+    stack_event: Optional[StackEvent] = None
 
     @staticmethod
     def is_loadable(path: str | Path) -> bool:
@@ -148,6 +156,9 @@ class LocalPlan:
 
     # High-level intent set by the behavioral planning stage of the pipeline.
     behavior: LocalBehavior = LocalBehavior.CRUISE
+
+    # Optional outcome signal for TaskRunner harvest (see StackEvent); default None.
+    stack_event: Optional[StackEvent] = None
 
     @classmethod
     def from_trajectory(cls, trajectory: TrajectoryTracker) -> "LocalPlan":

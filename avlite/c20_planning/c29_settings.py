@@ -62,6 +62,10 @@ class PlanningSettingsSchema(SettingsSchema):
     c28_max_lateral_accel: float = Field(default=4.0, description="Max lateral acceleration for velocity profiling (m/s²).")
     c28_min_curvature_velocity: float = Field(default=3.0, description="Minimum velocity on high-curvature segments (m/s).")
     c28_d0_reference_threshold: float = Field(default=0.2, description="Frenet d₀ reference threshold (m).")
+    c28_preferred_extra_clearance: float = Field(
+        default=0.5,
+        description="Extra corridor-to-obstacle clearance (m) required before hard-preferring a d≈0 edge; below this, all candidates are scored by weighted cost so wider paths can win.",
+    )
     c28_allow_curvature_fallback: bool = Field(default=False, description="Allow fallback when curvature limits block plan.")
     c28_allow_boundary_violation_fallback: bool = Field(default=False, description="Allow fallback on boundary violation.")
 

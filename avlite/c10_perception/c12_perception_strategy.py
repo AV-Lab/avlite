@@ -3,12 +3,10 @@ from abc import ABC, abstractmethod
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
 from avlite.c50_common.c51_capabilities import (
+    AnyOf,
     MayUse,
     WorldCapability,
     StackCapability,
-    is_any_of,
-    is_may_use,
-    is_requirement_wrapper,
 )
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
@@ -206,14 +204,14 @@ class PerceptionPipeline(PerceptionStrategy):
                 reqs |= child.stack_requirements
         # Drop MayUse members already covered by hard requirements (e.g. tracker
         # hard DETECTION + predictor MayUse(DETECTION, TRACKING) → soft TRACKING).
-        hard = {r for r in reqs if not is_requirement_wrapper(r)}
+        hard = {r for r in reqs if not (AnyOf.matches(r) or MayUse.matches(r))}
         pruned: set = set(hard)
         for r in reqs:
-            if is_may_use(r):
+            if MayUse.matches(r):
                 soft = r.capabilities - hard
                 if soft:
                     pruned.add(MayUse(*soft))
-            elif is_any_of(r):
+            elif AnyOf.matches(r):
                 pruned.add(r)
         return pruned
 

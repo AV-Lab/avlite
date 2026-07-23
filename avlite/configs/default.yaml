@@ -67,6 +67,7 @@ c20_planning:
   c28_no_plan_release_ticks: 3
   c28_num_of_edge_points: 10
   c28_planning_horizon: 3
+  c28_preferred_extra_clearance: 0.5
   c28_replan_wait_time: 2.5
   c28_safety_margin_weight: 0.3
   c28_sample_distribution: 1
@@ -99,12 +100,14 @@ c30_control:
   c34_stanley_valpha: 0.8
   c34_stanley_vbeta: 0.01
   c34_stanley_vgamma: 0.3
+  c35_bubble_radius: 1.0
   c35_cruise_velocity: 5.0
   c35_lidar_z_max: 2.0
   c35_lidar_z_min: -1.5
   c35_lookahead_distance: 8.0
   c35_lookahead_speed_gain: 0.0
   c35_max_lookahead: 20.0
+  c35_min_gap_width: 0.2
   c35_min_lookahead: 3.0
   c35_valpha: 0.8
   c35_vbeta: 0.01
@@ -115,6 +118,7 @@ c40_execution:
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_executer_type: AsyncThreadedExecuter
+  c40_execution_tasks: []
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c40_local_planner: ShortestPathLatticePlanner

@@ -266,7 +266,9 @@ class PluginPaths:
             if path.is_dir():
                 return path
 
-        repo_relative = PluginPaths.repo_root() / stored
+        # Repo-relative, or heal corrupted ~/avlite-*-plugins/... (CWD-resolved) forms.
+        rel = stored.removeprefix("~/") if stored.startswith("~/") else stored
+        repo_relative = PluginPaths.repo_root() / rel
         if repo_relative.is_dir():
             return repo_relative.resolve()
 
@@ -298,18 +300,24 @@ class PluginPaths:
 
     @staticmethod
     def normalize_stored(name: str, path_or_stored: str) -> str:
-        """Normalize install locator for YAML: ``~/...``, repo-relative, or absolute."""
+        """Normalize install locator: name sentinel, repo-relative, ``~/...``, or absolute."""
         if not path_or_stored or path_or_stored == name:
-            return PluginPaths.format_display(PluginPaths.install_dir() / name)
-        path = Path(path_or_stored).expanduser().resolve()
+            return name
+        if path_or_stored.startswith("~/") or Path(path_or_stored).expanduser().is_absolute():
+            path = Path(path_or_stored).expanduser().resolve()
+        else:
+            path = (PluginPaths.repo_root() / path_or_stored).resolve()
         try:
-            rel = path.relative_to(PluginPaths.repo_root())
-            return rel.as_posix()
+            path.relative_to(PluginPaths.install_dir())
+            return name
         except ValueError:
             pass
         try:
-            rel = path.relative_to(Path.home())
-            return "~/" + rel.as_posix()
+            return path.relative_to(PluginPaths.repo_root()).as_posix()
+        except ValueError:
+            pass
+        try:
+            return "~/" + path.relative_to(Path.home()).as_posix()
         except ValueError:
             pass
         return str(path)

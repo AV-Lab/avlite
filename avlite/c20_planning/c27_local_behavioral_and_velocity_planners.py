@@ -133,8 +133,8 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
                     target_vel,
                 )
                 return
-        self._apply_speed_match_profile(trajectory, collision_idx, target_vel)
-        self._finalize_velocity(trajectory, ref_velocity, collision_idx, target_vel)
+        profile_target = self._apply_speed_match_profile(trajectory, collision_idx, target_vel)
+        self._finalize_velocity(trajectory, ref_velocity, collision_idx, profile_target)
 
     def profile_trajectory(
         self,
@@ -164,7 +164,7 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
                     min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
                     obstacle_inflation_margin=PlanningSettings.c20_obstacle_inflation_margin,
                 )
-            hit, collision_idx, agent_vel = check_collision(
+            hit, collision_idx, agent_vel, _ = check_collision(
                 self.pm,
                 trajectory,
                 obstacle_polygons=obstacle_polygons,
@@ -200,39 +200,42 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
         return ego_half + lead_half + self._follow_gap_buffer
 
     def _effective_stop_distance(self, trajectory: TrajectoryTracker, collision_idx: int) -> float:
-        ego = self.pm.ego_vehicle
-        s_ego, _ = trajectory.convert_xy_to_sd(ego.x, ego.y)
-        s_col = float(trajectory.path_s[min(collision_idx, len(trajectory.path_s) - 1)])
-        remaining = max(0.0, s_col - s_ego)
-        return max(0.0, remaining - self._bumper_gap() - self._stopping_safety_buffer)
+        return max(0.0, self._standoff_margin(trajectory, collision_idx))
 
     def _standoff_margin(self, trajectory: TrajectoryTracker, collision_idx: int) -> float:
         """Signed follow-gap margin (m). Negative means the ego is inside the safe gap."""
         ego = self.pm.ego_vehicle
         s_ego, _ = trajectory.convert_xy_to_sd(ego.x, ego.y)
         s_col = float(trajectory.path_s[min(collision_idx, len(trajectory.path_s) - 1)])
-        remaining = s_col - s_ego
-        return remaining - self._bumper_gap() - self._stopping_safety_buffer
+        return (s_col - s_ego) - self._bumper_gap() - self._stopping_safety_buffer
 
     def _apply_speed_match_profile(
         self,
         trajectory: TrajectoryTracker,
         collision_idx: int,
         target_vel: float,
-    ) -> None:
+    ) -> float:
+        """Write a speed-match profile onto ``trajectory``. Returns the finalize target speed."""
         start_wp = trajectory.current_wp
         current_vel = self._current_ego_speed(trajectory)
         max_decel = self._max_deceleration()
         stopping_distance = max(0.0, current_vel ** 2 - target_vel ** 2) / (2 * max_decel)
         effective_distance = self._effective_stop_distance(trajectory, collision_idx)
+        # Same threshold as apply_speed_match large-gap gate (keep formula in one place here for profile).
+        cruise_threshold = stopping_distance + max(self._follow_cruise_min_gap, 2 * stopping_distance)
 
         velocity = np.asarray(trajectory.velocity, dtype=float)
         n = len(velocity)
         upcoming = n - start_wp
         if upcoming <= 0:
-            return
+            return target_vel
 
-        if current_vel <= target_vel + _DECEL_EPS:
+        matched = current_vel <= target_vel + _DECEL_EPS
+        tight = stopping_distance >= effective_distance or (
+            matched and effective_distance < cruise_threshold
+        )
+
+        if matched and not tight:
             end_idx = min(collision_idx + 1, n)
             if current_vel < target_vel - _DECEL_EPS and end_idx > start_wp:
                 ramp_n = min(upcoming, 8, end_idx - start_wp)
@@ -249,29 +252,53 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
                 collision_idx,
                 effective_distance,
             )
-            return
+            return target_vel
 
-        if stopping_distance >= effective_distance:
+        if tight:
             margin = self._standoff_margin(trajectory, collision_idx)
             recovery_target = max(0.0, target_vel + self._follow_gap_gain * min(0.0, margin))
             immediate_cap = math.sqrt(target_vel ** 2 + 2 * max_decel * max(0.0, margin))
             start_speed = min(current_vel, immediate_cap)
-            velocity[start_wp:] = np.linspace(start_speed, recovery_target, upcoming)
+            col = min(max(collision_idx, start_wp), n - 1)
+
+            # Seed flat, then kinematic cap pulls the path down at max decel.
+            velocity[start_wp:col] = start_speed
+            velocity[col:] = recovery_target
+            if margin <= 0:
+                velocity[start_wp] = recovery_target
+            elif current_vel > recovery_target + _DECEL_EPS:
+                # Envelope at the budget equals current speed; under async replan that never
+                # brakes. Commit one path-step of max decel at current_wp.
+                next_i = min(start_wp + 1, n - 1)
+                brake_ds = max(1.0, float(trajectory.path_s[next_i] - trajectory.path_s[start_wp]))
+                velocity[start_wp] = max(
+                    recovery_target,
+                    math.sqrt(max(0.0, current_vel ** 2 - 2 * max_decel * brake_ds)),
+                )
+            self._apply_kinematic_cap(velocity, trajectory, col, recovery_target)
             trajectory.velocity = velocity
+
             if recovery_target < target_vel - _DECEL_EPS:
                 log.info(
                     "Inside follow gap (%.1fm deficit) — braking to %.1f m/s to re-open gap",
                     -margin,
                     recovery_target,
                 )
-            else:
+            elif stopping_distance >= effective_distance:
                 log.warning(
-                    "Insufficient room to speed-match — ramping from %.1f to %.1f m/s over %d waypoints",
-                    start_speed,
+                    "Insufficient room to speed-match — braking from %.1f to %.1f m/s (%.1fm gap)",
+                    float(velocity[start_wp]),
                     recovery_target,
-                    upcoming,
+                    effective_distance,
                 )
-            return
+            else:
+                log.info(
+                    "Following lead at %.1f m/s with gap-aware profile (collision idx %d, %.1fm gap)",
+                    recovery_target,
+                    collision_idx,
+                    effective_distance,
+                )
+            return recovery_target
 
         # Hold current speed until the latest brake point, then ramp down to target.
         target_brake_dist = effective_distance - stopping_distance
@@ -299,6 +326,7 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
             collision_idx,
             effective_distance,
         )
+        return target_vel
 
     def _finalize_velocity(
         self,
