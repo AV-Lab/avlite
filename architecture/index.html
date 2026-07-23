@@ -16,7 +16,7 @@
         <link rel="prev" href="../quick-start/">
       
       
-        <link rel="next" href="../algorithms/">
+        <link rel="next" href="../execution-tasks/">
       
       
       <link rel="icon" href="../imgs/logo-icon.png">
@@ -92,7 +92,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="AVLite" class="md-header__button md-logo" aria-label="AVLite" data-md-component="logo">
       
@@ -217,136 +219,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
-        
-  
-    
-  
-  Home
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../overview/" class="md-tabs__link">
-        
-  
-    
-  
-  Overview
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../quick-start/" class="md-tabs__link">
-        
-  
-    
-  
-  Quick Start
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-    
-  
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
-        
-  
-    
-  
-  Architecture
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../algorithms/" class="md-tabs__link">
-        
-  
-    
-  
-  Algorithms
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../settings-naming/" class="md-tabs__link">
-        
-  
-    
-  
-  Settings Naming
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../plugin-development/" class="md-tabs__link">
-        
-  
-    
-  
-  Plugin Development
-
-      </a>
-    </li>
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -360,10 +232,8 @@
                     
 
 
-  
 
-
-<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="AVLite" class="md-nav__button md-logo" aria-label="AVLite" data-md-component="logo">
       
@@ -505,6 +375,21 @@
       Overview
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flexible-composition-not-only-a-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flexible composition (not only a pipeline)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -679,6 +564,26 @@
   
   
     <li class="md-nav__item">
+      <a href="../execution-tasks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Execution Tasks
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../algorithms/" class="md-nav__link">
         
   
@@ -732,6 +637,26 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Community
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -764,6 +689,21 @@
       Overview
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flexible-composition-not-only-a-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flexible composition (not only a pipeline)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -943,7 +883,17 @@
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>AVLite follows a layered architecture with clear separation between interfaces and implementations. Every layer is extendable: apps, executers, perception/planning/control strategies, and world bridges are all auto-registered strategies, and any of them can be added or overridden by a plugin.</p>
+<p>AVLite follows a layered architecture with clear separation between interfaces and implementations. Every layer is extendable: apps, executers, perception/planning/control strategies, world bridges, and execution tasks (<code>TaskStrategy</code>) as an orthogonal stack extension are all auto-registered strategies, and any of them can be added or overridden by a plugin.</p>
+<h3 id="flexible-composition-not-only-a-pipeline">Flexible composition (not only a pipeline)<a class="headerlink" href="#flexible-composition-not-only-a-pipeline" title="Permanent link">&para;</a></h3>
+<p>The classic bridge → localize → perceive → plan → control flow is the <strong>default shape</strong>, not a requirement.</p>
+<ul>
+<li><strong>Any stack module can be omitted</strong> — leave the class name empty in the profile (<code>c40_perception</code>, <code>c40_localization</code>, <code>c40_mapping</code>, <code>c40_global_planner</code>, <code>c40_local_planner</code>, <code>c40_controller</code>). Perception is not special; planning and control can be empty too.</li>
+<li><strong>End-to-end plugins</strong> are first-class: register in the slot that matches what you <em>produce</em>, declare <code>world_requirements</code> / <code>stack_requirements</code> / <code>stack_capabilities</code>, and read <code>sensors</code> (and optional <code>perception_model</code>) inside that strategy. You do not have to follow a traditional pipelined stack.</li>
+<li>Examples:</li>
+<li><strong>Sensors → control</strong> — a <code>ControlStrategy</code> with e.g. <code>world_requirements = {LIDAR_2D}</code> and <code>stack_capabilities = {CONTROL}</code>, perception and planning left empty: reactive control from the <code>SensorFrame</code>.</li>
+<li><strong>Sensors → local plan</strong> — a <code>LocalPlanningStrategy</code> that consumes sensors and advertises <code>LOCAL_PLAN</code>, with no separate perception module.</li>
+<li>Assembly still validates hard requirements against available capabilities (world-bridge ground truth can satisfy some stack needs). Details: <a href="#capability-system">Capability System</a>.</li>
+</ul>
 <pre class="mermaid"><code>flowchart TB
     subgraph ENTRY["Apps (AppStrategy)"]
         direction LR
@@ -957,9 +907,9 @@
 
     EXEC["Execution (executer strategy)\nSync/async executer and factory"]
 
-    subgraph COMPONENTS["Stack modules (Strategy plugins)"]
+    subgraph COMPONENTS["Stack modules — any may be omitted"]
         direction LR
-        PERC["Perception (optional)\nLocalization · Mapping\nDetection · Tracking · Prediction"]
+        PERC["Perception\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
         CTRL["Control\nStanley · PID · Pure Pursuit · FTG"]
         WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
@@ -971,7 +921,7 @@
     ENTRY --&gt; EXEC
     EXEC --&gt; COMPONENTS
     COMPONENTS --&gt; COMMON</code></pre>
-<p>Every box above the Common layer is a pluggable strategy: apps register via <code>AppStrategy</code>, and the stack modules (perception, planning, control, world bridge) plus the executer itself register via their own strategy base classes. See <a href="#strategy-pattern-with-auto-registration">Strategy Pattern with Auto-Registration</a>.</p>
+<p>Every box above the Common layer is a pluggable strategy: apps register via <code>AppStrategy</code>, and the stack modules (perception, planning, control, world bridge) plus the executer and <code>TaskStrategy</code> tasks register via their own strategy base classes. See <a href="#strategy-pattern-with-auto-registration">Strategy Pattern with Auto-Registration</a> and <a href="../execution-tasks/">Execution Tasks</a>.</p>
 <h2 id="design-patterns">Design Patterns<a class="headerlink" href="#design-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="strategy-pattern-with-auto-registration">Strategy Pattern with Auto-Registration<a class="headerlink" href="#strategy-pattern-with-auto-registration" title="Permanent link">&para;</a></h3>
 <p>All major components use abstract base classes with automatic registration:</p>
@@ -1032,7 +982,7 @@
 <ul>
 <li><strong>Plain caps (AND)</strong> — every listed capability must be present (<code>all · A &amp; B</code> in the visualizer popup).</li>
 <li><strong><code>AnyOf(A, B, …)</code></strong> — hard OR: at least one member must be present (<code>any · A | B</code>).</li>
-<li><strong><code>MayUse(A, B, …)</code></strong> — soft: never blocks assembly; the module uses these when available (<code>may · A | B</code>).</li>
+<li><strong><code>MayUse(A, B, …)</code></strong> — soft: never blocks assembly; the module uses these when available (<code>optional · A | B</code>).</li>
 </ul>
 <p><strong>Runtime payloads (who passes what):</strong> capability enums declare <em>need</em>; they are not a message bus. Key strategy methods also take optional <code>perception_model</code> + <code>sensors</code> (supplied by the executer, pipeline, or UI) <strong>in addition to</strong> any method-specific args:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Shared optional pair on every key method</span>
@@ -1088,7 +1038,7 @@
 <li><code>SLAM</code> - Simultaneous localization and mapping</li>
 </ul>
 <p><strong>Ground truth via the world bridge:</strong> a <code>WorldBridge</code> may advertise <code>stack_capabilities</code> (a <code>set[StackCapability]</code>, default empty) to satisfy downstream <code>stack_requirements</code> without a real module. For example, <code>BasicSim</code> provides <code>{DETECTION, TRACKING, LOCALIZATION}</code> as ground truth and declares <code>stack_requirements = {CONTROL}</code>. Optional <code>WorldBridge.map</code> is simulation-only (e.g. LiDAR geometry) and does <strong>not</strong> advertise <code>MAP_HD</code> / <code>MAP_RACE_TRACK</code>. Typed stack map caps come from a mapping module such as <code>MapReader</code> (holds a pre-loaded <code>Map</code>; advertises <code>MAP_HD</code> or <code>MAP_RACE_TRACK</code> from the concrete type; format sniff/load stays on <code>Map.open</code> / <code>Map.from_path</code>). Global planners require the matching typed cap (<code>HDMapGlobalPlanner</code> → <code>MAP_HD</code>; race planners → <code>MAP_RACE_TRACK</code>). The executer’s <code>available_stack_capabilities()</code> unions every present module’s <code>stack_capabilities</code> with filtered <code>world.stack_capabilities</code>. At stack build it <strong>raises</strong> when a module’s hard <code>stack_requirements</code> are unmet (<code>MayUse</code> never fails that check), and <strong>warns</strong> when the world’s hard requirements are unmet or when the same capability is provided by more than one source.</p>
-<p>In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against <code>available_stack_capabilities</code>, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected <code>WorldBridge</code>: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled <code>all ·</code> / <code>any ·</code> / <code>may ·</code>. Provided caps: green = consumed by another module’s hard or soft (<code>MayUse</code>) requirements or by the world bridge’s <code>stack_requirements</code>; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (<code>c41_world_stack_capabilities</code>); gray = unused. Parent <code>PerceptionPipeline</code> advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use <code>DETECTION</code> and <code>PREDICTION</code> (agents + motion sweeps), not <code>TRACKING</code>. Bridge Setting’s world column (<code>c41_world_capabilities</code>) gates which sensors are fed into <code>SensorFrame</code>.</p>
+<p>In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against <code>available_stack_capabilities</code>, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected <code>WorldBridge</code>: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled <code>all ·</code> / <code>any ·</code> / <code>optional ·</code>. Provided caps: green = consumed by another module’s hard or soft (<code>MayUse</code>) requirements or by the world bridge’s <code>stack_requirements</code>; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (<code>c41_world_stack_capabilities</code>); gray = unused. Parent <code>PerceptionPipeline</code> advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use <code>DETECTION</code> and <code>PREDICTION</code> (agents + motion sweeps), not <code>TRACKING</code>. Bridge Setting’s world column (<code>c41_world_capabilities</code>) gates which sensors are fed into <code>SensorFrame</code>.</p>
 <h3 id="factory-pattern">Factory Pattern<a class="headerlink" href="#factory-pattern" title="Permanent link">&para;</a></h3>
 <p>The executor factory assembles components based on configuration:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">executer</span> <span class="o">=</span> <span class="n">executor_factory</span><span class="p">(</span>
@@ -1100,7 +1050,7 @@
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">controller_strategy_name</span><span class="o">=</span><span class="s2">&quot;StanleyController&quot;</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>It loads plugins, opens <code>ExecutionSettings.c40_map</code> once via <code>Map.open</code> (shared by <code>MapReader</code>, global planners, and <code>WorldBridge</code>), instantiates strategies from registries, and wires everything together. Perception, localization, and mapping strategy names are optional — pass an empty string or omit them to run without that component.</p>
+<p>It loads plugins, opens <code>ExecutionSettings.c40_map</code> once via <code>Map.open</code> (shared by <code>MapReader</code>, global planners, and <code>WorldBridge</code>), instantiates strategies from registries, and wires everything together. <strong>Any</strong> strategy slot may be empty or omitted (perception, localization, mapping, global/local planner, controller) to run without that module — see <a href="#flexible-composition-not-only-a-pipeline">Flexible composition</a>.</p>
 <p>Before calling <code>executor_factory()</code>, load YAML profiles with <code>load_stack_settings(profile, load_plugins)</code> in <a href="../avlite/c60_apps/c62_factory.py"><code>c62_factory.py</code></a>. Each setting reads its section from the single <code>configs/&lt;profile&gt;.yaml</code>: it loads the c10–c40 layer sections, <code>AppSettings</code> (the <code>c69_apps</code> section), and built-in plugin settings (the <code>plugins</code> section); the GUI loads the Tk <code>VisualizationSettings</code> binder separately.</p>
 <h3 id="layer-import-rules">Layer import rules<a class="headerlink" href="#layer-import-rules" title="Permanent link">&para;</a></h3>
 <p>Stack core (<code>c10</code>–<code>c40</code>, <code>c50_common</code>) may import <code>c61_app_strategy</code>, <code>c64_settings_schema</code>, <code>c68_paths</code>, and <code>c69_settings</code> only. Profile export/import operates on a single per-profile YAML file (<code>c65_setting_utils.export_profile</code> / <code>import_profile</code>), with checkboxes to include the <code>c69_apps</code> and <code>plugins</code> sections. Tk binder <code>VisualizationSettings</code> lives in plugin <code>settings.py</code>; <code>c69_settings</code> is schema-only (plugin bootstrap fields use <code>c62_*</code>, consumed by <code>c62_factory</code>).</p>
@@ -1118,13 +1068,14 @@
 <p>Control actuation is a separate layer: <code>ControlCommandBase</code> subclasses and default <code>AgentType</code> → command mapping in c31. The car stack still uses the <code>ControlCommand</code> alias for <code>AckermannControlCommand</code>.</p>
 <h2 id="layers">Layers<a class="headerlink" href="#layers" title="Permanent link">&para;</a></h2>
 <h3 id="perception"><strong>Perception</strong><a class="headerlink" href="#perception" title="Permanent link">&para;</a></h3>
-<p>Optional monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns. Static map types (<code>Map</code>, <code>RaceMap</code>, <code>HDMap</code>) live in c11; OpenDRIVE parsing is in c18. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
+<p>Monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns; leave the slot empty like any other module when unused. Static map types (<code>Map</code>, <code>RaceMap</code>, <code>HDMap</code>) live in c11; OpenDRIVE parsing is in c18. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
 <h3 id="planning"><strong>Planning</strong><a class="headerlink" href="#planning" title="Permanent link">&para;</a></h3>
-<p>Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller. See <a href="../algorithms/">Algorithms</a> for lattice planner details.</p>
+<p>Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller. Either planner slot can be omitted, or a local planner can consume sensors end-to-end without a separate perception module. See <a href="../algorithms/">Algorithms</a> for lattice planner details.</p>
 <h3 id="control"><strong>Control</strong><a class="headerlink" href="#control" title="Permanent link">&para;</a></h3>
-<p>Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. Commands use a <code>ControlCommandBase</code> hierarchy (<code>AckermannControlCommand</code>, <code>DiffDriveControlCommand</code>, <code>BodyVelocityControlCommand</code> in c31); the built-in car stack still returns <code>ControlCommand</code> (Ackermann alias). Per-agent command type defaults are mapped from <code>AgentType</code> in c31. See <a href="../plugin-development/#7-multi-robot-agents-and-control">Plugin Development → Multi-robot agents and control</a>. Pure Pursuit and Follow the Gap are documented in <a href="../algorithms/#control-pure-pursuit-and-follow-the-gap">Algorithms</a>.</p>
+<p>Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. A controller can also be an end-to-end plugin (sensors → actuation) when perception/planning are omitted. Commands use a <code>ControlCommandBase</code> hierarchy (<code>AckermannControlCommand</code>, <code>DiffDriveControlCommand</code>, <code>BodyVelocityControlCommand</code> in c31); the built-in car stack still returns <code>ControlCommand</code> (Ackermann alias). Per-agent command type defaults are mapped from <code>AgentType</code> in c31. See <a href="../plugin-development/#7-multi-robot-agents-and-control">Plugin Development → Multi-robot agents and control</a>. Pure Pursuit and Follow the Gap are documented in <a href="../algorithms/#control-pure-pursuit-and-follow-the-gap">Algorithms</a>.</p>
 <h3 id="execution"><strong>Execution</strong><a class="headerlink" href="#execution" title="Permanent link">&para;</a></h3>
 <p>World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in <code>BasicSim</code> bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via <code>c40_executer_type</code> and provided as optional plugins.</p>
+<p>After each stack tick, <a href="../avlite/c40_execution/c43_task_strategy.py"><code>TaskRunner</code></a> runs <a href="../avlite/c40_execution/c43_task_strategy.py"><code>TaskStrategy</code></a> instances listed in <code>c40_execution_tasks</code> — an orthogonal extension layer for mission logic, supervision, and instrumentation around the drive stack, not a second planner. Stack modules can stamp optional <code>stack_event</code> on <code>PerceptionModel</code>, plans, or control commands; the executer harvests those into <code>task_runner.notify</code>. See <a href="../execution-tasks/#raising-events">Execution Tasks</a>.</p>
 <h3 id="apps"><strong>Apps</strong><a class="headerlink" href="#apps" title="Permanent link">&para;</a></h3>
 <p>CLI and GUI entry points, each an <code>AppStrategy</code> (see <a href="#app-strategy-cligui-entry-points">App Strategy</a>). Built-in apps ship as <code>p60_*</code> plugins and the layer is extendable:</p>
 <ul>
@@ -1137,6 +1088,7 @@
 <h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
 <p>YAML profile load/save, hot reload, plugin discovery (<code>c63_plugins</code>), path resolution (<code>c68_paths</code>), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (<code>c64_settings_schema</code>).</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
+<p>The <strong>typical</strong> pipeline (any stage may be skipped or collapsed into one plugin via <a href="#capability-system">capabilities</a>):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>World Bridge
@@ -1159,11 +1111,12 @@
 </span></code></pre></div>
 <ol>
 <li><strong>World Bridge</strong> provides sensor data (IMU, LiDAR, camera, ground truth)</li>
-<li><strong>Localization</strong> (optional) estimates the ego pose from sensor data, updating <code>PerceptionModel.ego_vehicle</code> in-place</li>
-<li><strong>Perception</strong> (optional) detects/tracks/predicts surrounding agents</li>
-<li><strong>Local Planner</strong> generates trajectory avoiding obstacles</li>
-<li><strong>Controller</strong> computes steering and throttle (Ackermann today; other command types reserved for multi-robot plugins)</li>
+<li><strong>Localization</strong> (if configured) estimates the ego pose from sensor data, updating <code>PerceptionModel.ego_vehicle</code> in-place</li>
+<li><strong>Perception</strong> (if configured) detects/tracks/predicts surrounding agents</li>
+<li><strong>Local Planner</strong> (if configured) generates a trajectory; may read sensors directly when used end-to-end</li>
+<li><strong>Controller</strong> (if configured) computes actuation; may read sensors directly when used end-to-end</li>
 <li><strong>World Bridge</strong> executes control command via <code>control_ego_state</code> (ego path unchanged; <code>control_agent</code> and <code>step()</code> hooks exist for future multi-agent and sub-stepping)</li>
+<li><strong>TaskRunner</strong> runs configured execution tasks after the tick (stack extension: mission, supervision, instrumentation) — see <a href="../execution-tasks/">Execution Tasks</a></li>
 </ol>
 <h2 id="plugin-system">Plugin System<a class="headerlink" href="#plugin-system" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>avlite/
@@ -1180,7 +1133,7 @@
 </span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
 </span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 </span></code></pre></div>
-<p>Plugins are loaded at startup. Classes inheriting from base strategies auto-register. The built-in <code>p60_*</code> packages are the apps themselves (<code>AppStrategy</code> entry points); <code>bootstrap_apps()</code> in <code>c61_app_strategy</code> imports them at startup so their apps register before CLI parsing.</p>
+<p><strong>Load order:</strong> <a href="../avlite/c60_apps/c63_plugins.py"><code>c63_plugins</code></a> discovers and imports built-in / community / member packages into the <code>avlite.plugins</code> namespace; the factory (<code>c62_factory</code>) syncs the active profile’s plugin lists when building the stack; subclasses of strategy ABCs auto-register on import. The built-in <code>p60_*</code> packages are the apps themselves (<code>AppStrategy</code> entry points); <code>bootstrap_apps()</code> in <code>c61_app_strategy</code> imports them at startup so their apps register before CLI parsing.</p>
 <p>See <a href="../plugin-development/">Plugin Development</a> for creating community plugins, pNx naming, and log filtering.</p>
 
 
@@ -1236,13 +1189,13 @@
         
         
           
-          <a href="../algorithms/" class="md-footer__link md-footer__link--next" aria-label="Next: Algorithms">
+          <a href="../execution-tasks/" class="md-footer__link md-footer__link--next" aria-label="Next: Execution Tasks">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Algorithms
+                Execution Tasks
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1305,7 +1258,7 @@
       <div class="md-progress" data-md-component="progress" role="progressbar"></div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.footer", "navigation.instant", "navigation.instant.progress", "toc.follow", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "search.share"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.footer", "navigation.instant", "navigation.instant.progress", "toc.follow", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "search.share"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
@@ -1315,6 +1268,10 @@
         <script src="../javascripts/mathjax.js"></script>
       
         <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+      
+        <script src="../javascripts/community.js"></script>
       
     
   </body>

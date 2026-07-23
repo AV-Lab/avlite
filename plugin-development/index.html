@@ -16,6 +16,8 @@
         <link rel="prev" href="../settings-naming/">
       
       
+        <link rel="next" href="../community/">
+      
       
       <link rel="icon" href="../imgs/logo-icon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.31">
@@ -90,7 +92,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="AVLite" class="md-header__button md-logo" aria-label="AVLite" data-md-component="logo">
       
@@ -215,136 +219,6 @@
       
         
           
-            
-<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
-  <div class="md-grid">
-    <ul class="md-tabs__list">
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
-        
-  
-    
-  
-  Home
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../overview/" class="md-tabs__link">
-        
-  
-    
-  
-  Overview
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../quick-start/" class="md-tabs__link">
-        
-  
-    
-  
-  Quick Start
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../architecture/" class="md-tabs__link">
-        
-  
-    
-  
-  Architecture
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../algorithms/" class="md-tabs__link">
-        
-  
-    
-  
-  Algorithms
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-  
-    <li class="md-tabs__item">
-      <a href="../settings-naming/" class="md-tabs__link">
-        
-  
-    
-  
-  Settings Naming
-
-      </a>
-    </li>
-  
-
-      
-        
-  
-  
-    
-  
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
-        
-  
-    
-  
-  Plugin Development
-
-      </a>
-    </li>
-  
-
-      
-    </ul>
-  </div>
-</nav>
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -358,10 +232,8 @@
                     
 
 
-  
 
-
-<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="AVLite" class="md-nav__button md-logo" aria-label="AVLite" data-md-component="logo">
       
@@ -457,6 +329,26 @@
   
   <span class="md-ellipsis">
     Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../execution-tasks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Execution Tasks
   </span>
   
 
@@ -580,6 +472,15 @@
   <a href="#planning-control-and-world-bridge" class="md-nav__link">
     <span class="md-ellipsis">
       Planning, control, and world bridge
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-tasks-taskstrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Execution tasks (TaskStrategy)
     </span>
   </a>
   
@@ -889,6 +790,26 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Community
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -938,6 +859,15 @@
   <a href="#planning-control-and-world-bridge" class="md-nav__link">
     <span class="md-ellipsis">
       Planning, control, and world bridge
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-tasks-taskstrategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Execution tasks (TaskStrategy)
     </span>
   </a>
   
@@ -1300,8 +1230,8 @@
 </tr>
 <tr>
 <td><strong>Execution</strong></td>
-<td><code>WorldBridge</code></td>
-<td><strong>Bridge</strong> dropdown (BasicSim, Carla, Gazebo, ROS2, or custom)</td>
+<td><code>WorldBridge</code>, <code>ExecutionStrategy</code>, <code>TaskStrategy</code></td>
+<td>Bridge / executer dropdowns; <code>c40_execution_tasks</code> list</td>
 </tr>
 </tbody>
 </table>
@@ -1324,18 +1254,19 @@
 <p><strong>Monolithic (<code>PerceptionStrategy</code>):</strong></p>
 <ul>
 <li>Implement all stages in one <code>perceive()</code> method.</li>
-<li>Select your class name in the main <strong>Perception</strong> dropdown, or set <code>c40_perception</code> in <code>c40_execution.yaml</code> / <code>perception_type</code> in the visualization profile.</li>
+<li>Select your class name in the main <strong>Perception</strong> dropdown, or set <code>c40_perception</code> under the <code>c40_execution:</code> section of <code>configs/&lt;profile&gt;.yaml</code>.</li>
 <li>Example built-in: <code>MultiObjectPredictor</code> (<code>p10_perception_MO_prediction</code>).</li>
 </ul>
 <p><strong>Pipelined (<code>PerceptionPipeline</code> + sub-strategies):</strong></p>
 <ul>
 <li>Set perception to <strong><code>PerceptionPipeline</code></strong> in the main dropdown.</li>
 <li>The GUI shows <strong>Detect</strong>, <strong>Track</strong>, and <strong>Predict</strong> sub-dropdowns (only visible in pipeline mode).</li>
-<li>Configure sub-strategies in <code>configs/c10_perception.yaml</code>:</li>
+<li>Configure sub-strategies under the <code>c10_perception:</code> section of <code>configs/&lt;profile&gt;.yaml</code>:</li>
 </ul>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">c12_detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span><span class="w">      </span><span class="c1"># empty → ground truth from bridge</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">c12_tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span><span class="w">        </span><span class="c1"># empty → ground truth from bridge</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">c12_prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span><span class="w">    </span><span class="c1"># empty → prediction stage skipped</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">c10_perception</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">c12_detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span><span class="w">      </span><span class="c1"># empty → ground truth from bridge</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">c12_tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span><span class="w">        </span><span class="c1"># empty → ground truth from bridge</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">c12_prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span><span class="w">    </span><span class="c1"># empty → prediction stage skipped</span>
 </span></code></pre></div>
 <ul>
 <li>Each sub-strategy has its <strong>own registry</strong>; plugin classes auto-register like monolithic strategies.</li>
@@ -1346,57 +1277,73 @@
 <p><strong>Localization</strong> is separate from <code>PerceptionPipeline</code>: optional <code>LocalizationStrategy</code> in its own dropdown; updates <code>PerceptionModel.ego_vehicle</code> in-place.</p>
 <h3 id="planning-control-and-world-bridge">Planning, control, and world bridge<a class="headerlink" href="#planning-control-and-world-bridge" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Planning</strong> — subclass <code>GlobalPlannerStrategy</code> (<code>plan()</code>) or <code>LocalPlanningStrategy</code> (<code>replan()</code>); selected via global/local planner dropdowns; configured in <code>c40_execution.yaml</code> (<code>c40_global_planner</code>, <code>c40_local_planner</code>).</li>
+<li><strong>Planning</strong> — subclass <code>GlobalPlannerStrategy</code> (<code>plan()</code>) or <code>LocalPlanningStrategy</code> (<code>replan()</code>); selected via global/local planner dropdowns; configured under <code>c40_execution:</code> in <code>configs/&lt;profile&gt;.yaml</code> (<code>c40_global_planner</code>, <code>c40_local_planner</code>).</li>
 <li><strong>Control</strong> — subclass <code>ControlStrategy</code> (<code>control()</code>); selected via controller dropdown (<code>c40_controller</code>).</li>
 <li><strong>World bridge</strong> — subclass <code>WorldBridge</code>; implement sensor getters and <code>control_ego_state()</code>; selected via <strong>Bridge</strong> dropdown (<code>c40_bridge</code>). See built-in <code>p40_bridge_*</code> plugins for reference.</li>
 </ul>
+<h3 id="execution-tasks-taskstrategy">Execution tasks (TaskStrategy)<a class="headerlink" href="#execution-tasks-taskstrategy" title="Permanent link">&para;</a></h3>
+<p>Execution tasks are an <strong>orthogonal extension</strong> of the running stack — mission, supervision, instrumentation — not a second planner. Philosophy and future-facing use: <a href="../execution-tasks/">Execution Tasks</a>.</p>
+<p>Subclass <code>TaskStrategy</code> (<code>c43_task_strategy.py</code>) and implement <code>execute(executer, event=None)</code>. Declare <code>schedule</code> (<code>EVERY_CYCLE</code> / <code>INTERVAL</code> / <code>ON_EVENT</code>), and for events <code>listen_events</code>. List class names in <code>c40_execution_tasks</code> or pick them in the visualizer Execution <strong>Tasks</strong> chip row (<code>+</code> registry picker; not free text). Monitors may <code>executer.task_runner.notify(event)</code>; responses listen with <code>ON_EVENT</code>. Stack modules raise events by stamping <code>stack_event</code> on <code>PerceptionModel</code> / <code>LocalPlan</code> / <code>GlobalPlan</code> / control commands (no <code>task_runner</code> on the strategy API) — see <a href="../execution-tasks/#raising-events">Execution Tasks → Raising events</a>.</p>
+<p><code>placement</code> may be <code>INLINE</code> / <code>THREAD</code> / <code>PROCESS</code>, but the base executer runs <strong>INLINE only</strong> (non-INLINE logs a warning and falls back).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span> <span class="nn">avlite</span> <span class="kn">import</span> <span class="n">TaskStrategy</span><span class="p">,</span> <span class="n">TaskSchedule</span><span class="p">,</span> <span class="n">StackEvent</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">class</span> <span class="nc">MyOnPlanFailure</span><span class="p">(</span><span class="n">TaskStrategy</span><span class="p">):</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">schedule</span> <span class="o">=</span> <span class="n">TaskSchedule</span><span class="o">.</span><span class="n">ON_EVENT</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">listen_events</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackEvent</span><span class="o">.</span><span class="n">LOCAL_PLAN_FAILED</span><span class="p">})</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">executer</span><span class="p">,</span> <span class="n">event</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="o">...</span>  <span class="c1"># supervisor / instrumentation hook</span>
+</span></code></pre></div>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">c40_execution</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">c40_execution_tasks</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">MyOnPlanFailure</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
 <h2 id="community-plugin-structure">Community Plugin Structure<a class="headerlink" href="#community-plugin-structure" title="Permanent link">&para;</a></h2>
 <p>Create your plugin anywhere on your system:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>/path/to/my_plugin/
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── __init__.py      # Export classes
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── settings.py      # Optional: PluginSettings if you have tunable params
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├── my_strategy.py   # Your implementation
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>├── README.md        # Optional: shown in the Plugins browser
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>└── requirements.txt # Optional: extra pip dependencies
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>/path/to/my_plugin/
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── __init__.py      # Export classes
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├── settings.py      # Optional: PluginSettings if you have tunable params
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├── my_strategy.py   # Your implementation
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>├── README.md        # Optional: shown in the Plugins browser
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>└── requirements.txt # Optional: extra pip dependencies
 </span></code></pre></div>
 <p>Tunable parameters are saved outside the plugin tree in <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> (see section 1). Do not ship a <code>config/</code> folder or plugin-local YAML profiles in your repository.</p>
 <p>Do not commit a <code>.venv</code> inside your plugin directory — AVLite scans all <code>.py</code> files under the plugin path and skips common vendor folders (<code>.venv</code>, <code>site-packages</code>, etc.), but keeping the venv outside the plugin tree is cleaner.</p>
 <h2 id="1-settings-file-optional">1. Settings File (Optional)<a class="headerlink" href="#1-settings-file-optional" title="Permanent link">&para;</a></h2>
 <p>If your plugin has tunable parameters, add <code>settings.py</code> with a <code>PluginSettings</code> class. AVLite creates settings widgets automatically and saves profiles to <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> (or under <code>AVLITE_CONFIG_DIR</code> if set). The filename uses the registry key / <code>c62_community_plugins</code> entry name — you do <strong>not</strong> need <code>exclude</code>, <code>filepath</code>, or a <code>config/</code> folder in your plugin package; AVLite derives the settings path when the plugin is registered and loaded.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># settings.py</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">class</span> <span class="nc">PluginSettings</span><span class="p">:</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="c1"># Your parameters (appear in UI automatically)</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">my_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># settings.py</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">class</span> <span class="nc">PluginSettings</span><span class="p">:</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="c1"># Your parameters (appear in UI automatically)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">my_param</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
 </span></code></pre></div>
 <p>Optionally add a <code>PluginSettingsSchema</code> (Pydantic) with <code>Field(description=...)</code> for tooltips in the settings window, same as built-in plugins.</p>
 <p>If <code>~/.config/avlite/plugin_&lt;plugin_name&gt;.yaml</code> does not exist yet, AVLite may still <strong>read</strong> a legacy file at <code>&lt;install&gt;/config/&lt;plugin_name&gt;.yaml</code> from older setups; new saves always go to the user config directory.</p>
 <p>Built-in plugins under <code>avlite/plugins/</code> are different: they set <code>filepath = "configs/plugin_*.yaml"</code> explicitly so shipped defaults live in the repository <code>configs/</code> directory and fall back from the user config dir on load.</p>
 <h2 id="2-example-custom-perception-monolithic">2. Example: Custom Perception (Monolithic)<a class="headerlink" href="#2-example-custom-perception-monolithic" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PerceptionStrategy</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">PluginSettings</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">,</span> <span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_3D</span><span class="p">})</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">,</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="p">})</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="k">def</span> <span class="nf">perceive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="c1"># Fuse camera and LiDAR to detect, track, and predict agents.</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="c1"># Read sensors.rgb / sensors.lidar as needed; update perception_model.</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>        <span class="k">if</span> <span class="n">perception_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span> <span class="o">=</span> <span class="n">perception_model</span>
-</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PerceptionStrategy</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">PluginSettings</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">class</span> <span class="nc">MyPerception</span><span class="p">(</span><span class="n">PerceptionStrategy</span><span class="p">):</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">,</span> <span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_3D</span><span class="p">})</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">,</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    <span class="p">})</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="k">def</span> <span class="nf">perceive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>        <span class="c1"># Fuse camera and LiDAR to detect, track, and predict agents.</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>        <span class="c1"># Read sensors.rgb / sensors.lidar as needed; update perception_model.</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>        <span class="k">if</span> <span class="n">perception_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span> <span class="o">=</span> <span class="n">perception_model</span>
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span>
 </span></code></pre></div>
 <p>Leaf strategies declare contracts as public <code>frozenset</code> class attributes (satisfies
 the ABC abstract <code>@property</code> without constructing an instance). Pipelines keep
 instance <code>@property</code> aggregators. <code>@property</code> overrides remain supported.
-In the visualizer, <strong>ⓘ</strong> / right-click shows <code>all ·</code> / <code>any ·</code> / <code>may ·</code>
+In the visualizer, <strong>ⓘ</strong> / right-click shows <code>all ·</code> / <code>any ·</code> / <code>optional ·</code>
 requirement rows and colors provided caps green (consumed, including soft <code>MayUse</code>),
 orange (redundant with another top-level module or checked world GT), or gray (unused).</p>
 <p>All key methods (<code>perceive</code>, <code>detect</code>, <code>track</code>, <code>predict</code>, <code>localize</code>, <code>replan</code>,
@@ -1406,83 +1353,84 @@ supplied by the executer, pipeline, or UI. See <a href="../architecture/#capabil
 <p>Use <code>DetectionStrategy</code>, <code>TrackingStrategy</code>, or <code>PredictionStrategy</code> when you only need
 to implement one stage of the pipeline. These plug into <code>PerceptionPipeline</code> and are
 selected by name when <strong>Perception</strong> is set to <code>PerceptionPipeline</code>.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">DetectionStrategy</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">class</span> <span class="nc">MyDetector</span><span class="p">(</span><span class="n">DetectionStrategy</span><span class="p">):</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">})</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">})</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="k">def</span> <span class="nf">detect</span><span class="p">(</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>        <span class="n">rgb_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        <span class="n">depth_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>        <span class="n">lidar_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span><span class="p">:</span>
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>        <span class="c1"># Prefer sensors.rgb / sensors.lidar; unpacked args remain for convenience</span>
-</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>        <span class="k">return</span> <span class="n">perception_model</span>
-</span></code></pre></div>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">TrackingStrategy</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">class</span> <span class="nc">MyTracker</span><span class="p">(</span><span class="n">TrackingStrategy</span><span class="p">):</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">})</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">})</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="k">def</span> <span class="nf">track</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span><span class="p">:</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>        <span class="c1"># Your tracking logic here</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="k">return</span> <span class="n">perception_model</span>
-</span></code></pre></div>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PredictionStrategy</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">MayUse</span><span class="p">,</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">DetectionStrategy</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">class</span> <span class="nc">MyPredictor</span><span class="p">(</span><span class="n">PredictionStrategy</span><span class="p">):</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">MayUse</span><span class="p">(</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">)})</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">})</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">class</span> <span class="nc">MyDetector</span><span class="p">(</span><span class="n">DetectionStrategy</span><span class="p">):</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">CAMERA_RGB</span><span class="p">})</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">})</span>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="c1"># Your prediction logic here</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="k">return</span> <span class="n">perception_model</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="k">def</span> <span class="nf">detect</span><span class="p">(</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>        <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>        <span class="n">rgb_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>        <span class="n">depth_img</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>        <span class="n">lidar_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span><span class="p">:</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>        <span class="c1"># Prefer sensors.rgb / sensors.lidar; unpacked args remain for convenience</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>        <span class="k">return</span> <span class="n">perception_model</span>
 </span></code></pre></div>
-<p>Configure pipeline sub-strategies in <code>configs/c10_perception.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">c12_detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">c12_tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">c12_prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">TrackingStrategy</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">class</span> <span class="nc">MyTracker</span><span class="p">(</span><span class="n">TrackingStrategy</span><span class="p">):</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">})</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">})</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="k">def</span> <span class="nf">track</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span><span class="p">:</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="c1"># Your tracking logic here</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="k">return</span> <span class="n">perception_model</span>
+</span></code></pre></div>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c12_perception_strategy</span> <span class="kn">import</span> <span class="n">PredictionStrategy</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">class</span> <span class="nc">MyPredictor</span><span class="p">(</span><span class="n">PredictionStrategy</span><span class="p">):</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">TRACKING</span><span class="p">})</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">})</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerceptionModel</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="c1"># Your prediction logic here</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>        <span class="k">return</span> <span class="n">perception_model</span>
+</span></code></pre></div>
+<p>Configure pipeline sub-strategies under the <code>c10_perception:</code> section of <code>configs/&lt;profile&gt;.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">c10_perception</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">c12_detection_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyDetector</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">c12_tracking_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyTracker</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">c12_prediction_strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyPredictor</span>
 </span></code></pre></div>
 <h2 id="4-example-custom-localization">4. Example: Custom Localization<a class="headerlink" href="#4-example-custom-localization" title="Permanent link">&para;</a></h2>
 <p>Localization strategies estimate the ego vehicle’s pose and update
 <code>self.perception_model.ego_vehicle</code> <strong>in-place</strong> (no return value).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c13_localization_strategy</span> <span class="kn">import</span> <span class="n">LocalizationStrategy</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">class</span> <span class="nc">MyLocalization</span><span class="p">(</span><span class="n">LocalizationStrategy</span><span class="p">):</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_3D</span><span class="p">})</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">})</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="k">def</span> <span class="nf">localize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>        <span class="c1"># Estimate the ego pose from sensors and update in-place</span>
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>        <span class="k">if</span> <span class="n">perception_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span> <span class="o">=</span> <span class="n">perception_model</span>
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>        <span class="k">if</span> <span class="n">sensors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sensors</span><span class="o">.</span><span class="n">lidar</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>            <span class="c1"># ... your scan-matching / localization logic ...</span>
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">estimated_x</span>
-</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">estimated_y</span>
-</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">estimated_theta</span>
-</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>
-</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>        <span class="k">pass</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c13_localization_strategy</span> <span class="kn">import</span> <span class="n">LocalizationStrategy</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">WorldCapability</span><span class="p">,</span> <span class="n">StackCapability</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">class</span> <span class="nc">MyLocalization</span><span class="p">(</span><span class="n">LocalizationStrategy</span><span class="p">):</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">perception_model</span><span class="p">,</span> <span class="n">setting</span><span class="p">)</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_3D</span><span class="p">})</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">})</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="k">def</span> <span class="nf">localize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="c1"># Estimate the ego pose from sensors and update in-place</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>        <span class="k">if</span> <span class="n">perception_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span> <span class="o">=</span> <span class="n">perception_model</span>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>        <span class="k">if</span> <span class="n">sensors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">sensors</span><span class="o">.</span><span class="n">lidar</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>            <span class="c1"># ... your scan-matching / localization logic ...</span>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">estimated_x</span>
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">estimated_y</span>
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">perception_model</span><span class="o">.</span><span class="n">ego_vehicle</span><span class="o">.</span><span class="n">theta</span> <span class="o">=</span> <span class="n">estimated_theta</span>
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>        <span class="k">pass</span>
 </span></code></pre></div>
 <h2 id="5-example-custom-planner">5. Example: Custom Planner<a class="headerlink" href="#5-example-custom-planner" title="Permanent link">&para;</a></h2>
 <p>Local planning strategies (and behavioral / path / velocity sub-stages) must declare
@@ -1491,45 +1439,45 @@ Use <code>MayUse(...)</code> for soft deps the planner utilizes when present (e.
 and prediction trajectories for collision sweeps) but does not require for assembly.</p>
 <p>In the visualizer, click <strong>ⓘ</strong> (or right-click the Combobox) to inspect a strategy’s
 contract against the live stack and world bridge.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span> <span class="nn">avlite.c20_planning.c23_local_planning_strategy</span> <span class="kn">import</span> <span class="n">LocalPlanningStrategy</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">MayUse</span><span class="p">,</span> <span class="n">StackCapability</span><span class="p">,</span> <span class="n">WorldCapability</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="k">class</span> <span class="nc">MyLocalPlanner</span><span class="p">(</span><span class="n">LocalPlanningStrategy</span><span class="p">):</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">GLOBAL_PLAN</span><span class="p">,</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">,</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">MayUse</span><span class="p">(</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">),</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="p">})</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCAL_PLAN</span><span class="p">})</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="k">def</span> <span class="nf">replan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="c1"># Your local planning logic; use self.pm / perception_model for agents</span>
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>        <span class="k">pass</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span> <span class="nn">avlite.c20_planning.c23_local_planning_strategy</span> <span class="kn">import</span> <span class="n">LocalPlanningStrategy</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">MayUse</span><span class="p">,</span> <span class="n">StackCapability</span><span class="p">,</span> <span class="n">WorldCapability</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="k">class</span> <span class="nc">MyLocalPlanner</span><span class="p">(</span><span class="n">LocalPlanningStrategy</span><span class="p">):</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">world_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">GLOBAL_PLAN</span><span class="p">,</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">,</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>        <span class="n">MayUse</span><span class="p">(</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">),</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="p">})</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCAL_PLAN</span><span class="p">})</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    <span class="k">def</span> <span class="nf">replan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">perception_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensors</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>        <span class="c1"># Your local planning logic; use self.pm / perception_model for agents</span>
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>        <span class="k">pass</span>
 </span></code></pre></div>
 <p>Hard OR requirements use <code>AnyOf</code> (e.g. LiDAR 2D or 3D). Soft optional deps use <code>MayUse</code>.</p>
 <h2 id="6-example-custom-controller">6. Example: Custom Controller<a class="headerlink" href="#6-example-custom-controller" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">EgoState</span><span class="p">,</span> <span class="n">PerceptionModel</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span> <span class="nn">avlite.c20_planning.c21_planning_model</span> <span class="kn">import</span> <span class="n">GlobalPlan</span><span class="p">,</span> <span class="n">LocalPlan</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span> <span class="nn">avlite.c30_control.c32_control_strategy</span> <span class="kn">import</span> <span class="n">ControlStrategy</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlCommand</span><span class="p">,</span> <span class="n">ControlCommandBase</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c52_world_sensor_datatypes</span> <span class="kn">import</span> <span class="n">SensorFrame</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="k">class</span> <span class="nc">MyController</span><span class="p">(</span><span class="n">ControlStrategy</span><span class="p">):</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="k">def</span> <span class="nf">control</span><span class="p">(</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>        <span class="n">ego</span><span class="p">:</span> <span class="n">EgoState</span><span class="p">,</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>        <span class="n">plan</span><span class="p">:</span> <span class="n">GlobalPlan</span> <span class="o">|</span> <span class="n">LocalPlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="n">control_dt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>        <span class="n">sensors</span><span class="p">:</span> <span class="n">SensorFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ControlCommandBase</span><span class="p">:</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>        <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">set_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>        <span class="k">return</span> <span class="n">ControlCommand</span><span class="p">(</span><span class="n">steer</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">acceleration</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>
-</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>        <span class="k">pass</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">EgoState</span><span class="p">,</span> <span class="n">PerceptionModel</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span> <span class="nn">avlite.c20_planning.c21_planning_model</span> <span class="kn">import</span> <span class="n">GlobalPlan</span><span class="p">,</span> <span class="n">LocalPlan</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span> <span class="nn">avlite.c30_control.c32_control_strategy</span> <span class="kn">import</span> <span class="n">ControlStrategy</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlCommand</span><span class="p">,</span> <span class="n">ControlCommandBase</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c52_world_sensor_datatypes</span> <span class="kn">import</span> <span class="n">SensorFrame</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="k">class</span> <span class="nc">MyController</span><span class="p">(</span><span class="n">ControlStrategy</span><span class="p">):</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="k">def</span> <span class="nf">control</span><span class="p">(</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>        <span class="n">ego</span><span class="p">:</span> <span class="n">EgoState</span><span class="p">,</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>        <span class="n">plan</span><span class="p">:</span> <span class="n">GlobalPlan</span> <span class="o">|</span> <span class="n">LocalPlan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>        <span class="n">control_dt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>        <span class="n">perception_model</span><span class="p">:</span> <span class="n">PerceptionModel</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>        <span class="n">sensors</span><span class="p">:</span> <span class="n">SensorFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ControlCommandBase</span><span class="p">:</span>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>        <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">set_plan</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>        <span class="k">return</span> <span class="n">ControlCommand</span><span class="p">(</span><span class="n">steer</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">acceleration</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>
+</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>        <span class="k">pass</span>
 </span></code></pre></div>
 <p>Use <code>set_trajectory_tracker(tj)</code> when you already have a built <code>TrajectoryTracker</code>; use <code>set_plan(plan)</code> or the <code>plan</code> argument on <code>control()</code> when you hold a <code>GlobalPlan</code> or <code>LocalPlan</code>. The executer also passes optional <code>perception_model</code> and <code>sensors</code>.</p>
 <h2 id="7-multi-robot-agents-and-control">7. Multi-robot agents and control<a class="headerlink" href="#7-multi-robot-agents-and-control" title="Permanent link">&para;</a></h2>
@@ -1553,10 +1501,10 @@ contract against the live stack and world bridge.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">AgentState</span><span class="p">,</span> <span class="n">AgentType</span><span class="p">,</span> <span class="n">EGO_AGENT_ID</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">npc</span> <span class="o">=</span> <span class="n">AgentState</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">agent_type</span><span class="o">=</span><span class="n">AgentType</span><span class="o">.</span><span class="n">DIFF_DRIVE</span><span class="p">)</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">agent_id</span> <span class="o">=</span> <span class="n">perception_model</span><span class="o">.</span><span class="n">add_agent_vehicle</span><span class="p">(</span><span class="n">npc</span><span class="p">)</span>  <span class="c1"># returns 1, 2, ...</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">AgentState</span><span class="p">,</span> <span class="n">AgentType</span><span class="p">,</span> <span class="n">EGO_AGENT_ID</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">npc</span> <span class="o">=</span> <span class="n">AgentState</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">agent_type</span><span class="o">=</span><span class="n">AgentType</span><span class="o">.</span><span class="n">DIFF_DRIVE</span><span class="p">)</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">agent_id</span> <span class="o">=</span> <span class="n">perception_model</span><span class="o">.</span><span class="n">add_agent_vehicle</span><span class="p">(</span><span class="n">npc</span><span class="p">)</span>  <span class="c1"># returns 1, 2, ...</span>
 </span></code></pre></div>
 <p>IDs are stable integers — not <code>Enum.auto()</code> values and not random — so bridges, logs, and tracking stay debuggable.</p>
 <h3 id="two-layers-do-not-conflate">Two layers (do not conflate)<a class="headerlink" href="#two-layers-do-not-conflate" title="Permanent link">&para;</a></h3>
@@ -1673,13 +1621,13 @@ contract against the live stack and world bridge.</p>
 </ul>
 <h3 id="prediction-models-on-perceptionmodel">Prediction models on <code>PerceptionModel</code><a class="headerlink" href="#prediction-models-on-perceptionmodel" title="Permanent link">&para;</a></h3>
 <p>Forecast payloads live on a single typed object: <strong><code>perception_model.prediction</code></strong>. Per-agent types store data in <strong><code>dict[int, …]</code> keyed by <code>agent_id</code></strong> (not list index). The lump-sum occupancy type is <strong><code>AggregatedOccupancyFlow</code></strong> (one grid sequence for the whole scene).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span><span class="p">,</span> <span class="n">SingleTrajectory</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">pm</span><span class="o">.</span><span class="n">prediction</span> <span class="o">=</span> <span class="n">SingleTrajectory</span><span class="p">(</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">predict_delta_t</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">trajectories</span><span class="o">=</span><span class="p">{</span><span class="n">agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">:</span> <span class="n">path_xy</span> <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="n">pm</span><span class="o">.</span><span class="n">agent_vehicles</span><span class="p">},</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">)</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">path</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">prediction</span><span class="o">.</span><span class="n">trajectories</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">)</span>  <span class="c1"># [n_steps, 2] world x,y [m]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">PerceptionModel</span><span class="p">,</span> <span class="n">SingleTrajectory</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">pm</span><span class="o">.</span><span class="n">prediction</span> <span class="o">=</span> <span class="n">SingleTrajectory</span><span class="p">(</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">predict_delta_t</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">trajectories</span><span class="o">=</span><span class="p">{</span><span class="n">agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">:</span> <span class="n">path_xy</span> <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="n">pm</span><span class="o">.</span><span class="n">agent_vehicles</span><span class="p">},</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="p">)</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">path</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">prediction</span><span class="o">.</span><span class="n">trajectories</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">agent_id</span><span class="p">)</span>  <span class="c1"># [n_steps, 2] world x,y [m]</span>
 </span></code></pre></div>
 <p><strong>Timesteps — do not mix tracking and prediction:</strong></p>
 <table>
@@ -1704,36 +1652,36 @@ contract against the live stack and world bridge.</p>
 </tbody>
 </table>
 <h2 id="8-example-custom-world-bridge">8. Example: Custom World Bridge<a class="headerlink" href="#8-example-custom-world-bridge" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">EGO_AGENT_ID</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span> <span class="nn">avlite.c40_execution.c41_world_bridge</span> <span class="kn">import</span> <span class="n">WorldBridge</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlCommandBase</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">StackCapability</span><span class="p">,</span> <span class="n">WorldCapability</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="k">class</span> <span class="nc">MyBridge</span><span class="p">(</span><span class="n">WorldBridge</span><span class="p">):</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">world_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_2D</span><span class="p">})</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="c1"># Ground truth provided by the world (satisfies downstream stack_requirements)</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">})</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="c1"># Optional: what the bridge needs from the stack (BasicSim uses CONTROL)</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">})</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>    <span class="k">def</span> <span class="nf">control_ego_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="n">ControlCommandBase</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="c1"># Send control to your simulator or robot</span>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="k">pass</span>
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>
-</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>    <span class="c1"># Optional (future): multi-agent fleets — declare WorldCapability.AGENT_CONTROL</span>
-</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    <span class="k">def</span> <span class="nf">control_agent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="n">ControlCommandBase</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
-</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>        <span class="k">if</span> <span class="n">agent_id</span> <span class="o">==</span> <span class="n">EGO_AGENT_ID</span><span class="p">:</span>
-</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">control_ego_state</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">)</span>
-</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>        <span class="c1"># Resolve agent, optionally convert cmd, actuate in sim</span>
-</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>        <span class="o">...</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span> <span class="nn">avlite.c10_perception.c11_perception_model</span> <span class="kn">import</span> <span class="n">EGO_AGENT_ID</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kn">from</span> <span class="nn">avlite.c40_execution.c41_world_bridge</span> <span class="kn">import</span> <span class="n">WorldBridge</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="kn">from</span> <span class="nn">avlite.c30_control.c31_control_model</span> <span class="kn">import</span> <span class="n">ControlCommandBase</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="kn">from</span> <span class="nn">avlite.c50_common.c51_capabilities</span> <span class="kn">import</span> <span class="n">StackCapability</span><span class="p">,</span> <span class="n">WorldCapability</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="k">class</span> <span class="nc">MyBridge</span><span class="p">(</span><span class="n">WorldBridge</span><span class="p">):</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="n">world_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">WorldCapability</span><span class="o">.</span><span class="n">LIDAR_2D</span><span class="p">})</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="c1"># Ground truth provided by the world (satisfies downstream stack_requirements)</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">})</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    <span class="c1"># Optional: what the bridge needs from the stack (BasicSim uses CONTROL)</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">CONTROL</span><span class="p">})</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>    <span class="k">def</span> <span class="nf">control_ego_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="n">ControlCommandBase</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>        <span class="c1"># Send control to your simulator or robot</span>
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>        <span class="k">pass</span>
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>
+</span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>    <span class="c1"># Optional (future): multi-agent fleets — declare WorldCapability.AGENT_CONTROL</span>
+</span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>    <span class="k">def</span> <span class="nf">control_agent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">cmd</span><span class="p">:</span> <span class="n">ControlCommandBase</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
+</span><span id="__span-15-19"><a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a>        <span class="k">if</span> <span class="n">agent_id</span> <span class="o">==</span> <span class="n">EGO_AGENT_ID</span><span class="p">:</span>
+</span><span id="__span-15-20"><a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">control_ego_state</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">)</span>
+</span><span id="__span-15-21"><a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>        <span class="c1"># Resolve agent, optionally convert cmd, actuate in sim</span>
+</span><span id="__span-15-22"><a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a>        <span class="o">...</span>
 </span></code></pre></div>
 <p><code>control_type(agent)</code> defaults to <code>control_type_for_agent(agent)</code> from <a href="../avlite/c50_common/c53_stack_datatypes.py"><code>c53_stack_datatypes.py</code></a>. Use <code>world.step(dt)</code> to advance the sim without a new command from the stack (default no-op until a bridge overrides it and the executer wires sub-stepping).</p>
 <h2 id="9-export-classes">9. Export Classes<a class="headerlink" href="#9-export-classes" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># __init__.py</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span> <span class="nn">.my_strategy</span> <span class="kn">import</span> <span class="n">MyPerception</span><span class="p">,</span> <span class="n">MyLocalization</span><span class="p">,</span> <span class="n">MyController</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">PluginSettings</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MyPerception&quot;</span><span class="p">,</span> <span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span> <span class="s2">&quot;MyController&quot;</span><span class="p">,</span> <span class="s2">&quot;PluginSettings&quot;</span><span class="p">]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># __init__.py</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="kn">from</span> <span class="nn">.my_strategy</span> <span class="kn">import</span> <span class="n">MyPerception</span><span class="p">,</span> <span class="n">MyLocalization</span><span class="p">,</span> <span class="n">MyController</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="kn">from</span> <span class="nn">.settings</span> <span class="kn">import</span> <span class="n">PluginSettings</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;MyPerception&quot;</span><span class="p">,</span> <span class="s2">&quot;MyLocalization&quot;</span><span class="p">,</span> <span class="s2">&quot;MyController&quot;</span><span class="p">,</span> <span class="s2">&quot;PluginSettings&quot;</span><span class="p">]</span>
 </span></code></pre></div>
 <p>When you rename a module file, update the import path in <code>__init__.py</code> to match (e.g. <code>from .p31_joystick_controller import JoystickController</code>).</p>
 <h2 id="10-register-your-community-plugin">10. Register Your Community Plugin<a class="headerlink" href="#10-register-your-community-plugin" title="Permanent link">&para;</a></h2>
@@ -1744,10 +1692,10 @@ contract against the live stack and world bridge.</p>
 4. Save profile</p>
 <p>Double-click a plugin in the list to view its <strong>Settings file</strong> and <strong>Source file location</strong> separately. <strong>Reset to Installed</strong> repopulates the list from plugin directories under the user install dir (<code>~/.local/share/avlite/plugins/</code>).</p>
 <p><strong>Via settings file</strong> (the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>, or your saved copy under <code>~/.config/avlite/</code>):</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">c69_apps</span><span class="p">:</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">c62_community_plugins</span><span class="p">:</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_plugin</span><span class="w">                  </span><span class="c1"># installed under ~/.local/share/avlite/plugins/</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">dev_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~/src/my_plugin</span><span class="w">           </span><span class="c1"># local dev checkout outside the plugins dir</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">c69_apps</span><span class="p">:</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">c62_community_plugins</span><span class="p">:</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="nt">my_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_plugin</span><span class="w">                  </span><span class="c1"># installed under ~/.local/share/avlite/plugins/</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">dev_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~/src/my_plugin</span><span class="w">           </span><span class="c1"># local dev checkout outside the plugins dir</span>
 </span></code></pre></div>
 <p>The map value is the <strong>install path</strong>, not the settings YAML path. When a plugin lives under <code>~/.local/share/avlite/plugins/</code> (override install root with <code>AVLITE_PLUGINS_DIR</code>), AVLite stores the name sentinel (<code>my_plugin: my_plugin</code>). Paths outside that directory are stored as <code>~/...</code> or an absolute path. Plugin settings always live in <code>~/.config/avlite/plugin_&lt;name&gt;.yaml</code>, independent of the install location.</p>
 <p>Your classes will now appear in the UI dropdowns.</p>
@@ -1765,24 +1713,24 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
 <li><strong>Test locally</strong> — register the plugin on a profile (section 10) and confirm your strategies appear in the GUI dropdowns and the stack runs.</li>
 <li><strong>Public Git repository</strong> — the registry clones your repo; private repos will not install for other users.</li>
 <li><strong>Plugin layout</strong> — at minimum:
-   <div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>my_cool_planner/
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>├── __init__.py       # exports strategy classes (required for discovery)
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>├── my_planner.py     # your implementation
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>└── README.md         # shown in the Plugins browser (recommended)
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>my_cool_planner/
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>├── __init__.py       # exports strategy classes (required for discovery)
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>├── my_planner.py     # your implementation
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>└── README.md         # shown in the Plugins browser (recommended)
 </span></code></pre></div></li>
 <li><strong>Optional</strong> — <code>settings.py</code> with <code>PluginSettings</code> if you have tunable parameters; <code>requirements.txt</code> if you depend on extra pip packages (users install these into their AVLite environment).</li>
 <li><strong>Do not commit</strong> a <code>.venv</code> inside the plugin repo.</li>
 </ol>
 <h3 id="registry-entry">Registry entry<a class="headerlink" href="#registry-entry" title="Permanent link">&para;</a></h3>
 <p>Fork <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>, add one item under <code>plugins:</code> in <code>plugins.yaml</code>, and open a pull request:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">plugins</span><span class="p">:</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_perception_plugin</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">              </span><span class="c1"># or a git tag / commit SHA</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="nt">category</span><span class="p">:</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">plugins</span><span class="p">:</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_perception_plugin</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">              </span><span class="c1"># or a git tag / commit SHA</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">    </span><span class="nt">category</span><span class="p">:</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -1850,6 +1798,10 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
 <tr>
 <td><code>ExecutionStrategy</code></td>
 <td>Runtime execution, scheduling, orchestration</td>
+</tr>
+<tr>
+<td><code>TaskStrategy</code></td>
+<td>Stack-extension tasks after the tick (cycle / interval / event)</td>
 </tr>
 <tr>
 <td><code>WorldBridge</code></td>
@@ -2023,6 +1975,11 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
 <td><code>control()</code></td>
 </tr>
 <tr>
+<td><code>TaskStrategy</code></td>
+<td>Stack-extension execution tasks</td>
+<td><code>execute(executer, event=None)</code></td>
+</tr>
+<tr>
 <td><code>WorldBridge</code></td>
 <td>Simulator integration</td>
 <td><code>control_ego_state()</code>, <code>control_type(agent)</code>, <code>control_agent()</code>, <code>teleport_agent()</code>, <code>get_*(agent_id=...)</code>, <code>step()</code></td>
@@ -2128,6 +2085,22 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
           </a>
         
         
+          
+          <a href="../community/" class="md-footer__link md-footer__link--next" aria-label="Next: Community">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Community
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
       </nav>
     
   
@@ -2182,7 +2155,7 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
       <div class="md-progress" data-md-component="progress" role="progressbar"></div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.footer", "navigation.instant", "navigation.instant.progress", "toc.follow", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "search.share"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.sections", "navigation.indexes", "navigation.top", "navigation.tracking", "navigation.footer", "navigation.instant", "navigation.instant.progress", "toc.follow", "content.code.copy", "content.code.annotate", "content.tabs.link", "search.suggest", "search.highlight", "search.share"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
       <script src="../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
@@ -2192,6 +2165,10 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
         <script src="../javascripts/mathjax.js"></script>
       
         <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+      
+        <script src="../javascripts/community.js"></script>
       
     
   </body>
