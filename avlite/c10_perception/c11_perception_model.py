@@ -47,6 +47,7 @@ class PerceptionModel:
     stack_event: Optional[StackEvent] = None
 
     def add_agent_vehicle(self, agent: AgentState) -> int: # return agent_id
+        """ Add an agent vehicle to the perception model and assign a unique agent_id."""
         if len(self.agent_vehicles) == self.max_agent_vehicles:
             log.info("Max num of agent reached. Deleteing Old agents")
             self.agent_vehicles = []
