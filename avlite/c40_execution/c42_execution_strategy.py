@@ -238,6 +238,11 @@ class ExecutionStrategy(ABC):
             sensors = self.world.get_sensor_frame()
             self.localization.localize(perception_model=self.pm, sensors=sensors)
             self.localization_fps = self._localization_fps_tracker.tick()
+            # Harvest optional stack_event stamp on PerceptionModel (notify once, then clear).
+            if self.pm.stack_event is not None:
+                event = self.pm.stack_event
+                self.pm.stack_event = None
+                self.task_runner.notify(event)
         else:
             log.warning(
                 f"Localization strategy {self.localization.__class__.__name__} requirements not satisfied "
@@ -278,6 +283,11 @@ class ExecutionStrategy(ABC):
         self.perception.perceive(perception_model=self.pm, sensors=sensors)
 
         self.perception_fps = self._perception_fps_tracker.tick()
+        # Harvest optional stack_event stamp on PerceptionModel (notify once, then clear).
+        if self.pm.stack_event is not None:
+            event = self.pm.stack_event
+            self.pm.stack_event = None
+            self.task_runner.notify(event)
 
     def _replan_step(self) -> None:
         """Run one planning iteration (replan) and update FPS."""
@@ -317,6 +327,11 @@ class ExecutionStrategy(ABC):
         )
         self.world.control_ego_state(cmd, dt=sim_dt)
         self.control_fps = self._control_fps_tracker.tick(floor_dt=sim_dt)
+        # Harvest optional stack_event stamp on the control command (notify once, then clear).
+        if getattr(cmd, "stack_event", None) is not None:
+            event = cmd.stack_event
+            cmd.stack_event = None
+            self.task_runner.notify(event)
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

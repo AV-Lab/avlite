@@ -42,19 +42,20 @@ flowchart TB
 **Monolithic (`PerceptionStrategy`):**
 
 - Implement all stages in one `perceive()` method.
-- Select your class name in the main **Perception** dropdown, or set `c40_perception` in `c40_execution.yaml` / `perception_type` in the visualization profile.
+- Select your class name in the main **Perception** dropdown, or set `c40_perception` under the `c40_execution:` section of `configs/<profile>.yaml`.
 - Example built-in: `MultiObjectPredictor` (`p10_perception_MO_prediction`).
 
 **Pipelined (`PerceptionPipeline` + sub-strategies):**
 
 - Set perception to **`PerceptionPipeline`** in the main dropdown.
 - The GUI shows **Detect**, **Track**, and **Predict** sub-dropdowns (only visible in pipeline mode).
-- Configure sub-strategies in `configs/c10_perception.yaml`:
+- Configure sub-strategies under the `c10_perception:` section of `configs/<profile>.yaml`:
 
 ```yaml
-c12_detection_strategy: MyDetector      # empty → ground truth from bridge
-c12_tracking_strategy: MyTracker        # empty → ground truth from bridge
-c12_prediction_strategy: MyPredictor    # empty → prediction stage skipped
+c10_perception:
+  c12_detection_strategy: MyDetector      # empty → ground truth from bridge
+  c12_tracking_strategy: MyTracker        # empty → ground truth from bridge
+  c12_prediction_strategy: MyPredictor    # empty → prediction stage skipped
 ```
 
 - Each sub-strategy has its **own registry**; plugin classes auto-register like monolithic strategies.
@@ -66,29 +67,32 @@ c12_prediction_strategy: MyPredictor    # empty → prediction stage skipped
 
 ### Planning, control, and world bridge
 
-- **Planning** — subclass `GlobalPlannerStrategy` (`plan()`) or `LocalPlanningStrategy` (`replan()`); selected via global/local planner dropdowns; configured in `c40_execution.yaml` (`c40_global_planner`, `c40_local_planner`).
+- **Planning** — subclass `GlobalPlannerStrategy` (`plan()`) or `LocalPlanningStrategy` (`replan()`); selected via global/local planner dropdowns; configured under `c40_execution:` in `configs/<profile>.yaml` (`c40_global_planner`, `c40_local_planner`).
 - **Control** — subclass `ControlStrategy` (`control()`); selected via controller dropdown (`c40_controller`).
 - **World bridge** — subclass `WorldBridge`; implement sensor getters and `control_ego_state()`; selected via **Bridge** dropdown (`c40_bridge`). See built-in `p40_bridge_*` plugins for reference.
-- **Execution tasks** — subclass `TaskStrategy` (`c43_task_strategy.py`) and implement `execute(executer, event=None)`. Declare `schedule` (`EVERY_CYCLE` / `INTERVAL` / `ON_EVENT`), optional `placement` (`INLINE` / `THREAD` / `PROCESS`), and for events `listen_events`. List class names in `c40_execution_tasks` (YAML) or pick them in the visualizer Execution **Tasks** chip row (`+` registry picker; not free text). Tasks append after the stack tick; they do not replace perception/plan/control. **Monitors** detect domain facts and call `executer.task_runner.notify(event)`; **responses** listen with `ON_EVENT`. Optionally stamp `stack_event` on `LocalPlan` / `GlobalPlan` — the executer harvests after replan. Built-in examples live in `c47_execution_tasks.py` (`GoalArrivalMonitor`, `StopExecAtGoalTask`, `TelemetryTask`).
+
+### Execution tasks (TaskStrategy)
+
+Execution tasks are an **orthogonal extension** of the running stack — mission, supervision, instrumentation — not a second planner. Philosophy and future-facing use: [Execution Tasks](execution-tasks.md).
+
+Subclass `TaskStrategy` (`c43_task_strategy.py`) and implement `execute(executer, event=None)`. Declare `schedule` (`EVERY_CYCLE` / `INTERVAL` / `ON_EVENT`), and for events `listen_events`. List class names in `c40_execution_tasks` or pick them in the visualizer Execution **Tasks** chip row (`+` registry picker; not free text). Monitors may `executer.task_runner.notify(event)`; responses listen with `ON_EVENT`. Stack modules raise events by stamping `stack_event` on `PerceptionModel` / `LocalPlan` / `GlobalPlan` / control commands (no `task_runner` on the strategy API) — see [Execution Tasks → Raising events](execution-tasks.md#raising-events).
+
+`placement` may be `INLINE` / `THREAD` / `PROCESS`, but the base executer runs **INLINE only** (non-INLINE logs a warning and falls back).
 
 ```python
-# Built-in (already registered):
-# from avlite.c40_execution.c47_execution_tasks import GoalArrivalMonitor, StopExecAtGoalTask
-
-# Or write your own plugin task:
 from avlite import TaskStrategy, TaskSchedule, StackEvent
 
-class MyStopAtGoalTask(TaskStrategy):
+class MyOnPlanFailure(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.GOAL_ARRIVED})
+    listen_events = frozenset({StackEvent.LOCAL_PLAN_FAILED})
 
     def execute(self, executer, event=None) -> None:
-        executer.stop()
+        ...  # supervisor / instrumentation hook
 ```
 
 ```yaml
 c40_execution:
-  c40_execution_tasks: [GoalArrivalMonitor, StopExecAtGoalTask, TelemetryTask]
+  c40_execution_tasks: [MyOnPlanFailure]
 ```
 
 ## Community Plugin Structure
@@ -219,12 +223,13 @@ class MyPredictor(PredictionStrategy):
         return perception_model
 ```
 
-Configure pipeline sub-strategies in `configs/c10_perception.yaml`:
+Configure pipeline sub-strategies under the `c10_perception:` section of `configs/<profile>.yaml`:
 
 ```yaml
-c12_detection_strategy: MyDetector
-c12_tracking_strategy: MyTracker
-c12_prediction_strategy: MyPredictor
+c10_perception:
+  c12_detection_strategy: MyDetector
+  c12_tracking_strategy: MyTracker
+  c12_prediction_strategy: MyPredictor
 ```
 
 ## 4. Example: Custom Localization
@@ -547,7 +552,7 @@ plugins:
 | `PlanningStrategy` | Global/local planners, behavior planning, decision-making |
 | `ControlStrategy` | Vehicle controllers, actuation |
 | `ExecutionStrategy` | Runtime execution, scheduling, orchestration |
-| `TaskStrategy` | Append-only tasks after the stack tick (cycle / interval / event) |
+| `TaskStrategy` | Stack-extension tasks after the tick (cycle / interval / event) |
 | `WorldBridge` | Bridges to simulators, middleware, or external world interfaces |
 
 A plugin can list **multiple** categories if it exports more than one strategy type, e.g. `[PerceptionStrategy, LocalizationStrategy]`.
@@ -636,7 +641,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 | `LocalPlanningStrategy` | Local planning | `replan()` |
 | `GlobalPlannerStrategy` | Global planning | `plan()` |
 | `ControlStrategy` | Vehicle control | `control()` |
-| `TaskStrategy` | Append-only execution tasks | `execute(executer, event=None)` |
+| `TaskStrategy` | Stack-extension execution tasks | `execute(executer, event=None)` |
 | `WorldBridge` | Simulator integration | `control_ego_state()`, `control_type(agent)`, `control_agent()`, `teleport_agent()`, `get_*(agent_id=...)`, `step()` |
 
 ## Apps (`AppStrategy`)

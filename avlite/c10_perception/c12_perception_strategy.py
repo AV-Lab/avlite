@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
+from typing import ClassVar
+
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
 from avlite.c50_common.c51_capabilities import (
     AnyOf,
     MayUse,
-    WorldCapability,
     StackCapability,
+    StackRequirement,
+    WorldCapability,
+    WorldRequirement,
 )
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 
@@ -22,9 +28,9 @@ class PerceptionStrategy(ABC):
     """
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset()
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset()
 
     def __init__(self, perception_model: PerceptionModel, setting: PerceptionSettingsSchema = PerceptionSettings):
         self.perception_model = perception_model
@@ -67,9 +73,9 @@ class DetectionStrategy(ABC):
     """
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset({StackCapability.DETECTION})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.DETECTION})
 
     @abstractmethod
     def detect(
@@ -108,9 +114,9 @@ class TrackingStrategy(ABC):
     """
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset({StackCapability.TRACKING})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.TRACKING})
 
     @abstractmethod
     def track(
@@ -142,9 +148,9 @@ class PredictionStrategy(ABC):
     """
     registry = {}
 
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset({StackCapability.PREDICTION})
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.PREDICTION})
 
     @abstractmethod
     def predict(
@@ -188,24 +194,24 @@ class PerceptionPipeline(PerceptionStrategy):
         return None
 
     @property
-    def world_requirements(self) -> set[WorldCapability]:
-        reqs = set()
+    def world_requirements(self) -> frozenset[WorldRequirement]:
+        reqs: set[WorldRequirement] = set()
         for child in (self._detector, self._tracker, self._predictor):
             if child is not None:
                 reqs |= child.world_requirements
-        return reqs
+        return frozenset(reqs)
 
     @property
-    def stack_requirements(self) -> set:
+    def stack_requirements(self) -> frozenset[StackRequirement]:
         # Union active children's contracts only (empty stage = no requirement).
-        reqs: set = set()
+        reqs: set[StackRequirement] = set()
         for child in (self._detector, self._tracker, self._predictor):
             if child is not None:
                 reqs |= child.stack_requirements
         # Drop MayUse members already covered by hard requirements (e.g. tracker
         # hard DETECTION + predictor MayUse(DETECTION, TRACKING) → soft TRACKING).
         hard = {r for r in reqs if not (AnyOf.matches(r) or MayUse.matches(r))}
-        pruned: set = set(hard)
+        pruned: set[StackRequirement] = set(hard)
         for r in reqs:
             if MayUse.matches(r):
                 soft = r.capabilities - hard
@@ -213,10 +219,10 @@ class PerceptionPipeline(PerceptionStrategy):
                     pruned.add(MayUse(*soft))
             elif AnyOf.matches(r):
                 pruned.add(r)
-        return pruned
+        return frozenset(pruned)
 
     @property
-    def stack_capabilities(self) -> set[StackCapability]:
+    def stack_capabilities(self) -> frozenset[StackCapability]:
         # Only active stages advertise caps.
         caps: set[StackCapability] = set()
         if self._detector is not None:
@@ -225,7 +231,7 @@ class PerceptionPipeline(PerceptionStrategy):
             caps |= self._tracker.stack_capabilities
         if self._predictor is not None:
             caps |= self._predictor.stack_capabilities
-        return caps
+        return frozenset(caps)
 
     def perceive(
         self,

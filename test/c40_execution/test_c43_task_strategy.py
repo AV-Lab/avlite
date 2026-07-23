@@ -8,6 +8,7 @@ import pytest
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import LocalPlan
+from avlite.c30_control.c31_control_model import AckermannControlCommand
 from avlite.c40_execution.c43_task_strategy import (
     StackEvent,
     TaskPlacement,
@@ -62,6 +63,24 @@ class LocalPlanFailedListener(TaskStrategy):
         LocalPlanFailedListener.calls.append(event)
 
 
+class ParkingZoneListener(TaskStrategy):
+    schedule = TaskSchedule.ON_EVENT
+    listen_events = frozenset({StackEvent.PARKING_ZONE_ENTERED})
+    calls: list = []
+
+    def execute(self, executer, event=None) -> None:
+        ParkingZoneListener.calls.append(event)
+
+
+class ControlHaltedListener(TaskStrategy):
+    schedule = TaskSchedule.ON_EVENT
+    listen_events = frozenset({StackEvent.CONTROL_HALTED})
+    calls: list = []
+
+    def execute(self, executer, event=None) -> None:
+        ControlHaltedListener.calls.append(event)
+
+
 class NotifyDuringCycleTask(TaskStrategy):
     schedule = TaskSchedule.EVERY_CYCLE
     fired = False
@@ -87,6 +106,8 @@ def _reset_task_call_state():
     IntervalTask.calls = []
     StartedEventTask.calls = []
     LocalPlanFailedListener.calls = []
+    ParkingZoneListener.calls = []
+    ControlHaltedListener.calls = []
     NotifyDuringCycleTask.fired = False
     ThreadPlacementTask.ran = False
     yield
@@ -215,6 +236,76 @@ def test_harvest_plan_stack_event_notifies_once():
     LocalPlanFailedListener.calls = []
     executer._replan_step()
     assert LocalPlanFailedListener.calls == []
+
+
+def test_harvest_perception_stack_event_notifies_once():
+    ego = EgoState(x=0.0, y=0.0)
+    pm = PerceptionModel(ego_vehicle=ego)
+    world = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego))
+    stamped = {"done": False}
+
+    def perceive(*, perception_model=None, sensors=None):
+        if not stamped["done"]:
+            perception_model.stack_event = StackEvent.PARKING_ZONE_ENTERED
+            stamped["done"] = True
+
+    perception = SimpleNamespace(
+        world_requirements=frozenset(),
+        stack_requirements=frozenset(),
+        stack_capabilities=frozenset(),
+        perceive=perceive,
+    )
+    executer = SyncExecuter(
+        perception_model=pm,
+        world=world,
+        tasks=[ParkingZoneListener()],
+        perception=perception,
+        global_planner=None,
+        local_planner=None,
+        controller=None,
+    )
+    executer._perception_step()
+    assert ParkingZoneListener.calls == [StackEvent.PARKING_ZONE_ENTERED]
+    assert pm.stack_event is None
+
+    ParkingZoneListener.calls = []
+    executer._perception_step()
+    assert ParkingZoneListener.calls == []
+
+
+def test_harvest_control_stack_event_notifies_once():
+    ego = EgoState(x=0.0, y=0.0)
+    pm = PerceptionModel(ego_vehicle=ego)
+    world = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego))
+    cmd = AckermannControlCommand(stack_event=StackEvent.CONTROL_HALTED)
+    local_planner = SimpleNamespace(
+        get_local_plan=lambda: LocalPlan(),
+        stack_capabilities=frozenset(),
+        stack_requirements=frozenset(),
+        world_requirements=frozenset(),
+    )
+    controller = SimpleNamespace(
+        control=lambda *args, **kwargs: cmd,
+        stack_capabilities=frozenset({StackCapability.CONTROL}),
+        stack_requirements=frozenset(),
+        world_requirements=frozenset(),
+    )
+    executer = SyncExecuter(
+        perception_model=pm,
+        world=world,
+        tasks=[ControlHaltedListener()],
+        perception=None,
+        global_planner=None,
+        local_planner=local_planner,
+        controller=controller,
+    )
+    executer._control_step(sim_dt=0.01)
+    assert ControlHaltedListener.calls == [StackEvent.CONTROL_HALTED]
+    assert cmd.stack_event is None
+
+    ControlHaltedListener.calls = []
+    executer._control_step(sim_dt=0.01)
+    assert ControlHaltedListener.calls == []
 
 
 def test_non_inline_placement_falls_back_to_inline():

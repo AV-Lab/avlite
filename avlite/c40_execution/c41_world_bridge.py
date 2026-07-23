@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import ClassVar, Optional
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, EGO_AGENT_ID, Map, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c30_control.c31_control_model import ControlCommandBase
-from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
+from avlite.c50_common.c51_capabilities import StackCapability, StackRequirement, WorldCapability
 from avlite.c50_common.c53_stack_datatypes import control_type_for_agent
 from avlite.c50_common.c52_world_sensor_datatypes import (
     WORLD_CAPABILITY_SENSOR_FIELDS,
@@ -36,16 +36,16 @@ class WorldBridge(ABC):
     registry = {}
 
     # Soft default: bridges may declare stack deps (e.g. CONTROL) without subclass boilerplate.
-    stack_requirements = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
 
     @property
     @abstractmethod
-    def world_capabilities(self) -> set[WorldCapability]:
+    def world_capabilities(self) -> frozenset[WorldCapability]:
         """Sensors / actuation this bridge exposes to the stack."""
 
     @property
     @abstractmethod
-    def stack_capabilities(self) -> set[StackCapability]:
+    def stack_capabilities(self) -> frozenset[StackCapability]:
         """Ground-truth stack capabilities this bridge provides (may be empty)."""
 
     @abstractmethod

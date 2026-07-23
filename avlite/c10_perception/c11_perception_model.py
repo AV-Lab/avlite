@@ -7,7 +7,7 @@ import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import copy
 import networkx as nx
@@ -16,6 +16,9 @@ from scipy.spatial import KDTree
 from shapely.geometry import Polygon
 
 from avlite.c10_perception.c19_settings import PerceptionSettings
+
+if TYPE_CHECKING:
+    from avlite.c40_execution.c43_task_strategy import StackEvent
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +43,9 @@ class PerceptionModel:
     # Raw LiDAR points that passed segmentation + range gating (diagnostic overlay)
     detection_clusters: Optional[np.ndarray] = None
 
+    # Optional outcome signal for TaskRunner harvest (see StackEvent); default None.
+    stack_event: Optional[StackEvent] = None
+
     def add_agent_vehicle(self, agent: AgentState) -> int: # return agent_id
         if len(self.agent_vehicles) == self.max_agent_vehicles:
             log.info("Max num of agent reached. Deleteing Old agents")
@@ -55,6 +61,7 @@ class PerceptionModel:
         self.static_obstacles = []
         self.agent_vehicles = []
         self.prediction = None
+        self.stack_event = None
 
 
 @dataclass

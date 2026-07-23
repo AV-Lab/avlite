@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum, auto
+from typing import Generic, TypeVar
+
+T = TypeVar("T")  # WorldCapability | StackCapability in practice
 
 
 class WorldCapability(Enum):
@@ -37,11 +40,11 @@ class StackCapability(Enum):
     SLAM = auto()  # Whether the strategy provides simultaneous localization and mapping
 
 
-class CapabilityGroup:
+class CapabilityGroup(Generic[T]):
     """Shared AnyOf / MayUse; identity by class name (importlib-reload safe)."""
 
-    def __init__(self, *caps):
-        self.capabilities = frozenset(caps)
+    def __init__(self, *caps: T):
+        self.capabilities: frozenset[T] = frozenset(caps)
 
     @classmethod
     def matches(cls, obj) -> bool:
@@ -61,26 +64,31 @@ class CapabilityGroup:
         return f"{type(self).__name__}({names})"
 
 
-class AnyOf(CapabilityGroup):
+class AnyOf(CapabilityGroup[T], Generic[T]):
     """Requirement satisfied when *at least one* of the listed capabilities is present.
+
+    Members should be from the same enum (``WorldCapability`` or ``StackCapability``).
 
     Usage::
 
-        @property
-        def world_requirements(self):
-            return {AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)}
+        world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
     """
 
 
-class MayUse(CapabilityGroup):
+class MayUse(CapabilityGroup[T], Generic[T]):
     """Soft requirement: never blocks assembly; the module uses these if present.
 
     Usage::
 
-        @property
-        def stack_requirements(self):
-            return {StackCapability.LOCALIZATION, MayUse(StackCapability.DETECTION)}
+        stack_requirements = frozenset({
+            StackCapability.LOCALIZATION,
+            MayUse(StackCapability.DETECTION),
+        })
     """
+
+
+WorldRequirement = WorldCapability | AnyOf[WorldCapability] | MayUse[WorldCapability]
+StackRequirement = StackCapability | AnyOf[StackCapability] | MayUse[StackCapability]
 
 
 def combine_stack_requirements(modules, *, soft: bool = False) -> set:

@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 from typing import TYPE_CHECKING, ClassVar
 
+from avlite.c50_common.c51_capabilities import StackCapability, StackRequirement, WorldRequirement
+
 if TYPE_CHECKING:
     from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 
@@ -46,9 +48,9 @@ class TaskStrategy(ABC):
     placement: ClassVar[TaskPlacement] = TaskPlacement.INLINE
     interval_s: ClassVar[float] = 1.0 # For INTERVAL tasks, how often to run (seconds).
     listen_events: ClassVar[frozenset[StackEvent]] = frozenset()
-    world_requirements = frozenset()
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset()
+    world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
+    stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset()
 
     @abstractmethod
     def execute(
