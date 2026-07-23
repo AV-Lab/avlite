@@ -681,7 +681,7 @@ class VisualizerApp(tk.Tk):
 
         new_plan = self.exec.global_planner.plan(
             perception_model=self.exec.pm,
-            sensors=self.exec._fetch_sensor_frame(),
+            sensors=self.exec.world.get_sensor_frame(),
         )
         if new_plan is None or new_plan.trajectory is None:
             log.error("Global replan failed: planner returned no valid plan.")

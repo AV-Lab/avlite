@@ -7,8 +7,7 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
-from avlite.c40_execution.c43_task_strategy import StackEvent, TaskStrategy
-from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c40_execution.c43_task_strategy import TaskStrategy
 
 import threading
 import time
@@ -49,7 +48,6 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         self.__planner_elapsed_time = 0.0
         self.__planner_start_time = time.time()
         self.__controller_last_step_time = 0.0
-        self.__kill_flag = False
 
         # Locks for thread safety
         self.lock_planner = threading.Lock()
@@ -115,7 +113,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         __localize_last_t = time.time()
         __planner_step_last_t = time.time()
 
-        while not self.__kill_flag and self.call_replan:
+        while not self.stopped and self.call_replan:
             try:
                 t1 = time.time()
                 dt = t1 - self.__planner_last_step_time
@@ -173,7 +171,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
 
     def worker_control(self):
         log.info(f"Controller Worker Started")
-        while not self.__kill_flag and self.call_control:
+        while not self.stopped and self.call_control:
             try:
                 t1 = time.time()
                 dt = t1 - self.__controller_last_step_time
@@ -187,7 +185,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
 
                     with self.lock_world:
                         if self.controller and self._can_actuate():
-                            sensors = self._fetch_sensor_frame()
+                            sensors = self.world.get_sensor_frame()
                             local_plan = (
                                 self.local_planner.get_local_plan()
                                 if self.local_planner else None
@@ -203,7 +201,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     self.elapsed_sim_time += self.control_dt
                     self.elapsed_real_time += dt
                     # EVERY_CYCLE means every control cycle under async (not UI poll).
-                    self._task_runner.step(self)
+                    self.task_runner.step(self)
 
                 t2 = time.time()
                 sleep_time = max(0, self.control_dt - (t2 - t1))
@@ -214,7 +212,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                 time.sleep(0.1)
 
     def worker_perception(self):
-        while not self.__kill_flag and self.call_perceive:
+        while not self.stopped and self.call_perceive:
             try:
                 t1 = time.time()
                 if self.perception and self.call_perceive:
@@ -232,13 +230,8 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         return 0.05
 
     def stop(self):
-        already_stopped = self._stop_event.is_set()
-        self._stop_event.set()
-        if not already_stopped:
-            self.notify(StackEvent.EXECUTION_STOPPED)
-
-        # Safe to call from a worker: set kill flag, join peers, never join self.
-        self.__kill_flag = True
+        # Safe to call from a worker: set stopped, join peers, never join self.
+        super().stop()
         current = threading.current_thread()
         threads = list(self.threads)
         count = sum(1 for t in threads if t and t.is_alive())
@@ -293,7 +286,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
             log.warning("No threads created to start. Call create_threads() first.")
             return
 
-        self.__kill_flag = False
+        self.stopped = False
 
         t1 = time.time()
         log.info(f"Starting Planner Thread...")

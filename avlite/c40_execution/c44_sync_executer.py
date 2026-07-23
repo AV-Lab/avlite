@@ -98,7 +98,7 @@ class SyncExecuter(ExecutionStrategy):
         self.__prev_exec_time = time.time()
         self.elapsed_real_time += delta_t_exec
 
-        self._task_runner.step(self)
+        self.task_runner.step(self)
 
         log.debug(f"Real Step time: {delta_t_exec:.4f} sec | {pln_time_txt} {cn_time_txt} {loc_time_txt} {pr_time_txt} {sim_time_txt}")
         log.debug( f"Elapsed Real Time: {self.elapsed_real_time:.3f} sec | Elapsed Sim Time: {self.elapsed_sim_time:.3f} sec")

@@ -69,7 +69,7 @@ class NotifyDuringCycleTask(TaskStrategy):
     def execute(self, executer, event=None) -> None:
         if not NotifyDuringCycleTask.fired:
             NotifyDuringCycleTask.fired = True
-            executer.notify(StackEvent.GOAL_ARRIVED)
+            executer.task_runner.notify(StackEvent.GOAL_ARRIVED)
 
 
 class ThreadPlacementTask(TaskStrategy):
@@ -115,17 +115,13 @@ class _FakeExecuter:
             selected_local_plan=None,
         )
         self._caps = set(caps or {StackCapability.LOCALIZATION})
-        self._task_runner = None
+        self.task_runner = None
 
     def available_stack_capabilities(self):
         return self._caps
 
     def dispatch_task(self, task, event=None):
         task.execute(self, event=event)
-
-    def notify(self, event):
-        assert self._task_runner is not None
-        self._task_runner.notify(self, event)
 
     def stop(self):
         self.stopped = True
@@ -157,9 +153,9 @@ def test_interval_fires_only_when_due():
 
 def test_goal_monitor_notifies_stop_at_goal_once():
     monitor = GoalArrivalMonitor()
-    runner = TaskRunner([monitor, StopExecAtGoalTask()])
     executer = _FakeExecuter(x=0.0, y=0.0, goal=(10.0, 0.0))
-    executer._task_runner = runner
+    runner = TaskRunner([monitor, StopExecAtGoalTask()], executer=executer)
+    executer.task_runner = runner
 
     runner.step(executer)
     assert executer.stopped is False
@@ -174,9 +170,9 @@ def test_goal_monitor_notifies_stop_at_goal_once():
 
 
 def test_notify_during_step_flushes_to_on_event():
-    runner = TaskRunner([NotifyDuringCycleTask(), StopExecAtGoalTask()])
     executer = _FakeExecuter()
-    executer._task_runner = runner
+    runner = TaskRunner([NotifyDuringCycleTask(), StopExecAtGoalTask()], executer=executer)
+    executer.task_runner = runner
     runner.step(executer)
     assert executer.stopped is True
 
@@ -184,7 +180,7 @@ def test_notify_during_step_flushes_to_on_event():
 def test_notify_dispatches_lifecycle_listeners():
     runner = TaskRunner([StartedEventTask()])
     executer = _FakeExecuter()
-    runner.notify(executer, StackEvent.EXECUTION_STARTED)
+    runner.notify(StackEvent.EXECUTION_STARTED, executer=executer)
     assert StartedEventTask.calls == [StackEvent.EXECUTION_STARTED]
 
 
@@ -234,9 +230,9 @@ def test_non_inline_placement_falls_back_to_inline():
         local_planner=None,
         controller=None,
     )
-    executer.dispatch_task(executer._task_runner.tasks[0])
+    executer.dispatch_task(executer.task_runner.tasks[0])
     assert ThreadPlacementTask.ran is True
-    assert executer._task_runner.tasks[0].placement is TaskPlacement.THREAD
+    assert executer.task_runner.tasks[0].placement is TaskPlacement.THREAD
 
 
 def test_builtin_tasks_are_registered():
@@ -279,6 +275,6 @@ def test_factory_wires_builtin_stop_at_goal(minimal_corridor_map_path):
         perception_strategy_name="",
         localization_strategy_name="",
     )
-    assert len(executer._task_runner.tasks) == 2
-    assert isinstance(executer._task_runner.tasks[0], GoalArrivalMonitor)
-    assert isinstance(executer._task_runner.tasks[1], StopExecAtGoalTask)
+    assert len(executer.task_runner.tasks) == 2
+    assert isinstance(executer.task_runner.tasks[0], GoalArrivalMonitor)
+    assert isinstance(executer.task_runner.tasks[1], StopExecAtGoalTask)

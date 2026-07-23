@@ -6,7 +6,6 @@ from avlite.c30_control.c31_control_model import (
     CONTROL_COMMAND_REGISTRY,
     ControlCommand,
     ControlCommandBase,
-    ControlComand,
     DiffDriveControlCommand,
 )
 
@@ -18,23 +17,11 @@ def test_ackermann_has_timestamp():
     assert before <= cmd.timestamp <= after
 
 
-def test_control_command_alias():
-    assert ControlCommand is AckermannControlCommand
-
-
-def test_control_comand_alias():
-    assert ControlComand is AckermannControlCommand
-
-
 def test_alias_construction():
     cmd = ControlCommand(steer=0.1, acceleration=1.0)
     assert cmd.steer == 0.1
     assert cmd.acceleration == 1.0
     assert isinstance(cmd, ControlCommandBase)
-
-
-def test_isinstance_base():
-    assert isinstance(ControlCommand(), ControlCommandBase)
 
 
 def test_diff_drive_command_fields():

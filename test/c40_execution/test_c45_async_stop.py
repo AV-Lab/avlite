@@ -83,7 +83,7 @@ def test_stop_from_worker_thread_does_not_raise():
     peer_exited = threading.Event()
 
     def peer():
-        while not exec_._stop_event.is_set():
+        while not exec_.stopped:
             time.sleep(0.01)
         peer_exited.set()
 
@@ -108,11 +108,41 @@ def test_stop_from_worker_thread_does_not_raise():
     peer_thread.join(timeout=2.0)
 
     assert result["error"] is None
-    assert exec_._stop_event.is_set()
+    assert exec_.stopped
     assert exec_.threads_started is False
     assert exec_.threads == []
     assert not peer_thread.is_alive()
     assert not worker_thread.is_alive()
+
+
+def test_headless_style_loop_exits_on_stop():
+    """Driver-owned pace loop exits when executer.stop() sets the cooperative flag."""
+    from avlite.c40_execution.c44_sync_executer import SyncExecuter
+
+    exec_ = SyncExecuter(
+        perception_model=PerceptionModel(),
+        perception=None,
+        global_planner=None,
+        local_planner=_StubLocalPlanner(),
+        controller=_StubController(),
+        world=_StubWorldBridge(),
+        control_dt=0.01,
+    )
+
+    pace = threading.Event()
+    steps = 0
+    while not exec_.stopped:
+        exec_.step(control_dt=0.01, replan_dt=0.01, sim_dt=0.01, call_perceive=False)
+        steps += 1
+        if steps >= 2:
+            exec_.stop()
+        if exec_.stopped:
+            break
+        if pace.wait(timeout=0.01):
+            break
+
+    assert exec_.stopped
+    assert steps == 2
 
 
 def test_create_threads_recreates_dead_planner():

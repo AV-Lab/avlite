@@ -26,7 +26,7 @@ class GoalArrivalMonitor(TaskStrategy):
     def execute(self, executer, event=None) -> None:
         arrived = self._ego_near_goal(executer, self.arrive_radius_m)
         if arrived and not self._was_arrived:
-            executer.notify(StackEvent.GOAL_ARRIVED)
+            executer.task_runner.notify(StackEvent.GOAL_ARRIVED)
         self._was_arrived = arrived
 
     @staticmethod

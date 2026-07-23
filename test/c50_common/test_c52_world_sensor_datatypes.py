@@ -2,12 +2,9 @@ import numpy as np
 import pytest
 
 from avlite.c50_common.c52_world_sensor_datatypes import (
-    DepthImage,
     GnssDatum,
     GnssReading,
     ImuReading,
-    LidarCloud,
-    RgbImage,
     SensorFrame,
     WheelOdometry,
     lidar_2d_to_4,
@@ -26,12 +23,6 @@ def test_lidar_2d_to_4():
 def test_lidar_2d_to_4_empty():
     out = lidar_2d_to_4(np.zeros((0, 2)))
     assert out.shape == (0, 4)
-
-
-def test_sensor_type_aliases_are_ndarray():
-    assert RgbImage is np.ndarray
-    assert DepthImage is np.ndarray
-    assert LidarCloud is np.ndarray
 
 
 def test_sensor_frame_defaults():

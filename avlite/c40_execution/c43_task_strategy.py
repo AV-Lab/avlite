@@ -17,7 +17,7 @@ class TaskSchedule(Enum):
 
 
 class TaskPlacement(Enum):
-    """Where the task body runs — executer-agnostic; each executer maps as it can."""
+    """Where the task body runs - executer-agnostic; each executer maps as it can."""
 
     INLINE = auto()
     THREAD = auto()
@@ -70,8 +70,13 @@ class TaskStrategy(ABC):
 class TaskRunner:
     """Schedules CYCLE/INTERVAL tasks and dispatches ``notify`` to ON_EVENT listeners."""
 
-    def __init__(self, tasks: list[TaskStrategy] | None = None):
+    def __init__(
+        self,
+        tasks: list[TaskStrategy] | None = None,
+        executer: ExecutionStrategy | None = None,
+    ):
         self._tasks = list(tasks or [])
+        self.executer = executer
         self._last_interval_fire: dict[int, float] = {}
         self._pending_events: list[StackEvent] = []
         self._in_step = False
@@ -108,11 +113,21 @@ class TaskRunner:
         finally:
             self._in_step = False
 
-    def notify(self, executer: ExecutionStrategy, event: StackEvent) -> None:
-        """Queue during :meth:`step`, otherwise dispatch ON_EVENT listeners immediately."""
+    def notify(
+        self,
+        event: StackEvent,
+        executer: ExecutionStrategy | None = None,
+    ) -> None:
+        """Queue during :meth:`step`, otherwise dispatch ON_EVENT listeners immediately.
+
+        Uses the bound :attr:`executer` when ``executer`` is omitted.
+        """
+        ex = executer if executer is not None else self.executer
+        if ex is None:
+            raise RuntimeError("TaskRunner.notify requires an executer (pass one or bind TaskRunner.executer)")
         if self._in_step:
             self._pending_events.append(event)
             return
         for task in self._tasks:
             if task.schedule is TaskSchedule.ON_EVENT and event in task.listen_events:
-                executer.dispatch_task(task, event=event)
+                ex.dispatch_task(task, event=event)

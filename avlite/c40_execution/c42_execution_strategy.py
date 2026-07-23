@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -14,7 +13,6 @@ from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrateg
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c41_world_bridge import (
     WorldBridge,
-    is_world_capability_enabled,
     is_world_stack_capability_enabled,
 )
 from avlite.c40_execution.c43_task_strategy import (
@@ -23,12 +21,7 @@ from avlite.c40_execution.c43_task_strategy import (
     TaskRunner,
     TaskStrategy,
 )
-from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
-from avlite.c50_common.c52_world_sensor_datatypes import (
-    WORLD_CAPABILITY_SENSOR_FIELDS,
-    SensorFrame,
-)
 from avlite.c50_common.c56_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
@@ -65,6 +58,7 @@ class ExecutionStrategy(ABC):
         self.local_planner: Optional[LocalPlanningStrategy] = local_planner
         self.controller: Optional[ControlStrategy] = controller
         self.world: WorldBridge = world
+        self.task_runner = TaskRunner(tasks or [], executer=self)
 
         self.perception_fps: float = 0.0
         self.planner_fps: float = 0.0
@@ -84,19 +78,15 @@ class ExecutionStrategy(ABC):
         self._control_fps_tracker = FpsTracker()
         self._localization_fps_tracker = FpsTracker()
 
-        self._stop_event = threading.Event()
+        self.stopped = False
 
         self._localization_missing_warned = False
 
-        self._task_runner = TaskRunner(tasks or [])
-
         self._validate_stack()
 
-    def dispatch_task(
-        self,
-        task: TaskStrategy,
-        event: StackEvent | None = None,
-    ) -> None:
+    # --- public API ---
+
+    def dispatch_task(self, task: TaskStrategy, event: StackEvent | None = None,) -> None:
         """Run a due task, honoring :attr:`TaskStrategy.placement` when possible.
 
         Base implementation always runs ``INLINE``. Non-INLINE placements log a
@@ -110,11 +100,6 @@ class ExecutionStrategy(ABC):
             )
         task.execute(self, event=event)
 
-    def notify(self, event: StackEvent) -> None:
-        """Forward a stack event to the task runner (monitors / lifecycle)."""
-        self._task_runner.notify(self, event)
-
-
     def available_stack_capabilities(self) -> set:
         """StackCapabilities provided by the assembled stack plus world ground truth."""
         caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
@@ -122,7 +107,58 @@ class ExecutionStrategy(ABC):
             if module is not None:
                 caps |= module.stack_capabilities
         return caps
-    
+
+    @abstractmethod
+    def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True, call_localize=True,) -> None:
+        """ Steps the executer for one time step. This method should be implemented by the specific executer class. """
+        pass
+
+    def stop(self):
+        """Request cooperative shutdown. Subclasses may override to tear down threads/resources."""
+        if self.stopped:
+            return
+        self.stopped = True
+        self.task_runner.notify(StackEvent.EXECUTION_STOPPED)
+
+    @property
+    def ui_poll_delay(self) -> Optional[float]:
+        """Suggested interval (seconds) for the UI to wait between calls to step().
+
+        Return a fixed value when step() is lightweight (background workers handle heavy
+        computation). Return None to let the UI derive the delay from sim_dt adaptively.
+        The default is None (adaptive), which suits synchronous executers.
+        """
+        return None
+
+    def reset(self):
+        self.pm.reset()
+        self.world.reset()
+        self.ego_state.reset()
+        if self.perception:
+            self.perception.reset()
+        if self.localization:
+            self.localization.reset()
+        if self.local_planner:
+            self.local_planner.reset()
+        if self.controller:
+            self.controller.reset()
+        self.world.reset()
+        self.elapsed_real_time = 0
+        self.elapsed_sim_time = 0
+        self.perception_fps = 0.0
+        self.planner_fps = 0.0
+        self.control_fps = 0.0
+        self.localization_fps = 0.0
+        self._perception_fps_tracker.reset()
+        self._planner_fps_tracker.reset()
+        self._control_fps_tracker.reset()
+        self._localization_fps_tracker.reset()
+        self.task_runner.reset()
+        self.stopped = False
+        self.task_runner.notify(StackEvent.EXECUTION_RESET)
+
+    # --- stack helpers ---
+
     def _stack_modules(self):
         """Yield ``(label, module)`` for each assembled stack strategy (may be None)."""
         yield "perception", self.perception
@@ -131,25 +167,6 @@ class ExecutionStrategy(ABC):
         yield "global planner", self.global_planner
         yield "local planner", self.local_planner
         yield "controller", self.controller
-
-    def _can_actuate(self) -> bool:
-        """Whether the ego may be actuated this tick.
-
-        Actuation requires an available ego pose source: either a localization
-        strategy that provides ``LOCALIZATION`` or ground-truth localization from
-        the world. Without it there is no trustworthy ego pose, so the vehicle
-        must not move (warns once per state transition).
-        """
-        if StackCapability.LOCALIZATION in self.available_stack_capabilities():
-            self._localization_missing_warned = False
-            return True
-        if not self._localization_missing_warned:
-            log.warning(
-                "LOCALIZATION unavailable (no localization strategy or ground-truth "
-                "localization provided); halting ego control."
-            )
-            self._localization_missing_warned = True
-        return False
 
     def _validate_stack(self) -> None:
         """Raise on unmet module stack_requirements; warn on world deps and duplicates."""
@@ -189,102 +206,26 @@ class ExecutionStrategy(ABC):
                     ", ".join(sources),
                 )
 
-    @abstractmethod
-    def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True, call_localize=True,) -> None:
-        """ Steps the executer for one time step. This method should be implemented by the specific executer class. """
-        pass
+    def _can_actuate(self) -> bool:
+        """Whether the ego may be actuated this tick.
 
-    def run(self, replan_dt=None, control_dt=None, call_replan=True, call_control=True, call_perceive=False, call_localize=True):
-        """Generic run loop that repeatedly calls step() until stop() is called.
-
-        Subclasses may override for specialized scheduling.
+        Actuation requires an available ego pose source: either a localization
+        strategy that provides ``LOCALIZATION`` or ground-truth localization from
+        the world. Without it there is no trustworthy ego pose, so the vehicle
+        must not move (warns once per state transition).
         """
-        self.reset()
-        self._stop_event.clear()
-        self.notify(StackEvent.EXECUTION_STARTED)
-        rdt = replan_dt if replan_dt is not None else self.replan_dt
-        cdt = control_dt if control_dt is not None else self.control_dt
-        pdt = self.perception_dt
-        ldt = self.localization_dt
-        sdt = ExecutionSettings.c40_sim_dt
-        while not self._stop_event.is_set():
-            try:
-                self.step(
-                    perception_dt=pdt,
-                    control_dt=cdt,
-                    replan_dt=rdt,
-                    localization_dt=ldt,
-                    sim_dt=sdt,
-                    call_replan=call_replan,
-                    call_control=call_control,
-                    call_perceive=call_perceive,
-                    call_localize=call_localize,
-                )
-            except Exception as e:
-                log.error(f"ExecutionStrategy step error: {e}", exc_info=True)
-            if self._stop_event.wait(timeout=cdt):
-                break
+        if StackCapability.LOCALIZATION in self.available_stack_capabilities():
+            self._localization_missing_warned = False
+            return True
+        if not self._localization_missing_warned:
+            log.warning(
+                "LOCALIZATION unavailable (no localization strategy or ground-truth "
+                "localization provided); halting ego control."
+            )
+            self._localization_missing_warned = True
+        return False
 
-    def stop(self):
-        """Signal run() to exit. Subclasses may override to also tear down threads/resources."""
-        already_stopped = self._stop_event.is_set()
-        self._stop_event.set()
-        if not already_stopped:
-            self.notify(StackEvent.EXECUTION_STOPPED)
-
-    @property
-    def ui_poll_delay(self) -> Optional[float]:
-        """Suggested interval (seconds) for the UI to wait between calls to step().
-
-        Return a fixed value when step() is lightweight (background workers handle heavy
-        computation). Return None to let the UI derive the delay from sim_dt adaptively.
-        The default is None (adaptive), which suits synchronous executers.
-        """
-        return None
-
-    def reset(self):
-        self.pm.reset()
-        self.world.reset()
-        self.ego_state.reset()
-        if self.perception:
-            self.perception.reset()
-        if self.localization:
-            self.localization.reset()
-        if self.local_planner:
-            self.local_planner.reset()
-        if self.controller:
-            self.controller.reset()
-        self.world.reset()
-        self.elapsed_real_time = 0
-        self.elapsed_sim_time = 0
-        self.perception_fps = 0.0
-        self.planner_fps = 0.0
-        self.control_fps = 0.0
-        self.localization_fps = 0.0
-        self._perception_fps_tracker.reset()
-        self._planner_fps_tracker.reset()
-        self._control_fps_tracker.reset()
-        self._localization_fps_tracker.reset()
-        self._task_runner.reset()
-        self.notify(StackEvent.EXECUTION_RESET)
-
-    def _fetch_sensor_frame(self) -> SensorFrame:
-        """Build SensorFrame from world bridge, respecting the c41_world_capabilities filter."""
-        frame = self.world.get_sensor_frame()
-        cleared: set[str] = set()
-        for cap, field in WORLD_CAPABILITY_SENSOR_FIELDS.items():
-            if field is None or field in cleared:
-                continue
-            if not is_world_capability_enabled(cap):
-                # LiDAR: keep the field if either 2D or 3D is still provided.
-                peers = [
-                    c for c, f in WORLD_CAPABILITY_SENSOR_FIELDS.items() if f == field
-                ]
-                if any(is_world_capability_enabled(c) for c in peers):
-                    continue
-                setattr(frame, field, None)
-                cleared.add(field)
-        return frame
+    # --- tick helpers ---
 
     def _localization_step(self) -> None:
         """Run one localization iteration using the current world capabilities."""
@@ -294,7 +235,7 @@ class ExecutionStrategy(ABC):
         world_ok = satisfies_requirements(self.localization.world_requirements, self.world.world_capabilities)
         stack_ok = satisfies_requirements(self.localization.stack_requirements, self.available_stack_capabilities())
         if world_ok and stack_ok:
-            sensors = self._fetch_sensor_frame()
+            sensors = self.world.get_sensor_frame()
             self.localization.localize(perception_model=self.pm, sensors=sensors)
             self.localization_fps = self._localization_fps_tracker.tick()
         else:
@@ -333,7 +274,7 @@ class ExecutionStrategy(ABC):
         else:
             self.pm.agent_vehicles = []
 
-        sensors = self._fetch_sensor_frame()
+        sensors = self.world.get_sensor_frame()
         self.perception.perceive(perception_model=self.pm, sensors=sensors)
 
         self.perception_fps = self._perception_fps_tracker.tick()
@@ -342,7 +283,7 @@ class ExecutionStrategy(ABC):
         """Run one planning iteration (replan) and update FPS."""
         if not self.local_planner:
             return
-        sensors = self._fetch_sensor_frame()
+        sensors = self.world.get_sensor_frame()
         self.local_planner.replan(perception_model=self.pm, sensors=sensors)
         self.planner_fps = self._planner_fps_tracker.tick()
         # Harvest optional stack_event stamps from plan artifacts (notify once, then clear).
@@ -354,13 +295,13 @@ class ExecutionStrategy(ABC):
             event = getattr(local_plan, "stack_event", None)
             if event is not None:
                 local_plan.stack_event = None
-                self.notify(event)
+                self.task_runner.notify(event)
         gp = getattr(self.local_planner, "global_plan", None)
         if gp is not None:
             event = getattr(gp, "stack_event", None)
             if event is not None:
                 gp.stack_event = None
-                self.notify(event)
+                self.task_runner.notify(event)
 
     def _control_step(self, sim_dt: float) -> None:
         """Run one control iteration, apply to world, and update FPS."""
@@ -368,7 +309,7 @@ class ExecutionStrategy(ABC):
             return
         if not self._can_actuate():
             return
-        sensors = self._fetch_sensor_frame()
+        sensors = self.world.get_sensor_frame()
         local_plan = self.local_planner.get_local_plan()
         cmd = self.controller.control(
             self.ego_state, local_plan, control_dt=sim_dt,

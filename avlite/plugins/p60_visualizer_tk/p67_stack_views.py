@@ -479,7 +479,7 @@ class PlanFrame(ttk.LabelFrame):
         t1 = time.time()
         self.root.exec.local_planner.replan(
             perception_model=self.root.exec.pm,
-            sensors=self.root.exec._fetch_sensor_frame(),
+            sensors=self.root.exec.world.get_sensor_frame(),
         )
         t2 = time.time()
         log.info(f"Re-plan Time: {(t2-t1)*1000:.2f} ms")
@@ -628,7 +628,7 @@ class ControlFrame(ttk.LabelFrame):
             self.root.exec.local_planner.get_local_plan(),
             control_dt=self.root.setting.sim_dt.get(),
             perception_model=self.root.exec.pm,
-            sensors=self.root.exec._fetch_sensor_frame(),
+            sensors=self.root.exec.world.get_sensor_frame(),
         )
 
         self.root.exec.world.control_ego_state(

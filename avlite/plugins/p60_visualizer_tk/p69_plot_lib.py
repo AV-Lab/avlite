@@ -1504,7 +1504,7 @@ class LocalPlot:
         log.debug(f"Plot theme set to {bg_color} background and {fg_color} foreground.")
         self.redraw_plots()
     
-    def show_vehicle_orientation_ax1(self, x, y, theta):
+    def show_vehicle_orientation_ax1(self, x, y, theta, color="red"):
         """Show the vehicle orientation on the plot"""
         log.debug(f"Showing vehicle orientation at ({x}, {y}) with theta={theta}")
 
@@ -1515,9 +1515,9 @@ class LocalPlot:
         if self.orientation_arrow:
             self.orientation_arrow.remove()
         self.orientation_arrow = self.ax1.annotate('', xy=(x2, y2), xytext=(x,y), arrowprops=dict(arrowstyle='->',
-                                                     mutation_scale=20, color="red", lw=5), zorder=5)
+                                                     mutation_scale=20, color=color, lw=5), zorder=5)
 
-    def show_vehicle_orientation_ax2(self, s, d, theta):
+    def show_vehicle_orientation_ax2(self, s, d, theta, color="red"):
         """Show the vehicle orientation on the plot"""
         log.debug(f"Showing vehicle orientation at ({s}, {d}) with theta={theta}")
 
@@ -1529,7 +1529,7 @@ class LocalPlot:
         if self.orientation_arrow:
             self.orientation_arrow.remove()
         self.orientation_arrow = self.ax2.annotate('', xy=(s2, d2), xytext=(s,d), arrowprops=dict(arrowstyle='->',
-                                                     mutation_scale=20, color="red", lw=5), zorder=5)
+                                                     mutation_scale=20, color=color, lw=5), zorder=5)
 
     def show_distance_ruler(self, ax, x0, y0, x1, y1, dist_m: float) -> None:
         """Draw a light line from (x0, y0) to cursor with world-XY distance label."""
