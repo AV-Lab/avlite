@@ -168,7 +168,7 @@ class GlobalPlanPlotView(ttk.Frame):
             if event.inaxes == self.ax:
                 x, y = event.xdata, event.ydata
 
-                self.root.setting.perception_status_text.set(f"Teleport Ego: X: {x:.2f}, Y: {y:.2f}")
+                self.root.setting.perception_status_text.set(f"Teleport {x:.1f},{y:.1f}")
 
                 # Hover speed readout on the colored raceline (idle only).
                 if (not self.left_mouse_button_pressed
@@ -198,11 +198,11 @@ class GlobalPlanPlotView(ttk.Frame):
                     self._ego_orient_active = True
                     self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
                     self.global_plot.show_vehicle_orientation(self.teleport_x, self.teleport_y, self.teleport_orientation) 
-                    self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
+                    self.root.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
                     self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
                     self.root.update_ui()
             else:
-                self.root.setting.perception_status_text.set("Click on the plot.")
+                self.root.setting.perception_status_text.set("Click plot")
                 self.global_plot.clear_tmp_plots()
                 self._drag_mode = False
                 self._init_drag_mouse_pos = None
@@ -261,7 +261,7 @@ class GlobalPlanPlotView(ttk.Frame):
         if event.inaxes == self.ax:
             if event.button == 1:
                 if not self._drag_mode and not self._ego_orient_active:
-                    self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y)
+                    self.root.teleport_ego(x=self.teleport_x, y=self.teleport_y)
                     self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())
                 self.left_mouse_button_pressed = False
                 self._drag_mode = False
@@ -331,7 +331,8 @@ class LocalPlanPlotView(ttk.Frame):
         self.spawn_s = 0.0
         self.spawn_d = 0.0
         self.spawn_orientation = 0.0
-        
+        self._spawn_agent_state = None
+
 
     def reset(self):
         self.local_plot.reset()
@@ -341,15 +342,17 @@ class LocalPlanPlotView(ttk.Frame):
         if event.inaxes:
             x, y = event.xdata, event.ydata
             if event.inaxes == self.ax1:
-                self.root.setting.perception_status_text.set(f"Spawn Agent: X: {x:.2f}, Y: {y:.2f}")
+                self.root.setting.perception_status_text.set(f"Spawn {x:.1f},{y:.1f}")
                 if self.left_mouse_button_pressed:
                     self.teleport_orientation = np.arctan2(y - self.teleport_y, x - self.teleport_x)
                     self.local_plot.show_vehicle_orientation_ax1(self.teleport_x, self.teleport_y, self.teleport_orientation) 
-                    self.root.exec.world.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
+                    self.root.teleport_ego(x=self.teleport_x, y=self.teleport_y, theta=self.teleport_orientation)
                     self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
                     self.root.update_ui()
                 elif self.right_mouse_button_pressed and self.spawn_in_ax1:
                     self.spawn_orientation = np.arctan2(y - self.spawn_y, x - self.spawn_x)
+                    if self._spawn_agent_state is not None:
+                        self._spawn_agent_state.theta = self.spawn_orientation
                     self.local_plot.show_vehicle_orientation_ax1(
                         self.spawn_x, self.spawn_y, self.spawn_orientation, color="blue"
                     )
@@ -359,7 +362,7 @@ class LocalPlanPlotView(ttk.Frame):
                     teleport_orientation = np.arctan2(y - self.teleport_d, x - self.teleport_s)
                     self.local_plot.show_vehicle_orientation_ax2(s=self.teleport_s, d=self.teleport_d, theta=teleport_orientation) 
                     x_,y_, theta = self.root.exec.local_planner.global_plan.trajectory.convert_sd_orientation_to_xy_orientation(x,y,teleport_orientation)
-                    self.root.exec.world.teleport_ego(self.teleport_x, self.teleport_y,theta)
+                    self.root.teleport_ego(self.teleport_x, self.teleport_y,theta)
                     self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
                     self.root.update_ui()
                 elif self.right_mouse_button_pressed and not self.spawn_in_ax1:
@@ -371,10 +374,12 @@ class LocalPlanPlotView(ttk.Frame):
                         self.root.exec.local_planner.global_plan.trajectory
                         .convert_sd_orientation_to_xy_orientation(self.spawn_s, self.spawn_d, plot_theta)
                     )
+                    if self._spawn_agent_state is not None:
+                        self._spawn_agent_state.theta = self.spawn_orientation
                     self.root.update_ui()
-                self.root.setting.perception_status_text.set(f"Spawn Agent: S: {x:.2f}, D: {y:.2f}")
+                self.root.setting.perception_status_text.set(f"Spawn S:{x:.1f},D:{y:.1f}")
         else:
-            self.root.setting.perception_status_text.set("Click on the plot.")
+            self.root.setting.perception_status_text.set("Click plot")
 
         # Paused-only distance ruler from ego front center to cursor.
         if (
@@ -415,6 +420,9 @@ class LocalPlanPlotView(ttk.Frame):
                 self.spawn_x = x
                 self.spawn_y = y
                 self.spawn_orientation = self.root.exec.ego_state.theta
+                self._spawn_agent_state = self.__spawn_agent(
+                    x=x, y=y, theta=self.spawn_orientation
+                )
                 self.local_plot.show_vehicle_orientation_ax1(
                     x, y, self.spawn_orientation, color="blue"
                 )
@@ -430,6 +438,9 @@ class LocalPlanPlotView(ttk.Frame):
                 self.spawn_x = x
                 self.spawn_y = y
                 self.spawn_orientation = self.root.exec.ego_state.theta
+                self._spawn_agent_state = self.__spawn_agent(
+                    s=s, d=d, theta=self.spawn_orientation
+                )
                 _, _, path_heading = traj.convert_sd_orientation_to_xy_orientation(s, d, 0.0)
                 self.local_plot.show_vehicle_orientation_ax2(
                     s=s, d=d, theta=self.spawn_orientation - path_heading, color="blue"
@@ -439,14 +450,14 @@ class LocalPlanPlotView(ttk.Frame):
         elif event.button == 1:
             if event.inaxes == self.ax1:
                 x, y = event.xdata, event.ydata
-                self.root.exec.world.teleport_ego(x=x, y=y)
+                self.root.teleport_ego(x=x, y=y)
                 self.left_mouse_button_pressed = True
                 self.teleport_x = x
                 self.teleport_y = y
             elif event.inaxes == self.ax2:
                 s, d = event.xdata, event.ydata
                 x,y = self.root.exec.local_planner.global_plan.trajectory.convert_sd_to_xy(s,d)
-                self.root.exec.world.teleport_ego(x,y)
+                self.root.teleport_ego(x,y)
                 self.left_mouse_button_pressed = True
                 self.teleport_s = s
                 self.teleport_d = d
@@ -470,9 +481,8 @@ class LocalPlanPlotView(ttk.Frame):
             self.root.spawn_agent(agent)
         else:
             raise ValueError("Either (x, y) or (s, d) must be provided")
+        return agent
 
-        # self.pm.add_agent_vehicle(agent)
-    
     def on_mouse_release(self, event):
         # if event.inaxes == self.ax1:
         if event.button == 1:
@@ -483,10 +493,7 @@ class LocalPlanPlotView(ttk.Frame):
             log.debug(f"Teleport Ego to X: {self.teleport_x:.2f}, Y: {self.teleport_y:.2f}, Orientation: {self.teleport_orientation:.2f}")
         elif event.button == 3 and self.right_mouse_button_pressed:
             self.right_mouse_button_pressed = False
-            if self.spawn_in_ax1:
-                self.__spawn_agent(x=self.spawn_x, y=self.spawn_y, theta=self.spawn_orientation)
-            else:
-                self.__spawn_agent(s=self.spawn_s, d=self.spawn_d, theta=self.spawn_orientation)
+            self._spawn_agent_state = None
             self.local_plot.clear_tmp_plots()
             self.root.update_ui()
             log.debug(

@@ -380,7 +380,7 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | `map` | Optional `Map \| None` for **simulation** (e.g. LiDAR geometry); does not advertise stack `MAP_HD` / `MAP_RACE_TRACK` — use `MapReader` / mapping module for that | Unchanged |
 | `control_type(agent)` | Default: `control_type_for_agent(agent)` | Override only for bridge-specific exceptions |
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
-| `teleport_agent(id, x, y, theta)` | Default: ego delegates to `teleport_ego`; NPC raises `NotImplementedError` | Override for sim teleport of any agent |
+| `teleport_agent(agent_state)` | Default: ego delegates to `teleport_ego` using pose (`x`, `y`, `theta`) from `agent_state`; NPC raises `NotImplementedError`. Identity is `agent_state.agent_id`; velocity/size/type are not applied | Override for sim teleport of any agent |
 | `get_*(agent_id=EGO_AGENT_ID)` | Default: ego returns data or `None`; NPC raises `NotImplementedError` | Per-agent sensors in Carla / ROS bridges |
 | `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible) | Non-ego: passes `agent_id` to each getter |
 | `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |

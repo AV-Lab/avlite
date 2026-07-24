@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.2] - 2026-07-23
+## [0.5.3] - 2026-07-24
+
+### Added
+- Execution: per-module pacing flags `c40_pace_perception` / `c40_pace_replan` / `c40_pace_control` / `c40_pace_sim` (default on); when off, that module runs best-effort (sim uses clamped wall-clock Δt)
+- Perception: `State.copy_from` for in-place dataclass field sync (preserves object identity)
+- Factory: distinct world ego vs stack `pm.ego_vehicle` so estimated localization can own stack pose without mutating the plant
+- Visualizer: Settings toolbar plot toggles (Global / Local Frenet / Local Global); local panel shown iff Frenet or Local Global is on
+- Visualizer: Δt pacing checkboxes left of each period entry; entry disabled when pacing is off
+- Visualizer: right-click spawn places the agent on press (live preview with orientation arrow while dragging)
+- Visualizer: `teleport_ego` syncs plant → stack PM so the drawn ego moves immediately
+
+### Changed
+- Sync / async executers honor pace flags in `step` / worker loops (control holds last command between recomputes when pace_control is off)
+- Headless / ROS step kwargs pass through pace settings
+- Visualizer: Control stack first row pack no longer expands (top-aligned with Perception / Planning)
+
+### Fixed
+- Interactive teleport left stack PM ego stale until the next exec tick (world/stack ego split)
 
 ### Added
 - Execution: optional `stack_event` on `PerceptionModel` and `ControlCommandBase`; executer harvests after localize / perceive / control (same clear-once pattern as plans)

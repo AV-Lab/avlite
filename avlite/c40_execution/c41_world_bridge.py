@@ -59,23 +59,12 @@ class WorldBridge(ABC):
         """
         pass
 
-    def control_type(self, agent: AgentState) -> type[ControlCommandBase]:
-        """Command class this bridge expects for the given agent."""
-        return control_type_for_agent(agent)
-
-    def control_agent(
-        self,
-        agent_id: int,
-        cmd: ControlCommandBase,
-        dt: Optional[float] = 0.01,
-    ) -> None:
+    def control_agent(self, agent_id: int, cmd: ControlCommandBase, dt: Optional[float] = 0.01,) -> None:
         """Apply control to any agent. Default: delegate ego to control_ego_state."""
         if agent_id == EGO_AGENT_ID:
             self.control_ego_state(cmd, dt=dt)
             return
-        raise NotImplementedError(
-            f"{type(self).__name__} does not support control of agent {agent_id}"
-        )
+        raise NotImplementedError( f"{type(self).__name__} does not support control of agent {agent_id}")
 
     def step(self, dt: Optional[float] = 0.01) -> None:
         """Advance the world by dt without a new command from the control stack."""
@@ -95,19 +84,20 @@ class WorldBridge(ABC):
         """
         raise NotImplementedError("This method should be implemented by the simulator or ROS bridge.")
 
-    def teleport_agent(
-        self,
-        agent_id: int,
-        x: float,
-        y: float,
-        theta: Optional[float] = None,
-    ) -> None:
-        """Teleport any agent. Default: ego delegates to teleport_ego; NPC raises."""
-        if agent_id == EGO_AGENT_ID:
-            self.teleport_ego(x, y, theta)
+    def teleport_agent(self, agent_state: AgentState) -> None:
+        """Teleport any agent to the pose in ``agent_state``.
+
+        Identity comes from ``agent_state.agent_id`` (same pattern as
+        :meth:`spawn_agent`). Only pose is applied (``x``, ``y``, ``theta``;
+        later ``z`` for aerial/etc.); velocity, size, and type are ignored.
+
+        Default: ego delegates to :meth:`teleport_ego`; NPC raises.
+        """
+        if agent_state.agent_id == EGO_AGENT_ID:
+            self.teleport_ego(agent_state.x, agent_state.y, agent_state.theta)
             return
         raise NotImplementedError(
-            f"{type(self).__name__} does not support teleport of agent {agent_id}"
+            f"{type(self).__name__} does not support teleport of agent {agent_state.agent_id}"
         )
 
     def spawn_agent(self, agent_state: AgentState, global_plan: Optional[GlobalPlan] = None):

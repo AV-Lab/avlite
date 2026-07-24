@@ -5,9 +5,10 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c40_execution.c41_world_bridge import WorldBridge, is_world_stack_capability_enabled
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c43_task_strategy import TaskStrategy
+from avlite.c50_common.c51_capabilities import StackCapability
 
 import threading
 import time
@@ -17,6 +18,10 @@ log = logging.getLogger(__name__)
 
 # TODO: Perception to be moved to a separate thread
 class AsyncThreadedExecuter(ExecutionStrategy):
+    # Floor sleep when pace_* is off so free-run workers cannot busy-spin the GIL
+    # (matches headless free-run timeout of 1 ms).
+    _FREE_RUN_SLEEP_S = 0.001
+
     def __init__(
         self,
         perception_model: PerceptionModel,
@@ -48,6 +53,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         self.__planner_elapsed_time = 0.0
         self.__planner_start_time = time.time()
         self.__controller_last_step_time = 0.0
+        self.__prev_exec_time = None
 
         # Locks for thread safety
         self.lock_planner = threading.Lock()
@@ -58,6 +64,11 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         self.call_control = True
         self.call_perceive = True
         self.call_localize = True
+        self.pace_perception = True
+        self.pace_replan = True
+        self.pace_control = True
+        self.pace_sim = True
+        self.sim_dt = 0.01
 
         self.threads = []
         self.threads_started = False
@@ -68,7 +79,22 @@ class AsyncThreadedExecuter(ExecutionStrategy):
 
         self.create_threads()
 
-    def step( self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=False, call_localize=True):
+    def step(
+        self,
+        perception_dt=0.01,
+        control_dt=0.01,
+        replan_dt=0.01,
+        localization_dt=0.01,
+        sim_dt=0.01,
+        call_replan=True,
+        call_control=True,
+        call_perceive=False,
+        call_localize=True,
+        pace_perception=True,
+        pace_replan=True,
+        pace_control=True,
+        pace_sim=True,
+    ):
         self.perception_dt = perception_dt
         self.control_dt = control_dt
         self.replan_dt = replan_dt
@@ -78,6 +104,10 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         self.call_control = call_control
         self.call_perceive = call_perceive
         self.call_localize = call_localize
+        self.pace_perception = pace_perception
+        self.pace_replan = pace_replan
+        self.pace_control = pace_control
+        self.pace_sim = pace_sim
 
         if not self.threads_started:
             log.info(f"Threads not started yet. Creating and starting threads.")
@@ -119,9 +149,10 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                 dt = t1 - self.__planner_last_step_time
                 self.__planner_elapsed_time += time.time() - self.__planner_start_time
 
+                do_replan = (not self.pace_replan) or (dt > self.replan_dt)
                 if dt > 10 * self.replan_dt:
                     self.__planner_last_step_time = t1
-                elif dt > self.replan_dt:
+                elif do_replan:
                     self.__planner_last_step_time = time.time()
                     self._replan_step()
 
@@ -130,16 +161,19 @@ class AsyncThreadedExecuter(ExecutionStrategy):
 
                 # Rate-limit local_planner.step to replan_dt — avoids flooding the GIL
                 # with continuous KD-tree queries that starve the controller thread
-                if self.local_planner and t1 - __planner_step_last_t >= self.replan_dt:
-                    state = self.world.get_ego_state()
-                    self.local_planner.step(state)
+                step_due = (not self.pace_replan) or (t1 - __planner_step_last_t >= self.replan_dt)
+                if self.local_planner and step_due:
+                    self.local_planner.step(self.pm.ego_vehicle)
                     __planner_step_last_t = t1
 
                 t2 = time.time()
                 log.debug("Planner iteration: dt=%.3fs, execution time=%.3fs", dt, t2 - t1)
 
-                # Localization: rate-limited by localization_dt
-                if self.call_localize:
+                # Localization owns PM ego only when GT localization is not enabled.
+                if (
+                    self.call_localize
+                    and not is_world_stack_capability_enabled(StackCapability.LOCALIZATION)
+                ):
                     if t1 - __localize_last_t >= self.localization_dt:
                         try:
                             self._localization_step()
@@ -154,16 +188,16 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     dt_p = time.time() - self._perception_fps_tracker.last
                     if dt_p > 10 * self.perception_dt:
                         self._perception_fps_tracker.last = time.time()
-                    elif dt_p >= self.perception_dt:
+                    elif (not self.pace_perception) or (dt_p >= self.perception_dt):
                         try:
                             self._perception_step()
                         except Exception as e:
                             log.error(f"Error in perception step: {e}", exc_info=True)
 
-                # Sleep for the remainder of the replan cycle so this thread
-                # does not busy-wait between replans and starve the UI + controller.
-                sleep_time = max(0, self.replan_dt - (time.time() - t1))
-                time.sleep(sleep_time)
+                if self.pace_replan:
+                    time.sleep(max(0, self.replan_dt - (time.time() - t1)))
+                else:
+                    time.sleep(self._FREE_RUN_SLEEP_S)
 
             except Exception as e:
                 log.error(f"Error in planner worker: {e}", exc_info=True)
@@ -174,39 +208,54 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         while not self.stopped and self.call_control:
             try:
                 t1 = time.time()
-                dt = t1 - self.__controller_last_step_time
+                wall_since_ctrl = t1 - self.__controller_last_step_time
 
-                if dt > 10 * self.control_dt:  # probably its the first iteration
+                if wall_since_ctrl > 10 * self.control_dt:  # probably its the first iteration
                     self.__controller_last_step_time = t1
 
-                elif dt > self.control_dt:
+                recompute = (not self.pace_control) or (wall_since_ctrl > self.control_dt)
+                if recompute and wall_since_ctrl <= 10 * self.control_dt:
                     with self.lock_controller:
                         self.__controller_last_step_time = t1
-
                     with self.lock_world:
-                        if self.controller and self._can_actuate():
-                            sensors = self.world.get_sensor_frame()
-                            local_plan = (
-                                self.local_planner.get_local_plan()
-                                if self.local_planner else None
-                            )
-                            cmd = self.controller.control(
-                                self.world.ego_state, local_plan,
-                                control_dt=self.sim_dt,
-                                perception_model=self.pm, sensors=sensors,
-                            )
-                            self.world.control_ego_state(cmd, dt=self.sim_dt)
+                        if is_world_stack_capability_enabled(StackCapability.LOCALIZATION):
+                            self.pm.ego_vehicle.copy_from(self.world.get_ego_state())
+                        self._control_step(self.sim_dt)
 
-                    self.control_fps = self._control_fps_tracker.tick(floor_dt=self.sim_dt)
-                    self.elapsed_sim_time += self.control_dt
-                    self.elapsed_real_time += dt
-                    # EVERY_CYCLE means every control cycle under async (not UI poll).
-                    self.task_runner.step(self)
+                # Free-run: sim and real share the same wall interval (start-of-iter stamps).
+                # Paced: fixed sim_dt; real accumulates full loop wall including sleep.
+                if self.pace_sim:
+                    dt = self.sim_dt
+                    with self.lock_world:
+                        self._simulate_step(dt)
+                    self.elapsed_sim_time += dt
+                else:
+                    if self._last_sim_wall_t is None:
+                        self._last_sim_wall_t = t1
+                    else:
+                        dt = max(1e-4, min(t1 - self._last_sim_wall_t, 1.0))
+                        self._last_sim_wall_t = t1
+                        with self.lock_world:
+                            self._simulate_step(dt)
+                        self.elapsed_sim_time += dt
+                        self.elapsed_real_time += dt
+
+                self.task_runner.step(self)
 
                 t2 = time.time()
-                sleep_time = max(0, self.control_dt - (t2 - t1))
-                time.sleep(sleep_time)
-                log.debug("Controller iteration actual step time %.3f -> sleep time: %.2f s", t2 - t1, sleep_time)
+                if self.pace_control:
+                    time.sleep(max(0, self.control_dt - (t2 - t1)))
+                elif self.pace_sim:
+                    time.sleep(max(0, self.sim_dt - (t2 - t1)))
+                else:
+                    time.sleep(self._FREE_RUN_SLEEP_S)
+
+                if self.pace_sim:
+                    t_end = time.time()
+                    if self.__prev_exec_time is not None:
+                        self.elapsed_real_time += t_end - self.__prev_exec_time
+                    self.__prev_exec_time = t_end
+                log.debug("Controller iteration actual step time %.3f s", t2 - t1)
             except Exception as e:
                 log.error(f"Error in controller worker: {e}", exc_info=True)
                 time.sleep(0.1)
@@ -219,6 +268,10 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     self._perception_step()
                 t2 = time.time()
                 log.debug("Perception iteration: dt=%.3fs", t2 - t1)
+                if self.pace_perception:
+                    time.sleep(max(0, self.perception_dt - (t2 - t1)))
+                else:
+                    time.sleep(self._FREE_RUN_SLEEP_S)
             except Exception as e:
                 log.error(f"Error in perception worker: {e}")
                 time.sleep(0.1)

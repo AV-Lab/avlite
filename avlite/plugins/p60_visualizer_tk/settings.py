@@ -142,7 +142,7 @@ class VisualizationSettings:
         self.p67_show_perception_extras = tk.BooleanVar(value=False)
         self.p67_show_prediction = tk.BooleanVar(value=True)
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
-        self.perception_status_text = tk.StringVar(value="Spawn Agent: Right click on the plot.")
+        self.perception_status_text = tk.StringVar(value="R-click: spawn")
 
         self.perception_type = tk.StringVar(value=ExecutionSettings.c40_perception or "")
 
@@ -333,8 +333,43 @@ class VisualizationSettings:
             if self._syncing_stack:
                 return
             ExecutionSettings.c40_sim_dt = float(self.sim_dt.get())
+            self._sync_exec_dt("sim_dt", self.sim_dt.get())
 
         self.sim_dt.trace_add("write", _on_sim_dt_change)
+
+        self.pace_perception = tk.BooleanVar(value=ExecutionSettings.c40_pace_perception)
+        self.pace_replan = tk.BooleanVar(value=ExecutionSettings.c40_pace_replan)
+        self.pace_control = tk.BooleanVar(value=ExecutionSettings.c40_pace_control)
+        self.pace_sim = tk.BooleanVar(value=ExecutionSettings.c40_pace_sim)
+
+        def _on_pace_perception_change(*_):
+            if self._syncing_stack:
+                return
+            ExecutionSettings.c40_pace_perception = bool(self.pace_perception.get())
+            self._sync_exec_pace("pace_perception", self.pace_perception.get())
+
+        def _on_pace_replan_change(*_):
+            if self._syncing_stack:
+                return
+            ExecutionSettings.c40_pace_replan = bool(self.pace_replan.get())
+            self._sync_exec_pace("pace_replan", self.pace_replan.get())
+
+        def _on_pace_control_change(*_):
+            if self._syncing_stack:
+                return
+            ExecutionSettings.c40_pace_control = bool(self.pace_control.get())
+            self._sync_exec_pace("pace_control", self.pace_control.get())
+
+        def _on_pace_sim_change(*_):
+            if self._syncing_stack:
+                return
+            ExecutionSettings.c40_pace_sim = bool(self.pace_sim.get())
+            self._sync_exec_pace("pace_sim", self.pace_sim.get())
+
+        self.pace_perception.trace_add("write", _on_pace_perception_change)
+        self.pace_replan.trace_add("write", _on_pace_replan_change)
+        self.pace_control.trace_add("write", _on_pace_control_change)
+        self.pace_sim.trace_add("write", _on_pace_sim_change)
 
         self.execution_bridge = tk.StringVar(value=ExecutionSettings.c40_bridge)
 
@@ -403,15 +438,22 @@ class VisualizationSettings:
 
     def _sync_exec_dt(self, attr: str, value: float) -> None:
         """Persist dt change to the ROS plugin YAML so it takes effect on next launch."""
+        self._sync_ros_plugin_attr(attr, float(value))
+
+    def _sync_exec_pace(self, attr: str, value: bool) -> None:
+        """Persist pace flag to the ROS plugin YAML so it takes effect on next launch."""
+        self._sync_ros_plugin_attr(attr, bool(value))
+
+    def _sync_ros_plugin_attr(self, attr: str, value) -> None:
         try:
             name = "avlite-executer-ROS2"
             stored = AppSettings.c62_community_plugins.get(name, name)
             install = str(PluginPaths.resolve(name, stored))
             cls = load_plugin_settings_class(name, install)
-            if cls is None:
+            if cls is None or not hasattr(cls, attr):
                 return
             patch_plugin_settings(cls, name, install)
-            setattr(cls, attr, float(value))
+            setattr(cls, attr, value)
             save_setting(cls, binder=TkSettingsBinder())
         except Exception:
             pass
@@ -470,6 +512,10 @@ class VisualizationSettings:
             self.control_dt.set(es.c40_control_dt)
             self.replan_dt.set(es.c40_replan_dt)
             self.sim_dt.set(es.c40_sim_dt)
+            self.pace_perception.set(es.c40_pace_perception)
+            self.pace_replan.set(es.c40_pace_replan)
+            self.pace_control.set(es.c40_pace_control)
+            self.pace_sim.set(es.c40_pace_sim)
             self.execution_bridge.set(es.c40_bridge)
             self.log_level.set(es.c40_log_level)
             self.log_to_file.set(es.c40_log_to_file)

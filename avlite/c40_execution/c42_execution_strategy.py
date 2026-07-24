@@ -53,7 +53,6 @@ class ExecutionStrategy(ABC):
         self.perception: Optional[PerceptionStrategy] = perception
         self.localization: Optional[LocalizationStrategy] = localization
         self.mapping: Optional[MappingStrategy] = mapping
-        self.ego_state: EgoState = perception_model.ego_vehicle
         self.global_planner: Optional[GlobalPlannerStrategy] = global_planner
         self.local_planner: Optional[LocalPlanningStrategy] = local_planner
         self.controller: Optional[ControlStrategy] = controller
@@ -72,6 +71,8 @@ class ExecutionStrategy(ABC):
 
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
+        self._last_cmd = None
+        self._last_sim_wall_t = None
 
         self._perception_fps_tracker = FpsTracker()
         self._planner_fps_tracker = FpsTracker()
@@ -83,6 +84,11 @@ class ExecutionStrategy(ABC):
         self._localization_missing_warned = False
 
         self._validate_stack()
+
+    @property
+    def ego_state(self) -> EgoState:
+        """Stack-facing ego pose — always ``pm.ego_vehicle`` (mutable in place)."""
+        return self.pm.ego_vehicle
 
     # --- public API ---
 
@@ -100,16 +106,24 @@ class ExecutionStrategy(ABC):
             )
         task.execute(self, event=event)
 
-    def available_stack_capabilities(self) -> set:
-        """StackCapabilities provided by the assembled stack plus world ground truth."""
-        caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
-        for _, module in self._stack_modules():
-            if module is not None:
-                caps |= module.stack_capabilities
-        return caps
 
     @abstractmethod
-    def step(self, perception_dt=0.01, control_dt=0.01, replan_dt=0.01, localization_dt=0.01, sim_dt=0.01, call_replan=True, call_control=True, call_perceive=True, call_localize=True,) -> None:
+    def step(
+        self,
+        perception_dt=0.01,
+        control_dt=0.01,
+        replan_dt=0.01,
+        localization_dt=0.01,
+        sim_dt=0.01,
+        call_replan=True,
+        call_control=True,
+        call_perceive=True,
+        call_localize=True,
+        pace_perception=True,
+        pace_replan=True,
+        pace_control=True,
+        pace_sim=True,
+    ) -> None:
         """ Steps the executer for one time step. This method should be implemented by the specific executer class. """
         pass
 
@@ -145,6 +159,8 @@ class ExecutionStrategy(ABC):
         self.world.reset()
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
+        self._last_cmd = None
+        self._last_sim_wall_t = None
         self.perception_fps = 0.0
         self.planner_fps = 0.0
         self.control_fps = 0.0
@@ -156,6 +172,15 @@ class ExecutionStrategy(ABC):
         self.task_runner.reset()
         self.stopped = False
         self.task_runner.notify(StackEvent.EXECUTION_RESET)
+    
+
+    def available_stack_capabilities(self) -> set:
+        """StackCapabilities provided by the assembled stack plus world ground truth."""
+        caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
+        for _, module in self._stack_modules():
+            if module is not None:
+                caps |= module.stack_capabilities
+        return caps
 
     # --- stack helpers ---
 
@@ -314,7 +339,7 @@ class ExecutionStrategy(ABC):
                 self.task_runner.notify(event)
 
     def _control_step(self, sim_dt: float) -> None:
-        """Run one control iteration, apply to world, and update FPS."""
+        """Recompute control command into ``_last_cmd`` (no world integrate)."""
         if not self.controller or not self.local_planner:
             return
         if not self._can_actuate():
@@ -322,16 +347,22 @@ class ExecutionStrategy(ABC):
         sensors = self.world.get_sensor_frame()
         local_plan = self.local_planner.get_local_plan()
         cmd = self.controller.control(
-            self.ego_state, local_plan, control_dt=sim_dt,
+            self.pm.ego_vehicle, local_plan, control_dt=sim_dt,
             perception_model=self.pm, sensors=sensors,
         )
-        self.world.control_ego_state(cmd, dt=sim_dt)
+        self._last_cmd = cmd
         self.control_fps = self._control_fps_tracker.tick(floor_dt=sim_dt)
         # Harvest optional stack_event stamp on the control command (notify once, then clear).
         if getattr(cmd, "stack_event", None) is not None:
             event = cmd.stack_event
             cmd.stack_event = None
             self.task_runner.notify(event)
+
+    def _simulate_step(self, dt: float) -> None:
+        """Apply held command to the world for one integration step (ZOH)."""
+        if self._last_cmd is None or not self._can_actuate():
+            return
+        self.world.control_ego_state(self._last_cmd, dt=dt)
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

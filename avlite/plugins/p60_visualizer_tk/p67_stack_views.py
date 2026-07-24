@@ -273,9 +273,6 @@ class PlanFrame(ttk.LabelFrame):
         # - Global -----
         global_frame = ttk.Frame(self)
         global_frame.pack(fill=tk.X)
-        global_show = ttk.Checkbutton(global_frame, text="Global", command=self.root.update_views, variable=self.root.setting.p67_global_plan_view)
-        global_show.pack(side=tk.LEFT)
-        HoverTooltip.attach_schema(global_show, VisualizationSettings, "p67_global_plan_view")
         self.global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
         self.global_planner_dropdown_menu["values"] = ("",) + tuple(GlobalPlannerStrategy.registry.keys())
         self.global_planner_dropdown_menu.state(["readonly"])
@@ -314,9 +311,6 @@ class PlanFrame(ttk.LabelFrame):
         # - Local -----
         wp_frame = ttk.Frame(self)
         wp_frame.pack(fill=tk.X)
-        local_show = ttk.Checkbutton(wp_frame, text="Local", command=self.root.update_views, variable=self.root.setting.p67_local_plan_view)
-        local_show.pack(side=tk.LEFT)
-        HoverTooltip.attach_schema(local_show, VisualizationSettings, "p67_local_plan_view")
 
         self.local_planner_dropdown_menu = ttk.Combobox(wp_frame, textvariable=self.root.setting.local_planner_type, width=10)
         self.local_planner_dropdown_menu["values"] = ("",) + tuple(LocalPlanningStrategy.registry.keys())
@@ -341,12 +335,6 @@ class PlanFrame(ttk.LabelFrame):
         self._lap_label = ttk.Label(self, text="Lap: ")
         self._local_sub_frame = ttk.Frame(self)
         self._local_sub_frame.pack(fill=tk.X)
-        local_g = ttk.Checkbutton(self._local_sub_frame, text="G", variable=self.root.setting.p67_show_local_global_view, command=self.root.update_ui)
-        local_g.pack(side=tk.LEFT)
-        local_f = ttk.Checkbutton(self._local_sub_frame, text="F", variable=self.root.setting.p67_show_local_frenet_view, command=self.root.update_ui)
-        local_f.pack(side=tk.LEFT)
-        HoverTooltip.attach_schema(local_g, VisualizationSettings, "p67_show_local_global_view")
-        HoverTooltip.attach_schema(local_f, VisualizationSettings, "p67_show_local_frenet_view")
 
         self._lbl_behavior = ttk.Label(self._local_sub_frame, text="Behavior:")
         self.behavioral_dropdown_menu = ttk.Combobox(
@@ -545,7 +533,7 @@ class ControlFrame(ttk.LabelFrame):
 
         # buttons
         control_button_frame = ttk.Frame(self)
-        control_button_frame.pack(fill=tk.X, expand=True)
+        control_button_frame.pack(fill=tk.X)
         self.controller_dropdown_menu = ttk.Combobox(control_button_frame, textvariable=self.root.setting.controller_type, width=10)
         self.controller_dropdown_menu["values"] = ("",) + tuple(ControlStrategy.registry.keys())
         self.controller_dropdown_menu.state(["readonly"])
@@ -710,40 +698,78 @@ class ExecView(ttk.Frame):
         self.execution_factory_frame.columnconfigure(0, weight=1)
         # ------------------------------------------------------------------------
         # ------------------------------------------------------------------------
+        chk_pace_pr = ttk.Checkbutton(
+            exec_first_frame,
+            variable=self.root.setting.pace_perception,
+            width=0,
+            command=self._update_pace_entry_states,
+        )
+        chk_pace_pr.pack(side=tk.LEFT, padx=(5, 0), pady=1)
         lbl = ttk.Label(exec_first_frame, text="Perception \u0394t ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=1)
-        dt_perception_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.perception_dt, width=5,)
-        dt_perception_entry.pack(side=tk.LEFT)
-        dt_perception_entry.bind("<Return>", self.text_on_enter)
+        lbl.pack(side=tk.LEFT, pady=1)
+        self.dt_perception_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.perception_dt, width=5,)
+        self.dt_perception_entry.pack(side=tk.LEFT)
+        self.dt_perception_entry.bind("<Return>", self.text_on_enter)
         HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_perception_dt")
-        HoverTooltip.attach_schema(dt_perception_entry, ExecutionSettings, "c40_perception_dt")
+        HoverTooltip.attach_schema(self.dt_perception_entry, ExecutionSettings, "c40_perception_dt")
+        HoverTooltip.attach_schema(chk_pace_pr, ExecutionSettings, "c40_pace_perception")
 
+        chk_pace_pl = ttk.Checkbutton(
+            exec_first_frame,
+            variable=self.root.setting.pace_replan,
+            width=0,
+            command=self._update_pace_entry_states,
+        )
+        chk_pace_pl.pack(side=tk.LEFT, padx=(5, 0), pady=1)
         lbl = ttk.Label(exec_first_frame, text="Replan Δt ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=1)
-        dt_plan_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
-        dt_plan_entry.pack(side=tk.LEFT)
-        dt_plan_entry.bind("<Return>", self.text_on_enter)
+        lbl.pack(side=tk.LEFT, pady=1)
+        self.dt_plan_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.replan_dt, width=5,)
+        self.dt_plan_entry.pack(side=tk.LEFT)
+        self.dt_plan_entry.bind("<Return>", self.text_on_enter)
         HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_replan_dt")
-        HoverTooltip.attach_schema(dt_plan_entry, ExecutionSettings, "c40_replan_dt")
+        HoverTooltip.attach_schema(self.dt_plan_entry, ExecutionSettings, "c40_replan_dt")
+        HoverTooltip.attach_schema(chk_pace_pl, ExecutionSettings, "c40_pace_replan")
 
+        chk_pace_cn = ttk.Checkbutton(
+            exec_first_frame,
+            variable=self.root.setting.pace_control,
+            width=0,
+            command=self._update_pace_entry_states,
+        )
+        chk_pace_cn.pack(side=tk.LEFT, padx=(5, 0), pady=1)
         lbl = ttk.Label(exec_first_frame, text="Control Δt ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=1)
-        dt_control_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.control_dt, width=5,)
-        dt_control_entry.pack(side=tk.LEFT)
-        dt_control_entry.bind("<Return>", self.text_on_enter)
+        lbl.pack(side=tk.LEFT, pady=1)
+        self.dt_control_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.control_dt, width=5,)
+        self.dt_control_entry.pack(side=tk.LEFT)
+        self.dt_control_entry.bind("<Return>", self.text_on_enter)
         HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_control_dt")
-        HoverTooltip.attach_schema(dt_control_entry, ExecutionSettings, "c40_control_dt")
+        HoverTooltip.attach_schema(self.dt_control_entry, ExecutionSettings, "c40_control_dt")
+        HoverTooltip.attach_schema(chk_pace_cn, ExecutionSettings, "c40_pace_control")
 
+        chk_pace_sim = ttk.Checkbutton(
+            exec_first_frame,
+            variable=self.root.setting.pace_sim,
+            width=0,
+            command=self._update_pace_entry_states,
+        )
+        chk_pace_sim.pack(side=tk.LEFT, padx=(5, 0), pady=1)
         lbl = ttk.Label(exec_first_frame, text="Sim Δt ")
-        lbl.pack(side=tk.LEFT, padx=5, pady=1)
-        sim_dt = ttk.Entry(exec_first_frame, textvariable=self.root.setting.sim_dt, width=5,)
-        sim_dt.pack(side=tk.LEFT)
-        sim_dt.bind("<Return>", self.text_on_enter)
+        lbl.pack(side=tk.LEFT, pady=1)
+        self.sim_dt_entry = ttk.Entry(exec_first_frame, textvariable=self.root.setting.sim_dt, width=5,)
+        self.sim_dt_entry.pack(side=tk.LEFT)
+        self.sim_dt_entry.bind("<Return>", self.text_on_enter)
         HoverTooltip.attach_schema(lbl, ExecutionSettings, "c40_sim_dt")
-        HoverTooltip.attach_schema(sim_dt, ExecutionSettings, "c40_sim_dt")
+        HoverTooltip.attach_schema(self.sim_dt_entry, ExecutionSettings, "c40_sim_dt")
+        HoverTooltip.attach_schema(chk_pace_sim, ExecutionSettings, "c40_pace_sim")
 
-
-
+        for pace_var in (
+            self.root.setting.pace_perception,
+            self.root.setting.pace_replan,
+            self.root.setting.pace_control,
+            self.root.setting.pace_sim,
+        ):
+            pace_var.trace_add("write", self._update_pace_entry_states)
+        self._update_pace_entry_states()
 
         ## Second frame
         self.start_exec_button = ttk.Button( exec_second_frame, text="Start", command=self.toggle_exec, style="Start.TButton", width=10,)
@@ -868,6 +894,17 @@ class ExecView(ttk.Frame):
         names = [n for n in self.root.setting.execution_task_names() if n != name]
         self._set_execution_task_names(names, reload=True)
 
+    def _update_pace_entry_states(self, *_):
+        s = self.root.setting
+        pairs = (
+            (s.pace_perception, self.dt_perception_entry),
+            (s.pace_replan, self.dt_plan_entry),
+            (s.pace_control, self.dt_control_entry),
+            (s.pace_sim, self.sim_dt_entry),
+        )
+        for var, entry in pairs:
+            entry.state(["!disabled"] if var.get() else ["disabled"])
+
     def text_on_enter(self, event):
         widget = event.widget  # Get the widget that triggered the event
         text = widget.get()    # Retrieve the text from the widget
@@ -893,6 +930,7 @@ class ExecView(ttk.Frame):
             pr_dt = float(self.root.setting.perception_dt.get())
             sim_dt = float(self.root.setting.sim_dt.get())
 
+            pace_sim = bool(self.root.setting.pace_sim.get())
             self.root.exec.step(
                 control_dt=cn_dt,
                 replan_dt=pl_dt,
@@ -902,6 +940,10 @@ class ExecView(ttk.Frame):
                 call_control=self.root.setting.exec_control.get(),
                 call_perceive=self.root.setting.exec_perceive.get(),
                 call_localize=self.root.setting.exec_localize.get(),
+                pace_perception=bool(self.root.setting.pace_perception.get()),
+                pace_replan=bool(self.root.setting.pace_replan.get()),
+                pace_control=bool(self.root.setting.pace_control.get()),
+                pace_sim=pace_sim,
             ),
 
             # Throttle UI updates to 20 Hz regardless of step() speed.
@@ -919,8 +961,10 @@ class ExecView(ttk.Frame):
             _poll_delay = self.root.exec.ui_poll_delay
             if _poll_delay is not None:
                 next_frame_delay = _poll_delay
-            else:
+            elif pace_sim:
                 next_frame_delay = max(0.001, sim_dt - processing_time)
+            else:
+                next_frame_delay = 0.001
             self._exec_after_id = self.root.after(
                 int(next_frame_delay * 1000), self._exec_loop
             )
@@ -943,14 +987,20 @@ class ExecView(ttk.Frame):
         cn_dt = float(self.root.setting.control_dt.get())
         pl_dt = float(self.root.setting.replan_dt.get())
         pr_dt = float(self.root.setting.perception_dt.get())
+        sim_dt = float(self.root.setting.sim_dt.get())
         self.root.exec.step(
             control_dt=cn_dt,
             replan_dt=pl_dt,
             perception_dt=pr_dt,
+            sim_dt=sim_dt,
             call_replan=self.root.setting.exec_plan.get(),
             call_control=self.root.setting.exec_control.get(),
             call_perceive=self.root.setting.exec_perceive.get(),
             call_localize=self.root.setting.exec_localize.get(),
+            pace_perception=bool(self.root.setting.pace_perception.get()),
+            pace_replan=bool(self.root.setting.pace_replan.get()),
+            pace_control=bool(self.root.setting.pace_control.get()),
+            pace_sim=bool(self.root.setting.pace_sim.get()),
         )
         self.root.update_ui()
 

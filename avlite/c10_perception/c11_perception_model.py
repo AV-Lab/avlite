@@ -5,7 +5,7 @@ from enum import Enum, auto
 import json
 import logging
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -176,6 +176,11 @@ class State:
         self.x = self.__init_x
         self.y = self.__init_y
         self.theta = self.__init_theta
+
+    def copy_from(self, other: State) -> None:
+        """Copy dataclass fields from *other* in place (preserves object identity)."""
+        for f in fields(self):
+            setattr(self, f.name, getattr(other, f.name))
 
     def get_copy(self):
         return copy.deepcopy(self)

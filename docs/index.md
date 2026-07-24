@@ -38,7 +38,7 @@ avlite               # launch the visualizer
 
 <div class="value-strip" markdown>
 
-:material-check-decagram: BasicSim included &nbsp;&middot;&nbsp; :material-car-multiple: CARLA / Gazebo / ROS2 ready &nbsp;&middot;&nbsp; :material-vector-polyline: End-to-end plugins &nbsp;&middot;&nbsp; :material-monitor-dashboard: GUI + headless &nbsp;&middot;&nbsp; :material-language-python: Pure Python
+:material-check-decagram: BasicSim included &nbsp;&middot;&nbsp; :material-car-multiple: CARLA / Gazebo / ROS2 ready &nbsp;&middot;&nbsp; :material-vector-polyline: End-to-end plugins &nbsp;&middot;&nbsp; :material-monitor-dashboard: GUI + headless &nbsp;&middot;&nbsp; :material-pause: pause / step / interactive debug &nbsp;&middot;&nbsp; :material-language-python: Pure Python
 
 </div>
 
