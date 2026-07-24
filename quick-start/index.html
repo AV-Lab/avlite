@@ -654,10 +654,16 @@
 <ul class="task-list">
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Config tab</strong> — pick a profile (start with <code>default</code>).</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Start/Stop Stack</strong> — start the simulation loop.</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Right-click the plot</strong> — spawn NPC vehicles.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Stop, then Step</strong> — advance one tick at a time for frame-by-frame inspection.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Left-click-drag the plot</strong> — teleport ego and set heading.</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Right-click-drag the plot</strong> — spawn an NPC and set its heading.</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Tune parameters</strong> — adjust perception, planning, and control settings live in the GUI panels.</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Save Global Plan</strong> — use the ⬇ button in the Planning panel to export the current plan as JSON.</li>
 </ul>
+<div class="admonition tip">
+<p class="admonition-title">Slow down or free-run</p>
+<p>With Sim Δt pacing on, a larger period runs slower than real time (practical slow motion). Uncheck pacing for best-effort / wall-clock integration.</p>
+</div>
 <div class="admonition tip">
 <p class="admonition-title">Vim-style shortcuts</p>
 <p>The visualizer is fully keyboard-drivable with vim motions for a fast, mouse-free workflow: <code>j</code>/<code>k</code> (or <code>↑</code>/<code>↓</code>) scroll the log, <code>g</code>/<code>G</code> jump to top/bottom, and <code>Ctrl+u</code>/<code>Ctrl+d</code> half-page scroll. Single-key actions cover planning (<code>n</code>/<code>b</code>/<code>r</code>), control (<code>w</code>/<code>a</code>/<code>s</code>/<code>d</code>), and execution (<code>x</code>/<code>c</code>/<code>t</code>). The on-screen <strong>Shortcuts</strong> panel lists every binding.</p>

@@ -1584,8 +1584,8 @@ contract against the live stack and world bridge.</p>
 <td>Override + declare <code>WorldCapability.AGENT_CONTROL</code></td>
 </tr>
 <tr>
-<td><code>teleport_agent(id, x, y, theta)</code></td>
-<td>Default: ego delegates to <code>teleport_ego</code>; NPC raises <code>NotImplementedError</code></td>
+<td><code>teleport_agent(agent_state)</code></td>
+<td>Default: ego delegates to <code>teleport_ego</code> using pose (<code>x</code>, <code>y</code>, <code>theta</code>) from <code>agent_state</code>; NPC raises <code>NotImplementedError</code>. Identity is <code>agent_state.agent_id</code>; velocity/size/type are not applied</td>
 <td>Override for sim teleport of any agent</td>
 </tr>
 <tr>
