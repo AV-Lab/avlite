@@ -441,9 +441,14 @@ class SettingWindow:
             ("Clustered Pts", "p66_show_lidar_clusters"),
             ("Race Boundary", "p66_show_race_boundary"),
         ):
+            cmd = (
+                self.host.update_local_plan_views
+                if field in ("p67_show_local_global_view", "p67_show_local_frenet_view")
+                else self.host.update_ui
+            )
             cb = ttk.Checkbutton(
                 additional_setting_row_1b, text=text,
-                variable=getattr(self.host.setting, field), command=self.host.update_ui,
+                variable=getattr(self.host.setting, field), command=cmd,
             )
             cb.pack(side=tk.LEFT)
             HoverTooltip.attach_schema(cb, VisualizationSettings, field)
@@ -1361,9 +1366,39 @@ class SettingShortcutView(ttk.LabelFrame):
         dark_cb.pack(anchor=tk.W, side=tk.LEFT)
         HoverTooltip.attach_schema(dark_cb, VisualizationSettings, "p60_dark_mode")
 
-        ttk.Label(self, textvariable=self.root.setting.perception_status_text, width=30).pack(
-            side=tk.LEFT, padx=(25, 5), pady=5
+        global_cb = ttk.Checkbutton(
+            self,
+            text="Global",
+            variable=self.root.setting.p67_global_plan_view,
+            command=self.root.update_views,
         )
+        global_cb.pack(anchor=tk.W, side=tk.LEFT)
+        HoverTooltip.attach_schema(global_cb, VisualizationSettings, "p67_global_plan_view")
+
+        local_frenet_cb = ttk.Checkbutton(
+            self,
+            text="Local Frenet",
+            variable=self.root.setting.p67_show_local_frenet_view,
+            command=self.root.update_local_plan_views,
+        )
+        local_frenet_cb.pack(anchor=tk.W, side=tk.LEFT)
+        HoverTooltip.attach_schema(local_frenet_cb, VisualizationSettings, "p67_show_local_frenet_view")
+
+        local_global_cb = ttk.Checkbutton(
+            self,
+            text="Local Global",
+            variable=self.root.setting.p67_show_local_global_view,
+            command=self.root.update_local_plan_views,
+        )
+        local_global_cb.pack(anchor=tk.W, side=tk.LEFT)
+        HoverTooltip.attach_schema(local_global_cb, VisualizationSettings, "p67_show_local_global_view")
+
+        ttk.Label(
+            self,
+            textvariable=self.root.setting.perception_status_text,
+            width=18,
+            font=self.root.small_font,
+        ).pack(side=tk.LEFT, padx=(8, 5), pady=5)
 
         _s = getattr(root, "_dpi_scale", 1.0)
         self.shortcut_frame = ttk.LabelFrame(root, text="Shortcuts")

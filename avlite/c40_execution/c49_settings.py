@@ -20,11 +20,61 @@ class ExecutionSettingsSchema(SettingsSchema):
         default_factory=list,
         description="TaskStrategy class names to append after each stack tick; empty disables tasks.",
     )
-    c40_perception_dt: float = Field(default=0.01, description="Perception tick period (seconds).", ge=0.001)
+    c40_perception_dt: float = Field(
+        default=0.01,
+        description=(
+            "Target perception period (s). Used when c40_pace_perception is true; "
+            "ignored for rate when pacing is off (best-effort)."
+        ),
+        ge=0.001,
+    )
     c40_localization_dt: float = Field(default=0.01, description="Localization tick period (seconds).", ge=0.001)
-    c40_replan_dt: float = Field(default=0.01, description="Replanning period (seconds).", ge=0.001)
-    c40_control_dt: float = Field(default=0.01, description="Control loop period (seconds).", ge=0.001)
-    c40_sim_dt: float = Field(default=0.01, description="Simulation step period (seconds).", ge=0.001)
+    c40_replan_dt: float = Field(
+        default=0.01,
+        description=(
+            "Target replan period (s). Used when c40_pace_replan is true; "
+            "ignored for rate when pacing is off (best-effort)."
+        ),
+        ge=0.001,
+    )
+    c40_control_dt: float = Field(
+        default=0.01,
+        description=(
+            "Target control recompute period (s). Used when c40_pace_control is true; "
+            "when off, control runs best-effort and the last command is held between recomputes."
+        ),
+        ge=0.001,
+    )
+    c40_sim_dt: float = Field(
+        default=0.01,
+        description=(
+            "Fixed simulation integration step (s) when c40_pace_sim is true. "
+            "When pacing is off, integration uses clamped wall-clock Δt; this value still caps the max step."
+        ),
+        ge=0.001,
+    )
+    c40_pace_perception: bool = Field(
+        default=True,
+        description="If true, throttle perception to c40_perception_dt; if false, run best-effort every opportunity.",
+    )
+    c40_pace_replan: bool = Field(
+        default=True,
+        description="If true, throttle replanning to c40_replan_dt; if false, run best-effort every opportunity.",
+    )
+    c40_pace_control: bool = Field(
+        default=True,
+        description=(
+            "If true, recompute control at c40_control_dt; if false, recompute best-effort "
+            "and hold the last command on simulate steps in between."
+        ),
+    )
+    c40_pace_sim: bool = Field(
+        default=True,
+        description=(
+            "If true, integrate the world with fixed c40_sim_dt and (Sync UI) pad the loop to that period; "
+            "if false, do not pad and integrate with clamped wall-clock Δt."
+        ),
+    )
     c40_global_trajectory: str = Field(default="data/yas_marina_real_race_line_mue_0_5_3_m_margin.json", description="Default global plan JSON path.")
     c40_map: str = Field(
         default="data/race_boundary_yas_marina.map.json",

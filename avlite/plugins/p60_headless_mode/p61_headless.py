@@ -403,6 +403,10 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
     ldt = executer.localization_dt
     sdt = ExecutionSettings.c40_sim_dt
 
+    pace_sim = ExecutionSettings.c40_pace_sim
+    pace_control = ExecutionSettings.c40_pace_control
+    pace_timeout = cdt if pace_control else (sdt if pace_sim else 0.001)
+
     def _runner() -> None:
         executer.reset()
         executer.task_runner.notify(StackEvent.EXECUTION_STARTED)
@@ -418,12 +422,16 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
                     call_control=True,
                     call_perceive=perceive,
                     call_localize=True,
+                    pace_perception=ExecutionSettings.c40_pace_perception,
+                    pace_replan=ExecutionSettings.c40_pace_replan,
+                    pace_control=pace_control,
+                    pace_sim=pace_sim,
                 )
             except Exception as e:
                 log.error("Headless step error: %s", e, exc_info=True)
             if executer.stopped:
                 break
-            if pace.wait(timeout=cdt):
+            if pace.wait(timeout=pace_timeout):
                 break
 
     runner = threading.Thread(

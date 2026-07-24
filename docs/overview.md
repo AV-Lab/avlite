@@ -14,6 +14,7 @@ AVLite is a lightweight, extensible autonomous vehicle software stack for rapid 
 - **ROS2 & Autoware Integration**: Optional plugin for ROS2 with native Autoware message types
 - **Flexible stack composition**: Any module can be omitted (perception, planning, control, …). Build a classic pipeline or end-to-end plugins (e.g. sensors→control, sensors→local plan) via capability contracts — see [Architecture](architecture.md#flexible-composition-not-only-a-pipeline)
 - **Real-time Visualization**: Tkinter-based GUI for monitoring and debugging
+- **Interactive simulation control**: Start/Stop and Step; teleport ego and spawn agents while paused; tune module periods (Δt) and optional per-module pacing for fixed-rate vs free-run
 - **Vim-style Shortcuts**: Fast, mouse-free control of the visualizer with vim motions (`j`/`k`, `g`/`G`, `Ctrl+u`/`Ctrl+d`)
 - **Hot Reloading**: Modify code without restarting the application
 - **Plugin System**: Extend functionality with community and member plugins

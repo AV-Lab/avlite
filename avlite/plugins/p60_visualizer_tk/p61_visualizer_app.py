@@ -140,9 +140,20 @@ class VisualizerApp(tk.Tk):
         self.quit()
         self.destroy()
 
+    def local_plan_view_enabled(self) -> bool:
+        return (
+            self.setting.p67_show_local_global_view.get()
+            or self.setting.p67_show_local_frenet_view.get()
+        )
+
+    def update_local_plan_views(self):
+        self.setting.p67_local_plan_view.set(self.local_plan_view_enabled())
+        self.update_views()
+        self.update_ui()
+
     def _plots_canvas_ready(self) -> bool:
         local_ok = (
-            not self.setting.p67_local_plan_view.get()
+            not self.local_plan_view_enabled()
             or _canvas_ready(self.local_plan_plot_view.canvas.get_tk_widget())
         )
         global_ok = (
@@ -188,24 +199,32 @@ class VisualizerApp(tk.Tk):
     
 
     def __update_two_plots_layout(self):
-        log.debug(f"Updating two plots layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, local_plan_view: {self.setting.p67_local_plan_view.get()}")
+        local_on = self.local_plan_view_enabled()
+        log.debug(
+            f"Updating two plots layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, "
+            f"local_plan_view: {local_on}"
+        )
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
         self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
         self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
 
     def __update_one_plot_layout(self):
-        log.debug(f"Updating one plot layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, local_plan_view: {self.setting.p67_local_plan_view.get()}")
+        local_on = self.local_plan_view_enabled()
+        log.debug(
+            f"Updating one plot layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, "
+            f"local_plan_view: {local_on}"
+        )
         self.local_plan_plot_view.grid_forget()
         self.global_plan_plot_view.grid_forget()
-        if self.setting.p67_global_plan_view.get() and not self.setting.p67_local_plan_view.get():
+        if self.setting.p67_global_plan_view.get() and not local_on:
             self.global_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
-        elif self.setting.p67_local_plan_view.get() and not self.setting.p67_global_plan_view.get():
+        elif local_on and not self.setting.p67_global_plan_view.get():
             self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
         
     
     def update_views(self):
-        if self.setting.p67_global_plan_view.get() and self.setting.p67_local_plan_view.get():
+        if self.setting.p67_global_plan_view.get() and self.local_plan_view_enabled():
             self.__update_two_plots_layout()
         else:
             self.__update_one_plot_layout()
@@ -608,7 +627,7 @@ class VisualizerApp(tk.Tk):
             self._last_plot_time = t1
             if self.setting.p67_global_plan_view.get():
                 self.global_plan_plot_view.plot()
-            if self.setting.p67_local_plan_view.get():
+            if self.local_plan_view_enabled():
                 self.local_plan_plot_view.plot()
 
         if not self.setting.p60_shortcut_mode.get():
@@ -689,6 +708,11 @@ class VisualizerApp(tk.Tk):
 
         self.apply_global_plan(new_plan)
         log.info(f"Global replan complete; {len(new_plan.left_boundary_d)} boundary pts")
+
+    def teleport_ego(self, x, y, theta=None):
+        """Teleport plant ego and sync stack PM so the drawn ego updates immediately."""
+        self.exec.world.teleport_ego(x, y, theta)
+        self.exec.pm.ego_vehicle.copy_from(self.exec.world.get_ego_state())
 
     def spawn_agent(self, agent_state: AgentState) -> None:
         """Spawn an agent in the world using the ego's current global plan."""

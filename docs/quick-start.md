@@ -49,9 +49,14 @@ The default profile uses **BasicSim**, a dependency-free 2D simulator, so there 
 
 - [ ] **Config tab** — pick a profile (start with `default`).
 - [ ] **Start/Stop Stack** — start the simulation loop.
-- [ ] **Right-click the plot** — spawn NPC vehicles.
+- [ ] **Stop, then Step** — advance one tick at a time for frame-by-frame inspection.
+- [ ] **Left-click-drag the plot** — teleport ego and set heading.
+- [ ] **Right-click-drag the plot** — spawn an NPC and set its heading.
 - [ ] **Tune parameters** — adjust perception, planning, and control settings live in the GUI panels.
 - [ ] **Save Global Plan** — use the ⬇ button in the Planning panel to export the current plan as JSON.
+
+!!! tip "Slow down or free-run"
+    With Sim Δt pacing on, a larger period runs slower than real time (practical slow motion). Uncheck pacing for best-effort / wall-clock integration.
 
 !!! tip "Vim-style shortcuts"
     The visualizer is fully keyboard-drivable with vim motions for a fast, mouse-free workflow: `j`/`k` (or `↑`/`↓`) scroll the log, `g`/`G` jump to top/bottom, and `Ctrl+u`/`Ctrl+d` half-page scroll. Single-key actions cover planning (`n`/`b`/`r`), control (`w`/`a`/`s`/`d`), and execution (`x`/`c`/`t`). The on-screen **Shortcuts** panel lists every binding.

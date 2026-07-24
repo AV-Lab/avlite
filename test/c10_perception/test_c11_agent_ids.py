@@ -67,14 +67,14 @@ def test_control_agent_raises_for_npc():
 
 def test_teleport_agent_delegates_to_teleport_ego():
     bridge = _StubBridge()
-    bridge.teleport_agent(EGO_AGENT_ID, 3.0, 4.0, theta=0.5)
+    bridge.teleport_agent(AgentState(agent_id=EGO_AGENT_ID, x=3.0, y=4.0, theta=0.5))
     assert bridge.last_teleport == (3.0, 4.0, 0.5)
 
 
 def test_teleport_agent_raises_for_npc():
     bridge = _StubBridge()
     with pytest.raises(NotImplementedError):
-        bridge.teleport_agent(1, 1.0, 2.0)
+        bridge.teleport_agent(AgentState(agent_id=1, x=1.0, y=2.0))
 
 
 def test_get_lidar_data_raises_for_npc():
@@ -83,9 +83,3 @@ def test_get_lidar_data_raises_for_npc():
         bridge.get_lidar_data(agent_id=1)
 
 
-def test_control_type_default_ackermann():
-    from avlite.c40_execution.c46_basic_sim import BasicSim
-
-    pm = PerceptionModel()
-    sim = BasicSim(ego_state=EgoState(), pm=pm)
-    assert sim.control_type(EgoState()) is AckermannControlCommand

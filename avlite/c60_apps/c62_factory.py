@@ -113,9 +113,9 @@ def executor_factory(
         default_global_plan = GlobalPlan()
         log.debug("No default global plan; using empty GlobalPlan")
 
-    ego_state = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
-    ego_state.agent_id = EGO_AGENT_ID
-    pm = PerceptionModel(ego_vehicle=ego_state)
+    stack_ego = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
+    stack_ego.agent_id = EGO_AGENT_ID
+    pm = PerceptionModel(ego_vehicle=stack_ego)
 
     ###################
     # Loading map once
@@ -247,7 +247,8 @@ def executor_factory(
     # The world owns its own authoritative perception model (holding spawned
     # NPC agents / ground-truth state), kept separate from the executer's
     # perception model `pm` so that perception steps cannot wipe simulated
-    # agents. Both share the same ego_state.
+    # agents. World ego and stack ego are distinct objects (same initial pose)
+    # so estimated localization can own pm.ego_vehicle without mutating the plant.
     def _bridge_kwargs(bridge_cls, ego_state, world_pm, loaded_map):
         def _reference_point_tuple():
             ref = ExecutionSettings.c40_reference_point
@@ -267,10 +268,17 @@ def executor_factory(
             kwargs["map"] = loaded_map
         return kwargs
 
-    world_pm = PerceptionModel(ego_vehicle=ego_state)
+    world_ego = EgoState(
+        x=stack_ego.x,
+        y=stack_ego.y,
+        theta=stack_ego.theta,
+        velocity=stack_ego.velocity,
+    )
+    world_ego.agent_id = EGO_AGENT_ID
+    world_pm = PerceptionModel(ego_vehicle=world_ego)
     bridge_cls = _RegistryChecks.require_registered(bridge, WorldBridge.registry, "world bridge")
     log.info(f"Loading registered world bridge {bridge}...")
-    world = bridge_cls(**_bridge_kwargs(bridge_cls, ego_state, world_pm, loaded_map))
+    world = bridge_cls(**_bridge_kwargs(bridge_cls, world_ego, world_pm, loaded_map))
 
     ego = world.ego_state
     if ego.agent_id != EGO_AGENT_ID:

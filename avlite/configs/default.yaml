@@ -128,6 +128,10 @@ c40_execution:
   c40_log_to_file: false
   c40_map: data/race_boundary_yas_marina.map.json
   c40_mapping: MapReader
+  c40_pace_control: false
+  c40_pace_perception: false
+  c40_pace_replan: false
+  c40_pace_sim: false
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
   c40_reference_point:
