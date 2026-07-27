@@ -1,4 +1,5 @@
 site_name: AVLite
+site_url: https://avlite.org/
 site_description: Modular Autonomous Vehicle Stack
 site_author: AV-Lab
 
@@ -20,6 +21,7 @@ validation:
 
 theme:
   name: material
+  custom_dir: overrides
   logo: imgs/logo-icon.png
   icon:
     repo: fontawesome/brands/github

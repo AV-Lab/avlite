@@ -6,7 +6,10 @@ hide:
 
 <div class="hero" markdown>
 
-![AVLite](imgs/logo-icon.png){ .hero-logo }
+<div class="hero-logo-wrap" aria-hidden="true">
+  <div class="hero-smoke-ascii"></div>
+  <img class="hero-logo" src="imgs/logo-icon.png" alt="">
+</div>
 
 <p class="hero-wordmark">AVLite</p>
 

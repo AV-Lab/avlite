@@ -13,7 +13,7 @@
   <a href="https://pypi.org/project/avlite/"><img alt="PyPI" src="https://img.shields.io/pypi/v/avlite?color=blue&logo=pypi&logoColor=white"></a>
   <a href="https://pypi.org/project/avlite/"><img alt="Downloads" src="https://img.shields.io/pypi/dm/avlite?color=blue&logo=pypi&logoColor=white"></a>
   <a href="https://github.com/AV-Lab/avlite/blob/main/pyproject.toml"><img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white"></a>
-  <a href="https://avlab.io/avlite/"><img alt="Documentation" src="https://img.shields.io/badge/docs-avlab.io-orange?logo=materialformkdocs&logoColor=white"></a>
+  <a href="https://avlite.org/"><img alt="Documentation" src="https://img.shields.io/badge/docs-avlite.org-orange?logo=materialformkdocs&logoColor=white"></a>
   <a href="https://github.com/AV-Lab/avlite/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/AV-Lab/avlite?color=green"></a>
 </p>
 
@@ -39,7 +39,7 @@
   <a href="#installation">Install</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="#architecture-overview">Architecture</a> ·
-  <a href="https://avlab.io/avlite/">Documentation</a> ·
+  <a href="https://avlite.org/">Documentation</a> ·
   <a href="docs/plugin-development.md">Plugins</a> ·
   <a href="#community-plugins">Community</a>
 </p>
@@ -367,7 +367,7 @@ Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 <p align="center">
   Built with care by <a href="https://github.com/AV-Lab">AV-Lab</a> ·
-  <a href="https://avlab.io/avlite/">Documentation</a> ·
+  <a href="https://avlite.org/">Documentation</a> ·
   <a href="https://github.com/AV-Lab/avlite/issues">Report a bug</a> ·
   <a href="https://github.com/AV-Lab/avlite/issues">Request a feature</a>
 </p>
