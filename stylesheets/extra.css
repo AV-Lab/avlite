@@ -48,15 +48,102 @@
   margin: 3rem 0 0;
 }
 
+/* Logo + ASCII character smoke rising from the mark. */
+.hero-logo-wrap {
+  position: relative;
+  width: 128px;
+  max-width: 40vw;
+  margin: 0.25rem auto 0.35rem;
+  /* Reserve just enough room for the plume; the rest overlaps the logo. */
+  padding-top: 2.25rem;
+  overflow: visible;
+  animation: hero-enter 0.9s ease-out both;
+}
+
 .hero-logo {
-  width: 96px;
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
   height: auto;
-  max-width: 36vw;
-  margin: 0 auto 0.15rem;
   /* Brighter, punchier mark with a stronger cyan bloom. */
   filter: brightness(1.12) saturate(1.1)
     drop-shadow(0 0 10px rgba(0, 172, 225, 0.55))
     drop-shadow(0 8px 26px rgba(0, 172, 225, 0.45));
+  animation: hero-glow-breathe 5.5s ease-in-out infinite;
+}
+
+/* Div (not pre) so Material's .md-typeset pre rules cannot break layout. */
+.md-typeset .hero-smoke-ascii,
+.hero .hero-smoke-ascii {
+  position: absolute;
+  left: 50%;
+  /* Rises into the hero's own top padding, so a taller plume costs no
+     extra layout height. */
+  top: -2rem;
+  /* max-content (not Nch) so letter-spacing is included in the width;
+     otherwise the row overflows right and the plume sits off-centre. */
+  width: max-content;
+  /* Exactly the rendered rows, so no dead space above the plume. */
+  height: 13.2em;
+  margin: 0;
+  padding: 0;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: rgba(130, 212, 236, 0.62);
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas,
+    monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-shadow: 0 0 7px rgba(0, 172, 225, 0.38);
+  white-space: pre;
+  user-select: none;
+  /* Dissolve the plume as it rises instead of clipping at the box edge. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.45) 22%,
+    #000 55%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.45) 22%,
+    #000 55%
+  );
+}
+
+@keyframes hero-glow-breathe {
+  0%,
+  100% {
+    filter: brightness(1.12) saturate(1.1)
+      drop-shadow(0 0 10px rgba(0, 172, 225, 0.5))
+      drop-shadow(0 8px 26px rgba(0, 172, 225, 0.4));
+  }
+  50% {
+    filter: brightness(1.18) saturate(1.15)
+      drop-shadow(0 0 18px rgba(0, 172, 225, 0.75))
+      drop-shadow(0 10px 32px rgba(0, 172, 225, 0.55));
+  }
+}
+
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Clean typographic wordmark, replacing the baked-in logo text. */
@@ -69,6 +156,36 @@
   letter-spacing: 0.02em;
   line-height: 1;
   text-shadow: 0 2px 18px rgba(0, 172, 225, 0.25);
+  animation: hero-enter 0.9s ease-out 0.12s both;
+}
+
+@media (max-width: 44.9375em) {
+  .hero-logo-wrap {
+    padding-top: 2rem;
+  }
+
+  .md-typeset .hero-smoke-ascii,
+  .hero .hero-smoke-ascii {
+    font-size: 10px;
+    top: -1.75rem;
+    height: 13.2em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-logo-wrap,
+  .hero .hero-wordmark {
+    animation: none;
+  }
+
+  .hero-logo {
+    animation: none;
+  }
+
+  .md-typeset .hero-smoke-ascii,
+  .hero .hero-smoke-ascii {
+    display: none;
+  }
 }
 
 .hero h1,
@@ -593,5 +710,10 @@
   }
   .md-typeset .value-strip {
     font-size: 0.7rem;
+  }
+  /* Keep the install snippet (incl. trailing comments) on screen. */
+  .hero .highlight code,
+  .hero-cta .highlight code {
+    font-size: 11px;
   }
 }
