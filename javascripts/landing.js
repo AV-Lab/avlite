@@ -24,10 +24,13 @@
   var particles = [];
   var smokeEl = null;
 
+  // On <html>, not <body>, so overrides/main.html can set landing-home before
+  // first paint and avoid a flash of the wrong header.
   function updateHeader() {
+    var root = document.documentElement;
     var isLanding = !!document.querySelector(".hero");
-    document.body.classList.toggle("landing-home", isLanding);
-    document.body.classList.toggle(
+    root.classList.toggle("landing-home", isLanding);
+    root.classList.toggle(
       "landing-scrolled",
       isLanding && window.scrollY > 40
     );
@@ -152,6 +155,9 @@
 
     for (var i = 0; i < 36; i++) spawnParticle(false);
     renderAsciiSmoke(smokeEl);
+    // The element starts transparent, so the already-seeded plume eases in
+    // rather than snapping into place whenever this script finally runs.
+    smokeEl.style.opacity = "1";
     smokeTimer = setInterval(tickAsciiSmoke, TICK_MS);
   }
 

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{#
+  Social sharing metadata. Material does not emit Open Graph tags without the
+  optional `social` plugin (which needs cairo/pillow), so declare them here.
+#}
+{% block extrahead %}
+  {% set social_title = config.site_name if page.is_homepage else page.title ~ " - " ~ config.site_name %}
+  {% set social_description = page.meta.description if page.meta and page.meta.description else config.site_description %}
+  {% set social_image = (config.site_url or "") ~ "imgs/logo-black-bg.png" %}
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{{ social_title }}">
+  <meta property="og:description" content="{{ social_description }}">
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  <meta property="og:image" content="{{ social_image }}">
+  <meta property="og:image:width" content="1024">
+  <meta property="og:image:height" content="1024">
+  <meta property="og:image:alt" content="{{ config.site_name }} logo">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ social_title }}">
+  <meta name="twitter:description" content="{{ social_description }}">
+  <meta name="twitter:image" content="{{ social_image }}">
+
+  {% if page and page.is_homepage %}
+    {#
+      The hero logo is the LCP element, so start it before the stylesheet has
+      been parsed. The badges are cross-origin, so warm that connection early.
+    #}
+    <link rel="preload" as="image" href="{{ 'imgs/logo-icon.png' | url }}">
+    <link rel="preconnect" href="https://img.shields.io" crossorigin>
+
+    {#
+      Landing header chrome is glass-on-dark rather than the solid banner used
+      elsewhere. landing.js also sets this, but not until it has downloaded and
+      run, which paints the wrong header for a beat on a slow connection.
+    #}
+    <script>document.documentElement.classList.add("landing-home")</script>
+  {% endif %}
+{% endblock %}

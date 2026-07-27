@@ -80,6 +80,15 @@
   <meta name="twitter:description" content="Modular Autonomous Vehicle Stack">
   <meta name="twitter:image" content="https://avlite.org/imgs/logo-black-bg.png">
 
+  
+    
+    <link rel="preload" as="image" href="imgs/logo-icon.png">
+    <link rel="preconnect" href="https://img.shields.io" crossorigin>
+
+    
+    <script>document.documentElement.classList.add("landing-home")</script>
+  
+
   </head>
   
   
@@ -583,7 +592,7 @@
 <div class="hero">
 <div aria-hidden="true" class="hero-logo-wrap">
 <div class="hero-smoke-ascii"></div>
-  <img class="hero-logo" src="imgs/logo-icon.png" alt="">
+  <img class="hero-logo" src="imgs/logo-icon.png" alt="" width="512" height="512">
 </div>
 <p class="hero-wordmark">AVLite</p>
 <h1 id="autonomy-made-lite">Autonomy, made lite<a class="headerlink" href="#autonomy-made-lite" title="Permanent link">&para;</a></h1>
@@ -598,11 +607,13 @@ system.</p>
 <a class="md-button" href="overview/">Overview</a>
 <a class="md-button" href="community/" rel="noopener" target="_blank">Community</a>
 <a class="md-button" href="https://github.com/AV-Lab/avlite">GitHub</a></p>
+<!-- width/height reserve each badge's box before these cross-origin SVGs
+     arrive, so the row does not settle sideways mid-load. -->
 <p class="hero-badges">
-  <img src="https://img.shields.io/pypi/v/avlite?style=flat-square&color=00ace1&label=PyPI&logo=pypi&logoColor=white" alt="PyPI version">
-  <img src="https://img.shields.io/badge/python-3.10%2B-00ace1?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
-  <img src="https://img.shields.io/github/license/AV-Lab/avlite?style=flat-square&color=00ace1" alt="License">
-  <img src="https://img.shields.io/github/stars/AV-Lab/avlite?style=flat-square&color=00ace1&logo=github&logoColor=white" alt="GitHub stars">
+  <img src="https://img.shields.io/pypi/v/avlite?style=flat-square&color=00ace1&label=PyPI&logo=pypi&logoColor=white" alt="PyPI version" width="97" height="20">
+  <img src="https://img.shields.io/badge/python-3.10%2B-00ace1?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" width="109" height="20">
+  <img src="https://img.shields.io/github/license/AV-Lab/avlite?style=flat-square&color=00ace1" alt="License" width="78" height="20">
+  <img src="https://img.shields.io/github/stars/AV-Lab/avlite?style=flat-square&color=00ace1&logo=github&logoColor=white" alt="GitHub stars" width="71" height="20">
 </p>
 </div>
 <div class="value-strip">
@@ -664,7 +675,11 @@ GitHub stats.</p>
 <figure class="shot">
   <span class="shot-frame">
     <span class="shot-bar"><span></span><span></span><span></span></span>
-    <img class="landing-shot" src="imgs/tk_visualizer.png" alt="AVLite Tk visualizer">
+    <video class="landing-shot" controls muted autoplay loop playsinline
+           poster="/imgs/tk_visualizer.png"
+           width="1280" height="1416">
+      <source src="/imgs/tk_visualizer.mp4" type="video/mp4">
+    </video>
   </span>
   <figcaption>Real-time Tk visualizer: live plots, per-layer tuning, and profile management.</figcaption>
 </figure>
@@ -826,10 +841,6 @@ world-bridge plugins.</p>
         <script src="javascripts/landing.js"></script>
       
         <script src="javascripts/mathjax.js"></script>
-      
-        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
-      
-        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
       
         <script src="javascripts/community.js"></script>
       
