@@ -30,6 +30,13 @@ dev = [
 [project.scripts]
 avlite = "avlite.__main__:main"
 
+[project.urls]
+Homepage = "https://avlite.org/"
+Documentation = "https://avlite.org/"
+Repository = "https://github.com/AV-Lab/avlite"
+Issues = "https://github.com/AV-Lab/avlite/issues"
+Changelog = "https://github.com/AV-Lab/avlite/blob/main/CHANGELOG.md"
+
 [tool.setuptools.packages.find]
 include = ["avlite", "avlite.*"]
 

@@ -494,6 +494,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "exec_stop": "Stop the loop and halt the world bridge.",
     "exec_step": "Advance one execution tick without continuous run.",
     "exec_reset": "Reset the executer and world to the initial state.",
+    "exec_set_start": "Save the current ego pose as the profile start position (written to the active profile YAML).",
     # Planning
     "plan_global_replan": "Recompute the global route from the map and planner.",
     "plan_save_global": "Save the current global plan to a JSON file.",

@@ -34,6 +34,7 @@ from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c43_task_strategy import TaskStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c69_settings import AppSettings
+from avlite.c60_apps.c65_setting_utils import save_setting
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ValueGauge,
     DataPicker,
@@ -816,8 +817,13 @@ class ExecView(ttk.Frame):
         self.root.setting.execution_tasks.trace_add("write", lambda *_: self._rebuild_task_chips())
         self._rebuild_task_chips()
 
-        vehicle_state_label = ttk.Label(exec_third_frame, font=self.root.small_font, textvariable=self.root.setting.vehicle_state)
-        vehicle_state_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1)
+        state_row = ttk.Frame(exec_third_frame)
+        state_row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1)
+        btn_set_start = ttk.Button(state_row, text="Save Start", width=10, command=self.set_start)
+        btn_set_start.pack(side=tk.RIGHT, padx=(2, 0))
+        HoverTooltip.attach(btn_set_start, BUTTON_TOOLTIPS["exec_set_start"])
+        vehicle_state_label = ttk.Label(state_row, font=self.root.small_font, textvariable=self.root.setting.vehicle_state)
+        vehicle_state_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
 
     def _rebuild_task_chips(self, event=None) -> None:
@@ -1012,6 +1018,15 @@ class ExecView(ttk.Frame):
     def reset_exec(self):
         self.root.exec.reset()
         self.root.update_ui()
+
+    def set_start(self):
+        ego = self.root.exec.world.get_ego_state()
+        ExecutionSettings.c40_start_pose = [ego.x, ego.y, ego.theta]
+        ego.set_start()
+        self.root.exec.ego_state.set_start()
+        profile = self.root.setting.c60_selected_profile.get()
+        save_setting(ExecutionSettings, profile=profile)
+        log.info(f"Start pose saved to profile {profile!r}: ({ego.x:.2f}, {ego.y:.2f}, {ego.theta:.2f})")
 
 class ExecSettingsFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):

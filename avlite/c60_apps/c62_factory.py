@@ -113,7 +113,12 @@ def executor_factory(
         default_global_plan = GlobalPlan()
         log.debug("No default global plan; using empty GlobalPlan")
 
-    stack_ego = EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
+    start_pose = ExecutionSettings.c40_start_pose
+    stack_ego = (
+        EgoState(x=start_pose[0], y=start_pose[1], theta=start_pose[2])
+        if start_pose
+        else EgoState(x=default_global_plan.start_point[0], y=default_global_plan.start_point[1])
+    )
     stack_ego.agent_id = EGO_AGENT_ID
     pm = PerceptionModel(ego_vehicle=stack_ego)
 

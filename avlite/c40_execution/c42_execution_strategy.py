@@ -156,7 +156,6 @@ class ExecutionStrategy(ABC):
             self.local_planner.reset()
         if self.controller:
             self.controller.reset()
-        self.world.reset()
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
         self._last_cmd = None

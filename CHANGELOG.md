@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Execution: `c40_start_pose` (`[x, y, theta]` or null) — profile-defined ego start; factory falls back to the global-plan start point when null
+- Perception: `State.set_start()` — capture current pose as the snapshot restored by `reset()` (via `get_copy` / `copy_from`)
+- Visualizer: **Save Start** on the Execution state row — writes live ego pose into `c40_start_pose` and the active profile YAML
+
 ### Changed
+- Perception: `State` / `AgentState` reset snapshot is a polymorphic copy of all fields (drops per-field `__init_*` / `AgentState.reset` override)
+- Execution: `BasicSim.reset()` restores ego and NPC start poses (and NPC controllers) instead of clearing agents
+- Execution: drop duplicate `world.reset()` call in `ExecutionStrategy.reset()`
 - Docs / README: Tk visualizer demo uses a looping video (`docs/imgs/tk_visualizer.mp4`) instead of a static screenshot; landing shot fills the content column
 - Docs: call out pause / step / interactive debug early (landing value strip, Overview features, Quick Start)
 

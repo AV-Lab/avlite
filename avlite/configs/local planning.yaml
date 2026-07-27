@@ -115,6 +115,7 @@ c40_execution:
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_executer_type: AsyncThreadedExecuter
+  c40_execution_tasks: []
   c40_global_planner: GlobalCenterlineRacePlanner
   c40_global_trajectory: data/yas_marina_real_race_line_mue_0_5_3_m_margin.json
   c40_local_planner: GreedyLatticePlanner
@@ -124,6 +125,10 @@ c40_execution:
   c40_log_to_file: false
   c40_map: data/race_boundary_yas_marina.map.json
   c40_mapping: MapReader
+  c40_pace_control: true
+  c40_pace_perception: true
+  c40_pace_replan: true
+  c40_pace_sim: true
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
   c40_reference_point:
@@ -131,6 +136,10 @@ c40_execution:
   - 54.60522506805341
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
+  c40_start_pose:
+  - 280.63221536066163
+  - -710.5963458529651
+  - -0.7758054245025982
   c41_world_capabilities: []
   c41_world_stack_capabilities:
   - DETECTION
