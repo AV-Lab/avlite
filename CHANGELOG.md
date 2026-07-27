@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Docs / README: Tk visualizer demo uses a looping video (`docs/imgs/tk_visualizer.mp4`) instead of a static screenshot; landing shot fills the content column
+- Docs: call out pause / step / interactive debug early (landing value strip, Overview features, Quick Start)
+
 ## [0.5.3] - 2026-07-24
 
 ### Added

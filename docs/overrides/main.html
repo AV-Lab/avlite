@@ -23,4 +23,20 @@
   <meta name="twitter:title" content="{{ social_title }}">
   <meta name="twitter:description" content="{{ social_description }}">
   <meta name="twitter:image" content="{{ social_image }}">
+
+  {% if page and page.is_homepage %}
+    {#
+      The hero logo is the LCP element, so start it before the stylesheet has
+      been parsed. The badges are cross-origin, so warm that connection early.
+    #}
+    <link rel="preload" as="image" href="{{ 'imgs/logo-icon.png' | url }}">
+    <link rel="preconnect" href="https://img.shields.io" crossorigin>
+
+    {#
+      Landing header chrome is glass-on-dark rather than the solid banner used
+      elsewhere. landing.js also sets this, but not until it has downloaded and
+      run, which paints the wrong header for a beat on a slow connection.
+    #}
+    <script>document.documentElement.classList.add("landing-home")</script>
+  {% endif %}
 {% endblock %}

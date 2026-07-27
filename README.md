@@ -51,7 +51,10 @@
 > **ROS2 & Autoware Ready** — Optional ROS2 executer plugin with native Autoware message support (`Trajectory`, `ControlCommand`, etc.).
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/AV-Lab/avlite/main/docs/imgs/tk_visualizer.png" alt="AVLite Tk Visualizer" width="100%">
+  <video src="https://raw.githubusercontent.com/AV-Lab/avlite/main/docs/imgs/tk_visualizer.mp4"
+         poster="https://raw.githubusercontent.com/AV-Lab/avlite/main/docs/imgs/tk_visualizer.png"
+         controls muted autoplay loop playsinline width="100%">
+  </video>
 </p>
 
 ## Architecture Overview

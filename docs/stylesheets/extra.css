@@ -66,6 +66,9 @@
   display: block;
   width: 100%;
   height: auto;
+  /* Reserve the square before the PNG arrives; without this the hero
+     collapses and everything below it jumps down on first load. */
+  aspect-ratio: 1 / 1;
   /* Brighter, punchier mark with a stronger cyan bloom. */
   filter: brightness(1.12) saturate(1.1)
     drop-shadow(0 0 10px rgba(0, 172, 225, 0.55))
@@ -106,6 +109,9 @@
   text-shadow: 0 0 7px rgba(0, 172, 225, 0.38);
   white-space: pre;
   user-select: none;
+  /* landing.js fades this in once the first frame is rendered. */
+  opacity: 0;
+  transition: opacity 700ms ease;
   /* Dissolve the plume as it rises instead of clipping at the box edge. */
   -webkit-mask-image: linear-gradient(
     to bottom,
@@ -279,14 +285,15 @@
 
 /* Landing screenshot as a product shot with faux window chrome. */
 .md-typeset figure.shot {
-  margin: 0 auto 1.5rem;
+  margin: 0 0 1.5rem;
+  width: 100%;
 }
 
 .shot-frame {
-  display: inline-block;
+  display: block;
   width: 100%;
-  max-width: 560px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   border: 1px solid rgba(0, 172, 225, 0.25);
   border-radius: 8px;
   overflow: hidden;
@@ -316,13 +323,21 @@
 .landing-shot {
   display: block;
   width: 100%;
+  height: auto;
+  /* Matches the mp4 (1280×1416); wrong AR letterboxes inside the chrome. */
+  aspect-ratio: 1280 / 1416;
+  object-fit: cover;
+  vertical-align: top;
 }
 
 /* ---------------------------------------------------------------------------
    Header chrome. No top tabs — peer pages live in the left sidebar.
    Dark mode: simple black banner (landing uses glass until scroll).
    Light mode: brand primary (landing included — dark glass muddies on white).
-   `landing-home` / `landing-scrolled` come from javascripts/landing.js.
+   `landing-home` / `landing-scrolled` sit on <html>: overrides/main.html sets
+   the first one before paint so the banner never flashes, and landing.js keeps
+   both current across instant navigation. The colour scheme attribute is on
+   <body>, hence the html-then-body descendant chain below.
    --------------------------------------------------------------------------- */
 
 [data-md-color-scheme="slate"] .md-header {
@@ -330,7 +345,7 @@
   box-shadow: none;
 }
 
-[data-md-color-scheme="slate"] body.landing-home .md-header {
+.landing-home [data-md-color-scheme="slate"] .md-header {
   background-color: rgba(5, 7, 10, 0.55);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -338,13 +353,13 @@
   transition: background-color 250ms ease, box-shadow 250ms ease;
 }
 
-[data-md-color-scheme="slate"] body.landing-home.landing-scrolled .md-header {
+.landing-home.landing-scrolled [data-md-color-scheme="slate"] .md-header {
   background-color: #000000;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
-[data-md-color-scheme="default"] body.landing-home .md-header {
+.landing-home [data-md-color-scheme="default"] .md-header {
   background-color: var(--md-primary-fg-color);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;

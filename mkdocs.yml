@@ -21,7 +21,7 @@ validation:
 
 theme:
   name: material
-  custom_dir: overrides
+  custom_dir: docs/overrides
   logo: imgs/logo-icon.png
   icon:
     repo: fontawesome/brands/github
@@ -60,11 +60,11 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+# Only small local scripts load site-wide. Their heavy CDN dependencies
+# (MathJax, js-yaml) are injected on demand by the page that needs them.
 extra_javascript:
   - javascripts/landing.js
   - javascripts/mathjax.js
-  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
-  - https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js
   - javascripts/community.js
 
 extra:

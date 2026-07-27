@@ -2,12 +2,15 @@
 // (plugins.yaml) and public GitHub repo stats, then renders a searchable,
 // filterable, sortable card grid. Loaded site-wide via extra_javascript, so it
 // only acts when the page contains #store-grid, and re-initializes on
-// Material's instant navigation via the document$ observable.
+// Material's instant navigation via the document$ observable. Its js-yaml
+// dependency is fetched on demand so other pages never download it.
 (function () {
   "use strict";
 
   var REGISTRY_URL =
     "https://raw.githubusercontent.com/AV-Lab/avlite-community-plugins/main/plugins.yaml";
+  var JS_YAML_URL =
+    "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js";
   var CACHE_PREFIX = "avlite-store:";
   var CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -38,11 +41,35 @@
 
   // ----------------------------------------------------------------- fetch
 
+  var yamlLoading = null;
+
+  // Fetched here rather than site-wide, so the other pages never pay for it.
+  // A warm registry cache skips the parser entirely.
+  function loadJsYaml() {
+    if (window.jsyaml) return Promise.resolve();
+    if (yamlLoading) return yamlLoading;
+
+    yamlLoading = new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      script.src = JS_YAML_URL;
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = function () {
+        yamlLoading = null;
+        reject(new Error("failed to load js-yaml"));
+      };
+      document.head.appendChild(script);
+    });
+
+    return yamlLoading;
+  }
+
   function fetchRegistry() {
     var cached = cacheGet("registry");
     if (cached) return Promise.resolve(cached);
-    return fetch(REGISTRY_URL)
-      .then(function (res) {
+    return Promise.all([fetch(REGISTRY_URL), loadJsYaml()])
+      .then(function (results) {
+        var res = results[0];
         if (!res.ok) throw new Error("registry HTTP " + res.status);
         return res.text();
       })

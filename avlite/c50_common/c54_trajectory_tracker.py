@@ -605,33 +605,18 @@ class TrajectoryTracker:
             next_wp = closest_wp
             prev_wp = next_wp - 1
 
-        if self.path_x[next_wp] == self.path_x[prev_wp] or self.path_y[next_wp] == self.path_y[prev_wp]:
-            log.warning("The next and previous waypoints are the same, returning the previous waypoint coordinates.")
-
         # Calculate the heading of the track at the previous waypoint
         heading = math.atan2(
             self.path_y[next_wp] - self.path_y[prev_wp],
             self.path_x[next_wp] - self.path_x[prev_wp],
         )
-        # Calculate the x and y coordinates on the reference path
-        if 0 <= prev_wp < len(self.path_x) and 0 <= self.path_s[prev_wp] <= s:
-            # x = self.path_x[prev_wp] + (s - self.path_s[prev_wp]) * math.cos(heading)
-            # y = self.path_y[prev_wp] + (s - self.path_s[prev_wp]) * math.sin(heading)
-            # Ratio of progress between prev and next
-            s0 = self.path_s[prev_wp]
-            s1 = self.path_s[next_wp]
-            if s1 == s0:
-                ratio = 0
-            else:
-                ratio = (s - s0) / (s1 - s0)
-
-            # Linear interpolation between path_x and path_y
-            x = self.path_x[prev_wp] + ratio * (self.path_x[next_wp] - self.path_x[prev_wp])
-            y = self.path_y[prev_wp] + ratio * (self.path_y[next_wp] - self.path_y[prev_wp])
-        else:
-            log.warning(f"Waypoint index {prev_wp} is out of bounds for path_x and path_y.")
-            x = self.path_x[prev_wp]
-            y = self.path_y[prev_wp]
+        # Linear interpolation along the segment; a ratio outside [0, 1] extrapolates
+        # past the segment ends, e.g. an s before the start of the path.
+        s0 = self.path_s[prev_wp]
+        s1 = self.path_s[next_wp]
+        ratio = 0.0 if s1 == s0 else (s - s0) / (s1 - s0)
+        x = self.path_x[prev_wp] + ratio * (self.path_x[next_wp] - self.path_x[prev_wp])
+        y = self.path_y[prev_wp] + ratio * (self.path_y[next_wp] - self.path_y[prev_wp])
 
         # Calculate the perpendicular heading
         perp_heading = heading - math.pi / 2
