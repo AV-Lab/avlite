@@ -610,7 +610,6 @@
   font-size: 0.72rem;
   line-height: 1.45;
   color: var(--md-default-fg-color--light);
-  flex-grow: 1;
 }
 
 .store-card-tags {
@@ -620,6 +619,10 @@
 }
 
 .store-card-notes {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   margin: 0;
   font-size: 0.62rem;
   line-height: 1.4;
@@ -648,13 +651,13 @@
   opacity: 0.75;
 }
 
+/* Buttons and the stats footer form the pinned bottom block. */
 .store-card-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: auto;
-  padding-top: 0.55rem;
-  border-top: 1px solid var(--md-default-fg-color--lightest);
+  padding-top: 0.2rem;
 }
 
 .md-typeset a.store-btn {

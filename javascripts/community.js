@@ -190,6 +190,7 @@
     var stats = p._stats;
     var cats = Array.isArray(p.category) ? p.category : [p.category];
     var author = p.author || "";
+    var label = p.display_name || p.name || "";
 
     var statsHtml = "";
     if (stats) {
@@ -206,7 +207,11 @@
     }
 
     var notes = p.dependency_notes
-      ? '<p class="store-card-notes">' + escapeHtml(p.dependency_notes) + "</p>"
+      ? '<p class="store-card-notes" title="' +
+        escapeHtml(p.dependency_notes) +
+        '">' +
+        escapeHtml(p.dependency_notes) +
+        "</p>"
       : "";
 
     var minVer = p.min_avlite_version
@@ -220,11 +225,15 @@
       (p.site_url
         ? '<a class="store-btn store-btn--primary" href="' +
           escapeHtml(p.site_url) +
-          '" target="_blank" rel="noopener">Site</a>'
+          '" target="_blank" rel="noopener" aria-label="' +
+          escapeHtml(label) +
+          ' website">Site</a>'
         : "") +
       '<a class="store-btn" href="' +
       escapeHtml(p.repository) +
-      '" target="_blank" rel="noopener">Repo</a>' +
+      '" target="_blank" rel="noopener" aria-label="' +
+      escapeHtml(label) +
+      ' repository">Repo</a>' +
       "</div>";
 
     return (
@@ -234,7 +243,7 @@
       encodeURIComponent(author) +
       '.png?size=64" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
       "<div>" +
-      '<span class="store-card-name">' + escapeHtml(p.display_name || p.name) + "</span>" +
+      '<span class="store-card-name">' + escapeHtml(label) + "</span>" +
       '<span class="store-card-author">by ' + escapeHtml(author) + "</span>" +
       "</div>" +
       "</div>" +
@@ -248,8 +257,8 @@
       minVer +
       "</div>" +
       notes +
-      statsHtml +
       actions +
+      statsHtml +
       "</div>"
     );
   }

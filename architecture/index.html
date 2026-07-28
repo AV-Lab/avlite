@@ -1047,6 +1047,7 @@
 <li><code>AGENT_SPAWN</code> - Bridge can spawn NPC agents</li>
 <li><code>AGENT_CONTROL</code> - Bridge can actuate spawned NPC agents via <code>control_agent</code> (opt-in; separate from <code>AGENT_SPAWN</code>)</li>
 </ul>
+<p>A bridge declaring <code>CAMERA_RGB</code> or <code>CAMERA_DEPTH</code> must also populate <code>SensorFrame.camera_params</code> via <code>get_camera_params()</code>. LiDAR reaches the stack already transformed to the world frame, but an image cannot be, so the camera intrinsic and per-frame world-to-camera extrinsic are what let a fusion strategy project world-frame points into the image. See <a href="../plugin-development/#worldbridge-api-phase-1-vs-future">Plugin Development → Camera geometry</a>.</p>
 <p><strong>Stack Capabilities</strong> (<code>StackCapability</code>) — what a stack module produces, used both as a module's <code>stack_capabilities</code> and as another module's <code>stack_requirements</code>:</p>
 <ul>
 <li><code>DETECTION</code> - Object detection</li>
@@ -1109,7 +1110,7 @@
 <li><strong>Setting CLI</strong> (<code>avlite setting-cli</code>) — validate/describe/import/export profiles from the terminal.</li>
 </ul>
 <h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
-<p>YAML profile load/save, hot reload, plugin discovery (<code>c63_plugins</code>), path resolution (<code>c68_paths</code>), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (<code>c64_settings_schema</code>).</p>
+<p>YAML profile load/save, hot reload, plugin discovery (<code>c63_plugins</code>), path resolution (<code>c68_paths</code>), capability enums, canonical sensor layouts (rgb, depth, camera_params, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (<code>c64_settings_schema</code>).</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
 <p>The <strong>typical</strong> pipeline (any stage may be skipped or collapsed into one plugin via <a href="#capability-system">capabilities</a>):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
