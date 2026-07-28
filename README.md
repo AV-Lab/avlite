@@ -259,12 +259,14 @@ See the [Plugin Development Guide — Publish via pull request](docs/plugin-deve
    ```yaml
    plugins:
      - name: my_perception_plugin
+       display_name: My Perception Plugin   # optional, defaults to name
        description: One-line summary of what the plugin does
        repository: https://github.com/your-org/your-plugin-repo
        version: latest        # or a tag/commit SHA
        author: your-org
        category:
          - PerceptionStrategy
+       site_url: ""           # optional project website
    ```
 
 4. Open a pull request. Once merged it shows up in every user's

@@ -20,6 +20,10 @@ from avlite.c50_common.c52_world_sensor_datatypes import (
     RgbImage,
 )
 
+import logging
+
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class WorldBridge(ABC):
@@ -159,6 +163,8 @@ class WorldBridge(ABC):
                 gnss=self.get_gnss(agent_id=agent_id),
                 wheel_odometry=self.get_wheel_odometry(agent_id=agent_id),
             )
+
+        log.debug("Sensor frame before world capability filter: %s", frame)
         return self._apply_world_capability_filter(frame)
 
     @staticmethod

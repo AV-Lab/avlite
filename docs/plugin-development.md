@@ -525,22 +525,30 @@ Fork [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugi
 ```yaml
 plugins:
   - name: my_perception_plugin
+    display_name: My Perception Plugin   # optional
     description: One-line summary of what the plugin does
     repository: https://github.com/your-org/your-plugin-repo
     version: latest              # or a git tag / commit SHA
     author: your-org
     category:
       - PerceptionStrategy
+    min_avlite_version: "0.4.5"  # optional
+    dependency_notes: ""         # optional
+    site_url: ""                 # optional
 ```
 
-| Field | Notes |
-|-------|-------|
-| `name` | Unique registry id; also the install folder name under `~/.local/share/avlite/plugins/`. Use lowercase with underscores. |
-| `description` | Short text in the plugin list. |
-| `repository` | HTTPS Git URL (GitHub is supported for README preview in the browser). |
-| `version` | `latest` clones the default branch; pin a tag or SHA for reproducible installs. |
-| `author` | Display name, handle, or organization. |
-| `category` | List of strategy types this plugin provides (see table below). Shown in the Plugins browser **Category** column. |
+| Field | Required | Notes |
+|-------|:--------:|-------|
+| `name` | yes | Unique registry id; also the install folder name under `~/.local/share/avlite/plugins/`, the `avlite.plugins.<name>` import path (dashes become underscores), and the `plugin_<name>.yaml` settings basename. Use lowercase with underscores, no spaces, and don't change it once published. |
+| `display_name` | no | Human-readable name shown in the Plugins browser and the online plugin store, e.g. `My Perception Plugin`. Omit it to display `name` instead. |
+| `description` | yes | Short text in the plugin list. |
+| `repository` | yes | HTTPS Git URL (GitHub is supported for README preview in the browser). |
+| `version` | yes | `latest` clones the default branch; pin a tag or SHA for reproducible installs. |
+| `author` | yes | Display name, handle, or organization. |
+| `category` | yes | List of strategy types this plugin provides (see table below). Shown in the Plugins browser **Category** column. |
+| `min_avlite_version` | no | Minimum AVLite version (semver, e.g. `0.4.5`). Installs are blocked below it. Omit or leave empty if unknown. |
+| `dependency_notes` | no | Extra setup beyond `requirements.txt` (system packages, ROS, simulators). Shown after install. Use `""` when pip-only. |
+| `site_url` | no | Project website or documentation page. Adds a **Site** link in the plugin store and an **Open Website** button in the Plugins browser. Use `""` when the repository is the only home. |
 
 **Category values** (use the names from [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)):
 
@@ -580,7 +588,7 @@ You do not need a new AVLite release for registry-only changes.
 ### Updating your listing
 
 - **New plugin version** — push to your repo; users click **Update** in the Plugins browser (or reinstall). Bump `version` in `plugins.yaml` if you want to pin a new tag/SHA for fresh installs.
-- **Change metadata** — open another PR on avlite-community-plugins to edit `description`, `author`, `category`, or `version`.
+- **Change metadata** — open another PR on avlite-community-plugins to edit `display_name`, `description`, `author`, `category`, `version`, or `site_url`. Avoid changing `name`: it is the install folder and settings-file identifier, so renaming it orphans existing installs.
 
 ## 12. Built-in plugin naming (`pNx`)
 

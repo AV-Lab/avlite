@@ -550,6 +550,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "cp_update": "Update the selected plugin to the latest version.",
     "cp_update_all": "Update all installed plugins that have updates.",
     "cp_github": "Open the plugin repository on GitHub.",
+    "cp_site": "Open the plugin project website.",
     "cp_open_folder": "Open the plugin install folder in the file manager.",
     "cp_close": "Close this window.",
     "cp_sign_in": "Sign in with GitHub to browse member-only plugins.",

@@ -190,6 +190,7 @@
     var stats = p._stats;
     var cats = Array.isArray(p.category) ? p.category : [p.category];
     var author = p.author || "";
+    var label = p.display_name || p.name || "";
 
     var statsHtml = "";
     if (stats) {
@@ -206,7 +207,11 @@
     }
 
     var notes = p.dependency_notes
-      ? '<p class="store-card-notes">' + escapeHtml(p.dependency_notes) + "</p>"
+      ? '<p class="store-card-notes" title="' +
+        escapeHtml(p.dependency_notes) +
+        '">' +
+        escapeHtml(p.dependency_notes) +
+        "</p>"
       : "";
 
     var minVer = p.min_avlite_version
@@ -215,16 +220,30 @@
         "</span>"
       : "";
 
-    return (
-      '<a class="store-card" href="' +
+    var actions =
+      '<div class="store-card-actions">' +
+      (p.site_url
+        ? '<a class="store-btn store-btn--primary" href="' +
+          escapeHtml(p.site_url) +
+          '" target="_blank" rel="noopener" aria-label="' +
+          escapeHtml(label) +
+          ' website">Site</a>'
+        : "") +
+      '<a class="store-btn" href="' +
       escapeHtml(p.repository) +
-      '" target="_blank" rel="noopener">' +
+      '" target="_blank" rel="noopener" aria-label="' +
+      escapeHtml(label) +
+      ' repository">Repo</a>' +
+      "</div>";
+
+    return (
+      '<div class="store-card">' +
       '<div class="store-card-head">' +
       '<img class="store-card-avatar" src="https://github.com/' +
       encodeURIComponent(author) +
       '.png?size=64" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
       "<div>" +
-      '<span class="store-card-name">' + escapeHtml(p.name) + "</span>" +
+      '<span class="store-card-name">' + escapeHtml(label) + "</span>" +
       '<span class="store-card-author">by ' + escapeHtml(author) + "</span>" +
       "</div>" +
       "</div>" +
@@ -238,8 +257,9 @@
       minVer +
       "</div>" +
       notes +
+      actions +
       statsHtml +
-      "</a>"
+      "</div>"
     );
   }
 
@@ -269,6 +289,7 @@
         if (!q) return true;
         return (
           (p.name || "").toLowerCase().indexOf(q) !== -1 ||
+          (p.display_name || "").toLowerCase().indexOf(q) !== -1 ||
           (p.description || "").toLowerCase().indexOf(q) !== -1 ||
           (p.author || "").toLowerCase().indexOf(q) !== -1
         );
@@ -285,7 +306,9 @@
           var tb = sb && sb.pushed_at ? new Date(sb.pushed_at).getTime() : 0;
           return tb - ta;
         }
-        return (a.name || "").localeCompare(b.name || "");
+        return (a.display_name || a.name || "").localeCompare(
+          b.display_name || b.name || ""
+        );
       });
 
       grid.innerHTML = shown.length
