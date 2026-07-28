@@ -137,9 +137,12 @@ c40_execution:
   c40_reference_point:
   - 24.46992202098782
   - 54.60522506805341
-  c40_start_pose: null
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
+  c40_start_pose:
+  - 276.3601612740704
+  - -714.886208468183
+  - -0.44511255835862823
   c41_world_capabilities:
   - LIDAR_2D
   - LIDAR_3D
@@ -195,7 +198,7 @@ plugins:
     p60_next_profile: perception
     p60_shortcut_mode: false
     p66_frenet_view_follow_planner: false
-    p66_frenet_zoom: 50.0
+    p66_frenet_zoom: 30.0
     p66_global_plan_velocity_scale: relative
     p66_global_view_follow_planner: false
     p66_global_zoom: 810.8967345284556

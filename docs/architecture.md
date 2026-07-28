@@ -155,6 +155,8 @@ class MyLocalPlanner(LocalPlanningStrategy):
 - `AGENT_SPAWN` - Bridge can spawn NPC agents
 - `AGENT_CONTROL` - Bridge can actuate spawned NPC agents via `control_agent` (opt-in; separate from `AGENT_SPAWN`)
 
+A bridge declaring `CAMERA_RGB` or `CAMERA_DEPTH` must also populate `SensorFrame.camera_params` via `get_camera_params()`. LiDAR reaches the stack already transformed to the world frame, but an image cannot be, so the camera intrinsic and per-frame world-to-camera extrinsic are what let a fusion strategy project world-frame points into the image. See [Plugin Development → Camera geometry](plugin-development.md#worldbridge-api-phase-1-vs-future).
+
 **Stack Capabilities** (`StackCapability`) — what a stack module produces, used both as a module's `stack_capabilities` and as another module's `stack_requirements`:
 
 - `DETECTION` - Object detection
@@ -242,7 +244,7 @@ CLI and GUI entry points, each an `AppStrategy` (see [App Strategy](#app-strateg
 
 ### **Common**
 
-YAML profile load/save, hot reload, plugin discovery (`c63_plugins`), path resolution (`c68_paths`), capability enums, canonical sensor layouts (rgb, depth, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (`c64_settings_schema`).
+YAML profile load/save, hot reload, plugin discovery (`c63_plugins`), path resolution (`c68_paths`), capability enums, canonical sensor layouts (rgb, depth, camera_params, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (`c64_settings_schema`).
 
 ## Data Flow
 

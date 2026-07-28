@@ -382,12 +382,27 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
 | `teleport_agent(agent_state)` | Default: ego delegates to `teleport_ego` using pose (`x`, `y`, `theta`) from `agent_state`; NPC raises `NotImplementedError`. Identity is `agent_state.agent_id`; velocity/size/type are not applied | Override for sim teleport of any agent |
 | `get_*(agent_id=EGO_AGENT_ID)` | Default: ego returns data or `None`; NPC raises `NotImplementedError` | Per-agent sensors in Carla / ROS bridges |
+| `get_camera_params(agent_id=...)` | Default `None`; required when the bridge declares `CAMERA_RGB` / `CAMERA_DEPTH` | Multi-camera collection alongside the primary camera |
 | `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible) | Non-ego: passes `agent_id` to each getter |
 | `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |
 
 `control_type(agent)` lives on **`WorldBridge` only** — not on `ControlStrategy`. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of `control()`.
 
 **Multi-agent sensors:** override getters with an `agent_id` parameter when your bridge serves more than ego. Ego-only bridges (e.g. BasicSim) need no update — `get_sensor_frame()` uses the legacy no-kwargs call path for ego.
+
+**Camera geometry:** a bridge declaring `WorldCapability.CAMERA_RGB` or `CAMERA_DEPTH` must also override `get_camera_params()`. An image cannot be pre-transformed into the world frame the way a point cloud can, so `CameraParams` is the only way a fusion strategy can project world-frame `sensors.lidar` into the image:
+
+```python
+def get_camera_params(self, agent_id=EGO_AGENT_ID) -> CameraParams:
+    return CameraParams(
+        intrinsic=self._K,                  # (3, 3) [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
+        world_to_camera=self._extrinsic(),  # (4, 4), recomputed each tick as the ego moves
+        width=self._width,
+        height=self._height,
+    )
+```
+
+`world_to_camera` maps homogeneous world (map) points — same frame as `EgoState.x/y/z` and `SensorFrame.lidar` — into the **OpenCV optical frame**: x right, y down, z forward along the optical axis, with z > 0 in front of the camera. Getting this convention wrong produces a plausible-looking but incorrect projection, so convert in the bridge rather than passing simulator or ROS axes through. The LiDAR mounting pose is not needed anywhere: the bridge already consumed it when transforming points to world frame.
 
 ### State model — today vs future
 

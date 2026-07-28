@@ -8,6 +8,7 @@ Canonical formats
 -----------------
 rgb            (H, W, 3) uint8, row-major RGB
 depth          (H, W) float32, metres
+camera_params  CameraParams — intrinsic K + world-to-camera extrinsic for rgb/depth
 lidar          (N, 4) float32, [x, y, z, intensity] world frame
 imu            ImuReading — linear accel + angular velocity, sensor frame
 gnss           GnssReading — WGS84 lat/lon/alt + optional map x/y/z
@@ -82,6 +83,43 @@ class WheelOdometry:
 
 
 @dataclass
+class CameraParams:
+    """Pinhole geometry for one camera image.
+
+    Frame convention: ``world_to_camera`` maps homogeneous world (map) points
+    into the OpenCV optical camera frame — x right, y down, z forward along the
+    optical axis, z > 0 in front of the camera::
+
+        p_cam = world_to_camera @ [x_world, y_world, z_world, 1]
+        u = fx * X / Z + cx,  v = fy * Y / Z + cy
+
+    World coordinates are the same frame as EgoState.x/y/z and
+    SensorFrame.lidar, so projecting a LiDAR cloud into the image needs no
+    other transform. ``world_to_camera`` is the pose at capture time and
+    therefore changes every frame as the ego moves.
+
+    Self-contained per camera: an instance carries everything needed to project
+    into its own image, so it stays valid unchanged if AVLite later grows a
+    multi-camera collection.
+    """
+
+    intrinsic: np.ndarray  # (3, 3) float64 K = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
+    world_to_camera: np.ndarray  # (4, 4) float64 world → camera optical frame
+    width: int  # pixels; resolution the intrinsic is valid for
+    height: int  # pixels; resolution the intrinsic is valid for
+
+    def __post_init__(self) -> None:
+        self.intrinsic = np.asarray(self.intrinsic, dtype=np.float64)
+        self.world_to_camera = np.asarray(self.world_to_camera, dtype=np.float64)
+        if self.intrinsic.shape != (3, 3):
+            raise ValueError(f"expected (3, 3) intrinsic, got shape {self.intrinsic.shape}")
+        if self.world_to_camera.shape != (4, 4):
+            raise ValueError(
+                f"expected (4, 4) world_to_camera, got shape {self.world_to_camera.shape}"
+            )
+
+
+@dataclass
 class SensorFrame:
     """Snapshot of all sensor readings for one execution tick.
 
@@ -89,15 +127,21 @@ class SensorFrame:
     gated off by the ExecutionSettings.c41_world_capabilities filter.
     """
 
-    # Camera: colour image from the ego-mounted RGB camera.
+    # Camera: colour image from the primary camera.
     # Shape (H, W, 3), dtype uint8, channels in RGB order (not BGR).
     # H and W vary by camera; algorithms must not assume fixed resolution.
     rgb: RgbImage | None = None
 
-    # Camera: per-pixel distance from the camera plane.
+    # Camera: per-pixel distance from the primary camera's image plane.
     # Shape (H, W), dtype float32, values in metres.
     # Must match rgb height/width when both are present.
     depth: DepthImage | None = None
+
+    # Geometry of the primary camera, i.e. the one that produced rgb/depth:
+    # intrinsic K + world-to-camera extrinsic at capture time. None when the
+    # bridge exposes no camera. Required to project world-frame lidar points
+    # into the image.
+    camera_params: CameraParams | None = None
 
     # LiDAR: point cloud in the world (map) frame.
     # Shape (N, 4), dtype float32, columns [x, y, z, intensity].

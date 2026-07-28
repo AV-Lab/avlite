@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Common: `CameraParams` (intrinsic `K`, per-frame `world_to_camera`, width, height) and the optional `SensorFrame.camera_params` field — camera geometry a fusion strategy needs to project world-frame `lidar` into the image. Extrinsic targets the OpenCV optical frame (x right, y down, z forward). Additive: `WorldBridge.get_camera_params()` defaults to `None`, so no existing bridge changes; bridges declaring `CAMERA_RGB` / `CAMERA_DEPTH` should override it
 - Execution: `c40_start_pose` (`[x, y, theta]` or null) — profile-defined ego start; factory falls back to the global-plan start point when null
 - Perception: `State.set_start()` — capture current pose as the snapshot restored by `reset()` (via `get_copy` / `copy_from`)
 - Visualizer: **Save Start** on the Execution state row — writes live ego pose into `c40_start_pose` and the active profile YAML

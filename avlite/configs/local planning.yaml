@@ -128,7 +128,7 @@ c40_execution:
   c40_pace_control: true
   c40_pace_perception: true
   c40_pace_replan: true
-  c40_pace_sim: true
+  c40_pace_sim: false
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
   c40_reference_point:
