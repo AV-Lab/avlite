@@ -1748,44 +1748,75 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
 <p>Fork <a href="https://github.com/AV-Lab/avlite-community-plugins">avlite-community-plugins</a>, add one item under <code>plugins:</code> in <code>plugins.yaml</code>, and open a pull request:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">plugins</span><span class="p">:</span>
 </span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_perception_plugin</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">              </span><span class="c1"># or a git tag / commit SHA</span>
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">    </span><span class="nt">category</span><span class="p">:</span>
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="nt">display_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">My Perception Plugin</span><span class="w">   </span><span class="c1"># optional</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One-line summary of what the plugin does</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/your-org/your-plugin-repo</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span><span class="w">              </span><span class="c1"># or a git tag / commit SHA</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">    </span><span class="nt">category</span><span class="p">:</span>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">    </span><span class="nt">min_avlite_version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0.4.5&quot;</span><span class="w">  </span><span class="c1"># optional</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">    </span><span class="nt">dependency_notes</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">         </span><span class="c1"># optional</span>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">    </span><span class="nt">site_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">                 </span><span class="c1"># optional</span>
 </span></code></pre></div>
 <table>
 <thead>
 <tr>
 <th>Field</th>
+<th style="text-align: center;">Required</th>
 <th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>name</code></td>
-<td>Unique registry id; also the install folder name under <code>~/.local/share/avlite/plugins/</code>. Use lowercase with underscores.</td>
+<td style="text-align: center;">yes</td>
+<td>Unique registry id; also the install folder name under <code>~/.local/share/avlite/plugins/</code>, the <code>avlite.plugins.&lt;name&gt;</code> import path (dashes become underscores), and the <code>plugin_&lt;name&gt;.yaml</code> settings basename. Use lowercase with underscores, no spaces, and don't change it once published.</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td style="text-align: center;">no</td>
+<td>Human-readable name shown in the Plugins browser and the online plugin store, e.g. <code>My Perception Plugin</code>. Omit it to display <code>name</code> instead.</td>
 </tr>
 <tr>
 <td><code>description</code></td>
+<td style="text-align: center;">yes</td>
 <td>Short text in the plugin list.</td>
 </tr>
 <tr>
 <td><code>repository</code></td>
+<td style="text-align: center;">yes</td>
 <td>HTTPS Git URL (GitHub is supported for README preview in the browser).</td>
 </tr>
 <tr>
 <td><code>version</code></td>
+<td style="text-align: center;">yes</td>
 <td><code>latest</code> clones the default branch; pin a tag or SHA for reproducible installs.</td>
 </tr>
 <tr>
 <td><code>author</code></td>
+<td style="text-align: center;">yes</td>
 <td>Display name, handle, or organization.</td>
 </tr>
 <tr>
 <td><code>category</code></td>
+<td style="text-align: center;">yes</td>
 <td>List of strategy types this plugin provides (see table below). Shown in the Plugins browser <strong>Category</strong> column.</td>
+</tr>
+<tr>
+<td><code>min_avlite_version</code></td>
+<td style="text-align: center;">no</td>
+<td>Minimum AVLite version (semver, e.g. <code>0.4.5</code>). Installs are blocked below it. Omit or leave empty if unknown.</td>
+</tr>
+<tr>
+<td><code>dependency_notes</code></td>
+<td style="text-align: center;">no</td>
+<td>Extra setup beyond <code>requirements.txt</code> (system packages, ROS, simulators). Shown after install. Use <code>""</code> when pip-only.</td>
+</tr>
+<tr>
+<td><code>site_url</code></td>
+<td style="text-align: center;">no</td>
+<td>Project website or documentation page. Adds a <strong>Site</strong> link in the plugin store and an <strong>Open Website</strong> button in the Plugins browser. Use <code>""</code> when the repository is the only home.</td>
 </tr>
 </tbody>
 </table>
@@ -1851,7 +1882,7 @@ signed in. See <a href="../overview/#member-plugins">Member plugins</a> in the m
 <h3 id="updating-your-listing">Updating your listing<a class="headerlink" href="#updating-your-listing" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New plugin version</strong> — push to your repo; users click <strong>Update</strong> in the Plugins browser (or reinstall). Bump <code>version</code> in <code>plugins.yaml</code> if you want to pin a new tag/SHA for fresh installs.</li>
-<li><strong>Change metadata</strong> — open another PR on avlite-community-plugins to edit <code>description</code>, <code>author</code>, <code>category</code>, or <code>version</code>.</li>
+<li><strong>Change metadata</strong> — open another PR on avlite-community-plugins to edit <code>display_name</code>, <code>description</code>, <code>author</code>, <code>category</code>, <code>version</code>, or <code>site_url</code>. Avoid changing <code>name</code>: it is the install folder and settings-file identifier, so renaming it orphans existing installs.</li>
 </ul>
 <h2 id="12-built-in-plugin-naming-pnx">12. Built-in plugin naming (<code>pNx</code>)<a class="headerlink" href="#12-built-in-plugin-naming-pnx" title="Permanent link">&para;</a></h2>
 <p>Built-in plugins under <code>avlite/plugins/</code> use a <strong>directory name</strong> and optional <strong>module file names</strong> with a <code>pNx</code> prefix:</p>
