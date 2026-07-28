@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs / README: Tk visualizer demo uses a looping video (`docs/imgs/tk_visualizer.mp4`) instead of a static screenshot; landing shot fills the content column
 - Docs: call out pause / step / interactive debug early (landing value strip, Overview features, Quick Start)
 
+### Fixed
+- Execution: perception, planning, and control share one `SensorFrame` per tick instead of each fetching its own — the stack no longer assumes the world holds still between stages, so bridges whose sensors evolve independently (CARLA async mode) stay coherent. `_localization_step` / `_perception_step` / `_replan_step` / `_control_step` now take the snapshot as an argument; each executer loop resolves its pacing gates first and fetches at most once (skipping the fetch entirely when no stage is due)
+
 ## [0.5.3] - 2026-07-24
 
 ### Added

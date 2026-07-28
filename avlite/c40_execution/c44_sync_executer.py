@@ -72,48 +72,82 @@ class SyncExecuter(ExecutionStrategy):
         pln_time_txt, cn_time_txt, pr_time_txt, loc_time_txt, sim_time_txt = "", "", "", "", ""
         t0 = time.time()
 
+        # Ground-truth localization bypasses the localization strategy entirely.
+        gt_localization = is_world_stack_capability_enabled(StackCapability.LOCALIZATION)
+
+        # Resolve every pacing gate before running any stage, so the tick can take a
+        # single sensor snapshot and hand the same world instant to each stage. Gates
+        # include module presence so an unassembled stage never triggers a fetch.
+        do_localize = (
+            call_localize
+            and self.localization is not None
+            and not gt_localization
+            and self.elapsed_sim_time - self.__localization_last_time >= localization_dt
+        )
+        do_perceive = (
+            call_perceive
+            and self.perception is not None
+            and (
+                (not pace_perception)
+                or (self.elapsed_sim_time - self.__perception_last_time >= perception_dt)
+            )
+        )
+        do_replan = (
+            call_replan
+            and self.local_planner is not None
+            and (
+                (not pace_replan)
+                or (self.elapsed_sim_time - self.__planner_last_time >= replan_dt)
+            )
+        )
+        do_control = (
+            call_control
+            and self.controller is not None
+            and self.local_planner is not None
+            and (
+                (not pace_control)
+                or (self.elapsed_sim_time - self.__controller_last_time >= control_dt)
+            )
+        )
+
+        sensors = (
+            self.world.get_sensor_frame()
+            if (do_localize or do_perceive or do_replan or do_control)
+            else None
+        )
+
         # Pose update: GT world → PM, or localization strategy → PM (mutually exclusive).
         t_loc = time.time()
-        if is_world_stack_capability_enabled(StackCapability.LOCALIZATION):
+        if gt_localization:
             self.pm.ego_vehicle.copy_from(self.world.get_ego_state())
-        elif call_localize and self.localization:
-            if self.elapsed_sim_time - self.__localization_last_time >= localization_dt:
-                self.__localization_last_time = self.elapsed_sim_time
-                self._localization_step()
-                loc_time_txt = f" LOC: {(time.time() - t_loc):.4f} sec,"
+        elif do_localize:
+            self.__localization_last_time = self.elapsed_sim_time
+            self._localization_step(sensors)
+            loc_time_txt = f" LOC: {(time.time() - t_loc):.4f} sec,"
 
         # Perceive first so that planning and the visualization both operate on the
         # same perception snapshot. Running perception after replan caused the planner
         # to react to the previous frame's obstacles while the UI rendered the new
         # perception model, making obstacles appear "detected but not visualized".
         t2 = time.time()
-        if call_perceive:
-            if (not pace_perception) or (
-                self.elapsed_sim_time - self.__perception_last_time >= perception_dt
-            ):
-                self.__perception_last_time = self.elapsed_sim_time
-                self._perception_step()
-                pr_time_txt = f" PR: {(time.time() - t2):.4f} sec,"
+        if do_perceive:
+            self.__perception_last_time = self.elapsed_sim_time
+            self._perception_step(sensors)
+            pr_time_txt = f" PR: {(time.time() - t2):.4f} sec,"
 
-        if call_replan:
-            if (not pace_replan) or (
-                self.elapsed_sim_time - self.__planner_last_time >= replan_dt
-            ):
-                self.__planner_last_time = self.elapsed_sim_time
-                self._replan_step()
-                pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
+        if do_replan:
+            self.__planner_last_time = self.elapsed_sim_time
+            self._replan_step(sensors)
+            pln_time_txt = f" P: {(time.time() - t0):.2} sec,"
 
         if self.local_planner:
             self.local_planner.step(self.pm.ego_vehicle)
 
         t1 = time.time()
-        if call_control:
-            if (not pace_control) or (
-                self.elapsed_sim_time - self.__controller_last_time >= control_dt
-            ):
-                self.__controller_last_time = self.elapsed_sim_time
-                self._control_step(sim_dt)
-                cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
+        if do_control:
+            self.__controller_last_time = self.elapsed_sim_time
+            self._control_step(sim_dt, sensors)
+            cn_time_txt = f"C: {(time.time() - t1):.4f} sec,"
 
         # Free-run: advance sim and real by the same wall interval so the UI clocks match.
         # Paced: fixed sim_dt; real time is measured separately over the full step.

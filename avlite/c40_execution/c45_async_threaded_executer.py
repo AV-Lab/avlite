@@ -149,12 +149,46 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                 dt = t1 - self.__planner_last_step_time
                 self.__planner_elapsed_time += time.time() - self.__planner_start_time
 
-                do_replan = (not self.pace_replan) or (dt > self.replan_dt)
-                if dt > 10 * self.replan_dt:
+                # Resolve every gate before running any stage, so the iteration can take a
+                # single sensor snapshot and hand the same world instant to each stage. Gates
+                # include module presence so an unassembled stage never triggers a fetch.
+                replan_stalled = dt > 10 * self.replan_dt
+                if replan_stalled:
                     self.__planner_last_step_time = t1
-                elif do_replan:
+                do_replan = (
+                    not replan_stalled
+                    and self.local_planner is not None
+                    and ((not self.pace_replan) or (dt > self.replan_dt))
+                )
+
+                # Localization owns PM ego only when GT localization is not enabled.
+                do_localize = (
+                    self.call_localize
+                    and self.localization is not None
+                    and not is_world_stack_capability_enabled(StackCapability.LOCALIZATION)
+                    and t1 - __localize_last_t >= self.localization_dt
+                )
+
+                # Perception runs alongside planning, rate-limited by perception_dt.
+                # Only active when combined mode is on; in separate-thread mode the
+                # dedicated worker_perception thread handles this instead.
+                do_perceive = False
+                if self.call_perceive and self.perception and self._combined_perception_planning:
+                    dt_p = t1 - self._perception_fps_tracker.last
+                    if dt_p > 10 * self.perception_dt:
+                        self._perception_fps_tracker.last = t1
+                    else:
+                        do_perceive = (not self.pace_perception) or (dt_p >= self.perception_dt)
+
+                sensors = (
+                    self.world.get_sensor_frame()
+                    if (do_replan or do_localize or do_perceive)
+                    else None
+                )
+
+                if do_replan:
                     self.__planner_last_step_time = time.time()
-                    self._replan_step()
+                    self._replan_step(sensors)
 
                 if self.local_planner and self.controller:
                     self.controller.set_plan(self.local_planner.get_local_plan())
@@ -169,30 +203,18 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                 t2 = time.time()
                 log.debug("Planner iteration: dt=%.3fs, execution time=%.3fs", dt, t2 - t1)
 
-                # Localization owns PM ego only when GT localization is not enabled.
-                if (
-                    self.call_localize
-                    and not is_world_stack_capability_enabled(StackCapability.LOCALIZATION)
-                ):
-                    if t1 - __localize_last_t >= self.localization_dt:
-                        try:
-                            self._localization_step()
-                            __localize_last_t = t1
-                        except Exception as e:
-                            log.error(f"Error in localization step: {e}", exc_info=True)
+                if do_localize:
+                    try:
+                        self._localization_step(sensors)
+                        __localize_last_t = t1
+                    except Exception as e:
+                        log.error(f"Error in localization step: {e}", exc_info=True)
 
-                # Perception runs alongside planning, rate-limited by perception_dt.
-                # Only active when combined mode is on; in separate-thread mode the
-                # dedicated worker_perception thread handles this instead.
-                if self.call_perceive and self._combined_perception_planning:
-                    dt_p = time.time() - self._perception_fps_tracker.last
-                    if dt_p > 10 * self.perception_dt:
-                        self._perception_fps_tracker.last = time.time()
-                    elif (not self.pace_perception) or (dt_p >= self.perception_dt):
-                        try:
-                            self._perception_step()
-                        except Exception as e:
-                            log.error(f"Error in perception step: {e}", exc_info=True)
+                if do_perceive:
+                    try:
+                        self._perception_step(sensors)
+                    except Exception as e:
+                        log.error(f"Error in perception step: {e}", exc_info=True)
 
                 if self.pace_replan:
                     time.sleep(max(0, self.replan_dt - (time.time() - t1)))
@@ -220,7 +242,8 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     with self.lock_world:
                         if is_world_stack_capability_enabled(StackCapability.LOCALIZATION):
                             self.pm.ego_vehicle.copy_from(self.world.get_ego_state())
-                        self._control_step(self.sim_dt)
+                        if self.controller and self.local_planner:
+                            self._control_step(self.sim_dt, self.world.get_sensor_frame())
 
                 # Free-run: sim and real share the same wall interval (start-of-iter stamps).
                 # Paced: fixed sim_dt; real accumulates full loop wall including sleep.
@@ -265,7 +288,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
             try:
                 t1 = time.time()
                 if self.perception and self.call_perceive:
-                    self._perception_step()
+                    self._perception_step(self.world.get_sensor_frame())
                 t2 = time.time()
                 log.debug("Perception iteration: dt=%.3fs", t2 - t1)
                 if self.pace_perception:
