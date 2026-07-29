@@ -194,7 +194,7 @@ class TrajectoryTracker:
         if self.path_s[closest_wp] <= s_[0]:
             if closest_wp < len(self.__reference_path) - 1:
                 self.current_wp = closest_wp
-                self.next_wp = closest_wp + 1 % len(self.__reference_path)
+                self.next_wp = closest_wp + 1
             elif closest_wp == len(self.__reference_path) - 1:
                 self.current_wp = closest_wp
                 self.next_wp = closest_wp
@@ -223,10 +223,27 @@ class TrajectoryTracker:
                 self.next_wp = self.current_wp
 
     def update_waypoint_by_wp(self, current_wp: int) -> None:
-        self.current_wp = current_wp % len(self.__reference_path)
-        self.next_wp = current_wp + 1 % len(self.__reference_path)
+        n = len(self.__reference_path)
+        if n == 0:
+            self.current_wp = 0
+            self.next_wp = 0
+            return
+        # Clamp at the final waypoint (same semantics as update_waypoint_by_xy).
+        # Do not use ``current_wp + 1 % n``: ``%`` binds tighter than ``+``, so that
+        # expression is ``current_wp + (1 % n)`` and leaves next_wp == n (OOB).
+        self.current_wp = current_wp % n
+        if self.current_wp < n - 1:
+            self.next_wp = self.current_wp + 1
+        else:
+            self.next_wp = self.current_wp
 
     def update_to_next_waypoint(self) -> None:
+        n = len(self.__reference_path)
+        if n == 0:
+            return
+        if self.current_wp >= n - 1:
+            self.next_wp = self.current_wp
+            return
         self.update_waypoint_by_wp(self.current_wp + 1)
 
     def is_traversed(self) -> bool:
@@ -344,7 +361,7 @@ class TrajectoryTracker:
             ]
         )
 
-        b = np.array([d_start, d_end, start_d_1st_derv, start_d_2nd_derv, end_d_2nd_derv, end_d_2nd_derv])
+        b = np.array([d_start, d_end, start_d_1st_derv, end_d_1st_derv, start_d_2nd_derv, end_d_2nd_derv])
 
         # Solve for the polynomial coefficients
         coefficients = np.linalg.solve(A, b)
