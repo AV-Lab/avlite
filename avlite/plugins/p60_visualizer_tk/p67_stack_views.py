@@ -625,9 +625,13 @@ class ControlFrame(ttk.LabelFrame):
         self.root.update_ui()
 
     def align_control(self):
+        """Snap plant + stack ego to the plan location (same dual-write as teleport)."""
         if not self.root.exec or not self.root.exec.controller or not self.root.exec.local_planner:
             return
-        self.root.exec.ego_state.x, self.root.exec.ego_state.y = self.root.exec.local_planner.location_xy
+        x, y = self.root.exec.local_planner.location_xy
+        # Must move world ego and sync stack PM — mutating only exec.ego_state is undone
+        # on the next GT-localization tick after the world/stack ego split.
+        self.root.teleport_ego(x, y)
         self.root.exec.controller.reset()
         self.root.update_ui()
 

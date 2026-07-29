@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Execution: perception, planning, and control share one `SensorFrame` per tick instead of each fetching its own — the stack no longer assumes the world holds still between stages, so bridges whose sensors evolve independently (CARLA async mode) stay coherent. `_localization_step` / `_perception_step` / `_replan_step` / `_control_step` now take the snapshot as an argument; each executer loop resolves its pacing gates first and fetches at most once (skipping the fetch entirely when no stage is due)
+- Visualizer: Control **Align** teleports plant ego and syncs stack PM (stack-only writes were undone by GT localization after the world/stack ego split)
+- Common: `TrajectoryTracker.update_waypoint_by_wp` / `update_to_next_waypoint` clamp `next_wp` at the path end — `%` precedence previously left `next_wp == len(path)` and crashed plot/step at the final waypoint
+- Common: `create_quintic_trajectory_sd` b-vector matches the constraint matrix (end 1st / start 2nd derivatives were swapped)
 
 ## [0.5.3] - 2026-07-24
 
