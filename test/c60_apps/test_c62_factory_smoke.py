@@ -197,14 +197,17 @@ def test_executor_factory_uses_c40_start_pose_for_world_and_stack_ego(minimal_co
         default_global_trajectory_file="",
     )
 
-    assert executer.ego_state.x == pytest.approx(12.5)
-    assert executer.ego_state.y == pytest.approx(-3.25)
-    assert executer.ego_state.theta == pytest.approx(0.75)
-    assert executer.pm.ego_vehicle.x == pytest.approx(12.5)
-    assert executer.pm.ego_vehicle.y == pytest.approx(-3.25)
-    assert executer.pm.ego_vehicle.theta == pytest.approx(0.75)
+    world_ego = executer.world.get_ego_state()
+    stack_ego = executer.pm.ego_vehicle
+    assert world_ego.x == pytest.approx(12.5)
+    assert world_ego.y == pytest.approx(-3.25)
+    assert world_ego.theta == pytest.approx(0.75)
+    assert stack_ego.x == pytest.approx(12.5)
+    assert stack_ego.y == pytest.approx(-3.25)
+    assert stack_ego.theta == pytest.approx(0.75)
     # World/stack ego must remain distinct objects sharing the start pose.
-    assert executer.ego_state is not executer.pm.ego_vehicle
+    assert world_ego is not stack_ego
+    assert executer.ego_state is stack_ego
 
 
 def test_executor_factory_empty_start_pose_falls_back_to_plan_start(minimal_corridor_map_path):
