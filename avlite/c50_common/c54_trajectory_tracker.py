@@ -614,6 +614,16 @@ class TrajectoryTracker:
     # # # s,d need to be current
     def convert_sd_to_xy(self, s: float, d: float) -> tuple[float, float]:
         closest_wp = self.get_closest_waypoint_frm_sd(s, d)
+        n = len(self.path_x)
+
+        if n < 2:
+            # Degenerate single-point path: no tangent; apply d with the same
+            # left-hand normal convention as the multi-point branch below.
+            heading = float(self.path_heading[0]) if len(self.path_heading) else 0.0
+            perp_heading = heading - math.pi / 2
+            x = float(self.path_x[0]) - d * math.cos(perp_heading)
+            y = float(self.path_y[0]) - d * math.sin(perp_heading)
+            return x, y
 
         if closest_wp == 0:
             next_wp = 1
@@ -667,14 +677,16 @@ class TrajectoryTracker:
         _, closest_wps = self.__xy_kdtree.query(points_array)   # shape (m,) — O(m log n)
 
         reference_path = self.__reference_path
+        n_ref = len(reference_path)
         frenet_coords = []
         cumulative_distances = self.__cumulative_distances
         for idx, point in enumerate(points_array):
 
-            closest_wp = closest_wps[idx]
+            closest_wp = int(closest_wps[idx])
 
+            # Single-point (or last-wp slice) paths have no tangent segment; keep next==prev.
             if closest_wp == 0:
-                next_wp = 1
+                next_wp = 1 if n_ref > 1 else 0
                 prev_wp = 0
             else:
                 next_wp = closest_wp
@@ -686,11 +698,12 @@ class TrajectoryTracker:
             x_y = point[1] - reference_path[prev_wp, 1]
 
             # Compute the projection of the point onto the reference path
-            if (n_x * n_x + n_y * n_y) == 0:
-                proj_x = 0
-                proj_y = 0
+            seg_len_sq = n_x * n_x + n_y * n_y
+            if seg_len_sq == 0:
+                proj_x = 0.0
+                proj_y = 0.0
             else:
-                proj_norm = (x_x * n_x + x_y * n_y) / (n_x * n_x + n_y * n_y)  # normalized projection
+                proj_norm = (x_x * n_x + x_y * n_y) / seg_len_sq  # normalized projection
                 proj_x = proj_norm * n_x
                 proj_y = proj_norm * n_y
 
@@ -702,7 +715,12 @@ class TrajectoryTracker:
 
             normal = np.array([-n_y, n_x])  # Rotate tangent vector by 90 degrees (left-hand normal)
             vec_to_point = np.array([x_x - proj_x, x_y - proj_y])
-            d = np.dot(vec_to_point, normal) / np.linalg.norm(normal)
+            norm_mag = float(np.linalg.norm(normal))
+            if norm_mag == 0.0:
+                # Degenerate segment (1-point path or duplicate waypoints): unsigned range.
+                d = float(np.hypot(vec_to_point[0], vec_to_point[1]))
+            else:
+                d = float(np.dot(vec_to_point, normal) / norm_mag)
 
             frenet_coords.append((s, d))
 
@@ -717,8 +735,11 @@ class TrajectoryTracker:
         points_array = np.asarray(points, dtype=float)         # (m, 2)
         _, closest_wps = self.__xy_kdtree.query(points_array)  # (m,) — O(m log n)
 
+        n_ref = len(self.__reference_path)
+        # When n_ref == 1, clamp next to 0 so indexing stays in bounds.
+        next_when_zero = 1 if n_ref > 1 else 0
         prev_wps = np.where(closest_wps == 0, 0, closest_wps - 1)  # (m,)
-        next_wps = np.where(closest_wps == 0, 1, closest_wps)       # (m,)
+        next_wps = np.where(closest_wps == 0, next_when_zero, closest_wps)  # (m,)
 
         seg_n   = self.__reference_path[next_wps] - self.__reference_path[prev_wps]  # (m, 2)
         seg_vec = points_array - self.__reference_path[prev_wps]                     # (m, 2)
