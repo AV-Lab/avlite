@@ -179,6 +179,56 @@ def test_executor_factory_empty_global_plan(minimal_corridor_map_path):
     assert executer.ego_state.y == 0.0
 
 
+def test_executor_factory_uses_c40_start_pose_for_world_and_stack_ego(minimal_corridor_map_path):
+    ExecutionSettings.c40_map = str(minimal_corridor_map_path.resolve())
+    ExecutionSettings.c40_mapping = MapReader.__name__
+    ExecutionSettings.c40_start_pose = [12.5, -3.25, 0.75]
+
+    executer = executor_factory(
+        load_plugins=False,
+        executer_type=SyncExecuter.__name__,
+        bridge="BasicSim",
+        perception_strategy_name="",
+        localization_strategy_name="",
+        mapping_strategy_name=MapReader.__name__,
+        global_planner_strategy_name="GlobalCenterlineRacePlanner",
+        local_planner_strategy_name="",
+        controller_strategy_name="",
+        default_global_trajectory_file="",
+    )
+
+    assert executer.ego_state.x == pytest.approx(12.5)
+    assert executer.ego_state.y == pytest.approx(-3.25)
+    assert executer.ego_state.theta == pytest.approx(0.75)
+    assert executer.pm.ego_vehicle.x == pytest.approx(12.5)
+    assert executer.pm.ego_vehicle.y == pytest.approx(-3.25)
+    assert executer.pm.ego_vehicle.theta == pytest.approx(0.75)
+    # World/stack ego must remain distinct objects sharing the start pose.
+    assert executer.ego_state is not executer.pm.ego_vehicle
+
+
+def test_executor_factory_empty_start_pose_falls_back_to_plan_start(minimal_corridor_map_path):
+    ExecutionSettings.c40_map = str(minimal_corridor_map_path.resolve())
+    ExecutionSettings.c40_mapping = MapReader.__name__
+    ExecutionSettings.c40_start_pose = []
+
+    executer = executor_factory(
+        load_plugins=False,
+        executer_type=SyncExecuter.__name__,
+        bridge="BasicSim",
+        perception_strategy_name="",
+        localization_strategy_name="",
+        mapping_strategy_name=MapReader.__name__,
+        global_planner_strategy_name="GlobalCenterlineRacePlanner",
+        local_planner_strategy_name="",
+        controller_strategy_name="",
+        default_global_trajectory_file="",
+    )
+
+    assert executer.ego_state.x == 0.0
+    assert executer.ego_state.y == 0.0
+
+
 def test_executor_factory_raises_for_map_reader_without_map():
     ExecutionSettings.c40_map = ""
 

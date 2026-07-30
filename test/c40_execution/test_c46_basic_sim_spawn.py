@@ -78,3 +78,47 @@ def test_basic_sim_stack_requirements_control_readable_from_class():
     assert StackCapability.DETECTION in BasicSim.stack_capabilities
     assert StackCapability.TRACKING in BasicSim.stack_capabilities
     assert StackCapability.LOCALIZATION in BasicSim.stack_capabilities
+
+
+def test_spawn_agent_captures_start_pose_including_plan_velocity():
+    ego = EgoState()
+    pm = PerceptionModel(ego_vehicle=ego)
+    sim = BasicSim(ego_state=ego, pm=pm)
+    plan = _straight_global_plan()
+
+    agent = AgentState(x=1.0, y=0.0, theta=0.0, velocity=0.0)
+    sim.spawn_agent(agent, global_plan=plan)
+    spawn_velocity = agent.velocity
+    assert spawn_velocity > 0.0
+
+    agent.x, agent.y, agent.velocity = 50.0, 50.0, 0.0
+    agent.reset()
+    assert agent.x == 1.0
+    assert agent.y == 0.0
+    assert agent.velocity == spawn_velocity
+
+
+def test_basic_sim_reset_restores_ego_and_npcs_without_despawning():
+    """reset must restore start poses; it must not clear spawned agents (post-0.5.3)."""
+    ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
+    pm = PerceptionModel(ego_vehicle=ego)
+    sim = BasicSim(ego_state=ego, pm=pm)
+    plan = _straight_global_plan()
+
+    agent = AgentState(x=2.0, y=0.0, theta=0.0, velocity=0.0)
+    sim.spawn_agent(agent, global_plan=plan)
+    agent_id = agent.agent_id
+    spawn_velocity = agent.velocity
+
+    ego.x, ego.y, ego.theta, ego.velocity = 15.0, 4.0, 1.2, 7.0
+    agent.x, agent.y, agent.theta, agent.velocity = 18.0, -3.0, -0.5, 0.1
+
+    sim.reset()
+
+    assert len(pm.agent_vehicles) == 1
+    assert pm.agent_vehicles[0] is agent
+    assert agent.agent_id == agent_id
+    assert agent_id in sim.npc_controllers
+    assert ego.x == 0.0 and ego.y == 0.0 and ego.theta == 0.0 and ego.velocity == 0.0
+    assert agent.x == 2.0 and agent.y == 0.0 and agent.theta == 0.0
+    assert agent.velocity == spawn_velocity

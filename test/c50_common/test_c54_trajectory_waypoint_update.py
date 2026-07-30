@@ -1,5 +1,7 @@
 """Regression tests for TrajectoryTracker waypoint index updates."""
 
+import math
+
 import pytest
 
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
@@ -64,3 +66,28 @@ def test_create_quintic_trajectory_sd_honors_boundary_derivatives():
     assert d1p(s1) == pytest.approx(-0.1, abs=1e-9)
     assert d2p(s0) == pytest.approx(0.3, abs=1e-9)
     assert d2p(s1) == pytest.approx(0.05, abs=1e-9)
+
+
+def test_convert_sd_to_xy_extrapolates_before_path_start():
+    """s before path start must extrapolate along the first segment, not snap to wp0."""
+    tj = _path_tj(3)
+    x, y = tj.convert_sd_to_xy(-5.0, 0.0)
+    assert x == pytest.approx(-5.0)
+    assert y == pytest.approx(0.0)
+
+
+def test_convert_sd_to_xy_interpolates_mid_segment_with_lateral_offset():
+    tj = _path_tj(3)
+    x, y = tj.convert_sd_to_xy(5.0, 1.0)
+    assert x == pytest.approx(5.0)
+    assert y == pytest.approx(1.0)
+
+
+def test_convert_sd_to_xy_extrapolates_on_angled_first_segment():
+    path = [(0.0, 0.0), (10.0, 10.0), (20.0, 10.0)]
+    tj = TrajectoryTracker(path=path, velocity=[1.0, 1.0, 1.0])
+    # First segment length is 10*sqrt(2); go half a segment length before start.
+    s = -0.5 * math.hypot(10.0, 10.0)
+    x, y = tj.convert_sd_to_xy(s, 0.0)
+    assert x == pytest.approx(-5.0)
+    assert y == pytest.approx(-5.0)
