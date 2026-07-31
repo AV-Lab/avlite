@@ -276,3 +276,27 @@ def test_control_align_must_teleport_world_or_gt_undoes_stack_only_write():
     assert world_ego.y == pytest.approx(200.0)
     assert pm.ego_vehicle.x == pytest.approx(100.0)
     assert pm.ego_vehicle.y == pytest.approx(200.0)
+
+
+def test_manual_world_control_must_sync_stack_pm():
+    """Control Step / Steer used to call ``world.control_ego_state`` only.
+
+    Stack PM ego then lagged until the next GT tick, so the UI and subsequent
+    manual control steps read a stale pose. Dual-write like teleport.
+    """
+    world_ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+    stack_ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+    world = _PlantWorld(ego_state=world_ego, advance_dx=1.5)
+    pm = PerceptionModel(ego_vehicle=stack_ego)
+
+    # Broken pattern: plant moves, stack stays put.
+    world.control_ego_state(ControlCommand(), dt=0.01)
+    assert world_ego.x == pytest.approx(1.5)
+    assert pm.ego_vehicle.x == pytest.approx(0.0)
+
+    # Correct pattern (VisualizerApp.apply_world_control).
+    world.control_ego_state(ControlCommand(), dt=0.01)
+    pm.ego_vehicle.copy_from(world.get_ego_state())
+    assert world_ego.x == pytest.approx(3.0)
+    assert pm.ego_vehicle.x == pytest.approx(3.0)
+    assert pm.ego_vehicle.y == pytest.approx(world_ego.y)

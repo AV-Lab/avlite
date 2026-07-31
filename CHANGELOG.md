@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: plugin registry field tables list every field with a required column (README, Overview, Plugin Development)
 
 ### Fixed
+- Common: `TrajectoryTracker` / `slice_trajectory_horizon` tolerate a 1-point path (final waypoint) — Frenet conversion no longer indexes `next_wp=1` and crashes `VelocityLocalPlanner.replan` at path end
+- Visualizer: Control **Step** / Steer / Accel apply plant control and sync stack PM via `apply_world_control` (same dual-write as teleport after the world/stack ego split)
+- Visualizer: **Save Start** snapshots velocity 0 so Reset matches a cold profile start (live speed is preserved while driving)
 - Execution: perception, planning, and control share one `SensorFrame` per tick instead of each fetching its own — the stack no longer assumes the world holds still between stages, so bridges whose sensors evolve independently (CARLA async mode) stay coherent. `_localization_step` / `_perception_step` / `_replan_step` / `_control_step` now take the snapshot as an argument; each executer loop resolves its pacing gates first and fetches at most once (skipping the fetch entirely when no stage is due)
 - Visualizer: Control **Align** teleports plant ego and syncs stack PM (stack-only writes were undone by GT localization after the world/stack ego split)
 - Common: `TrajectoryTracker.update_waypoint_by_wp` / `update_to_next_waypoint` clamp `next_wp` at the path end — `%` precedence previously left `next_wp == len(path)` and crashed plot/step at the final waypoint
