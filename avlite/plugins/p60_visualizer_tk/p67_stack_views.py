@@ -926,6 +926,10 @@ class ExecView(ttk.Frame):
             self.stop_exec()
             return
         self.root.setting.exec_running = True
+        # Cooperative stop (StopExecAtGoalTask) leaves executer.stopped set; clear
+        # it so AsyncThreadedExecuter.step may create workers again on Start.
+        if self.root.exec is not None:
+            self.root.exec.stopped = False
         # self.start_exec_button.config(state=tk.DISABLED)
         self.start_exec_button.state(['disabled'])
         self.root.update_ui()
@@ -933,6 +937,13 @@ class ExecView(ttk.Frame):
 
     def _exec_loop(self):
         if self.root.setting.exec_running:
+            # Task-driven stop (e.g. StopExecAtGoalTask) flips executer.stopped but
+            # not exec_running. Mirror it into the UI so we do not keep polling
+            # step() — async step used to recreate workers and clear stopped.
+            if self.root.exec is not None and self.root.exec.stopped:
+                self.stop_exec()
+                return
+
             current_time = time.time()
             cn_dt = float(self.root.setting.control_dt.get())
             pl_dt = float(self.root.setting.replan_dt.get())
@@ -953,7 +964,11 @@ class ExecView(ttk.Frame):
                 pace_replan=bool(self.root.setting.pace_replan.get()),
                 pace_control=bool(self.root.setting.pace_control.get()),
                 pace_sim=pace_sim,
-            ),
+            )
+
+            if self.root.exec.stopped:
+                self.stop_exec()
+                return
 
             # Throttle UI updates to 20 Hz regardless of step() speed.
             # This decouples simulation rate from widget redraw rate.

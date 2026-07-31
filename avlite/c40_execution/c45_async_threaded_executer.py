@@ -109,6 +109,13 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         self.pace_control = pace_control
         self.pace_sim = pace_sim
 
+        # Cooperative stop (e.g. StopExecAtGoalTask) must win over auto-restart.
+        # Callers that want to resume clear ``stopped`` first (Visualizer Start,
+        # headless reset). Otherwise the Tk poll loop would revive workers and
+        # clear the stop flag via start_threads().
+        if self.stopped:
+            return
+
         if not self.threads_started:
             log.info(f"Threads not started yet. Creating and starting threads.")
             self.create_threads()
@@ -186,6 +193,21 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     else None
                 )
 
+                # Match SyncExecuter: localize → perceive → replan on the shared
+                # snapshot so planning sees this iteration's ego/obstacles.
+                if do_localize:
+                    try:
+                        self._localization_step(sensors)
+                        __localize_last_t = t1
+                    except Exception as e:
+                        log.error(f"Error in localization step: {e}", exc_info=True)
+
+                if do_perceive:
+                    try:
+                        self._perception_step(sensors)
+                    except Exception as e:
+                        log.error(f"Error in perception step: {e}", exc_info=True)
+
                 if do_replan:
                     self.__planner_last_step_time = time.time()
                     self._replan_step(sensors)
@@ -202,19 +224,6 @@ class AsyncThreadedExecuter(ExecutionStrategy):
 
                 t2 = time.time()
                 log.debug("Planner iteration: dt=%.3fs, execution time=%.3fs", dt, t2 - t1)
-
-                if do_localize:
-                    try:
-                        self._localization_step(sensors)
-                        __localize_last_t = t1
-                    except Exception as e:
-                        log.error(f"Error in localization step: {e}", exc_info=True)
-
-                if do_perceive:
-                    try:
-                        self._perception_step(sensors)
-                    except Exception as e:
-                        log.error(f"Error in perception step: {e}", exc_info=True)
 
                 if self.pace_replan:
                     time.sleep(max(0, self.replan_dt - (time.time() - t1)))

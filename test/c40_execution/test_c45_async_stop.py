@@ -159,3 +159,60 @@ def test_create_threads_recreates_dead_planner():
     assert exec_.planner_thread is not dead
     assert exec_.planner_thread in exec_.threads
     assert exec_.planner_thread.name == "Planner"
+
+
+def test_step_after_cooperative_stop_does_not_restart_workers():
+    """Tk kept polling step() after StopExecAtGoalTask; step used to revive threads."""
+    exec_ = _make_async_executer()
+    assert not exec_.threads_started
+
+    exec_.step(
+        control_dt=0.05,
+        replan_dt=0.05,
+        perception_dt=0.05,
+        sim_dt=0.01,
+        call_replan=True,
+        call_control=True,
+        call_perceive=False,
+        pace_replan=False,
+        pace_control=False,
+        pace_sim=False,
+    )
+    assert exec_.threads_started
+    time.sleep(0.05)
+
+    exec_.stop()
+    assert exec_.stopped
+    assert exec_.threads_started is False
+
+    # Stale UI poll — must not clear stopped or recreate workers.
+    exec_.step(
+        control_dt=0.05,
+        replan_dt=0.05,
+        perception_dt=0.05,
+        sim_dt=0.01,
+        call_replan=True,
+        call_control=True,
+        call_perceive=False,
+    )
+    assert exec_.stopped
+    assert exec_.threads_started is False
+    assert exec_.threads == []
+
+    # Intentional Start clears the flag, then step may create workers again.
+    exec_.stopped = False
+    exec_.step(
+        control_dt=0.05,
+        replan_dt=0.05,
+        perception_dt=0.05,
+        sim_dt=0.01,
+        call_replan=True,
+        call_control=True,
+        call_perceive=False,
+        pace_replan=False,
+        pace_control=False,
+        pace_sim=False,
+    )
+    assert exec_.threads_started
+    assert not exec_.stopped
+    exec_.stop()

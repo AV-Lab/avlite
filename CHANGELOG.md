@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: plugin registry field tables list every field with a required column (README, Overview, Plugin Development)
 
 ### Fixed
+- Execution: `AsyncThreadedExecuter.step` no longer recreates workers while `stopped` is set — `StopExecAtGoalTask` (and any cooperative stop) stays stopped instead of being cleared by the next poll
+- Visualizer: Execution loop mirrors `executer.stopped` into `exec_running` / Stop UI so task-driven stops end the Tk run (headless already checked the flag)
+- Execution: async combined perception/planning worker localizes and perceives before replan on the shared snapshot — same order as `SyncExecuter`, so planning sees this iteration's ego/obstacles
 - Common: `TrajectoryTracker` / `slice_trajectory_horizon` tolerate a 1-point path (final waypoint) — Frenet conversion no longer indexes `next_wp=1` and crashes `VelocityLocalPlanner.replan` at path end
 - Visualizer: Control **Step** / Steer / Accel apply plant control and sync stack PM via `apply_world_control` (same dual-write as teleport after the world/stack ego split)
 - Visualizer: **Save Start** snapshots velocity 0 so Reset matches a cold profile start (live speed is preserved while driving)
