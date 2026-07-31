@@ -6,7 +6,10 @@ hide:
 
 <div class="hero" markdown>
 
-![AVLite](imgs/logo-icon.png){ .hero-logo }
+<div class="hero-logo-wrap" aria-hidden="true">
+  <div class="hero-smoke-ascii"></div>
+  <img class="hero-logo" src="imgs/logo-icon.png" alt="" width="512" height="512">
+</div>
 
 <p class="hero-wordmark">AVLite</p>
 
@@ -27,11 +30,13 @@ avlite               # launch the visualizer
 [Community](community.md){ .md-button target=_blank rel=noopener }
 [GitHub](https://github.com/AV-Lab/avlite){ .md-button }
 
+<!-- width/height reserve each badge's box before these cross-origin SVGs
+     arrive, so the row does not settle sideways mid-load. -->
 <p class="hero-badges">
-  <img src="https://img.shields.io/pypi/v/avlite?style=flat-square&color=00ace1&label=PyPI&logo=pypi&logoColor=white" alt="PyPI version">
-  <img src="https://img.shields.io/badge/python-3.10%2B-00ace1?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
-  <img src="https://img.shields.io/github/license/AV-Lab/avlite?style=flat-square&color=00ace1" alt="License">
-  <img src="https://img.shields.io/github/stars/AV-Lab/avlite?style=flat-square&color=00ace1&logo=github&logoColor=white" alt="GitHub stars">
+  <img src="https://img.shields.io/pypi/v/avlite?style=flat-square&color=00ace1&label=PyPI&logo=pypi&logoColor=white" alt="PyPI version" width="97" height="20">
+  <img src="https://img.shields.io/badge/python-3.10%2B-00ace1?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" width="109" height="20">
+  <img src="https://img.shields.io/github/license/AV-Lab/avlite?style=flat-square&color=00ace1" alt="License" width="78" height="20">
+  <img src="https://img.shields.io/github/stars/AV-Lab/avlite?style=flat-square&color=00ace1&logo=github&logoColor=white" alt="GitHub stars" width="71" height="20">
 </p>
 
 </div>
@@ -114,7 +119,11 @@ avlite               # launch the visualizer
 <figure class="shot" markdown="span">
   <span class="shot-frame">
     <span class="shot-bar"><span></span><span></span><span></span></span>
-    <img class="landing-shot" src="imgs/tk_visualizer.png" alt="AVLite Tk visualizer">
+    <video class="landing-shot" controls muted autoplay loop playsinline
+           poster="/imgs/tk_visualizer.png"
+           width="1280" height="1416">
+      <source src="/imgs/tk_visualizer.mp4" type="video/mp4">
+    </video>
   </span>
   <figcaption>Real-time Tk visualizer: live plots, per-layer tuning, and profile management.</figcaption>
 </figure>

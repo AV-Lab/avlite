@@ -84,6 +84,10 @@ class ExecutionSettingsSchema(SettingsSchema):
         default_factory=lambda: [24.46992202098782, 54.60522506805341],
         description="WGS84 map origin (lat, lon) in degrees; derived from selected map or set manually.",
     )
+    c40_start_pose: list[float] | None = Field(
+        default=None,
+        description="Ego start pose [x, y, theta]; null starts at the global plan start point.",
+    )
     c40_async_combined_perception_planning: bool = Field(default=True, description="Run perception and planning concurrently.")
     c40_log_level: str = Field(default="INFO", description="Python logging level.")
     c40_log_to_file: bool = Field(default=False, description="Write logs to file.")

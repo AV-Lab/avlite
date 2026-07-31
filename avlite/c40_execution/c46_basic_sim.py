@@ -103,23 +103,21 @@ class BasicSim(WorldBridge):
         id = self.pm.add_agent_vehicle(agent_state)
 
         ref = global_plan.trajectory if global_plan is not None else None
-        if not self.npc_control or ref is None or len(ref.path) == 0:
-            if self.npc_control and (ref is None or len(ref.path) == 0):
-                log.warning("spawn_agent: no global plan available; NPC will not be controlled")
-            return
+        if self.npc_control and ref is not None and len(ref.path) > 0:
+            tj = TrajectoryTracker(
+                path=list(ref.path),
+                velocity=[v * self.speed_factor for v in ref.velocity],
+            )
+            tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
+            agent_state.velocity = tj.velocity[tj.current_wp]
 
-        tj = TrajectoryTracker(
-            path=list(ref.path),
-            velocity=[v * self.speed_factor for v in ref.velocity],
-        )
-        tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
-        agent_state.velocity = tj.velocity[tj.current_wp]
+            controller = StanleyController(tj=tj)
+            controller.reset()
+            self.npc_controllers[id] = controller
+        elif self.npc_control:
+            log.warning("spawn_agent: no global plan available; NPC will not be controlled")
 
-        controller = StanleyController(tj=tj)
-        controller.reset()
-        self.npc_controllers[id] = controller
-
-        
+        agent_state.set_start()
 
     def get_ego_state(self):
 
@@ -136,10 +134,12 @@ class BasicSim(WorldBridge):
         return self.pm
 
     def reset(self):
-        """Clear simulated NPC agents and their controllers."""
-        if self.pm is not None:
-            self.pm.reset()
-        self.npc_controllers = {}
+        """Restore the ego and simulated NPCs to their start poses."""
+        self.ego_state.reset()
+        for agent in self.pm.agent_vehicles if self.pm is not None else []:
+            agent.reset()
+            if agent.agent_id in self.npc_controllers:
+                self.npc_controllers[agent.agent_id].reset()
 
     # ------------------------------------------------------------------
     # 2D LiDAR simulation

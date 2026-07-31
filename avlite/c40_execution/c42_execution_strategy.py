@@ -22,6 +22,7 @@ from avlite.c40_execution.c43_task_strategy import (
     TaskStrategy,
 )
 from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 from avlite.c50_common.c56_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
@@ -156,7 +157,6 @@ class ExecutionStrategy(ABC):
             self.local_planner.reset()
         if self.controller:
             self.controller.reset()
-        self.world.reset()
         self.elapsed_real_time = 0
         self.elapsed_sim_time = 0
         self._last_cmd = None
@@ -252,15 +252,14 @@ class ExecutionStrategy(ABC):
 
     # --- tick helpers ---
 
-    def _localization_step(self) -> None:
-        """Run one localization iteration using the current world capabilities."""
+    def _localization_step(self, sensors: SensorFrame) -> None:
+        """Run one localization iteration on the caller-supplied tick snapshot."""
         if not self.localization:
             return
 
         world_ok = satisfies_requirements(self.localization.world_requirements, self.world.world_capabilities)
         stack_ok = satisfies_requirements(self.localization.stack_requirements, self.available_stack_capabilities())
         if world_ok and stack_ok:
-            sensors = self.world.get_sensor_frame()
             self.localization.localize(perception_model=self.pm, sensors=sensors)
             self.localization_fps = self._localization_fps_tracker.tick()
             # Harvest optional stack_event stamp on PerceptionModel (notify once, then clear).
@@ -276,8 +275,8 @@ class ExecutionStrategy(ABC):
                 f"Skipping."
             )
 
-    def _perception_step(self) -> None:
-        """Run one perception iteration and update fps tracking."""
+    def _perception_step(self, sensors: SensorFrame) -> None:
+        """Run one perception iteration on the caller-supplied tick snapshot."""
         if not self.perception:
             log.debug("Perception strategy is not set. Skipping perception step.")
             return
@@ -304,7 +303,6 @@ class ExecutionStrategy(ABC):
         else:
             self.pm.agent_vehicles = []
 
-        sensors = self.world.get_sensor_frame()
         self.perception.perceive(perception_model=self.pm, sensors=sensors)
 
         self.perception_fps = self._perception_fps_tracker.tick()
@@ -314,11 +312,10 @@ class ExecutionStrategy(ABC):
             self.pm.stack_event = None
             self.task_runner.notify(event)
 
-    def _replan_step(self) -> None:
-        """Run one planning iteration (replan) and update FPS."""
+    def _replan_step(self, sensors: SensorFrame) -> None:
+        """Run one planning iteration (replan) on the caller-supplied tick snapshot."""
         if not self.local_planner:
             return
-        sensors = self.world.get_sensor_frame()
         self.local_planner.replan(perception_model=self.pm, sensors=sensors)
         self.planner_fps = self._planner_fps_tracker.tick()
         # Harvest optional stack_event stamps from plan artifacts (notify once, then clear).
@@ -338,13 +335,15 @@ class ExecutionStrategy(ABC):
                 gp.stack_event = None
                 self.task_runner.notify(event)
 
-    def _control_step(self, sim_dt: float) -> None:
-        """Recompute control command into ``_last_cmd`` (no world integrate)."""
+    def _control_step(self, sim_dt: float, sensors: SensorFrame) -> None:
+        """Recompute control command into ``_last_cmd`` (no world integrate).
+
+        Uses the caller-supplied tick snapshot.
+        """
         if not self.controller or not self.local_planner:
             return
         if not self._can_actuate():
             return
-        sensors = self.world.get_sensor_frame()
         local_plan = self.local_planner.get_local_plan()
         cmd = self.controller.control(
             self.pm.ego_vehicle, local_plan, control_dt=sim_dt,

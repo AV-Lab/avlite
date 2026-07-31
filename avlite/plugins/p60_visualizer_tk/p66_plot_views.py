@@ -551,6 +551,8 @@ class LocalPlanPlotView(ttk.Frame):
         if not _canvas_ready(canvas_widget):
             self.root.after_idle(self.plot)
             return
+        if self.root.setting.exec_running:
+            self.local_plot.hide_distance_ruler()
         width = canvas_widget.winfo_width()
         height = canvas_widget.winfo_height()
         aspect_ratio = width / height

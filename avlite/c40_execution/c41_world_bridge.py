@@ -11,6 +11,7 @@ from avlite.c50_common.c51_capabilities import StackCapability, StackRequirement
 from avlite.c50_common.c53_stack_datatypes import control_type_for_agent
 from avlite.c50_common.c52_world_sensor_datatypes import (
     WORLD_CAPABILITY_SENSOR_FIELDS,
+    CameraParams,
     GnssReading,
     ImuReading,
     SensorFrame,
@@ -19,6 +20,10 @@ from avlite.c50_common.c52_world_sensor_datatypes import (
     LidarCloud,
     RgbImage,
 )
+
+import logging
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,6 +123,15 @@ class WorldBridge(ABC):
         self._require_ego_agent(agent_id, "depth")
         return None
 
+    def get_camera_params(self, agent_id: int = EGO_AGENT_ID) -> CameraParams | None:
+        """Returns geometry for the rgb/depth camera. Layout: ``CameraParams``.
+
+        Bridges exposing CAMERA_RGB or CAMERA_DEPTH must override this; without
+        it, world-frame LiDAR cannot be projected into the image.
+        """
+        self._require_ego_agent(agent_id, "camera params")
+        return None
+
     def get_lidar_data(self, agent_id: int = EGO_AGENT_ID) -> LidarCloud | None:
         """Returns the lidar point cloud. Layout: ``LidarCloud`` in c52_world_sensor_datatypes."""
         self._require_ego_agent(agent_id, "lidar")
@@ -145,6 +159,7 @@ class WorldBridge(ABC):
             frame = SensorFrame(
                 rgb=self.get_rgb_image(),
                 depth=self.get_depth_image(),
+                camera_params=self.get_camera_params(),
                 lidar=self.get_lidar_data(),
                 imu=self.get_imu(),
                 gnss=self.get_gnss(),
@@ -154,12 +169,18 @@ class WorldBridge(ABC):
             frame = SensorFrame(
                 rgb=self.get_rgb_image(agent_id=agent_id),
                 depth=self.get_depth_image(agent_id=agent_id),
+                camera_params=self.get_camera_params(agent_id=agent_id),
                 lidar=self.get_lidar_data(agent_id=agent_id),
                 imu=self.get_imu(agent_id=agent_id),
                 gnss=self.get_gnss(agent_id=agent_id),
                 wheel_odometry=self.get_wheel_odometry(agent_id=agent_id),
             )
+
+        log.debug("Sensor frame before world capability filter: %s", frame)
         return self._apply_world_capability_filter(frame)
+
+    def reset(self):
+        pass
 
     @staticmethod
     def _apply_world_capability_filter(frame: SensorFrame) -> SensorFrame:
@@ -177,6 +198,12 @@ class WorldBridge(ABC):
                     continue
                 setattr(frame, field, None)
                 cleared.add(field)
+        # Camera geometry describes rgb/depth: drop it when neither is provided.
+        if not any(
+            is_world_capability_enabled(c)
+            for c in (WorldCapability.CAMERA_RGB, WorldCapability.CAMERA_DEPTH)
+        ):
+            frame.camera_params = None
         return frame
 
     def _require_ego_agent(self, agent_id: int, method: str) -> None:
@@ -185,8 +212,6 @@ class WorldBridge(ABC):
                 f"{type(self).__name__} does not support {method} for agent {agent_id}"
             )
 
-    def reset(self):
-        pass
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

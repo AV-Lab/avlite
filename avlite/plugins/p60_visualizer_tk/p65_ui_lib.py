@@ -494,6 +494,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "exec_stop": "Stop the loop and halt the world bridge.",
     "exec_step": "Advance one execution tick without continuous run.",
     "exec_reset": "Reset the executer and world to the initial state.",
+    "exec_set_start": "Save the current ego pose as the profile start position (written to the active profile YAML).",
     # Planning
     "plan_global_replan": "Recompute the global route from the map and planner.",
     "plan_save_global": "Save the current global plan to a JSON file.",
@@ -549,6 +550,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "cp_update": "Update the selected plugin to the latest version.",
     "cp_update_all": "Update all installed plugins that have updates.",
     "cp_github": "Open the plugin repository on GitHub.",
+    "cp_site": "Open the plugin project website.",
     "cp_open_folder": "Open the plugin install folder in the file manager.",
     "cp_close": "Close this window.",
     "cp_sign_in": "Sign in with GitHub to browse member-only plugins.",

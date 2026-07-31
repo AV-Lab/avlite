@@ -48,15 +48,108 @@
   margin: 3rem 0 0;
 }
 
+/* Logo + ASCII character smoke rising from the mark. */
+.hero-logo-wrap {
+  position: relative;
+  width: 128px;
+  max-width: 40vw;
+  margin: 0.25rem auto 0.35rem;
+  /* Reserve just enough room for the plume; the rest overlaps the logo. */
+  padding-top: 2.25rem;
+  overflow: visible;
+  animation: hero-enter 0.9s ease-out both;
+}
+
 .hero-logo {
-  width: 96px;
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
   height: auto;
-  max-width: 36vw;
-  margin: 0 auto 0.15rem;
+  /* Reserve the square before the PNG arrives; without this the hero
+     collapses and everything below it jumps down on first load. */
+  aspect-ratio: 1 / 1;
   /* Brighter, punchier mark with a stronger cyan bloom. */
   filter: brightness(1.12) saturate(1.1)
     drop-shadow(0 0 10px rgba(0, 172, 225, 0.55))
     drop-shadow(0 8px 26px rgba(0, 172, 225, 0.45));
+  animation: hero-glow-breathe 5.5s ease-in-out infinite;
+}
+
+/* Div (not pre) so Material's .md-typeset pre rules cannot break layout. */
+.md-typeset .hero-smoke-ascii,
+.hero .hero-smoke-ascii {
+  position: absolute;
+  left: 50%;
+  /* Rises into the hero's own top padding, so a taller plume costs no
+     extra layout height. */
+  top: -2rem;
+  /* max-content (not Nch) so letter-spacing is included in the width;
+     otherwise the row overflows right and the plume sits off-centre. */
+  width: max-content;
+  /* Exactly the rendered rows, so no dead space above the plume. */
+  height: 13.2em;
+  margin: 0;
+  padding: 0;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: rgba(130, 212, 236, 0.62);
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas,
+    monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-shadow: 0 0 7px rgba(0, 172, 225, 0.38);
+  white-space: pre;
+  user-select: none;
+  /* landing.js fades this in once the first frame is rendered. */
+  opacity: 0;
+  transition: opacity 700ms ease;
+  /* Dissolve the plume as it rises instead of clipping at the box edge. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.45) 22%,
+    #000 55%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.45) 22%,
+    #000 55%
+  );
+}
+
+@keyframes hero-glow-breathe {
+  0%,
+  100% {
+    filter: brightness(1.12) saturate(1.1)
+      drop-shadow(0 0 10px rgba(0, 172, 225, 0.5))
+      drop-shadow(0 8px 26px rgba(0, 172, 225, 0.4));
+  }
+  50% {
+    filter: brightness(1.18) saturate(1.15)
+      drop-shadow(0 0 18px rgba(0, 172, 225, 0.75))
+      drop-shadow(0 10px 32px rgba(0, 172, 225, 0.55));
+  }
+}
+
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Clean typographic wordmark, replacing the baked-in logo text. */
@@ -69,6 +162,36 @@
   letter-spacing: 0.02em;
   line-height: 1;
   text-shadow: 0 2px 18px rgba(0, 172, 225, 0.25);
+  animation: hero-enter 0.9s ease-out 0.12s both;
+}
+
+@media (max-width: 44.9375em) {
+  .hero-logo-wrap {
+    padding-top: 2rem;
+  }
+
+  .md-typeset .hero-smoke-ascii,
+  .hero .hero-smoke-ascii {
+    font-size: 10px;
+    top: -1.75rem;
+    height: 13.2em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-logo-wrap,
+  .hero .hero-wordmark {
+    animation: none;
+  }
+
+  .hero-logo {
+    animation: none;
+  }
+
+  .md-typeset .hero-smoke-ascii,
+  .hero .hero-smoke-ascii {
+    display: none;
+  }
 }
 
 .hero h1,
@@ -162,14 +285,15 @@
 
 /* Landing screenshot as a product shot with faux window chrome. */
 .md-typeset figure.shot {
-  margin: 0 auto 1.5rem;
+  margin: 0 0 1.5rem;
+  width: 100%;
 }
 
 .shot-frame {
-  display: inline-block;
+  display: block;
   width: 100%;
-  max-width: 560px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   border: 1px solid rgba(0, 172, 225, 0.25);
   border-radius: 8px;
   overflow: hidden;
@@ -199,13 +323,21 @@
 .landing-shot {
   display: block;
   width: 100%;
+  height: auto;
+  /* Matches the mp4 (1280×1416); wrong AR letterboxes inside the chrome. */
+  aspect-ratio: 1280 / 1416;
+  object-fit: cover;
+  vertical-align: top;
 }
 
 /* ---------------------------------------------------------------------------
    Header chrome. No top tabs — peer pages live in the left sidebar.
    Dark mode: simple black banner (landing uses glass until scroll).
    Light mode: brand primary (landing included — dark glass muddies on white).
-   `landing-home` / `landing-scrolled` come from javascripts/landing.js.
+   `landing-home` / `landing-scrolled` sit on <html>: overrides/main.html sets
+   the first one before paint so the banner never flashes, and landing.js keeps
+   both current across instant navigation. The colour scheme attribute is on
+   <body>, hence the html-then-body descendant chain below.
    --------------------------------------------------------------------------- */
 
 [data-md-color-scheme="slate"] .md-header {
@@ -213,7 +345,7 @@
   box-shadow: none;
 }
 
-[data-md-color-scheme="slate"] body.landing-home .md-header {
+.landing-home [data-md-color-scheme="slate"] .md-header {
   background-color: rgba(5, 7, 10, 0.55);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
@@ -221,13 +353,13 @@
   transition: background-color 250ms ease, box-shadow 250ms ease;
 }
 
-[data-md-color-scheme="slate"] body.landing-home.landing-scrolled .md-header {
+.landing-home.landing-scrolled [data-md-color-scheme="slate"] .md-header {
   background-color: #000000;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
-[data-md-color-scheme="default"] body.landing-home .md-header {
+.landing-home [data-md-color-scheme="default"] .md-header {
   background-color: var(--md-primary-fg-color);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -425,7 +557,7 @@
   margin: 0 0 2rem;
 }
 
-.md-typeset a.store-card {
+.md-typeset .store-card {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
@@ -437,8 +569,8 @@
   transition: border-color 125ms, box-shadow 125ms, transform 125ms;
 }
 
-.md-typeset a.store-card:hover,
-.md-typeset a.store-card:focus {
+.md-typeset .store-card:not(.store-card--skeleton):hover,
+.md-typeset .store-card:focus-within {
   color: var(--md-typeset-color);
   border-color: var(--md-accent-fg-color);
   box-shadow: 0 14px 34px -20px rgba(0, 172, 225, 0.55);
@@ -478,7 +610,6 @@
   font-size: 0.72rem;
   line-height: 1.45;
   color: var(--md-default-fg-color--light);
-  flex-grow: 1;
 }
 
 .store-card-tags {
@@ -488,6 +619,10 @@
 }
 
 .store-card-notes {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   margin: 0;
   font-size: 0.62rem;
   line-height: 1.4;
@@ -514,6 +649,43 @@
 
 .store-card-stats svg {
   opacity: 0.75;
+}
+
+/* Buttons and the stats footer form the pinned bottom block. */
+.store-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.2rem;
+}
+
+.md-typeset a.store-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--md-accent-fg-color);
+  border: 1px solid var(--md-accent-fg-color);
+  border-radius: 1rem;
+  transition: background-color 125ms, color 125ms;
+}
+
+.md-typeset a.store-btn:hover,
+.md-typeset a.store-btn:focus {
+  background: color-mix(in srgb, var(--md-accent-fg-color) 12%, transparent);
+}
+
+.md-typeset a.store-btn--primary {
+  color: var(--md-primary-bg-color, #fff);
+  background: var(--md-accent-fg-color);
+}
+
+.md-typeset a.store-btn--primary:hover,
+.md-typeset a.store-btn--primary:focus {
+  background: color-mix(in srgb, var(--md-accent-fg-color) 82%, #000);
 }
 
 /* Loading skeletons. */
@@ -593,5 +765,10 @@
   }
   .md-typeset .value-strip {
     font-size: 0.7rem;
+  }
+  /* Keep the install snippet (incl. trailing comments) on screen. */
+  .hero .highlight code,
+  .hero-cta .highlight code {
+    font-size: 11px;
   }
 }

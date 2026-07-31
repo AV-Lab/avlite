@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from avlite.c50_common.c52_world_sensor_datatypes import (
+    CameraParams,
     GnssDatum,
     GnssReading,
     ImuReading,
@@ -29,6 +30,43 @@ def test_sensor_frame_defaults():
     frame = SensorFrame()
     assert frame.rgb is None
     assert frame.lidar is None
+    assert frame.camera_params is None
+
+
+def test_camera_params_coerces_to_float64():
+    params = CameraParams(
+        intrinsic=[[400, 0, 320], [0, 400, 240], [0, 0, 1]],
+        world_to_camera=np.eye(4, dtype=np.float32),
+        width=640,
+        height=480,
+    )
+    assert params.intrinsic.shape == (3, 3)
+    assert params.intrinsic.dtype == np.float64
+    assert params.world_to_camera.dtype == np.float64
+    assert params.intrinsic[0, 2] == pytest.approx(320.0)
+
+    frame = SensorFrame(camera_params=params)
+    assert frame.camera_params.width == 640
+
+
+def test_camera_params_rejects_bad_intrinsic_shape():
+    with pytest.raises(ValueError, match=r"\(3, 3\) intrinsic"):
+        CameraParams(
+            intrinsic=np.zeros((3, 4)),
+            world_to_camera=np.eye(4),
+            width=640,
+            height=480,
+        )
+
+
+def test_camera_params_rejects_bad_extrinsic_shape():
+    with pytest.raises(ValueError, match=r"\(4, 4\) world_to_camera"):
+        CameraParams(
+            intrinsic=np.eye(3),
+            world_to_camera=np.eye(3),
+            width=640,
+            height=480,
+        )
 
 
 def test_world_capability_sensor_fields_cover_all_caps():
