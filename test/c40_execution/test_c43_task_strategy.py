@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
-from avlite.c20_planning.c21_planning_model import LocalPlan
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c31_control_model import AckermannControlCommand
 from avlite.c40_execution.c43_task_strategy import (
     StackEvent,
@@ -81,6 +81,15 @@ class ControlHaltedListener(TaskStrategy):
         ControlHaltedListener.calls.append(event)
 
 
+class GlobalPlanMissingListener(TaskStrategy):
+    schedule = TaskSchedule.ON_EVENT
+    listen_events = frozenset({StackEvent.GLOBAL_PLAN_MISSING})
+    calls: list = []
+
+    def execute(self, executer, event=None) -> None:
+        GlobalPlanMissingListener.calls.append(event)
+
+
 class NotifyDuringCycleTask(TaskStrategy):
     schedule = TaskSchedule.EVERY_CYCLE
     fired = False
@@ -108,6 +117,7 @@ def _reset_task_call_state():
     LocalPlanFailedListener.calls = []
     ParkingZoneListener.calls = []
     ControlHaltedListener.calls = []
+    GlobalPlanMissingListener.calls = []
     NotifyDuringCycleTask.fired = False
     ThreadPlacementTask.ran = False
     yield
@@ -306,6 +316,114 @@ def test_harvest_control_stack_event_notifies_once():
     ControlHaltedListener.calls = []
     executer._control_step(sim_dt=0.01, sensors=world.get_sensor_frame())
     assert ControlHaltedListener.calls == []
+
+
+def test_harvest_global_plan_stack_event_notifies_once():
+    ego = EgoState(x=0.0, y=0.0)
+    pm = PerceptionModel(ego_vehicle=ego)
+    world = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego))
+    global_plan = GlobalPlan(stack_event=StackEvent.GLOBAL_PLAN_MISSING)
+    local_planner = SimpleNamespace(
+        replan=lambda **kwargs: None,
+        get_local_plan=lambda: LocalPlan(),
+        global_plan=global_plan,
+        step=lambda state: None,
+        stack_capabilities=frozenset(),
+        stack_requirements=frozenset(),
+        world_requirements=frozenset(),
+    )
+    executer = SyncExecuter(
+        perception_model=pm,
+        world=world,
+        tasks=[GlobalPlanMissingListener()],
+        perception=None,
+        global_planner=None,
+        local_planner=local_planner,
+        controller=None,
+    )
+    executer._replan_step(world.get_sensor_frame())
+    assert GlobalPlanMissingListener.calls == [StackEvent.GLOBAL_PLAN_MISSING]
+    assert global_plan.stack_event is None
+
+    GlobalPlanMissingListener.calls = []
+    executer._replan_step(world.get_sensor_frame())
+    assert GlobalPlanMissingListener.calls == []
+
+
+def test_harvest_localization_stack_event_notifies_once():
+    ego = EgoState(x=0.0, y=0.0)
+    pm = PerceptionModel(ego_vehicle=ego)
+    world = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego))
+    stamped = {"done": False}
+
+    def localize(*, perception_model=None, sensors=None):
+        if not stamped["done"]:
+            perception_model.stack_event = StackEvent.PARKING_ZONE_ENTERED
+            stamped["done"] = True
+
+    localization = SimpleNamespace(
+        world_requirements=frozenset(),
+        stack_requirements=frozenset(),
+        stack_capabilities=frozenset({StackCapability.LOCALIZATION}),
+        localize=localize,
+    )
+    executer = SyncExecuter(
+        perception_model=pm,
+        world=world,
+        tasks=[ParkingZoneListener()],
+        perception=None,
+        localization=localization,
+        global_planner=None,
+        local_planner=None,
+        controller=None,
+    )
+    executer._localization_step(world.get_sensor_frame())
+    assert ParkingZoneListener.calls == [StackEvent.PARKING_ZONE_ENTERED]
+    assert pm.stack_event is None
+
+    ParkingZoneListener.calls = []
+    executer._localization_step(world.get_sensor_frame())
+    assert ParkingZoneListener.calls == []
+
+
+def test_detection_gt_copies_agents_instead_of_aliasing():
+    """Clearing stack agents must never wipe the world's spawned NPC list."""
+    prev = ExecutionSettings.c41_world_stack_capabilities
+    ego = EgoState(x=0.0, y=0.0)
+    world_agent = AgentState(x=10.0, y=0.0, theta=0.0, velocity=0.0, agent_id=1)
+    world_pm = PerceptionModel(ego_vehicle=ego, agent_vehicles=[world_agent])
+    world = BasicSim(ego_state=ego, pm=world_pm)
+    stack_pm = PerceptionModel(ego_vehicle=ego)
+    perception = SimpleNamespace(
+        world_requirements=frozenset(),
+        stack_requirements=frozenset(),
+        stack_capabilities=frozenset(),
+        perceive=lambda **kwargs: None,
+    )
+    executer = SyncExecuter(
+        perception_model=stack_pm,
+        world=world,
+        perception=perception,
+        global_planner=None,
+        local_planner=None,
+        controller=None,
+    )
+    try:
+        ExecutionSettings.c41_world_stack_capabilities = None  # DETECTION GT on
+        executer._perception_step(world.get_sensor_frame())
+        assert len(stack_pm.agent_vehicles) == 1
+        assert stack_pm.agent_vehicles[0].agent_id == 1
+        assert stack_pm.agent_vehicles is not world_pm.agent_vehicles
+
+        stack_pm.agent_vehicles.clear()
+        assert len(world_pm.agent_vehicles) == 1
+
+        ExecutionSettings.c41_world_stack_capabilities = []  # DETECTION GT off
+        executer._perception_step(world.get_sensor_frame())
+        assert stack_pm.agent_vehicles == []
+        assert len(world_pm.agent_vehicles) == 1
+    finally:
+        ExecutionSettings.c41_world_stack_capabilities = prev
 
 
 def test_non_inline_placement_falls_back_to_inline():

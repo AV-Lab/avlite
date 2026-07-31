@@ -64,3 +64,28 @@ def test_create_quintic_trajectory_sd_honors_boundary_derivatives():
     assert d1p(s1) == pytest.approx(-0.1, abs=1e-9)
     assert d2p(s0) == pytest.approx(0.3, abs=1e-9)
     assert d2p(s1) == pytest.approx(0.05, abs=1e-9)
+
+
+def test_update_waypoint_by_xy_forward_never_moves_backward():
+    """Global closest-point search can jump to an earlier segment; forward clamp prevents it."""
+    tj = _path_tj(4)
+    tj.update_waypoint_by_wp(2)
+    assert tj.current_wp == 2
+    assert tj.next_wp == 3
+
+    # Pose nearer the start than the current waypoint.
+    tj.update_waypoint_by_xy(5.0, 0.0)
+    assert tj.current_wp < 2
+
+    tj.update_waypoint_by_wp(2)
+    tj.update_waypoint_by_xy_forward(5.0, 0.0)
+    assert tj.current_wp == 2
+    assert tj.next_wp == 3
+
+
+def test_update_waypoint_by_xy_forward_honors_min_wp_floor():
+    tj = _path_tj(5)
+    tj.update_waypoint_by_wp(1)
+    tj.update_waypoint_by_xy_forward(5.0, 0.0, min_wp=3)
+    assert tj.current_wp == 3
+    assert tj.next_wp == 4
