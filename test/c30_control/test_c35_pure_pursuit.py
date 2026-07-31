@@ -1,5 +1,7 @@
 """Unit tests for Pure Pursuit and Follow the Gap (avlite.c30_control.c35_pure_pursuit)."""
 
+import math
+
 import numpy as np
 import pytest
 
@@ -79,6 +81,27 @@ class TestPurePursuitController:
         cmd = controller.control(ego)
         assert cmd.steer == 0.0
         assert cmd.acceleration == 0.0
+
+    def test_closed_loop_midlap_lookahead_stays_local(self):
+        """Lookahead must not jump to the start/finish when path_s is a closed lap."""
+        path = [(0.0, 0.0), (50.0, 0.0), (50.0, 50.0), (0.0, 50.0), (0.0, 0.0)]
+        tj = TrajectoryTracker(path, velocity=[5.0] * len(path))
+        controller = PurePursuitController(
+            tj=tj, setting=_pp_settings(c35_lookahead_distance=10.0)
+        )
+        # Mid-segment on the far side of the rectangle, heading +y.
+        ego = EgoState(x=50.0, y=25.0, theta=np.pi / 2, velocity=5.0)
+        target = controller.find_path_lookahead(ego, ld=10.0)
+        assert target is not None
+        # Ego-frame target should be roughly ahead (~Ld forward), not yanked to start/finish.
+        ex, ey = target
+        assert ex == pytest.approx(10.0, abs=1.5)
+        assert abs(ey) < 2.0
+        # World lookahead must stay near the ego, not at the duplicated origin.
+        s, _ = tj.convert_xy_to_sd(ego.x, ego.y)
+        gx, gy = tj.convert_sd_to_xy(min(s + 10.0, float(np.max(tj.path_s))), 0.0)
+        assert math.hypot(gx - path[0][0], gy - path[0][1]) > 20.0
+        assert math.hypot(gx - ego.x, gy - ego.y) == pytest.approx(10.0, abs=1.5)
 
 
 class TestFollowTheGapController:

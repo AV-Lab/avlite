@@ -120,8 +120,11 @@ class PurePursuitBase(ControlStrategy, abstract=True):
             return None
         self.tj.update_waypoint_by_xy(ego.x, ego.y)
         s, cte = self.tj.convert_xy_to_sd(ego.x, ego.y)
-        # Aim ahead along the path; clamp to the end of the trajectory.
-        s_target = min(s + ld, float(self.tj.path_s[-1]))
+        # Aim ahead along the path; clamp to the path's maximum arc-length.
+        # Use max(path_s), not path_s[-1]: a corrupted/non-monotonic path_s (historically
+        # path_s[-1]==0 on closed tracks) would otherwise pin every lookahead to s=0.
+        s_end = float(np.max(self.tj.path_s)) if len(self.tj.path_s) else 0.0
+        s_target = min(s + ld, s_end)
         gx, gy = self.tj.convert_sd_to_xy(s_target, 0.0)
 
         # World → ego: x forward, y left.
