@@ -53,10 +53,15 @@ class TrajectoryTracker:
         self.__cumulative_distances = self.__precompute_cumulative_distances()
 
         # Build KD-tree over the XY reference path for O(log n) nearest-waypoint queries.
-        # Must be built before convert_xy_path_to_sd_path, which calls get_closest_waypoint_frm_xy.
         self.__xy_kdtree = KDTree(self.__reference_path)
 
-        self.path_s, self.path_d = self.convert_xy_path_to_sd_path(self.__reference_path)
+        # Reference arc-length IS the cumulative segment length. Do not re-project the
+        # waypoints through convert_xy_path_to_sd_path: on closed tracks first==last, so
+        # the KD-tree snaps the final (and sometimes first) waypoint to index 0 and
+        # path_s[-1] becomes 0 (non-monotonic). Callers that need track length should use
+        # :attr:`track_end_s` (``path_s[-1]``), not the old ``path_s[-2]`` workaround.
+        self.path_s = self.__cumulative_distances.tolist()
+        self.path_d = [0.0] * len(self.__reference_path)
 
         # this should be with respect to parent trajectory
         self.__reference_sd_path = np.array(list(zip(self.path_s, self.path_d)))
@@ -68,6 +73,18 @@ class TrajectoryTracker:
         self.path_heading = self.__precompute_path_orientation()
 
         # log.debug(f"TrajectoryTracker initialized with {len(self.path)} waypoints: {self.__reference_sd_path}")
+
+    @property
+    def track_end_s(self) -> float:
+        """Arc-length of the final reference waypoint (full path / lap length).
+
+        Safe for empty and 1-point paths (returns ``0.0``). Prefer this over indexing
+        ``path_s[-2]``, which was a workaround for corrupted closed-loop ``path_s[-1]``
+        and is wrong once ``path_s`` is cumulative arc-length.
+        """
+        if not self.path_s:
+            return 0.0
+        return float(self.path_s[-1])
 
     def __precompute_path_orientation(self):
         """
@@ -613,9 +630,9 @@ class TrajectoryTracker:
 
     # # # s,d need to be current
     def convert_sd_to_xy(self, s: float, d: float) -> tuple[float, float]:
-        closest_wp = self.get_closest_waypoint_frm_sd(s, d)
-        n = len(self.path_x)
-
+        n = len(self.__path_s_array)
+        if n == 0:
+            return 0.0, 0.0
         if n < 2:
             # Degenerate single-point path: no tangent; apply d with the same
             # left-hand normal convention as the multi-point branch below.
@@ -625,12 +642,15 @@ class TrajectoryTracker:
             y = float(self.path_y[0]) - d * math.sin(perp_heading)
             return x, y
 
-        if closest_wp == 0:
-            next_wp = 1
-            prev_wp = 0
+        # Pick the segment that brackets s in arc-length (not the nearest waypoint).
+        # Nearest-waypoint logic projects onto the wrong segment after corners.
+        idx = int(np.searchsorted(self.__path_s_array, s))
+        if idx <= 0:
+            prev_wp, next_wp = 0, 1
+        elif idx >= n:
+            prev_wp, next_wp = n - 2, n - 1
         else:
-            next_wp = closest_wp
-            prev_wp = next_wp - 1
+            prev_wp, next_wp = idx - 1, idx
 
         # Calculate the heading of the track at the previous waypoint
         heading = math.atan2(
@@ -669,60 +689,87 @@ class TrajectoryTracker:
 
         return x, y, theta
 
+    def _frenet_on_segment(self, point, prev_wp: int, next_wp: int) -> tuple[float, float, float]:
+        """Project ``point`` onto segment (prev_wp, next_wp).
+
+        Returns ``(s, d, dist_sq)`` where ``dist_sq`` is the squared distance from
+        the point to the closest point on the *clamped* segment (for picking among
+        adjacent candidates). ``s``/``d`` use an unclamped projection so queries
+        before path start / past path end still extrapolate.
+        """
+        reference_path = self.__reference_path
+        n_x = reference_path[next_wp, 0] - reference_path[prev_wp, 0]
+        n_y = reference_path[next_wp, 1] - reference_path[prev_wp, 1]
+        x_x = point[0] - reference_path[prev_wp, 0]
+        x_y = point[1] - reference_path[prev_wp, 1]
+        seg_len_sq = n_x * n_x + n_y * n_y
+
+        if seg_len_sq == 0:
+            # Degenerate segment: no unique normal; report vertex distance.
+            dist_sq = float(x_x * x_x + x_y * x_y)
+            return float(self.__cumulative_distances[prev_wp]), 0.0, dist_sq
+
+        proj_norm = (x_x * n_x + x_y * n_y) / seg_len_sq
+        proj_x = proj_norm * n_x
+        proj_y = proj_norm * n_y
+
+        # Arc-length: clamp the progress contribution to the segment so s stays
+        # consistent when the unclamped foot falls outside [0, 1], but still allow
+        # mild extrapolation via the unclamped foot for s itself.
+        s = float(self.__cumulative_distances[prev_wp] + proj_norm * math.sqrt(seg_len_sq))
+
+        normal_x, normal_y = -n_y, n_x
+        residual_x = x_x - proj_x
+        residual_y = x_y - proj_y
+        norm_mag = math.sqrt(normal_x * normal_x + normal_y * normal_y)
+        d = (residual_x * normal_x + residual_y * normal_y) / norm_mag
+
+        # Clamped foot for segment-selection distance.
+        t = 0.0 if proj_norm < 0.0 else (1.0 if proj_norm > 1.0 else proj_norm)
+        foot_x = t * n_x
+        foot_y = t * n_y
+        dx = x_x - foot_x
+        dy = x_y - foot_y
+        dist_sq = float(dx * dx + dy * dy)
+        return s, float(d), dist_sq
+
     def convert_xy_path_to_sd_path(self, points):
         # Batch-query the KD-tree for all points in one C-level call, rather than
         # one query per point. The Frenet projection arithmetic still runs per-point
         # (requires segment geometry), but the expensive nearest-neighbour search is vectorised.
         points_array = np.asarray(points)                       # shape (m, 2)
+        n = len(self.__reference_path)
+        if n == 0:
+            return zip(*[])
+        if n == 1:
+            # No segment: s=0, d = Euclidean distance to the lone waypoint.
+            frenet_coords = []
+            origin = self.__reference_path[0]
+            for point in points_array:
+                d = float(np.linalg.norm(point - origin))
+                frenet_coords.append((0.0, d))
+            return zip(*frenet_coords)
+
         _, closest_wps = self.__xy_kdtree.query(points_array)   # shape (m,) — O(m log n)
 
-        reference_path = self.__reference_path
-        n_ref = len(reference_path)
         frenet_coords = []
-        cumulative_distances = self.__cumulative_distances
         for idx, point in enumerate(points_array):
-
             closest_wp = int(closest_wps[idx])
+            # Nearest waypoint alone is ambiguous after corners: the point may lie on
+            # the outgoing segment while the old code always used the incoming one,
+            # producing huge false CTE (e.g. on-path after a 90° turn). Score both.
+            candidates: list[tuple[int, int]] = []
+            if closest_wp > 0:
+                candidates.append((closest_wp - 1, closest_wp))
+            if closest_wp < n - 1:
+                candidates.append((closest_wp, closest_wp + 1))
 
-            # Single-point (or last-wp slice) paths have no tangent segment; keep next==prev.
-            if closest_wp == 0:
-                next_wp = 1 if n_ref > 1 else 0
-                prev_wp = 0
-            else:
-                next_wp = closest_wp
-                prev_wp = next_wp - 1
-
-            n_x = reference_path[next_wp, 0] - reference_path[prev_wp, 0]
-            n_y = reference_path[next_wp, 1] - reference_path[prev_wp, 1]
-            x_x = point[0] - reference_path[prev_wp, 0]
-            x_y = point[1] - reference_path[prev_wp, 1]
-
-            # Compute the projection of the point onto the reference path
-            seg_len_sq = n_x * n_x + n_y * n_y
-            if seg_len_sq == 0:
-                proj_x = 0.0
-                proj_y = 0.0
-            else:
-                proj_norm = (x_x * n_x + x_y * n_y) / seg_len_sq  # normalized projection
-                proj_x = proj_norm * n_x
-                proj_y = proj_norm * n_y
-
-            # Compute the Frenet s coordinate based on the longitudinal position along the reference path
-            s = cumulative_distances[prev_wp] + np.sqrt(proj_x**2 + proj_y**2)
-            # Compute the Frenet d coordinate based on the lateral distance from the reference path
-            # The sign of the d coordinate is determined by the cross product of the vectors to the point and along the reference path
-            # d = -np.sign(x_x * n_y - x_y * n_x) * np.sqrt((x_x - proj_x) ** 2 + (x_y - proj_y) ** 2)
-
-            normal = np.array([-n_y, n_x])  # Rotate tangent vector by 90 degrees (left-hand normal)
-            vec_to_point = np.array([x_x - proj_x, x_y - proj_y])
-            norm_mag = float(np.linalg.norm(normal))
-            if norm_mag == 0.0:
-                # Degenerate segment (1-point path or duplicate waypoints): unsigned range.
-                d = float(np.hypot(vec_to_point[0], vec_to_point[1]))
-            else:
-                d = float(np.dot(vec_to_point, normal) / norm_mag)
-
-            frenet_coords.append((s, d))
+            best = None
+            for prev_wp, next_wp in candidates:
+                s, d, dist_sq = self._frenet_on_segment(point, prev_wp, next_wp)
+                if best is None or dist_sq < best[2]:
+                    best = (s, d, dist_sq)
+            frenet_coords.append((best[0], best[1]))
 
         return zip(*frenet_coords)
 
@@ -730,34 +777,35 @@ class TrajectoryTracker:
 
     # A numpy version of the above function
     def convert_xy_path_to_sd_path_np(self, points):
-        # Fully vectorised — no Python loop, so numpy releases the GIL during the
-        # bulk C-level work and async planner/controller threads are not starved.
+        # Vectorised nearest-neighbour lookup; per-point segment pick matches the
+        # scalar path (adjacent-segment scoring) so async threads see identical Frenet.
         points_array = np.asarray(points, dtype=float)         # (m, 2)
+        if points_array.ndim == 1:
+            points_array = points_array.reshape(1, 2)
+        n = len(self.__reference_path)
+        m = points_array.shape[0]
+        if n == 0:
+            return np.zeros((m, 2))
+        if n == 1:
+            d = np.linalg.norm(points_array - self.__reference_path[0], axis=1)
+            return np.column_stack([np.zeros(m), d])
+
         _, closest_wps = self.__xy_kdtree.query(points_array)  # (m,) — O(m log n)
-
-        n_ref = len(self.__reference_path)
-        # When n_ref == 1, clamp next to 0 so indexing stays in bounds.
-        next_when_zero = 1 if n_ref > 1 else 0
-        prev_wps = np.where(closest_wps == 0, 0, closest_wps - 1)  # (m,)
-        next_wps = np.where(closest_wps == 0, next_when_zero, closest_wps)  # (m,)
-
-        seg_n   = self.__reference_path[next_wps] - self.__reference_path[prev_wps]  # (m, 2)
-        seg_vec = points_array - self.__reference_path[prev_wps]                     # (m, 2)
-
-        seg_len_sq = np.einsum('ij,ij->i', seg_n, seg_n)                   # (m,)
-        safe_len   = np.where(seg_len_sq == 0, 1.0, seg_len_sq)
-        proj_norm  = np.einsum('ij,ij->i', seg_vec, seg_n) / safe_len      # (m,)
-        proj       = proj_norm[:, None] * seg_n                             # (m, 2)
-
-        s = self.__cumulative_distances[prev_wps] + np.linalg.norm(proj, axis=1)
-
-        normal   = np.column_stack([-seg_n[:, 1], seg_n[:, 0]])            # (m, 2)
-        residual = seg_vec - proj                                           # (m, 2)
-        norm_mag = np.linalg.norm(normal, axis=1)                          # (m,)
-        safe_mag = np.where(norm_mag == 0, 1.0, norm_mag)
-        d = np.einsum('ij,ij->i', residual, normal) / safe_mag             # (m,)
-
-        return np.column_stack([s, d])
+        out = np.empty((m, 2), dtype=float)
+        for i in range(m):
+            closest_wp = int(closest_wps[i])
+            candidates: list[tuple[int, int]] = []
+            if closest_wp > 0:
+                candidates.append((closest_wp - 1, closest_wp))
+            if closest_wp < n - 1:
+                candidates.append((closest_wp, closest_wp + 1))
+            best = None
+            for prev_wp, next_wp in candidates:
+                s, d, dist_sq = self._frenet_on_segment(points_array[i], prev_wp, next_wp)
+                if best is None or dist_sq < best[2]:
+                    best = (s, d, dist_sq)
+            out[i, 0], out[i, 1] = best[0], best[1]
+        return out
 
 
 

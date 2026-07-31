@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: plugin registry field tables list every field with a required column (README, Overview, Plugin Development)
 
 ### Fixed
+- Common: `TrajectoryTracker` initializes `path_s` from cumulative arc-length instead of re-projecting the reference through KD-tree Frenet conversion — closed tracks with `first==last` (e.g. bundled Yas Marina race line) no longer get non-monotonic `path_s` with `path_s[-1] == 0`
+- Common: Frenet XY→SD picks the better adjacent segment around the nearest waypoint (and SD→XY brackets by arc-length) — on-path points after corners no longer pick up a huge false CTE from the previous segment
+- Common / Planning: lattice sampling, replan end-of-track gates, and race lap detection use `TrajectoryTracker.track_end_s` (`path_s[-1]`) instead of the stale `path_s[-2]` workaround — avoids `IndexError` on 1-point paths and restores the final closed-track segment after the cumulative `path_s` fix
+- Control: Pure Pursuit clamps lookahead with `max(path_s)` rather than `path_s[-1]`, so a corrupted end sample cannot pin every lookahead to the start/finish
 - Common: `TrajectoryTracker` / `slice_trajectory_horizon` tolerate a 1-point path (final waypoint) — Frenet conversion no longer indexes `next_wp=1` and crashes `VelocityLocalPlanner.replan` at path end
 - Visualizer: Control **Step** / Steer / Accel apply plant control and sync stack PM via `apply_world_control` (same dual-write as teleport after the world/stack ego split)
 - Visualizer: **Save Start** snapshots velocity 0 so Reset matches a cold profile start (live speed is preserved while driving)
