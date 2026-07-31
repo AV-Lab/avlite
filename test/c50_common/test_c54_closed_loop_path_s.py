@@ -56,3 +56,18 @@ def test_convert_sd_to_xy_brackets_by_arc_length():
     x, y = tj.convert_sd_to_xy(75.0, 0.0)
     assert abs(x - 50.0) < 1e-6
     assert abs(y - 25.0) < 1e-6
+
+
+def test_track_end_s_matches_final_arc_length_including_short_paths():
+    """track_end_s is path_s[-1]; safe on 0/1-point paths (old path_s[-2] IndexError)."""
+    empty = TrajectoryTracker(path=[], velocity=[])
+    assert empty.track_end_s == 0.0
+
+    one = TrajectoryTracker(path=[(0.0, 0.0)], velocity=[0.0])
+    assert one.track_end_s == 0.0
+
+    closed = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 0.0)]
+    tj = TrajectoryTracker(path=closed, velocity=[1.0] * len(closed))
+    assert abs(tj.track_end_s - tj.path_s[-1]) < 1e-9
+    # Stale [-2] workaround is one segment short of the true lap length.
+    assert tj.path_s[-2] < tj.track_end_s - 1.0

@@ -58,9 +58,8 @@ class TrajectoryTracker:
         # Reference arc-length IS the cumulative segment length. Do not re-project the
         # waypoints through convert_xy_path_to_sd_path: on closed tracks first==last, so
         # the KD-tree snaps the final (and sometimes first) waypoint to index 0 and
-        # path_s[-1] becomes 0 (non-monotonic). Lattice already worked around this with
-        # path_s[-2]; Pure Pursuit clamped lookahead to path_s[-1] and steered to the
-        # start/finish from anywhere on the lap.
+        # path_s[-1] becomes 0 (non-monotonic). Callers that need track length should use
+        # :attr:`track_end_s` (``path_s[-1]``), not the old ``path_s[-2]`` workaround.
         self.path_s = self.__cumulative_distances.tolist()
         self.path_d = [0.0] * len(self.__reference_path)
 
@@ -74,6 +73,18 @@ class TrajectoryTracker:
         self.path_heading = self.__precompute_path_orientation()
 
         # log.debug(f"TrajectoryTracker initialized with {len(self.path)} waypoints: {self.__reference_sd_path}")
+
+    @property
+    def track_end_s(self) -> float:
+        """Arc-length of the final reference waypoint (full path / lap length).
+
+        Safe for empty and 1-point paths (returns ``0.0``). Prefer this over indexing
+        ``path_s[-2]``, which was a workaround for corrupted closed-loop ``path_s[-1]``
+        and is wrong once ``path_s`` is cumulative arc-length.
+        """
+        if not self.path_s:
+            return 0.0
+        return float(self.path_s[-1])
 
     def __precompute_path_orientation(self):
         """

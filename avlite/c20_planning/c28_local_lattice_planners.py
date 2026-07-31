@@ -133,7 +133,7 @@ class Lattice:
 
         for l in range(1, self.planning_horizon + 1):
             s1_ = s1_ + maneuver_distance
-            if s1_ > self.global_trajectory.path_s[-2]:  # at -1 path_s is zero
+            if s1_ > self.global_trajectory.track_end_s:
                 log.debug("sample_nodes: approaching track end, truncating lattice horizon")
                 break
 
@@ -702,7 +702,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
             log.debug("Location unkown. Cannot replan")
             return
 
-        track_end_s = self.global_trajectory.path_s[-2]
+        track_end_s = self.global_trajectory.track_end_s
         if self.location_sd[0] + self.maneuver_distance > track_end_s:
             log.debug("replan: approaching track end, hand off to global decel profile")
             self.selected_local_plan = None
@@ -872,7 +872,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
         tail_node: Node = tail_plan.end
         s_new = tail_node.s + self.maneuver_distance
 
-        if s_new > self.global_trajectory.path_s[-2]:
+        if s_new > self.global_trajectory.track_end_s:
             log.debug("partial_replan: approaching track end, skipping extension")
             return
 
