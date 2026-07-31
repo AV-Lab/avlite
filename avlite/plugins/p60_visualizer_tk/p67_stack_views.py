@@ -620,8 +620,7 @@ class ControlFrame(ttk.LabelFrame):
             sensors=self.root.exec.world.get_sensor_frame(),
         )
 
-        self.root.exec.world.control_ego_state(
-            cmd=cmd, dt=self.root.setting.sim_dt.get())
+        self.root.apply_world_control(cmd, dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def align_control(self):
@@ -637,32 +636,32 @@ class ControlFrame(ttk.LabelFrame):
 
     def step_steer_left(self):
         log.debug("Steer right")
-        self.root.exec.world.control_ego_state(cmd=ControlCommand(
-            steer=0.7), dt=self.root.setting.sim_dt.get())
+        self.root.apply_world_control(
+            ControlCommand(steer=0.7), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_steer_right(self):
         log.debug("Steer right")
-        self.root.exec.world.control_ego_state(cmd=ControlCommand(
-            steer=-0.7), dt=self.root.setting.sim_dt.get())
+        self.root.apply_world_control(
+            ControlCommand(steer=-0.7), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def reset_steer(self):
         log.debug("Reset steer")
-        self.root.exec.world.control_ego_state(cmd=ControlCommand(
-            steer=0), dt=self.root.setting.sim_dt.get())
+        self.root.apply_world_control(
+            ControlCommand(steer=0), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_acc(self):
         acc = 3
-        self.root.exec.world.control_ego_state(
-            cmd=ControlCommand(acceleration=acc), dt=self.root.setting.sim_dt.get())
+        self.root.apply_world_control(
+            ControlCommand(acceleration=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
     def step_dec(self):
         acc = -3
-        self.root.exec.world.control_ego_state(
-            cmd=ControlCommand(acceleration=acc), dt=self.root.setting.sim_dt.get())
+        self.root.apply_world_control(
+            ControlCommand(acceleration=acc), dt=self.root.setting.sim_dt.get())
         self.root.update_ui()
 
 # --------------------------------------------------------------------------------------------
@@ -1025,9 +1024,17 @@ class ExecView(ttk.Frame):
 
     def set_start(self):
         ego = self.root.exec.world.get_ego_state()
+        stack = self.root.exec.ego_state
         ExecutionSettings.c40_start_pose = [ego.x, ego.y, ego.theta]
+        # Profile YAML stores pose only; snapshot velocity at 0 so Reset matches a
+        # cold start (NPC spawn still captures non-zero velocity via set_start).
+        world_v, stack_v = ego.velocity, stack.velocity
+        ego.velocity = 0.0
+        stack.velocity = 0.0
         ego.set_start()
-        self.root.exec.ego_state.set_start()
+        stack.set_start()
+        ego.velocity = world_v
+        stack.velocity = stack_v
         profile = self.root.setting.c60_selected_profile.get()
         save_setting(ExecutionSettings, profile=profile)
         log.info(f"Start pose saved to profile {profile!r}: ({ego.x:.2f}, {ego.y:.2f}, {ego.theta:.2f})")

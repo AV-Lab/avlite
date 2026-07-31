@@ -714,6 +714,16 @@ class VisualizerApp(tk.Tk):
         self.exec.world.teleport_ego(x, y, theta)
         self.exec.pm.ego_vehicle.copy_from(self.exec.world.get_ego_state())
 
+    def apply_world_control(self, cmd, dt):
+        """Apply a control command to the plant and sync stack PM.
+
+        After the world/stack ego split, mutating only the plant leaves
+        ``pm.ego_vehicle`` stale until the next GT localization tick. Manual
+        Control Step / Steer must dual-write like :meth:`teleport_ego`.
+        """
+        self.exec.world.control_ego_state(cmd=cmd, dt=dt)
+        self.exec.pm.ego_vehicle.copy_from(self.exec.world.get_ego_state())
+
     def spawn_agent(self, agent_state: AgentState) -> None:
         """Spawn an agent in the world using the ego's current global plan."""
         if self.exec is None:

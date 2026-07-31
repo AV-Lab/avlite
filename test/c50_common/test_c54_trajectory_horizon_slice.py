@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker, slice_trajectory_horizon
 
 
@@ -59,3 +61,22 @@ def test_slice_trajectory_zero_max_points_returns_remainder():
     sliced = slice_trajectory_horizon(traj, max_points=0)
     assert len(sliced.path) == 90
     assert sliced.path[0] == traj.path[10]
+
+
+def test_slice_trajectory_at_final_waypoint_is_one_point():
+    """Last waypoint used to IndexError: convert_xy assumed next_wp=1 on a 1-pt path."""
+    traj = _long_trajectory(n=100, start_wp=99)
+    traj.next_wp = 99
+    sliced = slice_trajectory_horizon(traj, max_points=50)
+    assert len(sliced.path) == 1
+    assert sliced.path[0] == traj.path[99]
+    assert sliced.current_wp == 0
+    assert sliced.next_wp == 0
+    assert sliced.is_initialized
+
+
+def test_single_point_trajectory_tracker_initializes():
+    traj = TrajectoryTracker(path=[(3.0, 4.0)], velocity=[2.0])
+    assert traj.is_initialized
+    assert list(traj.path_s) == [0.0]
+    assert traj.convert_sd_to_xy(0.0, 0.0) == pytest.approx((3.0, 4.0))

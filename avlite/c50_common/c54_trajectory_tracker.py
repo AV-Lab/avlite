@@ -633,9 +633,14 @@ class TrajectoryTracker:
         n = len(self.__path_s_array)
         if n == 0:
             return 0.0, 0.0
-        if n == 1:
-            # No segment geometry; lateral offset has no unique normal.
-            return float(self.path_x[0]), float(self.path_y[0])
+        if n < 2:
+            # Degenerate single-point path: no tangent; apply d with the same
+            # left-hand normal convention as the multi-point branch below.
+            heading = float(self.path_heading[0]) if len(self.path_heading) else 0.0
+            perp_heading = heading - math.pi / 2
+            x = float(self.path_x[0]) - d * math.cos(perp_heading)
+            y = float(self.path_y[0]) - d * math.sin(perp_heading)
+            return x, y
 
         # Pick the segment that brackets s in arc-length (not the nearest waypoint).
         # Nearest-waypoint logic projects onto the wrong segment after corners.
