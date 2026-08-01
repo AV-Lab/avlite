@@ -129,3 +129,78 @@ class TestEgoLengthExtension:
             collision_safety_margin=margin,
         )
         assert hit is True
+
+
+class TestSlowPathConstantVelocitySweep:
+    """Slow path (no obstacle_polygons) still fabricates a CV sweep for movers.
+
+    This intentionally diverges from precompute_obstacle_polygons, which requires
+    a SingleTrajectory prediction before sweeping.
+    """
+
+    def test_slow_path_sweeps_mover_across_corridor_without_prediction(self):
+        # Agent starts clear of the corridor but drives toward it; CV sweep must hit.
+        # Precompute without prediction keeps a static box → clear.
+        agent_x, agent_y = 40.0, 8.0
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[
+                AgentState(
+                    x=agent_x, y=agent_y, theta=-np.pi / 2, velocity=5.0, agent_id=1,
+                ),
+            ],
+        )
+        trajectory = _straight_trajectory(0.0, 100.0)
+        # path length 100 m @ 5 m/s → total_time ≈ 20 s → predicted y ≈ 8 - 100 = -92
+        hit_slow, idx_slow, vel_slow, _ = check_collision(pm, trajectory)
+        assert hit_slow is True
+        assert idx_slow >= 0
+        assert vel_slow == 5.0
+
+        polys = precompute_obstacle_polygons(pm, total_time=20.0)
+        hit_fast, _, _, clearance = check_collision(
+            pm, trajectory, obstacle_polygons=polys,
+        )
+        assert hit_fast is False
+        assert clearance > 0
+
+    def test_slow_path_static_agent_stays_unswept(self):
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[
+                AgentState(x=40.0, y=8.0, theta=-np.pi / 2, velocity=0.0, agent_id=1),
+            ],
+        )
+        hit, idx, _, clearance = check_collision(pm, _straight_trajectory(0.0, 100.0))
+        assert hit is False
+        assert idx == -1
+        assert clearance > 0
+
+
+class TestDegenerateTrajectoryPoseCheck:
+    def test_none_trajectory_uses_current_pose_bbs(self):
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0),
+            agent_vehicles=[
+                AgentState(x=0.5, y=0.0, theta=0.0, velocity=3.0, agent_id=1),
+            ],
+        )
+        hit, idx, vel, clearance = check_collision(pm, None)
+        assert hit is True
+        assert idx == 0
+        assert vel == 3.0
+        assert clearance == 0.0
+
+    def test_one_point_trajectory_skips_corridor_and_cv_sweep(self):
+        # Short path is common after end-of-path tracker fixes; movers must not be CV-swept.
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[
+                AgentState(x=40.0, y=8.0, theta=-np.pi / 2, velocity=5.0, agent_id=1),
+            ],
+        )
+        one_point = TrajectoryTracker(path=[(0.0, 0.0)], velocity=[5.0])
+        hit, idx, _, clearance = check_collision(pm, one_point)
+        assert hit is False
+        assert idx == -1
+        assert clearance > 1e5
