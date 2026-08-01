@@ -71,3 +71,45 @@ def test_track_end_s_matches_final_arc_length_including_short_paths():
     assert abs(tj.track_end_s - tj.path_s[-1]) < 1e-9
     # Stale [-2] workaround is one segment short of the true lap length.
     assert tj.path_s[-2] < tj.track_end_s - 1.0
+
+
+def test_frenet_on_closed_loop_last_segment_keeps_s_near_track_end():
+    """first==last: KD nearest at finish is index 0 — must still score the wrap segment."""
+    path = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)]
+    tj = TrajectoryTracker(path, velocity=[5.0] * len(path))
+
+    # Mid last segment (0,10)→(0,0): previously snapped to s=0, d=5.
+    s, d = tj.convert_xy_to_sd(0.0, 5.0)
+    assert abs(d) < 1e-6
+    assert abs(s - 35.0) < 1e-6
+
+    s_np, d_np = tj.convert_xy_path_to_sd_path_np([(0.0, 5.0)])[0]
+    assert abs(d_np) < 1e-6
+    assert abs(s_np - 35.0) < 1e-6
+
+    # Near finish on the wrap segment.
+    s2, d2 = tj.convert_xy_to_sd(0.0, 0.5)
+    assert abs(d2) < 1e-6
+    assert abs(s2 - 39.5) < 1e-6
+
+
+def test_bundled_yas_marina_frenet_near_finish_stays_on_wrap_segment():
+    """Shipped Yas Marina race line: last ~0.3 m must not jump to s≈0 / full-lap CTE."""
+    path_json = Path(__file__).resolve().parents[2] / (
+        "avlite/data/yas_marina_real_race_line_mue_0_5_3_m_margin.json"
+    )
+    data = json.loads(path_json.read_text())
+    path = [tuple(pt[:2]) for pt in data["ReferenceLine"]]
+    tj = TrajectoryTracker(path, velocity=list(data["ReferenceSpeed"]))
+
+    x0, y0 = path[-2]
+    x1, y1 = path[-1]
+    t = 0.9
+    x = x0 + t * (x1 - x0)
+    y = y0 + t * (y1 - y0)
+    true_s = tj.path_s[-2] + t * (tj.path_s[-1] - tj.path_s[-2])
+
+    s, d = tj.convert_xy_to_sd(x, y)
+    assert abs(d) < 1e-3
+    assert abs(s - true_s) < 1e-2
+    assert s > tj.track_end_s * 0.99

@@ -43,6 +43,7 @@ class TrajectoryTracker:
     def initialize_trajectory(self, reference_xy_path: list[tuple[float, float]], velocity: list[float]):
         self.path = reference_xy_path
         if reference_xy_path is None or len(reference_xy_path) == 0:
+            self.__closed_duplicated_endpoints = False
             return
 
         self.is_initialized = True  
@@ -69,6 +70,14 @@ class TrajectoryTracker:
         # path_s is monotonically increasing arc-length; store as a plain numpy array so
         # np.searchsorted can do O(log n) SD lookups without a second spatial index.
         self.__path_s_array = np.array(self.path_s)
+
+        # Closed race lines ship with a duplicated finish==start waypoint. The KD-tree
+        # then ties the finish to index 0, so XY→SD must also score the wrap segment
+        # (n-2 → n-1); cache the flag so per-query Frenet stays cheap.
+        self.__closed_duplicated_endpoints = (
+            len(self.__reference_path) >= 3
+            and bool(np.allclose(self.__reference_path[0], self.__reference_path[-1]))
+        )
 
         self.path_heading = self.__precompute_path_orientation()
 
@@ -689,6 +698,26 @@ class TrajectoryTracker:
 
         return x, y, theta
 
+    def _frenet_segment_candidates(self, closest_wp: int) -> list[tuple[int, int]]:
+        """Adjacent segments to score for Frenet projection around ``closest_wp``.
+
+        Open paths: the incoming and/or outgoing segment. Closed paths with
+        duplicated endpoints (``first==last``): when the KD-tree returns index 0
+        at the finish, also score the wrap segment ``(n-2, n-1)`` so the last
+        lap meters do not snap to ``s≈0`` with a huge false CTE.
+        """
+        n = len(self.__reference_path)
+        candidates: list[tuple[int, int]] = []
+        if closest_wp > 0:
+            candidates.append((closest_wp - 1, closest_wp))
+        if closest_wp < n - 1:
+            candidates.append((closest_wp, closest_wp + 1))
+        if self.__closed_duplicated_endpoints and closest_wp == 0:
+            wrap = (n - 2, n - 1)
+            if wrap not in candidates:
+                candidates.append(wrap)
+        return candidates
+
     def _frenet_on_segment(self, point, prev_wp: int, next_wp: int) -> tuple[float, float, float]:
         """Project ``point`` onto segment (prev_wp, next_wp).
 
@@ -755,14 +784,9 @@ class TrajectoryTracker:
         frenet_coords = []
         for idx, point in enumerate(points_array):
             closest_wp = int(closest_wps[idx])
-            # Nearest waypoint alone is ambiguous after corners: the point may lie on
-            # the outgoing segment while the old code always used the incoming one,
-            # producing huge false CTE (e.g. on-path after a 90° turn). Score both.
-            candidates: list[tuple[int, int]] = []
-            if closest_wp > 0:
-                candidates.append((closest_wp - 1, closest_wp))
-            if closest_wp < n - 1:
-                candidates.append((closest_wp, closest_wp + 1))
+            # Nearest waypoint alone is ambiguous after corners / at the closed-loop
+            # seam: score adjacent segments (and the wrap segment when first==last).
+            candidates = self._frenet_segment_candidates(closest_wp)
 
             best = None
             for prev_wp, next_wp in candidates:
@@ -794,11 +818,7 @@ class TrajectoryTracker:
         out = np.empty((m, 2), dtype=float)
         for i in range(m):
             closest_wp = int(closest_wps[i])
-            candidates: list[tuple[int, int]] = []
-            if closest_wp > 0:
-                candidates.append((closest_wp - 1, closest_wp))
-            if closest_wp < n - 1:
-                candidates.append((closest_wp, closest_wp + 1))
+            candidates = self._frenet_segment_candidates(closest_wp)
             best = None
             for prev_wp, next_wp in candidates:
                 s, d, dist_sq = self._frenet_on_segment(points_array[i], prev_wp, next_wp)
