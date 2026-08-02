@@ -680,14 +680,30 @@ class TrajectoryTracker:
         Convert Frenet coordinates (s, d) and orientation theta to Cartesian coordinates (x, y) and orientation.
         :param s: Frenet s coordinate
         :param d: Frenet d coordinate
-        :param theta: Orientation in radians
+        :param theta: Orientation in radians relative to the path tangent at ``s``
         :return: Tuple of (x, y, orientation)
         """
         x, y = self.convert_sd_to_xy(s, d)
-        theta = theta + math.atan2(self.path_y[self.next_wp] - self.path_y[self.current_wp],
-            self.path_x[self.next_wp] - self.path_x[self.current_wp],)
-
-        return x, y, theta
+        # Path heading must come from the segment that brackets ``s`` (same as
+        # convert_sd_to_xy). Using tracker current_wp/next_wp is wrong whenever the
+        # query pose is not on the currently tracked segment — Frenet teleport/spawn
+        # then points the ego/NPC along the wrong corridor.
+        n = len(self.__path_s_array)
+        if n < 2:
+            heading = float(self.path_heading[0]) if len(self.path_heading) else 0.0
+        else:
+            idx = int(np.searchsorted(self.__path_s_array, s))
+            if idx <= 0:
+                prev_wp, next_wp = 0, 1
+            elif idx >= n:
+                prev_wp, next_wp = n - 2, n - 1
+            else:
+                prev_wp, next_wp = idx - 1, idx
+            heading = math.atan2(
+                self.path_y[next_wp] - self.path_y[prev_wp],
+                self.path_x[next_wp] - self.path_x[prev_wp],
+            )
+        return x, y, theta + heading
 
     def _frenet_on_segment(self, point, prev_wp: int, next_wp: int) -> tuple[float, float, float]:
         """Project ``point`` onto segment (prev_wp, next_wp).
