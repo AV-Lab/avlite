@@ -23,7 +23,13 @@ from avlite.c20_planning.c29_settings import PlanningSettingsSchema
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
-def _straight_global_plan(x_end: float = 100.0, n: int = 20, velocity: float = 10.0) -> GlobalPlan:
+def _straight_global_plan(
+    x_end: float = 100.0,
+    n: int = 20,
+    velocity: float = 10.0,
+    *,
+    race_mode: bool = True,
+) -> GlobalPlan:
     xs = [x_end * i / (n - 1) for i in range(n)]
     path = [(x, 0.0) for x in xs]
     vel = [velocity] * n
@@ -40,6 +46,35 @@ def _straight_global_plan(x_end: float = 100.0, n: int = 20, velocity: float = 1
         trajectory=trajectory,
         left_boundary_d=left,
         right_boundary_d=right,
+        race_mode=race_mode,
+    )
+
+
+def _closed_square_global_plan(side: float = 50.0, velocity: float = 10.0) -> GlobalPlan:
+    """Closed loop with duplicated finish==start (first==last)."""
+    path = [
+        (0.0, 0.0),
+        (side, 0.0),
+        (side, side),
+        (0.0, side),
+        (0.0, 0.0),
+    ]
+    n = len(path)
+    vel = [velocity] * n
+    left = [3.0] * n
+    right = [-3.0] * n
+    trajectory = TrajectoryTracker(path=path, velocity=vel)
+    trajectory.ref_left_boundary_d = left
+    trajectory.ref_right_boundary_d = right
+    return GlobalPlan(
+        start_point=path[0],
+        goal_point=path[-1],
+        path=path,
+        velocity=vel,
+        trajectory=trajectory,
+        left_boundary_d=left,
+        right_boundary_d=right,
+        race_mode=True,
     )
 
 
@@ -135,3 +170,59 @@ class TestLocalPlanningPipeline:
         state = EgoState(x=5.0, y=0.0, theta=0.0, velocity=5.0)
         pipeline.step(state)
         assert pipeline.location_xy == (5.0, 0.0)
+
+
+class TestRaceLapSCrossover:
+    """Lap detection uses track_end_s (not path_s[-2]) for the near-end threshold."""
+
+    def _planner(self, global_plan: GlobalPlan) -> VelocityLocalPlanner:
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        return VelocityLocalPlanner(global_plan=global_plan, env=pm)
+
+    def test_lap_increments_on_s_crossover_past_track_end_threshold(self):
+        plan = _closed_square_global_plan()
+        planner = self._planner(plan)
+        track_len = plan.trajectory.track_end_s
+        assert track_len > 0
+        assert plan.trajectory.path_s[-2] < track_len
+
+        # Near finish by track_end_s, then cross to near start.
+        planner.traversed_s = [track_len * 0.85]
+        planner.lap = 0
+        planner.step(EgoState(x=1.0, y=0.0, theta=0.0, velocity=5.0))
+        assert planner.lap == 1
+
+    def test_no_lap_when_prev_s_only_past_stale_path_s_minus_two(self):
+        """path_s[-2] is one segment short — must not treat that band as near-end."""
+        plan = _closed_square_global_plan()
+        planner = self._planner(plan)
+        tj = plan.trajectory
+        stale = tj.path_s[-2]
+        track_len = tj.track_end_s
+        # Above 80% of the stale length, but still below 80% of true lap length.
+        prev_s = stale * 0.85
+        assert prev_s > stale * 0.8
+        assert prev_s < track_len * 0.8
+
+        planner.traversed_s = [prev_s]
+        planner.lap = 0
+        planner.step(EgoState(x=1.0, y=0.0, theta=0.0, velocity=5.0))
+        assert planner.lap == 0
+
+    def test_mid_track_step_does_not_increment_lap(self):
+        plan = _straight_global_plan()
+        planner = self._planner(plan)
+        planner.traversed_s = [40.0]
+        planner.lap = 0
+        planner.step(EgoState(x=50.0, y=0.0, theta=0.0, velocity=5.0))
+        assert planner.lap == 0
+
+    def test_race_mode_off_skips_lap_counting(self):
+        plan = _closed_square_global_plan()
+        plan.race_mode = False
+        planner = self._planner(plan)
+        track_len = plan.trajectory.track_end_s
+        planner.traversed_s = [track_len * 0.85]
+        planner.lap = 0
+        planner.step(EgoState(x=1.0, y=0.0, theta=0.0, velocity=5.0))
+        assert planner.lap == 0
