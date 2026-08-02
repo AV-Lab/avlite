@@ -657,3 +657,115 @@ class TestDebounceRelease:
         planner.replan()
         assert planner.selected_local_plan is None
         assert planner._committed_trajectory is None
+
+
+class TestBoundaryViolation:
+    """Direct coverage for Lattice._check_boundary_violation (left+/right− + clearance)."""
+
+    def _lattice(self, clearance: float = 0.5) -> Lattice:
+        global_tj = _straight_global_plan().trajectory
+        n = len(global_tj.path)
+        lattice = Lattice(
+            global_trajectory=global_tj,
+            ref_left_boundary_d=[3.0] * n,
+            ref_right_boundary_d=[-3.0] * n,
+            planning_horizon=1,
+        )
+        lattice.boundary_clearance = clearance
+        return lattice
+
+    def test_centerline_edge_is_inside_boundaries(self):
+        lattice = self._lattice()
+        edge = _edge_at_sd(lattice.global_trajectory, 0.0, 0.0, 20.0, 0.0)
+        assert lattice._check_boundary_violation(edge) is False
+
+    def test_left_bound_without_clearance_is_violation(self):
+        lattice = self._lattice(clearance=0.5)
+        # End at left boundary d=3.0; with clearance 0.5 the limit is 2.5.
+        edge = _edge_at_sd(lattice.global_trajectory, 0.0, 0.0, 20.0, 3.0)
+        assert lattice._check_boundary_violation(edge) is True
+
+    def test_right_bound_without_clearance_is_violation(self):
+        lattice = self._lattice(clearance=0.5)
+        edge = _edge_at_sd(lattice.global_trajectory, 0.0, 0.0, 20.0, -3.0)
+        assert lattice._check_boundary_violation(edge) is True
+
+    def test_clearance_inset_marks_near_bound_as_violation(self):
+        lattice = self._lattice(clearance=0.5)
+        # d=2.6 is inside raw left=3.0 but outside inset 2.5.
+        edge = _edge_at_sd(lattice.global_trajectory, 0.0, 0.0, 20.0, 2.6)
+        assert lattice._check_boundary_violation(edge) is True
+
+    def test_missing_parent_frenet_path_is_not_a_violation(self):
+        lattice = self._lattice()
+        edge = _edge_at(lattice.global_trajectory, 0.0, 20.0)
+        edge.local_trajectory.path_s_from_parent = None
+        edge.local_trajectory.path_d_from_parent = None
+        assert lattice._check_boundary_violation(edge) is False
+
+
+class TestGenerateLatticePassesObstaclePolygons:
+    """Hot-path glue: with agents, check_collision must receive precomputed polygons."""
+
+    def test_agents_trigger_precomputed_polygons_kwarg(self, monkeypatch):
+        from avlite.c10_perception.c11_perception_model import AgentState
+
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[AgentState(x=40.0, y=0.0, theta=0.0, velocity=0.0, agent_id=1)],
+        )
+        lattice = Lattice(
+            global_trajectory=global_plan.trajectory,
+            ref_left_boundary_d=global_plan.left_boundary_d,
+            ref_right_boundary_d=global_plan.right_boundary_d,
+            planning_horizon=1,
+            num_of_points=8,
+        )
+        lattice.sample_nodes(
+            s=0.0, d=0.0, sample_size=3, maneuver_distance=20.0,
+            boundary_clearance=0.5, lateral_reach=float("inf"), sample_distribution=0,
+        )
+
+        seen: list[object] = []
+
+        def _capture_check_collision(pm_arg, traj, **kwargs):
+            seen.append(kwargs.get("obstacle_polygons", "MISSING"))
+            return False, -1, 0.0, 10.0
+
+        monkeypatch.setattr(
+            "avlite.c20_planning.c28_local_lattice_planners.check_collision",
+            _capture_check_collision,
+        )
+        lattice.generate_lattice_from_nodes(pm=pm)
+        assert seen, "expected at least one edge collision check"
+        assert all(polys is not None and polys != "MISSING" for polys in seen)
+
+    def test_no_agents_leaves_obstacle_polygons_none(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        lattice = Lattice(
+            global_trajectory=global_plan.trajectory,
+            ref_left_boundary_d=global_plan.left_boundary_d,
+            ref_right_boundary_d=global_plan.right_boundary_d,
+            planning_horizon=1,
+            num_of_points=8,
+        )
+        lattice.sample_nodes(
+            s=0.0, d=0.0, sample_size=3, maneuver_distance=20.0,
+            boundary_clearance=0.5, lateral_reach=float("inf"), sample_distribution=0,
+        )
+
+        seen: list[object] = []
+
+        def _capture_check_collision(pm_arg, traj, **kwargs):
+            seen.append(kwargs.get("obstacle_polygons", "MISSING"))
+            return False, -1, 0.0, 10.0
+
+        monkeypatch.setattr(
+            "avlite.c20_planning.c28_local_lattice_planners.check_collision",
+            _capture_check_collision,
+        )
+        lattice.generate_lattice_from_nodes(pm=pm)
+        assert seen
+        assert all(polys is None for polys in seen)

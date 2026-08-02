@@ -1,5 +1,7 @@
 """Regression tests for TrajectoryTracker waypoint index updates."""
 
+import math
+
 import pytest
 
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
@@ -64,3 +66,21 @@ def test_create_quintic_trajectory_sd_honors_boundary_derivatives():
     assert d1p(s1) == pytest.approx(-0.1, abs=1e-9)
     assert d2p(s0) == pytest.approx(0.3, abs=1e-9)
     assert d2p(s1) == pytest.approx(0.05, abs=1e-9)
+
+
+def test_convert_sd_orientation_adds_path_heading_at_cursor_segment():
+    """World yaw = Frenet theta + heading of the current→next waypoint segment."""
+    # L-path: horizontal then vertical. Cursor on the vertical leg.
+    path = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
+    tj = TrajectoryTracker(path=path, velocity=[5.0] * 3)
+    tj.update_waypoint_by_wp(1)
+    assert tj.current_wp == 1
+    assert tj.next_wp == 2
+
+    s_mid = 0.5 * (tj.path_s[1] + tj.path_s[2])
+    _x, _y, yaw = tj.convert_sd_orientation_to_xy_orientation(s_mid, 0.0, 0.0)
+    assert yaw == pytest.approx(math.pi / 2, abs=1e-6)
+
+    # Relative Frenet heading is preserved on top of path heading.
+    _x2, _y2, yaw2 = tj.convert_sd_orientation_to_xy_orientation(s_mid, 0.0, 0.25)
+    assert yaw2 == pytest.approx(math.pi / 2 + 0.25, abs=1e-6)
