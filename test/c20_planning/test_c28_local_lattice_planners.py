@@ -657,3 +657,176 @@ class TestDebounceRelease:
         planner.replan()
         assert planner.selected_local_plan is None
         assert planner._committed_trajectory is None
+
+
+class TestShouldSwitchPlanEmergencyStop:
+    """Trailing-velocity emergency-stop recovery (not all-zeros; last < 0.5 and mean < 3)."""
+
+    def test_recovers_from_trailing_low_velocity_to_clean_plan(self, fixed_planner_time):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=2.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        estop = _edge_at(global_plan.trajectory, 0.0, 20.0)
+        n = len(estop.local_trajectory.velocity)
+        # Mean stays below 3.0 while only the trailing sample is near-stop.
+        estop.local_trajectory.velocity = [2.0] * (n - 1) + [0.2]
+        clean = _edge_with_velocity(global_plan.trajectory, velocity=8.0)
+
+        planner.selected_local_plan = estop
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
+
+        assert planner.should_switch_plan(clean) is True
+
+    def test_holds_low_speed_cruise_that_is_not_emergency_stop(self, fixed_planner_time):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=2.5))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        cruise = _chain_with_uniform_velocity(global_plan.trajectory, velocity=2.5)
+        alternative = _chain_with_uniform_velocity(global_plan.trajectory, velocity=2.5)
+
+        planner.selected_local_plan = cruise
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
+
+        assert planner.should_switch_plan(alternative) is False
+
+    def test_trailing_velocity_above_threshold_is_not_emergency_stop(self, fixed_planner_time):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=2.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        current = _edge_at(global_plan.trajectory, 0.0, 20.0)
+        n = len(current.local_trajectory.velocity)
+        current.local_trajectory.velocity = [2.0] * (n - 1) + [0.6]
+        alternative = _edge_with_velocity(global_plan.trajectory, velocity=2.0)
+
+        planner.set_selected_plan(current)
+        planner._last_plan_change_time = _FIXED_PLANNER_TIME
+
+        assert planner.should_switch_plan(alternative) is False
+
+
+class TestPartialReplanPassesObstaclePolygons:
+    """Sliding-window glue: with agents, every check_collision gets precomputed polygons."""
+
+    def test_agents_trigger_precomputed_polygons_kwarg(self, monkeypatch):
+        from avlite.c10_perception.c11_perception_model import AgentState
+
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[AgentState(x=40.0, y=0.0, theta=0.0, velocity=0.0, agent_id=1)],
+        )
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+        planner.set_selected_plan(_edge_at(global_plan.trajectory, 0.0, 20.0))
+
+        seen: list[object] = []
+
+        def _capture_check_collision(pm_arg, traj, **kwargs):
+            seen.append(kwargs.get("obstacle_polygons", "MISSING"))
+            return False, -1, 0.0, 10.0
+
+        monkeypatch.setattr(
+            "avlite.c20_planning.c28_local_lattice_planners.check_collision",
+            _capture_check_collision,
+        )
+        planner._partial_replan()
+
+        assert seen, "expected at least one edge collision check"
+        assert all(polys is not None and polys != "MISSING" for polys in seen)
+        assert planner.selected_local_plan.selected_next_local_plan is not None
+
+    def test_no_agents_leaves_obstacle_polygons_none(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+        planner.set_selected_plan(_edge_at(global_plan.trajectory, 0.0, 20.0))
+
+        seen: list[object] = []
+
+        def _capture_check_collision(pm_arg, traj, **kwargs):
+            seen.append(kwargs.get("obstacle_polygons", "MISSING"))
+            return False, -1, 0.0, 10.0
+
+        monkeypatch.setattr(
+            "avlite.c20_planning.c28_local_lattice_planners.check_collision",
+            _capture_check_collision,
+        )
+        planner._partial_replan()
+
+        assert seen
+        assert all(polys is None for polys in seen)
+
+
+class TestPartialReplanTrackEndGate:
+    """Partial replan must skip extension when tail + maneuver exceeds track_end_s."""
+
+    def test_skips_extension_past_track_end_s(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        # track_end_s == 100, maneuver_distance == 30 → any tail end.s > 70 skips.
+        planner.set_selected_plan(_edge_at(global_plan.trajectory, 75.0, 80.0))
+        planner._partial_replan()
+
+        assert planner.selected_local_plan.selected_next_local_plan is None
+
+    def test_extends_when_tail_has_room_before_track_end(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        planner.set_selected_plan(_edge_at(global_plan.trajectory, 0.0, 20.0))
+        planner._partial_replan()
+
+        nxt = planner.selected_local_plan.selected_next_local_plan
+        assert nxt is not None
+        assert nxt.end.s == pytest.approx(20.0 + planner.maneuver_distance)
+
+
+class TestAdvanceLocalPlanHandoff:
+    """Finishing an edge advances the committed chain and triggers sliding-window replan."""
+
+    def test_advance_selects_successor_and_calls_on_edge_traversed(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        e0 = _edge_at(global_plan.trajectory, 0.0, 20.0)
+        e1 = _edge_at(global_plan.trajectory, 20.0, 40.0)
+        planner.set_selected_plan(_link_edges([e0, e1]))
+
+        calls: list[str] = []
+        monkeypatch.setattr(planner, "_partial_replan", lambda: calls.append("partial"))
+
+        # Mark the head edge as fully traversed before the advance step.
+        head_tj = planner.selected_local_plan.local_trajectory
+        head_tj.current_wp = len(head_tj.path) - 1
+        head_tj.next_wp = head_tj.current_wp
+
+        planner._advance_local_plan(EgoState(x=20.0, y=0.0, theta=0.0, velocity=5.0))
+
+        assert planner.selected_local_plan is e1
+        assert calls == ["partial"]
+
+    def test_advance_holds_when_no_successor(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+
+        head = _edge_at(global_plan.trajectory, 0.0, 20.0)
+        planner.set_selected_plan(head)
+
+        calls: list[str] = []
+        monkeypatch.setattr(planner, "_partial_replan", lambda: calls.append("partial"))
+
+        head_tj = planner.selected_local_plan.local_trajectory
+        head_tj.current_wp = len(head_tj.path) - 1
+        head_tj.next_wp = head_tj.current_wp
+
+        planner._advance_local_plan(EgoState(x=20.0, y=0.0, theta=0.0, velocity=5.0))
+
+        assert planner.selected_local_plan is head
+        assert calls == []
