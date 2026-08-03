@@ -218,6 +218,12 @@ class TrajectoryTracker:
         elif self.path_s[closest_wp] > s_[0] and closest_wp > 0:
             self.next_wp = closest_wp
             self.current_wp = closest_wp - 1
+        else:
+            # Before path start: nearest wp is 0 and projected s < path_s[0].
+            # Leaving current_wp unchanged left Stanley/PP on a stale segment
+            # (e.g. after teleporting back upstream of the first waypoint).
+            self.current_wp = 0
+            self.next_wp = 1 if len(self.__reference_path) > 1 else 0
 
     def update_waypoint_by_xy_forward(
         self,

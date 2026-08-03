@@ -114,24 +114,14 @@ class AsyncThreadedExecuter(ExecutionStrategy):
             self.create_threads()
             self.start_threads()
             return
-        elif self.threads_started and all(not t.is_alive() for t in self.threads):
-            log.warning(f"All threads are dead. Recreating and starting threads.")
-            self.stop()
-            self.create_threads()
-            self.start_threads()
-            return
-        elif (
-            self.threads_started
-            and (
-                (self.planner_thread and call_replan != self.planner_thread.is_alive())
-                or (self.controller_thread and call_control != self.controller_thread.is_alive())
-            )
-        ):  # or call_perceive != (self.perception_thread.is_alive() if self.perception_thread else False):
 
-            log.error( f"Some threads are dead: {self.planner_thread.is_alive() if self.planner_thread else 'None'}, Controller status: {self.controller_thread.is_alive() if self.controller_thread else 'None'} . Call stop() to terminate all threads.")
-            self.create_threads()
-            self.start_threads()
-            return
+        # Drop finished workers from the join list. Intentional stage-off exits
+        # (call_control / call_replan False) end the worker loop; the old code
+        # treated "flag != is_alive" as a crash, cleared self.threads without
+        # stopping live peers, then hit vacuous all([]) and orphaned / duplicated
+        # Planner threads. Prune + ensure restarts only stages that are enabled.
+        self.threads = [t for t in self.threads if t is not None and t.is_alive()]
+        self._ensure_enabled_workers(call_replan, call_control)
 
         # delta_t_exec = time.time() - self.__prev_exec_time if self.__prev_exec_time is not None else 0
         # self.__prev_exec_time = time.time()
@@ -331,25 +321,67 @@ class AsyncThreadedExecuter(ExecutionStrategy):
             self.perception_thread = None
             self.threads_started = False
 
+    def _ensure_enabled_workers(self, call_replan: bool, call_control: bool) -> None:
+        """Start workers for stages that were re-enabled after an intentional exit."""
+        if call_replan and (self.planner_thread is None or not self.planner_thread.is_alive()):
+            self.planner_thread = threading.Thread(
+                target=self.worker_planning, name="Planner", daemon=True
+            )
+            self.threads.append(self.planner_thread)
+            self.stopped = False
+            self.__planner_start_time = time.time()
+            self.planner_thread.start()
+            log.info("Planner thread restarted after stage enable")
+
+        if call_control and (self.controller_thread is None or not self.controller_thread.is_alive()):
+            self.controller_thread = threading.Thread(
+                target=self.worker_control, name="Controller", daemon=True
+            )
+            self.threads.append(self.controller_thread)
+            self.stopped = False
+            self.controller_thread.start()
+            log.info("Controller thread restarted after stage enable")
+
+        if (
+            not self._combined_perception_planning
+            and self.call_perceive
+            and (self.perception_thread is None or not self.perception_thread.is_alive())
+        ):
+            self.perception_thread = threading.Thread(
+                target=self.worker_perception, name="Perception", daemon=True
+            )
+            self.threads.append(self.perception_thread)
+            self.stopped = False
+            self.perception_thread.start()
+            log.info("Perception thread restarted after stage enable")
+
     def create_threads(self):
         log.info(f"Creating threads...")
-        # Make threads daemon so they exit when main thread exits
-        self.threads = []
+        # Keep any still-alive workers in the join list so a later stop() can
+        # signal them. Never drop live peers when only one stage needs a new thread.
+        self.threads = [t for t in self.threads if t is not None and t.is_alive()]
 
         if self.planner_thread is None or not self.planner_thread.is_alive():
             self.planner_thread = threading.Thread( target=self.worker_planning, name="Planner", daemon=True,  )
             self.threads.append(self.planner_thread)
             log.info(f"Planner thread created: {self.planner_thread.name}")
+        elif self.planner_thread not in self.threads:
+            self.threads.append(self.planner_thread)
 
         if self.controller_thread is None or not self.controller_thread.is_alive():
             self.controller_thread = threading.Thread(target=self.worker_control, name="Controller", daemon=True)
             self.threads.append(self.controller_thread)
             log.info(f"Controller thread created: {self.controller_thread.name}")
+        elif self.controller_thread not in self.threads:
+            self.threads.append(self.controller_thread)
 
         if not self._combined_perception_planning:
-            self.perception_thread = threading.Thread(target=self.worker_perception, name="Perception", daemon=True)
-            self.threads.append(self.perception_thread)
-            log.info(f"Perception thread created: {self.perception_thread.name}")
+            if self.perception_thread is None or not self.perception_thread.is_alive():
+                self.perception_thread = threading.Thread(target=self.worker_perception, name="Perception", daemon=True)
+                self.threads.append(self.perception_thread)
+                log.info(f"Perception thread created: {self.perception_thread.name}")
+            elif self.perception_thread not in self.threads:
+                self.threads.append(self.perception_thread)
 
         log.info(f"{len(self.threads)} threads created.")
 
