@@ -12,7 +12,11 @@ import pytest
 import xml.etree.ElementTree as ET
 
 from avlite.c10_perception.c11_perception_model import HDMap
-from avlite.c10_perception.c18_hdmap_parser import parse_geo_reference_from_root, sample_OpenDrive_geometry
+from avlite.c10_perception.c18_hdmap_parser import (
+    _get_lane_offset_at_s,
+    parse_geo_reference_from_root,
+    sample_OpenDrive_geometry,
+)
 
 
 class TestHDMapLoadable:
@@ -61,3 +65,54 @@ class TestOpenDriveGeometry:
         assert x_vals[0] == pytest.approx(0.0)
         assert x_vals[-1] == pytest.approx(10.0, rel=0.01)
         assert np.allclose(y_vals, 0.0)
+
+    def test_arc_geometry_quarter_circle_endpoint(self):
+        """Positive curvature arc of π/2 with radius 10 ends near (10, 10)."""
+        curvature = 0.1
+        radius = 1.0 / curvature
+        length = (np.pi / 2.0) * radius
+        x_vals, y_vals = sample_OpenDrive_geometry(
+            0.0,
+            0.0,
+            0.0,
+            length,
+            "arc",
+            attributes={"curvature": str(curvature)},
+            n_pts=25,
+        )
+        assert x_vals[0] == pytest.approx(0.0, abs=1e-9)
+        assert y_vals[0] == pytest.approx(0.0, abs=1e-9)
+        assert x_vals[-1] == pytest.approx(radius, abs=1e-6)
+        assert y_vals[-1] == pytest.approx(radius, abs=1e-6)
+
+    def test_zero_curvature_spiral_falls_back_to_line(self):
+        x_vals, y_vals = sample_OpenDrive_geometry(
+            0.0,
+            0.0,
+            0.0,
+            8.0,
+            "spiral",
+            attributes={"curvStart": "0", "curvEnd": "0"},
+            n_pts=5,
+        )
+        assert x_vals[-1] == pytest.approx(8.0, abs=1e-9)
+        assert np.allclose(y_vals, 0.0)
+
+
+class TestLaneOffsetAtS:
+    def test_empty_offsets_are_zero(self):
+        assert _get_lane_offset_at_s([], 5.0) == 0.0
+
+    def test_uses_latest_applicable_polynomial_segment(self):
+        offsets = [
+            {"s": "0.0", "a": "1.0", "b": "0.0", "c": "0.0", "d": "0.0"},
+            {"s": "10.0", "a": "2.0", "b": "0.5", "c": "0.0", "d": "0.0"},
+        ]
+        # Before second segment: constant a=1.
+        assert _get_lane_offset_at_s(offsets, 5.0) == pytest.approx(1.0)
+        # Inside second segment: a + b*(s-10) = 2 + 0.5*4.
+        assert _get_lane_offset_at_s(offsets, 14.0) == pytest.approx(4.0)
+
+    def test_before_first_offset_s_is_zero(self):
+        offsets = [{"s": "5.0", "a": "3.0", "b": "0.0", "c": "0.0", "d": "0.0"}]
+        assert _get_lane_offset_at_s(offsets, 1.0) == 0.0
