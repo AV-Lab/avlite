@@ -237,6 +237,82 @@ class TestVelocityLocalPlanner:
         assert tj.velocity[tj.current_wp] <= 3.5
 
 
+class TestProfileTrajectoryObstaclePolygons:
+    """Hot-path glue: profile_trajectory must pass precomputed polygons into check_collision."""
+
+    def test_agents_trigger_precomputed_polygons_kwarg(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[AgentState(x=40.0, y=0.0, theta=0.0, velocity=0.0, agent_id=1)],
+        )
+        planner = VelocityLocalPlanner(global_plan=global_plan, env=pm)
+        tj = TrajectoryTracker(path=list(global_plan.path), velocity=list(global_plan.velocity))
+
+        sentinel = ["sentinel-polygons"]
+        precompute_kwargs: list[dict] = []
+        seen: list[object] = []
+
+        def _fake_precompute(pm_arg, **kwargs):
+            precompute_kwargs.append(kwargs)
+            return sentinel
+
+        def _capture_check_collision(pm_arg, traj, **kwargs):
+            seen.append(kwargs.get("obstacle_polygons", "MISSING"))
+            return False, -1, 0.0, 10.0
+
+        monkeypatch.setattr(
+            "avlite.c20_planning.c27_local_behavioral_and_velocity_planners.precompute_obstacle_polygons",
+            _fake_precompute,
+        )
+        monkeypatch.setattr(
+            "avlite.c20_planning.c27_local_behavioral_and_velocity_planners.check_collision",
+            _capture_check_collision,
+        )
+
+        planner.profile_trajectory(tj)
+
+        assert precompute_kwargs, "expected precompute when agents are present"
+        assert "total_time" in precompute_kwargs[0]
+        assert "min_velocity_threshold" in precompute_kwargs[0]
+        assert "obstacle_inflation_margin" in precompute_kwargs[0]
+        # Velocity planner must not pass lattice beside_* sweep windows.
+        assert "beside_sweep_time" not in precompute_kwargs[0]
+        assert "beside_rear_window" not in precompute_kwargs[0]
+        assert seen == [sentinel]
+
+    def test_no_agents_leaves_obstacle_polygons_none(self, monkeypatch):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = VelocityLocalPlanner(global_plan=global_plan, env=pm)
+        tj = TrajectoryTracker(path=list(global_plan.path), velocity=list(global_plan.velocity))
+
+        seen: list[object] = []
+        precompute_calls = {"n": 0}
+
+        def _fake_precompute(*_args, **_kwargs):
+            precompute_calls["n"] += 1
+            return ["should-not-be-used"]
+
+        def _capture_check_collision(pm_arg, traj, **kwargs):
+            seen.append(kwargs.get("obstacle_polygons", "MISSING"))
+            return False, -1, 0.0, 10.0
+
+        monkeypatch.setattr(
+            "avlite.c20_planning.c27_local_behavioral_and_velocity_planners.precompute_obstacle_polygons",
+            _fake_precompute,
+        )
+        monkeypatch.setattr(
+            "avlite.c20_planning.c27_local_behavioral_and_velocity_planners.check_collision",
+            _capture_check_collision,
+        )
+
+        planner.profile_trajectory(tj)
+
+        assert precompute_calls["n"] == 0
+        assert seen == [None]
+
+
 class TestCruiseBehavioralPlanner:
     def test_sets_cruise_behavior(self):
         from avlite.c20_planning.c21_planning_model import LocalBehavior, LocalPlan
