@@ -174,7 +174,7 @@ def check_collision(
     min_clearance = _LARGE_CLEARANCE
     for obstacle, agent_velocity in obstacles:
         if trajectory_corridor.intersects(obstacle):
-            idx = _find_collision_index(trajectory_line, obstacle, path_x, path_y)
+            idx = _find_collision_index(trajectory_line, obstacle, path_x, path_y, radius)
             if best_idx is None or idx < best_idx:
                 best_idx, best_vel = idx, agent_velocity
             min_clearance = 0.0
@@ -190,28 +190,40 @@ def check_collision(
     return False, -1, -1, min_clearance
 
 
-def _find_collision_index(trajectory_line: LineString, obstacle_polygon: Polygon,
-                          path_x: np.ndarray, path_y: np.ndarray) -> int:
+def _find_collision_index(
+    trajectory_line: LineString,
+    obstacle_polygon: Polygon,
+    path_x: np.ndarray,
+    path_y: np.ndarray,
+    radius: float = 0.0,
+) -> int:
     """
-    Find the approximate trajectory index where collision with obstacle occurs.
-    Uses binary search for efficiency.
+    Find the approximate trajectory index where the ego corridor first hits the obstacle.
+
+    Detection uses a buffered centerline (``radius`` = ego half-width + safety margin).
+    Index search must use the same criterion: a centerline-only intersect check misses
+    buffer-only side hits and silently falls back to ``n-1``, which delays braking until
+    the path end.
     """
     n = len(path_x)
     if n < 2:
         return 0
 
-    # Binary search to find first collision point
+    # Binary search to find first corridor collision point
     left, right = 1, n - 1  # Start from 1 to ensure at least 2 points
     collision_idx = n - 1  # default to end if can't find
+    # Match corridor.intersects: distance to the obstacle within ego half-width + margin.
+    # Tiny epsilon absorbs shapely flat-cap / float noise at the touch boundary.
+    touch_dist = float(radius) + 1e-9
 
     while left <= right:
         mid = (left + right) // 2
-        # Check if segment from start to mid intersects obstacle
+        # Check if corridor from start to mid touches obstacle
         # Ensure we have at least 2 points for a valid LineString
         end_idx = max(2, mid + 1)
         partial_line = LineString(list(zip(path_x[:end_idx], path_y[:end_idx])))
 
-        if partial_line.intersects(obstacle_polygon):
+        if partial_line.distance(obstacle_polygon) <= touch_dist:
             collision_idx = mid
             right = mid - 1  # Search earlier
         else:
