@@ -447,8 +447,9 @@ class PlanFrame(ttk.LabelFrame):
         """ Step back to the previous waypoint in the local planner."""
         if not self.root.exec or not self.root.exec.local_planner:
             return
-        self.root.setting.current_wp.set(str(int(self.root.setting.current_wp.get()) - 1))
-        self.root.exec.local_planner.reset(wp=int(self.root.setting.current_wp.get()))
+        wp = max(0, int(self.root.setting.current_wp.get()) - 1)
+        self.root.setting.current_wp.set(str(wp))
+        self.root.exec.local_planner.reset(wp=wp)
         self.root.update_ui()
     
     def text_on_enter(self, event):

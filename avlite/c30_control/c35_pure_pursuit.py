@@ -180,7 +180,12 @@ class PurePursuitController(PurePursuitBase):
         ##################################
         # Velocity PID from trajectory
         ##################################
-        idx = self.tj.current_wp
+        if not self.tj.velocity:
+            log.warning("Trajectory has no velocity profile. Acceleration set to zero.")
+            cmd = ControlCommand(steer=steer, acceleration=0)
+            self.cmd = cmd
+            return cmd
+        idx = min(max(self.tj.current_wp, 0), len(self.tj.velocity) - 1)
         target_velocity = self.tj.velocity[idx]
         acc = self.velocity_pid(ego, target_velocity)
 
@@ -256,7 +261,8 @@ class FollowTheGapController(PurePursuitBase):
         ##################################
         if self.tj is not None and self.tj.is_initialized and len(self.tj.velocity) > 0:
             self.tj.update_waypoint_by_xy(ego.x, ego.y)
-            target_velocity = self.tj.velocity[self.tj.current_wp]
+            idx = min(max(self.tj.current_wp, 0), len(self.tj.velocity) - 1)
+            target_velocity = self.tj.velocity[idx]
         else:
             target_velocity = self.cruise_velocity
 

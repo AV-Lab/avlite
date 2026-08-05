@@ -12,19 +12,31 @@ log = logging.getLogger(__name__)
 
 
 class GoalArrivalMonitor(TaskStrategy):
-    """Detect rising-edge arrival at the global goal and notify listeners."""
+    """Detect rising-edge arrival at the global goal and notify listeners.
+
+    The edge detector is seeded on the first tick (and after :meth:`reset`) so
+    starting already inside the arrival radius — normal on closed race lines
+    where ``goal_point == start_point`` — does not fire ``GOAL_ARRIVED``.
+    """
 
     schedule = TaskSchedule.EVERY_CYCLE
     arrive_radius_m: ClassVar[float] = 3.0
 
     def __init__(self) -> None:
         self._was_arrived = False
+        self._seeded = False
 
     def reset(self) -> None:
         self._was_arrived = False
+        self._seeded = False
 
     def execute(self, executer, event=None) -> None:
         arrived = self._ego_near_goal(executer, self.arrive_radius_m)
+        if not self._seeded:
+            # Seed without notifying: ego often starts at/near the goal on closed tracks.
+            self._was_arrived = arrived
+            self._seeded = True
+            return
         if arrived and not self._was_arrived:
             executer.task_runner.notify(StackEvent.GOAL_ARRIVED)
         self._was_arrived = arrived
