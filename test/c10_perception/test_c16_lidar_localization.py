@@ -18,15 +18,16 @@ def _loc(ego: EgoState | None = None) -> tuple[LidarLocalization, PerceptionMode
     return LidarLocalization(pm, setting=setting), pm
 
 
-def _wall_scan(n: int = 24, x: float = 10.0, y0: float = -3.0, y1: float = 3.0) -> np.ndarray:
-    ys = np.linspace(y0, y1, n)
-    return np.column_stack([np.full(n, x), ys])
+def _asymmetric_map(n: int = 40, seed: int = 0) -> np.ndarray:
+    """Non-collinear cloud so translation and yaw are uniquely recoverable."""
+    rng = np.random.default_rng(seed)
+    return rng.normal(size=(n, 2)) * np.array([3.0, 2.0]) + np.array([8.0, 1.0])
 
 
 def test_first_scan_seeds_map_without_mutating_ego():
     ego = EgoState(x=1.5, y=-0.25, theta=0.1, velocity=0.0)
     loc, _ = _loc(ego)
-    scan = _wall_scan()
+    scan = _asymmetric_map()
 
     loc.localize(sensors=SensorFrame(lidar=scan))
 
@@ -42,7 +43,7 @@ def test_first_scan_seeds_map_without_mutating_ego():
 
 def test_reset_clears_map_and_pose_estimate():
     loc, _ = _loc()
-    loc.localize(sensors=SensorFrame(lidar=_wall_scan()))
+    loc.localize(sensors=SensorFrame(lidar=_asymmetric_map()))
     assert loc._map is not None
 
     loc.reset()
@@ -54,18 +55,17 @@ def test_reset_clears_map_and_pose_estimate():
 
 
 def test_pure_translation_recovers_ego_xy():
-    """Scan expressed in a frame translated by (dx, dy) recovers that pose."""
+    """Body-frame scan = map − (dx, dy) recovers ego translation via ICP."""
     dx, dy = 0.4, -0.25
     ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
     loc, _ = _loc(ego)
-    map_scan = _wall_scan()
+    map_scan = _asymmetric_map()
     loc.localize(sensors=SensorFrame(lidar=map_scan))
 
     # Seed estimate near truth so correspondences stay within max distance.
     ego.x, ego.y, ego.theta = 0.1, -0.05, 0.0
     loc._x, loc._y, loc._theta = ego.x, ego.y, ego.theta
 
-    # Body-frame scan = map points minus ego translation → ICP finds (dx, dy).
     moved = map_scan - np.array([dx, dy])
     loc.localize(sensors=SensorFrame(lidar=moved))
 
@@ -75,23 +75,22 @@ def test_pure_translation_recovers_ego_xy():
 
 
 def test_pure_yaw_recovers_ego_theta():
-    """Scan rotated by -yaw about origin recovers heading near +yaw."""
-    yaw = math.radians(12.0)
+    """Body-frame = R(-yaw) @ map recovers heading near +yaw."""
+    yaw = math.radians(8.0)
     ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
     loc, _ = _loc(ego)
-    map_scan = _wall_scan()
+    map_scan = _asymmetric_map()
     loc.localize(sensors=SensorFrame(lidar=map_scan))
 
-    # Body-frame = R(-yaw) @ map  ⇒  transformed with +yaw recovers the map.
     c, s = math.cos(-yaw), math.sin(-yaw)
     rot = np.array([[c, -s], [s, c]])
-    rotated = map_scan @ rot.T
+    rotated = (rot @ map_scan.T).T
 
-    ego.theta = math.radians(8.0)
+    ego.theta = math.radians(6.0)
     loc._theta = ego.theta
     loc.localize(sensors=SensorFrame(lidar=rotated))
 
-    assert ego.theta == pytest.approx(yaw, abs=math.radians(1.5))
+    assert ego.theta == pytest.approx(yaw, abs=math.radians(0.5))
     assert ego.x == pytest.approx(0.0, abs=5e-2)
     assert ego.y == pytest.approx(0.0, abs=5e-2)
 
