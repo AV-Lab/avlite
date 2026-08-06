@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Optional
@@ -12,6 +13,7 @@ from avlite.c10_perception.c11_perception_model import EGO_AGENT_ID, EgoState, P
 from avlite.c20_planning.c21_planning_model import LocalPlan
 from avlite.c30_control.c31_control_model import AckermannControlCommand
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
+from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_common.c51_capabilities import StackCapability
@@ -128,3 +130,88 @@ def test_tick_with_no_stage_due_skips_the_fetch():
         sim_dt=0.01, perception_dt=1e6, replan_dt=1e6, control_dt=1e6, localization_dt=1e6,
     )
     assert len(world.fetches) == 1
+
+
+def test_async_combined_worker_shares_one_snapshot_per_iteration():
+    """Planner+perception combined mode must fetch once and share the frame."""
+    world = _CountingWorld()
+    seen: dict = {}
+
+    def perceive(*, perception_model=None, sensors=None):
+        seen["perceive"] = sensors
+        # Perception runs after replan in the same iteration; stop once both saw the frame.
+        exec_.stopped = True
+
+    def replan(*, perception_model=None, sensors=None):
+        seen["replan"] = sensors
+
+    exec_ = AsyncThreadedExecuter(
+        perception_model=PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0)),
+        world=world,
+        perception=SimpleNamespace(
+            world_requirements=frozenset(),
+            stack_requirements=frozenset(),
+            stack_capabilities=frozenset(),
+            perceive=perceive,
+        ),
+        localization=None,
+        global_planner=None,
+        local_planner=SimpleNamespace(
+            world_requirements=frozenset(),
+            stack_requirements=frozenset(),
+            stack_capabilities=frozenset(),
+            replan=replan,
+            get_local_plan=lambda: LocalPlan(),
+            step=lambda state: None,
+            global_plan=None,
+        ),
+        controller=None,
+        combined_perception_planning=True,
+        perception_dt=0.01,
+        replan_dt=0.01,
+    )
+    # Avoid the cold-start perception stall gate (dt_p from last=0 looks huge).
+    exec_._perception_fps_tracker.last = time.time()
+    exec_.call_perceive = True
+    exec_.call_replan = True
+    exec_.call_localize = False
+    exec_.pace_perception = False
+    exec_.pace_replan = False
+
+    exec_.worker_planning()
+
+    assert "replan" in seen and "perceive" in seen
+    assert seen["replan"] is seen["perceive"]
+    assert len(world.fetches) == 1
+    assert seen["replan"] is world.fetches[0]
+
+
+def test_async_idle_gates_skip_sensor_fetch():
+    """When no stage module is active, the planner worker must not fetch sensors."""
+    import threading
+
+    world = _CountingWorld()
+    exec_ = AsyncThreadedExecuter(
+        perception_model=PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0)),
+        world=world,
+        perception=None,
+        localization=None,
+        global_planner=None,
+        # Presence gates: without a local planner, do_replan stays false.
+        local_planner=None,
+        controller=None,
+        combined_perception_planning=True,
+        replan_dt=0.01,
+    )
+    exec_.call_perceive = False
+    exec_.call_replan = True
+    exec_.call_localize = False
+    exec_.pace_replan = False  # 1 ms free-run sleep so stop is observed quickly
+
+    worker = threading.Thread(target=exec_.worker_planning, daemon=True)
+    worker.start()
+    time.sleep(0.05)
+    exec_.stopped = True
+    worker.join(timeout=2.0)
+    assert not worker.is_alive()
+    assert world.fetches == []

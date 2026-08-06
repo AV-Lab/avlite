@@ -6,13 +6,29 @@ Tests verify:
 - precompute_obstacle_polygons returns one polygon per agent.
 - Ego + obstacle margins combine to ~1 m body-to-body clearance.
 - Ego length extension catches front-corner side overlaps.
+- Forward sweeps require prediction; movers without trajectories stay static.
+- Beside/behind gating uses beside_rear_window / beside_sweep_time.
 """
 
 import numpy as np
 
-from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
+from avlite.c10_perception.c11_perception_model import (
+    AgentState,
+    EgoState,
+    PerceptionModel,
+    SingleTrajectory,
+)
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 from avlite.c50_common.c55_collision_checking import check_collision, precompute_obstacle_polygons
+
+
+def _forward_prediction(agent: AgentState, *, dt: float = 0.1, n_steps: int = 40) -> SingleTrajectory:
+    steps = np.empty((n_steps, 2))
+    for t in range(n_steps):
+        time = (t + 1) * dt
+        steps[t, 0] = agent.x + agent.velocity * np.cos(agent.theta) * time
+        steps[t, 1] = agent.y + agent.velocity * np.sin(agent.theta) * time
+    return SingleTrajectory(predict_delta_t=dt, trajectories={agent.agent_id: steps})
 
 
 def _straight_trajectory(x_start: float, x_end: float, n: int = 20, y: float = 0.0) -> TrajectoryTracker:
@@ -129,3 +145,63 @@ class TestEgoLengthExtension:
             collision_safety_margin=margin,
         )
         assert hit is True
+
+
+class TestPredictorGatedSweep:
+    """precompute_obstacle_polygons must not fabricate constant-velocity sweeps."""
+
+    def test_moving_agent_without_prediction_stays_static_box(self):
+        agent = AgentState(x=50.0, y=0.0, theta=0.0, velocity=5.0, agent_id=1)
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[agent],
+        )
+        polys = precompute_obstacle_polygons(pm, total_time=2.0)
+        assert abs(polys[0][0].centroid.x - 50.0) < 2.0
+
+    def test_moving_agent_with_prediction_sweeps_forward(self):
+        agent = AgentState(x=50.0, y=0.0, theta=0.0, velocity=5.0, agent_id=1)
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[agent],
+            prediction=_forward_prediction(agent),
+        )
+        polys = precompute_obstacle_polygons(pm, total_time=2.0)
+        # Convex hull of current + predicted poses reaches ~x=60.
+        minx, _, maxx, _ = polys[0][0].bounds
+        assert minx < 52.0
+        assert maxx > 58.0
+
+    def test_far_behind_agent_not_beside_swept(self):
+        agent = AgentState(x=-30.0, y=0.0, theta=0.0, velocity=5.0, agent_id=1)
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[agent],
+            prediction=_forward_prediction(agent),
+        )
+        polys = precompute_obstacle_polygons(
+            pm,
+            total_time=2.0,
+            beside_sweep_time=1.0,
+            beside_rear_window=10.0,
+        )
+        assert abs(polys[0][0].centroid.x - (-30.0)) < 2.0
+
+    def test_just_behind_agent_uses_beside_sweep(self):
+        agent = AgentState(x=-5.0, y=0.0, theta=0.0, velocity=5.0, agent_id=1)
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0),
+            agent_vehicles=[agent],
+            prediction=_forward_prediction(agent),
+        )
+        polys = precompute_obstacle_polygons(
+            pm,
+            total_time=2.0,
+            beside_sweep_time=1.0,
+            beside_rear_window=10.0,
+        )
+        minx, _, maxx, _ = polys[0][0].bounds
+        assert minx < -3.0
+        # 1 s of forward motion from x=-5 at 5 m/s → ~0, not the 2 s total_time tip.
+        assert maxx > -2.0
+        assert maxx < 4.0
