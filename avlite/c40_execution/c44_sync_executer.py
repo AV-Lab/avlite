@@ -103,7 +103,6 @@ class SyncExecuter(ExecutionStrategy):
         do_control = (
             call_control
             and self.controller is not None
-            and self.local_planner is not None
             and (
                 (not pace_control)
                 or (self.elapsed_sim_time - self.__controller_last_time >= control_dt)
