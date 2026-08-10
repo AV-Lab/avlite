@@ -159,6 +159,36 @@ class TestGlobalRacePlannerSynthetic:
         assert np.all(dv2 <= 2.0 * max_lon * ds + 1e-6)
         assert np.all(-dv2 <= 2.0 * max_brake * ds + 1e-6)
 
+    def test_closed_velocity_profile_enforces_wrap_constraints(self):
+        """Closed tracks must keep accel/brake limits across the start/finish seam."""
+        n = 48
+        theta = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
+        pts = np.column_stack([np.cos(theta), np.sin(theta)]) * 40.0
+        kappa = np.full(n, 1e-6)
+        # Force a hard lateral speed cap just before the wrap.
+        kappa[-1] = 1.0
+        max_lat, max_lon, max_brake, v_max = 4.0, 0.4, 0.4, 25.0
+
+        v_closed = np.array(
+            GlobalRacePlanner._velocity_profile(
+                pts, kappa, v_max, max_lat, max_lon, max_brake, closed=True
+            )
+        )
+        ds_wrap = float(np.linalg.norm(pts[0] - pts[-1]))
+        assert v_closed[0] ** 2 <= v_closed[-1] ** 2 + 2.0 * max_lon * ds_wrap + 1e-6
+        assert v_closed[-1] ** 2 <= v_closed[0] ** 2 + 2.0 * max_brake * ds_wrap + 1e-6
+
+        v_open = np.array(
+            GlobalRacePlanner._velocity_profile(
+                pts, kappa, v_max, max_lat, max_lon, max_brake, closed=False
+            )
+        )
+        open_violates_wrap = (
+            v_open[0] ** 2 > v_open[-1] ** 2 + 2.0 * max_lon * ds_wrap + 1e-5
+            or v_open[-1] ** 2 > v_open[0] ** 2 + 2.0 * max_brake * ds_wrap + 1e-5
+        )
+        assert open_violates_wrap
+
     def test_boundary_offsets_are_waypoint_aligned_and_signed(self):
         plan = GlobalRacePlanner(_quarter_arc_race_map(), margin=0.5).plan()
         n = len(plan.path)

@@ -165,6 +165,67 @@ def test_install_plugin_uses_git_auth(monkeypatch, tmp_path):
     assert set_url_cmd[-1] == "https://github.com/org/private-plugin"
 
 
+def test_install_plugin_rejects_path_escape(monkeypatch, tmp_path):
+    """Plugin names must not resolve outside the install root (path traversal)."""
+    git_calls: list[object] = []
+
+    def boom(*args, **kwargs):
+        git_calls.append((args, kwargs))
+        raise AssertionError("git must not run for escaped install names")
+
+    monkeypatch.setattr(cp._GitOperations, "_run_git", boom)
+    monkeypatch.setattr(
+        cp.subprocess,
+        "run",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("subprocess must not run")),
+    )
+    entry = {
+        "name": "../escaped",
+        "repository": "https://github.com/org/private-plugin",
+        "version": "latest",
+    }
+    with pytest.raises(ValueError, match="outside plugins dir"):
+        cp._PluginOperations.install_plugin(entry, tmp_path / "plugins")
+    assert git_calls == []
+
+
+def test_uninstall_plugin_rejects_path_escape(tmp_path, monkeypatch):
+    """Uninstall must refuse names that resolve outside plugins_dir."""
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    outside = tmp_path / "victim_dir"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("keep-me", encoding="utf-8")
+
+    rmtree_calls: list[object] = []
+    monkeypatch.setattr(
+        cp.shutil,
+        "rmtree",
+        lambda path, *a, **k: rmtree_calls.append(path),
+    )
+
+    with pytest.raises(ValueError, match="outside plugins dir"):
+        cp._PluginOperations.uninstall_plugin("../victim_dir", plugins)
+    assert secret.read_text(encoding="utf-8") == "keep-me"
+    assert rmtree_calls == []
+
+
+def test_uninstall_plugin_removes_only_target_dir(tmp_path):
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    target = plugins / "demo_plugin"
+    target.mkdir()
+    (target / "plugin.yaml").write_text("name: demo\n", encoding="utf-8")
+    sibling = plugins / "other_plugin"
+    sibling.mkdir()
+    (sibling / "keep.txt").write_text("ok", encoding="utf-8")
+
+    cp._PluginOperations.uninstall_plugin("demo_plugin", plugins)
+    assert not target.exists()
+    assert (sibling / "keep.txt").read_text(encoding="utf-8") == "ok"
+
+
 def test_notify_host_changed_calls_on_community_plugins_changed():
     class FakeHost:
         def __init__(self):
