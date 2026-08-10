@@ -29,6 +29,12 @@ log = logging.getLogger(__name__)
 class LidarLocalization(LocalizationStrategy):
     """Estimate the ego pose by ICP scan-to-map alignment of LiDAR scans.
 
+    Expects **body/sensor-frame** LiDAR (x forward, y left). AVLite
+    ``SensorFrame.lidar`` is world/map frame; the executer localization step
+    converts with the plant pose before calling :meth:`localize`. Calling
+    :meth:`localize` directly with world-frame hits freezes the estimate near
+    the seed pose (ICP then double-applies the ego transform).
+
     On the first scan a reference map is built and the running pose estimate is
     seeded from the current ``ego_vehicle`` pose.  On every subsequent scan,
     ICP aligns the new scan to the reference map (initialised from the previous
