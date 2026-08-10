@@ -151,11 +151,17 @@ def test_direct_world_frame_localize_freezes_near_seed():
     assert abs(ego.x) < 0.5  # stuck near origin, not at x≈4
 
 
-def test_executer_adapts_world_lidar_so_icp_tracks_plant():
-    """GT LOCALIZATION off + LidarLocalization: stack ego must follow plant motion."""
+@pytest.mark.parametrize("start_x", [-3.0, 0.0, 3.0])
+def test_executer_adapts_world_lidar_so_icp_tracks_plant(start_x: float):
+    """GT LOCALIZATION off + LidarLocalization: stack ego must follow plant motion.
+
+    Includes non-origin seeds (profile ``c40_start_pose``) — the reference map
+    must be stored in world frame, not raw body points. Drive stays inside the
+    ±10 m room so ICP geometry remains well constrained.
+    """
     ExecutionSettings.c41_world_stack_capabilities = []  # disable GT LOCALIZATION
-    world_ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
-    stack_ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
+    world_ego = EgoState(x=start_x, y=0.0, theta=0.0, velocity=0.0)
+    stack_ego = EgoState(x=start_x, y=0.0, theta=0.0, velocity=0.0)
     world = _LidarPlantWorld(ego_state=world_ego)
     pm = PerceptionModel(ego_vehicle=stack_ego)
     loc = LidarLocalization(pm)
@@ -173,7 +179,7 @@ def test_executer_adapts_world_lidar_so_icp_tracks_plant():
         perception_dt=99.0,
     )
 
-    for _ in range(80):
+    for _ in range(50):
         exec_.step(
             sim_dt=0.05,
             control_dt=0.05,
@@ -189,9 +195,23 @@ def test_executer_adapts_world_lidar_so_icp_tracks_plant():
         )
 
     # Plant has moved several metres; stack estimate must track (not freeze at seed).
-    assert world_ego.x > 2.0
+    assert world_ego.x > start_x + 2.0
     assert stack_ego.x == pytest.approx(world_ego.x, abs=0.35)
     assert stack_ego.y == pytest.approx(world_ego.y, abs=0.35)
+    # Without world-frame map seeding, non-origin starts lagged by metres.
+    assert abs(stack_ego.x - start_x) > 2.0
+
+
+def test_reference_map_seeded_in_world_frame_at_non_origin():
+    """First body scan must be lifted into world before becoming the ICP map."""
+    ego = EgoState(x=3.0, y=0.0, theta=0.0)
+    pm = PerceptionModel(ego_vehicle=ego)
+    loc = LidarLocalization(pm)
+    # Body-frame hit 7 m ahead → world x=10 when ego is at x=3.
+    body = np.array([[7.0, 0.0], [7.0, 1.0], [7.0, -1.0], [5.0, 0.0]])
+    loc.localize(pm, SensorFrame(lidar=lidar_2d_to_4(body)))
+    assert loc._map is not None
+    np.testing.assert_allclose(loc._map[0], [10.0, 0.0], atol=1e-9)
 
 
 def test_sensors_for_localization_uses_plant_not_stack_ego():

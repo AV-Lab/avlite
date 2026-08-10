@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: plugin registry field tables list every field with a required column (README, Overview, Plugin Development)
 
 ### Fixed
+- Perception / Execution: `LidarLocalization` ICP now receives body-frame LiDAR — `_localization_step` converts world-frame `SensorFrame.lidar` with the plant pose before `localize` (previously double-applied the ego transform and froze the stack pose at the seed while the plant moved)
+- Perception: `LidarLocalization` seeds its reference map in world frame (body scan lifted by the seed pose) so non-origin profile starts track correctly instead of drifting/freezing
 - Planning: `LocalPlanningStrategy.__init__` / `reset` tolerate an empty `GlobalPlan` trajectory (factory/UI placeholder with no default global-plan file) instead of `IndexError` on `path_s[0]`
 - Common: `TrajectoryTracker` initializes `path_s` from cumulative arc-length instead of re-projecting the reference through KD-tree Frenet conversion — closed tracks with `first==last` (e.g. bundled Yas Marina race line) no longer get non-monotonic `path_s` with `path_s[-1] == 0`
 - Common: Frenet XY→SD picks the better adjacent segment around the nearest waypoint (and SD→XY brackets by arc-length) — on-path points after corners no longer pick up a huge false CTE from the previous segment
