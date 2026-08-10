@@ -83,3 +83,27 @@ def test_get_lidar_data_raises_for_npc():
         bridge.get_lidar_data(agent_id=1)
 
 
+@pytest.mark.parametrize(
+    "method_name,match",
+    [
+        ("get_rgb_image", "rgb for agent 1"),
+        ("get_depth_image", "depth for agent 1"),
+        ("get_camera_params", "camera params for agent 1"),
+        ("get_imu", "imu for agent 1"),
+        ("get_gnss", "gnss for agent 1"),
+        ("get_wheel_odometry", "wheel odometry for agent 1"),
+    ],
+)
+def test_default_sensor_getters_raise_for_npc(method_name, match):
+    bridge = _StubBridge()
+    with pytest.raises(NotImplementedError, match=match):
+        getattr(bridge, method_name)(agent_id=1)
+
+
+def test_get_sensor_frame_raises_for_npc():
+    """Compose path must not silently return an ego/default frame for NPCs."""
+    bridge = _StubBridge()
+    with pytest.raises(NotImplementedError, match="for agent 1"):
+        bridge.get_sensor_frame(agent_id=1)
+
+
