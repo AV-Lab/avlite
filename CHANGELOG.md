@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: plugin registry field tables list every field with a required column (README, Overview, Plugin Development)
 
 ### Fixed
+- Planning: `LocalPlanningStrategy.__init__` / `reset` tolerate an empty `GlobalPlan` trajectory (factory/UI placeholder with no default global-plan file) instead of `IndexError` on `path_s[0]`
 - Common: `TrajectoryTracker` initializes `path_s` from cumulative arc-length instead of re-projecting the reference through KD-tree Frenet conversion — closed tracks with `first==last` (e.g. bundled Yas Marina race line) no longer get non-monotonic `path_s` with `path_s[-1] == 0`
 - Common: Frenet XY→SD picks the better adjacent segment around the nearest waypoint (and SD→XY brackets by arc-length) — on-path points after corners no longer pick up a huge false CTE from the previous segment
 - Common / Planning: lattice sampling, replan end-of-track gates, and race lap detection use `TrajectoryTracker.track_end_s` (`path_s[-1]`) instead of the stale `path_s[-2]` workaround — avoids `IndexError` on 1-point paths and restores the final closed-track segment after the cumulative `path_s` fix

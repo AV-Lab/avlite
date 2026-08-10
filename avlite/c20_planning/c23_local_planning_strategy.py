@@ -55,7 +55,19 @@ class LocalPlanningStrategy(ABC):
 
         # these are localization data
         self.traversed_x, self.traversed_y = [global_plan.start_point[0]], [global_plan.start_point[1]]
-        self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[0]], [self.global_trajectory.path_d[0]]
+        # Empty GlobalPlan() is a valid factory/UI placeholder (no default trajectory file,
+        # or Default Global Plan cleared) until a real plan is loaded via set_global_plan.
+        if len(self.global_trajectory.path_s) == 0:
+            log.warning(
+                "Global plan trajectory is empty at local planner init; "
+                "using s=0,d=0 until a plan is set"
+            )
+            self.traversed_s, self.traversed_d = [0.0], [0.0]
+        else:
+            self.traversed_s, self.traversed_d = (
+                [self.global_trajectory.path_s[0]],
+                [self.global_trajectory.path_d[0]],
+            )
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])
         self.location_sd = (self.traversed_s[0], self.traversed_d[0])
 
@@ -86,6 +98,15 @@ class LocalPlanningStrategy(ABC):
         log.info(f"Global plan set: ego Frenet s={s0:.2f} d={d0:.2f}. Ego xy={ref_xy}. Global plan start={global_plan.start_point}")
 
     def reset(self, wp: int = 0):
+        if len(self.global_trajectory.path_s) == 0:
+            self.traversed_x, self.traversed_y = (
+                [self.global_plan.start_point[0]],
+                [self.global_plan.start_point[1]],
+            )
+            self.traversed_s, self.traversed_d = [0.0], [0.0]
+            self.location_xy = (self.traversed_x[0], self.traversed_y[0])
+            self.location_sd = (self.traversed_s[0], self.traversed_d[0])
+            return
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
         self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[wp]], [self.global_trajectory.path_d[wp]]
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])
