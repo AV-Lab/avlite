@@ -104,6 +104,12 @@ class TestHDMapGlobalPlanner:
 
     def test_plan_on_single_lane_fixture_is_monotonic(self, minimal_opendrive_path):
         hdmap = HDMap.from_path(minimal_opendrive_path)
+        # Isolated fixture roads are parsed but not graph-connected (empty <link/>).
+        # Seed nodes so plan() can Dijkstra a same-lane route.
+        for road in hdmap.roads:
+            hdmap.road_network.add_node(road.id)
+        for lane in hdmap.lanes:
+            hdmap.lane_network.add_node(lane.uid)
         planner = HDMapGlobalPlanner(hdmap, max_velocity=10.0, wp_to_full_velocity=5)
         # Lane -1 (right) center sits near y = -width/2 on this straight road.
         planner.set_start_goal((10.0, -1.75), (80.0, -1.75))

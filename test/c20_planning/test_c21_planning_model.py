@@ -59,9 +59,9 @@ class TestGlobalPlanFromFile:
     def test_loads_path_velocity_and_frenet_bounds(self, tmp_path):
         path = _write_plan(tmp_path, _valid_plan_payload())
         plan = GlobalPlan.from_file(path)
-        assert plan.start_point == (0.0, 0.0)
-        assert plan.goal_point == (20.0, 0.0)
-        assert plan.path == [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0)]
+        assert list(plan.start_point) == [0.0, 0.0]
+        assert list(plan.goal_point) == [20.0, 0.0]
+        assert [list(p) for p in plan.path] == [[0.0, 0.0], [10.0, 0.0], [20.0, 0.0]]
         assert plan.velocity == [8.0, 8.0, 8.0]
         assert plan.left_boundary_d == [2.0, 2.0, 2.0]
         assert plan.right_boundary_d == [-2.0, -2.0, -2.0]
