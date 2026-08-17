@@ -33,6 +33,26 @@ class TestHDMapParse:
         assert len(driving) >= 2
         assert all(len(lane.center_line) > 0 for lane in driving)
 
+    def test_unresolved_lane_link_does_not_crash(self):
+        """Town03-style sidewalk/missing predecessor must not None-deref neighbors."""
+        from pathlib import Path
+
+        fixture = Path(__file__).resolve().parents[1] / "fixtures" / "opendrive_unresolved_lane_link.xodr"
+        hdmap = HDMap.from_path(fixture)
+        driving = [lane for lane in hdmap.lanes if lane.type == "driving"]
+        assert len(driving) == 1
+        assert None not in driving[0].neighbors
+
+    def test_bundled_town03_loads(self):
+        from pathlib import Path
+
+        town03 = Path(__file__).resolve().parents[2] / "avlite" / "data" / "Town03_Opt.xodr"
+        hdmap = HDMap.from_path(town03)
+        assert len(hdmap.roads) > 0
+        assert all(lane is not None for lane in hdmap.lanes)
+        for lane in hdmap.lanes:
+            assert None not in lane.neighbors
+
     def test_reference_point_from_geo_reference(self, minimal_opendrive_path):
         hdmap = HDMap.from_path(minimal_opendrive_path)
         ref = hdmap.reference_point

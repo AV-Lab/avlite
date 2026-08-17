@@ -48,9 +48,15 @@ class PerceptionModel:
 
     def add_agent_vehicle(self, agent: AgentState) -> int: # return agent_id
         """ Add an agent vehicle to the perception model and assign a unique agent_id."""
-        if len(self.agent_vehicles) == self.max_agent_vehicles:
-            log.info("Max num of agent reached. Deleteing Old agents")
-            self.agent_vehicles = []
+        if self.max_agent_vehicles <= 0:
+            log.info("Max num of agents is %s; not adding", self.max_agent_vehicles)
+            return -1
+        while len(self.agent_vehicles) >= self.max_agent_vehicles:
+            evicted = self.agent_vehicles.pop(0)
+            log.info(
+                "Max num of agents reached. Deleting oldest agent %s",
+                evicted.agent_id,
+            )
         ids = {a.agent_id for a in self.agent_vehicles}
         agent.agent_id = next(i for i in range(1, len(ids) + 2) if i not in ids)
         self.agent_vehicles.append(agent)
