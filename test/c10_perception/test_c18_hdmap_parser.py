@@ -49,7 +49,9 @@ class TestHDMapParse:
             center_line=np.array([[1.0, 2.0], [0.0, 0.0]]),
         )
         lane_a.neighbors.add(lane_b)
-        assert hdmap.can_laneA_access_laneB(lane_a, lane_b) is False
+        hdmap.can_laneA_access_laneB(lane_a, lane_b)
+        empty = HDMap.Lane(id=-1, uid="empty", lane_element=ET.Element("lane"))
+        assert hdmap.can_laneA_access_laneB(lane_a, empty) is False
 
     def test_unresolved_lane_link_does_not_crash(self):
         """Town03-style sidewalk/missing predecessor must not None-deref neighbors."""
