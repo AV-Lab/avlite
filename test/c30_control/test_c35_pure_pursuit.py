@@ -172,3 +172,61 @@ class TestFollowTheGapController:
         cmd_wide = no_path.control(ego, sensors=SensorFrame(lidar=lidar))
         assert cmd_wide.steer > cmd.steer
         assert cmd_wide.steer > 0.0
+
+    def test_z_band_filter_drops_out_of_range_hits(self):
+        """3D returns outside c35_lidar_z_* must not contribute to gap selection."""
+        setting = _pp_settings(c35_lidar_z_min=-1.5, c35_lidar_z_max=2.0)
+        controller = FollowTheGapController(setting=setting)
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+        # In-band interior gap slightly left of center; out-of-band wall on the right.
+        in_band = _lidar_at_angles(np.array([-0.15, 0.35]))
+        in_band[:, 2] = 0.0
+        out_band = _lidar_at_angles(np.linspace(-1.0, -0.2, 12))
+        out_band[:, 2] = 8.0
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=np.vstack([in_band, out_band])))
+        assert cmd.steer > 0.0
+
+    def test_all_points_outside_z_band_returns_zero(self):
+        controller = FollowTheGapController(setting=_pp_settings())
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
+        lidar = _lidar_at_angles(np.array([-0.3, 0.0, 0.3]))
+        lidar[:, 2] = 10.0
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
+        assert cmd.steer == 0.0
+        assert cmd.acceleration == 0.0
+
+    def test_safety_bubble_ignores_near_returns(self):
+        setting = _pp_settings(c35_bubble_radius=1.5, c35_lookahead_distance=8.0)
+        controller = FollowTheGapController(setting=setting)
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+        # Close-in clutter at 0.2 m would otherwise dominate bearings.
+        near = _lidar_at_angles(np.array([-0.8, 0.8]), ranges=0.2)
+        far = _lidar_at_angles(np.array([-0.2, 0.2]), ranges=6.0)
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=np.vstack([near, far])))
+        assert cmd.steer == pytest.approx(0.0, abs=0.1)
+
+    def test_only_bubble_interior_hits_returns_zero(self):
+        setting = _pp_settings(c35_bubble_radius=2.0)
+        controller = FollowTheGapController(setting=setting)
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
+        lidar = _lidar_at_angles(np.array([-0.4, 0.0, 0.4]), ranges=0.5)
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
+        assert cmd.steer == 0.0
+        assert cmd.acceleration == 0.0
+
+    def test_prefers_interior_gap_over_wider_edge(self):
+        """±90° edge openings are wider than a narrow corridor; interior must win."""
+        controller = FollowTheGapController(setting=_pp_settings())
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+        # Two returns straddle center: interior gap ~0.3 rad, each edge ~1.4 rad.
+        lidar = _lidar_at_angles(np.array([-0.15, 0.15]))
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
+        assert cmd.steer == pytest.approx(0.0, abs=0.08)
+
+    def test_no_forward_returns_command_zero(self):
+        controller = FollowTheGapController(setting=_pp_settings())
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=0.0)
+        lidar = _lidar_at_angles(np.array([np.pi * 0.8, np.pi, -np.pi * 0.8]))
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
+        assert cmd.steer == 0.0
+        assert cmd.acceleration == 0.0
