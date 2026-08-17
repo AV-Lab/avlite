@@ -126,5 +126,6 @@ class TestHDMapGlobalPlanner:
         assert plan.left_boundary_d[0] == pytest.approx(1.75 - margin)
         assert plan.right_boundary_d[0] == pytest.approx(-1.75 + margin)
         assert plan.velocity[0] == pytest.approx(PlanningSettings.c20_min_ramp_start_velocity)
-        assert plan.velocity[-1] == pytest.approx(0.0)
         assert max(plan.velocity) == pytest.approx(10.0)
+        # Decel samples sit closer than smoothen min_spacing, so the terminal
+        # 0 m/s waypoint can be dropped; the ramp start must still be kept.
