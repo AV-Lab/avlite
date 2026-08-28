@@ -632,6 +632,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="WorldBridge API (phase 1 vs future)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#frames-vs-ros-tf" class="md-nav__link">
+    <span class="md-ellipsis">
+      Frames vs ROS TF
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#camera-geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      Camera geometry
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1038,6 +1062,30 @@
       WorldBridge API (phase 1 vs future)
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="WorldBridge API (phase 1 vs future)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#frames-vs-ros-tf" class="md-nav__link">
+    <span class="md-ellipsis">
+      Frames vs ROS TF
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#camera-geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      Camera geometry
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -1641,11 +1689,11 @@ contract against the live stack and world bridge.</p>
 <tr>
 <td><code>get_camera_params(agent_id=...)</code></td>
 <td>Default <code>None</code>; required when the bridge declares <code>CAMERA_RGB</code> / <code>CAMERA_DEPTH</code></td>
-<td>Multi-camera collection alongside the primary camera</td>
+<td>Extra cameras go in <code>SensorFrame.additional_frames</code></td>
 </tr>
 <tr>
 <td><code>get_sensor_frame(agent_id=...)</code></td>
-<td>Ego: calls legacy <code>get_*()</code> with no kwargs (BasicSim-compatible)</td>
+<td>Ego: calls legacy <code>get_*()</code> with no kwargs (BasicSim-compatible). <code>additional_frames</code> stays <code>None</code> unless an override fills named extra lidars/IMUs/cameras (leaf <code>SensorFrame</code>s; nested <code>additional_frames</code> stays <code>None</code>)</td>
 <td>Non-ego: passes <code>agent_id</code> to each getter</td>
 </tr>
 <tr>
@@ -1657,7 +1705,11 @@ contract against the live stack and world bridge.</p>
 </table>
 <p><code>control_type(agent)</code> lives on <strong><code>WorldBridge</code> only</strong> — not on <code>ControlStrategy</code>. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of <code>control()</code>.</p>
 <p><strong>Multi-agent sensors:</strong> override getters with an <code>agent_id</code> parameter when your bridge serves more than ego. Ego-only bridges (e.g. BasicSim) need no update — <code>get_sensor_frame()</code> uses the legacy no-kwargs call path for ego.</p>
-<p><strong>Camera geometry:</strong> a bridge declaring <code>WorldCapability.CAMERA_RGB</code> or <code>CAMERA_DEPTH</code> must also override <code>get_camera_params()</code>. An image cannot be pre-transformed into the world frame the way a point cloud can, so <code>CameraParams</code> is the only way a fusion strategy can project world-frame <code>sensors.lidar</code> into the image:</p>
+<h4 id="frames-vs-ros-tf">Frames vs ROS TF<a class="headerlink" href="#frames-vs-ros-tf" title="Permanent link">&para;</a></h4>
+<p>ROS nodes typically publish each sensor in its own link (<code>lidar_link</code>, <code>camera_optical</code>, <code>base_link</code>) and look up “where was A relative to B at time t” from a TF tree. AVLite does not. <code>get_sensor_frame()</code> is the compose step: the bridge converts simulator or ROS messages <strong>there</strong>, and the stack never queries a transform tree. Map / global axes are defined in <a href="../architecture/#coordinate-system">Architecture → Coordinate system</a>.</p>
+<p><strong>Lidar from the world bridge is already in that global (map) frame</strong> — the same <code>x/y/z</code> as <code>EgoState</code> — including extra lidars in <code>SensorFrame.additional_frames</code>. Names such as <code>"lidar_top"</code> are labels, not TF frames. Camera images stay in the camera; <code>CameraParams.world_to_camera</code> is the leftover extrinsic because an image cannot be rewritten as world pixels. IMU readings stay in the sensor frame (accel / gyro vectors).</p>
+<h4 id="camera-geometry">Camera geometry<a class="headerlink" href="#camera-geometry" title="Permanent link">&para;</a></h4>
+<p>A bridge declaring <code>WorldCapability.CAMERA_RGB</code> or <code>CAMERA_DEPTH</code> must also override <code>get_camera_params()</code>. An image cannot be pre-transformed into the map frame the way a point cloud can, so <code>CameraParams</code> is the only way a fusion strategy can project world-frame <code>sensors.lidar</code> into the image:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">def</span> <span class="nf">get_camera_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent_id</span><span class="o">=</span><span class="n">EGO_AGENT_ID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CameraParams</span><span class="p">:</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="k">return</span> <span class="n">CameraParams</span><span class="p">(</span>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>        <span class="n">intrinsic</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_K</span><span class="p">,</span>                  <span class="c1"># (3, 3) [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]</span>
@@ -1666,7 +1718,7 @@ contract against the live stack and world bridge.</p>
 </span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>        <span class="n">height</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_height</span><span class="p">,</span>
 </span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="p">)</span>
 </span></code></pre></div>
-<p><code>world_to_camera</code> maps homogeneous world (map) points — same frame as <code>EgoState.x/y/z</code> and <code>SensorFrame.lidar</code> — into the <strong>OpenCV optical frame</strong>: x right, y down, z forward along the optical axis, with z &gt; 0 in front of the camera. Getting this convention wrong produces a plausible-looking but incorrect projection, so convert in the bridge rather than passing simulator or ROS axes through. The LiDAR mounting pose is not needed anywhere: the bridge already consumed it when transforming points to world frame.</p>
+<p><code>world_to_camera</code> maps homogeneous map (global) points — same frame as <code>EgoState.x/y/z</code> and <code>SensorFrame.lidar</code> — into the <strong>OpenCV optical frame</strong>: x right, y down, z forward along the optical axis, with z &gt; 0 in front of the camera. Getting this convention wrong produces a plausible-looking but incorrect projection, so convert in the bridge rather than passing simulator or ROS axes through.</p>
 <h3 id="state-model-today-vs-future">State model — today vs future<a class="headerlink" href="#state-model-today-vs-future" title="Permanent link">&para;</a></h3>
 <p><strong>Today:</strong> <code>AgentState</code> uses pose (<code>x</code>, <code>y</code>, <code>z</code>, <code>theta</code>) plus scalar <strong><code>velocity</code></strong> (speed along heading). This matches the car-centric stack (planning, collision checking, BasicSim, visualization).</p>
 <p><strong>Aerial / holonomic agents:</strong> <code>BodyVelocityControlCommand</code> is defined, but base <code>AgentState</code> does not yet carry <code>vx</code>, <code>vy</code>, or <code>vz</code>. For 2D / bird's-eye use cases, heading plus scalar speed is an acceptable lite projection. Full drone or multirotor simulation needs richer state later.</p>
