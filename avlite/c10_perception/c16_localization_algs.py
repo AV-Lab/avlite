@@ -29,11 +29,19 @@ log = logging.getLogger(__name__)
 class LidarLocalization(LocalizationStrategy):
     """Estimate the ego pose by ICP scan-to-map alignment of LiDAR scans.
 
-    On the first scan a reference map is built and the running pose estimate is
-    seeded from the current ``ego_vehicle`` pose.  On every subsequent scan,
-    ICP aligns the new scan to the reference map (initialised from the previous
-    estimate) and the resulting 2D rigid transform updates the running pose,
-    which is written back into ``perception_model.ego_vehicle`` in-place.
+    Expects **body/sensor-frame** LiDAR (x forward, y left). AVLite
+    ``SensorFrame.lidar`` is world/map frame; the executer localization step
+    converts with the plant pose before calling :meth:`localize`. Calling
+    :meth:`localize` directly with world-frame hits freezes the estimate near
+    the seed pose (ICP then double-applies the ego transform).
+
+    On the first scan a reference map is built in **world/map frame** (the
+    body-frame scan is lifted by the seed ``ego_vehicle`` pose) and the running
+    pose estimate is seeded from that pose.  On every subsequent scan, ICP
+    aligns the new body-frame scan to the world-frame reference map
+    (initialised from the previous estimate) and the resulting 2D rigid
+    transform updates the running pose, which is written back into
+    ``perception_model.ego_vehicle`` in-place.
 
     3D point clouds are squashed to 2D: points are kept only when their height
     is within ``[z_min, z_max]``, then the x/y columns are used.
@@ -94,12 +102,19 @@ class LidarLocalization(LocalizationStrategy):
         ego = self.perception_model.ego_vehicle
 
         # First valid scan: seed the estimate from the current ego pose and
-        # store the scan as the reference map. Nothing to align against yet.
+        # store a *world-frame* reference map. Incoming ``scan`` is body-frame;
+        # ICP later transforms body scans by (x, y, theta) before matching, so
+        # the map must live in the same world frame. Storing raw body points
+        # only works when the seed is the origin — elsewhere the estimate
+        # drifts/freezes while the plant moves (typical profile start poses).
         if self._map is None:
             self._x = float(ego.x)
             self._y = float(ego.y)
             self._theta = float(ego.theta)
-            self._map = scan[:: self._map_subsample]
+            cos_t, sin_t = np.cos(self._theta), np.sin(self._theta)
+            rot = np.array([[cos_t, -sin_t], [sin_t, cos_t]])
+            world_scan = scan @ rot.T + np.array([self._x, self._y])
+            self._map = world_scan[:: self._map_subsample]
             return
 
         # Align the new scan to the reference map starting from the previous

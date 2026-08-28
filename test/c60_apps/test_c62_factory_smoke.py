@@ -179,6 +179,29 @@ def test_executor_factory_empty_global_plan(minimal_corridor_map_path):
     assert executer.ego_state.y == 0.0
 
 
+def test_executor_factory_empty_global_plan_with_local_planner(minimal_corridor_map_path):
+    """Clearing Default Global Plan while a local planner is selected must not crash stack build."""
+    ExecutionSettings.c40_map = str(minimal_corridor_map_path.resolve())
+    ExecutionSettings.c40_mapping = MapReader.__name__
+
+    executer = executor_factory(
+        load_plugins=False,
+        executer_type=SyncExecuter.__name__,
+        bridge="BasicSim",
+        perception_strategy_name="",
+        localization_strategy_name="",
+        mapping_strategy_name=MapReader.__name__,
+        global_planner_strategy_name="GlobalCenterlineRacePlanner",
+        local_planner_strategy_name="GreedyLatticePlanner",
+        controller_strategy_name="",
+        default_global_trajectory_file="",
+    )
+
+    assert isinstance(executer, SyncExecuter)
+    assert executer.local_planner is not None
+    assert executer.local_planner.location_sd == (0.0, 0.0)
+
+
 def test_executor_factory_raises_for_map_reader_without_map():
     ExecutionSettings.c40_map = ""
 

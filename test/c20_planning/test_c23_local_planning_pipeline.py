@@ -135,3 +135,30 @@ class TestLocalPlanningPipeline:
         state = EgoState(x=5.0, y=0.0, theta=0.0, velocity=5.0)
         pipeline.step(state)
         assert pipeline.location_xy == (5.0, 0.0)
+
+
+class TestEmptyGlobalPlanInit:
+    """Factory/UI may build a local planner before any trajectory is loaded."""
+
+    def test_greedy_lattice_accepts_empty_global_plan(self):
+        pm = PerceptionModel(ego_vehicle=EgoState())
+        planner = GreedyLatticePlanner(global_plan=GlobalPlan(), env=pm)
+        assert planner.location_sd == (0.0, 0.0)
+        assert planner.location_xy == (0.0, 0.0)
+        planner.reset(wp=0)
+        assert planner.location_sd == (0.0, 0.0)
+
+    def test_velocity_planner_accepts_empty_global_plan(self):
+        pm = PerceptionModel(ego_vehicle=EgoState())
+        planner = VelocityLocalPlanner(global_plan=GlobalPlan(), env=pm)
+        assert planner.traversed_s == [0.0]
+        assert planner.traversed_d == [0.0]
+
+    def test_set_global_plan_still_rejects_empty(self):
+        global_plan = _straight_global_plan()
+        pm = PerceptionModel(ego_vehicle=EgoState())
+        planner = VelocityLocalPlanner(global_plan=global_plan, env=pm)
+        planner.set_global_plan(GlobalPlan())
+        # Empty apply is a no-op; previous plan remains.
+        assert len(planner.global_trajectory.path_s) > 0
+        assert planner.global_trajectory is global_plan.trajectory

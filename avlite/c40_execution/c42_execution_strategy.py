@@ -22,7 +22,7 @@ from avlite.c40_execution.c43_task_strategy import (
     TaskStrategy,
 )
 from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
-from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
+from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame, world_lidar_to_ego_frame
 from avlite.c50_common.c56_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
@@ -252,6 +252,32 @@ class ExecutionStrategy(ABC):
 
     # --- tick helpers ---
 
+    def _sensors_for_localization(self, sensors: SensorFrame | None) -> SensorFrame | None:
+        """Adapt the tick snapshot for scan-matching localization.
+
+        ``SensorFrame.lidar`` is world/map frame (see ``c52_world_sensor_datatypes``).
+        ICP localization expects body-frame returns. Convert with the *plant* pose
+        — the same pose the bridge used to publish world-frame hits — without
+        writing that pose into the stack ego estimate.
+        """
+        if sensors is None or sensors.lidar is None:
+            return sensors
+        plant = self.world.get_ego_state()
+        body = world_lidar_to_ego_frame(
+            sensors.lidar, plant.x, plant.y, plant.theta,
+        )
+        return SensorFrame(
+            rgb=sensors.rgb,
+            depth=sensors.depth,
+            camera_params=sensors.camera_params,
+            lidar=body,
+            imu=sensors.imu,
+            gnss=sensors.gnss,
+            wheel_odometry=sensors.wheel_odometry,
+            stamp=sensors.stamp,
+            frame_id=sensors.frame_id,
+        )
+
     def _localization_step(self, sensors: SensorFrame) -> None:
         """Run one localization iteration on the caller-supplied tick snapshot."""
         if not self.localization:
@@ -260,7 +286,8 @@ class ExecutionStrategy(ABC):
         world_ok = satisfies_requirements(self.localization.world_requirements, self.world.world_capabilities)
         stack_ok = satisfies_requirements(self.localization.stack_requirements, self.available_stack_capabilities())
         if world_ok and stack_ok:
-            self.localization.localize(perception_model=self.pm, sensors=sensors)
+            loc_sensors = self._sensors_for_localization(sensors)
+            self.localization.localize(perception_model=self.pm, sensors=loc_sensors)
             self.localization_fps = self._localization_fps_tracker.tick()
             # Harvest optional stack_event stamp on PerceptionModel (notify once, then clear).
             if self.pm.stack_event is not None:

@@ -180,3 +180,31 @@ def lidar_2d_to_4(points_2d: np.ndarray) -> LidarCloud:
     if pts.ndim != 2 or pts.shape[1] != 2:
         raise ValueError(f"expected (N, 2) lidar, got shape {pts.shape}")
     return np.c_[pts, np.zeros((n, 2), dtype=np.float32)]
+
+
+def world_lidar_to_ego_frame(
+    lidar: np.ndarray,
+    x: float,
+    y: float,
+    theta: float,
+) -> np.ndarray:
+    """Transform world-frame LiDAR points into the ego/body frame.
+
+    AVLite ``SensorFrame.lidar`` is world/map frame. Scan-matching localization
+    (and similar body-frame consumers) need sensor-frame returns: x forward,
+    y left, origin at the ego pose ``(x, y, theta)``.
+
+    Preserves extra columns (z, intensity, …) unchanged; only x/y are rotated.
+    """
+    pts = np.asarray(lidar, dtype=float)
+    if pts.ndim != 2 or pts.shape[0] == 0 or pts.shape[1] < 2:
+        return pts
+    dx = pts[:, 0] - float(x)
+    dy = pts[:, 1] - float(y)
+    c, s = float(np.cos(theta)), float(np.sin(theta))
+    ex = c * dx + s * dy
+    ey = -s * dx + c * dy
+    out = np.array(pts, copy=True, dtype=float)
+    out[:, 0] = ex
+    out[:, 1] = ey
+    return out
