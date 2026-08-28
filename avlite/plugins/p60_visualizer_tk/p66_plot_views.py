@@ -361,8 +361,12 @@ class LocalPlanPlotView(ttk.Frame):
                 if self.left_mouse_button_pressed:
                     teleport_orientation = np.arctan2(y - self.teleport_d, x - self.teleport_s)
                     self.local_plot.show_vehicle_orientation_ax2(s=self.teleport_s, d=self.teleport_d, theta=teleport_orientation) 
-                    x_,y_, theta = self.root.exec.local_planner.global_plan.trajectory.convert_sd_orientation_to_xy_orientation(x,y,teleport_orientation)
-                    self.root.teleport_ego(self.teleport_x, self.teleport_y,theta)
+                    # Use the click pose (teleport_s/d), not the drag-tip cursor (x,y),
+                    # so world heading is path-tangent at the ego, not at the mouse tip.
+                    _, _, theta = self.root.exec.local_planner.global_plan.trajectory.convert_sd_orientation_to_xy_orientation(
+                        self.teleport_s, self.teleport_d, teleport_orientation
+                    )
+                    self.root.teleport_ego(self.teleport_x, self.teleport_y, theta)
                     self.root.exec.local_planner.step(state=self.root.exec.world.get_ego_state())       
                     self.root.update_ui()
                 elif self.right_mouse_button_pressed and not self.spawn_in_ax1:

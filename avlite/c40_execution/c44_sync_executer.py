@@ -110,6 +110,13 @@ class SyncExecuter(ExecutionStrategy):
             )
         )
 
+        # Control disabled: drop any held ZOH command so simulate cannot keep
+        # integrating the last accel/steer after the UI unchecks Control.
+        # (Paced control with call_control=True still holds _last_cmd between
+        # recomputes — that is intentional zero-order hold.)
+        if not call_control:
+            self._last_cmd = None
+
         sensors = (
             self.world.get_sensor_frame()
             if (do_localize or do_perceive or do_replan or do_control)

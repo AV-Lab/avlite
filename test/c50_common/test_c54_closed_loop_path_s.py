@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -71,3 +72,19 @@ def test_track_end_s_matches_final_arc_length_including_short_paths():
     assert abs(tj.track_end_s - tj.path_s[-1]) < 1e-9
     # Stale [-2] workaround is one segment short of the true lap length.
     assert tj.path_s[-2] < tj.track_end_s - 1.0
+
+
+def test_sd_orientation_uses_heading_at_s_not_tracker_wp():
+    """Frenet teleport/spawn must add path tangent at query s, not current_wp."""
+    path = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
+    tj = TrajectoryTracker(path=path, velocity=[1.0] * len(path))
+    assert tj.current_wp == 0
+    assert tj.next_wp == 1
+    # Vertical leg at s=15; relative theta=0 → world heading π/2.
+    _, _, theta = tj.convert_sd_orientation_to_xy_orientation(15.0, 0.0, 0.0)
+    assert abs(theta - math.pi / 2) < 1e-6
+    # At final waypoint current==next (atan2(0,0) was previously 0).
+    tj.update_waypoint_by_wp(2)
+    assert tj.current_wp == tj.next_wp
+    _, _, theta2 = tj.convert_sd_orientation_to_xy_orientation(15.0, 0.0, 0.1)
+    assert abs(theta2 - (math.pi / 2 + 0.1)) < 1e-6

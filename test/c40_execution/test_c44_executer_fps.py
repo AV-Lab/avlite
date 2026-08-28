@@ -263,6 +263,26 @@ class TestSyncPaceAndSimulate:
         assert exec_.controller.calls == 1
         assert exec_.world.sim_calls == 5
 
+    def test_call_control_false_drops_held_zoh_command(self):
+        """Unchecking Control must stop plant actuation (not keep integrating last cmd)."""
+        exec_, _ = _make_sync_executer()
+        exec_.step(
+            control_dt=0.01, sim_dt=0.01, replan_dt=99, localization_dt=99,
+            call_replan=False, call_perceive=False, call_localize=False,
+            call_control=True, pace_control=True,
+        )
+        assert exec_.world.sim_calls == 1
+        assert exec_._last_cmd is not None
+        for _ in range(5):
+            exec_.step(
+                control_dt=0.01, sim_dt=0.01, replan_dt=99, localization_dt=99,
+                call_replan=False, call_perceive=False, call_localize=False,
+                call_control=False, pace_control=True,
+            )
+        assert exec_.controller.calls == 1
+        assert exec_.world.sim_calls == 1
+        assert exec_._last_cmd is None
+
     def test_free_run_sim_matches_real_clock(self):
         """When pace_sim is off, sim and real must advance by the same wall intervals."""
         exec_, _ = _make_sync_executer()
