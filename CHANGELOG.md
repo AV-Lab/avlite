@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Common: optional `SensorFrame.additional_frames` (`dict[str, SensorFrame]`) for extra named lidars, IMUs, cameras, or mixed rigs on the same tick. Default `None`; old bridges and the default `get_sensor_frame()` compose path need no changes. Override `get_sensor_frame()` to populate it (leaf frames: nested `additional_frames` stays `None`). The world-capability filter walks those leaves.
 - Common: `CameraParams` (intrinsic `K`, per-frame `world_to_camera`, width, height) and the optional `SensorFrame.camera_params` field — camera geometry a fusion strategy needs to project world-frame `lidar` into the image. Extrinsic targets the OpenCV optical frame (x right, y down, z forward). Additive: `WorldBridge.get_camera_params()` defaults to `None`, so no existing bridge changes; bridges declaring `CAMERA_RGB` / `CAMERA_DEPTH` should override it
 - Execution: `c40_start_pose` (`[x, y, theta]` or null) — profile-defined ego start; factory falls back to the global-plan start point when null
 - Perception: `State.set_start()` — capture current pose as the snapshot restored by `reset()` (via `get_copy` / `copy_from`)
@@ -16,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin registry: optional `site_url` — **Open Website** button plus a Website row in the plugin details window, and a **Site** button on the docs plugin cards
 
 ### Changed
+- Execution: `lidar_2d_to_4` lives in `c46_basic_sim` (BasicSim-only helper); not part of the public sensor API
 - Perception: `State` / `AgentState` reset snapshot is a polymorphic copy of all fields (drops per-field `__init_*` / `AgentState.reset` override)
 - Execution: `BasicSim.reset()` restores ego and NPC start poses (and NPC controllers) instead of clearing agents
 - Execution: drop duplicate `world.reset()` call in `ExecutionStrategy.reset()`

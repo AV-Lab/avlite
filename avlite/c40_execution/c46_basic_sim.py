@@ -12,7 +12,7 @@ from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c50_common.c52_world_sensor_datatypes import LidarCloud, lidar_2d_to_4
+from avlite.c50_common.c52_world_sensor_datatypes import LidarCloud
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
@@ -206,6 +206,18 @@ class BasicSim(WorldBridge):
         ranges = nearest[hit]
         dirs = directions[hit]
         return origin + ranges[:, None] * dirs
+
+
+def lidar_2d_to_4(points_2d: np.ndarray) -> LidarCloud:
+    """Convert (N, 2) world-frame hits to canonical (N, 4) lidar format."""
+    n = points_2d.shape[0]
+    if n == 0:
+        return np.zeros((0, 4), dtype=np.float32)
+    pts = np.asarray(points_2d, dtype=np.float32)
+    if pts.ndim != 2 or pts.shape[1] != 2:
+        raise ValueError(f"expected (N, 2) lidar, got shape {pts.shape}")
+    return np.c_[pts, np.zeros((n, 2), dtype=np.float32)]
+
 
 def boundary_segments_from_map(map: Map | None) -> np.ndarray:
     """Build (M, 2, 2) LiDAR raycast segments from a RaceMap; empty for other maps."""

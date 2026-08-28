@@ -99,8 +99,8 @@ class CameraParams:
     therefore changes every frame as the ego moves.
 
     Self-contained per camera: an instance carries everything needed to project
-    into its own image, so it stays valid unchanged if AVLite later grows a
-    multi-camera collection.
+    into its own image, so extra cameras in ``SensorFrame.additional_frames``
+    each carry their own ``CameraParams``.
     """
 
     intrinsic: np.ndarray  # (3, 3) float64 K = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
@@ -156,6 +156,13 @@ class SensorFrame:
     stamp: float | None = None  # acquisition time, seconds (sim or wall clock)
     frame_id: str | None = None  # coordinate frame name, e.g. "map" or "base_link"
 
+    # Extra named units on this tick (lidars, IMUs, cameras, mixed rigs).
+    # Keys are stable sensor names ("lidar_top", "front", …). Each value is a
+    # leaf SensorFrame with only that unit's channels set and additional_frames
+    # left None (no nesting). Default None: old bridges and the default
+    # WorldBridge.get_sensor_frame() compose path do not populate this.
+    additional_frames: dict[str, SensorFrame] | None = None
+
 # WorldCapability → SensorFrame attribute name (None = no sensor field yet).
 WORLD_CAPABILITY_SENSOR_FIELDS: dict[WorldCapability, str | None] = {
     WorldCapability.CAMERA_RGB: "rgb",
@@ -169,14 +176,3 @@ WORLD_CAPABILITY_SENSOR_FIELDS: dict[WorldCapability, str | None] = {
     WorldCapability.AGENT_SPAWN: None,
     WorldCapability.AGENT_CONTROL: None,
 }
-
-
-def lidar_2d_to_4(points_2d: np.ndarray) -> LidarCloud:
-    """Convert (N, 2) world-frame hits to canonical (N, 4) lidar format."""
-    n = points_2d.shape[0]
-    if n == 0:
-        return np.zeros((0, 4), dtype=np.float32)
-    pts = np.asarray(points_2d, dtype=np.float32)
-    if pts.ndim != 2 or pts.shape[1] != 2:
-        raise ValueError(f"expected (N, 2) lidar, got shape {pts.shape}")
-    return np.c_[pts, np.zeros((n, 2), dtype=np.float32)]

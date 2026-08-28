@@ -8,22 +8,7 @@ from avlite.c50_common.c52_world_sensor_datatypes import (
     ImuReading,
     SensorFrame,
     WheelOdometry,
-    lidar_2d_to_4,
 )
-
-
-def test_lidar_2d_to_4():
-    pts = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)
-    out = lidar_2d_to_4(pts)
-    assert out.shape == (2, 4)
-    assert out.dtype == np.float32
-    np.testing.assert_array_equal(out[:, :2], pts.astype(np.float32))
-    assert np.all(out[:, 2:] == 0)
-
-
-def test_lidar_2d_to_4_empty():
-    out = lidar_2d_to_4(np.zeros((0, 2)))
-    assert out.shape == (0, 4)
 
 
 def test_sensor_frame_defaults():

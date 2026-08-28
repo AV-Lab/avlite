@@ -152,8 +152,9 @@ class WorldBridge(ABC):
     def get_sensor_frame(self, agent_id: int = EGO_AGENT_ID) -> SensorFrame:
         """Compose a sensor snapshot from individual getters, respecting Bridge Setting filters.
 
-        Override for atomic reads; call :meth:`_apply_world_capability_filter` on the
-        returned frame if you bypass this default compose path.
+        Override for atomic reads (and to populate ``additional_frames``); call
+        :meth:`_apply_world_capability_filter` on the returned frame if you bypass
+        this default compose path.
         """
         if agent_id == EGO_AGENT_ID:
             frame = SensorFrame(
@@ -204,6 +205,9 @@ class WorldBridge(ABC):
             for c in (WorldCapability.CAMERA_RGB, WorldCapability.CAMERA_DEPTH)
         ):
             frame.camera_params = None
+        if frame.additional_frames:
+            for unit in frame.additional_frames.values():
+                WorldBridge._apply_world_capability_filter(unit)
         return frame
 
     def _require_ego_agent(self, agent_id: int, method: str) -> None:
