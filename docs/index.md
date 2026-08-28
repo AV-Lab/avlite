@@ -25,10 +25,16 @@ pip install avlite   # install
 avlite               # launch the visualizer
 ```
 
+<div class="hero-actions" markdown>
 [Get Started](quick-start.md){ .md-button .md-button--primary }
 [Overview](overview.md){ .md-button }
-[Community](community.md){ .md-button target=_blank rel=noopener }
-[GitHub](https://github.com/AV-Lab/avlite){ .md-button }
+</div>
+
+<div class="hero-links" markdown>
+[Community](community.md)
+[Support](support.md)
+[GitHub](https://github.com/AV-Lab/avlite){ target=_blank rel=noopener }
+</div>
 
 <!-- width/height reserve each badge's box before these cross-origin SVGs
      arrive, so the row does not settle sideways mid-load. -->

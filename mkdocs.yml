@@ -105,6 +105,7 @@ nav:
   - Settings Naming: settings-naming.md
   - Plugin Development: plugin-development.md
   - Community: community.md
+  - Support: support.md
 
 markdown_extensions:
   - abbr

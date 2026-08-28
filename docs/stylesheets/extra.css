@@ -228,6 +228,58 @@
   margin: 0.35rem 0.3rem 0;
 }
 
+/* Primary + one outline CTA. Community / Support / GitHub sit in .hero-links. */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem 0.5rem;
+  margin: 1rem 0 0;
+}
+
+.hero .hero-actions .md-button {
+  margin: 0;
+  padding: 0.5em 1.15em;
+}
+
+.hero-actions > p {
+  display: contents;
+}
+
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.2rem 0;
+  margin: 0.8rem 0 0;
+}
+
+.hero-links > p {
+  display: contents;
+}
+
+.md-typeset .hero-links a {
+  color: #8ebfd0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.md-typeset .hero-links a:hover,
+.md-typeset .hero-links a:focus {
+  color: #c5eef8;
+}
+
+.md-typeset .hero-links a:not(:last-child)::after,
+.md-typeset .hero-links p:not(:last-child) a::after {
+  content: "·";
+  margin: 0 0.7rem;
+  color: #5a7380;
+  font-weight: 400;
+  pointer-events: none;
+}
+
 /* Credibility badges under the hero buttons. */
 .hero-badges {
   display: flex;
@@ -428,6 +480,21 @@
 
 .store-hero .md-button {
   margin: 0.35rem 0.3rem 0;
+}
+
+.store-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem 0.5rem;
+}
+
+.store-hero .store-hero-actions .md-button {
+  margin: 0;
+}
+
+.store-hero-actions > p {
+  display: contents;
 }
 
 .store-counters {
@@ -748,6 +815,12 @@
     margin: 0.5rem auto 0;
     max-width: 18rem;
   }
+
+  .store-hero .store-hero-actions .md-button {
+    margin: 0;
+    width: 100%;
+    max-width: 18rem;
+  }
 }
 
 @media screen and (max-width: 44.9375em) {
@@ -763,6 +836,12 @@
     margin: 0.5rem auto 0;
     max-width: 18rem;
   }
+
+  .hero .hero-actions .md-button {
+    margin: 0;
+    width: 100%;
+    max-width: 18rem;
+  }
   .md-typeset .value-strip {
     font-size: 0.7rem;
   }
@@ -770,5 +849,252 @@
   .hero .highlight code,
   .hero-cta .highlight code {
     font-size: 11px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Donate page (docs/donate.md)
+   Hero reuses the community/landing dark cyan band. Payment cards and notes
+   follow the store-card language so light/dark both stay readable.
+   --------------------------------------------------------------------------- */
+
+.donate-page > h1 {
+  display: none; /* page title lives in the hero band instead */
+}
+
+.donate-hero {
+  text-align: center;
+  border-radius: 1rem;
+  padding: 2.5rem 1.5rem 2rem;
+  margin: 0 0 1.75rem;
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(0, 172, 225, 0.22), transparent 60%),
+    linear-gradient(180deg, #05070a 0%, #0a0f14 100%);
+  border: 1px solid rgba(0, 172, 225, 0.18);
+  box-shadow: 0 24px 60px -30px rgba(0, 172, 225, 0.45);
+}
+
+.md-typeset .donate-hero h2 {
+  color: #eaf6fb;
+  font-weight: 800;
+  font-size: 2rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.75rem;
+}
+
+.donate-hero > p {
+  color: #b7c6d0;
+  max-width: 42rem;
+  margin: 0 auto;
+  font-size: 0.85rem;
+}
+
+.md-typeset .donate-hero .donate-kicker {
+  margin-top: 0.95rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #8aa0ad;
+}
+
+.md-typeset .donate-hero .donate-kicker [lang="ar"] {
+  letter-spacing: 0;
+  font-family: "Noto Naskh Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+.md-typeset .donate-hero .donate-ar {
+  margin: 0.85rem auto 0;
+  max-width: 36rem;
+  font-family: "Noto Naskh Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  text-align: right;
+  color: #c5d4dc;
+}
+
+.donate-plans {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 0 0 2.25rem;
+}
+
+.md-typeset .donate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.45rem;
+  padding: 1.75rem 1.35rem 1.5rem;
+  background: var(--md-default-bg-color--light, var(--md-default-bg-color));
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.7rem;
+  transition: border-color 125ms, box-shadow 125ms, transform 125ms;
+}
+
+.md-typeset .donate-card:hover,
+.md-typeset .donate-card:focus-within {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 14px 34px -20px rgba(0, 172, 225, 0.55);
+  transform: translateY(-2px);
+}
+
+.md-typeset .donate-card .donate-card-icon {
+  display: inline-flex;
+  width: 1.85rem;
+  height: 1.85rem;
+  margin: 0 0 0.35rem;
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .donate-card .donate-card-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.md-typeset .donate-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset .donate-card > p {
+  margin: 0 0 0.65rem;
+  max-width: 22rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.78rem;
+}
+
+.md-typeset .donate-card .md-button {
+  margin: auto 0 0;
+}
+
+.donate-amounts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: auto 0 0;
+  padding-top: 0.15rem;
+}
+
+.donate-amounts > p {
+  display: contents;
+}
+
+.md-typeset a.donate-amount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.1rem;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--md-accent-fg-color);
+  background: color-mix(in srgb, var(--md-accent-fg-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--md-accent-fg-color) 35%, transparent);
+  border-radius: 2rem;
+  transition: background-color 125ms, color 125ms, border-color 125ms;
+}
+
+.md-typeset a.donate-amount:hover,
+.md-typeset a.donate-amount:focus {
+  color: var(--md-accent-fg-color);
+  background: color-mix(in srgb, var(--md-accent-fg-color) 20%, transparent);
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset a.donate-amount--suggested {
+  color: var(--md-primary-bg-color, #fff);
+  background: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset a.donate-amount--suggested:hover,
+.md-typeset a.donate-amount--suggested:focus {
+  color: var(--md-primary-bg-color, #fff);
+  background: color-mix(in srgb, var(--md-accent-fg-color) 82%, #000);
+}
+
+.md-typeset .donate-page > h2 {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 1.1rem;
+}
+
+.donate-notes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: 0 0 2rem;
+}
+
+.md-typeset .donate-note {
+  padding: 1rem 1.1rem 1.05rem;
+  background: var(--md-default-bg-color--light, var(--md-default-bg-color));
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.7rem;
+}
+
+.md-typeset .donate-note h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.md-typeset .donate-note h4 .twemoji {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset .donate-note > p {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.72rem;
+}
+
+.donate-other {
+  text-align: center;
+  border-radius: 0.7rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  padding: 1.4rem 1.4rem 1.35rem;
+  margin: 0 0 1rem;
+}
+
+.md-typeset .donate-other h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.md-typeset .donate-other > p {
+  margin: 0 auto 1rem;
+  max-width: 36rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.78rem;
+}
+
+.md-typeset .donate-other .md-button {
+  margin: 0.25rem 0.3rem 0;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .donate-plans,
+  .donate-notes {
+    grid-template-columns: 1fr;
+  }
+
+  .donate-hero .md-button,
+  .donate-other .md-button {
+    display: block;
+    margin: 0.5rem auto 0;
+    max-width: 18rem;
   }
 }
