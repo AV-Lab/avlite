@@ -242,7 +242,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
                     with self.lock_world:
                         if is_world_stack_capability_enabled(StackCapability.LOCALIZATION):
                             self.pm.ego_vehicle.copy_from(self.world.get_ego_state())
-                        if self.controller and self.local_planner:
+                        if self.controller:
                             self._control_step(self.sim_dt, self.world.get_sensor_frame())
 
                 # Free-run: sim and real share the same wall interval (start-of-iter stamps).

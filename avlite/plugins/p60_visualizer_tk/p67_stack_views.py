@@ -610,11 +610,17 @@ class ControlFrame(ttk.LabelFrame):
         self.controller_dropdown_menu["values"] = ("",) + tuple(ControlStrategy.registry.keys())
 
     def step_control(self):
-        if not self.root.exec or not self.root.exec.controller or not self.root.exec.local_planner:
+        if not self.root.exec or not self.root.exec.controller:
             return
+        # Sensors→control stacks (e.g. FollowTheGap) may omit the local planner.
+        plan = (
+            self.root.exec.local_planner.get_local_plan()
+            if self.root.exec.local_planner is not None
+            else None
+        )
         cmd = self.root.exec.controller.control(
             self.root.exec.ego_state,
-            self.root.exec.local_planner.get_local_plan(),
+            plan,
             control_dt=self.root.setting.sim_dt.get(),
             perception_model=self.root.exec.pm,
             sensors=self.root.exec.world.get_sensor_frame(),

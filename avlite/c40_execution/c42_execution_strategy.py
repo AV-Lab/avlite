@@ -338,13 +338,16 @@ class ExecutionStrategy(ABC):
     def _control_step(self, sim_dt: float, sensors: SensorFrame) -> None:
         """Recompute control command into ``_last_cmd`` (no world integrate).
 
-        Uses the caller-supplied tick snapshot.
+        Uses the caller-supplied tick snapshot. Controllers that do not require
+        a plan (e.g. sensors→control Follow-the-Gap) run with ``plan=None``.
         """
-        if not self.controller or not self.local_planner:
+        if not self.controller:
             return
         if not self._can_actuate():
             return
-        local_plan = self.local_planner.get_local_plan()
+        local_plan = (
+            self.local_planner.get_local_plan() if self.local_planner is not None else None
+        )
         cmd = self.controller.control(
             self.pm.ego_vehicle, local_plan, control_dt=sim_dt,
             perception_model=self.pm, sensors=sensors,
