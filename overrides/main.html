@@ -39,4 +39,10 @@
     #}
     <script>document.documentElement.classList.add("landing-home")</script>
   {% endif %}
+
+  {% if page and page.file and page.file.src_uri == "support.md" %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&display=swap">
+  {% endif %}
 {% endblock %}
