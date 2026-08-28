@@ -129,3 +129,32 @@ class TestEgoLengthExtension:
             collision_safety_margin=margin,
         )
         assert hit is True
+
+
+class TestBufferOnlyCollisionIndex:
+    """Corridor-only side hits must report the mid-path index, not path end."""
+
+    def test_side_obstacle_index_is_near_agent_not_path_end(self):
+        # Centerline clears the agent polygon, but ego half-width + margin corridor hits.
+        # Old binary search used bare LineString.intersects and fell back to n-1.
+        ego_w = 2.0
+        margin = 0.3
+        n = 31
+        agent_x = 30.0
+        # Agent half-width 1.0 → body gap to y=0 centerline is 0.5 m (< radius 1.3).
+        agent_y = 1.5
+        trajectory = _straight_trajectory(0.0, 100.0, n=n)
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0, width=ego_w),
+            agent_vehicles=[
+                AgentState(x=agent_x, y=agent_y, theta=0.0, velocity=0.0, agent_id=1, width=2.0),
+            ],
+        )
+        hit, idx, _, clearance = check_collision(
+            pm, trajectory, collision_safety_margin=margin,
+        )
+        assert hit is True
+        assert clearance == 0.0
+        expected = int(round(agent_x / 100.0 * (n - 1)))
+        assert abs(idx - expected) <= 2, f"collision idx {idx} far from agent wp {expected} (n-1={n - 1})"
+        assert idx < n - 1
