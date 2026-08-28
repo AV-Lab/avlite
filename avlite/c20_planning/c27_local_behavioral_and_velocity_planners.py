@@ -103,14 +103,37 @@ class VelocityLocalPlanner(LocalPlanningStrategy, LocalVelocityPlanningStrategy)
         self._local_trajectory = local_tj
 
     def plan_velocity(self, plan: LocalPlan) -> LocalPlan:
-        """Velocity stage: profile the incoming plan's trajectory in place."""
+        """Velocity stage: profile a copy of the incoming plan's trajectory.
+
+        ``LocalPlanningPipeline`` may wrap the live global tracker via
+        ``LocalPlan.from_trajectory``. Profiling must not mutate that shared
+        object — otherwise a braking pass permanently zeros the global
+        reference speeds and the ego never resumes cruise after the obstacle
+        clears.
+        """
         tj = plan.as_trajectory()
         if tj is not None:
-            ref_velocity = np.asarray(tj.velocity, dtype=float)
-            self.profile_trajectory(tj, ref_velocity=ref_velocity)
-            plan.velocity = list(tj.velocity)
-            plan.trajectory = tj
+            local = self._copy_trajectory_for_profiling(tj)
+            ref_velocity = np.asarray(local.velocity, dtype=float)
+            self.profile_trajectory(local, ref_velocity=ref_velocity)
+            plan.path = list(local.path)
+            plan.velocity = list(local.velocity)
+            plan.trajectory = local
         return plan
+
+    @staticmethod
+    def _copy_trajectory_for_profiling(tj: TrajectoryTracker) -> TrajectoryTracker:
+        """Deep-copy path/velocity/waypoints so speed-match cannot alias ``tj``."""
+        velocity = list(tj.velocity) if tj.velocity is not None else None
+        local = TrajectoryTracker(path=list(tj.path), velocity=velocity)
+        local.current_wp = tj.current_wp
+        local.next_wp = tj.next_wp
+        local.name = getattr(tj, "name", local.name) or "Local Trajectory"
+        if getattr(tj, "ref_left_boundary_d", None) is not None:
+            local.ref_left_boundary_d = list(tj.ref_left_boundary_d)
+        if getattr(tj, "ref_right_boundary_d", None) is not None:
+            local.ref_right_boundary_d = list(tj.ref_right_boundary_d)
+        return local
 
     def apply_speed_match(
         self,

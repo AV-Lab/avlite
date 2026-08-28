@@ -1,8 +1,10 @@
 """Unit tests for the local planning pipeline and dual-role planners (c23)."""
 
+import math
+
 import numpy as np
 
-from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
+from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalBehavior, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import (
     LocalBehavioralPlanningStrategy,
@@ -11,6 +13,7 @@ from avlite.c20_planning.c23_local_planning_strategy import (
     LocalPlanningStrategy,
     LocalVelocityPlanningStrategy,
 )
+from avlite.c20_planning.c26_local_path_planners import ReferencePathPlanner
 from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import (
     CruiseBehavioralPlanner,
     VelocityLocalPlanner,
@@ -78,6 +81,8 @@ class TestDualRoleMethods:
         out = planner.plan_velocity(plan)
         assert out.trajectory is not None
         assert len(out.velocity) == len(out.trajectory.velocity)
+        # Must not alias the shared global tracker (pipeline hands that in).
+        assert out.trajectory is not global_plan.trajectory
 
     def test_path_stage_fills_geometry(self):
         global_plan = _straight_global_plan()
@@ -87,6 +92,15 @@ class TestDualRoleMethods:
         out = planner.plan_path(plan)
         assert out.trajectory is not None
         assert len(out.path) > 0
+
+    def test_reference_path_stage_starts_at_current_wp(self):
+        global_plan = _straight_global_plan(x_end=100.0, n=21)
+        global_plan.trajectory.update_waypoint_by_xy(50.0, 0.0)
+        pm = PerceptionModel(ego_vehicle=EgoState(x=50.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = ReferencePathPlanner(global_plan=global_plan, env=pm)
+        out = planner.plan_path(LocalPlan())
+        assert abs(out.path[0][0] - 50.0) < 1e-6
+        assert out.trajectory is None
 
 
 class TestLocalPlanningPipeline:
@@ -135,3 +149,67 @@ class TestLocalPlanningPipeline:
         state = EgoState(x=5.0, y=0.0, theta=0.0, velocity=5.0)
         pipeline.step(state)
         assert pipeline.location_xy == (5.0, 0.0)
+
+    def test_velocity_stage_does_not_corrupt_global_speeds(self):
+        """Empty path stage + velocity must not permanently zero the global plan."""
+        setting = PlanningSettingsSchema()
+        setting.c23_behavioral_strategy = ""
+        setting.c23_path_strategy = ""
+        setting.c23_velocity_strategy = "VelocityLocalPlanner"
+        global_plan = _straight_global_plan(x_end=100.0, n=40, velocity=10.0)
+        ref = list(global_plan.trajectory.velocity)
+        pm = PerceptionModel(
+            ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=10.0, length=4.5, width=2.0)
+        )
+        pm.agent_vehicles = [
+            AgentState(x=50.0, y=0.0, theta=0.0, velocity=0.0, length=4.0, width=2.0)
+        ]
+        pipeline = LocalPlanningPipeline(global_plan=global_plan, env=pm, setting=setting)
+
+        pipeline.replan()
+        local_after_hit = pipeline.get_local_plan().as_trajectory()
+        assert local_after_hit is not None
+        assert min(local_after_hit.velocity) < 10.0
+        assert list(global_plan.trajectory.velocity) == ref
+
+        pm.agent_vehicles = []
+        pipeline.replan()
+        assert list(global_plan.trajectory.velocity) == ref
+        local_after_clear = pipeline.get_local_plan().as_trajectory()
+        assert local_after_clear is not None
+        assert min(local_after_clear.velocity) == 10.0
+
+    def test_reference_path_midroute_local_plan_near_ego(self):
+        """Mid-track ReferencePath + velocity must not start the local plan at s=0."""
+        path = [(float(i), 0.0) for i in range(50)] + [(50.0, float(i)) for i in range(1, 51)]
+        n = len(path)
+        vel = [10.0] * n
+        tj = TrajectoryTracker(path=path, velocity=list(vel))
+        tj.ref_left_boundary_d = [3.0] * n
+        tj.ref_right_boundary_d = [-3.0] * n
+        global_plan = GlobalPlan(
+            start_point=path[0],
+            goal_point=path[-1],
+            path=path,
+            velocity=list(vel),
+            trajectory=tj,
+            left_boundary_d=[3.0] * n,
+            right_boundary_d=[-3.0] * n,
+        )
+        ego = EgoState(x=50.0, y=25.0, theta=math.pi / 2, velocity=10.0, length=4.5, width=2.0)
+        pm = PerceptionModel(ego_vehicle=ego)
+        global_plan.trajectory.update_waypoint_by_xy(50.0, 25.0)
+
+        setting = PlanningSettingsSchema()
+        setting.c23_behavioral_strategy = ""
+        setting.c23_path_strategy = "ReferencePathPlanner"
+        setting.c23_velocity_strategy = "VelocityLocalPlanner"
+        pipeline = LocalPlanningPipeline(global_plan=global_plan, env=pm, setting=setting)
+        pipeline.step(ego)
+        pipeline.replan()
+
+        local = pipeline.get_local_plan().as_trajectory()
+        assert local is not None
+        assert abs(local.path[0][0] - 50.0) < 1e-6
+        assert abs(local.path[0][1] - 25.0) < 1.5
+        assert list(global_plan.trajectory.velocity) == vel

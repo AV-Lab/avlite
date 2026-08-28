@@ -17,6 +17,7 @@ from avlite.c20_planning.c23_local_planning_strategy import (
 )
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c50_common.c51_capabilities import StackCapability
+from avlite.c50_common.c54_trajectory_tracker import slice_trajectory_horizon
 
 log = logging.getLogger(__name__)
 
@@ -52,8 +53,13 @@ class ReferencePathPlanner(LocalPlanningStrategy, LocalPathPlanningStrategy):
         pass
 
     def plan_path(self, plan: LocalPlan) -> LocalPlan:
-        plan.path = list(self.global_trajectory.path)
-        plan.velocity = list(self.global_trajectory.velocity)
+        # Forward horizon from the tracked waypoint — copying the full route from
+        # s=0 left mid-track ego with a local plan that starts at the origin
+        # (current_wp=0), so velocity profiling and Stanley/PID aimed at the
+        # wrong segment.
+        sliced = slice_trajectory_horizon(self.global_trajectory, max_points=0)
+        plan.path = list(sliced.path)
+        plan.velocity = list(sliced.velocity)
         # Leave trajectory unset so a downstream velocity stage builds (and may
         # mutate) a fresh tracker rather than the shared global one.
         plan.trajectory = None
