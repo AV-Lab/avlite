@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visualizer: Control **Align** teleports plant ego and syncs stack PM (stack-only writes were undone by GT localization after the world/stack ego split)
 - Common: `TrajectoryTracker.update_waypoint_by_wp` / `update_to_next_waypoint` clamp `next_wp` at the path end — `%` precedence previously left `next_wp == len(path)` and crashed plot/step at the final waypoint
 - Common: `create_quintic_trajectory_sd` b-vector matches the constraint matrix (end 1st / start 2nd derivatives were swapped)
+- Execution: `GoalArrivalMonitor` seeds its rising-edge detector on the first tick — starting already inside the arrival radius (closed race lines where `goal_point == start_point`, e.g. default Yas Marina) no longer fires `GOAL_ARRIVED` / `StopExecAtGoalTask` immediately
+- Planning: `LocalPlanningStrategy.reset(wp)` clamps waypoint index — Plan UI step-back from wp 0 no longer jumps to track end via numpy negative indexing, and oversized wp no longer `IndexError`
+- Control: Stanley / PID / Pure Pursuit clamp velocity waypoint index (and zero accel on empty profiles) — short `ReferenceSpeed` vs path length no longer crashes mid-drive
 
 ## [0.5.3] - 2026-07-24
 

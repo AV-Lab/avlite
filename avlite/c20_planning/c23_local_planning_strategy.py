@@ -86,6 +86,16 @@ class LocalPlanningStrategy(ABC):
         log.info(f"Global plan set: ego Frenet s={s0:.2f} d={d0:.2f}. Ego xy={ref_xy}. Global plan start={global_plan.start_point}")
 
     def reset(self, wp: int = 0):
+        n = len(self.global_trajectory.path_x)
+        if n == 0:
+            self.traversed_x, self.traversed_y = [0.0], [0.0]
+            self.traversed_s, self.traversed_d = [0.0], [0.0]
+            self.location_xy = (0.0, 0.0)
+            self.location_sd = (0.0, 0.0)
+            return
+        # Clamp: negative indices would silently select the track end via numpy
+        # wrapping (Plan UI "step back" from wp 0), and oversized wp IndexError.
+        wp = max(0, min(int(wp), n - 1))
         self.traversed_x, self.traversed_y = [self.global_trajectory.path_x[wp]], [self.global_trajectory.path_y[wp]]
         self.traversed_s, self.traversed_d = [self.global_trajectory.path_s[wp]], [self.global_trajectory.path_d[wp]]
         self.location_xy = (self.traversed_x[0], self.traversed_y[0])
