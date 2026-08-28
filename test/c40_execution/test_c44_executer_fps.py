@@ -35,6 +35,7 @@ class _StubWorldBridge(WorldBridge):
     perception_model: Optional[PerceptionModel] = None
     delay: float = 0.0  # artificial latency per control_ego_state call
     sim_calls: int = 0
+    sim_dts: list = field(default_factory=list)
 
     world_capabilities = frozenset()
     # Provide ground-truth localization so the executer may actuate the ego.
@@ -42,6 +43,7 @@ class _StubWorldBridge(WorldBridge):
 
     def control_ego_state(self, cmd: ControlCommand, dt: float = 0.01):
         self.sim_calls += 1
+        self.sim_dts.append(dt)
         if self.delay > 0.0:
             time.sleep(self.delay)
 
@@ -282,6 +284,36 @@ class TestSyncPaceAndSimulate:
         assert exec_.elapsed_sim_time > 0.0
         assert abs(exec_.elapsed_sim_time - exec_.elapsed_real_time) < 1e-9
 
+    def test_free_run_stop_does_not_integrate_pause_gap(self):
+        """stop() drops the wall stamp on every pause, including a second Stop after resume."""
+        exec_, _ = _make_sync_executer()
+        step_kw = dict(
+            control_dt=0.01,
+            sim_dt=0.01,
+            replan_dt=99,
+            localization_dt=99,
+            call_replan=False,
+            call_perceive=False,
+            call_localize=False,
+            pace_sim=False,
+            pace_control=False,
+        )
+        exec_.step(**step_kw)
+        exec_.step(**step_kw)
+        assert exec_.world.sim_dts, "pre-pause free-run must have integrated once"
+        pause_s = 0.2
+        n = len(exec_.world.sim_dts)
+        exec_.stop()
+        time.sleep(pause_s)
+        exec_.step(**step_kw)
+        assert all(d < pause_s * 0.5 for d in exec_.world.sim_dts[n:])
+        # Second Stop used to no-op (stopped already True) and leave the stamp set.
+        n = len(exec_.world.sim_dts)
+        exec_.stop()
+        time.sleep(pause_s)
+        exec_.step(**step_kw)
+        assert all(d < pause_s * 0.5 for d in exec_.world.sim_dts[n:])
+
 
 # ---------------------------------------------------------------------------
 # AsyncThreadedExecuter tests
@@ -385,3 +417,45 @@ class TestAsyncExecuterFps:
         max_iters = int(elapsed / floor) + 1
         assert _CountingPerception.calls > 5
         assert _CountingPerception.calls <= max_iters * 2
+
+    def test_free_run_stop_does_not_integrate_pause_gap(self):
+        """Restart must not apply the pause as dt (requires a post-resume integrate)."""
+        world = _StubWorldBridge()
+        exec_ = AsyncThreadedExecuter(
+            perception_model=PerceptionModel(),
+            perception=None,
+            global_planner=None,
+            local_planner=_StubLocalPlanner(),
+            controller=_StubController(),
+            world=world,
+            control_dt=0.01,
+        )
+        step_kw = dict(
+            control_dt=0.01,
+            sim_dt=0.01,
+            call_replan=False,
+            call_control=True,
+            call_perceive=False,
+            call_localize=False,
+            pace_control=False,
+            pace_sim=False,
+        )
+        pause_s = 0.2
+        try:
+            exec_.step(**step_kw)
+            deadline = time.time() + 1.0
+            while not world.sim_dts and time.time() < deadline:
+                time.sleep(0.01)
+            assert world.sim_dts, "pre-pause free-run must have integrated once"
+            n = len(world.sim_dts)
+            exec_.stop()
+            time.sleep(pause_s)
+            exec_.step(**step_kw)
+            deadline = time.time() + 1.0
+            while len(world.sim_dts) <= n and time.time() < deadline:
+                time.sleep(0.01)
+        finally:
+            exec_.stop()
+        new = world.sim_dts[n:]
+        assert new, "post-resume free-run must have integrated once"
+        assert max(new) < pause_s * 0.5

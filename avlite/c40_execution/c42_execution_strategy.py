@@ -130,6 +130,9 @@ class ExecutionStrategy(ABC):
 
     def stop(self):
         """Request cooperative shutdown. Subclasses may override to tear down threads/resources."""
+        # Always drop the free-run wall stamp, even if already stopped (Sync
+        # Start does not always clear `stopped`, so a second Stop used to skip this).
+        self._last_sim_wall_t = None
         if self.stopped:
             return
         self.stopped = True

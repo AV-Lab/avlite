@@ -330,6 +330,8 @@ class AsyncThreadedExecuter(ExecutionStrategy):
             self.controller_thread = None
             self.perception_thread = None
             self.threads_started = False
+            # In-flight worker may restamp after ExecutionStrategy.stop() cleared this.
+            self._last_sim_wall_t = None
 
     def create_threads(self):
         log.info(f"Creating threads...")
@@ -363,6 +365,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
             return
 
         self.stopped = False
+        self._last_sim_wall_t = None
 
         t1 = time.time()
         log.info(f"Starting Planner Thread...")

@@ -68,6 +68,7 @@ class SyncExecuter(ExecutionStrategy):
         pace_sim=True,
     ) -> None:
         """ Executes a single step of the simulation, including planning, control, and perception. """
+        self.stopped = False
 
         pln_time_txt, cn_time_txt, pr_time_txt, loc_time_txt, sim_time_txt = "", "", "", "", ""
         t0 = time.time()
