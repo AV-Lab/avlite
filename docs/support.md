@@ -30,7 +30,7 @@ run tests, review and test plugins, and add features.
 
 <p class="donate-kicker">Built in the UAE <span aria-hidden="true">·</span> <span lang="ar" dir="rtl">من الإمارات</span></p>
 
-<p class="donate-ar" lang="ar" dir="rtl">ادعم أفيلايت. مشروع مفتوح المصدر من الإمارات. إن ساعدك في بحثك أو تدريسك أو روبوتك، دعمك يموّل تشغيل الاختبارات، ومراجعة الإضافات واختبارها، وإضافة ميزات جديدة.</p>
+<p class="donate-ar" lang="ar" dir="rtl">ادعم أفيلايت. مشروع مفتوح المصدر من الإمارات. إن ساعدك في بحثك أو تدريسك أو روبوتك، فإن دعمك يبقينا مستمرين: يموّل تشغيل الاختبارات، ومراجعة الإضافات واختبارها، وإضافة ميزات جديدة.</p>
 
 </div>
 
