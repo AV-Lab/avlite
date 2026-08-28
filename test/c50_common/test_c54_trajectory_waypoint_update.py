@@ -39,6 +39,24 @@ def test_update_waypoint_by_wp_mid_path_advances_next():
     assert tj.next_wp == 3
 
 
+def test_update_waypoint_by_xy_before_path_start_resets_indices():
+    """Teleport/reset upstream of wp0 must not leave a stale far-path current_wp.
+
+    Stanley uses ``get_current_heading()`` / ``velocity[current_wp]``; a stale
+    index after an L-path corner commanded max steer / wrong target speed.
+    """
+    # Horizontal then vertical: heading at the end is π/2.
+    path = [(float(i), 0.0) for i in range(21)] + [(20.0, float(j)) for j in range(1, 11)]
+    tj = TrajectoryTracker(path=path, velocity=[10.0] * len(path))
+    tj.update_waypoint_by_xy(20.0, 8.0)
+    assert tj.current_wp > 20
+
+    tj.update_waypoint_by_xy(-0.5, 0.0)
+    assert tj.current_wp == 0
+    assert tj.next_wp == 1
+    assert tj.get_current_heading() == pytest.approx(0.0, abs=1e-6)
+
+
 def test_create_quintic_trajectory_sd_honors_boundary_derivatives():
     """b-vector must match A rows: value, value, 1st, 1st, 2nd, 2nd (start then end)."""
     path = [(float(i), 0.0) for i in range(40)]
