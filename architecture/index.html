@@ -1099,7 +1099,7 @@
 <li><code>AGENT_SPAWN</code> - Bridge can spawn NPC agents</li>
 <li><code>AGENT_CONTROL</code> - Bridge can actuate spawned NPC agents via <code>control_agent</code> (opt-in; separate from <code>AGENT_SPAWN</code>)</li>
 </ul>
-<p>A bridge declaring <code>CAMERA_RGB</code> or <code>CAMERA_DEPTH</code> must also populate <code>SensorFrame.camera_params</code> via <code>get_camera_params()</code>. LiDAR from the WorldBridge is already in the <a href="#coordinate-system">map / global frame</a>; an image cannot be, so the camera intrinsic and per-frame world-to-camera extrinsic are what let a fusion strategy project those points into the image. See <a href="../plugin-development/#frames-vs-ros-tf">Plugin Development → Frames vs ROS TF</a> and <a href="../plugin-development/#camera-geometry">Camera geometry</a>.</p>
+<p>A bridge declaring <code>CAMERA_RGB</code> or <code>CAMERA_DEPTH</code> must also populate <code>SensorFrame.camera_sensor</code> via <code>get_camera_sensor()</code>: the camera intrinsic plus the static <code>base_to_sensor</code> mount of the optical frame. Combined with the stack's own ego pose estimate, that is what lets a fusion strategy project sensor-frame LiDAR into the image. Bridges never bake the ego pose into sensor data — see <a href="#coordinate-system">Coordinate system</a>, <a href="../plugin-development/#frames-vs-ros-tf">Plugin Development → Frames vs ROS TF</a> and <a href="../plugin-development/#camera-geometry">Camera geometry</a>.</p>
 <p><strong>Stack Capabilities</strong> (<code>StackCapability</code>) — what a stack module produces, used both as a module's <code>stack_capabilities</code> and as another module's <code>stack_requirements</code>:</p>
 <ul>
 <li><code>DETECTION</code> - Object detection</li>
@@ -1142,17 +1142,17 @@
 <li><strong>Future</strong> — specialized subclasses (e.g. <code>DroneAgentState</code>) when kinematics need body velocity or 3D integration; see <a href="../plugin-development/#7-multi-robot-agents-and-control">Multi-robot agents and control</a>.</li>
 </ul>
 <h4 id="coordinate-system">Coordinate system<a class="headerlink" href="#coordinate-system" title="Permanent link">&para;</a></h4>
-<p>The stack has one global frame: <strong>map</strong> (also called world). <code>EgoState.x/y/z</code>, plans, collision, GNSS <code>map_*</code>, and <strong>lidar from the WorldBridge</strong> all use the same numbers.</p>
+<p>The stack has one global frame: <strong>map</strong> (also called world). <code>EgoState.x/y/z</code>, plans, collision, GNSS <code>map_*</code>, and detected agents all use the same numbers.</p>
 <p><code>theta = 0</code> faces +x and increases counter-clockwise (right-handed); <code>z</code> is up when used. This is the map’s local XY (OpenDRIVE local or race-boundary JSON), not WGS84 and not a vehicle-ENU frame. <code>c40_reference_point</code> is the optional WGS84 origin of that XY.</p>
-<p><strong>WorldBridge lidar</strong> — primary <code>sensors.lidar</code> and any lidar in <code>additional_frames</code> — is already in this global frame. The bridge applies the scanner mount (and, in simulation, ego pose). The stack does not transform a cloud out of <code>lidar_link</code>.</p>
-<p>Other frames still appear, but they are not a TF tree:</p>
+<p><strong>Sensor data is never delivered in the map frame.</strong> The bridge does not know the ego pose — estimating it is localization's job — so baking it into a cloud or a camera extrinsic would make the stack silently depend on ground truth. Instead the stack separates the <strong>sensor</strong> (a static <code>Sensor</code> / <code>Camera</code> / <code>Lidar</code> describing the device: mount plus calibration) from the <strong>measurement</strong> (the per-tick data it produced). Every <code>Sensor</code> carries one static mount, <code>base_to_sensor</code>: the pose of the device in the <strong>ego body frame</strong>, <code>p_body = base_to_sensor @ p_sensor</code>, identity by default. The body pose itself becomes a transform in one place, <code>State.pose_matrix()</code>, and <code>Sensor.to_map(points, state)</code> composes the two. <code>SensorFrame</code> holds both under one rule: <code>&lt;x&gt;</code> is the measurement, <code>&lt;x&gt;_sensor</code> is the device that produced it (<code>lidar</code> / <code>lidar_sensor</code>, <code>imu</code> / <code>imu_sensor</code>, …).</p>
 <ul>
-<li><strong>ego / body</strong> — +x along heading; a module derives it when it needs it (e.g. Follow the Gap).</li>
-<li><strong>camera optical</strong> — OpenCV; <code>CameraParams.world_to_camera</code>.</li>
-<li><strong>IMU sensor</strong> — accel / gyro as reported (not baked into map).</li>
+<li><strong>ego body</strong> — origin at <code>State.x/y/z</code>, +x along heading, z up; <code>State.pose_matrix()</code> is its pose in the map.</li>
+<li><strong>lidar</strong> — <code>sensors.lidar</code> (and any lidar in <code>additional_frames</code>); <code>sensors.lidar_sensor.base_to_sensor</code> is the mount (identity = already in the body frame). Consumers call <code>sensors.lidar_sensor.to_map(sensors.lidar, perception_model.ego_vehicle)</code>.</li>
+<li><strong>camera optical</strong> — OpenCV (x right, y down, z forward); <code>Camera.base_to_sensor</code> includes the body → optical rotation.</li>
+<li><strong>IMU</strong> — accel / gyro as reported; <code>SensorFrame.imu_sensor</code> is the mount.</li>
 <li><strong>Frenet (s, d)</strong> — planning overlay on the global path, not a sensor frame.</li>
 </ul>
-<p>ROS-style lookup of link frames is not part of the stack contract. The WorldBridge composes sensors once per tick; see <a href="../plugin-development/#frames-vs-ros-tf">Plugin Development → Frames vs ROS TF</a>.</p>
+<p>There is no transform tree to query: mounts are static and the only dynamic transform is the ego pose the stack already owns. The WorldBridge composes sensors once per tick; see <a href="../plugin-development/#frames-vs-ros-tf">Plugin Development → Frames vs ROS TF</a>.</p>
 <p>Control actuation is a separate layer: <code>ControlCommandBase</code> subclasses and default <code>AgentType</code> → command mapping in c31. The car stack still uses the <code>ControlCommand</code> alias for <code>AckermannControlCommand</code>.</p>
 <h2 id="layers">Layers<a class="headerlink" href="#layers" title="Permanent link">&para;</a></h2>
 <h3 id="perception"><strong>Perception</strong><a class="headerlink" href="#perception" title="Permanent link">&para;</a></h3>
@@ -1174,7 +1174,7 @@
 <li><strong>Setting CLI</strong> (<code>avlite setting-cli</code>) — validate/describe/import/export profiles from the terminal.</li>
 </ul>
 <h3 id="common"><strong>Common</strong><a class="headerlink" href="#common" title="Permanent link">&para;</a></h3>
-<p>YAML profile load/save, hot reload, plugin discovery (<code>c63_plugins</code>), path resolution (<code>c68_paths</code>), capability enums, canonical sensor layouts (rgb, depth, camera_params, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (<code>c64_settings_schema</code>).</p>
+<p>YAML profile load/save, hot reload, plugin discovery (<code>c63_plugins</code>), path resolution (<code>c68_paths</code>), capability enums, canonical sensor layouts (rgb, depth, camera_sensor, lidar, imu, gnss between bridge and perception), collision checking, and settings validation (<code>c64_settings_schema</code>).</p>
 <h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
 <p>The <strong>typical</strong> pipeline (any stage may be skipped or collapsed into one plugin via <a href="#capability-system">capabilities</a>):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>World Bridge → SensorFrame → Localization / Perception → PerceptionModel → Planning → Control
