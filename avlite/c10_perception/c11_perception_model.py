@@ -48,9 +48,15 @@ class PerceptionModel:
 
     def add_agent_vehicle(self, agent: AgentState) -> int: # return agent_id
         """ Add an agent vehicle to the perception model and assign a unique agent_id."""
-        if len(self.agent_vehicles) == self.max_agent_vehicles:
-            log.info("Max num of agent reached. Deleteing Old agents")
-            self.agent_vehicles = []
+        if self.max_agent_vehicles <= 0:
+            log.info("Max num of agents is %s; not adding", self.max_agent_vehicles)
+            return -1
+        while len(self.agent_vehicles) >= self.max_agent_vehicles:
+            evicted = self.agent_vehicles.pop(0)
+            log.info(
+                "Max num of agents reached. Deleting oldest agent %s",
+                evicted.agent_id,
+            )
         ids = {a.agent_id for a in self.agent_vehicles}
         agent.agent_id = next(i for i in range(1, len(ids) + 2) if i not in ids)
         self.agent_vehicles.append(agent)
@@ -415,30 +421,49 @@ class HDMap(Map):
         idx = int(np.argmin(dists))
         return lane, idx
 
+    @staticmethod
+    def _center_col(center: np.ndarray, idx: int) -> np.ndarray:
+        """Index a centerline column, clamping short junction polylines."""
+        n = center.shape[1]
+        if idx >= 0:
+            idx = min(idx, n - 1)
+        else:
+            idx = max(idx, -n)
+        return center[:, idx]
+
     def can_laneA_access_laneB(self, lane_a: Lane, lane_b: Lane) -> bool:
+        if (
+            lane_a.center_line.size == 0
+            or lane_b.center_line.size == 0
+            or lane_a.center_line.ndim < 2
+            or lane_b.center_line.ndim < 2
+            or lane_a.center_line.shape[1] < 2
+            or lane_b.center_line.shape[1] < 2
+        ):
+            return False
         check1 = lane_b in lane_a.neighbors
-        b_start_end = [lane_b.center_line[:, 0], lane_b.center_line[:, -1]]
-        a = lane_a.center_line[:, -1] if int(lane_a.id) < 0 else lane_a.center_line[:, 0]
+        b_start_end = [self._center_col(lane_b.center_line, 0), self._center_col(lane_b.center_line, -1)]
+        a = self._center_col(lane_a.center_line, -1) if int(lane_a.id) < 0 else self._center_col(lane_a.center_line, 0)
         dists = [(np.linalg.norm(a - b), j) for j, b in enumerate(b_start_end)]
         min_dist, b_idx = min(dists, key=lambda item: item[0])
         check2 = min_dist < 0.5
         check3 = False
         if check2:
             if int(lane_a.id) < 0:
-                vec_a = lane_a.center_line[:, -3] - lane_a.center_line[:, -1]
+                vec_a = self._center_col(lane_a.center_line, -3) - self._center_col(lane_a.center_line, -1)
             else:
-                vec_a = lane_a.center_line[:, 2] - lane_a.center_line[:, 0]
+                vec_a = self._center_col(lane_a.center_line, 2) - self._center_col(lane_a.center_line, 0)
             if int(lane_b.id) < 0:
                 vec_b = (
-                    lane_b.center_line[:, 0] - lane_b.center_line[:, 2]
+                    self._center_col(lane_b.center_line, 0) - self._center_col(lane_b.center_line, 2)
                     if b_idx == 0
-                    else lane_b.center_line[:, -1] - lane_b.center_line[:, -3]
+                    else self._center_col(lane_b.center_line, -1) - self._center_col(lane_b.center_line, -3)
                 )
             else:
                 vec_b = (
-                    lane_b.center_line[:, 1] - lane_b.center_line[:, 0]
+                    self._center_col(lane_b.center_line, 1) - self._center_col(lane_b.center_line, 0)
                     if b_idx == 0
-                    else lane_b.center_line[:, -1] - lane_b.center_line[:, -3]
+                    else self._center_col(lane_b.center_line, -1) - self._center_col(lane_b.center_line, -3)
                 )
             norm_a = np.linalg.norm(vec_a)
             norm_b = np.linalg.norm(vec_b)

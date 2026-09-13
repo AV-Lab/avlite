@@ -32,6 +32,29 @@ def test_add_agent_skips_zero():
     assert all(a.agent_id >= 1 for a in pm.agent_vehicles)
 
 
+def test_add_agent_evicts_oldest_when_cap_reached():
+    """Over-cap adds must not wipe the whole detection set (FastBEV / spawn)."""
+    pm = PerceptionModel()
+    pm.max_agent_vehicles = 3
+    kept_xy = []
+    for i in range(5):
+        pm.add_agent_vehicle(AgentState(x=float(i), y=0.0))
+        kept_xy.append((float(i), 0.0))
+        assert 1 <= len(pm.agent_vehicles) <= 3
+
+    assert len(pm.agent_vehicles) == 3
+    xs = [a.x for a in pm.agent_vehicles]
+    assert xs == [2.0, 3.0, 4.0]
+    assert all(a.agent_id >= 1 for a in pm.agent_vehicles)
+
+
+def test_add_agent_refuses_non_positive_cap():
+    pm = PerceptionModel()
+    pm.max_agent_vehicles = 0
+    assert pm.add_agent_vehicle(AgentState(x=1.0)) == -1
+    assert pm.agent_vehicles == []
+
+
 @dataclass
 class _StubBridge(WorldBridge, abstract=True):
     ego_state: EgoState = field(default_factory=EgoState)
