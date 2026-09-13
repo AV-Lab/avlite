@@ -7,14 +7,14 @@ from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c60_apps.c63_plugins import (
-    import_plugin_modules,
     load_builtin_plugin_settings,
+    load_community_plugin_setting,
     reload_lib,
     sync_builtin_plugins,
     sync_community_plugins,
     unregister_plugin_package,
 )
-from avlite.c60_apps.c68_paths import DataPaths, PluginPaths
+from avlite.c60_apps.c68_paths import DataPaths
 from avlite.c60_apps.c65_setting_utils import load_setting
 
 from avlite.c10_perception.c11_perception_model import PerceptionModel, EgoState, AgentState, EGO_AGENT_ID
@@ -346,7 +346,7 @@ def get_stack_settings_classes() -> list[Any]:
 
 
 def load_stack_settings(profile: str = "default", load_plugins: bool | None = None) -> None:
-    """Load c10–c59 YAML singletons and built-in plugin settings; bootstrap ref point."""
+    """Load c10–c40 YAML, built-in and community plugin settings; bootstrap ref point."""
     load_setting(PerceptionSettings, profile=profile)
     load_setting(PlanningSettings, profile=profile)
     load_setting(ControlSettings, profile=profile)
@@ -361,9 +361,7 @@ def load_stack_settings(profile: str = "default", load_plugins: bool | None = No
         return
 
     for name, stored in AppSettings.c62_community_plugins.items():
-        path = PluginPaths.resolve(name, stored)
-        if path.is_dir():
-            import_plugin_modules(str(path), pkg_name=name)
+        load_community_plugin_setting(name, stored, profile=profile)
 
     for plugin in AppSettings.c62_default_plugins:
         cls = load_builtin_plugin_settings(plugin)

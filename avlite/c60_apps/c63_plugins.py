@@ -177,6 +177,7 @@ def load_community_plugin_setting(
 
     install_path = str(PluginPaths.resolve(name, stored))
     if not Path(install_path).is_dir():
+        log.warning("Community plugin '%s' is not installed at %s", name, install_path)
         return None
     settings_mod_name = f"{plugin_module_prefix(name)}.settings"
     if settings_mod_name not in sys.modules:

@@ -28,9 +28,8 @@ AVLite is free and open source. GitHub already hosts the docs and packages.
 If it helped your research, teaching, or robot, a donation buys time to
 run tests, review and test plugins, and add features.
 
-<p class="donate-kicker">Built in the UAE <span aria-hidden="true">·</span> <span lang="ar" dir="rtl">من الإمارات</span></p>
-
-<p class="donate-ar" lang="ar" dir="rtl">ادعم أفيلايت. مشروع مفتوح المصدر من الإمارات. إن ساعدك في بحثك أو تدريسك أو روبوتك، فإن دعمك يبقينا مستمرين: يموّل تشغيل الاختبارات، ومراجعة الإضافات واختبارها، وإضافة ميزات جديدة.</p>
+Maintained by [Dr. Majid Khonji](https://avlab.io/) at the
+[Autonomous Vehicles Lab](https://avlab.io/).
 
 </div>
 

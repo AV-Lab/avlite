@@ -190,7 +190,7 @@ executer = executor_factory(
 
 It loads plugins, opens `ExecutionSettings.c40_map` once via `Map.open` (shared by `MapReader`, global planners, and `WorldBridge`), instantiates strategies from registries, and wires everything together. **Any** strategy slot may be empty or omitted (perception, localization, mapping, global/local planner, controller) to run without that module — see [Flexible composition](#flexible-composition-not-only-a-pipeline).
 
-Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c62_factory.py`](../avlite/c60_apps/c62_factory.py). Each setting reads its section from the single `configs/<profile>.yaml`: it loads the c10–c40 layer sections, `AppSettings` (the `c69_apps` section), and built-in plugin settings (the `plugins` section); the GUI loads the Tk `VisualizationSettings` binder separately.
+Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c62_factory.py`](../avlite/c60_apps/c62_factory.py). Each setting reads its section from the single `configs/<profile>.yaml`: it loads the c10–c40 layer sections, `AppSettings` (the `c69_apps` section), built-in plugin settings, and community plugin settings under `plugins:`; the GUI loads the Tk `VisualizationSettings` binder separately.
 
 ### Layer import rules
 
