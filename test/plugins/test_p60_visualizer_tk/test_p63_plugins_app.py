@@ -263,3 +263,24 @@ def test_dependency_notes():
         )
         == "Source ROS 2 before running."
     )
+
+
+def test_site_url():
+    assert cp._PluginOperations.site_url({}) == ""
+    assert cp._PluginOperations.site_url({"site_url": None}) == ""
+    assert cp._PluginOperations.site_url({"site_url": "  "}) == ""
+    assert (
+        cp._PluginOperations.site_url({"site_url": "  https://avlab.io/plugin/  "})
+        == "https://avlab.io/plugin/"
+    )
+
+
+def test_display_name_falls_back_to_identifier():
+    assert cp._display_name(None, "avlite-executer-ROS2") == "avlite-executer-ROS2"
+    assert cp._display_name({}, "basic_predictor") == "basic_predictor"
+    assert cp._display_name({"display_name": "  "}, "basic_predictor") == "basic_predictor"
+
+
+def test_display_name_uses_registry_value():
+    entry = {"name": "avlite-executer-ROS2", "display_name": "  AVLite ROS2 Executer  "}
+    assert cp._display_name(entry, "avlite-executer-ROS2") == "AVLite ROS2 Executer"

@@ -99,6 +99,9 @@ _LAZY: dict[str, str] = {
     "satisfies_requirements": "avlite.c50_common.c51_capabilities",
     # -- Sensor datatypes ---------------------------------------------------
     "SensorFrame": "avlite.c50_common.c52_world_sensor_datatypes",
+    "Sensor": "avlite.c50_common.c52_world_sensor_datatypes",
+    "Camera": "avlite.c50_common.c52_world_sensor_datatypes",
+    "Lidar": "avlite.c50_common.c52_world_sensor_datatypes",
     "ImuReading": "avlite.c50_common.c52_world_sensor_datatypes",
     "GnssReading": "avlite.c50_common.c52_world_sensor_datatypes",
     "WheelOdometry": "avlite.c50_common.c52_world_sensor_datatypes",
@@ -207,11 +210,14 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
     )
     from avlite.c50_common.c52_world_sensor_datatypes import (
         WORLD_CAPABILITY_SENSOR_FIELDS,
+        Camera,
         DepthImage,
         GnssReading,
         ImuReading,
+        Lidar,
         LidarCloud,
         RgbImage,
+        Sensor,
         SensorFrame,
         WheelOdometry,
     )

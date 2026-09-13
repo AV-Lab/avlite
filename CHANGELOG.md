@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-13
+
+### Added
+- Common: optional `SensorFrame.additional_frames` (`dict[str, SensorFrame]`) for extra named lidars, IMUs, cameras, or mixed rigs on the same tick. Default `None`; old bridges and the default `get_sensor_frame()` compose path need no changes. Override `get_sensor_frame()` to populate it (leaf frames: nested `additional_frames` stays `None`). The world-capability filter walks those leaves.
+- Common: `Camera` (intrinsic `K`, width, height, static `base_to_sensor` mount of the OpenCV optical frame) and the optional `SensorFrame.camera_sensor` field — camera geometry a fusion strategy needs to project `lidar` into the image. Additive: `WorldBridge.get_camera_sensor()` defaults to `None`, so no existing bridge changes; bridges declaring `CAMERA_RGB` / `CAMERA_DEPTH` should override it
+- Common: `Sensor` — static description of a device mounted on the ego body, carrying one `base_to_sensor` (4×4 pose of the device in the ego body frame, identity by default) with `to_base(points)` and `to_map(points, state)`; `Camera` and `Lidar` subclass it. Sensors (static: mount + calibration) are distinct from measurements (per-tick data: `rgb`, `depth`, `lidar`, `ImuReading`, `GnssReading`, `WheelOdometry`, which carry no mount). `SensorFrame` rule: `<x>` is the measurement, `<x>_sensor` is the device that produced it. Bridges supply only static sensors; the stack composes sensor → body → map from its own pose estimate, so localization never depends on a bridge-baked ego pose
+- Common: `Sensor`, `Camera`, `Lidar` exported from the `avlite` package alongside `SensorFrame`, so plugins can return mounts without importing from `c52`
+- Perception: `State.pose_matrix()` — 4×4 pose of the ego body frame in the map frame (yaw-only today; subclasses with roll / pitch override it and every sensor transform follows)
+- Common / Execution: `Lidar` + `SensorFrame.lidar_sensor`, `SensorFrame.imu_sensor`, `SensorFrame.gnss_sensor` (always present, identity by default), `WorldBridge.get_lidar_sensor()` / `get_imu_sensor()` / `get_gnss_sensor()` (default identity) composed by `get_sensor_frame()`
+- Execution: `c40_start_pose` (`[x, y, theta]` or null) — profile-defined ego start; factory falls back to the global-plan start point when null
+- Perception: `State.set_start()` — capture current pose as the snapshot restored by `reset()` (via `get_copy` / `copy_from`)
+- Visualizer: **Save Start** on the Execution state row — writes live ego pose into `c40_start_pose` and the active profile YAML
+- Plugin registry: optional `display_name` — human-readable plugin title in the Plugins browser and the docs store; falls back to `name`, which stays the install-folder / import identifier
+- Plugin registry: optional `site_url` — **Open Website** button plus a Website row in the plugin details window, and a **Site** button on the docs plugin cards
+
+### Changed
+- **Breaking** — Common: `SensorFrame.lidar` is delivered in the **lidar's own coordinate frame** (the ego body frame when `lidar_sensor` is identity), no longer in the map frame. Bridges must not apply the ego pose; consumers call `sensors.lidar_sensor.to_map(sensors.lidar, perception_model.ego_vehicle)`. `BasicSim` returns ego-frame hits; `FastBEVLidarDetection` places the cloud in the map frame with the stack pose before clustering; `FollowTheGap.to_ego_frame(lidar, ego, lidar_sensor=None)` applies only the mount; the Tk visualizer transforms with the plant pose before plotting. Bridges that rotated clouds into the world frame (e.g. the CARLA plugin) must drop that step and return the mount from `get_lidar_sensor()`
+- Execution: `lidar_2d_to_4` lives in `c46_basic_sim` (BasicSim-only helper); not part of the public sensor API
+- Perception: `State` / `AgentState` reset snapshot is a polymorphic copy of all fields (drops per-field `__init_*` / `AgentState.reset` override)
+- Execution: `BasicSim.reset()` restores ego and NPC start poses (and NPC controllers) instead of clearing agents
+- Execution: drop duplicate `world.reset()` call in `ExecutionStrategy.reset()`
+- Docs / README: Tk visualizer demo uses a looping video (`docs/imgs/tk_visualizer.mp4`) instead of a static screenshot; landing shot fills the content column
+- Docs: call out pause / step / interactive debug early (landing value strip, Overview features, Quick Start)
+- Docs: Community Plugins cards are no longer whole-card GitHub links — explicit **Site** / **Repo** buttons sit above the GitHub stats footer, dependency notes clamp to two lines (full text on hover), and the links carry per-plugin aria-labels
+- Docs: plugin registry field tables list every field with a required column (README, Overview, Plugin Development)
+
+### Fixed
+- Perception: `LidarLocalization` ICP applied the running pose to scans that were already in the map frame (double transform) and stored the first scan untransformed as the reference map; with sensor-frame input the reference map is now placed with the seed pose and the alignment is consistent
+- Factory: `load_stack_settings()` loads community `PluginSettings` from the profile (`plugins.<name>`) after importing each registered plugin — headless, visualizer startup, and hot reload no longer skip those values (Settings GUI already loaded them). Missing or unloadable community plugins are skipped with a warning.
+- Execution: unpaced (free-run) Stop/Start no longer integrates the pause as wall-clock Δt — ego and NPCs jumped by up to 1 s of motion on resume (Sync and Async)
+- Common: `TrajectoryTracker` initializes `path_s` from cumulative arc-length instead of re-projecting the reference through KD-tree Frenet conversion — closed tracks with `first==last` (e.g. bundled Yas Marina race line) no longer get non-monotonic `path_s` with `path_s[-1] == 0`
+- Common: Frenet XY→SD picks the better adjacent segment around the nearest waypoint (and SD→XY brackets by arc-length) — on-path points after corners no longer pick up a huge false CTE from the previous segment
+- Common / Planning: lattice sampling, replan end-of-track gates, and race lap detection use `TrajectoryTracker.track_end_s` (`path_s[-1]`) instead of the stale `path_s[-2]` workaround — avoids `IndexError` on 1-point paths and restores the final closed-track segment after the cumulative `path_s` fix
+- Control: Pure Pursuit clamps lookahead with `max(path_s)` rather than `path_s[-1]`, so a corrupted end sample cannot pin every lookahead to the start/finish
+- Common: `TrajectoryTracker` / `slice_trajectory_horizon` tolerate a 1-point path (final waypoint) — Frenet conversion no longer indexes `next_wp=1` and crashes `VelocityLocalPlanner.replan` at path end
+- Visualizer: Control **Step** / Steer / Accel apply plant control and sync stack PM via `apply_world_control` (same dual-write as teleport after the world/stack ego split)
+- Visualizer: **Save Start** snapshots velocity 0 so Reset matches a cold profile start (live speed is preserved while driving)
+- Execution: perception, planning, and control share one `SensorFrame` per tick instead of each fetching its own — the stack no longer assumes the world holds still between stages, so bridges whose sensors evolve independently (CARLA async mode) stay coherent. `_localization_step` / `_perception_step` / `_replan_step` / `_control_step` now take the snapshot as an argument; each executer loop resolves its pacing gates first and fetches at most once (skipping the fetch entirely when no stage is due)
+- Visualizer: Control **Align** teleports plant ego and syncs stack PM (stack-only writes were undone by GT localization after the world/stack ego split)
+- Common: `TrajectoryTracker.update_waypoint_by_wp` / `update_to_next_waypoint` clamp `next_wp` at the path end — `%` precedence previously left `next_wp == len(path)` and crashed plot/step at the final waypoint
+- Common: `create_quintic_trajectory_sd` b-vector matches the constraint matrix (end 1st / start 2nd derivatives were swapped)
+
 ## [0.5.3] - 2026-07-24
 
 ### Added

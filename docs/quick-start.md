@@ -39,7 +39,11 @@ avlite
 ```
 
 <figure markdown="span">
-  ![AVLite Tk visualizer](imgs/tk_visualizer.png){ width="720" }
+  <video controls muted autoplay loop playsinline
+         poster="/imgs/tk_visualizer.png"
+         width="900">
+    <source src="/imgs/tk_visualizer.mp4" type="video/mp4">
+  </video>
   <figcaption>The Tk visualizer with real-time plots and configuration panels.</figcaption>
 </figure>
 

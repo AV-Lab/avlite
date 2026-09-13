@@ -86,6 +86,11 @@ _INLINE_MD_RE = re.compile(
 )
 
 
+def _display_name(entry: Optional[dict], name: str) -> str:
+    """Registry ``display_name``, falling back to the plugin identifier."""
+    return str((entry or {}).get("display_name") or "").strip() or name
+
+
 class GitHubApiError(Exception):
     """GitHub REST API failure with optional SAML SSO authorize URL."""
 
@@ -508,6 +513,11 @@ class _PluginOperations:
         return str(entry.get("dependency_notes") or "").strip()
 
     @staticmethod
+    def site_url(entry: dict) -> str:
+        """Return stripped ``site_url``, or ``""`` when absent/blank."""
+        return str(entry.get("site_url") or "").strip()
+
+    @staticmethod
     def check_plugin_update(
         plugin_path: Path,
         registry_entry: Optional[dict],
@@ -833,7 +843,7 @@ class _PluginDetailsWindow:
         self._repo_url = _PluginOperations.get_plugin_repository_url(registry_entry, install_path)
         self._dpi_scale = dpi_scale
         self.window = tk.Toplevel(app.window)
-        self.window.title(name)
+        self.window.title(_display_name(registry_entry, name))
         self.window.transient(app.window)
         self.window.geometry(f"{DpiScale.scaled(700, dpi_scale)}x{DpiScale.scaled(500, dpi_scale)}")
         self.window.minsize(DpiScale.scaled(400, dpi_scale), DpiScale.scaled(300, dpi_scale))
@@ -847,7 +857,12 @@ class _PluginDetailsWindow:
 
         meta = ttk.Frame(outer)
         meta.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        for label, key in (("Author", "author"), ("Version", "version"), ("Description", "description")):
+        for label, key in (
+            ("Author", "author"),
+            ("Version", "version"),
+            ("Description", "description"),
+            ("Website", "site_url"),
+        ):
             row = ttk.Frame(meta)
             row.pack(fill=tk.X, anchor=tk.W, pady=1)
             ttk.Label(row, text=f"{label}:", width=12).pack(side=tk.LEFT)
@@ -868,6 +883,15 @@ class _PluginDetailsWindow:
 
         actions = ttk.Frame(footer)
         actions.pack(side=tk.LEFT)
+        site = _PluginOperations.site_url(entry)
+        if site:
+            btn_site = ttk.Button(
+                actions,
+                text="Open Website",
+                command=lambda: webbrowser.open(site),
+            )
+            btn_site.pack(side=tk.LEFT, padx=(0, 6))
+            HoverTooltip.attach(btn_site, BUTTON_TOOLTIPS["cp_site"])
         if self._repo_url:
             btn_github = ttk.Button(
                 actions,
@@ -1383,7 +1407,7 @@ class _PluginRegistryPanel(ttk.Frame):
                 tk.END,
                 iid=name,
                 values=(
-                    name,
+                    _display_name(entry, name),
                     _fmt_category(entry.get("category", "")),
                     entry.get("author", ""),
                     entry.get("version", ""),

@@ -134,11 +134,11 @@ class State:
     length: float = 4.5
 
     def __post_init__(self):
-        # initial x,y position, useful for reset
-        self.__init_x = self.x
-        self.__init_y = self.y
-        self.__init_theta = self.theta
+        self.__start = self.get_copy()
 
+    def set_start(self):
+        """Capture the current state as the snapshot restored by :meth:`reset`."""
+        self.__start.copy_from(self)
 
     def get_bb_corners(self) -> np.ndarray:
         """Get the bounding box corners of the vehicle in world coordinates."""
@@ -171,11 +171,26 @@ class State:
         rotated_corners_y = rotated_corners[1, :] + self.y
 
         return np.c_[rotated_corners_x, rotated_corners_y]
-    
+
+    def pose_matrix(self) -> np.ndarray:
+        """(4, 4) pose of the ego body frame in the map frame: ``p_map = pose_matrix() @ p_body``.
+
+        The body frame has its origin at ``(x, y, z)``, +x along ``theta``, z up.
+        Planar today (yaw only); subclasses that carry roll / pitch override this
+        and every sensor transform built on it follows.
+        """
+        c, s = np.cos(self.theta), np.sin(self.theta)
+        return np.array(
+            [
+                [c, -s, 0.0, self.x],
+                [s, c, 0.0, self.y],
+                [0.0, 0.0, 1.0, self.z],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        )
+
     def reset(self):
-        self.x = self.__init_x
-        self.y = self.__init_y
-        self.theta = self.__init_theta
+        self.copy_from(self.__start)
 
     def copy_from(self, other: State) -> None:
         """Copy dataclass fields from *other* in place (preserves object identity)."""
@@ -204,15 +219,6 @@ class AgentState(State):
     velocity: float = 0.0
     agent_id: int = -1
     agent_type: AgentType = AgentType.ACKERMANN
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.__init_speed = self.velocity
-
-    def reset(self):
-        super().reset()
-        self.velocity = self.__init_speed
-
 
 
 @dataclass

@@ -2,12 +2,15 @@
 // (plugins.yaml) and public GitHub repo stats, then renders a searchable,
 // filterable, sortable card grid. Loaded site-wide via extra_javascript, so it
 // only acts when the page contains #store-grid, and re-initializes on
-// Material's instant navigation via the document$ observable.
+// Material's instant navigation via the document$ observable. Its js-yaml
+// dependency is fetched on demand so other pages never download it.
 (function () {
   "use strict";
 
   var REGISTRY_URL =
     "https://raw.githubusercontent.com/AV-Lab/avlite-community-plugins/main/plugins.yaml";
+  var JS_YAML_URL =
+    "https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js";
   var CACHE_PREFIX = "avlite-store:";
   var CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -38,11 +41,35 @@
 
   // ----------------------------------------------------------------- fetch
 
+  var yamlLoading = null;
+
+  // Fetched here rather than site-wide, so the other pages never pay for it.
+  // A warm registry cache skips the parser entirely.
+  function loadJsYaml() {
+    if (window.jsyaml) return Promise.resolve();
+    if (yamlLoading) return yamlLoading;
+
+    yamlLoading = new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      script.src = JS_YAML_URL;
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = function () {
+        yamlLoading = null;
+        reject(new Error("failed to load js-yaml"));
+      };
+      document.head.appendChild(script);
+    });
+
+    return yamlLoading;
+  }
+
   function fetchRegistry() {
     var cached = cacheGet("registry");
     if (cached) return Promise.resolve(cached);
-    return fetch(REGISTRY_URL)
-      .then(function (res) {
+    return Promise.all([fetch(REGISTRY_URL), loadJsYaml()])
+      .then(function (results) {
+        var res = results[0];
         if (!res.ok) throw new Error("registry HTTP " + res.status);
         return res.text();
       })
@@ -163,6 +190,7 @@
     var stats = p._stats;
     var cats = Array.isArray(p.category) ? p.category : [p.category];
     var author = p.author || "";
+    var label = p.display_name || p.name || "";
 
     var statsHtml = "";
     if (stats) {
@@ -179,7 +207,11 @@
     }
 
     var notes = p.dependency_notes
-      ? '<p class="store-card-notes">' + escapeHtml(p.dependency_notes) + "</p>"
+      ? '<p class="store-card-notes" title="' +
+        escapeHtml(p.dependency_notes) +
+        '">' +
+        escapeHtml(p.dependency_notes) +
+        "</p>"
       : "";
 
     var minVer = p.min_avlite_version
@@ -188,16 +220,30 @@
         "</span>"
       : "";
 
-    return (
-      '<a class="store-card" href="' +
+    var actions =
+      '<div class="store-card-actions">' +
+      (p.site_url
+        ? '<a class="store-btn store-btn--primary" href="' +
+          escapeHtml(p.site_url) +
+          '" target="_blank" rel="noopener" aria-label="' +
+          escapeHtml(label) +
+          ' website">Site</a>'
+        : "") +
+      '<a class="store-btn" href="' +
       escapeHtml(p.repository) +
-      '" target="_blank" rel="noopener">' +
+      '" target="_blank" rel="noopener" aria-label="' +
+      escapeHtml(label) +
+      ' repository">Repo</a>' +
+      "</div>";
+
+    return (
+      '<div class="store-card">' +
       '<div class="store-card-head">' +
       '<img class="store-card-avatar" src="https://github.com/' +
       encodeURIComponent(author) +
       '.png?size=64" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
       "<div>" +
-      '<span class="store-card-name">' + escapeHtml(p.name) + "</span>" +
+      '<span class="store-card-name">' + escapeHtml(label) + "</span>" +
       '<span class="store-card-author">by ' + escapeHtml(author) + "</span>" +
       "</div>" +
       "</div>" +
@@ -211,8 +257,9 @@
       minVer +
       "</div>" +
       notes +
+      actions +
       statsHtml +
-      "</a>"
+      "</div>"
     );
   }
 
@@ -242,6 +289,7 @@
         if (!q) return true;
         return (
           (p.name || "").toLowerCase().indexOf(q) !== -1 ||
+          (p.display_name || "").toLowerCase().indexOf(q) !== -1 ||
           (p.description || "").toLowerCase().indexOf(q) !== -1 ||
           (p.author || "").toLowerCase().indexOf(q) !== -1
         );
@@ -258,7 +306,9 @@
           var tb = sb && sb.pushed_at ? new Date(sb.pushed_at).getTime() : 0;
           return tb - ta;
         }
-        return (a.name || "").localeCompare(b.name || "");
+        return (a.display_name || a.name || "").localeCompare(
+          b.display_name || b.name || ""
+        );
       });
 
       grid.innerHTML = shown.length

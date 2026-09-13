@@ -6,7 +6,7 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, PerceptionModel, RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c40_execution.c46_basic_sim import BasicSim, boundary_segments_from_map
+from avlite.c40_execution.c46_basic_sim import BasicSim, boundary_segments_from_map, lidar_2d_to_4
 from avlite.c50_common.c51_capabilities import StackCapability
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
@@ -78,3 +78,35 @@ def test_basic_sim_stack_requirements_control_readable_from_class():
     assert StackCapability.DETECTION in BasicSim.stack_capabilities
     assert StackCapability.TRACKING in BasicSim.stack_capabilities
     assert StackCapability.LOCALIZATION in BasicSim.stack_capabilities
+
+
+def test_lidar_hits_are_in_ego_frame():
+    """Corridor walls at y=±1: hits must be relative to the ego, not map coordinates."""
+    left = np.array([[-50.0, 1.0], [50.0, 1.0]])
+    right = np.array([[-50.0, -1.0], [50.0, -1.0]])
+    race_map = RaceMap(source_path="synthetic", left_bound=left, right_bound=right)
+    # Ego far from the origin, facing +y: walls now lie at ego-frame x = ±1.
+    ego = EgoState(x=20.0, y=0.0, theta=math.pi / 2)
+    sim = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego), map=race_map)
+
+    cloud = sim.get_lidar_data()
+    assert cloud.shape[1] == 4 and cloud.dtype == np.float32
+    assert len(cloud) > 0
+    # Every hit lies on one of the walls: ego-frame |x| == 1 (wall at map y=±1),
+    # so nothing sits at map x ≈ 20 as it would with world-frame output.
+    np.testing.assert_allclose(np.abs(cloud[:, 0]), 1.0, atol=1e-4)
+    assert np.all(cloud[:, 2:] == 0)
+
+
+def test_lidar_2d_to_4():
+    pts = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)
+    out = lidar_2d_to_4(pts)
+    assert out.shape == (2, 4)
+    assert out.dtype == np.float32
+    np.testing.assert_array_equal(out[:, :2], pts.astype(np.float32))
+    assert np.all(out[:, 2:] == 0)
+
+
+def test_lidar_2d_to_4_empty():
+    out = lidar_2d_to_4(np.zeros((0, 2)))
+    assert out.shape == (0, 4)

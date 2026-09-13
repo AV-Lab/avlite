@@ -1,6 +1,6 @@
 import numpy as np
 
-from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel, SingleTrajectory
+from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel, SingleTrajectory, State
 from avlite.c10_perception.c12_perception_strategy import (
     DetectionStrategy,
     PredictionStrategy,
@@ -8,7 +8,7 @@ from avlite.c10_perception.c12_perception_strategy import (
 )
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c50_common.c51_capabilities import AnyOf, MayUse, StackCapability, WorldCapability
-from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
+from avlite.c50_common.c52_world_sensor_datatypes import Lidar, SensorFrame
 
 import logging 
 
@@ -217,7 +217,10 @@ class KalmanTracker(TrackingStrategy):
 class FastBEVLidarDetection(DetectionStrategy):
     """LiDAR object detection via BEV segmentation and rotating-calipers MBR.
 
-    Accepts both 2D scans ``(N, 2)`` and 3D point clouds ``(N, 3+)``.  For 3D
+    Accepts both 2D scans ``(N, 2)`` and 3D point clouds ``(N, 3+)`` in the
+    lidar's own coordinate frame; ``sensors.lidar_sensor.to_map`` places them in the map
+    frame with ``perception_model.ego_vehicle`` before clustering, so detected
+    agents come out in map coordinates.  For 3D
     input, points outside ``[z_min, z_max]`` are discarded before the BEV
     pipeline, removing the ground plane and rooftop returns.
 
@@ -279,7 +282,11 @@ class FastBEVLidarDetection(DetectionStrategy):
         if lidar_data is None or len(lidar_data) == 0:
             perception_model.detection_clusters = None
             return perception_model
-        pts = np.asarray(lidar_data, dtype=float)
+        ego = perception_model.ego_vehicle if perception_model.ego_vehicle is not None else State(theta=0.0)
+        ego_xytheta = (ego.x, ego.y, ego.theta)
+        # Sensor frame → map frame via the stack's own pose estimate.
+        lidar_sensor = sensors.lidar_sensor if sensors is not None else Lidar()
+        pts = np.asarray(lidar_sensor.to_map(lidar_data, ego), dtype=float)
         if pts.shape[1] >= 3:
             mask = (pts[:, 2] >= self._z_min) & (pts[:, 2] <= self._z_max)
             pts = pts[mask]
@@ -287,8 +294,6 @@ class FastBEVLidarDetection(DetectionStrategy):
                 perception_model.detection_clusters = None
                 return perception_model
         pts_xy = pts[:, :2]
-        ego = perception_model.ego_vehicle
-        ego_xytheta = (ego.x, ego.y, ego.theta) if ego else (0.0, 0.0, 0.0)
         perception_model.agent_vehicles = []
         accepted: list[np.ndarray] = []
         for cluster in self._segment(pts_xy):

@@ -229,12 +229,12 @@ def test_harvest_plan_stack_event_notifies_once():
         local_planner=local_planner,
         controller=None,
     )
-    executer._replan_step()
+    executer._replan_step(world.get_sensor_frame())
     assert LocalPlanFailedListener.calls == [StackEvent.LOCAL_PLAN_FAILED]
     assert plan.stack_event is None
 
     LocalPlanFailedListener.calls = []
-    executer._replan_step()
+    executer._replan_step(world.get_sensor_frame())
     assert LocalPlanFailedListener.calls == []
 
 
@@ -264,12 +264,12 @@ def test_harvest_perception_stack_event_notifies_once():
         local_planner=None,
         controller=None,
     )
-    executer._perception_step()
+    executer._perception_step(world.get_sensor_frame())
     assert ParkingZoneListener.calls == [StackEvent.PARKING_ZONE_ENTERED]
     assert pm.stack_event is None
 
     ParkingZoneListener.calls = []
-    executer._perception_step()
+    executer._perception_step(world.get_sensor_frame())
     assert ParkingZoneListener.calls == []
 
 
@@ -299,12 +299,12 @@ def test_harvest_control_stack_event_notifies_once():
         local_planner=local_planner,
         controller=controller,
     )
-    executer._control_step(sim_dt=0.01)
+    executer._control_step(sim_dt=0.01, sensors=world.get_sensor_frame())
     assert ControlHaltedListener.calls == [StackEvent.CONTROL_HALTED]
     assert cmd.stack_event is None
 
     ControlHaltedListener.calls = []
-    executer._control_step(sim_dt=0.01)
+    executer._control_step(sim_dt=0.01, sensors=world.get_sensor_frame())
     assert ControlHaltedListener.calls == []
 
 

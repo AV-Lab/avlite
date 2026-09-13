@@ -75,6 +75,12 @@ def test_load_setting_uses_plugin_section_after_import(dashed_plugin, monkeypatc
     assert PluginSettings.control_dt == pytest.approx(0.07)
 
 
+def test_load_community_plugin_setting_missing_install_is_non_fatal(monkeypatch, tmp_path):
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "empty_plugins"))
+    (tmp_path / "empty_plugins").mkdir()
+    assert load_community_plugin_setting("no-such-plugin", "no-such-plugin") is None
+
+
 def test_load_community_plugin_setting_reuses_imported_singleton(dashed_plugin, monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
     import_plugin_modules(str(dashed_plugin), pkg_name=_PLUGIN_NAME)
@@ -139,6 +145,8 @@ def test_find_community_plugin_dir_from_community_dev(monkeypatch, tmp_path):
 
 def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "empty_plugins"))
+    (tmp_path / "empty_plugins").mkdir()
     (tmp_path / "default.yaml").write_text(
         yaml.dump(
             {
@@ -146,7 +154,10 @@ def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatc
                     "c62_community_plugins": {
                         _PLUGIN_NAME: str(dashed_plugin),
                     },
-                }
+                },
+                "plugins": {
+                    "avlite_executer_ROS2": {"replan_dt": 0.42, "control_dt": 0.07},
+                },
             }
         ),
         encoding="utf-8",
@@ -157,8 +168,10 @@ def test_load_stack_settings_imports_community_plugins(dashed_plugin, monkeypatc
     _clear_plugin_modules(_PLUGIN_NAME)
     load_stack_settings(profile="default", load_plugins=True)
 
-    prefix = plugin_module_prefix(_PLUGIN_NAME)
-    assert f"{prefix}.settings" in sys.modules
+    cls = load_community_plugin_setting(_PLUGIN_NAME, str(dashed_plugin), profile="default")
+    assert cls is not None
+    assert cls.replan_dt == pytest.approx(0.42)
+    assert cls.control_dt == pytest.approx(0.07)
 
 
 def test_reload_lib_reloads_core_before_plugins(monkeypatch):

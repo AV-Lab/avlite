@@ -152,6 +152,42 @@ class TestSampleNodes:
             planning_horizon=planning_horizon,
         )
 
+    def test_one_point_path_does_not_index_error_on_track_end(self):
+        """Regression: path_s[-2] raised IndexError on 1-point globals after path_s fix."""
+        tj = TrajectoryTracker(path=[(0.0, 0.0)], velocity=[0.0])
+        lattice = Lattice(
+            global_trajectory=tj,
+            ref_left_boundary_d=[3.0],
+            ref_right_boundary_d=[-3.0],
+            planning_horizon=2,
+        )
+        lattice.sample_nodes(
+            s=0.0, d=0.0, sample_size=3, maneuver_distance=20.0,
+            boundary_clearance=0.5, lateral_reach=float("inf"), sample_distribution=0,
+        )
+        assert 0 in lattice.lattice_nodes_by_level
+        assert 1 not in lattice.lattice_nodes_by_level  # truncated at track end
+
+    def test_closed_track_samples_through_final_segment(self):
+        """track_end_s must be path_s[-1]; path_s[-2] truncated the closing segment."""
+        path = [(0.0, 0.0), (30.0, 0.0), (30.0, 30.0), (0.0, 0.0)]
+        tj = TrajectoryTracker(path=path, velocity=[5.0] * len(path))
+        n = len(path)
+        lattice = Lattice(
+            global_trajectory=tj,
+            ref_left_boundary_d=[3.0] * n,
+            ref_right_boundary_d=[-3.0] * n,
+            planning_horizon=5,
+        )
+        # Closing segment is (path_s[-2], track_end_s]; a sample there used to be cut.
+        assert tj.path_s[-2] < 70.0 < tj.track_end_s
+        lattice.sample_nodes(
+            s=65.0, d=0.0, sample_size=3, maneuver_distance=10.0,
+            boundary_clearance=0.5, lateral_reach=float("inf"), sample_distribution=0,
+        )
+        assert 1 in lattice.lattice_nodes_by_level
+        assert lattice.lattice_nodes_by_level[1][0].s == pytest.approx(75.0)
+
     def test_each_level_has_sample_size_distinct_offsets(self):
         # Regression: with the boundary convention left(+) > right(-), the sampling
         # band must not collapse — each level should carry `sample_size` distinct d's
@@ -174,6 +210,38 @@ class TestSampleNodes:
         )
         for node in lattice.lattice_nodes_by_level[1]:
             assert -2.5 <= node.d <= 2.5  # [right + clr, left - clr]
+
+
+class TestReplanTrackEnd:
+    def test_two_point_path_replans_instead_of_treating_end_as_zero(self):
+        """path_s[-2] on a 2-point path is 0, so the old end gate blocked all replans."""
+        path = [(0.0, 0.0), (100.0, 0.0)]
+        vel = [10.0, 10.0]
+        left = [3.0, 3.0]
+        right = [-3.0, -3.0]
+        tj = TrajectoryTracker(path=path, velocity=vel)
+        tj.ref_left_boundary_d = left
+        tj.ref_right_boundary_d = right
+        global_plan = GlobalPlan(
+            start_point=path[0],
+            goal_point=path[-1],
+            path=path,
+            velocity=vel,
+            trajectory=tj,
+            left_boundary_d=left,
+            right_boundary_d=right,
+        )
+        pm = PerceptionModel(ego_vehicle=EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0))
+        planner = GreedyLatticePlanner(global_plan=global_plan, env=pm)
+        planner.maneuver_distance = 20.0
+        planner.location_sd = (0.0, 0.0)
+        planner.traversed_s = [0.0]
+
+        assert planner.location_sd[0] + planner.maneuver_distance > tj.path_s[-2]
+        assert planner.location_sd[0] + planner.maneuver_distance <= tj.track_end_s
+
+        planner.replan()
+        assert planner.selected_local_plan is not None
 
 
 class TestLatticeReset:

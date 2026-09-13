@@ -12,7 +12,7 @@ from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
 from avlite.c30_control.c34_stanley import StanleyController
 from avlite.c30_control.c32_control_strategy import ControlStrategy
-from avlite.c50_common.c52_world_sensor_datatypes import LidarCloud, lidar_2d_to_4
+from avlite.c50_common.c52_world_sensor_datatypes import LidarCloud
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
@@ -103,23 +103,21 @@ class BasicSim(WorldBridge):
         id = self.pm.add_agent_vehicle(agent_state)
 
         ref = global_plan.trajectory if global_plan is not None else None
-        if not self.npc_control or ref is None or len(ref.path) == 0:
-            if self.npc_control and (ref is None or len(ref.path) == 0):
-                log.warning("spawn_agent: no global plan available; NPC will not be controlled")
-            return
+        if self.npc_control and ref is not None and len(ref.path) > 0:
+            tj = TrajectoryTracker(
+                path=list(ref.path),
+                velocity=[v * self.speed_factor for v in ref.velocity],
+            )
+            tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
+            agent_state.velocity = tj.velocity[tj.current_wp]
 
-        tj = TrajectoryTracker(
-            path=list(ref.path),
-            velocity=[v * self.speed_factor for v in ref.velocity],
-        )
-        tj.update_waypoint_by_xy(agent_state.x, agent_state.y)
-        agent_state.velocity = tj.velocity[tj.current_wp]
+            controller = StanleyController(tj=tj)
+            controller.reset()
+            self.npc_controllers[id] = controller
+        elif self.npc_control:
+            log.warning("spawn_agent: no global plan available; NPC will not be controlled")
 
-        controller = StanleyController(tj=tj)
-        controller.reset()
-        self.npc_controllers[id] = controller
-
-        
+        agent_state.set_start()
 
     def get_ego_state(self):
 
@@ -136,10 +134,12 @@ class BasicSim(WorldBridge):
         return self.pm
 
     def reset(self):
-        """Clear simulated NPC agents and their controllers."""
-        if self.pm is not None:
-            self.pm.reset()
-        self.npc_controllers = {}
+        """Restore the ego and simulated NPCs to their start poses."""
+        self.ego_state.reset()
+        for agent in self.pm.agent_vehicles if self.pm is not None else []:
+            agent.reset()
+            if agent.agent_id in self.npc_controllers:
+                self.npc_controllers[agent.agent_id].reset()
 
     # ------------------------------------------------------------------
     # 2D LiDAR simulation
@@ -156,18 +156,19 @@ class BasicSim(WorldBridge):
         return np.concatenate(segments, axis=0) if segments else np.empty((0, 2, 2))
 
     def get_lidar_data(self) -> Optional[LidarCloud]:
-        """Simulate a 2D LiDAR scan, returning world-frame hits as (N, 4) float32.
+        """Simulate a 2D LiDAR scan, returning ego-frame hits as (N, 4) float32.
 
         Casts ``num_beams`` rays over ``fov_deg`` (centred on the ego heading)
         against agent bounding boxes and road boundaries, keeping the nearest
         intersection per beam within ``range``.  Beams that hit nothing are
-        skipped.  z and intensity columns are zero (2D scanner).
+        skipped.  Hits are expressed in the ego body frame (scanner at the body
+        origin, +x along heading); z and intensity columns are zero (2D scanner).
         """
         points_2d = self._simulate_lidar_2d()
         return lidar_2d_to_4(points_2d)
 
     def _simulate_lidar_2d(self) -> np.ndarray:
-        """Return ordered world-frame 2D hits (N, 2)."""
+        """Return ordered ego-frame 2D hits (N, 2)."""
         segments = self.__collect_segments()
         if len(segments) == 0:
             return np.empty((0, 2))
@@ -178,9 +179,12 @@ class BasicSim(WorldBridge):
         origin = np.array([self.ego_state.x, self.ego_state.y])
 
         if fov >= 2 * math.pi:
-            angles = self.ego_state.theta + np.linspace(0, 2 * math.pi, n, endpoint=False)
+            local_angles = np.linspace(0, 2 * math.pi, n, endpoint=False)
         else:
-            angles = self.ego_state.theta + np.linspace(-fov / 2, fov / 2, n)
+            local_angles = np.linspace(-fov / 2, fov / 2, n)
+        # Raycast in the world frame; report hits along the ego-frame beam directions.
+        local_dirs = np.stack([np.cos(local_angles), np.sin(local_angles)], axis=1)  # (n, 2)
+        angles = self.ego_state.theta + local_angles
         directions = np.stack([np.cos(angles), np.sin(angles)], axis=1)  # (n, 2)
 
         # Segment endpoints: p = seg[:,0], q = seg[:,1]; edge e = q - p
@@ -204,8 +208,19 @@ class BasicSim(WorldBridge):
         if not hit.any():
             return np.empty((0, 2))
         ranges = nearest[hit]
-        dirs = directions[hit]
-        return origin + ranges[:, None] * dirs
+        return ranges[:, None] * local_dirs[hit]
+
+
+def lidar_2d_to_4(points_2d: np.ndarray) -> LidarCloud:
+    """Convert (N, 2) ego-frame hits to canonical (N, 4) lidar format."""
+    n = points_2d.shape[0]
+    if n == 0:
+        return np.zeros((0, 4), dtype=np.float32)
+    pts = np.asarray(points_2d, dtype=np.float32)
+    if pts.ndim != 2 or pts.shape[1] != 2:
+        raise ValueError(f"expected (N, 2) lidar, got shape {pts.shape}")
+    return np.c_[pts, np.zeros((n, 2), dtype=np.float32)]
+
 
 def boundary_segments_from_map(map: Map | None) -> np.ndarray:
     """Build (M, 2, 2) LiDAR raycast segments from a RaceMap; empty for other maps."""

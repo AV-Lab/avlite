@@ -121,7 +121,7 @@ c40_execution:
   c40_local_planner: ShortestPathLatticePlanner
   c40_localization: ''
   c40_localization_dt: 0.1
-  c40_log_level: WARN
+  c40_log_level: INFO
   c40_log_to_file: false
   c40_map: data/Town10HD_Opt.xodr
   c40_mapping: MapReader
@@ -173,7 +173,7 @@ plugins:
     p60_next_profile: hdmap
     p60_shortcut_mode: false
     p66_frenet_view_follow_planner: false
-    p66_frenet_zoom: 30.0
+    p66_frenet_zoom: 20.0
     p66_global_plan_velocity_scale: relative
     p66_global_view_follow_planner: false
     p66_global_zoom: 239.3495010406173

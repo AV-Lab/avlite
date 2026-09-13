@@ -240,3 +240,63 @@ def test_factory_world_ego_is_not_pm_ego(minimal_corridor_map_path):
     assert exec_.world.get_ego_state() is not exec_.pm.ego_vehicle
     assert exec_.world.get_ego_state().x == pytest.approx(exec_.pm.ego_vehicle.x)
     assert exec_.world.get_ego_state().y == pytest.approx(exec_.pm.ego_vehicle.y)
+
+
+def test_control_align_must_teleport_world_or_gt_undoes_stack_only_write():
+    """Control Align used to assign only ``exec.ego_state`` (stack PM).
+
+    After the world/stack ego split, GT localization copies world → PM each tick,
+    so a stack-only write is discarded. Align must teleport the plant and sync PM
+    (same dual-write as ``VisualizerApp.teleport_ego``).
+    """
+    ExecutionSettings.c41_world_stack_capabilities = None  # GT LOCALIZATION on
+    world_ego = EgoState(x=10.0, y=20.0, theta=0.0)
+    stack_ego = EgoState(x=10.0, y=20.0, theta=0.0)
+    world = _PlantWorld(ego_state=world_ego, advance_dx=0.0)
+    pm = PerceptionModel(ego_vehicle=stack_ego)
+    exec_ = _make_exec(world=world, pm=pm)
+
+    # Broken Align pattern (stack only) — undone by the next GT tick.
+    exec_.ego_state.x, exec_.ego_state.y = 100.0, 200.0
+    exec_.step(
+        sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
+        call_replan=False, call_perceive=False, call_localize=False, call_control=False,
+    )
+    assert pm.ego_vehicle.x == pytest.approx(10.0)
+    assert world_ego.x == pytest.approx(10.0)
+
+    # Correct Align pattern: move plant, then sync stack (teleport_ego).
+    world_ego.x, world_ego.y = 100.0, 200.0
+    pm.ego_vehicle.copy_from(world.get_ego_state())
+    exec_.step(
+        sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
+        call_replan=False, call_perceive=False, call_localize=False, call_control=False,
+    )
+    assert world_ego.x == pytest.approx(100.0)
+    assert world_ego.y == pytest.approx(200.0)
+    assert pm.ego_vehicle.x == pytest.approx(100.0)
+    assert pm.ego_vehicle.y == pytest.approx(200.0)
+
+
+def test_manual_world_control_must_sync_stack_pm():
+    """Control Step / Steer used to call ``world.control_ego_state`` only.
+
+    Stack PM ego then lagged until the next GT tick, so the UI and subsequent
+    manual control steps read a stale pose. Dual-write like teleport.
+    """
+    world_ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+    stack_ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+    world = _PlantWorld(ego_state=world_ego, advance_dx=1.5)
+    pm = PerceptionModel(ego_vehicle=stack_ego)
+
+    # Broken pattern: plant moves, stack stays put.
+    world.control_ego_state(ControlCommand(), dt=0.01)
+    assert world_ego.x == pytest.approx(1.5)
+    assert pm.ego_vehicle.x == pytest.approx(0.0)
+
+    # Correct pattern (VisualizerApp.apply_world_control).
+    world.control_ego_state(ControlCommand(), dt=0.01)
+    pm.ego_vehicle.copy_from(world.get_ego_state())
+    assert world_ego.x == pytest.approx(3.0)
+    assert pm.ego_vehicle.x == pytest.approx(3.0)
+    assert pm.ego_vehicle.y == pytest.approx(world_ego.y)

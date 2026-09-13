@@ -122,12 +122,14 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
     ```yaml
     plugins:
       - name: my_perception_plugin
+        display_name: My Perception Plugin   # optional, defaults to name
         description: One-line summary of what the plugin does
         repository: https://github.com/your-org/your-plugin-repo
         version: latest        # or a tag/commit SHA
         author: your-org
         category:
           - PerceptionStrategy
+        site_url: ""           # optional project website
     ```
 
 4. Open a pull request. Once merged, the plugin appears in every user's

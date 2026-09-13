@@ -22,8 +22,11 @@ with stats straight from GitHub.
   <div class="store-counter"><span class="store-counter-value" id="counter-categories">–</span><span class="store-counter-label">Categories</span></div>
 </div>
 
+<div class="store-hero-actions" markdown>
 [Submit your plugin](plugin-development.md#11-publish-to-the-community-registry-pull-request){ .md-button .md-button--primary }
 [Build a plugin](plugin-development.md){ .md-button }
+[Support](support.md){ .md-button }
+</div>
 
 </div>
 

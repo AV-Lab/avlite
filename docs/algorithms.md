@@ -406,7 +406,7 @@ Requires a plan (global or local) and localization. Finds the ego’s progress \
 
 ### Follow the Gap (`FollowTheGapController`)
 
-Requires LiDAR (`LIDAR_2D` or `LIDAR_3D`) and localization; a plan is optional. The executer passes a `SensorFrame`; the controller reads `sensors.lidar`. World-frame hits are squashed to 2D (optional z-band), transformed into the ego frame, and points inside `c35_bubble_radius` are dropped. In the forward half-plane (`x>0`), the controller finds angular gaps between consecutive returns. Interior gaps are preferred over the ±90° FOV-edge candidates. When a trajectory is available, among gaps at least `c35_min_gap_width` wide it picks the mid-bearing closest to the path lookahead; otherwise it picks the widest interior gap. A Pure Pursuit target is placed at that bearing and distance \(L_d\).
+Requires LiDAR (`LIDAR_2D` or `LIDAR_3D`) and localization; a plan is optional. The executer passes a `SensorFrame`; the controller reads `sensors.lidar`. Hits in the lidar's own coordinate frame are brought into the ego body frame with `sensors.lidar_sensor` (identity when `None`), squashed to 2D (optional z-band), and points inside `c35_bubble_radius` are dropped. In the forward half-plane (`x>0`), the controller finds angular gaps between consecutive returns. Interior gaps are preferred over the ±90° FOV-edge candidates. When a trajectory is available, among gaps at least `c35_min_gap_width` wide it picks the mid-bearing closest to the path lookahead; otherwise it picks the widest interior gap. A Pure Pursuit target is placed at that bearing and distance \(L_d\).
 
 Without a plan, speed tracks `c35_cruise_velocity`; with a plan, waypoint velocity is used (steering still comes from the gap).
 

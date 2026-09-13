@@ -115,6 +115,7 @@ c40_execution:
   c40_control_dt: 0.01
   c40_controller: StanleyController
   c40_executer_type: AsyncThreadedExecuter
+  c40_execution_tasks: []
   c40_global_planner: HDMapGlobalPlanner
   c40_global_trajectory: data/san_campus.json
   c40_local_planner: VelocityLocalPlanner
@@ -124,11 +125,16 @@ c40_execution:
   c40_log_to_file: false
   c40_map: data/san_campus.xodr
   c40_mapping: MapReader
+  c40_pace_control: true
+  c40_pace_perception: true
+  c40_pace_replan: true
+  c40_pace_sim: false
   c40_perception: PerceptionPipeline
   c40_perception_dt: 0.01
   c40_reference_point: null
   c40_replan_dt: 0.01
   c40_sim_dt: 0.01
+  c40_start_pose: []
   c41_world_capabilities:
   - IMU
   - GNSS

@@ -382,12 +382,37 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
 | `teleport_agent(agent_state)` | Default: ego delegates to `teleport_ego` using pose (`x`, `y`, `theta`) from `agent_state`; NPC raises `NotImplementedError`. Identity is `agent_state.agent_id`; velocity/size/type are not applied | Override for sim teleport of any agent |
 | `get_*(agent_id=EGO_AGENT_ID)` | Default: ego returns data or `None`; NPC raises `NotImplementedError` | Per-agent sensors in Carla / ROS bridges |
-| `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible) | Non-ego: passes `agent_id` to each getter |
+| `get_camera_sensor(agent_id=...)` | Default `None`; required when the bridge declares `CAMERA_RGB` / `CAMERA_DEPTH` | Extra cameras go in `SensorFrame.additional_frames` |
+| `get_lidar_sensor(agent_id=...)` | Default identity `Lidar()` (cloud already in the ego body frame); override to return the static `Lidar(base_to_sensor=...)` mount | Extra lidars go in `SensorFrame.additional_frames` |
+| `get_imu_sensor(agent_id=...)`, `get_gnss_sensor(agent_id=...)` | Default identity `Sensor()`; override to return the device mount | — |
+| `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible). `additional_frames` stays `None` unless an override fills named extra lidars/IMUs/cameras (leaf `SensorFrame`s; nested `additional_frames` stays `None`) | Non-ego: passes `agent_id` to each getter |
 | `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |
 
 `control_type(agent)` lives on **`WorldBridge` only** — not on `ControlStrategy`. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of `control()`.
 
 **Multi-agent sensors:** override getters with an `agent_id` parameter when your bridge serves more than ego. Ego-only bridges (e.g. BasicSim) need no update — `get_sensor_frame()` uses the legacy no-kwargs call path for ego.
+
+#### Frames vs ROS TF
+
+ROS nodes typically publish each sensor in its own link (`lidar_link`, `camera_optical`, `base_link`) and look up “where was A relative to B at time t” from a TF tree. AVLite does not. `get_sensor_frame()` is the compose step: the bridge converts simulator or ROS messages **there**, and the stack never queries a transform tree. Map / global axes are defined in [Architecture → Coordinate system](architecture.md#coordinate-system).
+
+**Measurements stay in the device's own coordinate frame; the bridge supplies only static sensors.** A *sensor* (`Sensor`, `Camera`, `Lidar`) is the static description of a device: its calibration plus `base_to_sensor`, the pose of the device in the ego body frame (what a simulator attach transform or an extrinsic calibration gives you), `p_body = base_to_sensor @ p_sensor`. A *measurement* (`rgb`, `depth`, `lidar`, `ImuReading`, `GnssReading`, `WheelOdometry`) is the per-tick data and carries no mount. In `SensorFrame`, `<x>` is the measurement and `<x>_sensor` is the device that produced it. Never apply the ego pose in the bridge — the stack composes sensor → body → map with its own estimate via `Sensor.to_map(points, perception_model.ego_vehicle)`, which is what keeps a localization strategy independent of ground truth. `sensors.lidar` is the raw cloud; return its mount from `get_lidar_sensor()` (the default identity is right when the cloud is already in the body frame, as with BasicSim). Names such as `"lidar_top"` in `additional_frames` are labels, not frame ids.
+
+#### Camera geometry
+
+A bridge declaring `WorldCapability.CAMERA_RGB` or `CAMERA_DEPTH` must also override `get_camera_sensor()`. `Camera` is the intrinsic plus the static mount of the optical frame:
+
+```python
+def get_camera_sensor(self, agent_id=EGO_AGENT_ID) -> Camera:
+    return Camera(
+        intrinsic=self._K,                      # (3, 3) [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
+        width=self._width,
+        height=self._height,
+        base_to_sensor=self._T_body_optical,    # (4, 4) static: optical frame pose in the ego body frame
+    )
+```
+
+The camera's coordinate frame is the **OpenCV optical frame**: x right, y down, z forward along the optical axis, z > 0 in front of the camera. `base_to_sensor` therefore includes the body → optical axis rotation (for a forward-looking camera, body x → optical z, body −y → optical x, body −z → optical y). A fusion strategy projects a map point with `p_cam = inv(ego.pose_matrix() @ base_to_sensor) @ p_map` where `ego` is the stack's pose estimate. Getting the optical convention wrong produces a plausible-looking but incorrect projection, so convert in the bridge rather than passing simulator axes through.
 
 ### State model — today vs future
 
@@ -525,22 +550,30 @@ Fork [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugi
 ```yaml
 plugins:
   - name: my_perception_plugin
+    display_name: My Perception Plugin   # optional
     description: One-line summary of what the plugin does
     repository: https://github.com/your-org/your-plugin-repo
     version: latest              # or a git tag / commit SHA
     author: your-org
     category:
       - PerceptionStrategy
+    min_avlite_version: "0.4.5"  # optional
+    dependency_notes: ""         # optional
+    site_url: ""                 # optional
 ```
 
-| Field | Notes |
-|-------|-------|
-| `name` | Unique registry id; also the install folder name under `~/.local/share/avlite/plugins/`. Use lowercase with underscores. |
-| `description` | Short text in the plugin list. |
-| `repository` | HTTPS Git URL (GitHub is supported for README preview in the browser). |
-| `version` | `latest` clones the default branch; pin a tag or SHA for reproducible installs. |
-| `author` | Display name, handle, or organization. |
-| `category` | List of strategy types this plugin provides (see table below). Shown in the Plugins browser **Category** column. |
+| Field | Required | Notes |
+|-------|:--------:|-------|
+| `name` | yes | Unique registry id; also the install folder name under `~/.local/share/avlite/plugins/`, the `avlite.plugins.<name>` import path (dashes become underscores), and the `plugin_<name>.yaml` settings basename. Use lowercase with underscores, no spaces, and don't change it once published. |
+| `display_name` | no | Human-readable name shown in the Plugins browser and the online plugin store, e.g. `My Perception Plugin`. Omit it to display `name` instead. |
+| `description` | yes | Short text in the plugin list. |
+| `repository` | yes | HTTPS Git URL (GitHub is supported for README preview in the browser). |
+| `version` | yes | `latest` clones the default branch; pin a tag or SHA for reproducible installs. |
+| `author` | yes | Display name, handle, or organization. |
+| `category` | yes | List of strategy types this plugin provides (see table below). Shown in the Plugins browser **Category** column. |
+| `min_avlite_version` | no | Minimum AVLite version (semver, e.g. `0.4.5`). Installs are blocked below it. Omit or leave empty if unknown. |
+| `dependency_notes` | no | Extra setup beyond `requirements.txt` (system packages, ROS, simulators). Shown after install. Use `""` when pip-only. |
+| `site_url` | no | Project website or documentation page. Adds a **Site** link in the plugin store and an **Open Website** button in the Plugins browser. Use `""` when the repository is the only home. |
 
 **Category values** (use the names from [avlite-community-plugins](https://github.com/AV-Lab/avlite-community-plugins)):
 
@@ -580,7 +613,7 @@ You do not need a new AVLite release for registry-only changes.
 ### Updating your listing
 
 - **New plugin version** — push to your repo; users click **Update** in the Plugins browser (or reinstall). Bump `version` in `plugins.yaml` if you want to pin a new tag/SHA for fresh installs.
-- **Change metadata** — open another PR on avlite-community-plugins to edit `description`, `author`, `category`, or `version`.
+- **Change metadata** — open another PR on avlite-community-plugins to edit `display_name`, `description`, `author`, `category`, `version`, or `site_url`. Avoid changing `name`: it is the install folder and settings-file identifier, so renaming it orphans existing installs.
 
 ## 12. Built-in plugin naming (`pNx`)
 
