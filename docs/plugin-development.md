@@ -382,7 +382,9 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
 | `teleport_agent(agent_state)` | Default: ego delegates to `teleport_ego` using pose (`x`, `y`, `theta`) from `agent_state`; NPC raises `NotImplementedError`. Identity is `agent_state.agent_id`; velocity/size/type are not applied | Override for sim teleport of any agent |
 | `get_*(agent_id=EGO_AGENT_ID)` | Default: ego returns data or `None`; NPC raises `NotImplementedError` | Per-agent sensors in Carla / ROS bridges |
-| `get_camera_params(agent_id=...)` | Default `None`; required when the bridge declares `CAMERA_RGB` / `CAMERA_DEPTH` | Extra cameras go in `SensorFrame.additional_frames` |
+| `get_camera_sensor(agent_id=...)` | Default `None`; required when the bridge declares `CAMERA_RGB` / `CAMERA_DEPTH` | Extra cameras go in `SensorFrame.additional_frames` |
+| `get_lidar_sensor(agent_id=...)` | Default identity `Lidar()` (cloud already in the ego body frame); override to return the static `Lidar(base_to_sensor=...)` mount | Extra lidars go in `SensorFrame.additional_frames` |
+| `get_imu_sensor(agent_id=...)`, `get_gnss_sensor(agent_id=...)` | Default identity `Sensor()`; override to return the device mount | — |
 | `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible). `additional_frames` stays `None` unless an override fills named extra lidars/IMUs/cameras (leaf `SensorFrame`s; nested `additional_frames` stays `None`) | Non-ego: passes `agent_id` to each getter |
 | `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |
 
@@ -394,23 +396,23 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 
 ROS nodes typically publish each sensor in its own link (`lidar_link`, `camera_optical`, `base_link`) and look up “where was A relative to B at time t” from a TF tree. AVLite does not. `get_sensor_frame()` is the compose step: the bridge converts simulator or ROS messages **there**, and the stack never queries a transform tree. Map / global axes are defined in [Architecture → Coordinate system](architecture.md#coordinate-system).
 
-**Lidar from the world bridge is already in that global (map) frame** — the same `x/y/z` as `EgoState` — including extra lidars in `SensorFrame.additional_frames`. Names such as `"lidar_top"` are labels, not TF frames. Camera images stay in the camera; `CameraParams.world_to_camera` is the leftover extrinsic because an image cannot be rewritten as world pixels. IMU readings stay in the sensor frame (accel / gyro vectors).
+**Measurements stay in the device's own coordinate frame; the bridge supplies only static sensors.** A *sensor* (`Sensor`, `Camera`, `Lidar`) is the static description of a device: its calibration plus `base_to_sensor`, the pose of the device in the ego body frame (what a simulator attach transform or an extrinsic calibration gives you), `p_body = base_to_sensor @ p_sensor`. A *measurement* (`rgb`, `depth`, `lidar`, `ImuReading`, `GnssReading`, `WheelOdometry`) is the per-tick data and carries no mount. In `SensorFrame`, `<x>` is the measurement and `<x>_sensor` is the device that produced it. Never apply the ego pose in the bridge — the stack composes sensor → body → map with its own estimate via `Sensor.to_map(points, perception_model.ego_vehicle)`, which is what keeps a localization strategy independent of ground truth. `sensors.lidar` is the raw cloud; return its mount from `get_lidar_sensor()` (the default identity is right when the cloud is already in the body frame, as with BasicSim). Names such as `"lidar_top"` in `additional_frames` are labels, not frame ids.
 
 #### Camera geometry
 
-A bridge declaring `WorldCapability.CAMERA_RGB` or `CAMERA_DEPTH` must also override `get_camera_params()`. An image cannot be pre-transformed into the map frame the way a point cloud can, so `CameraParams` is the only way a fusion strategy can project world-frame `sensors.lidar` into the image:
+A bridge declaring `WorldCapability.CAMERA_RGB` or `CAMERA_DEPTH` must also override `get_camera_sensor()`. `Camera` is the intrinsic plus the static mount of the optical frame:
 
 ```python
-def get_camera_params(self, agent_id=EGO_AGENT_ID) -> CameraParams:
-    return CameraParams(
-        intrinsic=self._K,                  # (3, 3) [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
-        world_to_camera=self._extrinsic(),  # (4, 4), recomputed each tick as the ego moves
+def get_camera_sensor(self, agent_id=EGO_AGENT_ID) -> Camera:
+    return Camera(
+        intrinsic=self._K,                      # (3, 3) [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
         width=self._width,
         height=self._height,
+        base_to_sensor=self._T_body_optical,    # (4, 4) static: optical frame pose in the ego body frame
     )
 ```
 
-`world_to_camera` maps homogeneous map (global) points — same frame as `EgoState.x/y/z` and `SensorFrame.lidar` — into the **OpenCV optical frame**: x right, y down, z forward along the optical axis, with z > 0 in front of the camera. Getting this convention wrong produces a plausible-looking but incorrect projection, so convert in the bridge rather than passing simulator or ROS axes through.
+The camera's coordinate frame is the **OpenCV optical frame**: x right, y down, z forward along the optical axis, z > 0 in front of the camera. `base_to_sensor` therefore includes the body → optical axis rotation (for a forward-looking camera, body x → optical z, body −y → optical x, body −z → optical y). A fusion strategy projects a map point with `p_cam = inv(ego.pose_matrix() @ base_to_sensor) @ p_map` where `ego` is the stack's pose estimate. Getting the optical convention wrong produces a plausible-looking but incorrect projection, so convert in the bridge rather than passing simulator axes through.
 
 ### State model — today vs future
 

@@ -29,9 +29,12 @@ log = logging.getLogger(__name__)
 class LidarLocalization(LocalizationStrategy):
     """Estimate the ego pose by ICP scan-to-map alignment of LiDAR scans.
 
-    On the first scan a reference map is built and the running pose estimate is
-    seeded from the current ``ego_vehicle`` pose.  On every subsequent scan,
-    ICP aligns the new scan to the reference map (initialised from the previous
+    Scans arrive in the lidar's own coordinate frame and are expressed in the
+    ego body frame through the ``sensors.lidar_sensor`` mount before use.
+    On the first scan the running pose estimate is seeded from the current
+    ``ego_vehicle`` pose and that scan, placed in the map frame with the seed
+    pose, becomes the reference map.  On every subsequent scan, ICP aligns the
+    body-frame scan to the reference map (initialised from the previous
     estimate) and the resulting 2D rigid transform updates the running pose,
     which is written back into ``perception_model.ego_vehicle`` in-place.
 
@@ -86,20 +89,22 @@ class LidarLocalization(LocalizationStrategy):
     ) -> None:
         if perception_model is not None:
             self.perception_model = perception_model
-        lidar_data = sensors.lidar if sensors is not None else None
-        scan = self._squash(lidar_data)
+        if sensors is None:
+            return
+        scan = self._squash(sensors.lidar_sensor.to_base(sensors.lidar))  # lidar → ego body frame
         if scan is None or len(scan) < 3:
             return
 
         ego = self.perception_model.ego_vehicle
 
         # First valid scan: seed the estimate from the current ego pose and
-        # store the scan as the reference map. Nothing to align against yet.
+        # store the scan, placed in the map frame with that pose, as the
+        # reference map. Nothing to align against yet.
         if self._map is None:
             self._x = float(ego.x)
             self._y = float(ego.y)
             self._theta = float(ego.theta)
-            self._map = scan[:: self._map_subsample]
+            self._map = self._squash(sensors.lidar_sensor.to_map(sensors.lidar, ego))[:: self._map_subsample]
             return
 
         # Align the new scan to the reference map starting from the previous

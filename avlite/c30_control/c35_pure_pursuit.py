@@ -20,7 +20,7 @@ from avlite.c30_control.c31_control_model import ControlCommand
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c30_control.c39_settings import ControlSettings, ControlSettingsSchema
 from avlite.c50_common.c51_capabilities import AnyOf, StackCapability, WorldCapability
-from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
+from avlite.c50_common.c52_world_sensor_datatypes import Lidar, SensorFrame
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 log = logging.getLogger(__name__)
@@ -224,8 +224,11 @@ class FollowTheGapController(PurePursuitBase):
         ##################################
         # Lookahead: path-biased free gap
         ##################################
-        lidar_data = sensors.lidar if sensors is not None else None
-        ego_pts = self.to_ego_frame(lidar_data, ego)
+        ego_pts = (
+            self.to_ego_frame(sensors.lidar, ego, sensors.lidar_sensor)
+            if sensors is not None
+            else None
+        )
         if ego_pts is None or len(ego_pts) == 0:
             log.warning("No LiDAR points available. Commanding zero.")
             return ControlCommand(steer=0, acceleration=0)
@@ -265,13 +268,20 @@ class FollowTheGapController(PurePursuitBase):
         self.cmd = cmd
         return cmd
 
-    def to_ego_frame(self, lidar_data, ego: EgoState) -> np.ndarray | None:
-        """Squash LiDAR to 2D and transform world-frame hits into the ego frame."""
+    def to_ego_frame(
+        self, lidar_data, ego: EgoState, lidar_sensor: Lidar | None = None
+    ) -> np.ndarray | None:
+        """Apply the lidar mount (lidar coordinate frame → ego body frame) and squash to 2D.
+
+        ``ego`` is unused (the mount already yields body-frame hits) and kept
+        for signature compatibility. ``lidar_sensor`` None means identity.
+        """
         if lidar_data is None:
             return None
         pts = np.asarray(lidar_data, dtype=float)
         if pts.ndim != 2 or pts.shape[0] == 0 or pts.shape[1] < 2:
             return None
+        pts = (lidar_sensor or Lidar()).to_base(pts)
 
         # Optional z-band filter for 3D clouds (N, 3+) or (N, 4).
         if pts.shape[1] >= 3:
@@ -281,13 +291,7 @@ class FollowTheGapController(PurePursuitBase):
             if len(pts) == 0:
                 return None
 
-        xy = pts[:, :2]
-        dx = xy[:, 0] - ego.x
-        dy = xy[:, 1] - ego.y
-        c, s_th = np.cos(ego.theta), np.sin(ego.theta)
-        ex = c * dx + s_th * dy
-        ey = -s_th * dx + c * dy
-        return np.column_stack([ex, ey])
+        return pts[:, :2]
 
     def largest_gap_target(
         self,

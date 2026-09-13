@@ -171,7 +171,24 @@ class State:
         rotated_corners_y = rotated_corners[1, :] + self.y
 
         return np.c_[rotated_corners_x, rotated_corners_y]
-    
+
+    def pose_matrix(self) -> np.ndarray:
+        """(4, 4) pose of the ego body frame in the map frame: ``p_map = pose_matrix() @ p_body``.
+
+        The body frame has its origin at ``(x, y, z)``, +x along ``theta``, z up.
+        Planar today (yaw only); subclasses that carry roll / pitch override this
+        and every sensor transform built on it follows.
+        """
+        c, s = np.cos(self.theta), np.sin(self.theta)
+        return np.array(
+            [
+                [c, -s, 0.0, self.x],
+                [s, c, 0.0, self.y],
+                [0.0, 0.0, 1.0, self.z],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        )
+
     def reset(self):
         self.copy_from(self.__start)
 

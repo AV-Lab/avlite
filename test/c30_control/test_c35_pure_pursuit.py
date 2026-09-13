@@ -8,7 +8,7 @@ import pytest
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c30_control.c35_pure_pursuit import FollowTheGapController, PurePursuitController
 from avlite.c30_control.c39_settings import ControlSettingsSchema
-from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
+from avlite.c50_common.c52_world_sensor_datatypes import Lidar, SensorFrame
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
 
 
@@ -40,22 +40,12 @@ def _pp_settings(**overrides) -> ControlSettingsSchema:
     return ControlSettingsSchema(**defaults)
 
 
-def _lidar_at_angles(
-    angles: np.ndarray,
-    ranges: float | np.ndarray = 5.0,
-    ego: EgoState | None = None,
-) -> np.ndarray:
-    """(N, 4) LiDAR hits: ego-frame bearings, expressed in world frame for ``ego``."""
+def _lidar_at_angles(angles: np.ndarray, ranges: float | np.ndarray = 5.0) -> np.ndarray:
+    """(N, 4) LiDAR hits at ego-frame bearings (the bridge contract: sensor/body frame)."""
     angles = np.asarray(angles, dtype=float)
     ranges = np.full_like(angles, ranges, dtype=float) if np.isscalar(ranges) else np.asarray(ranges, dtype=float)
-    ex = ranges * np.cos(angles)
-    ey = ranges * np.sin(angles)
-    if ego is None:
-        xs, ys = ex, ey
-    else:
-        c, s_th = np.cos(ego.theta), np.sin(ego.theta)
-        xs = ego.x + c * ex - s_th * ey
-        ys = ego.y + s_th * ex + c * ey
+    xs = ranges * np.cos(angles)
+    ys = ranges * np.sin(angles)
     return np.column_stack([xs, ys, np.zeros_like(xs), np.ones_like(xs)]).astype(np.float32)
 
 
@@ -152,8 +142,25 @@ class TestFollowTheGapController:
         # Parallel walls at ±0.5 rad (corridor opening centered ahead).
         right = np.linspace(-1.0, -0.5, 8)
         left = np.linspace(0.5, 1.0, 8)
-        lidar = _lidar_at_angles(np.concatenate([right, left]), ego=ego)
+        lidar = _lidar_at_angles(np.concatenate([right, left]))
         cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
+        assert cmd.steer == pytest.approx(0.0, abs=0.1)
+
+    def test_lidar_mount_is_applied_before_gap_search(self):
+        """A lidar yawed +90° reports the corridor rotated; the mount undoes it."""
+        controller = FollowTheGapController(setting=_pp_settings())
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+        right = np.linspace(-1.0, -0.5, 8)
+        left = np.linspace(0.5, 1.0, 8)
+        body_bearings = np.concatenate([right, left])
+        # Same walls seen by a sensor rotated +90° about z → bearings shift by -90°.
+        sensor_hits = _lidar_at_angles(body_bearings - np.pi / 2)
+        mount = np.eye(4)
+        mount[:2, :2] = [[0.0, -1.0], [1.0, 0.0]]
+        params = Lidar(base_to_sensor=mount)
+        body_pts = controller.to_ego_frame(sensor_hits, ego, params)
+        np.testing.assert_allclose(body_pts, _lidar_at_angles(body_bearings)[:, :2], atol=1e-5)
+        cmd = controller.control(ego, sensors=SensorFrame(lidar=sensor_hits, lidar_sensor=params))
         assert cmd.steer == pytest.approx(0.0, abs=0.1)
 
     def test_path_bias_prefers_path_aligned_gap(self):
@@ -163,7 +170,7 @@ class TestFollowTheGapController:
         ego = EgoState(x=20.0, y=0.0, theta=0.0, velocity=5.0)
         # Narrow gap ahead (~0 bearing) and a much wider gap on the left.
         angles = np.array([-0.8, -0.15, 0.15, 0.35, 1.2])
-        lidar = _lidar_at_angles(angles, ego=ego)
+        lidar = _lidar_at_angles(angles)
         cmd = controller.control(ego, sensors=SensorFrame(lidar=lidar))
         # Path-biased pick should stay near center, not yank hard left into the wide gap.
         assert abs(cmd.steer) < 0.25

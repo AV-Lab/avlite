@@ -156,18 +156,19 @@ class BasicSim(WorldBridge):
         return np.concatenate(segments, axis=0) if segments else np.empty((0, 2, 2))
 
     def get_lidar_data(self) -> Optional[LidarCloud]:
-        """Simulate a 2D LiDAR scan, returning world-frame hits as (N, 4) float32.
+        """Simulate a 2D LiDAR scan, returning ego-frame hits as (N, 4) float32.
 
         Casts ``num_beams`` rays over ``fov_deg`` (centred on the ego heading)
         against agent bounding boxes and road boundaries, keeping the nearest
         intersection per beam within ``range``.  Beams that hit nothing are
-        skipped.  z and intensity columns are zero (2D scanner).
+        skipped.  Hits are expressed in the ego body frame (scanner at the body
+        origin, +x along heading); z and intensity columns are zero (2D scanner).
         """
         points_2d = self._simulate_lidar_2d()
         return lidar_2d_to_4(points_2d)
 
     def _simulate_lidar_2d(self) -> np.ndarray:
-        """Return ordered world-frame 2D hits (N, 2)."""
+        """Return ordered ego-frame 2D hits (N, 2)."""
         segments = self.__collect_segments()
         if len(segments) == 0:
             return np.empty((0, 2))
@@ -178,9 +179,12 @@ class BasicSim(WorldBridge):
         origin = np.array([self.ego_state.x, self.ego_state.y])
 
         if fov >= 2 * math.pi:
-            angles = self.ego_state.theta + np.linspace(0, 2 * math.pi, n, endpoint=False)
+            local_angles = np.linspace(0, 2 * math.pi, n, endpoint=False)
         else:
-            angles = self.ego_state.theta + np.linspace(-fov / 2, fov / 2, n)
+            local_angles = np.linspace(-fov / 2, fov / 2, n)
+        # Raycast in the world frame; report hits along the ego-frame beam directions.
+        local_dirs = np.stack([np.cos(local_angles), np.sin(local_angles)], axis=1)  # (n, 2)
+        angles = self.ego_state.theta + local_angles
         directions = np.stack([np.cos(angles), np.sin(angles)], axis=1)  # (n, 2)
 
         # Segment endpoints: p = seg[:,0], q = seg[:,1]; edge e = q - p
@@ -204,12 +208,11 @@ class BasicSim(WorldBridge):
         if not hit.any():
             return np.empty((0, 2))
         ranges = nearest[hit]
-        dirs = directions[hit]
-        return origin + ranges[:, None] * dirs
+        return ranges[:, None] * local_dirs[hit]
 
 
 def lidar_2d_to_4(points_2d: np.ndarray) -> LidarCloud:
-    """Convert (N, 2) world-frame hits to canonical (N, 4) lidar format."""
+    """Convert (N, 2) ego-frame hits to canonical (N, 4) lidar format."""
     n = points_2d.shape[0]
     if n == 0:
         return np.zeros((0, 4), dtype=np.float32)

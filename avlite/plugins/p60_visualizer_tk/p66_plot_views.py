@@ -569,6 +569,11 @@ class LocalPlanPlotView(ttk.Frame):
             self.root.setting.p66_show_lidar_global.get()
             or self.root.setting.p66_show_lidar_frenet.get()
         )
+        lidar_data = None
+        if want_lidar:
+            # Sensor-frame cloud → map frame with the plant (world) ego pose.
+            world = self.root.exec.world
+            lidar_data = world.get_lidar_sensor().to_map(world.get_lidar_data(), world.get_ego_state())
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)
@@ -588,7 +593,7 @@ class LocalPlanPlotView(ttk.Frame):
             plot_occupancy_flow=self.root.setting.p67_show_occupancy_flow.get(),
             plot_predictions=self.root.setting.p67_show_prediction.get(),
             plot_lidar=want_lidar,
-            lidar_data=self.root.exec.world.get_lidar_data() if want_lidar else None,
+            lidar_data=lidar_data,
             plot_lidar_global=self.root.setting.p66_show_lidar_global.get(),
             plot_lidar_frenet=self.root.setting.p66_show_lidar_frenet.get(),
             plot_clusters=bridge_lidar and self.root.setting.p66_show_lidar_clusters.get(),
