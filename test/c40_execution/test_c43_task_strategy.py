@@ -190,6 +190,29 @@ def test_goal_monitor_notifies_stop_at_goal_once():
     assert executer.stopped is False  # edge already consumed
 
 
+def test_goal_monitor_does_not_fire_when_starting_at_closed_loop_goal():
+    """Closed race lines set goal_point == start_point; default Yas start is within 3 m."""
+    monitor = GoalArrivalMonitor()
+    # Ego starts on the goal (first==last closed track).
+    executer = _FakeExecuter(x=0.0, y=0.0, goal=(0.0, 0.0))
+    notified: list = []
+    executer.task_runner = SimpleNamespace(notify=lambda e: notified.append(e))
+
+    monitor.execute(executer)
+    assert notified == []
+    assert monitor._was_arrived is True
+
+    # Leave the radius, then re-enter — that is a real arrival.
+    executer.ego_state.x = 20.0
+    monitor.execute(executer)
+    assert notified == []
+    assert monitor._was_arrived is False
+
+    executer.ego_state.x = 1.0
+    monitor.execute(executer)
+    assert notified == [StackEvent.GOAL_ARRIVED]
+
+
 def test_notify_during_step_flushes_to_on_event():
     executer = _FakeExecuter()
     runner = TaskRunner([NotifyDuringCycleTask(), StopExecAtGoalTask()], executer=executer)
