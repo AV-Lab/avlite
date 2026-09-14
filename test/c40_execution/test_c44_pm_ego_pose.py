@@ -151,7 +151,7 @@ def test_gt_on_next_tick_control_sees_world_advanced_pose():
 
     exec_.step(
         sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
-        call_replan=False, call_perceive=False, call_localize=False,
+        call_replan=False, call_perceive=False,
     )
     assert world_ego.x == pytest.approx(2.5)
     # Pose update for this tick was at start (0); plant advanced after control.
@@ -159,7 +159,7 @@ def test_gt_on_next_tick_control_sees_world_advanced_pose():
 
     exec_.step(
         sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
-        call_replan=False, call_perceive=False, call_localize=False,
+        call_replan=False, call_perceive=False,
     )
     assert ctrl.seen_xy[1] == pytest.approx((2.5, 0.0))
     assert pm.ego_vehicle.x == pytest.approx(2.5)
@@ -182,7 +182,7 @@ def test_gt_off_localization_owns_pm_world_can_diverge():
 
     exec_.step(
         sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
-        call_replan=False, call_perceive=False, call_localize=True,
+        call_replan=False, call_perceive=True,
     )
     assert loc.calls == 1
     assert ctrl.seen_xy[0] == pytest.approx((50.0, 60.0))
@@ -194,7 +194,7 @@ def test_gt_off_localization_owns_pm_world_can_diverge():
     # Second tick: localize again (same estimate); world keeps advancing.
     exec_.step(
         sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
-        call_replan=False, call_perceive=False, call_localize=True,
+        call_replan=False, call_perceive=True,
     )
     assert world_ego.x == pytest.approx(6.0)
     assert ctrl.seen_xy[1] == pytest.approx((50.0, 60.0))
@@ -213,7 +213,7 @@ def test_gt_off_no_localization_no_world_to_pm_sync_cannot_actuate():
     assert not exec_._can_actuate()
     exec_.step(
         sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
-        call_replan=False, call_perceive=False, call_localize=True,
+        call_replan=False, call_perceive=True,
     )
     assert ctrl.seen_xy == []
     # No GT sync: PM stays at stack initial; plant still integrates ZOH (may be no-op cmd).
@@ -260,7 +260,7 @@ def test_control_align_must_teleport_world_or_gt_undoes_stack_only_write():
     exec_.ego_state.x, exec_.ego_state.y = 100.0, 200.0
     exec_.step(
         sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
-        call_replan=False, call_perceive=False, call_localize=False, call_control=False,
+        call_replan=False, call_perceive=False, call_control=False,
     )
     assert pm.ego_vehicle.x == pytest.approx(10.0)
     assert world_ego.x == pytest.approx(10.0)
@@ -270,7 +270,7 @@ def test_control_align_must_teleport_world_or_gt_undoes_stack_only_write():
     pm.ego_vehicle.copy_from(world.get_ego_state())
     exec_.step(
         sim_dt=0.01, control_dt=0.01, replan_dt=99, localization_dt=0,
-        call_replan=False, call_perceive=False, call_localize=False, call_control=False,
+        call_replan=False, call_perceive=False, call_control=False,
     )
     assert world_ego.x == pytest.approx(100.0)
     assert world_ego.y == pytest.approx(200.0)

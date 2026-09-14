@@ -12,6 +12,8 @@ from avlite.c10_perception.c12_perception_strategy import (
 )
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
 from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
+from avlite.c10_perception.c11_perception_model import OccupancyMap
+from avlite.c10_perception.c17_mapping_algs import OccupancyMapper
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import (
@@ -33,6 +35,7 @@ from avlite.c40_execution.c41_world_bridge import (
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c43_task_strategy import TaskStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c65_setting_utils import save_setting
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
@@ -64,8 +67,15 @@ class PerceivePlanControlView(ttk.Frame):
         top_bar = ttk.Frame(self)
         top_bar.pack(fill=tk.X)
 
-        self.perceive_frame = PerceptionFrame(root=self.root, view=top_bar)
-        self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+        perc_col = ttk.Frame(top_bar)
+        perc_col.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
+
+        self.perceive_frame = PerceptionFrame(root=self.root, view=perc_col)
+        self.perceive_frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
+        vehicle_state_label = ttk.Label(
+            perc_col, font=self.root.small_font, textvariable=self.root.setting.vehicle_state,
+        )
+        vehicle_state_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(1, 0))
 
         self.plan_frame = PlanFrame(root=self.root, view=top_bar)
         self.plan_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
@@ -152,26 +162,22 @@ class PerceptionFrame(ttk.LabelFrame):
         HoverTooltip.attach_schema(self.tracking_dropdown_menu, PerceptionSettings, "c12_tracking_strategy")
         HoverTooltip.attach_schema(self.prediction_dropdown_menu, PerceptionSettings, "c12_prediction_strategy")
 
-        # Row 4 (last): mapping strategy + Default Map (map file shown only for MapReader)
+        # Row 4 (last): mapping strategy, save map, capability
         self.mapping_dropdown_menu = ttk.Combobox(
             self, textvariable=self.root.setting.mapping_type, state="readonly", width=14)
         self.mapping_dropdown_menu["values"] = ("",) + tuple(MappingStrategy.registry.keys())
         self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", self._on_mapping_selected)
         self.mapping_dropdown_menu.grid(row=4, column=0, sticky="ew", padx=2)
         HoverTooltip.attach_schema(self.mapping_dropdown_menu, ExecutionSettings, "c40_mapping")
+        self._btn_save_occupancy = ttk.Button(
+            self, text="⬇", width=3, command=self.save_occupancy_map,
+        )
+        self._btn_save_occupancy.grid(row=4, column=2, padx=2)
+        HoverTooltip.attach(self._btn_save_occupancy, BUTTON_TOOLTIPS["map_save_occupancy"])
         _, map_info = make_strategy_contract_controls(
             self, self.mapping_dropdown_menu, MappingStrategy.registry, lambda: self.root.exec
         )
         map_info.grid(row=4, column=1, padx=(0, 2))
-
-        self._default_map_lbl = ttk.Label(self, text="Default Map")
-        self._default_map_lbl.grid(row=4, column=2, sticky="e", padx=(8, 0))
-        self._default_map_entry = ttk.Entry(
-            self, textvariable=self.root.setting.default_map_file, width=15, state="readonly",
-        )
-        self._default_map_entry.grid(row=4, column=3, sticky="ew", padx=2)
-        self._default_map_entry.bind("<Button-1>", self._pick_default_map)
-        self.refresh_default_map_tooltips()
 
         self.columnconfigure(0, weight=1)
 
@@ -180,20 +186,55 @@ class PerceptionFrame(ttk.LabelFrame):
             self._lbl_track, self.tracking_dropdown_menu, track_info,
             self._lbl_predict, self.prediction_dropdown_menu, pred_info,
         ]
-        self._default_map_widgets = [self._default_map_lbl, self._default_map_entry]
 
         self.root.setting.perception_type.trace_add("write", lambda *_: self._update_pipeline_visibility())
-        self.root.setting.mapping_type.trace_add("write", lambda *_: self._update_default_map_visibility())
+        self.root.setting.mapping_type.trace_add("write", lambda *_: self._update_save_map_visibility())
         self._update_pipeline_visibility()
-        self._update_default_map_visibility()
+        self._update_save_map_visibility()
 
     def _on_perception_selected(self, event=None):
         self._update_pipeline_visibility()
         self.root.reload_stack(reload_code=False)
 
     def _on_mapping_selected(self, event=None):
-        self._update_default_map_visibility()
+        self._update_save_map_visibility()
         self.root.reload_stack(reload_code=False)
+
+    def _update_save_map_visibility(self):
+        name = self.root.setting.mapping_type.get()
+        show_save = bool(name) and name != MapReader.__name__
+        if show_save:
+            self._btn_save_occupancy.grid()
+        else:
+            self._btn_save_occupancy.grid_remove()
+
+    def save_occupancy_map(self):
+        exec_ = getattr(self.root, "exec", None)
+        pm = getattr(exec_, "pm", None) if exec_ is not None else None
+        om = getattr(pm, "occupancy_map", None) if pm is not None else None
+        if not isinstance(om, OccupancyMap):
+            fallback = getattr(pm, "map", None) if pm is not None else None
+            om = fallback if isinstance(fallback, OccupancyMap) else None
+        if om is None:
+            messagebox.showinfo("Save Map", "No map to save.", parent=self.root)
+            return
+        data_dir = DataPaths.user_dir()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        default_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_occupancy.json"
+        path = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Save Map",
+            initialdir=str(data_dir),
+            initialfile=default_name,
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            om.to_file(path)
+        except OSError as e:
+            messagebox.showerror("Save Failed", str(e), parent=self.root)
 
     def _update_pipeline_visibility(self):
         is_pipeline = self.root.setting.perception_type.get() == PerceptionPipeline.__name__
@@ -202,29 +243,6 @@ class PerceptionFrame(ttk.LabelFrame):
                 w.grid()
             else:
                 w.grid_remove()
-
-    def _update_default_map_visibility(self):
-        show = self.root.setting.mapping_type.get() == MapReader.__name__
-        for w in self._default_map_widgets:
-            if show:
-                w.grid()
-            else:
-                w.grid_remove()
-
-    def refresh_default_map_tooltips(self):
-        field = DataPicker.default_map_settings_field()
-        HoverTooltip.update_schema(self._default_map_lbl, ExecutionSettings, field)
-        HoverTooltip.update_schema(self._default_map_entry, ExecutionSettings, field)
-
-    def _pick_default_map(self, _event=None):
-        current = DataPicker.display_path(self.root.setting.default_map_file.get())
-        items = DataPicker.list_map_candidates()
-        dialog = ThemedListPickerDialog(
-            self.root, "Default Map", items, initial=current,
-        )
-        if dialog.result is not None:
-            self.root.setting.default_map_file.set(dialog.result)
-            self.root.reload_stack(reload_code=False)
 
     def update_data(self):
         """Update data in the perception frame."""
@@ -244,7 +262,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.mapping_dropdown_menu["values"] = ("",) + tuple(MappingStrategy.registry.keys())
         if self.root.exec is None:
             self._update_pipeline_visibility()
-            self._update_default_map_visibility()
+            self._update_save_map_visibility()
             return
         _stack_caps = self.root.exec.world.stack_capabilities
         self.detection_dropdown_menu["values"] = (
@@ -257,7 +275,7 @@ class PerceptionFrame(ttk.LabelFrame):
         )
         self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
         self._update_pipeline_visibility()
-        self._update_default_map_visibility()
+        self._update_save_map_visibility()
 
 
 # --------------------------------------------------------------------------------------------
@@ -272,6 +290,7 @@ class PlanFrame(ttk.LabelFrame):
         # self.plan_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
 
         # - Global -----
+        ttk.Label(self, text="Global Planning").pack(anchor="w", padx=5)
         global_frame = ttk.Frame(self)
         global_frame.pack(fill=tk.X)
         self.global_planner_dropdown_menu = ttk.Combobox(global_frame, textvariable=self.root.setting.global_planner_type, width=10)
@@ -310,6 +329,7 @@ class PlanFrame(ttk.LabelFrame):
         ttk.Separator(self, orient="horizontal").pack(fill=tk.X, pady=2)
 
         # - Local -----
+        ttk.Label(self, text="Local Planning").pack(anchor="w", padx=5)
         wp_frame = ttk.Frame(self)
         wp_frame.pack(fill=tk.X)
 
@@ -546,25 +566,6 @@ class ControlFrame(ttk.LabelFrame):
         )
         cn_info.pack(side=tk.LEFT)
 
-        btn_control_step = ttk.Button(control_button_frame, text="Step", command=self.step_control)
-        btn_control_step.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        HoverTooltip.attach(btn_control_step, BUTTON_TOOLTIPS["control_step"])
-        btn_control_align = ttk.Button(control_button_frame, text="Align", width=4, command=self.align_control)
-        btn_control_align.pack(side=tk.LEFT)
-        HoverTooltip.attach(btn_control_align, BUTTON_TOOLTIPS["control_align"])
-        btn_steer_left = ttk.Button(control_button_frame, text="◀️ ", width=2, command=self.step_steer_left)
-        btn_steer_left.pack(side=tk.LEFT)
-        HoverTooltip.attach(btn_steer_left, BUTTON_TOOLTIPS["control_steer_left"])
-        btn_steer_right = ttk.Button(control_button_frame, text="▶", width=2, command=self.step_steer_right)
-        btn_steer_right.pack(side=tk.LEFT)
-        HoverTooltip.attach(btn_steer_right, BUTTON_TOOLTIPS["control_steer_right"])
-        btn_accel = ttk.Button(control_button_frame, text="▲", width=2, command=self.step_acc)
-        btn_accel.pack(side=tk.LEFT)
-        HoverTooltip.attach(btn_accel, BUTTON_TOOLTIPS["control_accel"])
-        btn_decel = ttk.Button(control_button_frame, text="▼", width=2, command=self.step_dec)
-        btn_decel.pack(side=tk.LEFT)
-        HoverTooltip.attach(btn_decel, BUTTON_TOOLTIPS["control_decel"])
-
         #################
         # Progress bars
         #################
@@ -602,6 +603,27 @@ class ControlFrame(ttk.LabelFrame):
             dpi_scale=self.root._dpi_scale,
         )
         self.gauge_steer.grid(row=1, column=1, sticky="ew", pady=1)
+
+        control_action_frame = ttk.Frame(self)
+        control_action_frame.pack(fill=tk.X)
+        btn_control_step = ttk.Button(control_action_frame, text="Step", command=self.step_control)
+        btn_control_step.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        HoverTooltip.attach(btn_control_step, BUTTON_TOOLTIPS["control_step"])
+        btn_control_align = ttk.Button(control_action_frame, text="Align", width=4, command=self.align_control)
+        btn_control_align.pack(side=tk.LEFT)
+        HoverTooltip.attach(btn_control_align, BUTTON_TOOLTIPS["control_align"])
+        btn_steer_left = ttk.Button(control_action_frame, text="◀️ ", width=2, command=self.step_steer_left)
+        btn_steer_left.pack(side=tk.LEFT)
+        HoverTooltip.attach(btn_steer_left, BUTTON_TOOLTIPS["control_steer_left"])
+        btn_steer_right = ttk.Button(control_action_frame, text="▶", width=2, command=self.step_steer_right)
+        btn_steer_right.pack(side=tk.LEFT)
+        HoverTooltip.attach(btn_steer_right, BUTTON_TOOLTIPS["control_steer_right"])
+        btn_accel = ttk.Button(control_action_frame, text="▲", width=2, command=self.step_acc)
+        btn_accel.pack(side=tk.LEFT)
+        HoverTooltip.attach(btn_accel, BUTTON_TOOLTIPS["control_accel"])
+        btn_decel = ttk.Button(control_action_frame, text="▼", width=2, command=self.step_dec)
+        btn_decel.pack(side=tk.LEFT)
+        HoverTooltip.attach(btn_decel, BUTTON_TOOLTIPS["control_decel"])
         # ----
 
     def update_data(self):
@@ -610,11 +632,16 @@ class ControlFrame(ttk.LabelFrame):
         self.controller_dropdown_menu["values"] = ("",) + tuple(ControlStrategy.registry.keys())
 
     def step_control(self):
-        if not self.root.exec or not self.root.exec.controller or not self.root.exec.local_planner:
+        if not self.root.exec or not self.root.exec.controller:
             return
+        local_plan = (
+            self.root.exec.local_planner.get_local_plan()
+            if self.root.exec.local_planner
+            else None
+        )
         cmd = self.root.exec.controller.control(
             self.root.exec.ego_state,
-            self.root.exec.local_planner.get_local_plan(),
+            local_plan,
             control_dt=self.root.setting.sim_dt.get(),
             perception_model=self.root.exec.pm,
             sensors=self.root.exec.world.get_sensor_frame(),
@@ -682,23 +709,23 @@ class ExecView(ttk.Frame):
         self.execution_factory_frame = ttk.LabelFrame(exec_bar, text="Execution")
         self.execution_factory_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(0, 2))
 
-        executer_frame = ExecSettingsFrame(self.root, exec_bar)
-        executer_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
-
         self.bridge_frame = BridgeFrame(self.root, exec_bar)
         self.bridge_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
 
-        exec_stats_frame = ExecStatsFrame(self.root, exec_bar)
-        exec_stats_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=(2, 0))
-
         # ----------------------------------------------------------------------
         # ----------------------------------------------------------------------
+        exec_executables_frame = ttk.Frame(self.execution_factory_frame)
+        exec_executables_frame.grid(row=0, column=0, sticky="we")
+        exec_tasks_frame = ttk.Frame(self.execution_factory_frame)
+        exec_tasks_frame.grid(row=1, column=0, sticky="we")
         exec_first_frame = ttk.Frame(self.execution_factory_frame)
-        exec_first_frame.grid(row=0, column=0, sticky="we")
-        exec_second_frame = ttk.Frame(self.execution_factory_frame)
-        exec_second_frame.grid(row=1, column=0, sticky="we")
+        exec_first_frame.grid(row=2, column=0, sticky="we")
         exec_third_frame = ttk.Frame(self.execution_factory_frame)
-        exec_third_frame.grid(row=2, column=0, sticky="we")
+        exec_third_frame.grid(row=3, column=0, sticky="we")
+        exec_second_frame = ttk.Frame(self.execution_factory_frame)
+        exec_second_frame.grid(row=4, column=0, sticky="we")
+        exec_stats_frame = ExecStatsFrame(self.root, self.execution_factory_frame)
+        exec_stats_frame.grid(row=0, column=1, rowspan=5, sticky="nse", padx=(4, 2), pady=2)
         self.execution_factory_frame.columnconfigure(0, weight=1)
         # ------------------------------------------------------------------------
         # ------------------------------------------------------------------------
@@ -789,25 +816,33 @@ class ExecView(ttk.Frame):
         btn_reset = ttk.Button(exec_second_frame, text="Reset", width=4, command=self.reset_exec)
         btn_reset.pack(side=tk.LEFT)
         HoverTooltip.attach(btn_reset, BUTTON_TOOLTIPS["exec_reset"])
-        
-        self.executer_dropdown_menu = ttk.Combobox(exec_second_frame, textvariable=self.root.setting.executer_type, state="readonly",)
+
+        ttk.Label(exec_executables_frame, text="Executer: ").pack(side=tk.LEFT, padx=(5, 0), pady=1)
+        self.executer_dropdown_menu = ttk.Combobox(exec_executables_frame, textvariable=self.root.setting.executer_type, state="readonly",)
         self.executer_dropdown_menu["values"] = list(ExecutionStrategy.registry.keys())
         self.executer_dropdown_menu.state(["readonly"])
         self.executer_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.executer_dropdown_menu.pack(side=tk.RIGHT)
+        self.executer_dropdown_menu.pack(side=tk.LEFT, padx=2, pady=1)
         HoverTooltip.attach_schema(self.executer_dropdown_menu, ExecutionSettings, "c40_executer_type")
-        
-        ttk.Label(exec_second_frame, text="Executer: ").pack(side=tk.RIGHT, padx=5)
 
+        chk = ttk.Checkbutton(exec_executables_frame, text="Perception", variable=self.root.setting.exec_perceive)
+        chk.pack(side=tk.LEFT, padx=(5, 0), pady=1)
+        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_perceive")
+        chk = ttk.Checkbutton(exec_executables_frame, text="Planning", variable=self.root.setting.exec_plan)
+        chk.pack(side=tk.LEFT, padx=(5, 0), pady=1)
+        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_plan")
+        chk = ttk.Checkbutton(exec_executables_frame, text="Control", variable=self.root.setting.exec_control)
+        chk.pack(side=tk.LEFT, padx=(5, 0), pady=1)
+        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_control")
 
-        ## Third frame — Tasks label, wrapping chips, and + on one row
-        tasks_row = ttk.Frame(exec_third_frame)
+        ## Tasks — label, wrapping chips, and + on one row (top of Execution)
+        tasks_row = ttk.Frame(exec_tasks_frame)
         tasks_row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1)
-        lbl_tasks = ttk.Label(tasks_row, text="Tasks:")
+        lbl_tasks = ttk.Label(tasks_row, text="Execution Tasks")
         lbl_tasks.pack(side=tk.LEFT)
         HoverTooltip.attach_schema(lbl_tasks, ExecutionSettings, "c40_execution_tasks")
         self._tasks_add_btn = ttk.Button(tasks_row, text="+", width=2, command=self._add_execution_task)
-        self._tasks_add_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        self._tasks_add_btn.pack(side=tk.LEFT, padx=(2, 0))
         HoverTooltip.attach(
             self._tasks_add_btn,
             "Add a TaskStrategy from the registry (append). Reload stack after change.",
@@ -822,12 +857,44 @@ class ExecView(ttk.Frame):
 
         state_row = ttk.Frame(exec_third_frame)
         state_row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=1)
+        map_left = ttk.Frame(state_row)
+        map_left.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._default_map_lbl = ttk.Label(map_left, text="Default Map")
+        self._default_map_entry = ttk.Entry(
+            map_left, textvariable=self.root.setting.default_map_file, width=15, state="readonly",
+        )
+        self._default_map_entry.bind("<Button-1>", self._pick_default_map)
+        self.refresh_default_map_tooltips()
+        self._default_map_widgets = [self._default_map_lbl, self._default_map_entry]
         btn_set_start = ttk.Button(state_row, text="Save Start", width=10, command=self.set_start)
         btn_set_start.pack(side=tk.RIGHT, padx=(2, 0))
         HoverTooltip.attach(btn_set_start, BUTTON_TOOLTIPS["exec_set_start"])
-        vehicle_state_label = ttk.Label(state_row, font=self.root.small_font, textvariable=self.root.setting.vehicle_state)
-        vehicle_state_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.root.setting.mapping_type.trace_add("write", lambda *_: self._update_default_map_visibility())
+        self._update_default_map_visibility()
 
+    def _update_default_map_visibility(self):
+        name = self.root.setting.mapping_type.get()
+        show_picker = name in (MapReader.__name__, OccupancyMapper.__name__)
+        for w in self._default_map_widgets:
+            w.pack_forget()
+        if show_picker:
+            self._default_map_lbl.pack(side=tk.LEFT)
+            self._default_map_entry.pack(side=tk.LEFT, padx=2)
+
+    def refresh_default_map_tooltips(self):
+        field = DataPicker.default_map_settings_field()
+        HoverTooltip.update_schema(self._default_map_lbl, ExecutionSettings, field)
+        HoverTooltip.update_schema(self._default_map_entry, ExecutionSettings, field)
+
+    def _pick_default_map(self, _event=None):
+        current = DataPicker.display_path(self.root.setting.default_map_file.get())
+        items = DataPicker.list_map_candidates()
+        dialog = ThemedListPickerDialog(
+            self.root, "Default Map", items, initial=current,
+        )
+        if dialog.result is not None:
+            self.root.setting.default_map_file.set(dialog.result)
+            self.root.reload_stack(reload_code=False)
 
     def _rebuild_task_chips(self, event=None) -> None:
         if event is not None and event.widget is not self._tasks_chips:
@@ -925,6 +992,11 @@ class ExecView(ttk.Frame):
         if self.root.setting.exec_running:
             self.stop_exec()
             return
+        env = PluginEnv()
+        if env.pending_launch and messagebox.askokcancel(
+            "Plugin launch", env.launch_warning(), parent=self.root
+        ):
+            env.start_launch()
         self.root.setting.exec_running = True
         # self.start_exec_button.config(state=tk.DISABLED)
         self.start_exec_button.state(['disabled'])
@@ -948,7 +1020,6 @@ class ExecView(ttk.Frame):
                 call_replan=self.root.setting.exec_plan.get(),
                 call_control=self.root.setting.exec_control.get(),
                 call_perceive=self.root.setting.exec_perceive.get(),
-                call_localize=self.root.setting.exec_localize.get(),
                 pace_perception=bool(self.root.setting.pace_perception.get()),
                 pace_replan=bool(self.root.setting.pace_replan.get()),
                 pace_control=bool(self.root.setting.pace_control.get()),
@@ -1005,7 +1076,6 @@ class ExecView(ttk.Frame):
             call_replan=self.root.setting.exec_plan.get(),
             call_control=self.root.setting.exec_control.get(),
             call_perceive=self.root.setting.exec_perceive.get(),
-            call_localize=self.root.setting.exec_localize.get(),
             pace_perception=bool(self.root.setting.pace_perception.get()),
             pace_replan=bool(self.root.setting.pace_replan.get()),
             pace_control=bool(self.root.setting.pace_control.get()),
@@ -1017,6 +1087,7 @@ class ExecView(ttk.Frame):
         """Refresh the executer and bridge dropdowns from the registries."""
         self.executer_dropdown_menu["values"] = list(ExecutionStrategy.registry.keys())
         self.bridge_frame.update_data()
+        self._update_default_map_visibility()
 
     def reset_exec(self):
         self.root.exec.reset()
@@ -1039,26 +1110,6 @@ class ExecView(ttk.Frame):
         save_setting(ExecutionSettings, profile=profile)
         log.info(f"Start pose saved to profile {profile!r}: ({ego.x:.2f}, {ego.y:.2f}, {ego.theta:.2f})")
 
-class ExecSettingsFrame(ttk.LabelFrame):
-    def __init__(self, root: VisualizerApp, view):
-        super().__init__(view, text="Executables")
-        self.root = root
-        chk = ttk.Checkbutton(self, text="Perception", variable=self.root.setting.exec_perceive)
-        chk.grid(row=0, column=0, sticky="w")
-        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_perceive")
-        chk = ttk.Checkbutton(self, text="Planning", variable=self.root.setting.exec_plan)
-        chk.grid(row=1, column=0, sticky="w")
-        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_plan")
-        
-        chk = ttk.Checkbutton(self, text="Control", variable=self.root.setting.exec_control)
-        chk.grid(row=2, column=0, sticky="w")
-        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_control")
-
-        chk = ttk.Checkbutton(self, text="Localization", variable=self.root.setting.exec_localize)
-        chk.grid(row=3, column=0, sticky="w")
-        HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_localize")
-
-
 class BridgeFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
         super().__init__(view, text="Bridge Setting")
@@ -1074,8 +1125,8 @@ class BridgeFrame(ttk.LabelFrame):
         )
         bridge_info.grid(row=0, column=2, pady=(0, 2), padx=(2, 0), sticky="e")
 
-        ttk.Label(self, text="world capabilities", font=self.root.small_font).grid(row=1, column=0, sticky="w")
-        ttk.Label(self, text="stack capabilities", font=self.root.small_font).grid(row=1, column=1, sticky="w")
+        ttk.Label(self, text="world cap.", font=self.root.small_font).grid(row=1, column=0, sticky="w")
+        ttk.Label(self, text="stack cap.", font=self.root.small_font).grid(row=1, column=1, sticky="w")
         self._world_inner = ttk.Frame(self)
         self._world_inner.grid(row=2, column=0, sticky="nw")
         self._stack_inner = ttk.Frame(self)
@@ -1137,9 +1188,9 @@ class BridgeFrame(ttk.LabelFrame):
 
 
 
-class ExecStatsFrame(ttk.LabelFrame):
+class ExecStatsFrame(ttk.Frame):
     def __init__(self, root: VisualizerApp, view):
-        super().__init__(view, text="Execution Stats")
+        super().__init__(view)
         self.root = root
 
         ttk.Label(self, text="Real time", font=self.root.small_font).grid(row=0, column=0, sticky=tk.W)

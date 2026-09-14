@@ -42,7 +42,7 @@ def test_load_stack_settings_reads_app_settings(monkeypatch, tmp_path):
             }
         )
     )
-    load_stack_settings(profile="default")
+    load_stack_settings(profile="default", load_plugins=False)
     assert AppSettings.c62_load_plugins is False
     assert AppSettings.c62_default_plugins == ["p60_headless_mode"]
 

@@ -106,6 +106,31 @@ class ControlSettingsSchema(SettingsSchema):
         ),
     )
 
+    c36_key_accel: list[str] = Field(
+        default_factory=lambda: ["w", "up"],
+        description="KeyboardController keys for acceleration (lowercase names; aliases like arrowup are accepted).",
+    )
+    c36_key_brake: list[str] = Field(
+        default_factory=lambda: ["s", "down"],
+        description="KeyboardController keys for braking / deceleration.",
+    )
+    c36_key_steer_left: list[str] = Field(
+        default_factory=lambda: ["a", "left"],
+        description="KeyboardController keys for left steer (positive Ackermann steer).",
+    )
+    c36_key_steer_right: list[str] = Field(
+        default_factory=lambda: ["d", "right"],
+        description="KeyboardController keys for right steer (negative Ackermann steer).",
+    )
+    c36_keyboard_acceleration: float = Field(
+        default=3.0,
+        description="Held-key acceleration magnitude (m/s²) for KeyboardController.",
+    )
+    c36_keyboard_steering: float = Field(
+        default=0.7,
+        description="Held-key steering magnitude (rad) for KeyboardController.",
+    )
+
     c30_emergency_velocity_threshold: float = Field(default=0.5, description="Speed threshold for emergency braking (m/s).")
     c30_emergency_min_moving_velocity: float = Field(default=1.0, description="Min speed treated as moving for emergency logic (m/s).")
     c30_emergency_braking_factor: float = Field(default=0.9, description="Emergency braking deceleration factor.")

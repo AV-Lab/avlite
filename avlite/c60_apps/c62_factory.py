@@ -14,6 +14,7 @@ from avlite.c60_apps.c63_plugins import (
     sync_community_plugins,
     unregister_plugin_package,
 )
+from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c68_paths import DataPaths
 from avlite.c60_apps.c65_setting_utils import load_setting
 
@@ -57,8 +58,10 @@ from avlite.c30_control.c35_pure_pursuit import (  # noqa: F401 — registers in
     FollowTheGapController,
     PurePursuitController,
 )
+from avlite.c30_control.c36_keyboard import KeyboardController  # noqa: F401 — registers in ControlStrategy.registry
 from avlite.c10_perception.c15_perception_algs import ConstantVelocityPrediction  # noqa: F401 — registers in PredictionStrategy.registry
 from avlite.c10_perception.c16_localization_algs import LidarLocalization  # noqa: F401 — registers in LocalizationStrategy.registry
+from avlite.c10_perception.c17_mapping_algs import OccupancyMapper  # noqa: F401 — registers in MappingStrategy.registry
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c43_task_strategy import TaskStrategy
@@ -66,8 +69,6 @@ from avlite.c40_execution.c44_sync_executer import SyncExecuter  # noqa: F401 �
 from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim  # noqa: F401 — registers in WorldBridge.registry
 from avlite.c40_execution import c47_execution_tasks  # noqa: F401 — registers TaskStrategy.registry
-
-
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +98,9 @@ def executor_factory(
     if execution_task_names is None:
         execution_task_names = list(ExecutionSettings.c40_execution_tasks)
 
+    env = PluginEnv()
     if load_plugins:
+        env.apply()
         sync_builtin_plugins(list(AppSettings.c62_default_plugins))
         sync_community_plugins(AppSettings.c62_community_plugins)
     else:
@@ -284,6 +287,7 @@ def executor_factory(
     bridge_cls = _RegistryChecks.require_registered(bridge, WorldBridge.registry, "world bridge")
     log.info(f"Loading registered world bridge {bridge}...")
     world = bridge_cls(**_bridge_kwargs(bridge_cls, world_ego, world_pm, loaded_map))
+    env.bind(world)
 
     ego = world.ego_state
     if ego.agent_id != EGO_AGENT_ID:
@@ -304,6 +308,8 @@ def executor_factory(
             task_kwargs["perception_model"] = pm
         elif "pm" in params:
             task_kwargs["pm"] = pm
+        if "mapping" in params:
+            task_kwargs["mapping"] = mapping
         tasks.append(task_cls(**task_kwargs))
 
     executer_cls = _RegistryChecks.require_registered(executer_type, ExecutionStrategy.registry, "executer")
@@ -360,6 +366,7 @@ def load_stack_settings(profile: str = "default", load_plugins: bool | None = No
     if not load_plugins:
         return
 
+    PluginEnv().apply()
     for name, stored in AppSettings.c62_community_plugins.items():
         load_community_plugin_setting(name, stored, profile=profile)
 

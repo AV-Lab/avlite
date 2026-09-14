@@ -5,7 +5,7 @@
 <h1 align="center">AVLite</h1>
 
 <p align="center">
-  <strong>Modular Autonomous Vehicle Stack for rapid prototyping, research, and education.</strong>
+  <strong>A lightweight autonomous vehicle stack with plugins from sensors to control.</strong>
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@
 
 ---
 
-**AVLite** is a lightweight, extensible autonomous vehicle software stack designed for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while maintaining flexibility through a plugin-based architecture.
+**AVLite** is a lightweight autonomous vehicle stack with plugins from sensors to control. It is designed for rapid prototyping, research, and education, with clean abstractions for perception, planning, and control.
 
 > **ROS2 & Autoware Ready** — Optional ROS2 executer plugin with native Autoware message support (`Trajectory`, `ControlCommand`, etc.).
 
@@ -76,7 +76,7 @@ flowchart TB
         direction LR
         PERC["Perception · c10\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning · c20\nGlobal · Local · Lattice"]
-        CTRL["Control · c30\nStanley · PID · Pure Pursuit · FTG"]
+        CTRL["Control · c30\nStanley · PID · Pure Pursuit · FTG · Keyboard"]
         WB["World Bridge · c40\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
@@ -92,7 +92,7 @@ flowchart TB
 
 - **c10_perception**: Interfaces and built-in algorithms for detection (`FastBEVLidarDetection`), tracking (`KalmanTracker`), prediction, and localization (`LidarLocalization`); `Map` / `RaceMap` in c11; OpenDRIVE `HDMap` parser in c18
 - **c20_planning**: Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, lattice-based `GreedyLatticePlanner`)
-- **c30_control**: Vehicle control algorithms (Stanley, PID, Pure Pursuit, Follow the Gap)
+- **c30_control**: Vehicle control algorithms (Stanley, PID, Pure Pursuit, Follow the Gap, Keyboard)
 - **c40_execution**: Execution orchestration with sync/async modes, simulator bridges, and execution tasks (`TaskStrategy` / `TaskRunner`) as a stack extension layer
 - **c60_apps**: App infrastructure (`c61_app_strategy`, `c62_factory`, `c63_plugins`, `c64_settings_schema`, `c65_setting_utils`, `c68_paths`); no tkinter
 - **c50_common**: Algorithm utilities only (`c51`–`c56`: capabilities, world/stack datatypes, trajectory, collision, FPS)
@@ -266,6 +266,7 @@ See the [Plugin Development Guide — Publish via pull request](docs/plugin-deve
        author: your-org
        category:
          - PerceptionStrategy
+       require_ros: false     # optional; true + min_ros_version if the plugin needs ROS 2
        site_url: ""           # optional project website
    ```
 
@@ -278,13 +279,14 @@ AVLite uses a numbered module system for easy navigation:
 
 ```
 avlite/
-├── c10_perception/         # Perception components (8 modules)
+├── c10_perception/         # Perception components (9 modules)
 │   ├── c11_perception_model.py   # PerceptionModel, Map, RaceMap
 │   ├── c12_perception_strategy.py
 │   ├── c13_localization_strategy.py
 │   ├── c14_mapping_strategy.py
 │   ├── c15_perception_algs.py    # FastBEVLidarDetection, KalmanTracker, ConstantVelocityPrediction
 │   ├── c16_localization_algs.py  # LidarLocalization (ICP)
+│   ├── c17_mapping_algs.py       # OccupancyMapper
 │   ├── c18_hdmap_parser.py       # HDMap (OpenDRIVE parsing)
 │   └── c19_settings.py
 ├── c20_planning/           # Planning components

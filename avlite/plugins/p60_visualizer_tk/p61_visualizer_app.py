@@ -753,7 +753,7 @@ class VisualizerApp(tk.Tk):
         sync_stack_settings_to_ui(self.setting)
         self.setting.default_map_file.set(DataPicker.default_map_display_path())
         self.setting.default_global_plan_file.set(DataPicker.default_global_plan_display_path())
-        self.perceive_plan_control_view.perceive_frame.refresh_default_map_tooltips()
+        self.exec_visualize_view.refresh_default_map_tooltips()
         self.setting_shortcut_view.update_setting_window()
         log.info(f"Loaded settings from profile: {profile}")
 
@@ -789,7 +789,7 @@ class VisualizerApp(tk.Tk):
             lp = self.exec.local_planner
             self.exec.local_planner = LocPipe(global_plan=lp.global_plan, env=self.exec.pm)
         try:
-            self.exec._validate_stack()
+            self.exec.validate_stack()
         except ValueError as e:
             log.error(f"Pipeline refresh failed: {e}")
 
@@ -832,7 +832,14 @@ class VisualizerApp(tk.Tk):
             )
 
             self.setting.default_map_file.set(DataPicker.default_map_display_path())
-            self.perceive_plan_control_view.perceive_frame.refresh_default_map_tooltips()
+            self.exec_visualize_view.refresh_default_map_tooltips()
+            from avlite.c60_apps.c67_plugin_env import PluginEnv
+
+            env = PluginEnv()
+            if env.pending_launch and messagebox.askokcancel(
+                "Plugin launch", env.launch_warning(), parent=self
+            ):
+                env.start_launch()
 
         except Exception as e:
             error = e
@@ -854,9 +861,12 @@ class VisualizerApp(tk.Tk):
             self.hide_loading_overlay()
 
         if error is not None:
+            from avlite.c60_apps.c67_plugin_env import PluginEnv
+
+            title = "ROS not available" if isinstance(error, PluginEnv.Error) else "Reload failed"
             messagebox.showerror(
-                "Reload failed",
-                f"Failed to rebuild the stack.\n\n{error}",
+                title,
+                f"Failed to rebuild the stack.\n\n{error}" if title == "Reload failed" else str(error),
                 parent=self,
             )
 

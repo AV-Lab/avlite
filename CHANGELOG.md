@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Execution: restore `call_localize` on `ExecutionStrategy.step()` (default True) so plugins keep working; visualizer still has no Localization checkbox
+- Execution: `validate_stack()` is now public API (was `_validate_stack`)
+
+## [0.6.1] - 2026-09-14
+
+### Changed
+- **Breaking** — `call_localize` removed from `ExecutionStrategy.step()`; localization follows `call_perceive`. GT localization and per-tick tasks unchanged
+- **Breaking** — `PREDICTION_CAPABILITIES` removed. Lattice and velocity planners `MayUse(DETECTION, PREDICTION_TRAJECTORY)` only
+- Apps: `PluginEnv.apply()` sources ROS (re-exec once for `LD_LIBRARY_PATH`) before community plugin import so `rclpy` loads without a sourced shell
+- Visualizer: restack Execution and Planning panes
+- Perception: nest `_Track` inside `KalmanTracker`
+
+### Added
+- Control: `KeyboardController` (`c36_keyboard`) — WASD/arrow teleop
+- Perception: `OccupancyMap` / `OccupancyMapper` (`MAP_OCCUPANCY`) with save/load
+- Plugins: `require_ros` / `min_ros_version` / `max_ros_version`; `c60_ros_distro` (`latest` or empty = newest `/opt/ros`); WorldBridge `launch.sh` after a warning
+
 ## [0.6.0] - 2026-09-13
 
 ### Added

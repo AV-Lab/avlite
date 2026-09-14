@@ -143,7 +143,7 @@ class MyPerception(PerceptionStrategy):
     world_requirements = frozenset({WorldCapability.CAMERA_RGB, WorldCapability.LIDAR_3D})
     stack_requirements = frozenset()
     stack_capabilities = frozenset({
-        StackCapability.DETECTION, StackCapability.TRACKING, StackCapability.PREDICTION,
+        StackCapability.DETECTION, StackCapability.TRACKING, StackCapability.PREDICTION_TRAJECTORY,
     })
     
     def perceive(self, perception_model=None, sensors=None):
@@ -161,7 +161,7 @@ In the visualizer, **ⓘ** / right-click shows `all ·` / `any ·` / `optional �
 requirement rows and colors provided caps green (consumed, including soft `MayUse`),
 orange (redundant with another top-level module or checked world GT), or gray (unused).
 
-All key methods (`perceive`, `detect`, `track`, `predict`, `localize`, `replan`,
+All key methods (`perceive`, `detect`, `track`, `predict`, `localize`, `update`, `replan`,
 `plan`, `control`) take the same optional pair ``perception_model`` + ``sensors``,
 supplied by the executer, pipeline, or UI. See [Architecture → Capability System](architecture.md#capability-system).
 
@@ -216,7 +216,7 @@ from avlite.c10_perception.c11_perception_model import PerceptionModel
 class MyPredictor(PredictionStrategy):
     world_requirements = frozenset()
     stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
-    stack_capabilities = frozenset({StackCapability.PREDICTION})
+    stack_capabilities = frozenset({StackCapability.PREDICTION_TRAJECTORY})
 
     def predict(self, perception_model=None, sensors=None) -> PerceptionModel | None:
         # Your prediction logic here
@@ -275,14 +275,18 @@ contract against the live stack and world bridge.
 
 ```python
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
-from avlite.c50_common.c51_capabilities import MayUse, StackCapability, WorldCapability
+from avlite.c50_common.c51_capabilities import (
+    MayUse,
+    StackCapability,
+    WorldCapability,
+)
 
 class MyLocalPlanner(LocalPlanningStrategy):
     world_requirements = frozenset()
     stack_requirements = frozenset({
         StackCapability.GLOBAL_PLAN,
         StackCapability.LOCALIZATION,
-        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY),
     })
     stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 
@@ -432,7 +436,7 @@ The camera's coordinate frame is the **OpenCV optical frame**: x right, y down, 
 
 ### Prediction models on `PerceptionModel`
 
-Forecast payloads live on a single typed object: **`perception_model.prediction`**. Per-agent types store data in **`dict[int, …]` keyed by `agent_id`** (not list index). The lump-sum occupancy type is **`AggregatedOccupancyFlow`** (one grid sequence for the whole scene).
+Forecast payloads live on a single typed object: **`perception_model.prediction`**. Per-agent types store data in **`dict[int, …]` keyed by `agent_id`** (not list index). The lump-sum occupancy type is **`AggregatedOccupancyFlow`** (one grid sequence for the whole scene). Advertise the matching typed cap (`PREDICTION_TRAJECTORY`, `PREDICTION_GP`, `PREDICTION_GMM`, or `PREDICTION_OCCUPANCY`) — there is no generic `PREDICTION`. Consumers `MayUse` / `AnyOf` only the typed caps they actually read (built-in lattice and velocity planners: `PREDICTION_TRAJECTORY`).
 
 ```python
 from avlite.c10_perception.c11_perception_model import PerceptionModel, SingleTrajectory
@@ -442,6 +446,20 @@ pm.prediction = SingleTrajectory(
     trajectories={agent.agent_id: path_xy for agent in pm.agent_vehicles},
 )
 path = pm.prediction.trajectories.get(agent.agent_id)  # [n_steps, 2] world x,y [m]
+```
+
+Occupancy-flow types use the same world-frame window as **`OccupancyMap`**: `origin_x`, `origin_y`, `resolution` (not a string-key dict). Cell `(0, 0)` is the lower-left of the window; its lower-left corner is `(origin_x, origin_y)`. Row is +y, column is +x. Cell count is `grid.shape`. **`OccupancyFlow`** is per-agent (`dict[int, list[np.ndarray]]`); **`AggregatedOccupancyFlow`** is one scene-wide sequence.
+
+```python
+from avlite.c10_perception.c11_perception_model import AggregatedOccupancyFlow
+
+pm.prediction = AggregatedOccupancyFlow(
+    predict_delta_t=0.1,
+    occupancy_flow=[grid_t0, grid_t1],  # each [H, W] occupancy in [0, 1]
+    origin_x=-40.0,
+    origin_y=-40.0,
+    resolution=0.25,
+)
 ```
 
 **Timesteps — do not mix tracking and prediction:**
@@ -540,6 +558,7 @@ Registry repository: [github.com/AV-Lab/avlite-community-plugins](https://github
    ├── my_planner.py     # your implementation
    └── README.md         # shown in the Plugins browser (recommended)
    ```
+   WorldBridge plugins may also include `launch.sh` at the repo root. On stack reload or Start, AVLite warns and (if confirmed) runs it in the background to start a vehicle platform or simulator. The process is not stopped when the stack stops.
 4. **Optional** — `settings.py` with `PluginSettings` if you have tunable parameters; `requirements.txt` if you depend on extra pip packages (users install these into their AVLite environment).
 5. **Do not commit** a `.venv` inside the plugin repo.
 
@@ -558,6 +577,9 @@ plugins:
     category:
       - PerceptionStrategy
     min_avlite_version: "0.4.5"  # optional
+    require_ros: false           # optional; true if the plugin needs ROS 2
+    min_ros_version: humble      # optional; ignored unless require_ros is true
+    max_ros_version: ""          # optional upper bound (omit or "" for none)
     dependency_notes: ""         # optional
     site_url: ""                 # optional
 ```
@@ -572,6 +594,9 @@ plugins:
 | `author` | yes | Display name, handle, or organization. |
 | `category` | yes | List of strategy types this plugin provides (see table below). Shown in the Plugins browser **Category** column. |
 | `min_avlite_version` | no | Minimum AVLite version (semver, e.g. `0.4.5`). Installs are blocked below it. Omit or leave empty if unknown. |
+| `require_ros` | no | `true` if the plugin needs ROS 2. The Plugins browser grays out the row when the active distro is missing or out of range; the executer raises a clean error if ROS later disappears. |
+| `min_ros_version` | no | Oldest ROS 2 distro name (`humble`, `jazzy`, …). Ignored unless `require_ros` is `true`. Omit for any installed ROS 2. |
+| `max_ros_version` | no | Newest ROS 2 distro name. Omit or leave empty for no upper bound. |
 | `dependency_notes` | no | Extra setup beyond `requirements.txt` (system packages, ROS, simulators). Shown after install. Use `""` when pip-only. |
 | `site_url` | no | Project website or documentation page. Adds a **Site** link in the plugin store and an **Open Website** button in the Plugins browser. Use `""` when the repository is the only home. |
 
@@ -613,7 +638,7 @@ You do not need a new AVLite release for registry-only changes.
 ### Updating your listing
 
 - **New plugin version** — push to your repo; users click **Update** in the Plugins browser (or reinstall). Bump `version` in `plugins.yaml` if you want to pin a new tag/SHA for fresh installs.
-- **Change metadata** — open another PR on avlite-community-plugins to edit `display_name`, `description`, `author`, `category`, `version`, or `site_url`. Avoid changing `name`: it is the install folder and settings-file identifier, so renaming it orphans existing installs.
+- **Change metadata** — open another PR on avlite-community-plugins to edit `display_name`, `description`, `author`, `category`, `version`, `site_url`, or ROS fields (`require_ros`, `min_ros_version`, `max_ros_version`). Avoid changing `name`: it is the install folder and settings-file identifier, so renaming it orphans existing installs.
 
 ## 12. Built-in plugin naming (`pNx`)
 
@@ -670,7 +695,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 | `TrackingStrategy` | Tracking sub-strategy (used by `PerceptionPipeline`) | `track()` |
 | `PredictionStrategy` | Prediction sub-strategy (used by `PerceptionPipeline`) | `predict()` |
 | `LocalizationStrategy` | Localization | `localize()` |
-| `MappingStrategy` | Mapping | TBD |
+| `MappingStrategy` | Mapping | `update(perception_model, sensors)` |
 | `LocalPlanningStrategy` | Local planning | `replan()` |
 | `GlobalPlannerStrategy` | Global planning | `plan()` |
 | `ControlStrategy` | Vehicle control | `control()` |

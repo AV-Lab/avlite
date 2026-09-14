@@ -15,8 +15,13 @@ try:
 except ImportError:
     ThemedStyle = None  # type: ignore[misc, assignment]
 
-from avlite.c10_perception.c11_perception_model import HDMap, RaceMap
+from avlite.c10_perception.c11_perception_model import HDMap, OccupancyMap, RaceMap
 from avlite.c20_planning.c21_planning_model import GlobalPlan
+from avlite.c40_execution.c41_world_bridge import (
+    WorldBridge,
+    is_world_capability_enabled,
+    is_world_stack_capability_enabled,
+)
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_common.c51_capabilities import (
     AnyOf,
@@ -471,7 +476,10 @@ CAPABILITY_TOOLTIPS: dict = {
     WorldCapability.GNSS: "GNSS / GPS receiver data from the world.",
     StackCapability.DETECTION: "Ground-truth object detections provided by the world.",
     StackCapability.TRACKING: "Ground-truth object tracks provided by the world.",
-    StackCapability.PREDICTION: "Ground-truth agent trajectory predictions provided by the world.",
+    StackCapability.PREDICTION_TRAJECTORY: "Deterministic (x, y) polyline forecast per agent.",
+    StackCapability.PREDICTION_GP: "Gaussian-process forecast (mean + covariance) per agent.",
+    StackCapability.PREDICTION_GMM: "Gaussian-mixture multi-modal forecast per agent.",
+    StackCapability.PREDICTION_OCCUPANCY: "Occupancy-grid forecast (per-agent or scene-wide).",
     StackCapability.LOCALIZATION: "Ground-truth ego localization provided by the world.",
     StackCapability.MAP_HD: "HD / OpenDRIVE map provided by a mapping module.",
     StackCapability.MAP_RACE_TRACK: "Race-track corridor map provided by a mapping module.",
@@ -498,6 +506,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     # Planning
     "plan_global_replan": "Recompute the global route from the map and planner.",
     "plan_save_global": "Save the current global plan to a JSON file.",
+    "map_save_occupancy": "Save the current map to a file.",
     "plan_set_waypoint": "Jump the local planner to the waypoint index in the field.",
     "plan_wp_back": "Move to the previous waypoint on the global plan.",
     "plan_step": "Advance the local planner to the next waypoint.",
@@ -810,7 +819,7 @@ class DataPicker:
     @staticmethod
     def list_map_candidates() -> list[str]:
         def _is_map(path: Path) -> bool:
-            return HDMap.is_loadable(path) or RaceMap.is_loadable(path)
+            return HDMap.is_loadable(path) or OccupancyMap.is_loadable(path) or RaceMap.is_loadable(path)
 
         return [""] + DataPicker._collect_candidates(_is_map)
 
@@ -1043,8 +1052,6 @@ def _other_providers(executer, target) -> set:
         return caps
     target_name = _strategy_type_name(target)
     if getattr(executer, "world", None) is not None:
-        from avlite.c40_execution.c41_world_bridge import is_world_stack_capability_enabled
-
         caps |= {
             c for c in executer.world.stack_capabilities if is_world_stack_capability_enabled(c)
         }
@@ -1108,8 +1115,6 @@ def show_strategy_contract_popup(
     stack_available: set = set()
     if executer is not None:
         if getattr(executer, "world", None) is not None:
-            from avlite.c40_execution.c41_world_bridge import is_world_capability_enabled
-
             world_caps = {
                 c for c in executer.world.world_capabilities if is_world_capability_enabled(c)
             }
@@ -1200,11 +1205,6 @@ def show_world_bridge_contract_popup(
     title: str | None = None,
 ):
     """Show a color-coded contract popup for the selected world bridge."""
-    from avlite.c40_execution.c41_world_bridge import (
-        is_world_capability_enabled,
-        is_world_stack_capability_enabled,
-    )
-
     parent = anchor.winfo_toplevel()
     pop = tk.Toplevel(parent)
     pop.title(title or (name or "(none)"))
@@ -1297,8 +1297,6 @@ def show_world_bridge_contract_popup(
 
 def make_world_bridge_contract_controls(parent, combobox, get_exec):
     """Bind right-click on bridge *combobox*; return ``(show_popup, info_btn)``."""
-    from avlite.c40_execution.c41_world_bridge import WorldBridge
-
     def show_popup(_event=None):
         show_world_bridge_contract_popup(
             combobox,

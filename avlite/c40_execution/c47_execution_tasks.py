@@ -7,6 +7,7 @@ import math
 from typing import ClassVar
 
 from avlite.c40_execution.c43_task_strategy import StackEvent, TaskSchedule, TaskStrategy
+from avlite.c50_common.c51_capabilities import satisfies_requirements
 
 log = logging.getLogger(__name__)
 
@@ -61,5 +62,39 @@ class TelemetryTask(TaskStrategy):
             ego.x,
             ego.y,
         )
+
+
+class MappingTask(TaskStrategy):
+    """Mapping tick. Copies the assembled mapper's ``MAP_*`` caps so the stack
+    advertises them once (via this task), not via the mapping module.
+    """
+
+    schedule = TaskSchedule.EVERY_CYCLE
+
+    def __init__(self, mapping=None) -> None:
+        self.stack_capabilities = (
+            frozenset(mapping.stack_capabilities) if mapping is not None else frozenset()
+        )
+
+    def execute(self, executer, event=None) -> None:
+        mapping = executer.mapping
+        if not mapping:
+            return
+        sensors = None
+        ego = None
+        if mapping.world_requirements:
+            sensors = executer.world.get_sensor_frame()
+            ego = executer.world.get_ego_state()
+        world_ok = satisfies_requirements(mapping.world_requirements, executer.world.world_capabilities)
+        stack_ok = satisfies_requirements(mapping.stack_requirements, executer.available_stack_capabilities())
+        if world_ok and stack_ok:
+            mapping.update(perception_model=executer.pm, sensors=sensors, ego=ego)
+        else:
+            log.warning(
+                f"Mapping strategy {mapping.__class__.__name__} requirements not satisfied "
+                f"(world_requirements {mapping.world_requirements} vs {executer.world.world_capabilities}; "
+                f"stack_requirements {mapping.stack_requirements} vs {executer.available_stack_capabilities()}). "
+                f"Skipping."
+            )
 
 

@@ -219,6 +219,19 @@
         escapeHtml(p.min_avlite_version) +
         "</span>"
       : "";
+    var rosChip = "";
+    if (p.require_ros) {
+      var minR = (p.min_ros_version || "").toString().trim();
+      var maxR = (p.max_ros_version || "").toString().trim();
+      var rosLabel = "ROS 2";
+      if (minR && maxR) rosLabel += " · " + minR + "–" + maxR;
+      else if (minR) rosLabel += " · " + minR + "+";
+      else if (maxR) rosLabel += " · ≤" + maxR;
+      rosChip =
+        '<span class="store-chip store-chip--version">' +
+        escapeHtml(rosLabel) +
+        "</span>";
+    }
 
     var actions =
       '<div class="store-card-actions">' +
@@ -255,6 +268,7 @@
         })
         .join("") +
       minVer +
+      rosChip +
       "</div>" +
       notes +
       actions +

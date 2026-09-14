@@ -30,6 +30,10 @@ class AppSettingsSchema(SettingsSchema):
         description="Community plugin name to install directory map.",
     )
     c60_selected_profile: str = Field(default="default", description="Active settings profile name.")
+    c60_ros_distro: str = Field(
+        default="",
+        description="ROS 2 distro to source (latest or empty = latest installed; AVLITE_ROS_DISTRO wins).",
+    )
 
 
 AppSettings = AppSettingsSchema()

@@ -9,6 +9,7 @@ import pytest
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import LocalPlan
 from avlite.c30_control.c31_control_model import AckermannControlCommand
+from avlite.c30_control.c36_keyboard import KeyboardController
 from avlite.c40_execution.c43_task_strategy import (
     StackEvent,
     TaskPlacement,
@@ -20,6 +21,7 @@ from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c46_basic_sim import BasicSim
 from avlite.c40_execution.c47_execution_tasks import (
     GoalArrivalMonitor,
+    MappingTask,
     StopExecAtGoalTask,
     TelemetryTask,
 )
@@ -308,6 +310,25 @@ def test_harvest_control_stack_event_notifies_once():
     assert ControlHaltedListener.calls == []
 
 
+def test_control_step_without_local_planner():
+    ego = EgoState(x=0.0, y=0.0)
+    pm = PerceptionModel(ego_vehicle=ego)
+    world = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego))
+    controller = KeyboardController(listen=False)
+    controller.press("w")
+    executer = SyncExecuter(
+        perception_model=pm,
+        world=world,
+        perception=None,
+        global_planner=None,
+        local_planner=None,
+        controller=controller,
+    )
+    executer._control_step(sim_dt=0.01, sensors=world.get_sensor_frame())
+    assert executer._last_cmd is not None
+    assert executer._last_cmd.acceleration == pytest.approx(3.0)
+
+
 def test_non_inline_placement_falls_back_to_inline():
     ego = EgoState(x=0.0, y=0.0)
     pm = PerceptionModel(ego_vehicle=ego)
@@ -330,9 +351,11 @@ def test_builtin_tasks_are_registered():
     assert "GoalArrivalMonitor" in TaskStrategy.registry
     assert "StopExecAtGoalTask" in TaskStrategy.registry
     assert "TelemetryTask" in TaskStrategy.registry
+    assert "MappingTask" in TaskStrategy.registry
     assert TaskStrategy.registry["GoalArrivalMonitor"] is GoalArrivalMonitor
     assert TaskStrategy.registry["StopExecAtGoalTask"] is StopExecAtGoalTask
     assert TaskStrategy.registry["TelemetryTask"] is TelemetryTask
+    assert TaskStrategy.registry["MappingTask"] is MappingTask
 
 
 def test_factory_rejects_unknown_task_name(minimal_corridor_map_path):

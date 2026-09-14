@@ -1,4 +1,4 @@
-"""AVLite - Modular Autonomous Vehicle Stack.
+"""AVLite: A lightweight autonomous vehicle stack with plugins from sensors to control.
 
 The most important classes are re-exported here so that users (and plugin
 authors in particular) can import them directly from the top-level package::
@@ -51,6 +51,7 @@ _LAZY: dict[str, str] = {
     # Mapping
     "MappingStrategy": "avlite.c10_perception.c14_mapping_strategy",
     "MapReader": "avlite.c10_perception.c14_mapping_strategy",
+    "OccupancyMapper": "avlite.c10_perception.c17_mapping_algs",
     # Global planning
     "GlobalPlannerStrategy": "avlite.c20_planning.c22_global_planning_strategy",
     # Local planning
@@ -82,6 +83,7 @@ _LAZY: dict[str, str] = {
     "Map": "avlite.c10_perception.c11_perception_model",
     "HDMap": "avlite.c10_perception.c11_perception_model",
     "RaceMap": "avlite.c10_perception.c11_perception_model",
+    "OccupancyMap": "avlite.c10_perception.c11_perception_model",
     # -- Planning data models -----------------------------------------------
     "GlobalPlan": "avlite.c20_planning.c21_planning_model",
     "LocalPlan": "avlite.c20_planning.c21_planning_model",
@@ -154,6 +156,7 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         EgoState,
         HDMap,
         Map,
+        OccupancyMap,
         PerceptionModel,
         RaceMap,
         SingleTrajectory,
@@ -168,6 +171,7 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
     )
     from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
     from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
+    from avlite.c10_perception.c17_mapping_algs import OccupancyMapper
     from avlite.c10_perception.c19_settings import PerceptionSettings
     from avlite.c20_planning.c21_planning_model import (
         GlobalPlan,

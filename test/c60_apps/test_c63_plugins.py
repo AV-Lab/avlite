@@ -18,8 +18,14 @@ from avlite.c60_apps.c63_plugins import (
     plugin_module_prefix,
     register_community_plugin_import_hook,
 )
+from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c68_paths import ConfigPaths, PluginPaths
 from avlite.c60_apps.c65_setting_utils import load_setting, setting_section
+
+@pytest.fixture(autouse=True)
+def _skip_ros_apply(monkeypatch):
+    monkeypatch.setattr(PluginEnv, "apply", lambda self: None)
+
 
 _PLUGIN_NAME = "avlite-executer-ROS2"
 _SETTINGS_BODY = (
@@ -259,7 +265,7 @@ def test_reload_lib_plugin_via_public_api_registers_on_live_abc(tmp_path):
         "class PluginApiReloadPredictor(PredictionStrategy):\n"
         "    world_requirements = frozenset()\n"
         "    stack_requirements = frozenset()\n"
-        "    stack_capabilities = frozenset({StackCapability.PREDICTION})\n"
+        "    stack_capabilities = frozenset({StackCapability.PREDICTION_TRAJECTORY})\n"
         "\n"
         "    def predict(self, perception_model=None, sensors=None):\n"
         "        return perception_model\n",

@@ -12,6 +12,7 @@ from avlite.c10_perception.c14_mapping_strategy import MapReader
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
 from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
 from avlite.c40_execution.c46_basic_sim import BasicSim
+from avlite.c40_execution.c47_execution_tasks import MappingTask
 from avlite.c50_common.c51_capabilities import StackCapability
 
 
@@ -24,6 +25,27 @@ def _race_map() -> RaceMap:
     left = np.array([[0.0, 1.0], [10.0, 1.0]])
     right = np.array([[0.0, -1.0], [10.0, -1.0]])
     return RaceMap(source_path="synthetic", left_bound=left, right_bound=right)
+
+
+def test_available_stack_capabilities_includes_map_from_mapping_module_without_task():
+    ego = EgoState()
+    pm = PerceptionModel(ego_vehicle=ego)
+    race_map = _race_map()
+    world = BasicSim(ego_state=ego, pm=pm, map=race_map)
+    mapping = MapReader(race_map)
+    exec_ = _StubExecuter(
+        perception_model=pm,
+        perception=None,
+        global_planner=None,
+        local_planner=None,
+        controller=None,
+        world=world,
+        mapping=mapping,
+    )
+    assert StackCapability.MAP_RACE_TRACK in mapping.stack_capabilities
+    assert StackCapability.MAP_RACE_TRACK in exec_.available_stack_capabilities()
+    assert StackCapability.MAP_RACE_TRACK not in world.stack_capabilities
+    assert StackCapability.MAP_HD not in exec_.available_stack_capabilities()
 
 
 def test_available_stack_capabilities_includes_map_from_mapping():
@@ -40,7 +62,10 @@ def test_available_stack_capabilities_includes_map_from_mapping():
         controller=None,
         world=world,
         mapping=mapping,
+        tasks=[MappingTask(mapping)],
     )
+    mapping_task = next(t for t in exec_.task_runner.tasks if isinstance(t, MappingTask))
+    assert StackCapability.MAP_RACE_TRACK in mapping_task.stack_capabilities
     assert StackCapability.MAP_RACE_TRACK in exec_.available_stack_capabilities()
     assert StackCapability.MAP_RACE_TRACK not in world.stack_capabilities
     assert StackCapability.MAP_HD not in exec_.available_stack_capabilities()

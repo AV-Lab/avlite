@@ -2,6 +2,8 @@ import numpy as np
 
 from avlite.c10_perception.c11_perception_model import (
     AgentState,
+    AggregatedOccupancyFlow,
+    OccupancyFlow,
     PerceptionModel,
     SingleTrajectory,
 )
@@ -46,3 +48,31 @@ def test_reset_clears_prediction():
     )
     pm.reset()
     assert pm.prediction is None
+
+
+def test_occupancy_flow_default_window():
+    pred = OccupancyFlow()
+    assert pred.origin_x == 0.0
+    assert pred.origin_y == 0.0
+    assert pred.resolution == PerceptionSettings.c17_resolution
+
+
+def test_aggregated_occupancy_flow_default_window():
+    pred = AggregatedOccupancyFlow()
+    assert pred.origin_x == 0.0
+    assert pred.origin_y == 0.0
+    assert pred.resolution == PerceptionSettings.c17_resolution
+
+
+def test_aggregated_occupancy_flow_implied_extent():
+    grid = np.zeros((2, 4), dtype=np.float32)
+    pred = AggregatedOccupancyFlow(occupancy_flow=[grid])
+    h, w = pred.occupancy_flow[0].shape
+    res = pred.resolution
+    extent = (
+        pred.origin_x,
+        pred.origin_x + w * res,
+        pred.origin_y,
+        pred.origin_y + h * res,
+    )
+    assert extent == (0.0, 4 * res, 0.0, 2 * res)

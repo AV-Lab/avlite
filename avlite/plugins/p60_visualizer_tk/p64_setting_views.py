@@ -16,9 +16,11 @@ from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning import c29_settings
 from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c30_control import c39_settings
+from avlite.c30_control.c36_keyboard import keyboard_drive_owns
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution import c49_settings
 from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c68_paths import ConfigPaths, PluginPaths
 from avlite.c60_apps.c63_plugins import (
@@ -278,8 +280,8 @@ class SettingWindow:
         ##############################################
         plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
         plugin_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
-        plugin_frame.rowconfigure(2, weight=1)
-        plugin_frame.rowconfigure(5, weight=1)
+        plugin_frame.rowconfigure(3, weight=1)
+        plugin_frame.rowconfigure(6, weight=1)
         plugin_frame.columnconfigure(0, weight=1)
         plugin_frame.columnconfigure(1, weight=1)
 
@@ -292,31 +294,45 @@ class SettingWindow:
         cb_load_plugins.grid(row=0, column=0, columnspan=2, sticky="w", padx=5, pady=5)
         HoverTooltip.attach_schema(cb_load_plugins, AppSettings, "c62_load_plugins")
 
+        ttk.Label(plugin_frame, text="ROS 2 distro (optional)").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        try:
+            installed = PluginEnv().installed
+        except Exception:
+            installed = ()
+        self.ros_distro_menu = ttk.Combobox(
+            plugin_frame,
+            textvariable=self.host.setting.c60_ros_distro,
+            values=("latest",) + installed,
+            state="readonly",
+        )
+        self.ros_distro_menu.grid(row=1, column=1, sticky="we", padx=5, pady=5)
+        HoverTooltip.attach_schema(self.ros_distro_menu, AppSettings, "c60_ros_distro")
+
         # built-in plugins
-        ttk.Label(plugin_frame, text="Plugins").grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        ttk.Label(plugin_frame, text="Plugins").grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=5)
         self.listbox_default_plugins = tk.Listbox(
             plugin_frame, height=listbox_height, selectmode=tk.SINGLE, exportselection=False, width=30,
         )
-        self.listbox_default_plugins.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
+        self.listbox_default_plugins.grid(row=3, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
         for plugin in AppSettings.c62_default_plugins:
             self.listbox_default_plugins.insert(tk.END, plugin)
         
         btn_reset_plugins = ttk.Button(plugin_frame, text="Reset Plugins", command=self.reset_default_plugins)
-        btn_reset_plugins.grid(row=3, column=0, sticky="we", padx=5, pady=5)
+        btn_reset_plugins.grid(row=4, column=0, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_reset_plugins, BUTTON_TOOLTIPS["plugins_reset_builtin"])
         self._btn_remove_builtin = ttk.Button(plugin_frame, text="Remove Plugin", command=self.remove_default_plugin)
-        self._btn_remove_builtin.grid(row=3, column=1, sticky="we", padx=5, pady=5)
+        self._btn_remove_builtin.grid(row=4, column=1, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(self._btn_remove_builtin, BUTTON_TOOLTIPS["plugins_remove_builtin"])
 
 
         # community plugins
-        ttk.Label(plugin_frame, text="Community Plugins").grid(row=4, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        ttk.Label(plugin_frame, text="Community Plugins").grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=5)
         self.listbox_community_plugins = tk.Listbox(
             plugin_frame, height=listbox_height, selectmode=tk.SINGLE, exportselection=False, width=30,
         )
-        self.listbox_community_plugins.grid(row=5, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
+        self.listbox_community_plugins.grid(row=6, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         # Convert comma-separated string to list items
 
         for plugin in AppSettings.c62_community_plugins.keys() if self.host.setting.c62_load_plugins.get() else []:
@@ -332,16 +348,16 @@ class SettingWindow:
 
 
         btn_reset_community = ttk.Button(plugin_frame, text="Reset to Installed", command=self.reset_community_plugins)
-        btn_reset_community.grid(row=6, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        btn_reset_community.grid(row=7, column=0, columnspan=2, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_reset_community, BUTTON_TOOLTIPS["plugins_reset_community"])
         btn_add_plugin = ttk.Button(plugin_frame, text="Add Plugin", command=self.add_community_plugin)
-        btn_add_plugin.grid(row=7, column=0, sticky="we", padx=5, pady=5)
+        btn_add_plugin.grid(row=8, column=0, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_add_plugin, BUTTON_TOOLTIPS["plugins_add"])
         btn_remove_community = ttk.Button(plugin_frame, text="Remove Plugin", command=self.delete_community_plugin)
-        btn_remove_community.grid(row=7, column=1, sticky="we", padx=5, pady=5)
+        btn_remove_community.grid(row=8, column=1, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_remove_community, BUTTON_TOOLTIPS["plugins_remove_community"])
         btn_browse_plugins = ttk.Button(plugin_frame, text="Browse Community Plugins…", command=self.open_plugins_window)
-        btn_browse_plugins.grid(row=8, column=0, columnspan=2, sticky="we", padx=5, pady=5)
+        btn_browse_plugins.grid(row=9, column=0, columnspan=2, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
 
     def _build_settings_canvas(self, settings_frame: ttk.Frame) -> None:
@@ -491,6 +507,12 @@ class SettingWindow:
         )
         cb_occupancy_flow.pack(side=tk.LEFT)
         HoverTooltip.attach_schema(cb_occupancy_flow, VisualizationSettings, "p67_show_occupancy_flow")
+        cb_occupancy_map = ttk.Checkbutton(
+            additional_setting_row_1d, text="Occupancy map",
+            variable=self.host.setting.p67_show_occupancy_map, command=self.host.update_ui,
+        )
+        cb_occupancy_map.pack(side=tk.LEFT)
+        HoverTooltip.attach_schema(cb_occupancy_map, VisualizationSettings, "p67_show_occupancy_map")
         # ttk.Label(additional_setting_row_1d, text="Mapping:").pack(side=tk.LEFT, padx=(10, 5))
         # mapping_cb = ttk.Combobox(
         #     additional_setting_row_1d,
@@ -1296,12 +1318,12 @@ class SettingShortcutView(ttk.LabelFrame):
         self.root.bind("h", lambda e: self.root.perceive_plan_control_view.control_frame.step_control())
         self.root.bind("i", lambda e: self.root.perceive_plan_control_view.control_frame.align_control())
 
-        self.root.bind("<KeyPress-a>", lambda e: self.root.perceive_plan_control_view.control_frame.step_steer_left())
-        self.root.bind("<KeyPress-d>", lambda e: self.root.perceive_plan_control_view.control_frame.step_steer_right())
-        self.root.bind("<KeyRelease-a>", lambda e: self.root.perceive_plan_control_view.control_frame.reset_steer())
-        self.root.bind("<KeyRelease-d>", lambda e: self.root.perceive_plan_control_view.control_frame.reset_steer())
-        self.root.bind("w", lambda e: self.root.perceive_plan_control_view.control_frame.step_acc())
-        self.root.bind("s", lambda e: self.root.perceive_plan_control_view.control_frame.step_dec())
+        self.root.bind("<KeyPress-a>", lambda e: self._unless_keyboard_drive("a", self.root.perceive_plan_control_view.control_frame.step_steer_left))
+        self.root.bind("<KeyPress-d>", lambda e: self._unless_keyboard_drive("d", self.root.perceive_plan_control_view.control_frame.step_steer_right))
+        self.root.bind("<KeyRelease-a>", lambda e: self._unless_keyboard_drive("a", self.root.perceive_plan_control_view.control_frame.reset_steer))
+        self.root.bind("<KeyRelease-d>", lambda e: self._unless_keyboard_drive("d", self.root.perceive_plan_control_view.control_frame.reset_steer))
+        self.root.bind("w", lambda e: self._unless_keyboard_drive("w", self.root.perceive_plan_control_view.control_frame.step_acc))
+        self.root.bind("s", lambda e: self._unless_keyboard_drive("s", self.root.perceive_plan_control_view.control_frame.step_dec))
 
         self.root.bind("k", lambda e: self.root.log_view.log_area.yview_scroll(-1, "units"))
         self.root.bind("j", lambda e: self.root.log_view.log_area.yview_scroll(1, "units"))
@@ -1314,8 +1336,8 @@ class SettingShortcutView(ttk.LabelFrame):
         )
         self.root.bind("G", lambda e: self.root.log_view.log_area.yview_moveto(1.0))
         self.root.bind("g", lambda e: self.root.log_view.log_area.yview_moveto(0.0))
-        self.root.bind("<Up>", lambda e: self.root.log_view.log_area.yview_scroll(-1, "units"))
-        self.root.bind("<Down>", lambda e: self.root.log_view.log_area.yview_scroll(1, "units"))
+        self.root.bind("<Up>", lambda e: self._unless_keyboard_drive("up", lambda: self.root.log_view.log_area.yview_scroll(-1, "units")))
+        self.root.bind("<Down>", lambda e: self._unless_keyboard_drive("down", lambda: self.root.log_view.log_area.yview_scroll(1, "units")))
 
         self.root.bind("E", lambda e: self.root.log_view.update_log_view_height(reverse=True))
         self.root.bind("L", lambda e: self.root.log_view.clear_log())
@@ -1420,6 +1442,14 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         self.help_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
         self.help_text.insert(tk.END, key_binding_info)
         self.help_text.config(state=tk.DISABLED)
+
+    def _unless_keyboard_drive(self, key: str, action):
+        """Skip Tk pulse/scroll when KeyboardController owns this mapped key."""
+        exec_ = getattr(self.root, "exec", None)
+        ctrl = getattr(exec_, "controller", None) if exec_ is not None else None
+        if keyboard_drive_owns(ctrl, key):
+            return
+        return action()
 
     def __on_profile_dropdown_change(self, event):
         log.info("Selected profile: %s", event.widget.get())

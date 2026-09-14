@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -148,6 +149,8 @@ def test_install_plugin_uses_git_auth(monkeypatch, tmp_path):
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
+        if len(cmd) > 1 and cmd[1] == "clone":
+            Path(cmd[-1]).mkdir(parents=True, exist_ok=True)
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     monkeypatch.setattr(cp.subprocess, "run", fake_run)
@@ -155,8 +158,13 @@ def test_install_plugin_uses_git_auth(monkeypatch, tmp_path):
         "name": "p",
         "repository": "https://github.com/org/private-plugin",
         "version": "latest",
+        "require_ros": True,
+        "min_ros_version": "humble",
     }
-    cp._PluginOperations.install_plugin(entry, tmp_path, token="gho_test")
+    dest = cp._PluginOperations.install_plugin(entry, tmp_path, token="gho_test")
+    sidecar = dest / ".avlite-registry.yaml"
+    assert sidecar.is_file()
+    assert "require_ros" in sidecar.read_text(encoding="utf-8")
     clone_cmd = calls[0]
     assert clone_cmd[0] == "git"
     assert clone_cmd[1] == "clone"
@@ -238,6 +246,32 @@ def test_meets_min_avlite_compare(monkeypatch):
     )
     assert ok is False
     assert required == "v0.5.0"
+
+
+def test_meets_min_avlite_ros_requirement(monkeypatch, tmp_path):
+    import avlite
+
+    from avlite.c60_apps.c67_plugin_env import PluginEnv
+    from avlite.c60_apps.c69_settings import AppSettings
+
+    monkeypatch.setattr(avlite, "__version__", "0.4.5")
+    monkeypatch.setattr(cp, "_PACKAGING_AVAILABLE", True)
+    monkeypatch.setattr(PluginEnv, "PREFIX", tmp_path / "opt" / "ros")
+    monkeypatch.delenv("ROS_DISTRO", raising=False)
+    monkeypatch.delenv("AVLITE_ROS_DISTRO", raising=False)
+    monkeypatch.setattr(AppSettings, "c60_ros_distro", "")
+
+    ok, _, required = cp._PluginOperations.meets_min_avlite({"require_ros": True, "name": "ros_plug"})
+    assert ok is False
+    assert "ROS 2" in required
+
+    humble = tmp_path / "opt" / "ros" / "humble"
+    humble.mkdir(parents=True)
+    (humble / "setup.bash").write_text("", encoding="utf-8")
+    ok, _, _ = cp._PluginOperations.meets_min_avlite(
+        {"require_ros": True, "min_ros_version": "humble", "name": "ros_plug"}
+    )
+    assert ok is True
 
 
 def test_meets_min_avlite_without_packaging(monkeypatch):

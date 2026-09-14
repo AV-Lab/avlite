@@ -23,7 +23,7 @@ class ConstantVelocityPrediction(PredictionStrategy):
 
     world_requirements = frozenset()
     stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
-    stack_capabilities = frozenset({StackCapability.PREDICTION})
+    stack_capabilities = frozenset({StackCapability.PREDICTION_TRAJECTORY})
 
     def predict(
         self,
@@ -61,42 +61,6 @@ class ConstantVelocityPrediction(PredictionStrategy):
         return perception_model
 
 
-class _Track:
-    """A single constant-velocity Kalman filter track.
-
-    State vector ``[x, y, vx, vy]``; measurement ``[x, y]``.
-    """
-
-    def __init__(self, track_id: int, agent: AgentState, init_vel_var: float):
-        self.track_id = track_id
-        self.missed = 0
-        self.agent = agent
-        self.x = np.array([agent.x, agent.y, 0.0, 0.0])
-        self.P = np.diag([1.0, 1.0, init_vel_var, init_vel_var])
-
-    def predict(self, dt: float, q: float) -> None:
-        F = np.array([[1, 0, dt, 0], [0, 1, 0, dt], [0, 0, 1, 0], [0, 0, 0, 1]])
-        # Constant-acceleration process noise (discrete white-noise model).
-        dt2, dt3, dt4 = dt * dt, dt ** 3, dt ** 4
-        Q = q * np.array([
-            [dt4 / 4, 0, dt3 / 2, 0],
-            [0, dt4 / 4, 0, dt3 / 2],
-            [dt3 / 2, 0, dt2, 0],
-            [0, dt3 / 2, 0, dt2],
-        ])
-        self.x = F @ self.x
-        self.P = F @ self.P @ F.T + Q
-
-    def update(self, z: np.ndarray, r: float) -> None:
-        H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
-        R = r * np.eye(2)
-        y = z - H @ self.x
-        S = H @ self.P @ H.T + R
-        K = self.P @ H.T @ np.linalg.inv(S)
-        self.x = self.x + K @ y
-        self.P = (np.eye(4) - K @ H) @ self.P
-
-
 class KalmanTracker(TrackingStrategy):
     """Constant-velocity Kalman filter tracker with greedy data association.
 
@@ -106,6 +70,41 @@ class KalmanTracker(TrackingStrategy):
     smoothing its position.  Unmatched detections spawn new tracks; tracks that
     go unmatched for ``max_missed`` frames are removed.
     """
+
+    class _Track:
+        """A single constant-velocity Kalman filter track.
+
+        State vector ``[x, y, vx, vy]``; measurement ``[x, y]``.
+        """
+
+        def __init__(self, track_id: int, agent: AgentState, init_vel_var: float):
+            self.track_id = track_id
+            self.missed = 0
+            self.agent = agent
+            self.x = np.array([agent.x, agent.y, 0.0, 0.0])
+            self.P = np.diag([1.0, 1.0, init_vel_var, init_vel_var])
+
+        def predict(self, dt: float, q: float) -> None:
+            F = np.array([[1, 0, dt, 0], [0, 1, 0, dt], [0, 0, 1, 0], [0, 0, 0, 1]])
+            # Constant-acceleration process noise (discrete white-noise model).
+            dt2, dt3, dt4 = dt * dt, dt ** 3, dt ** 4
+            Q = q * np.array([
+                [dt4 / 4, 0, dt3 / 2, 0],
+                [0, dt4 / 4, 0, dt3 / 2],
+                [dt3 / 2, 0, dt2, 0],
+                [0, dt3 / 2, 0, dt2],
+            ])
+            self.x = F @ self.x
+            self.P = F @ self.P @ F.T + Q
+
+        def update(self, z: np.ndarray, r: float) -> None:
+            H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
+            R = r * np.eye(2)
+            y = z - H @ self.x
+            S = H @ self.P @ H.T + R
+            K = self.P @ H.T @ np.linalg.inv(S)
+            self.x = self.x + K @ y
+            self.P = (np.eye(4) - K @ H) @ self.P
 
     def __init__(
         self,
@@ -124,7 +123,7 @@ class KalmanTracker(TrackingStrategy):
         self._gate = gate_distance
         self._max_missed = max_missed
         self._min_speed = min_speed
-        self._tracks: list[_Track] = []
+        self._tracks: list["KalmanTracker._Track"] = []
         self._next_id = 0
 
     world_requirements = frozenset()
@@ -164,7 +163,7 @@ class KalmanTracker(TrackingStrategy):
 
         for det_idx in unmatched:
             det = detections[det_idx]
-            self._tracks.append(_Track(self._next_id, det, self._init_vel_var))
+            self._tracks.append(self._Track(self._next_id, det, self._init_vel_var))
             self._next_id += 1
 
         perception_model.agent_vehicles = [
@@ -199,7 +198,7 @@ class KalmanTracker(TrackingStrategy):
         unmatched = [i for i in range(len(detections)) if i not in used_dets]
         return matches, unmatched
 
-    def _to_agent(self, trk: _Track) -> AgentState:
+    def _to_agent(self, trk: "KalmanTracker._Track") -> AgentState:
         x, y, vx, vy = trk.x
         speed = float(np.hypot(vx, vy))
         theta = float(np.arctan2(vy, vx)) if speed >= self._min_speed else trk.agent.theta

@@ -1,6 +1,12 @@
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
-from avlite.c10_perception.c11_perception_model import AggregatedOccupancyFlow, EgoState, HDMap, SingleTrajectory
+from avlite.c10_perception.c11_perception_model import (
+    AggregatedOccupancyFlow,
+    EgoState,
+    HDMap,
+    OccupancyMap,
+    SingleTrajectory,
+)
 from avlite.c10_perception.c12_perception_strategy import PerceptionModel
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c20_planning.c28_local_lattice_planners import Edge
@@ -874,17 +880,6 @@ class LocalPlot:
             self.prediction_lines_ax1.append(l1)
             self.prediction_lines_ax2.append(l2)
 
-        # self.pm_occupancy_flow_ax1 = self.ax1.imshow(
-        #         np.zeros((100, 100)),
-        #         origin='upper',
-        #         extent=[
-        #             pm.grid_bounds.get('min_x', 0),
-        #             pm.grid_bounds.get('max_x', 0) + 100 * pm.grid_bounds.get('resolution', 1), 
-        #             pm.grid_bounds.get('min_y', 0),
-        #             pm.grid_bounds.get('max_y', 0) + 100 * pm.grid_bounds.get('resolution', 1)
-        #         ]
-        #     )
-
         self.legend_ax = self.fig.add_axes([0.0, -0.013, 1, 0.1])
         self.legend_ax.legend(
             *self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3)
@@ -945,6 +940,7 @@ class LocalPlot:
         global_follow_planner = False,
         frenet_follow_planner = False,
         plot_occupancy_flow = False,
+        plot_occupancy_map = False,
         plot_predictions = True,
         plot_lidar = False,
         lidar_data = None,
@@ -1021,6 +1017,7 @@ class LocalPlot:
             self.last_locs_ax2.set_data([], [])
             self.planner_loc_ax2.set_data([], [])
 
+        self.update_pm_occupancy_map_plots(exec.pm, plot_occupancy_map)
         show_race_boundaries = plot_race_boundary and not isinstance(
             exec.global_planner, HDMapGlobalPlanner
         )
@@ -1463,14 +1460,17 @@ class LocalPlot:
                 self.pm_occupancy_flow_ax1.set_extent([0, 0, 0, 0])
             return
         pred = pm.prediction if isinstance(pm.prediction, AggregatedOccupancyFlow) else None
-        if pred is not None and pred.occupancy_flow and pred.grid_bounds:
+        if pred is not None and pred.occupancy_flow:
+            grid = pred.occupancy_flow[0]
+            # Same window as OccupancyMap: cell (0, 0) lower-left is (origin_x, origin_y).
+            h, w = grid.shape
             extent = [
-                pred.grid_bounds.get('min_x', 0),
-                pred.grid_bounds.get('max_x', 0),
-                pred.grid_bounds.get('min_y', 0),
-                pred.grid_bounds.get('max_y', 0),
+                pred.origin_x,
+                pred.origin_x + w * pred.resolution,
+                pred.origin_y,
+                pred.origin_y + h * pred.resolution,
             ]
-            flow_sum = pred.occupancy_flow[0].T
+            flow_sum = grid.T
             if not hasattr(self, 'pm_occupancy_flow_ax1'):
                 flow_sum = np.sum(pred.occupancy_flow, axis=0)
                 self.pm_occupancy_flow_ax1 = self.ax1.imshow(
@@ -1486,6 +1486,54 @@ class LocalPlot:
                 self.pm_occupancy_flow_ax1.set_data(flow_sum)
                 self.pm_occupancy_flow_ax1.set_extent(extent)
             self.fig.canvas.draw_idle()
+
+    def update_pm_occupancy_map_plots(self, pm: Optional[PerceptionModel] = None, show_plot=True):
+        om = getattr(pm, "occupancy_map", None) if pm is not None else None
+        if not isinstance(om, OccupancyMap):
+            fallback = getattr(pm, "map", None) if pm is not None else None
+            om = fallback if isinstance(fallback, OccupancyMap) else None
+        if not show_plot or om is None:
+            if hasattr(self, "pm_occupancy_map_ax1"):
+                self.pm_occupancy_map_ax1.set_data(np.zeros((1, 1)))
+                self.pm_occupancy_map_ax1.set_extent([0, 0, 0, 0])
+                self.pm_occupancy_map_ax1.set_zorder(0)
+            return
+        if om.grid is None or om.grid.size == 0:
+            return
+        h, w = om.grid.shape
+        extent = [
+            om.origin_x,
+            om.origin_x + w * om.resolution,
+            om.origin_y,
+            om.origin_y + h * om.resolution,
+        ]
+        extent_key = (h, w, float(om.origin_x), float(om.origin_y), float(om.resolution))
+        if getattr(self, "_occ_map_extent_key", None) != extent_key:
+            self._needs_full_draw = True
+            self._occ_map_extent_key = extent_key
+        shape = (h, w)
+        recreate = (
+            not hasattr(self, "pm_occupancy_map_ax1")
+            or getattr(self, "_occ_map_shape", None) != shape
+        )
+        if recreate:
+            if hasattr(self, "pm_occupancy_map_ax1"):
+                self.pm_occupancy_map_ax1.remove()
+            self.pm_occupancy_map_ax1 = self.ax1.imshow(
+                om.grid,
+                origin="lower",
+                extent=extent,
+                cmap="Greys",
+                vmin=0.0,
+                vmax=1.0,
+                interpolation="nearest",
+                zorder=0,
+            )
+            self._occ_map_shape = shape
+        else:
+            self.pm_occupancy_map_ax1.set_data(om.grid)
+            self.pm_occupancy_map_ax1.set_extent(extent)
+        self.pm_occupancy_map_ax1.set_zorder(0)
 
 
     def set_plot_theme(self, bg_color="white", fg_color="black"):
@@ -1577,6 +1625,7 @@ class LocalPlot:
 
     def reset(self):
         self.update_pm_occupancy_flow_plots(None, show_plot=False)
+        self.update_pm_occupancy_map_plots(None, show_plot=False)
 
 
 # --- module helpers ---

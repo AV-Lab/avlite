@@ -1,6 +1,6 @@
 # Algorithms
 
-This page describes the built-in **planning** and **control** algorithms in AVLite: how they fit together, how the greedy lattice local planner works, Pure Pursuit and Follow the Gap, and which YAML parameters control behavior.
+This page describes the built-in **planning** and **control** algorithms in AVLite: how they fit together, how the greedy lattice local planner works, Pure Pursuit, Follow the Gap, and keyboard teleop, and which YAML parameters control behavior.
 
 Configuration lives in [`configs/c20_planning.yaml`](../configs/c20_planning.yaml) and is validated by [`PlanningSettings`](../avlite/c20_planning/c29_settings.py). See [Settings naming](settings-naming.md) for key prefixes and GUI tooltips.
 
@@ -422,6 +422,36 @@ Without a plan, speed tracks `c35_cruise_velocity`; with a plan, waypoint veloci
 | `c35_lidar_z_min` / `c35_lidar_z_max` | `-1.5` / `2.0` | Height band (m) for 3D → 2D squash |
 | `c35_bubble_radius` | `1.0` | Drop ego-frame hits closer than this (m) before gap finding |
 | `c35_min_gap_width` | `0.2` | Min angular gap (rad) for path-biased selection |
+
+---
+
+## Control: Keyboard teleop
+
+`KeyboardController` ([`c36_keyboard.py`](../avlite/c30_control/c36_keyboard.py)) is a teleop controller: held keys map to Ackermann `steer` / `acceleration`. It does not need a plan or localization. Bindings and magnitudes live in [`ControlSettings`](../avlite/c30_control/c39_settings.py) (`c36_*`) and are read live each tick. Select it via `c40_controller`.
+
+A `pynput` OS listener captures keys globally (visualizer or headless). `press()` / `release()` are the test/fallback path when the listener cannot start. Opposing keys cancel; an empty key list disables that axis. The executer runs control even when the local planner slot is empty.
+
+Default bindings keep both WASD and arrows:
+
+| Axis | Default keys | Command |
+|------|----------------|---------|
+| Accel | `w`, `up` | `+c36_keyboard_acceleration` |
+| Brake | `s`, `down` | `−c36_keyboard_acceleration` |
+| Steer left | `a`, `left` | `+c36_keyboard_steering` |
+| Steer right | `d`, `right` | `−c36_keyboard_steering` |
+
+When this controller is selected, the visualizer skips its WASD pulse overrides and arrow log-scroll for any key listed in `c36_key_*`.
+
+### Keyboard parameters
+
+| Key | Default | Role |
+|-----|---------|------|
+| `c36_key_accel` | `["w", "up"]` | Keys that command acceleration |
+| `c36_key_brake` | `["s", "down"]` | Keys that command braking |
+| `c36_key_steer_left` | `["a", "left"]` | Keys that command left steer |
+| `c36_key_steer_right` | `["d", "right"]` | Keys that command right steer |
+| `c36_keyboard_acceleration` | `3.0` | Held-key accel magnitude (m/s²), clipped to `c32_ego_*` |
+| `c36_keyboard_steering` | `0.7` | Held-key steer magnitude (rad), clipped to `c32_ego_*` |
 
 ---
 

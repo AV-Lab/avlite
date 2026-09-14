@@ -1,6 +1,6 @@
 # AVLite Overview
 
-AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.
+AVLite is a lightweight autonomous vehicle stack with plugins from sensors to control. It is built for rapid prototyping, research, and education, with clean abstractions for perception, planning, and control and a unified interface to multiple simulators.
 
 !!! tip "ROS2 & Autoware Ready"
     AVLite supports ROS 2 and Autoware integration through optional world-bridge and executer plugins.
@@ -48,7 +48,7 @@ The editable install adds the optional development dependencies (pytest, coverag
 
 - **CARLA**: Install from [CARLA releases](https://github.com/carla-simulator/carla/releases), then enable the CARLA world-bridge plugin.
 - **Gazebo**: Install ROS 2 and enable the Gazebo world-bridge plugin.
-- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs`, then enable the ROS2 world-bridge or executer plugin (register it in the `c62_community_plugins` map in the `c69_apps` section of `configs/<profile>.yaml`, and set `c40_executer_type` to the ROS executer when using it).
+- **ROS2 + Autoware**: Install ROS2 (Humble/Iron/Jazzy) and optionally `autoware_auto_msgs`, then enable the ROS2 world-bridge or executer plugin (register it in the `c62_community_plugins` map in the `c69_apps` section of `configs/<profile>.yaml`, and set `c40_executer_type` to the ROS executer when using it). AVLite sources the latest `/opt/ros` distro when `c60_ros_distro` is `latest` or empty (settings window Plugins pane); a named distro or `AVLITE_ROS_DISTRO` pins it.
 
 ## Quick Start
 
@@ -129,6 +129,7 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
         author: your-org
         category:
           - PerceptionStrategy
+        require_ros: false     # optional; true + min_ros_version if the plugin needs ROS 2
         site_url: ""           # optional project website
     ```
 
@@ -141,7 +142,7 @@ See [Plugin Development — Publish to the community registry](plugin-developmen
 |-----------|-------------|
 | **c10_perception** | Interfaces + built-in algorithms; `Map` / `RaceMap` / `HDMap` (c11), OpenDRIVE parser (c18) |
 | **c20_planning** | Global planning (`GlobalCenterlineRacePlanner`, `HDMapGlobalPlanner`) and local planning (`VelocityLocalPlanner`, `GreedyLatticePlanner`, lattice-based) |
-| **c30_control** | Vehicle controllers (Stanley, PID, Pure Pursuit, Follow the Gap) |
+| **c30_control** | Vehicle controllers (Stanley, PID, Pure Pursuit, Follow the Gap, Keyboard) |
 | **c40_execution** | Execution orchestration, `TaskRunner` / execution tasks, simulator bridges (BasicSim, CARLA, Gazebo) |
 | **c60_apps** | App infrastructure: `c61_app_strategy`, `c62_factory`, `c63_plugins`, `c64_settings_schema`, `c65_setting_utils`, `c68_paths`, `c69_settings` |
 | **p60_visualizer_tk** | Tk visualizer, settings GUI (`avlite setting`), plugin manager (`avlite plugins`) |

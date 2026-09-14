@@ -540,7 +540,7 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
     stack_requirements = frozenset({
         StackCapability.GLOBAL_PLAN,
         StackCapability.LOCALIZATION,
-        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY),
     })
     stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 
