@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Modular Autonomous Vehicle Stack">
+        <meta name="description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
       
       
         <meta name="author" content="AV-Lab">
@@ -70,7 +70,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AVLite">
   <meta property="og:title" content="Architecture - AVLite">
-  <meta property="og:description" content="Modular Autonomous Vehicle Stack">
+  <meta property="og:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta property="og:url" content="https://avlite.org/architecture/">
   <meta property="og:image" content="https://avlite.org/imgs/logo-black-bg.png">
   <meta property="og:image:width" content="1024">
@@ -79,7 +79,7 @@
 
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Architecture - AVLite">
-  <meta name="twitter:description" content="Modular Autonomous Vehicle Stack">
+  <meta name="twitter:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta name="twitter:image" content="https://avlite.org/imgs/logo-black-bg.png">
 
   
@@ -986,7 +986,7 @@
         direction LR
         PERC["Perception\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
-        CTRL["Control\nStanley · PID · Pure Pursuit · FTG"]
+        CTRL["Control\nStanley · PID · Pure Pursuit · FTG · Keyboard"]
         WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
@@ -1082,7 +1082,7 @@
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">stack_requirements</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">GLOBAL_PLAN</span><span class="p">,</span>
 </span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCALIZATION</span><span class="p">,</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">MayUse</span><span class="p">(</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION</span><span class="p">),</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">MayUse</span><span class="p">(</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">DETECTION</span><span class="p">,</span> <span class="n">StackCapability</span><span class="o">.</span><span class="n">PREDICTION_TRAJECTORY</span><span class="p">),</span>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="p">})</span>
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">stack_capabilities</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">StackCapability</span><span class="o">.</span><span class="n">LOCAL_PLAN</span><span class="p">})</span>
 </span></code></pre></div>
@@ -1104,17 +1104,21 @@
 <ul>
 <li><code>DETECTION</code> - Object detection</li>
 <li><code>TRACKING</code> - Object tracking</li>
-<li><code>PREDICTION</code> - Motion prediction</li>
+<li><code>PREDICTION_TRAJECTORY</code> - Deterministic (x, y) polyline forecast (<code>SingleTrajectory</code>)</li>
+<li><code>PREDICTION_GP</code> - Gaussian-process forecast</li>
+<li><code>PREDICTION_GMM</code> - Gaussian-mixture forecast</li>
+<li><code>PREDICTION_OCCUPANCY</code> - Occupancy-grid forecast (<code>OccupancyFlow</code> or <code>AggregatedOccupancyFlow</code>)</li>
 <li><code>LOCAL_PLAN</code> - Local plan (produced by the local planner)</li>
 <li><code>GLOBAL_PLAN</code> - Global plan (produced by the global planner)</li>
 <li><code>CONTROL</code> - Control commands (produced by the controller)</li>
 <li><code>LOCALIZATION</code> - Ego localization</li>
 <li><code>MAP_HD</code> - HD / OpenDRIVE map (from a mapping module such as <code>MapReader</code>)</li>
 <li><code>MAP_RACE_TRACK</code> - Race-track corridor map (from a mapping module such as <code>MapReader</code>)</li>
+<li><code>MAP_OCCUPANCY</code> - LiDAR occupancy grid (from <code>OccupancyMapper</code>; also forwards <code>MAP_HD</code> / <code>MAP_RACE_TRACK</code> when constructed with a static map)</li>
 <li><code>SLAM</code> - Simultaneous localization and mapping</li>
 </ul>
 <p><strong>Ground truth via the world bridge:</strong> a <code>WorldBridge</code> may advertise <code>stack_capabilities</code> (a <code>set[StackCapability]</code>, default empty) to satisfy downstream <code>stack_requirements</code> without a real module. For example, <code>BasicSim</code> provides <code>{DETECTION, TRACKING, LOCALIZATION}</code> as ground truth and declares <code>stack_requirements = {CONTROL}</code>. Optional <code>WorldBridge.map</code> is simulation-only (e.g. LiDAR geometry) and does <strong>not</strong> advertise <code>MAP_HD</code> / <code>MAP_RACE_TRACK</code>. Typed stack map caps come from a mapping module such as <code>MapReader</code> (holds a pre-loaded <code>Map</code>; advertises <code>MAP_HD</code> or <code>MAP_RACE_TRACK</code> from the concrete type; format sniff/load stays on <code>Map.open</code> / <code>Map.from_path</code>). Global planners require the matching typed cap (<code>HDMapGlobalPlanner</code> → <code>MAP_HD</code>; race planners → <code>MAP_RACE_TRACK</code>). The executer’s <code>available_stack_capabilities()</code> unions every present module’s <code>stack_capabilities</code> with filtered <code>world.stack_capabilities</code>. At stack build it <strong>raises</strong> when a module’s hard <code>stack_requirements</code> are unmet (<code>MayUse</code> never fails that check), and <strong>warns</strong> when the world’s hard requirements are unmet or when the same capability is provided by more than one source.</p>
-<p>In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against <code>available_stack_capabilities</code>, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected <code>WorldBridge</code>: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled <code>all ·</code> / <code>any ·</code> / <code>optional ·</code>. Provided caps: green = consumed by another module’s hard or soft (<code>MayUse</code>) requirements or by the world bridge’s <code>stack_requirements</code>; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (<code>c41_world_stack_capabilities</code>); gray = unused. Parent <code>PerceptionPipeline</code> advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use <code>DETECTION</code> and <code>PREDICTION</code> (agents + motion sweeps), not <code>TRACKING</code>. Bridge Setting’s world column (<code>c41_world_capabilities</code>) gates which sensors are fed into <code>SensorFrame</code>.</p>
+<p>In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against <code>available_stack_capabilities</code>, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected <code>WorldBridge</code>: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled <code>all ·</code> / <code>any ·</code> / <code>optional ·</code>. Provided caps: green = consumed by another module’s hard or soft (<code>MayUse</code>) requirements or by the world bridge’s <code>stack_requirements</code>; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (<code>c41_world_stack_capabilities</code>); gray = unused. Parent <code>PerceptionPipeline</code> advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use <code>DETECTION</code> and <code>PREDICTION_TRAJECTORY</code> (<code>MayUse(DETECTION, PREDICTION_TRAJECTORY)</code>), not <code>TRACKING</code>. They only read <code>SingleTrajectory</code> sweeps. Bridge Setting’s world column (<code>c41_world_capabilities</code>) gates which sensors are fed into <code>SensorFrame</code>.</p>
 <h3 id="factory-pattern">Factory Pattern<a class="headerlink" href="#factory-pattern" title="Permanent link">&para;</a></h3>
 <p>The executor factory assembles components based on configuration:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">executer</span> <span class="o">=</span> <span class="n">executor_factory</span><span class="p">(</span>
@@ -1156,11 +1160,11 @@
 <p>Control actuation is a separate layer: <code>ControlCommandBase</code> subclasses and default <code>AgentType</code> → command mapping in c31. The car stack still uses the <code>ControlCommand</code> alias for <code>AckermannControlCommand</code>.</p>
 <h2 id="layers">Layers<a class="headerlink" href="#layers" title="Permanent link">&para;</a></h2>
 <h3 id="perception"><strong>Perception</strong><a class="headerlink" href="#perception" title="Permanent link">&para;</a></h3>
-<p>Monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns; leave the slot empty like any other module when unused. Static map types (<code>Map</code>, <code>RaceMap</code>, <code>HDMap</code>) live in c11; OpenDRIVE parsing is in c18. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
+<p>Monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns; leave the slot empty like any other module when unused. Static map types (<code>Map</code>, <code>RaceMap</code>, <code>HDMap</code>) and <code>OccupancyMap</code> live in c11; OpenDRIVE parsing is in c18; <code>OccupancyMapper</code> (<code>c17</code>) writes a lidar occupancy grid onto <code>PerceptionModel.occupancy_map</code> each tick after localization. See <a href="../plugin-development/">Plugin Development</a> for monolithic vs pipeline extension paths.</p>
 <h3 id="planning"><strong>Planning</strong><a class="headerlink" href="#planning" title="Permanent link">&para;</a></h3>
 <p>Global route planning and reactive local planning (lattice-based). Produces trajectories for the controller. Either planner slot can be omitted, or a local planner can consume sensors end-to-end without a separate perception module. See <a href="../algorithms/">Algorithms</a> for lattice planner details.</p>
 <h3 id="control"><strong>Control</strong><a class="headerlink" href="#control" title="Permanent link">&para;</a></h3>
-<p>Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. A controller can also be an end-to-end plugin (sensors → actuation) when perception/planning are omitted. Commands use a <code>ControlCommandBase</code> hierarchy (<code>AckermannControlCommand</code>, <code>DiffDriveControlCommand</code>, <code>BodyVelocityControlCommand</code> in c31); the built-in car stack still returns <code>ControlCommand</code> (Ackermann alias). Per-agent command type defaults are mapped from <code>AgentType</code> in c31. See <a href="../plugin-development/#7-multi-robot-agents-and-control">Plugin Development → Multi-robot agents and control</a>. Pure Pursuit and Follow the Gap are documented in <a href="../algorithms/#control-pure-pursuit-and-follow-the-gap">Algorithms</a>.</p>
+<p>Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap, Keyboard) output actuation commands. A controller can also be an end-to-end plugin (sensors → actuation) when perception/planning are omitted — <code>KeyboardController</code> is the built-in teleop example. Commands use a <code>ControlCommandBase</code> hierarchy (<code>AckermannControlCommand</code>, <code>DiffDriveControlCommand</code>, <code>BodyVelocityControlCommand</code> in c31); the built-in car stack still returns <code>ControlCommand</code> (Ackermann alias). Per-agent command type defaults are mapped from <code>AgentType</code> in c31. See <a href="../plugin-development/#7-multi-robot-agents-and-control">Plugin Development → Multi-robot agents and control</a>. Pure Pursuit, Follow the Gap, and keyboard teleop are documented in <a href="../algorithms/#control-pure-pursuit-and-follow-the-gap">Algorithms</a>.</p>
 <h3 id="execution"><strong>Execution</strong><a class="headerlink" href="#execution" title="Permanent link">&para;</a></h3>
 <p>World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in <code>BasicSim</code> bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via <code>c40_executer_type</code> and provided as optional plugins.</p>
 <p>After each stack tick, <a href="../avlite/c40_execution/c43_task_strategy.py"><code>TaskRunner</code></a> runs <a href="../avlite/c40_execution/c43_task_strategy.py"><code>TaskStrategy</code></a> instances listed in <code>c40_execution_tasks</code> — an orthogonal extension layer for mission logic, supervision, and instrumentation around the drive stack, not a second planner. Stack modules can stamp optional <code>stack_event</code> on <code>PerceptionModel</code>, plans, or control commands; the executer harvests those into <code>task_runner.notify</code>. See <a href="../execution-tasks/#raising-events">Execution Tasks</a>.</p>

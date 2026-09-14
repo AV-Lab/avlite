@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Modular Autonomous Vehicle Stack">
+        <meta name="description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
       
       
         <meta name="author" content="AV-Lab">
@@ -70,7 +70,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AVLite">
   <meta property="og:title" content="Overview - AVLite">
-  <meta property="og:description" content="Modular Autonomous Vehicle Stack">
+  <meta property="og:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta property="og:url" content="https://avlite.org/overview/">
   <meta property="og:image" content="https://avlite.org/imgs/logo-black-bg.png">
   <meta property="og:image:width" content="1024">
@@ -79,7 +79,7 @@
 
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Overview - AVLite">
-  <meta name="twitter:description" content="Modular Autonomous Vehicle Stack">
+  <meta name="twitter:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta name="twitter:image" content="https://avlite.org/imgs/logo-black-bg.png">
 
   
@@ -1029,7 +1029,7 @@
 
 
 <h1 id="avlite-overview">AVLite Overview<a class="headerlink" href="#avlite-overview" title="Permanent link">&para;</a></h1>
-<p>AVLite is a lightweight, extensible autonomous vehicle software stack for rapid prototyping, research, and education. It provides clean abstractions for perception, planning, and control while supporting multiple simulators through a unified interface.</p>
+<p>AVLite is a lightweight autonomous vehicle stack with plugins from sensors to control. It is built for rapid prototyping, research, and education, with clean abstractions for perception, planning, and control and a unified interface to multiple simulators.</p>
 <div class="admonition tip">
 <p class="admonition-title">ROS2 &amp; Autoware Ready</p>
 <p>AVLite supports ROS 2 and Autoware integration through optional world-bridge and executer plugins.</p>
@@ -1066,7 +1066,7 @@
 <ul>
 <li><strong>CARLA</strong>: Install from <a href="https://github.com/carla-simulator/carla/releases">CARLA releases</a>, then enable the CARLA world-bridge plugin.</li>
 <li><strong>Gazebo</strong>: Install ROS 2 and enable the Gazebo world-bridge plugin.</li>
-<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code>, then enable the ROS2 world-bridge or executer plugin (register it in the <code>c62_community_plugins</code> map in the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>, and set <code>c40_executer_type</code> to the ROS executer when using it).</li>
+<li><strong>ROS2 + Autoware</strong>: Install ROS2 (Humble/Iron/Jazzy) and optionally <code>autoware_auto_msgs</code>, then enable the ROS2 world-bridge or executer plugin (register it in the <code>c62_community_plugins</code> map in the <code>c69_apps</code> section of <code>configs/&lt;profile&gt;.yaml</code>, and set <code>c40_executer_type</code> to the ROS executer when using it). AVLite sources the latest <code>/opt/ros</code> distro when <code>c60_ros_distro</code> is <code>latest</code> or empty (settings window Plugins pane); a named distro or <code>AVLITE_ROS_DISTRO</code> pins it.</li>
 </ul>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <p>Launch the visualizer and drive the built-in simulator:</p>
@@ -1130,7 +1130,8 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">author</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-org</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="nt">category</span><span class="p">:</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PerceptionStrategy</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">site_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">           </span><span class="c1"># optional project website</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">require_ros</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">     </span><span class="c1"># optional; true + min_ros_version if the plugin needs ROS 2</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="nt">site_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">           </span><span class="c1"># optional project website</span>
 </span></code></pre></div>
 </li>
 <li>
@@ -1157,7 +1158,7 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 </tr>
 <tr>
 <td><strong>c30_control</strong></td>
-<td>Vehicle controllers (Stanley, PID, Pure Pursuit, Follow the Gap)</td>
+<td>Vehicle controllers (Stanley, PID, Pure Pursuit, Follow the Gap, Keyboard)</td>
 </tr>
 <tr>
 <td><strong>c40_execution</strong></td>

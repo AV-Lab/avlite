@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Modular Autonomous Vehicle Stack">
+        <meta name="description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
       
       
         <meta name="author" content="AV-Lab">
@@ -70,7 +70,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AVLite">
   <meta property="og:title" content="Algorithms - AVLite">
-  <meta property="og:description" content="Modular Autonomous Vehicle Stack">
+  <meta property="og:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta property="og:url" content="https://avlite.org/algorithms/">
   <meta property="og:image" content="https://avlite.org/imgs/logo-black-bg.png">
   <meta property="og:image:width" content="1024">
@@ -79,7 +79,7 @@
 
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Algorithms - AVLite">
-  <meta name="twitter:description" content="Modular Autonomous Vehicle Stack">
+  <meta name="twitter:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta name="twitter:image" content="https://avlite.org/imgs/logo-black-bg.png">
 
   
@@ -711,6 +711,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#control-keyboard-teleop" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control: Keyboard teleop
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control: Keyboard teleop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keyboard-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keyboard parameters
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related-reading" class="md-nav__link">
     <span class="md-ellipsis">
       Related reading
@@ -1110,6 +1134,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#control-keyboard-teleop" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control: Keyboard teleop
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Control: Keyboard teleop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#keyboard-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keyboard parameters
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related-reading" class="md-nav__link">
     <span class="md-ellipsis">
       Related reading
@@ -1137,7 +1185,7 @@
 
 
 <h1 id="algorithms">Algorithms<a class="headerlink" href="#algorithms" title="Permanent link">&para;</a></h1>
-<p>This page describes the built-in <strong>planning</strong> and <strong>control</strong> algorithms in AVLite: how they fit together, how the greedy lattice local planner works, Pure Pursuit and Follow the Gap, and which YAML parameters control behavior.</p>
+<p>This page describes the built-in <strong>planning</strong> and <strong>control</strong> algorithms in AVLite: how they fit together, how the greedy lattice local planner works, Pure Pursuit, Follow the Gap, and keyboard teleop, and which YAML parameters control behavior.</p>
 <p>Configuration lives in <a href="../configs/c20_planning.yaml"><code>configs/c20_planning.yaml</code></a> and is validated by <a href="../avlite/c20_planning/c29_settings.py"><code>PlanningSettings</code></a>. See <a href="../settings-naming/">Settings naming</a> for key prefixes and GUI tooltips.</p>
 <h2 id="planning-in-the-stack">Planning in the stack<a class="headerlink" href="#planning-in-the-stack" title="Permanent link">&para;</a></h2>
 <p>Planning runs after perception (optional) and before control:</p>
@@ -1826,6 +1874,85 @@ R(v) = \frac{a_{\text{lat,max}} \cdot L^2}{5.7735 \cdot v^2} \cdot \texttt{c28\_
 <td><code>c35_min_gap_width</code></td>
 <td><code>0.2</code></td>
 <td>Min angular gap (rad) for path-biased selection</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="control-keyboard-teleop">Control: Keyboard teleop<a class="headerlink" href="#control-keyboard-teleop" title="Permanent link">&para;</a></h2>
+<p><code>KeyboardController</code> (<a href="../avlite/c30_control/c36_keyboard.py"><code>c36_keyboard.py</code></a>) is a teleop controller: held keys map to Ackermann <code>steer</code> / <code>acceleration</code>. It does not need a plan or localization. Bindings and magnitudes live in <a href="../avlite/c30_control/c39_settings.py"><code>ControlSettings</code></a> (<code>c36_*</code>) and are read live each tick. Select it via <code>c40_controller</code>.</p>
+<p>A <code>pynput</code> OS listener captures keys globally (visualizer or headless). <code>press()</code> / <code>release()</code> are the test/fallback path when the listener cannot start. Opposing keys cancel; an empty key list disables that axis. The executer runs control even when the local planner slot is empty.</p>
+<p>Default bindings keep both WASD and arrows:</p>
+<table>
+<thead>
+<tr>
+<th>Axis</th>
+<th>Default keys</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Accel</td>
+<td><code>w</code>, <code>up</code></td>
+<td><code>+c36_keyboard_acceleration</code></td>
+</tr>
+<tr>
+<td>Brake</td>
+<td><code>s</code>, <code>down</code></td>
+<td><code>−c36_keyboard_acceleration</code></td>
+</tr>
+<tr>
+<td>Steer left</td>
+<td><code>a</code>, <code>left</code></td>
+<td><code>+c36_keyboard_steering</code></td>
+</tr>
+<tr>
+<td>Steer right</td>
+<td><code>d</code>, <code>right</code></td>
+<td><code>−c36_keyboard_steering</code></td>
+</tr>
+</tbody>
+</table>
+<p>When this controller is selected, the visualizer skips its WASD pulse overrides and arrow log-scroll for any key listed in <code>c36_key_*</code>.</p>
+<h3 id="keyboard-parameters">Keyboard parameters<a class="headerlink" href="#keyboard-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c36_key_accel</code></td>
+<td><code>["w", "up"]</code></td>
+<td>Keys that command acceleration</td>
+</tr>
+<tr>
+<td><code>c36_key_brake</code></td>
+<td><code>["s", "down"]</code></td>
+<td>Keys that command braking</td>
+</tr>
+<tr>
+<td><code>c36_key_steer_left</code></td>
+<td><code>["a", "left"]</code></td>
+<td>Keys that command left steer</td>
+</tr>
+<tr>
+<td><code>c36_key_steer_right</code></td>
+<td><code>["d", "right"]</code></td>
+<td>Keys that command right steer</td>
+</tr>
+<tr>
+<td><code>c36_keyboard_acceleration</code></td>
+<td><code>3.0</code></td>
+<td>Held-key accel magnitude (m/s²), clipped to <code>c32_ego_*</code></td>
+</tr>
+<tr>
+<td><code>c36_keyboard_steering</code></td>
+<td><code>0.7</code></td>
+<td>Held-key steer magnitude (rad), clipped to <code>c32_ego_*</code></td>
 </tr>
 </tbody>
 </table>

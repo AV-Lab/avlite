@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Modular Autonomous Vehicle Stack">
+        <meta name="description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
       
       
         <meta name="author" content="AV-Lab">
@@ -70,7 +70,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="AVLite">
   <meta property="og:title" content="Settings Naming - AVLite">
-  <meta property="og:description" content="Modular Autonomous Vehicle Stack">
+  <meta property="og:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta property="og:url" content="https://avlite.org/settings-naming/">
   <meta property="og:image" content="https://avlite.org/imgs/logo-black-bg.png">
   <meta property="og:image:width" content="1024">
@@ -79,7 +79,7 @@
 
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Settings Naming - AVLite">
-  <meta name="twitter:description" content="Modular Autonomous Vehicle Stack">
+  <meta name="twitter:description" content="A lightweight autonomous vehicle stack with plugins from sensors to control">
   <meta name="twitter:image" content="https://avlite.org/imgs/logo-black-bg.png">
 
   
@@ -672,7 +672,7 @@
 <li>
 <p><strong>Cross-layer orchestration</strong> → setting lives on the <strong>consuming</strong> layer’s settings class, prefixed by the consumer module.<br />
    Example: default map path in <code>c62_factory.py</code> → <code>ExecutionSettings.c40_map</code>.<br />
-   App bootstrap lives on <code>AppSettings</code> in c60: plugin lists and load gate use <code>c62_*</code> (consumer <code>c62_factory</code>); active profile selection uses <code>c60_selected_profile</code>.</p>
+   App bootstrap lives on <code>AppSettings</code> in c60: plugin lists and load gate use <code>c62_*</code> (consumer <code>c62_factory</code>); active profile selection uses <code>c60_selected_profile</code>; ROS 2 distro uses <code>c60_ros_distro</code> (settings-window Plugins pane).</p>
 </li>
 <li>
 <p><strong>Built-in Tk plugin (<code>p60_visualizer_tk</code>)</strong> — prefix identifies the <strong>consumer module</strong>, not the settings file:</p>
@@ -721,7 +721,7 @@
 </tr>
 <tr>
 <td>Apps (bootstrap)</td>
-<td><code>avlite/c60_apps/c69_settings.py</code> (schema only; no Tk)</td>
+<td><code>avlite/c60_apps/c69_settings.py</code> (schema; plugin lists and <code>c60_ros_distro</code> have custom Tk on the profile pane)</td>
 <td><code>c69_apps</code></td>
 </tr>
 <tr>
