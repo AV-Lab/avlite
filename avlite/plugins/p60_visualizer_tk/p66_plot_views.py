@@ -591,6 +591,7 @@ class LocalPlanPlotView(ttk.Frame):
             global_follow_planner=self.root.setting.p66_global_view_follow_planner.get(),
             frenet_follow_planner=self.root.setting.p66_frenet_view_follow_planner.get(),
             plot_occupancy_flow=self.root.setting.p67_show_occupancy_flow.get(),
+            plot_occupancy_map=self.root.setting.p67_show_occupancy_map.get(),
             plot_predictions=self.root.setting.p67_show_prediction.get(),
             plot_lidar=want_lidar,
             lidar_data=lidar_data,

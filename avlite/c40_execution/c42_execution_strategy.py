@@ -84,7 +84,7 @@ class ExecutionStrategy(ABC):
 
         self._localization_missing_warned = False
 
-        self._validate_stack()
+        self.validate_stack()
 
     @property
     def ego_state(self) -> EgoState:
@@ -156,6 +156,8 @@ class ExecutionStrategy(ABC):
             self.perception.reset()
         if self.localization:
             self.localization.reset()
+        if self.mapping:
+            self.mapping.reset()
         if self.local_planner:
             self.local_planner.reset()
         if self.controller:
@@ -178,25 +180,25 @@ class ExecutionStrategy(ABC):
     
 
     def available_stack_capabilities(self) -> set:
-        """StackCapabilities provided by the assembled stack plus world ground truth."""
+        """StackCapabilities provided by the assembled stack plus world ground truth.
+
+        When a ``MappingTask`` is present, mapping-module ``MAP_*`` is skipped so
+        the task is the sole advertiser. Without that task, the mapping module
+        still provides static ``MAP_*`` (e.g. ``MapReader``).
+        """
         caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
-        for _, module in self._stack_modules():
-            if module is not None:
-                caps |= module.stack_capabilities
+        skip_mapping = self._has_mapping_task()
+        for label, module in self._stack_modules():
+            if module is None:
+                continue
+            if label == "mapping" and skip_mapping:
+                continue
+            caps |= module.stack_capabilities
+        for task in self.task_runner.tasks:
+            caps |= task.stack_capabilities
         return caps
 
-    # --- stack helpers ---
-
-    def _stack_modules(self):
-        """Yield ``(label, module)`` for each assembled stack strategy (may be None)."""
-        yield "perception", self.perception
-        yield "localization", self.localization
-        yield "mapping", self.mapping
-        yield "global planner", self.global_planner
-        yield "local planner", self.local_planner
-        yield "controller", self.controller
-
-    def _validate_stack(self) -> None:
+    def validate_stack(self) -> None:
         """Raise on unmet module stack_requirements; warn on world deps and duplicates."""
         available = self.available_stack_capabilities()
         if not satisfies_requirements(self.world.stack_requirements, available):
@@ -221,11 +223,17 @@ class ExecutionStrategy(ABC):
         world_caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
         for cap in world_caps:
             providers.setdefault(cap, []).append(f"world/{type(self.world).__name__}")
+        skip_mapping = self._has_mapping_task()
         for label, module in self._stack_modules():
             if module is None:
                 continue
+            if label == "mapping" and skip_mapping:
+                continue
             for cap in module.stack_capabilities:
                 providers.setdefault(cap, []).append(f"{label}/{module.__class__.__name__}")
+        for task in self.task_runner.tasks:
+            for cap in task.stack_capabilities:
+                providers.setdefault(cap, []).append(f"task/{task.__class__.__name__}")
         for cap, sources in providers.items():
             if len(sources) > 1:
                 log.warning(
@@ -233,6 +241,20 @@ class ExecutionStrategy(ABC):
                     cap.name,
                     ", ".join(sources),
                 )
+
+    def _has_mapping_task(self) -> bool:
+        return any(type(t).__name__ == "MappingTask" for t in self.task_runner.tasks)
+
+    # --- stack helpers ---
+
+    def _stack_modules(self):
+        """Yield ``(label, module)`` for each assembled stack strategy (may be None)."""
+        yield "perception", self.perception
+        yield "localization", self.localization
+        yield "mapping", self.mapping
+        yield "global planner", self.global_planner
+        yield "local planner", self.local_planner
+        yield "controller", self.controller
 
     def _can_actuate(self) -> bool:
         """Whether the ego may be actuated this tick.
@@ -343,11 +365,11 @@ class ExecutionStrategy(ABC):
 
         Uses the caller-supplied tick snapshot.
         """
-        if not self.controller or not self.local_planner:
+        if not self.controller:
             return
         if not self._can_actuate():
             return
-        local_plan = self.local_planner.get_local_plan()
+        local_plan = self.local_planner.get_local_plan() if self.local_planner else None
         cmd = self.controller.control(
             self.pm.ego_vehicle, local_plan, control_dt=sim_dt,
             perception_model=self.pm, sensors=sensors,

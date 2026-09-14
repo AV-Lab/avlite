@@ -150,7 +150,7 @@ class PredictionStrategy(ABC):
 
     world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
     stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
-    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset({StackCapability.PREDICTION})
+    stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset()
 
     @abstractmethod
     def predict(

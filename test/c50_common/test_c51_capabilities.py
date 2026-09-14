@@ -65,15 +65,15 @@ def test_combine_stack_requirements_soft_merges_may_use_and_prunes_and():
     mods = [
         _Mod({
             StackCapability.LOCALIZATION,
-            MayUse(StackCapability.DETECTION, StackCapability.LOCALIZATION, StackCapability.PREDICTION),
+            MayUse(StackCapability.DETECTION, StackCapability.LOCALIZATION, StackCapability.PREDICTION_TRAJECTORY),
         }),
         _Mod({AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN)}),
     ]
     combined = combine_stack_requirements(mods, soft=True)
     assert StackCapability.LOCALIZATION in combined
     assert AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN) in combined
-    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION) in combined
-    assert MayUse(StackCapability.DETECTION, StackCapability.LOCALIZATION, StackCapability.PREDICTION) not in combined
+    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY) in combined
+    assert MayUse(StackCapability.DETECTION, StackCapability.LOCALIZATION, StackCapability.PREDICTION_TRAJECTORY) not in combined
 
 
 def test_concrete_local_planners_declare_contracts():
@@ -94,11 +94,11 @@ def test_concrete_local_planners_declare_contracts():
     assert ref.stack_capabilities == {StackCapability.LOCAL_PLAN}
 
     vel_pl = VelocityLocalPlanner(plan, pm)
-    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION) in vel_pl.stack_requirements
+    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY) in vel_pl.stack_requirements
     assert vel_pl.stack_capabilities == {StackCapability.LOCAL_PLAN}
 
     greedy = GreedyLatticePlanner(plan, pm)
-    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION) in greedy.stack_requirements
+    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY) in greedy.stack_requirements
     assert greedy.stack_capabilities == {StackCapability.LOCAL_PLAN}
 
 
@@ -120,10 +120,10 @@ def test_concrete_perception_modules_declare_contracts():
 
     pred = ConstantVelocityPrediction()
     assert pred.stack_requirements == {StackCapability.DETECTION, StackCapability.TRACKING}
-    assert pred.stack_capabilities == {StackCapability.PREDICTION}
+    assert pred.stack_capabilities == {StackCapability.PREDICTION_TRAJECTORY}
 
     loc = LidarLocalization(PerceptionModel(ego_vehicle=EgoState()))
-    assert loc.stack_requirements == set()
+    assert loc.stack_requirements == {StackCapability.MAP_OCCUPANCY}
     assert loc.stack_capabilities == {StackCapability.LOCALIZATION}
 
 
@@ -141,7 +141,7 @@ def test_perception_pipeline_stack_capabilities_follow_stages():
     ))
     assert empty.stack_capabilities == set()
     assert empty.stack_requirements == set()
-    assert StackCapability.PREDICTION not in empty.stack_capabilities
+    assert StackCapability.PREDICTION_TRAJECTORY not in empty.stack_capabilities
 
     # Empty detect/track + predictor: hard DETECTION + TRACKING from predictor.
     gt_plus_pred = PerceptionPipeline(pm, PerceptionSettingsSchema(
@@ -149,7 +149,7 @@ def test_perception_pipeline_stack_capabilities_follow_stages():
         c12_tracking_strategy="",
         c12_prediction_strategy="ConstantVelocityPrediction",
     ))
-    assert gt_plus_pred.stack_capabilities == {StackCapability.PREDICTION}
+    assert gt_plus_pred.stack_capabilities == {StackCapability.PREDICTION_TRAJECTORY}
     assert gt_plus_pred.stack_requirements == {
         StackCapability.DETECTION, StackCapability.TRACKING,
     }
@@ -162,7 +162,7 @@ def test_perception_pipeline_stack_capabilities_follow_stages():
     assert with_pred.stack_capabilities == {
         StackCapability.DETECTION,
         StackCapability.TRACKING,
-        StackCapability.PREDICTION,
+        StackCapability.PREDICTION_TRAJECTORY,
     }
     # Tracker hard-requires DETECTION; predictor hard-requires both — no soft leftover.
     assert with_pred.stack_requirements == {
@@ -225,7 +225,7 @@ def test_pack_requirement_rows_survives_mayuse_reload():
     reqs = {
         StackCapability.GLOBAL_PLAN,
         StackCapability.LOCALIZATION,
-        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY),
     }
     soft = next(r for r in reqs if RealMayUse.matches(r))
     assert not isinstance(soft, RealMayUse)
@@ -254,7 +254,7 @@ def test_live_strategy_from_exec_matches_by_name_across_reload():
         c12_tracking_strategy="KalmanTracker",
         c12_prediction_strategy="ConstantVelocityPrediction",
     ))
-    assert pipe.stack_capabilities == {StackCapability.TRACKING, StackCapability.PREDICTION}
+    assert pipe.stack_capabilities == {StackCapability.TRACKING, StackCapability.PREDICTION_TRAJECTORY}
     assert StackCapability.DETECTION in pipe.stack_requirements
 
     class _Exec:
@@ -274,7 +274,7 @@ def test_live_strategy_from_exec_matches_by_name_across_reload():
         c12_tracking_strategy="KalmanTracker",
         c12_prediction_strategy="ConstantVelocityPrediction",
     ))
-    assert rebuilt.stack_capabilities == {StackCapability.TRACKING, StackCapability.PREDICTION}
+    assert rebuilt.stack_capabilities == {StackCapability.TRACKING, StackCapability.PREDICTION_TRAJECTORY}
     assert rebuilt.stack_requirements == {
         StackCapability.DETECTION, StackCapability.TRACKING,
     }
@@ -294,8 +294,8 @@ def test_leaf_contracts_readable_without_init():
 
     assert FastBEVLidarDetection.stack_capabilities == frozenset({StackCapability.DETECTION})
     assert StackCapability.DETECTION in KalmanTracker.stack_requirements
-    assert ConstantVelocityPrediction.stack_capabilities == frozenset({StackCapability.PREDICTION})
-    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION) in (
+    assert ConstantVelocityPrediction.stack_capabilities == frozenset({StackCapability.PREDICTION_TRAJECTORY})
+    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY) in (
         VelocityLocalPlanner.stack_requirements
     )
     assert GreedyLatticePlanner.stack_capabilities == frozenset({StackCapability.LOCAL_PLAN})

@@ -9,6 +9,7 @@ import yaml
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c62_factory import load_stack_settings
+from avlite.c60_apps.c69_settings import AppSettings
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
 
 
@@ -81,4 +82,23 @@ def test_sync_stack_settings_preserves_empty_modules(monkeypatch, tmp_path):
         assert setting.local_planner_type.get() == ""
         assert setting.controller_type.get() == ""
     finally:
+        root.destroy()
+
+
+def test_sync_app_roundtrip_includes_ros_distro():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        setting = VisualizationSettings()
+        AppSettings.c60_ros_distro = "humble"
+        setting.sync_app_from_singleton()
+        assert setting.c60_ros_distro.get() == "humble"
+        setting.c60_ros_distro.set("  jazzy  ")
+        setting.sync_app_to_singleton()
+        assert AppSettings.c60_ros_distro == "jazzy"
+        AppSettings.c60_ros_distro = ""
+        setting.sync_app_from_singleton()
+        assert setting.c60_ros_distro.get() == "latest"
+    finally:
+        AppSettings.c60_ros_distro = ""
         root.destroy()

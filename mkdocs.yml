@@ -1,6 +1,6 @@
 site_name: AVLite
 site_url: https://avlite.org/
-site_description: Modular Autonomous Vehicle Stack
+site_description: A lightweight autonomous vehicle stack with plugins from sensors to control
 site_author: AV-Lab
 
 repo_name: AV-Lab/avlite

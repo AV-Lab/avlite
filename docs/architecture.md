@@ -33,7 +33,7 @@ flowchart TB
         direction LR
         PERC["Perception\nLocalization · Mapping\nDetection · Tracking · Prediction"]
         PLAN["Planning\nGlobal · Local · Lattice"]
-        CTRL["Control\nStanley · PID · Pure Pursuit · FTG"]
+        CTRL["Control\nStanley · PID · Pure Pursuit · FTG · Keyboard"]
         WB["World Bridge\nBasicSim · Carla · Gazebo · ROS2"]
         PERC ~~~ PLAN ~~~ CTRL ~~~ WB
     end
@@ -137,7 +137,7 @@ class MyLocalPlanner(LocalPlanningStrategy):
     stack_requirements = frozenset({
         StackCapability.GLOBAL_PLAN,
         StackCapability.LOCALIZATION,
-        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION),
+        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY),
     })
     stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 ```
@@ -161,18 +161,22 @@ A bridge declaring `CAMERA_RGB` or `CAMERA_DEPTH` must also populate `SensorFram
 
 - `DETECTION` - Object detection
 - `TRACKING` - Object tracking
-- `PREDICTION` - Motion prediction
+- `PREDICTION_TRAJECTORY` - Deterministic (x, y) polyline forecast (`SingleTrajectory`)
+- `PREDICTION_GP` - Gaussian-process forecast
+- `PREDICTION_GMM` - Gaussian-mixture forecast
+- `PREDICTION_OCCUPANCY` - Occupancy-grid forecast (`OccupancyFlow` or `AggregatedOccupancyFlow`)
 - `LOCAL_PLAN` - Local plan (produced by the local planner)
 - `GLOBAL_PLAN` - Global plan (produced by the global planner)
 - `CONTROL` - Control commands (produced by the controller)
 - `LOCALIZATION` - Ego localization
 - `MAP_HD` - HD / OpenDRIVE map (from a mapping module such as `MapReader`)
 - `MAP_RACE_TRACK` - Race-track corridor map (from a mapping module such as `MapReader`)
+- `MAP_OCCUPANCY` - LiDAR occupancy grid (from `OccupancyMapper`; also forwards `MAP_HD` / `MAP_RACE_TRACK` when constructed with a static map)
 - `SLAM` - Simultaneous localization and mapping
 
 **Ground truth via the world bridge:** a `WorldBridge` may advertise `stack_capabilities` (a `set[StackCapability]`, default empty) to satisfy downstream `stack_requirements` without a real module. For example, `BasicSim` provides `{DETECTION, TRACKING, LOCALIZATION}` as ground truth and declares `stack_requirements = {CONTROL}`. Optional `WorldBridge.map` is simulation-only (e.g. LiDAR geometry) and does **not** advertise `MAP_HD` / `MAP_RACE_TRACK`. Typed stack map caps come from a mapping module such as `MapReader` (holds a pre-loaded `Map`; advertises `MAP_HD` or `MAP_RACE_TRACK` from the concrete type; format sniff/load stays on `Map.open` / `Map.from_path`). Global planners require the matching typed cap (`HDMapGlobalPlanner` → `MAP_HD`; race planners → `MAP_RACE_TRACK`). The executer’s `available_stack_capabilities()` unions every present module’s `stack_capabilities` with filtered `world.stack_capabilities`. At stack build it **raises** when a module’s hard `stack_requirements` are unmet (`MayUse` never fails that check), and **warns** when the world’s hard requirements are unmet or when the same capability is provided by more than one source.
 
-In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against `available_stack_capabilities`, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected `WorldBridge`: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled `all ·` / `any ·` / `optional ·`. Provided caps: green = consumed by another module’s hard or soft (`MayUse`) requirements or by the world bridge’s `stack_requirements`; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (`c41_world_stack_capabilities`); gray = unused. Parent `PerceptionPipeline` advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use `DETECTION` and `PREDICTION` (agents + motion sweeps), not `TRACKING`. Bridge Setting’s world column (`c41_world_capabilities`) gates which sensors are fed into `SensorFrame`.
+In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against `available_stack_capabilities`, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected `WorldBridge`: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled `all ·` / `any ·` / `optional ·`. Provided caps: green = consumed by another module’s hard or soft (`MayUse`) requirements or by the world bridge’s `stack_requirements`; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (`c41_world_stack_capabilities`); gray = unused. Parent `PerceptionPipeline` advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use `DETECTION` and `PREDICTION_TRAJECTORY` (`MayUse(DETECTION, PREDICTION_TRAJECTORY)`), not `TRACKING`. They only read `SingleTrajectory` sweeps. Bridge Setting’s world column (`c41_world_capabilities`) gates which sensors are fed into `SensorFrame`.
 ### Factory Pattern
 
 The executor factory assembles components based on configuration:
@@ -232,7 +236,7 @@ Control actuation is a separate layer: `ControlCommandBase` subclasses and defau
 
 ### **Perception**
 
-Monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns; leave the slot empty like any other module when unused. Static map types (`Map`, `RaceMap`, `HDMap`) live in c11; OpenDRIVE parsing is in c18. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
+Monolithic or pipelined detect/track/predict strategies, plus localization and mapping interfaces. Built-in algorithms and plugin implementations register automatically and appear in UI dropdowns; leave the slot empty like any other module when unused. Static map types (`Map`, `RaceMap`, `HDMap`) and `OccupancyMap` live in c11; OpenDRIVE parsing is in c18; `OccupancyMapper` (`c17`) writes a lidar occupancy grid onto `PerceptionModel.occupancy_map` each tick after localization. See [Plugin Development](plugin-development.md) for monolithic vs pipeline extension paths.
 
 ### **Planning**
 
@@ -240,7 +244,7 @@ Global route planning and reactive local planning (lattice-based). Produces traj
 
 ### **Control**
 
-Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap) output actuation commands. A controller can also be an end-to-end plugin (sensors → actuation) when perception/planning are omitted. Commands use a `ControlCommandBase` hierarchy (`AckermannControlCommand`, `DiffDriveControlCommand`, `BodyVelocityControlCommand` in c31); the built-in car stack still returns `ControlCommand` (Ackermann alias). Per-agent command type defaults are mapped from `AgentType` in c31. See [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control). Pure Pursuit and Follow the Gap are documented in [Algorithms](algorithms.md#control-pure-pursuit-and-follow-the-gap).
+Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap, Keyboard) output actuation commands. A controller can also be an end-to-end plugin (sensors → actuation) when perception/planning are omitted — `KeyboardController` is the built-in teleop example. Commands use a `ControlCommandBase` hierarchy (`AckermannControlCommand`, `DiffDriveControlCommand`, `BodyVelocityControlCommand` in c31); the built-in car stack still returns `ControlCommand` (Ackermann alias). Per-agent command type defaults are mapped from `AgentType` in c31. See [Plugin Development → Multi-robot agents and control](plugin-development.md#7-multi-robot-agents-and-control). Pure Pursuit, Follow the Gap, and keyboard teleop are documented in [Algorithms](algorithms.md#control-pure-pursuit-and-follow-the-gap).
 
 ### **Execution**
 

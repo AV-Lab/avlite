@@ -72,6 +72,7 @@ class PluginSettingsSchema(SettingsSchema):
     p66_frenet_zoom: float = Field(default=30, description="Frenet plot zoom level.")
     p66_global_zoom: float = Field(default=30, description="Global plot zoom level.")
     p67_show_occupancy_flow: bool = Field(default=False, description="Show occupancy flow visualization.")
+    p67_show_occupancy_map: bool = Field(default=False, description="Show occupancy-grid map visualization.")
     p67_show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
     p67_show_prediction: bool = Field(default=True, description="Show predicted agent trajectories on plots.")
     p67_global_plan_view: bool = Field(default=True, description="Show global plan panel.")
@@ -111,6 +112,7 @@ class VisualizationSettings:
     def __init__(self):
         self.c62_load_plugins = tk.BooleanVar(value=AppSettings.c62_load_plugins)
         self.c60_selected_profile = tk.StringVar(value=AppSettings.c60_selected_profile)
+        self.c60_ros_distro = tk.StringVar(value=AppSettings.c60_ros_distro or "latest")
         self.p60_shortcut_mode = tk.BooleanVar()
         self.p60_next_profile = tk.StringVar(value=PluginSettings.p60_next_profile)
         self.p60_dark_mode = tk.BooleanVar(value=True)
@@ -139,6 +141,7 @@ class VisualizationSettings:
         self.p66_global_zoom = 30
 
         self.p67_show_occupancy_flow = tk.BooleanVar(value=False)
+        self.p67_show_occupancy_map = tk.BooleanVar(value=False)
         self.p67_show_perception_extras = tk.BooleanVar(value=False)
         self.p67_show_prediction = tk.BooleanVar(value=True)
         self.vehicle_state = tk.StringVar(value="Ego: (0.00, 0.00), Vel: 0.00 (0.00 km/h), θ: 0.0")
@@ -294,7 +297,6 @@ class VisualizationSettings:
         self.exec_plan = tk.BooleanVar(value=True)
         self.exec_control = tk.BooleanVar(value=True)
         self.exec_perceive = tk.BooleanVar(value=True)
-        self.exec_localize = tk.BooleanVar(value=True)
         self.exec_running = False
 
         self.control_dt = tk.DoubleVar(value=ExecutionSettings.c40_control_dt)
@@ -462,11 +464,13 @@ class VisualizationSettings:
         """Copy AppSettings singleton values into Tk variables."""
         self.c62_load_plugins.set(AppSettings.c62_load_plugins)
         self.c60_selected_profile.set(AppSettings.c60_selected_profile)
+        self.c60_ros_distro.set(AppSettings.c60_ros_distro or "latest")
 
     def sync_app_to_singleton(self) -> None:
         """Copy app Tk variable values into the AppSettings singleton."""
         AppSettings.c62_load_plugins = bool(self.c62_load_plugins.get())
         AppSettings.c60_selected_profile = self.c60_selected_profile.get()
+        AppSettings.c60_ros_distro = self.c60_ros_distro.get().strip()
 
     def sync_perception_pipeline_from_c19(self) -> None:
         """Push c19 pipeline strategy names into main-UI Tk vars without write-back."""

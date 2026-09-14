@@ -367,24 +367,37 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
         root_logger.addHandler(file_handler)
         log.info(f"Logging to file: {log_path}")
 
-    executer = executor_factory(
-        executer_type=ExecutionSettings.c40_executer_type,
-        bridge=ExecutionSettings.c40_bridge,
-        perception_strategy_name=ExecutionSettings.c40_perception,
-        localization_strategy_name=ExecutionSettings.c40_localization,
-        mapping_strategy_name=ExecutionSettings.c40_mapping,
-        global_planner_strategy_name=ExecutionSettings.c40_global_planner,
-        local_planner_strategy_name=ExecutionSettings.c40_local_planner,
-        controller_strategy_name=ExecutionSettings.c40_controller,
-        perception_dt=ExecutionSettings.c40_perception_dt,
-        localization_dt=ExecutionSettings.c40_localization_dt,
-        replan_dt=replan_dt,
-        control_dt=control_dt,
-        map_file=ExecutionSettings.c40_map,
-        default_global_trajectory_file=ExecutionSettings.c40_global_trajectory,
-        load_plugins=True,
-        async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
-    )
+    from avlite.c60_apps.c67_plugin_env import PluginEnv
+
+    try:
+        executer = executor_factory(
+            executer_type=ExecutionSettings.c40_executer_type,
+            bridge=ExecutionSettings.c40_bridge,
+            perception_strategy_name=ExecutionSettings.c40_perception,
+            localization_strategy_name=ExecutionSettings.c40_localization,
+            mapping_strategy_name=ExecutionSettings.c40_mapping,
+            global_planner_strategy_name=ExecutionSettings.c40_global_planner,
+            local_planner_strategy_name=ExecutionSettings.c40_local_planner,
+            controller_strategy_name=ExecutionSettings.c40_controller,
+            perception_dt=ExecutionSettings.c40_perception_dt,
+            localization_dt=ExecutionSettings.c40_localization_dt,
+            replan_dt=replan_dt,
+            control_dt=control_dt,
+            map_file=ExecutionSettings.c40_map,
+            default_global_trajectory_file=ExecutionSettings.c40_global_trajectory,
+            load_plugins=True,
+            async_combined_perception_planning=ExecutionSettings.c40_async_combined_perception_planning,
+        )
+    except Exception as e:
+        if isinstance(e, PluginEnv.Error):
+            sys.stderr.write(f"{e}\n")
+            sys.exit(1)
+        raise
+
+    env = PluginEnv()
+    if env.pending_launch:
+        sys.stderr.write(env.launch_warning() + "\n")
+        env.start_launch()
 
     # Re-strip handlers that may have been added during factory/extension import.
     _strip_console_handlers(root_logger)
@@ -421,7 +434,6 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
                     call_replan=True,
                     call_control=True,
                     call_perceive=perceive,
-                    call_localize=True,
                     pace_perception=ExecutionSettings.c40_pace_perception,
                     pace_replan=ExecutionSettings.c40_pace_replan,
                     pace_control=pace_control,

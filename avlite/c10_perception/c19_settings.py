@@ -10,7 +10,7 @@ class PerceptionSettingsSchema(SettingsSchema):
 
     c11_state_default_heading: int = Field(default=0, description="Default heading (rad) for new agent states.")
     c11_max_agents: int = Field(default=12, description="Maximum number of agents tracked in the perception model.")
-    c11_prediction_grid_size: int = Field(default=100, description="Grid resolution for occupancy-flow prediction output.")
+    c11_prediction_grid_size: int = Field(default=100, description="Allocation hint for occupancy-flow cell count (H=W); not stored on the prediction payload — use grid.shape.")
     c11_predict_delta_t: float = Field(default=0.1, description="Default time step (seconds) between predicted future samples.")
 
     c12_detection_strategy: str = Field(default="", description="Detection sub-strategy class name; empty uses ground truth.")
@@ -41,6 +41,11 @@ class PerceptionSettingsSchema(SettingsSchema):
     c16_localization_icp_tolerance: float = Field(default=1e-4, description="ICP convergence tolerance.")
     c16_localization_icp_max_correspondence_dist: float = Field(default=5.0, description="Max ICP correspondence distance (m).")
     c16_localization_map_subsample: int = Field(default=1, description="Subsample factor for reference map points.")
+
+    c17_resolution: float = Field(default=0.25, description="Occupancy grid cell size (m).")
+    c17_size: float = Field(default=200.0, description="Initial occupancy grid size (m); the grid grows as the ego explores.")
+    c17_z_min: float = Field(default=-1.5, description="Occupancy mapping z-band minimum (m).")
+    c17_z_max: float = Field(default=0.5, description="Occupancy mapping z-band maximum (m).")
 
 
 # Singleton instance: mutated in place by the loader/reset helpers — never rebind.

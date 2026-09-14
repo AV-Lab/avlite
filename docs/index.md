@@ -13,12 +13,11 @@ hide:
 
 <p class="hero-wordmark">AVLite</p>
 
-# Autonomy, made lite
+# A lightweight autonomous vehicle stack with plugins from sensors to control
 
-AVLite is a lightweight, modular autonomous-vehicle stack — from a 2D
-simulator on your laptop to headless deployment on a real robot. Swap
-classic perception, planning, and control modules, or plug in an end-to-end
-system.
+From a 2D simulator on your laptop to headless deployment on a real robot.
+Swap classic perception, planning, and control modules, or plug in an
+end-to-end system.
 
 ```bash
 pip install avlite   # install

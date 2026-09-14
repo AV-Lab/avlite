@@ -9,12 +9,17 @@ from __future__ import annotations
 from avlite.c10_perception.c11_perception_model import (
     AgentState,
     AgentType,
+    AggregatedOccupancyFlow,
     EgoState,
+    GP,
+    GMM,
     HDMap,
     Map,
+    OccupancyFlow,
+    OccupancyMap,
     PerceptionModel,
-    PredictionModelBase,
     RaceMap,
+    SingleTrajectory,
 )
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c31_control_model import (
@@ -28,10 +33,14 @@ from avlite.c50_common.c51_capabilities import StackCapability
 STACK_CAPABILITY_DATATYPES: dict[StackCapability, type | tuple[type, ...]] = {
     StackCapability.DETECTION: PerceptionModel,
     StackCapability.TRACKING: PerceptionModel,
-    StackCapability.PREDICTION: PredictionModelBase,
+    StackCapability.PREDICTION_TRAJECTORY: SingleTrajectory,
+    StackCapability.PREDICTION_GP: GP,
+    StackCapability.PREDICTION_GMM: GMM,
+    StackCapability.PREDICTION_OCCUPANCY: (OccupancyFlow, AggregatedOccupancyFlow),
     StackCapability.LOCALIZATION: EgoState,
     StackCapability.MAP_HD: HDMap,
     StackCapability.MAP_RACE_TRACK: RaceMap,
+    StackCapability.MAP_OCCUPANCY: OccupancyMap,
     StackCapability.SLAM: (EgoState, Map),
     StackCapability.GLOBAL_PLAN: GlobalPlan,
     StackCapability.LOCAL_PLAN: LocalPlan,

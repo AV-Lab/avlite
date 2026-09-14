@@ -54,6 +54,9 @@ class LidarLocalization(LocalizationStrategy):
     map_subsample : int
         Keep every ``map_subsample``-th map point (1 keeps all).
     """
+    world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
+    stack_requirements = frozenset({StackCapability.MAP_OCCUPANCY})
+    stack_capabilities = frozenset({StackCapability.LOCALIZATION})
 
     def __init__(
         self,
@@ -74,9 +77,6 @@ class LidarLocalization(LocalizationStrategy):
         self._theta: Optional[float] = None
         self._map: Optional[np.ndarray] = None
 
-    world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
-    stack_requirements = frozenset()
-    stack_capabilities = frozenset({StackCapability.LOCALIZATION})
 
     # ------------------------------------------------------------------
     # Main estimation step

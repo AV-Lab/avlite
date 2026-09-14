@@ -149,7 +149,7 @@ class TestSyncExecuterFps:
         exec_, sim_dt = _make_sync_executer()
         for _ in range(2):
             exec_.step(control_dt=sim_dt, sim_dt=sim_dt, replan_dt=99, localization_dt=99,
-                       call_replan=False, call_perceive=False, call_localize=False)
+                       call_replan=False, call_perceive=False)
         assert exec_.control_fps > 0.0
 
     def test_control_fps_capped_by_floor_when_fast(self):
@@ -161,7 +161,7 @@ class TestSyncExecuterFps:
         for _ in range(5):
             exec_.step(control_dt=0.05, sim_dt=sim_dt, replan_dt=99,
                        localization_dt=99, call_replan=False,
-                       call_perceive=False, call_localize=False)
+                       call_perceive=False)
         cap = 1.0 / sim_dt  # 20
         # Allow slight floating-point overshoot (< 5 %)
         assert exec_.control_fps <= cap * 1.05
@@ -173,18 +173,16 @@ class TestSyncExecuterFps:
         sim_dt = 0.01
         exec_, _ = _make_sync_executer(control_delay=0.1, control_dt=control_dt, sim_dt=sim_dt)
         exec_.step(control_dt=control_dt, sim_dt=sim_dt, replan_dt=99,
-                   localization_dt=99, call_replan=False, call_perceive=False,
-                   call_localize=False)
+                   localization_dt=99, call_replan=False, call_perceive=False)
         exec_.step(control_dt=control_dt, sim_dt=sim_dt, replan_dt=99,
-                   localization_dt=99, call_replan=False, call_perceive=False,
-                   call_localize=False)
+                   localization_dt=99, call_replan=False, call_perceive=False)
         target_fps = 1.0 / control_dt  # 20
         assert exec_.control_fps < target_fps
 
     def test_control_fps_first_step_is_zero(self):
         exec_, sim_dt = _make_sync_executer()
         exec_.step(control_dt=0.05, sim_dt=sim_dt, replan_dt=99, localization_dt=99,
-                   call_replan=False, call_perceive=False, call_localize=False)
+                   call_replan=False, call_perceive=False)
         assert exec_.control_fps == 0.0
 
     def test_elapsed_sim_time_advances_by_sim_dt(self):
@@ -194,7 +192,7 @@ class TestSyncExecuterFps:
         for _ in range(n_steps):
             exec_.step(control_dt=control_dt, sim_dt=sim_dt, replan_dt=99,
                        localization_dt=99, call_replan=False,
-                       call_perceive=False, call_localize=False)
+                       call_perceive=False)
         expected = sim_dt * n_steps
         assert abs(exec_.elapsed_sim_time - expected) < 1e-9
 
@@ -203,7 +201,7 @@ class TestSyncExecuterFps:
         for _ in range(4):
             exec_.step(control_dt=sim_dt, sim_dt=sim_dt, replan_dt=99,
                        localization_dt=99, call_replan=False,
-                       call_perceive=False, call_localize=False)
+                       call_perceive=False)
         assert exec_.control_fps > 0.0
         exec_.reset()
         # reset() must zero the public fps attributes AND the internal trackers
@@ -224,7 +222,6 @@ class TestSyncPaceAndSimulate:
                 localization_dt=99,
                 call_replan=False,
                 call_perceive=True,
-                call_localize=False,
                 pace_perception=True,
             )
         # 10 sim steps of 0.01 → elapsed 0.10; paced at 0.05 → about 3 fires (0, 0.05, 0.10)
@@ -240,7 +237,6 @@ class TestSyncPaceAndSimulate:
                 localization_dt=99,
                 call_replan=False,
                 call_perceive=False,
-                call_localize=False,
                 pace_control=True,
             )
         # First at t=0, then every 0.05 → ~3 recomputes over elapsed 0.10
@@ -250,7 +246,7 @@ class TestSyncPaceAndSimulate:
         exec_, _ = _make_sync_executer()
         exec_.step(
             control_dt=0.01, sim_dt=0.01, replan_dt=99, localization_dt=99,
-            call_replan=False, call_perceive=False, call_localize=False,
+            call_replan=False, call_perceive=False,
             pace_control=True,
         )
         assert exec_.world.sim_calls == 1
@@ -259,7 +255,7 @@ class TestSyncPaceAndSimulate:
         for _ in range(4):
             exec_.step(
                 control_dt=1.0, sim_dt=0.01, replan_dt=99, localization_dt=99,
-                call_replan=False, call_perceive=False, call_localize=False,
+                call_replan=False, call_perceive=False,
                 pace_control=True,
             )
         assert exec_.controller.calls == 1
@@ -277,7 +273,6 @@ class TestSyncPaceAndSimulate:
                 localization_dt=99,
                 call_replan=False,
                 call_perceive=False,
-                call_localize=False,
                 pace_sim=False,
                 pace_control=False,
             )
@@ -294,7 +289,6 @@ class TestSyncPaceAndSimulate:
             localization_dt=99,
             call_replan=False,
             call_perceive=False,
-            call_localize=False,
             pace_sim=False,
             pace_control=False,
         )
@@ -343,7 +337,6 @@ class TestAsyncExecuterFps:
             call_replan=False,
             call_control=True,
             call_perceive=False,
-            call_localize=False,
             pace_control=True,
             pace_sim=True,
         )
@@ -374,7 +367,7 @@ class TestAsyncExecuterFps:
         )
         exec_.step(control_dt=control_dt, sim_dt=sim_dt,
                    call_replan=False, call_control=True,
-                   call_perceive=False, call_localize=False)
+                   call_perceive=False)
 
         time.sleep(control_dt * 4)
         exec_.stop()
@@ -404,7 +397,6 @@ class TestAsyncExecuterFps:
             call_replan=True,
             call_control=True,
             call_perceive=True,
-            call_localize=False,
             pace_perception=False,
             pace_replan=False,
             pace_control=False,
@@ -436,7 +428,6 @@ class TestAsyncExecuterFps:
             call_replan=False,
             call_control=True,
             call_perceive=False,
-            call_localize=False,
             pace_control=False,
             pace_sim=False,
         )

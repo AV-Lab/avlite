@@ -2,6 +2,10 @@ import argparse
 import sys
 
 from avlite.c60_apps.c61_app_strategy import bootstrap_apps, register_parsers, run_app
+from avlite.c60_apps.c65_setting_utils import load_setting
+from avlite.c60_apps.c67_plugin_env import PluginEnv
+from avlite.c60_apps.c68_paths import ConfigPaths
+from avlite.c60_apps.c69_settings import AppSettings
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -9,6 +13,8 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="avlite", description="AVLite")
     sub = parser.add_subparsers(dest="command")
 
+    load_setting(AppSettings, profile=ConfigPaths.startup_profile() or "default")
+    PluginEnv().apply()
     bootstrap_apps()
     register_parsers(sub)
 

@@ -41,6 +41,7 @@ except ImportError:
 _PACKAGING_AVAILABLE = Requirement is not None
 
 from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c61_app_strategy import AppStrategy
 from avlite.c60_apps.c65_setting_utils import (
@@ -439,6 +440,22 @@ class _PluginOperations:
         if version and version != "latest":
             log.info("Checking out version %s", version)
             _GitOperations._run_git(["-C", str(target), "checkout", version], timeout=60)
+        meta = {
+            key: entry[key]
+            for key in (
+                "name",
+                "display_name",
+                "require_ros",
+                "min_ros_version",
+                "max_ros_version",
+                "min_avlite_version",
+            )
+            if key in entry
+        }
+        if meta and target.is_dir():
+            (target / ".avlite-registry.yaml").write_text(
+                yaml.safe_dump(meta, sort_keys=False), encoding="utf-8"
+            )
         return target
 
     @staticmethod
@@ -494,18 +511,22 @@ class _PluginOperations:
         """Return ``(ok, current, required)``.
 
         ``ok`` is True when ``min_avlite_version`` is missing/empty or current
-        AVLite is >= that version. If a min is set but packaging is unavailable,
-        ``ok`` is False.
+        AVLite is >= that version, and ``PluginEnv.check`` accepts the entry. If a
+        min is set but packaging is unavailable, ``ok`` is False.
         """
         from avlite import __version__ as current
 
         required = str(entry.get("min_avlite_version") or "").strip()
-        if not required:
-            return True, current, ""
-        if not _PACKAGING_AVAILABLE:
-            return False, current, required
-        ok = Version(current) >= Version(required.lstrip("v"))
-        return ok, current, required
+        if required:
+            if not _PACKAGING_AVAILABLE:
+                return False, current, required
+            if Version(current) < Version(required.lstrip("v")):
+                return False, current, required
+        try:
+            PluginEnv().check(entry)
+        except PluginEnv.Error as exc:
+            return False, current, str(exc)
+        return True, current, required
 
     @staticmethod
     def dependency_notes(entry: dict) -> str:
@@ -868,6 +889,19 @@ class _PluginDetailsWindow:
             ttk.Label(row, text=f"{label}:", width=12).pack(side=tk.LEFT)
             value = entry.get(key, "") or "\u2014"
             ttk.Label(row, text=value, wraplength=DpiScale.scaled(620, dpi_scale)).pack(
+                side=tk.LEFT, fill=tk.X, expand=True
+            )
+        ok, current, required = _PluginOperations.meets_min_avlite(entry)
+        if not ok:
+            row = ttk.Frame(meta)
+            row.pack(fill=tk.X, anchor=tk.W, pady=1)
+            ttk.Label(row, text="Compatibility:", width=12).pack(side=tk.LEFT)
+            text = (
+                required
+                if required and "ROS" in required
+                else f"Requires AVLite >= {required} (current {current})"
+            )
+            ttk.Label(row, text=text, wraplength=DpiScale.scaled(620, dpi_scale)).pack(
                 side=tk.LEFT, fill=tk.X, expand=True
             )
 
@@ -1240,6 +1274,7 @@ class _PluginRegistryPanel(ttk.Frame):
         hsb.grid(row=1, column=0, sticky="ew")
         tree_frame.rowconfigure(0, weight=1)
         tree_frame.columnconfigure(0, weight=1)
+        self.tree.tag_configure("incompatible", foreground="gray")
         self.tree.bind("<<TreeviewSelect>>", lambda _e: self._update_buttons())
         self.tree.bind("<Double-Button-1>", lambda _e: self._on_show_details())
 
@@ -1392,6 +1427,11 @@ class _PluginRegistryPanel(ttk.Frame):
             else:
                 status = "Available"
 
+            ok, _, _ = _PluginOperations.meets_min_avlite(entry)
+            tags = ("incompatible",) if not ok else ()
+            if not ok and status == "Available":
+                status = "Incompatible"
+
             if not self._status_visible(status):
                 continue
 
@@ -1415,6 +1455,7 @@ class _PluginRegistryPanel(ttk.Frame):
                     up_st,
                     path,
                 ),
+                tags=tags,
             )
 
         self._check_updates_async()
@@ -1497,6 +1538,14 @@ class _PluginRegistryPanel(ttk.Frame):
         self.btn_refresh.state(["disabled"] if busy or not signed_in else ["!disabled"])
         self.btn_update.state(["!disabled"] if (has_update and enabled) else ["disabled"])
         self.btn_update_all.state(["!disabled"] if (has_any_update and enabled) else ["disabled"])
+        if sel is not None and sel[1] == "Incompatible" and ctx is not None and ctx[2] is not None:
+            ok, current, required = _PluginOperations.meets_min_avlite(ctx[2])
+            if not ok:
+                self.status_var.set(
+                    required
+                    if "ROS" in required
+                    else f"Requires AVLite >= {required} (current {current})."
+                )
         self._sync_details_windows()
 
     def _on_show_details(self) -> None:
@@ -1748,11 +1797,14 @@ class _PluginRegistryPanel(ttk.Frame):
             return
         ok, current, required = _PluginOperations.meets_min_avlite(entry)
         if not ok:
-            messagebox.showerror(
-                "AVLite version too old",
-                f"'{name}' requires AVLite >= {required} (current {current}).",
-                parent=parent,
-            )
+            if required and "ROS" in required:
+                messagebox.showerror("ROS not available", required, parent=parent)
+            else:
+                messagebox.showerror(
+                    "AVLite version too old",
+                    f"'{name}' requires AVLite >= {required} (current {current}).",
+                    parent=parent,
+                )
             return
         profile = self._active_profile()
         self._set_busy(True, f"Installing {name}…")

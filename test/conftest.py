@@ -46,6 +46,16 @@ def minimal_opendrive_path() -> Path:
 
 
 @pytest.fixture(autouse=True)
+def skip_ros_apply_outside_plugin_env_tests(request, monkeypatch):
+    """Do not source /opt/ros or re-exec pytest except in PluginEnv unit tests."""
+    if request.path.name == "test_c67_plugin_env.py":
+        return
+    from avlite.c60_apps.c67_plugin_env import PluginEnv
+
+    monkeypatch.setattr(PluginEnv, "apply", lambda self: None)
+
+
+@pytest.fixture(autouse=True)
 def restore_stack_settings():
     """Restore all stack settings singletons after each test."""
     snapshots: list[tuple[object, dict]] = []

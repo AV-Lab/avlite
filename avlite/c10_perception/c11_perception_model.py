@@ -39,6 +39,7 @@ class PerceptionModel:
     # Optional map (HDMap or RaceMap)
     map: Optional[Map] = None
 
+    occupancy_map: Optional[OccupancyMap] = None
 
     # Raw LiDAR points that passed segmentation + range gating (diagnostic overlay)
     detection_clusters: Optional[np.ndarray] = None
@@ -62,6 +63,7 @@ class PerceptionModel:
         self.static_obstacles = []
         self.agent_vehicles = []
         self.prediction = None
+        self.occupancy_map = None
         self.stack_event = None
 
 
@@ -107,21 +109,42 @@ class GMM(PredictionModelBase):
 
 @dataclass
 class OccupancyFlow(PredictionModelBase):
-    """Per-agent occupancy grid sequences."""
+    """Per-agent occupancy-grid forecast sequences.
 
-    # agent_id -> n_steps grids, each [grid_size, grid_size].
+    Each grid is a world-frame occupancy window in [0, 1], same convention as
+    ``OccupancyMap``: ``grid[row, col]``; cell ``(0, 0)`` is the lower-left of
+    the window and its lower-left corner is ``(origin_x, origin_y)``. Row is +y,
+    column is +x. All agents and timesteps share this window. Step ``k`` is at
+    ``(k + 1) * predict_delta_t``. Cell count is ``grid.shape``, not a stored
+    ``grid_size``.
+    """
+
+    # agent_id -> n_steps grids, each [H, W] occupancy in [0, 1].
     occupancy_flow: dict[int, list[np.ndarray]] = field(default_factory=dict)
-    grid_bounds: dict[str, float] = field(default_factory=dict)
-    grid_size: int = field(default_factory=lambda: PerceptionSettings.c11_prediction_grid_size)
+    # World x [m] of the lower-left corner of cell (0, 0).
+    origin_x: float = 0.0
+    # World y [m] of the lower-left corner of cell (0, 0).
+    origin_y: float = 0.0
+    # Cell edge length [m]. World extent is origin + (cols, rows) * resolution.
+    resolution: float = field(default_factory=lambda: PerceptionSettings.c17_resolution)
 
 
 @dataclass
 class AggregatedOccupancyFlow(PredictionModelBase):
-    """Lump-sum occupancy grids for all agents combined."""
+    """Lump-sum occupancy-grid forecast for all agents combined.
 
+    Same world-frame window as ``OccupancyFlow`` / ``OccupancyMap`` (see those
+    docstrings). One grid sequence for the whole scene, not keyed by agent.
+    """
+
+    # n_steps grids, each [H, W] occupancy in [0, 1]; step k at (k+1)*predict_delta_t.
     occupancy_flow: list[np.ndarray] = field(default_factory=list)
-    grid_bounds: dict[str, float] = field(default_factory=dict)
-    grid_size: int = field(default_factory=lambda: PerceptionSettings.c11_prediction_grid_size)
+    # World x [m] of the lower-left corner of cell (0, 0).
+    origin_x: float = 0.0
+    # World y [m] of the lower-left corner of cell (0, 0).
+    origin_y: float = 0.0
+    # Cell edge length [m]. World extent is origin + (cols, rows) * resolution.
+    resolution: float = field(default_factory=lambda: PerceptionSettings.c17_resolution)
 
 
 @dataclass
@@ -250,10 +273,12 @@ class Map(ABC):
 
     @staticmethod
     def open(path: Path | str) -> Map | None:
-        """Dispatch to ``HDMap`` or ``RaceMap`` based on file format."""
+        """Dispatch to ``HDMap``, ``OccupancyMap``, or ``RaceMap`` based on file format."""
         path = Path(path)
         if HDMap.is_loadable(path):
             return HDMap.from_path(path)
+        if OccupancyMap.is_loadable(path):
+            return OccupancyMap.from_path(path)
         if RaceMap.is_loadable(path):
             return RaceMap.from_path(path)
         return None
@@ -486,4 +511,94 @@ class HDMap(Map):
                 if right and left:
                     return True
         return False
+
+
+@dataclass
+class OccupancyMap(Map):
+    """World-frame 2D occupancy grid. ``grid[row, col]`` is probability in [0, 1].
+
+    Cell ``(0, 0)`` is the lower-left of the window: its lower-left corner is
+    ``(origin_x, origin_y)``. Row is +y, column is +x.
+    """
+
+    source_path: str = ""
+    grid: np.ndarray = field(default_factory=lambda: np.zeros((0, 0), dtype=np.float32))
+    origin_x: float = 0.0
+    origin_y: float = 0.0
+    resolution: float = 0.25
+    _reference_point: tuple[float, float] | None = None
+
+    @property
+    def reference_point(self) -> tuple[float, float] | None:
+        return self._reference_point
+
+    @staticmethod
+    def is_loadable(path: Path | str) -> bool:
+        path = Path(path)
+        if path.suffix.lower() != ".json" or not path.is_file():
+            return False
+        try:
+            with path.open(encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(data, dict) or data.get("Type") != "OccupancyMap":
+            return False
+        origin = data.get("Origin")
+        grid = data.get("Grid")
+        try:
+            resolution = float(data.get("Resolution", 0))
+        except (TypeError, ValueError):
+            return False
+        if resolution <= 0:
+            return False
+        if not isinstance(origin, list) or len(origin) < 2:
+            return False
+        try:
+            float(origin[0])
+            float(origin[1])
+        except (TypeError, ValueError):
+            return False
+        if not isinstance(grid, list) or not grid or not isinstance(grid[0], list) or not grid[0]:
+            return False
+        return True
+
+    @classmethod
+    def from_path(cls, path: Path | str) -> OccupancyMap:
+        path = Path(path)
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+        origin = data["Origin"]
+        ref = data.get("ReferencePoint")
+        ref_pt = None
+        if isinstance(ref, list) and len(ref) >= 2:
+            try:
+                ref_pt = (float(ref[0]), float(ref[1]))
+            except (TypeError, ValueError):
+                ref_pt = None
+        return cls(
+            source_path=str(path),
+            grid=np.asarray(data["Grid"], dtype=np.float32),
+            origin_x=float(origin[0]),
+            origin_y=float(origin[1]),
+            resolution=float(data["Resolution"]),
+            _reference_point=ref_pt,
+        )
+
+    def to_file(self, path: Path | str) -> None:
+        path = Path(path)
+        if path.parent.as_posix() not in ("", "."):
+            path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "Type": "OccupancyMap",
+            "Origin": [float(self.origin_x), float(self.origin_y)],
+            "Resolution": float(self.resolution),
+            "Grid": np.asarray(self.grid).tolist(),
+        }
+        if self.reference_point is not None:
+            data["ReferencePoint"] = [float(self.reference_point[0]), float(self.reference_point[1])]
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, separators=(",", ":"))
+        self.source_path = str(path)
+        log.info("Occupancy map saved to %s", path)
 

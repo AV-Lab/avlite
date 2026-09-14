@@ -329,6 +329,9 @@ def import_plugin_modules(
     plugins_filter: list[str] | None = None,
 ) -> None:
     """Import all Python modules from a built-in or community plugin directory."""
+    from avlite.c60_apps.c67_plugin_env import PluginEnv
+
+    PluginEnv().apply()
     if not directory:
         plugins_directory = PluginPaths.builtin_dir()
         if plugins_filter is not None:

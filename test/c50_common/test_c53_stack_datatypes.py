@@ -5,12 +5,17 @@ from __future__ import annotations
 from avlite.c10_perception.c11_perception_model import (
     AgentState,
     AgentType,
+    AggregatedOccupancyFlow,
     EgoState,
+    GP,
+    GMM,
     HDMap,
     Map,
+    OccupancyFlow,
+    OccupancyMap,
     PerceptionModel,
-    PredictionModelBase,
     RaceMap,
+    SingleTrajectory,
 )
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c30_control.c31_control_model import (
@@ -36,10 +41,17 @@ def test_every_stack_capability_has_datatype():
 def test_datatype_for_known_mappings():
     assert datatype_for(StackCapability.DETECTION) is PerceptionModel
     assert datatype_for(StackCapability.TRACKING) is PerceptionModel
-    assert datatype_for(StackCapability.PREDICTION) is PredictionModelBase
+    assert datatype_for(StackCapability.PREDICTION_TRAJECTORY) is SingleTrajectory
+    assert datatype_for(StackCapability.PREDICTION_GP) is GP
+    assert datatype_for(StackCapability.PREDICTION_GMM) is GMM
+    assert datatype_for(StackCapability.PREDICTION_OCCUPANCY) == (
+        OccupancyFlow,
+        AggregatedOccupancyFlow,
+    )
     assert datatype_for(StackCapability.LOCALIZATION) is EgoState
     assert datatype_for(StackCapability.MAP_HD) is HDMap
     assert datatype_for(StackCapability.MAP_RACE_TRACK) is RaceMap
+    assert datatype_for(StackCapability.MAP_OCCUPANCY) is OccupancyMap
     assert datatype_for(StackCapability.SLAM) == (EgoState, Map)
     assert datatype_for(StackCapability.GLOBAL_PLAN) is GlobalPlan
     assert datatype_for(StackCapability.LOCAL_PLAN) is LocalPlan
@@ -56,6 +68,12 @@ def test_capabilities_for_reverse_lookup():
     assert capabilities_for(Map) == frozenset({StackCapability.SLAM})
     assert capabilities_for(HDMap) == frozenset({StackCapability.MAP_HD})
     assert capabilities_for(RaceMap) == frozenset({StackCapability.MAP_RACE_TRACK})
+    assert capabilities_for(OccupancyMap) == frozenset({StackCapability.MAP_OCCUPANCY})
+    assert capabilities_for(SingleTrajectory) == frozenset({StackCapability.PREDICTION_TRAJECTORY})
+    assert capabilities_for(GP) == frozenset({StackCapability.PREDICTION_GP})
+    assert capabilities_for(GMM) == frozenset({StackCapability.PREDICTION_GMM})
+    assert capabilities_for(OccupancyFlow) == frozenset({StackCapability.PREDICTION_OCCUPANCY})
+    assert capabilities_for(AggregatedOccupancyFlow) == frozenset({StackCapability.PREDICTION_OCCUPANCY})
     assert capabilities_for(GlobalPlan) == frozenset({StackCapability.GLOBAL_PLAN})
     assert capabilities_for(ControlCommandBase) == frozenset({StackCapability.CONTROL})
 
