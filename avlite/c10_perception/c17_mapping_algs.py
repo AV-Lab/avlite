@@ -103,10 +103,10 @@ class OccupancyMapper(MappingStrategy):
         if perception_model is None:
             return
         pose = ego if ego is not None else perception_model.ego_vehicle
+        lidar_sensor = sensors.lidar_sensor if sensors is not None and sensors.lidar_sensor is not None else Lidar()
         lidar = None if sensors is None else sensors.lidar
         pts = np.empty((0, 2), dtype=np.float64)
         if lidar is not None and len(lidar) > 0:
-            lidar_sensor = sensors.lidar_sensor if sensors.lidar_sensor is not None else Lidar()
             raw = np.asarray(lidar_sensor.to_map(lidar, pose), dtype=float)
             if raw.size:
                 if raw.ndim == 1:
@@ -115,13 +115,20 @@ class OccupancyMapper(MappingStrategy):
                     raw = raw[(raw[:, 2] >= self._z_min) & (raw[:, 2] <= self._z_max)]
                 pts = np.asarray(raw[:, :2], dtype=np.float64)
 
+        # Rays start at the sensor's own map-frame position, not the vehicle
+        # origin — matters whenever the lidar mount has a translational offset.
+        # Derived from the static mount alone, independent of whether this tick
+        # produced any points.
+        origin = np.asarray(lidar_sensor.to_map(np.zeros((1, 3)), pose), dtype=float)
+        ray_x, ray_y = float(origin[0, 0]), float(origin[0, 1])
+
         ego_x, ego_y = float(pose.x), float(pose.y)
         if self._origin_x is None:
             half = self._init_n * self.resolution / 2.0
             self._origin_x = ego_x - half
             self._origin_y = ego_y - half
-        cover_x = np.array([ego_x], dtype=np.float64)
-        cover_y = np.array([ego_y], dtype=np.float64)
+        cover_x = np.array([ego_x, ray_x], dtype=np.float64)
+        cover_y = np.array([ego_y, ray_y], dtype=np.float64)
         if pts.size:
             if pts.ndim == 1:
                 pts = pts.reshape(1, -1)
@@ -132,8 +139,8 @@ class OccupancyMapper(MappingStrategy):
         if pts.size:
             if pts.ndim == 1:
                 pts = pts.reshape(1, -1)
-            rdx = pts[:, 0] - ego_x
-            rdy = pts[:, 1] - ego_y
+            rdx = pts[:, 0] - ray_x
+            rdy = pts[:, 1] - ray_y
             dist = np.hypot(rdx, rdy)
             valid = dist > 1e-6
             if np.any(valid):
@@ -152,8 +159,8 @@ class OccupancyMapper(MappingStrategy):
                         np.cumsum(free_counts[:-1], out=starts[1:])
                     k = np.arange(n_free, dtype=np.float64) - np.repeat(starts, free_counts)
                     t = (k + 0.5) / n_samp[ray_idx]
-                    fx = ego_x + t * rdx[ray_idx]
-                    fy = ego_y + t * rdy[ray_idx]
+                    fx = ray_x + t * rdx[ray_idx]
+                    fy = ray_y + t * rdy[ray_idx]
                     fc = np.floor((fx - self._origin_x) / self.resolution).astype(np.int32)
                     fr = np.floor((fy - self._origin_y) / self.resolution).astype(np.int32)
                     inside = (fr >= 0) & (fr < self._rows) & (fc >= 0) & (fc < self._cols)

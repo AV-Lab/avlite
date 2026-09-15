@@ -105,12 +105,22 @@ Create your plugin anywhere on your system:
 ├── settings.py      # Optional: PluginSettings if you have tunable params
 ├── my_strategy.py   # Your implementation
 ├── README.md        # Optional: shown in the Plugins browser
-└── requirements.txt # Optional: extra pip dependencies
+├── requirements.txt # Optional: extra pip dependencies
+└── my_plugin.yaml   # Optional: recommended settings profile (filename = registry name)
 ```
 
-Tunable parameters are saved outside the plugin tree in `~/.config/avlite/plugin_<plugin_name>.yaml` (see section 1). Do not ship a `config/` folder or plugin-local YAML profiles in your repository.
+Tunable parameters are saved outside the plugin tree (see section 1). Do not ship a `config/` folder or `plugin_*.yaml` files. An optional `<name>.yaml` at the repository root is allowed (filename = registry `name`).
 
 Do not commit a `.venv` inside your plugin directory — AVLite scans all `.py` files under the plugin path and skips common vendor folders (`.venv`, `site-packages`, etc.), but keeping the venv outside the plugin tree is cleaner.
+
+### Optional recommended profile
+
+Export a working profile (`python -m avlite setting-cli export-profile …` or Settings **Export**) and save it as `<name>.yaml` at the plugin repository root, where `<name>` is the registry identifier (e.g. `avlite-bridge-carla.yaml`). After a successful **Install** or **Update**, AVLite asks whether to add that file as a profile named after the plugin. If `~/.config/avlite/<name>.yaml` already exists, a second prompt asks whether to overwrite it. The active profile is not switched.
+
+Include **only this plugin** in `c62_community_plugins` (AVLite rewrites the install path on the user's machine).
+
+!!! warning "Do not list other plugins"
+    AVLite will not install other community or member plugins listed in the shipped profile. Put extra plugin requirements in the README or registry `dependency_notes` instead, and let users install them themselves.
 
 ## 1. Settings File (Optional)
 
@@ -558,7 +568,7 @@ Registry repository: [github.com/AV-Lab/avlite-community-plugins](https://github
    ├── my_planner.py     # your implementation
    └── README.md         # shown in the Plugins browser (recommended)
    ```
-   WorldBridge plugins may also include `launch.sh` at the repo root. On stack reload or Start, AVLite warns and (if confirmed) runs it in the background to start a vehicle platform or simulator. The process is not stopped when the stack stops.
+   WorldBridge plugins may also include `launch.sh` at the repo root. On stack reload or Start, AVLite warns and (if confirmed) runs it in the background to start a vehicle platform or simulator. The process is not stopped when the stack stops. Plugins may also include `<name>.yaml` at the repo root (see [Optional recommended profile](#optional-recommended-profile)).
 4. **Optional** — `settings.py` with `PluginSettings` if you have tunable parameters; `requirements.txt` if you depend on extra pip packages (users install these into their AVLite environment).
 5. **Do not commit** a `.venv` inside the plugin repo.
 
@@ -625,7 +635,8 @@ Keep entries sorted alphabetically by `name` if the registry already follows tha
 - [ ] README explains what the plugin provides and any extra setup
 - [ ] Registry `name` matches how you refer to the plugin in docs
 - [ ] Registry `category` matches the base class(es) you export
-- [ ] No secrets, large binaries, committed virtualenv, or `config/` folder with plugin-local YAML profiles in the plugin repo
+- [ ] No secrets, large binaries, committed virtualenv, `config/` folder, or `plugin_*.yaml` in the plugin repo (optional root `<name>.yaml` is allowed)
+- [ ] If you ship a recommended profile, it is `<name>.yaml` at the repo root and `c62_community_plugins` contains only this plugin
 
 In the PR description, briefly state what layer(s) the plugin extends (perception, planning, control, bridge, etc.) and link to an example profile or usage steps if helpful.
 

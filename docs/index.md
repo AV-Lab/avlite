@@ -13,9 +13,9 @@ hide:
 
 <p class="hero-wordmark">AVLite</p>
 
-# A lightweight autonomous vehicle stack with plugins from sensors to control
+# Autonomy, made lite
 
-From a 2D simulator on your laptop to headless deployment on a real robot.
+From a simulator on your laptop to headless deployment on a real robot.
 Swap classic perception, planning, and control modules, or plug in an
 end-to-end system.
 
