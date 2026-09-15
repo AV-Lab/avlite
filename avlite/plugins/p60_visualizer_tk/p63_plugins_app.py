@@ -46,7 +46,10 @@ from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c61_app_strategy import AppStrategy
 from avlite.c60_apps.c65_setting_utils import (
     dev_mode_uninstall_warning,
+    import_profile,
+    list_profiles,
     load_setting,
+    profile_file_path,
     save_setting,
 )
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
@@ -1728,6 +1731,9 @@ class _PluginRegistryPanel(ttk.Frame):
                 messagebox.showerror("Update failed", str(err), parent=parent)
                 return
             self._update_statuses.pop(name, None)
+            self._handle_requirements(
+                name, plugin_path, parent=parent, install_deps=False
+            )
             self._set_busy(False, f"Updated {name}.")
             self._populate()
             self._notify_host_changed()
@@ -1767,6 +1773,16 @@ class _PluginRegistryPanel(ttk.Frame):
             if errors:
                 messagebox.showwarning(
                     "Some updates failed", "\n".join(errors), parent=self.window
+                )
+            failed = {e.split(":", 1)[0].strip() for e in (errors or [])}
+            for name in names:
+                if name in failed:
+                    continue
+                path = installed_map.get(name, {}).get("path")
+                if path is None:
+                    continue
+                self._handle_requirements(
+                    name, path, parent=self.window, install_deps=False
                 )
             updated = len(names) - len(errors or [])
             self._set_busy(False, f"Updated {updated} plugin(s).")
@@ -1875,36 +1891,77 @@ class _PluginRegistryPanel(ttk.Frame):
         self._add_to_profile(sel[0])
 
     def _handle_requirements(
-        self, name: str, plugin_path: Path, *, parent: Optional[tk.Misc] = None
+        self,
+        name: str,
+        plugin_path: Path,
+        *,
+        parent: Optional[tk.Misc] = None,
+        install_deps: bool = True,
     ) -> None:
-        """Check the plugin's requirements.txt and prompt to install missing deps."""
+        """Post-install/update prompts: requirements.txt, then optional ``<name>.yaml``."""
         parent = parent or self.window
-        req_file = plugin_path / "requirements.txt"
-        if not req_file.exists():
+        if install_deps:
+            req_file = plugin_path / "requirements.txt"
+            if req_file.exists():
+                missing, mismatched = _PluginOperations.check_requirements(req_file)
+                if mismatched:
+                    messagebox.showwarning(
+                        "Dependency version mismatch",
+                        f"'{name}' requires:\n  " + "\n  ".join(mismatched)
+                        + "\n\nThe plugin may not work correctly.",
+                        parent=parent,
+                    )
+                if missing and messagebox.askyesno(
+                    "Install missing dependencies?",
+                    f"'{name}' needs:\n  " + "\n  ".join(missing)
+                    + "\n\nInstall them into the current Python environment?",
+                    parent=parent,
+                ):
+                    try:
+                        _PluginOperations.pip_install(req_file)
+                    except subprocess.CalledProcessError as e:
+                        detail = "\n".join(p for p in (e.stdout, e.stderr) if p) or str(e)
+                        messagebox.showerror(
+                            "pip install failed",
+                            detail,
+                            parent=parent,
+                        )
+
+        src = plugin_path / f"{name}.yaml"
+        if not src.is_file():
             return
-        missing, mismatched = _PluginOperations.check_requirements(req_file)
-        if mismatched:
-            messagebox.showwarning(
-                "Dependency version mismatch",
-                f"'{name}' requires:\n  " + "\n  ".join(mismatched)
-                + "\n\nThe plugin may not work correctly.",
-                parent=parent,
-            )
-        if missing and messagebox.askyesno(
-            "Install missing dependencies?",
-            f"'{name}' needs:\n  " + "\n  ".join(missing)
-            + "\n\nInstall them into the current Python environment?",
+        if not messagebox.askyesno(
+            "Add recommended profile?",
+            f"'{name}' includes a recommended settings profile.\n\n"
+            f"Add it as '{name}'?",
             parent=parent,
         ):
-            try:
-                _PluginOperations.pip_install(req_file)
-            except subprocess.CalledProcessError as e:
-                detail = "\n".join(p for p in (e.stdout, e.stderr) if p) or str(e)
-                messagebox.showerror(
-                    "pip install failed",
-                    detail,
-                    parent=parent,
-                )
+            return
+        dest = profile_file_path(name, for_write=True)
+        overwrite = False
+        if os.path.exists(dest):
+            if not messagebox.askyesno(
+                "Overwrite existing profile?",
+                f"Profile '{name}' already exists.\n\n"
+                f"Overwrite it with the plugin's '{name}.yaml'?",
+                parent=parent,
+            ):
+                return
+            overwrite = True
+        current = self._active_profile() or _PluginOperations._current_profile()
+        imported = False
+        try:
+            import_profile(src, profile=name, overwrite=overwrite)
+            imported = True
+            _PluginOperations.register_in_profile(
+                name, plugin_path, profile=name, private=self._private
+            )
+        except Exception as e:  # noqa: BLE001
+            messagebox.showerror("Import profile failed", str(e), parent=parent)
+        finally:
+            load_setting(AppSettings, profile=current)
+        if imported:
+            self._refresh_host_profile_dropdowns()
 
     def _uninstall_plugin(
         self,
@@ -1966,6 +2023,31 @@ class _PluginRegistryPanel(ttk.Frame):
                 subprocess.Popen(["xdg-open", str(self.plugins_dir)])
         except Exception as e:  # noqa: BLE001
             self.status_var.set(f"Could not open folder: {e}")
+
+    def _refresh_host_profile_dropdowns(self) -> None:
+        """Refresh the host visualizer's profile list without switching profiles."""
+        host = self._host
+        if host is None:
+            return
+        try:
+            profiles = list_profiles()
+            setting = getattr(host, "setting", None)
+            if setting is not None:
+                setting.profile_list = profiles
+            shortcut = getattr(host, "setting_shortcut_view", None)
+            update_list = getattr(shortcut, "update_profile_list", None)
+            if callable(update_list):
+                update_list(profiles)
+            else:
+                combo = getattr(shortcut, "profile_dropdown_menu", None) if shortcut else None
+                if combo is not None:
+                    combo["values"] = profiles
+            setting_view = getattr(shortcut, "setting_view", None)
+            refresh = getattr(setting_view, "_refresh_profile_dropdowns", None)
+            if callable(refresh):
+                refresh()
+        except Exception:
+            log.debug("Host profile dropdown refresh failed", exc_info=True)
 
     def _notify_host_changed(self) -> None:
         """Best-effort hook so an embedding visualizer can refresh its UI."""

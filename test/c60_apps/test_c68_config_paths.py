@@ -862,6 +862,34 @@ def test_profile_import_writes_to_user_config_dir(monkeypatch, tmp_path):
     assert "c40_execution" in yaml.safe_load(user_file.read_text())
 
 
+def test_profile_import_named_from_profile_yaml(monkeypatch, tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(config_dir))
+    ConfigPaths.set_repo_target(False)
+
+    src = tmp_path / "profile.yaml"
+    src.write_text(
+        yaml.dump(
+            {
+                "c40_execution": {"c40_bridge": "BasicSim"},
+                "c69_apps": {
+                    "c62_community_plugins": {
+                        "avlite-bridge-carla": "avlite-bridge-carla"
+                    }
+                },
+            }
+        )
+    )
+
+    assert import_profile(src, profile="avlite-bridge-carla") == "avlite-bridge-carla"
+    dest = config_dir / "avlite-bridge-carla.yaml"
+    assert dest.is_file()
+    assert not (config_dir / "profile.yaml").exists()
+    data = yaml.safe_load(dest.read_text())
+    assert data["c40_execution"]["c40_bridge"] == "BasicSim"
+
+
 def test_profile_import_conflict_without_overwrite(monkeypatch, tmp_path):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
