@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-09-15
+
 ### Added
 - Plugins: optional repo-root `<name>.yaml` — after Install/Update, offer to import it as a profile named after the plugin (overwrite prompt if that name exists)
 
 ### Changed
 - Execution: restore `call_localize` on `ExecutionStrategy.step()` (default True) so plugins keep working; visualizer still has no Localization checkbox
 - Execution: `validate_stack()` is now public API (was `_validate_stack`)
+- Visualizer: toolbar profile dropdown widens to the longest profile name
 
 ### Fixed
 - Settings: community plugin `PluginSettings` sections appear after Add to Profile without restarting AVLite
