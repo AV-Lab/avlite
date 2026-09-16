@@ -4,7 +4,6 @@ import time
 from avlite.c10_perception.c11_perception_model import PerceptionModel
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -26,7 +25,6 @@ class SyncExecuter(ExecutionStrategy):
         controller: ControlStrategy = None,
         world: WorldBridge = None,
         localization: LocalizationStrategy = None,
-        mapping: MappingStrategy = None,
         perception_dt=ExecutionSettings.c40_perception_dt,
         replan_dt=ExecutionSettings.c40_replan_dt,
         control_dt=ExecutionSettings.c40_control_dt,
@@ -37,7 +35,7 @@ class SyncExecuter(ExecutionStrategy):
         Initializes the SyncExecuter with the given perception model, global planner, local planner, control strategy, and world interface.
         """
         super().__init__(perception_model,perception, global_planner, local_planner, controller, world,
-                         localization=localization, mapping=mapping, perception_dt=perception_dt, replan_dt=replan_dt,
+                         localization=localization, perception_dt=perception_dt, replan_dt=replan_dt,
                          control_dt=control_dt, localization_dt=localization_dt, tasks=tasks)
 
         self.elapsed_real_time = 0

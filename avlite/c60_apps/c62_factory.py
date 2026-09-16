@@ -39,7 +39,7 @@ from avlite.c20_planning.c23_local_planning_strategy import (
 )
 from avlite.c30_control.c32_control_strategy import ControlStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
+from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner, GlobalRacePlanner
@@ -137,16 +137,11 @@ def executor_factory(
     ###################
     mapping = None
     if mapping_strategy_name:
-        if mapping_strategy_name == MapReader.__name__:
-            if loaded_map is None:
-                raise ValueError(f"{MapReader.__name__} requires a map file")
-            mapping = MapReader(loaded_map)
-        else:
-            map_cls = _RegistryChecks.require_registered(
-                mapping_strategy_name, MappingStrategy.registry, "mapping"
-            )
-            params = inspect.signature(map_cls.__init__).parameters
-            mapping = map_cls(map=loaded_map) if "map" in params else map_cls()
+        map_cls = _RegistryChecks.require_registered(
+            mapping_strategy_name, MappingStrategy.registry, "mapping"
+        )
+        params = inspect.signature(map_cls.__init__).parameters
+        mapping = map_cls(map=loaded_map) if "map" in params else map_cls()
         log.info("Mapping Module Loaded!")
 
     ###################
@@ -311,6 +306,11 @@ def executor_factory(
         if "mapping" in params:
             task_kwargs["mapping"] = mapping
         tasks.append(task_cls(**task_kwargs))
+    if mapping is not None and not any(
+        isinstance(t, c47_execution_tasks.MappingTask) and t.mapping is mapping
+        for t in tasks
+    ):
+        tasks.insert(0, c47_execution_tasks.MappingTask(mapping))
 
     executer_cls = _RegistryChecks.require_registered(executer_type, ExecutionStrategy.registry, "executer")
     kwargs = dict(
@@ -321,7 +321,6 @@ def executor_factory(
         controller=cn,
         world=world,
         localization=loc,
-        mapping=mapping,
         perception_dt=perception_dt,
         replan_dt=replan_dt,
         control_dt=control_dt,

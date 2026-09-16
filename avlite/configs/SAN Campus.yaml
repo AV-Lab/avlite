@@ -124,7 +124,7 @@ c40_execution:
   c40_log_level: INFO
   c40_log_to_file: false
   c40_map: data/san_campus.xodr
-  c40_mapping: MapReader
+  c40_mapping: ''
   c40_pace_control: true
   c40_pace_perception: true
   c40_pace_replan: true

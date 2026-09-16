@@ -12,6 +12,7 @@ from avlite.c10_perception.c11_perception_model import (
 )
 from avlite.c30_control.c31_control_model import AckermannControlCommand, ControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
+from avlite.c50_common.c51_capabilities import WorldCapability
 
 
 def test_ego_agent_id_default():
@@ -77,9 +78,19 @@ def test_teleport_agent_raises_for_npc():
         bridge.teleport_agent(AgentState(agent_id=1, x=1.0, y=2.0))
 
 
-def test_get_lidar_data_raises_for_npc():
+def test_get_sensor_frame_raises_for_npc_without_agent_sensing():
     bridge = _StubBridge()
-    with pytest.raises(NotImplementedError, match="lidar for agent 1"):
-        bridge.get_lidar_data(agent_id=1)
+    with pytest.raises(NotImplementedError, match="sensors for agent 1"):
+        bridge.get_sensor_frame(agent_id=1)
+
+
+def test_get_sensor_frame_allows_npc_with_agent_sensing():
+    @dataclass
+    class _SensingStub(_StubBridge, abstract=True):
+        world_capabilities = frozenset({WorldCapability.AGENT_SENSING})
+
+    frame = _SensingStub().get_sensor_frame(agent_id=1)
+    assert frame.rgb is None
+    assert frame.lidar is None
 
 

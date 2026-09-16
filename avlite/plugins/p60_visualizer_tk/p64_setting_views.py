@@ -1393,7 +1393,7 @@ class SettingShortcutView(ttk.LabelFrame):
 
         shortcut_cb = ttk.Checkbutton(
             self,
-            text="Shortcut Mode",
+            text="Shortcuts",
             variable=self.root.setting.p60_shortcut_mode,
             command=self.root.update_shortcut_mode,
         )
@@ -1401,7 +1401,7 @@ class SettingShortcutView(ttk.LabelFrame):
         HoverTooltip.attach_schema(shortcut_cb, VisualizationSettings, "p60_shortcut_mode")
 
         dark_cb = ttk.Checkbutton(
-            self, text="Dark Mode", variable=self.root.setting.p60_dark_mode, command=self.toggle_dark_mode
+            self, text="Dark", variable=self.root.setting.p60_dark_mode, command=self.toggle_dark_mode
         )
         dark_cb.pack(anchor=tk.W, side=tk.LEFT)
         HoverTooltip.attach_schema(dark_cb, VisualizationSettings, "p60_dark_mode")

@@ -13,6 +13,7 @@ class WorldCapability(Enum):
     LIDAR_2D = auto()  # 2D LiDAR scanner
     AGENT_SPAWN = auto()  # World supports spawning agent vehicles
     AGENT_CONTROL = auto()  # World can actuate spawned NPC agents via control_agent
+    AGENT_SENSING = auto()  # World can return SensorFrame for a non-ego agent_id
     RADAR = auto()  # Radar sensor
     WHEEL_ENCODER = auto()  # Wheel encoder for odometry
     IMU = auto()  # Inertial measurement unit

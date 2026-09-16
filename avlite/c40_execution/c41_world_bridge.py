@@ -117,12 +117,10 @@ class WorldBridge(ABC):
 
     def get_rgb_image(self, agent_id: int = EGO_AGENT_ID) -> RgbImage | None:
         """Returns the RGB image. Layout: ``RgbImage`` in c52_world_sensor_datatypes."""
-        self._require_ego_agent(agent_id, "rgb")
         return None
 
     def get_depth_image(self, agent_id: int = EGO_AGENT_ID) -> DepthImage | None:
         """Returns the depth image. Layout: ``DepthImage`` in c52_world_sensor_datatypes."""
-        self._require_ego_agent(agent_id, "depth")
         return None
 
     def get_camera_sensor(self, agent_id: int = EGO_AGENT_ID) -> Camera | None:
@@ -132,7 +130,6 @@ class WorldBridge(ABC):
         it, LiDAR cannot be projected into the image. ``base_to_sensor`` is the
         static mount of the optical frame in the ego body frame.
         """
-        self._require_ego_agent(agent_id, "camera sensor")
         return None
 
     def get_lidar_data(self, agent_id: int = EGO_AGENT_ID) -> LidarCloud | None:
@@ -141,34 +138,27 @@ class WorldBridge(ABC):
         Layout: ``LidarCloud`` in c52_world_sensor_datatypes. The stack places
         it in the map frame from its own pose estimate.
         """
-        self._require_ego_agent(agent_id, "lidar")
         return None
 
     def get_lidar_sensor(self, agent_id: int = EGO_AGENT_ID) -> Lidar:
         """Static description of the lidar (mount in the ego body frame). Default: identity."""
-        self._require_ego_agent(agent_id, "lidar sensor")
         return Lidar()
 
     def get_imu(self, agent_id: int = EGO_AGENT_ID) -> ImuReading | None:
-        self._require_ego_agent(agent_id, "imu")
         return None
 
     def get_imu_sensor(self, agent_id: int = EGO_AGENT_ID) -> Sensor:
         """Static description of the IMU (mount in the ego body frame). Default: identity."""
-        self._require_ego_agent(agent_id, "imu sensor")
         return Sensor()
 
     def get_gnss(self, agent_id: int = EGO_AGENT_ID) -> GnssReading | None:
-        self._require_ego_agent(agent_id, "gnss")
         return None
 
     def get_gnss_sensor(self, agent_id: int = EGO_AGENT_ID) -> Sensor:
         """Static description of the GNSS antenna (mount in the ego body frame). Default: identity."""
-        self._require_ego_agent(agent_id, "gnss sensor")
         return Sensor()
 
     def get_wheel_odometry(self, agent_id: int = EGO_AGENT_ID) -> WheelOdometry | None:
-        self._require_ego_agent(agent_id, "wheel odometry")
         return None
 
     def get_sensor_frame(self, agent_id: int = EGO_AGENT_ID) -> SensorFrame:
@@ -177,7 +167,13 @@ class WorldBridge(ABC):
         Override for atomic reads (and to populate ``additional_frames``); call
         :meth:`_apply_world_capability_filter` on the returned frame if you bypass
         this default compose path.
+
+        Non-ego ``agent_id`` requires ``WorldCapability.AGENT_SENSING``.
         """
+        if agent_id != EGO_AGENT_ID and WorldCapability.AGENT_SENSING not in self.world_capabilities:
+            raise NotImplementedError(
+                f"{type(self).__name__} does not support sensors for agent {agent_id}"
+            )
         if agent_id == EGO_AGENT_ID:
             frame = SensorFrame(
                 rgb=self.get_rgb_image(),
@@ -237,13 +233,6 @@ class WorldBridge(ABC):
             for unit in frame.additional_frames.values():
                 WorldBridge._apply_world_capability_filter(unit)
         return frame
-
-    def _require_ego_agent(self, agent_id: int, method: str) -> None:
-        if agent_id != EGO_AGENT_ID:
-            raise NotImplementedError(
-                f"{type(self).__name__} does not support {method} for agent {agent_id}"
-            )
-
 
     def __init_subclass__(cls, abstract=False, **kwargs):
         super().__init_subclass__(**kwargs)

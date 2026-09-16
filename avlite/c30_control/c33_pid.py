@@ -130,7 +130,4 @@ class PIDController(ControlStrategy):
         self.cte_v_sum = 0
         self.cte_velocity = 0
     
-    def get_copy(self):
-        return copy.deepcopy(self)
-    
 

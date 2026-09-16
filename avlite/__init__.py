@@ -50,7 +50,6 @@ _LAZY: dict[str, str] = {
     "LocalizationStrategy": "avlite.c10_perception.c13_localization_strategy",
     # Mapping
     "MappingStrategy": "avlite.c10_perception.c14_mapping_strategy",
-    "MapReader": "avlite.c10_perception.c14_mapping_strategy",
     "OccupancyMapper": "avlite.c10_perception.c17_mapping_algs",
     # Global planning
     "GlobalPlannerStrategy": "avlite.c20_planning.c22_global_planning_strategy",
@@ -170,7 +169,7 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         TrackingStrategy,
     )
     from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-    from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
+    from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
     from avlite.c10_perception.c17_mapping_algs import OccupancyMapper
     from avlite.c10_perception.c19_settings import PerceptionSettings
     from avlite.c20_planning.c21_planning_model import (
