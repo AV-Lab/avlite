@@ -217,7 +217,7 @@ class FastBEVLidarDetection(DetectionStrategy):
     """LiDAR object detection via BEV segmentation and rotating-calipers MBR.
 
     Accepts both 2D scans ``(N, 2)`` and 3D point clouds ``(N, 3+)`` in the
-    lidar's own coordinate frame; ``sensors.lidar_sensor.to_map`` places them in the map
+    lidar's own coordinate frame; ``sensors.lidar.to_map`` places them in the map
     frame with ``perception_model.ego_vehicle`` before clustering, so detected
     agents come out in map coordinates.  For 3D
     input, points outside ``[z_min, z_max]`` are discarded before the BEV
@@ -276,15 +276,16 @@ class FastBEVLidarDetection(DetectionStrategy):
     ) -> PerceptionModel:
         if perception_model is None:
             raise ValueError("perception_model is required for detection")
-        if lidar_data is None and sensors is not None:
-            lidar_data = sensors.lidar
+        lidar_sensor = sensors.get_lidar() if sensors is not None else None
+        if lidar_data is None and lidar_sensor is not None:
+            lidar_data = lidar_sensor.points
         if lidar_data is None or len(lidar_data) == 0:
             perception_model.detection_clusters = None
             return perception_model
         ego = perception_model.ego_vehicle if perception_model.ego_vehicle is not None else State(theta=0.0)
         ego_xytheta = (ego.x, ego.y, ego.theta)
         # Sensor frame → map frame via the stack's own pose estimate.
-        lidar_sensor = sensors.lidar_sensor if sensors is not None else Lidar()
+        lidar_sensor = lidar_sensor if lidar_sensor is not None else Lidar()
         pts = np.asarray(lidar_sensor.to_map(lidar_data, ego), dtype=float)
         if pts.shape[1] >= 3:
             mask = (pts[:, 2] >= self._z_min) & (pts[:, 2] <= self._z_max)
@@ -404,6 +405,4 @@ class FastBEVLidarDetection(DetectionStrategy):
                 else:
                     best = (float(cx), float(cy), float(angle + np.pi / 2), float(h), float(w))
         return best
-
-
 

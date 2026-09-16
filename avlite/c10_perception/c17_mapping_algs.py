@@ -95,8 +95,9 @@ class OccupancyMapper(MappingStrategy):
         if perception_model is None:
             return
         pose = ego if ego is not None else perception_model.ego_vehicle
-        lidar_sensor = sensors.lidar_sensor if sensors is not None and sensors.lidar_sensor is not None else Lidar()
-        lidar = None if sensors is None else sensors.lidar
+        lidar_sensor = sensors.get_lidar() if sensors is not None else None
+        lidar = lidar_sensor.points if lidar_sensor is not None else None
+        lidar_sensor = lidar_sensor if lidar_sensor is not None else Lidar()
         pts = np.empty((0, 2), dtype=np.float64)
         if lidar is not None and len(lidar) > 0:
             raw = np.asarray(lidar_sensor.to_map(lidar, pose), dtype=float)
