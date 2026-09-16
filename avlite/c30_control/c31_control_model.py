@@ -40,8 +40,7 @@ class BodyVelocityControlCommand(ControlCommandBase):
 ControlCommand = AckermannControlCommand
 ControlComand = AckermannControlCommand
 
-CONTROL_COMMAND_REGISTRY: dict[str, type[ControlCommandBase]] = {
-    "AckermannControlCommand": AckermannControlCommand,
-    "DiffDriveControlCommand": DiffDriveControlCommand,
-    "BodyVelocityControlCommand": BodyVelocityControlCommand,
-}
+
+
+
+

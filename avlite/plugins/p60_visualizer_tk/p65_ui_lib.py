@@ -474,6 +474,7 @@ CAPABILITY_TOOLTIPS: dict = {
     WorldCapability.WHEEL_ENCODER: "Wheel encoder odometry from the world.",
     WorldCapability.IMU: "Inertial measurement unit data from the world.",
     WorldCapability.GNSS: "GNSS / GPS receiver data from the world.",
+    WorldCapability.AGENT_SENSING: "World can return a SensorFrame for a non-ego agent_id.",
     StackCapability.DETECTION: "Ground-truth object detections provided by the world.",
     StackCapability.TRACKING: "Ground-truth object tracks provided by the world.",
     StackCapability.PREDICTION_TRAJECTORY: "Deterministic (x, y) polyline forecast per agent.",

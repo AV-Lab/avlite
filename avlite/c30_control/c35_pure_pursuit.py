@@ -191,6 +191,10 @@ class PurePursuitController(PurePursuitBase):
 
 class FollowTheGapController(PurePursuitBase):
     """Follow the Gap: aim Pure Pursuit at a forward LiDAR free gap (path-biased)."""
+    
+    world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
+    # LiDAR steering does not need a plan; localization provides ego pose.
+    stack_requirements = frozenset({StackCapability.LOCALIZATION})
 
     def __init__(
         self,
@@ -204,9 +208,6 @@ class FollowTheGapController(PurePursuitBase):
         self.bubble_radius = setting.c35_bubble_radius
         self.min_gap_width = setting.c35_min_gap_width
 
-    world_requirements = frozenset({AnyOf(WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D)})
-    # LiDAR steering does not need a plan; localization provides ego pose.
-    stack_requirements = frozenset({StackCapability.LOCALIZATION})
 
     def control(
         self,

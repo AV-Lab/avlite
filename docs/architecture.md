@@ -154,6 +154,7 @@ class MyLocalPlanner(LocalPlanningStrategy):
 - `GNSS` - GNSS / GPS receiver
 - `AGENT_SPAWN` - Bridge can spawn NPC agents
 - `AGENT_CONTROL` - Bridge can actuate spawned NPC agents via `control_agent` (opt-in; separate from `AGENT_SPAWN`)
+- `AGENT_SENSING` - Bridge can return a `SensorFrame` for a non-ego `agent_id` via `get_sensor_frame` (opt-in; ego sensors do not need this)
 
 A bridge declaring `CAMERA_RGB` or `CAMERA_DEPTH` must also populate `SensorFrame.camera_sensor` via `get_camera_sensor()`: the camera intrinsic plus the static `base_to_sensor` mount of the optical frame. Combined with the stack's own ego pose estimate, that is what lets a fusion strategy project sensor-frame LiDAR into the image. Bridges never bake the ego pose into sensor data — see [Coordinate system](#coordinate-system), [Plugin Development → Frames vs ROS TF](plugin-development.md#frames-vs-ros-tf) and [Camera geometry](plugin-development.md#camera-geometry).
 

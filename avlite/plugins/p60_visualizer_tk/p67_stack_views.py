@@ -1145,7 +1145,7 @@ class BridgeFrame(ttk.LabelFrame):
         self._stack_cap_vars = {}
 
         # World "action" capabilities are features, not data fed to the stack.
-        actions = {WorldCapability.AGENT_SPAWN, WorldCapability.AGENT_CONTROL}
+        actions = {WorldCapability.AGENT_SPAWN, WorldCapability.AGENT_CONTROL, WorldCapability.AGENT_SENSING}
         sensors = sorted(set(world_capabilities) - actions, key=lambda c: c.value)
         ground_truth = sorted(set(stack_capabilities), key=lambda c: c.value)
         for cap in sensors:

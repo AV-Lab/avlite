@@ -395,16 +395,16 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | `control_type(agent)` | Default: `control_type_for_agent(agent)` | Override only for bridge-specific exceptions |
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
 | `teleport_agent(agent_state)` | Default: ego delegates to `teleport_ego` using pose (`x`, `y`, `theta`) from `agent_state`; NPC raises `NotImplementedError`. Identity is `agent_state.agent_id`; velocity/size/type are not applied | Override for sim teleport of any agent |
-| `get_*(agent_id=EGO_AGENT_ID)` | Default: ego returns data or `None`; NPC raises `NotImplementedError` | Per-agent sensors in Carla / ROS bridges |
+| `get_*(agent_id=EGO_AGENT_ID)` | Default stubs return `None` / empty sensor; no `agent_id` check | Per-agent sensors in Carla / ROS bridges: override getters and declare `WorldCapability.AGENT_SENSING` |
 | `get_camera_sensor(agent_id=...)` | Default `None`; required when the bridge declares `CAMERA_RGB` / `CAMERA_DEPTH` | Extra cameras go in `SensorFrame.additional_frames` |
 | `get_lidar_sensor(agent_id=...)` | Default identity `Lidar()` (cloud already in the ego body frame); override to return the static `Lidar(base_to_sensor=...)` mount | Extra lidars go in `SensorFrame.additional_frames` |
 | `get_imu_sensor(agent_id=...)`, `get_gnss_sensor(agent_id=...)` | Default identity `Sensor()`; override to return the device mount | — |
-| `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible). `additional_frames` stays `None` unless an override fills named extra lidars/IMUs/cameras (leaf `SensorFrame`s; nested `additional_frames` stays `None`) | Non-ego: passes `agent_id` to each getter |
+| `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible). Non-ego raises `NotImplementedError` unless the bridge declares `WorldCapability.AGENT_SENSING`. `additional_frames` stays `None` unless an override fills named extra lidars/IMUs/cameras (leaf `SensorFrame`s; nested `additional_frames` stays `None`) | With `AGENT_SENSING`: default compose passes `agent_id` to each getter — do not override `get_sensor_frame` |
 | `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |
 
 `control_type(agent)` lives on **`WorldBridge` only** — not on `ControlStrategy`. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of `control()`.
 
-**Multi-agent sensors:** override getters with an `agent_id` parameter when your bridge serves more than ego. Ego-only bridges (e.g. BasicSim) need no update — `get_sensor_frame()` uses the legacy no-kwargs call path for ego.
+**Multi-agent sensors:** declare `WorldCapability.AGENT_SENSING` and override the `get_*` getters that have data. Do not override `get_sensor_frame` — with the cap, the default compose path forwards `agent_id`. Ego-only bridges (e.g. BasicSim) need no update — `get_sensor_frame()` uses the legacy no-kwargs call path for ego and raises for any other id.
 
 #### Frames vs ROS TF
 
@@ -440,7 +440,7 @@ The camera's coordinate frame is the **OpenCV optical frame**: x right, y down, 
 
 - Set `agent_type` at spawn for non-car NPCs.
 - Return the command type your controller produces; built-in controllers still return Ackermann today.
-- Bridge: implement only what you need now (`control_ego_state`); opt into `control_agent` and `AGENT_CONTROL` when the sim supports NPC actuation.
+- Bridge: implement only what you need now (`control_ego_state`); opt into `control_agent` / `AGENT_CONTROL` and `get_*` / `AGENT_SENSING` when the sim supports NPC actuation or NPC sensors.
 - Do not branch on `agent_id` heuristics for platform type — use `agent.agent_type`.
 - Converters (Ackermann → diff-drive, etc.) are **not in core yet**; keep them in your plugin until a shared module (e.g. `c38_control_converters.py`) lands.
 
