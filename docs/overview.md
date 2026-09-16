@@ -102,6 +102,11 @@ lets you install/uninstall plugins, and (de)registers them with the
 active profile. Installed plugins live under
 `$XDG_DATA_HOME/avlite/plugins` (or `~/.local/share/avlite/plugins`);
 override with the `AVLITE_PLUGINS_DIR` environment variable.
+If a plugin ships `<name>.yaml` at its repository root (registry name, e.g.
+`avlite-bridge-carla.yaml`), **Install** and **Update** offer to add that
+recommended profile (and ask before overwriting if that name already exists).
+The active profile does not switch. Importing a shipped profile does not
+install other plugins it might list.
 
 ### Member plugins
 

@@ -474,6 +474,7 @@ CAPABILITY_TOOLTIPS: dict = {
     WorldCapability.WHEEL_ENCODER: "Wheel encoder odometry from the world.",
     WorldCapability.IMU: "Inertial measurement unit data from the world.",
     WorldCapability.GNSS: "GNSS / GPS receiver data from the world.",
+    WorldCapability.AGENT_SENSING: "World can return a SensorFrame for a non-ego agent_id.",
     StackCapability.DETECTION: "Ground-truth object detections provided by the world.",
     StackCapability.TRACKING: "Ground-truth object tracks provided by the world.",
     StackCapability.PREDICTION_TRAJECTORY: "Deterministic (x, y) polyline forecast per agent.",
@@ -927,7 +928,6 @@ def _live_strategy_from_exec(executer, cls):
     modules = [
         getattr(executer, "perception", None),
         getattr(executer, "localization", None),
-        getattr(executer, "mapping", None),
         getattr(executer, "global_planner", None),
         getattr(executer, "local_planner", None),
         getattr(executer, "controller", None),
@@ -1059,7 +1059,6 @@ def _other_providers(executer, target) -> set:
     for m in (
         perception,
         getattr(executer, "localization", None),
-        getattr(executer, "mapping", None),
         getattr(executer, "global_planner", None),
         getattr(executer, "local_planner", None),
         getattr(executer, "controller", None),
@@ -1127,7 +1126,6 @@ def show_strategy_contract_popup(
         for m in (
             executer.perception,
             executer.localization,
-            getattr(executer, "mapping", None),
             executer.global_planner,
             executer.local_planner,
             executer.controller,
@@ -1246,7 +1244,6 @@ def show_world_bridge_contract_popup(
         for m in (
             getattr(executer, "perception", None),
             getattr(executer, "localization", None),
-            getattr(executer, "mapping", None),
             getattr(executer, "global_planner", None),
             getattr(executer, "local_planner", None),
             getattr(executer, "controller", None),

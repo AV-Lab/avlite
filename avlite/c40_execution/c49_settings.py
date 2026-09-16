@@ -12,7 +12,7 @@ class ExecutionSettingsSchema(SettingsSchema):
     c40_bridge: str = Field(default="BasicSim", description="World bridge class name (e.g. BasicSim, CarlaBridge).")
     c40_perception: str = Field(default="", description="Perception strategy class; empty omits the module.")
     c40_localization: str = Field(default="", description="Localization strategy class; empty omits the module.")
-    c40_mapping: str = Field(default="MapReader", description="Mapping strategy class; empty omits the module.")
+    c40_mapping: str = Field(default="", description="Mapping strategy class; empty omits the module.")
     c40_global_planner: str = Field(default="GlobalCenterlineRacePlanner", description="Global planner class name; empty omits the module.")
     c40_local_planner: str = Field(default="GreedyLatticePlanner", description="Local planner class name; empty omits the module.")
     c40_controller: str = Field(default="StanleyController", description="Controller class name; empty omits the module.")

@@ -77,7 +77,7 @@ class StanleyController(ControlStrategy):
         # Compute the steering: Stanley
         ##################################
             
-        heading_error = normalize_angle(self.tj.get_current_heading() - ego.theta)
+        heading_error = ((self.tj.get_current_heading() - ego.theta + np.pi) % (2 * np.pi)) - np.pi
         log.debug(f"heading error: {heading_error:+6.2f} [tj: {self.tj.get_current_heading():+6.2f}, ego: {ego.theta:+6.2f}]")
         steer1 = heading_error + np.arctan2(self.k * -cte, ego.velocity + self.k_soft)
         log.debug( f"Steer: {steer1:+6.2f} ")
@@ -138,8 +138,3 @@ class StanleyController(ControlStrategy):
         self.cte_v_sum = 0
         self.cte_velocity = 0
         self.previous_cte_velocity = 0
-
-
-def normalize_angle(angle):
-    """Normalize angle to [-pi, pi] range"""
-    return ((angle + np.pi) % (2 * np.pi)) - np.pi

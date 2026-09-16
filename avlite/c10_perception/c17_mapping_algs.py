@@ -10,11 +10,9 @@ import logging
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import (
-    HDMap,
     Map,
     OccupancyMap,
     PerceptionModel,
-    RaceMap,
 )
 from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c19_settings import PerceptionSettings, PerceptionSettingsSchema
@@ -44,12 +42,6 @@ class OccupancyMapper(MappingStrategy):
     ):
         super().__init__(setting=setting)
         self.map = map
-        caps = {StackCapability.MAP_OCCUPANCY}
-        if isinstance(map, HDMap):
-            caps.add(StackCapability.MAP_HD)
-        elif isinstance(map, RaceMap):
-            caps.add(StackCapability.MAP_RACE_TRACK)
-        self.stack_capabilities = frozenset(caps)
         self._z_min = setting.c17_z_min
         self._z_max = setting.c17_z_max
         self._init_resolution = float(setting.c17_resolution)

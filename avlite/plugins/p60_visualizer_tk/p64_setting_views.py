@@ -150,10 +150,10 @@ class SettingWindow:
             self.next_profile_dropdown_menu,
         ]
         shortcut = getattr(self.host, "setting_shortcut_view", None)
-        if shortcut is not None:
-            combos.append(shortcut.profile_dropdown_menu)
         for combo in combos:
             combo["values"] = profiles
+        if shortcut is not None:
+            shortcut.update_profile_list(profiles)
         if select and select in profiles:
             current = select
             self.host.setting.c60_selected_profile.set(current)
@@ -762,7 +762,7 @@ class SettingWindow:
         self.profile_dropdown_menu["values"] = self.host.setting.profile_list
         shortcut = getattr(self.host, "setting_shortcut_view", None)
         if shortcut is not None:
-            shortcut.profile_dropdown_menu["values"] = self.host.setting.profile_list
+            shortcut.update_profile_list(self.host.setting.profile_list)
         self.next_profile_dropdown_menu["values"] = self.host.setting.profile_list
 
         self.save_profile()
@@ -945,7 +945,7 @@ class SettingWindow:
         self.next_profile_dropdown_menu["values"] = self.host.setting.profile_list
         shortcut = getattr(self.host, "setting_shortcut_view", None)
         if shortcut is not None:
-            shortcut.profile_dropdown_menu["values"] = self.host.setting.profile_list
+            shortcut.update_profile_list(self.host.setting.profile_list)
 
 
 
@@ -1114,10 +1114,23 @@ class SettingWindow:
                 log.error(f"Failed to load plugin settings for {plugin}: {e}")
 
     def create_community_plugin_widgets(self):
-        """Create settings widgets for community plugins that expose a ``PluginSettings`` class."""
-        if getattr(self, "_cp_widget_created", False):
-            log.warning("Community plugin widgets already created, skipping.")
-            return
+        """Create settings widgets for community plugins that expose a ``PluginSettings`` class.
+
+        Idempotent: adds sections for newly registered plugins and removes
+        sections for plugins no longer in ``c62_community_plugins``.
+        """
+        registered = set(AppSettings.c62_community_plugins)
+        for key in list(self.widget_entries):
+            if not key.startswith("PluginSettingscommunity_"):
+                continue
+            name = key[len("PluginSettingscommunity_") :]
+            if name in registered:
+                continue
+            frame = self.settings_section_frames.pop(key, None)
+            if frame is not None:
+                frame.destroy()
+            self.widget_entries.pop(key, None)
+            log.debug("Removed community plugin widgets for %s", name)
 
         found = []
         if self.host.setting.c62_load_plugins.get():
@@ -1126,18 +1139,24 @@ class SettingWindow:
                 cls = load_community_plugin_setting(
                     name, stored, profile=profile, binder=TkSettingsBinder()
                 )
-                if cls is not None:
-                    found.append((name, cls))
+                if cls is None:
+                    continue
+                if self._widget_key(cls, f"community_{name}") in self.widget_entries:
+                    continue
+                found.append((name, cls))
 
-        if not found:
-            return
+        if found:
+            if not getattr(self, "_cp_widget_created", False):
+                self._cp_sep.pack(fill="x", pady=10)
+                self._cp_label.pack(anchor=tk.W, padx=5, pady=5)
+            for name, cls in found:
+                self.create_widgets(cls, f"Plugin: {name}", plugin_name=f"community_{name}")
+            self._cp_widget_created = True
 
-        self._cp_sep.pack(fill='x', pady=10)
-        self._cp_label.pack(anchor=tk.W, padx=5, pady=5)
-        for name, cls in found:
-            self.create_widgets(cls, f"Plugin: {name}", plugin_name=f"community_{name}")
-
-        self._cp_widget_created = True
+        if not any(k.startswith("PluginSettingscommunity_") for k in self.widget_entries):
+            self._cp_sep.pack_forget()
+            self._cp_label.pack_forget()
+            self._cp_widget_created = False
 
 
     def create_widgets(self, setting, setting_name="Settings", plugin_name=""):
@@ -1361,13 +1380,12 @@ class SettingShortcutView(ttk.LabelFrame):
 
         self.profile_dropdown_menu = ttk.Combobox(
             self,
-            width=10,
             textvariable=self.root.setting.c60_selected_profile,
             state="readonly",
             justify=tk.CENTER,
             font=("Arial", 10, "bold"),
         )
-        self.profile_dropdown_menu["values"] = self.root.setting.profile_list
+        self.update_profile_list(self.root.setting.profile_list)
         self.profile_dropdown_menu.state(["readonly"])
         self.profile_dropdown_menu.bind("<<ComboboxSelected>>", self.__on_profile_dropdown_change)
         self.profile_dropdown_menu.pack(side=tk.RIGHT)
@@ -1375,7 +1393,7 @@ class SettingShortcutView(ttk.LabelFrame):
 
         shortcut_cb = ttk.Checkbutton(
             self,
-            text="Shortcut Mode",
+            text="Shortcuts",
             variable=self.root.setting.p60_shortcut_mode,
             command=self.root.update_shortcut_mode,
         )
@@ -1383,7 +1401,7 @@ class SettingShortcutView(ttk.LabelFrame):
         HoverTooltip.attach_schema(shortcut_cb, VisualizationSettings, "p60_shortcut_mode")
 
         dark_cb = ttk.Checkbutton(
-            self, text="Dark Mode", variable=self.root.setting.p60_dark_mode, command=self.toggle_dark_mode
+            self, text="Dark", variable=self.root.setting.p60_dark_mode, command=self.toggle_dark_mode
         )
         dark_cb.pack(anchor=tk.W, side=tk.LEFT)
         HoverTooltip.attach_schema(dark_cb, VisualizationSettings, "p60_dark_mode")
@@ -1451,6 +1469,13 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             return
         return action()
 
+    def update_profile_list(self, profiles) -> None:
+        """Set toolbar profile values and widen the combobox to the longest name."""
+        self.profile_dropdown_menu["values"] = profiles
+        self.profile_dropdown_menu.configure(
+            width=max(10, *(len(str(name)) for name in (profiles or [])))
+        )
+
     def __on_profile_dropdown_change(self, event):
         log.info("Selected profile: %s", event.widget.get())
         self.root.load_settings()
@@ -1479,9 +1504,10 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
 
     def update_setting_window(self):
         if hasattr(self, "setting_view") and hasattr(self.setting_view, "window") and self.setting_view.window.winfo_exists():
+            self.setting_view.update_community_plugin_list()
+            self.setting_view.create_community_plugin_widgets()
             self.setting_view.update_core_widgets()
             self.setting_view.update_plugins_widgets()
-            self.setting_view.update_community_plugin_list()
             log.info("Updated existing settings window")
 
     def open_plugins_window(self):

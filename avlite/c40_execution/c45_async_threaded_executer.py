@@ -31,7 +31,6 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         controller: ControlStrategy = None,
         world: WorldBridge = None,
         localization=None,
-        mapping=None,
         perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.05,
@@ -40,7 +39,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         tasks: list[TaskStrategy] | None = None,
     ):
         super().__init__(perception_model, perception, global_planner, local_planner, controller, world,
-                         localization=localization, mapping=mapping, perception_dt=perception_dt,
+                         localization=localization, perception_dt=perception_dt,
                          replan_dt=replan_dt, control_dt=control_dt, localization_dt=localization_dt,
                          tasks=tasks)
 

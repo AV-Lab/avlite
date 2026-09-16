@@ -7,7 +7,6 @@ from typing import Optional
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c30_control.c32_control_strategy import ControlStrategy
@@ -23,6 +22,7 @@ from avlite.c40_execution.c43_task_strategy import (
 )
 from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
+from avlite.c50_common.c53_stack_datatypes import capabilities_for
 from avlite.c50_common.c56_fps_tracker import FpsTracker
 
 log = logging.getLogger(__name__)
@@ -40,7 +40,6 @@ class ExecutionStrategy(ABC):
         controller: Optional[ControlStrategy],
         world: WorldBridge,
         localization: Optional[LocalizationStrategy] = None,
-        mapping: Optional[MappingStrategy] = None,
         perception_dt=0.5,
         replan_dt=0.5,
         control_dt=0.01,
@@ -53,7 +52,6 @@ class ExecutionStrategy(ABC):
         self.pm: PerceptionModel = perception_model
         self.perception: Optional[PerceptionStrategy] = perception
         self.localization: Optional[LocalizationStrategy] = localization
-        self.mapping: Optional[MappingStrategy] = mapping
         self.global_planner: Optional[GlobalPlannerStrategy] = global_planner
         self.local_planner: Optional[LocalPlanningStrategy] = local_planner
         self.controller: Optional[ControlStrategy] = controller
@@ -156,8 +154,6 @@ class ExecutionStrategy(ABC):
             self.perception.reset()
         if self.localization:
             self.localization.reset()
-        if self.mapping:
-            self.mapping.reset()
         if self.local_planner:
             self.local_planner.reset()
         if self.controller:
@@ -180,18 +176,12 @@ class ExecutionStrategy(ABC):
     
 
     def available_stack_capabilities(self) -> set:
-        """StackCapabilities provided by the assembled stack plus world ground truth.
-
-        When a ``MappingTask`` is present, mapping-module ``MAP_*`` is skipped so
-        the task is the sole advertiser. Without that task, the mapping module
-        still provides static ``MAP_*`` (e.g. ``MapReader``).
-        """
+        """StackCapabilities provided by the assembled stack plus world ground truth."""
         caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
-        skip_mapping = self._has_mapping_task()
+        if self.pm.map is not None:
+            caps |= capabilities_for(type(self.pm.map))
         for label, module in self._stack_modules():
             if module is None:
-                continue
-            if label == "mapping" and skip_mapping:
                 continue
             caps |= module.stack_capabilities
         for task in self.task_runner.tasks:
@@ -223,15 +213,18 @@ class ExecutionStrategy(ABC):
         world_caps = {c for c in self.world.stack_capabilities if is_world_stack_capability_enabled(c)}
         for cap in world_caps:
             providers.setdefault(cap, []).append(f"world/{type(self.world).__name__}")
-        skip_mapping = self._has_mapping_task()
         for label, module in self._stack_modules():
             if module is None:
-                continue
-            if label == "mapping" and skip_mapping:
                 continue
             for cap in module.stack_capabilities:
                 providers.setdefault(cap, []).append(f"{label}/{module.__class__.__name__}")
         for task in self.task_runner.tasks:
+            if not satisfies_requirements(task.stack_requirements, available):
+                raise ValueError(
+                    f"task {task.__class__.__name__} stack_requirements "
+                    f"not satisfied: required {task.stack_requirements} "
+                    f"(available: {available})."
+                )
             for cap in task.stack_capabilities:
                 providers.setdefault(cap, []).append(f"task/{task.__class__.__name__}")
         for cap, sources in providers.items():
@@ -242,16 +235,12 @@ class ExecutionStrategy(ABC):
                     ", ".join(sources),
                 )
 
-    def _has_mapping_task(self) -> bool:
-        return any(type(t).__name__ == "MappingTask" for t in self.task_runner.tasks)
-
     # --- stack helpers ---
 
     def _stack_modules(self):
         """Yield ``(label, module)`` for each assembled stack strategy (may be None)."""
         yield "perception", self.perception
         yield "localization", self.localization
-        yield "mapping", self.mapping
         yield "global planner", self.global_planner
         yield "local planner", self.local_planner
         yield "controller", self.controller

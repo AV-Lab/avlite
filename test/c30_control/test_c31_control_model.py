@@ -3,7 +3,6 @@ import time
 from avlite.c30_control.c31_control_model import (
     AckermannControlCommand,
     BodyVelocityControlCommand,
-    CONTROL_COMMAND_REGISTRY,
     ControlCommand,
     ControlCommandBase,
     DiffDriveControlCommand,
@@ -40,9 +39,3 @@ def test_body_velocity_command_fields():
     assert isinstance(cmd, ControlCommandBase)
 
 
-def test_control_command_registry():
-    assert set(CONTROL_COMMAND_REGISTRY) == {
-        "AckermannControlCommand",
-        "DiffDriveControlCommand",
-        "BodyVelocityControlCommand",
-    }

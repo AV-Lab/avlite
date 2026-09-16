@@ -65,19 +65,21 @@ class TelemetryTask(TaskStrategy):
 
 
 class MappingTask(TaskStrategy):
-    """Mapping tick. Copies the assembled mapper's ``MAP_*`` caps so the stack
-    advertises them once (via this task), not via the mapping module.
-    """
+    """Mapping tick. Owns the assembled mapper and advertises its ``MAP_*`` caps."""
 
     schedule = TaskSchedule.EVERY_CYCLE
 
     def __init__(self, mapping=None) -> None:
+        self.mapping = mapping
         self.stack_capabilities = (
             frozenset(mapping.stack_capabilities) if mapping is not None else frozenset()
         )
+        if mapping is not None:
+            self.world_requirements = mapping.world_requirements
+            self.stack_requirements = mapping.stack_requirements
 
     def execute(self, executer, event=None) -> None:
-        mapping = executer.mapping
+        mapping = self.mapping
         if not mapping:
             return
         sensors = None
@@ -96,5 +98,9 @@ class MappingTask(TaskStrategy):
                 f"stack_requirements {mapping.stack_requirements} vs {executer.available_stack_capabilities()}). "
                 f"Skipping."
             )
+
+    def reset(self) -> None:
+        if self.mapping:
+            self.mapping.reset()
 
 

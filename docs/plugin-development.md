@@ -105,12 +105,22 @@ Create your plugin anywhere on your system:
 ├── settings.py      # Optional: PluginSettings if you have tunable params
 ├── my_strategy.py   # Your implementation
 ├── README.md        # Optional: shown in the Plugins browser
-└── requirements.txt # Optional: extra pip dependencies
+├── requirements.txt # Optional: extra pip dependencies
+└── my_plugin.yaml   # Optional: recommended settings profile (filename = registry name)
 ```
 
-Tunable parameters are saved outside the plugin tree in `~/.config/avlite/plugin_<plugin_name>.yaml` (see section 1). Do not ship a `config/` folder or plugin-local YAML profiles in your repository.
+Tunable parameters are saved outside the plugin tree (see section 1). Do not ship a `config/` folder or `plugin_*.yaml` files. An optional `<name>.yaml` at the repository root is allowed (filename = registry `name`).
 
 Do not commit a `.venv` inside your plugin directory — AVLite scans all `.py` files under the plugin path and skips common vendor folders (`.venv`, `site-packages`, etc.), but keeping the venv outside the plugin tree is cleaner.
+
+### Optional recommended profile
+
+Export a working profile (`python -m avlite setting-cli export-profile …` or Settings **Export**) and save it as `<name>.yaml` at the plugin repository root, where `<name>` is the registry identifier (e.g. `avlite-bridge-carla.yaml`). After a successful **Install** or **Update**, AVLite asks whether to add that file as a profile named after the plugin. If `~/.config/avlite/<name>.yaml` already exists, a second prompt asks whether to overwrite it. The active profile is not switched.
+
+Include **only this plugin** in `c62_community_plugins` (AVLite rewrites the install path on the user's machine).
+
+!!! warning "Do not list other plugins"
+    AVLite will not install other community or member plugins listed in the shipped profile. Put extra plugin requirements in the README or registry `dependency_notes` instead, and let users install them themselves.
 
 ## 1. Settings File (Optional)
 
@@ -381,20 +391,20 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | Method / field | Phase 1 today | Future |
 |--------|---------------|--------|
 | `control_ego_state(cmd)` | Required; all bridges implement this | Unchanged |
-| `map` | Optional `Map \| None` for **simulation** (e.g. LiDAR geometry); does not advertise stack `MAP_HD` / `MAP_RACE_TRACK` — use `MapReader` / mapping module for that | Unchanged |
+| `map` | Optional `Map \| None` for **simulation** (e.g. LiDAR geometry); does not advertise stack `MAP_HD` / `MAP_RACE_TRACK` — those come from the loaded `c40_map` on `PerceptionModel.map` | Unchanged |
 | `control_type(agent)` | Default: `control_type_for_agent(agent)` | Override only for bridge-specific exceptions |
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
 | `teleport_agent(agent_state)` | Default: ego delegates to `teleport_ego` using pose (`x`, `y`, `theta`) from `agent_state`; NPC raises `NotImplementedError`. Identity is `agent_state.agent_id`; velocity/size/type are not applied | Override for sim teleport of any agent |
-| `get_*(agent_id=EGO_AGENT_ID)` | Default: ego returns data or `None`; NPC raises `NotImplementedError` | Per-agent sensors in Carla / ROS bridges |
+| `get_*(agent_id=EGO_AGENT_ID)` | Default stubs return `None` / empty sensor; no `agent_id` check | Per-agent sensors in Carla / ROS bridges: override getters and declare `WorldCapability.AGENT_SENSING` |
 | `get_camera_sensor(agent_id=...)` | Default `None`; required when the bridge declares `CAMERA_RGB` / `CAMERA_DEPTH` | Extra cameras go in `SensorFrame.additional_frames` |
 | `get_lidar_sensor(agent_id=...)` | Default identity `Lidar()` (cloud already in the ego body frame); override to return the static `Lidar(base_to_sensor=...)` mount | Extra lidars go in `SensorFrame.additional_frames` |
 | `get_imu_sensor(agent_id=...)`, `get_gnss_sensor(agent_id=...)` | Default identity `Sensor()`; override to return the device mount | — |
-| `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible). `additional_frames` stays `None` unless an override fills named extra lidars/IMUs/cameras (leaf `SensorFrame`s; nested `additional_frames` stays `None`) | Non-ego: passes `agent_id` to each getter |
+| `get_sensor_frame(agent_id=...)` | Ego: calls legacy `get_*()` with no kwargs (BasicSim-compatible). Non-ego raises `NotImplementedError` unless the bridge declares `WorldCapability.AGENT_SENSING`. `additional_frames` stays `None` unless an override fills named extra lidars/IMUs/cameras (leaf `SensorFrame`s; nested `additional_frames` stays `None`) | With `AGENT_SENSING`: default compose passes `agent_id` to each getter — do not override `get_sensor_frame` |
 | `step(dt)` | Default no-op; executer does not call it yet | Physics tick with held command; executer sub-stepping |
 
 `control_type(agent)` lives on **`WorldBridge` only** — not on `ControlStrategy`. The bridge knows what actuation format the sim or robot accepts; the controller expresses what it computes via the return type of `control()`.
 
-**Multi-agent sensors:** override getters with an `agent_id` parameter when your bridge serves more than ego. Ego-only bridges (e.g. BasicSim) need no update — `get_sensor_frame()` uses the legacy no-kwargs call path for ego.
+**Multi-agent sensors:** declare `WorldCapability.AGENT_SENSING` and override the `get_*` getters that have data. Do not override `get_sensor_frame` — with the cap, the default compose path forwards `agent_id`. Ego-only bridges (e.g. BasicSim) need no update — `get_sensor_frame()` uses the legacy no-kwargs call path for ego and raises for any other id.
 
 #### Frames vs ROS TF
 
@@ -430,7 +440,7 @@ The camera's coordinate frame is the **OpenCV optical frame**: x right, y down, 
 
 - Set `agent_type` at spawn for non-car NPCs.
 - Return the command type your controller produces; built-in controllers still return Ackermann today.
-- Bridge: implement only what you need now (`control_ego_state`); opt into `control_agent` and `AGENT_CONTROL` when the sim supports NPC actuation.
+- Bridge: implement only what you need now (`control_ego_state`); opt into `control_agent` / `AGENT_CONTROL` and `get_*` / `AGENT_SENSING` when the sim supports NPC actuation or NPC sensors.
 - Do not branch on `agent_id` heuristics for platform type — use `agent.agent_type`.
 - Converters (Ackermann → diff-drive, etc.) are **not in core yet**; keep them in your plugin until a shared module (e.g. `c38_control_converters.py`) lands.
 
@@ -558,7 +568,7 @@ Registry repository: [github.com/AV-Lab/avlite-community-plugins](https://github
    ├── my_planner.py     # your implementation
    └── README.md         # shown in the Plugins browser (recommended)
    ```
-   WorldBridge plugins may also include `launch.sh` at the repo root. On stack reload or Start, AVLite warns and (if confirmed) runs it in the background to start a vehicle platform or simulator. The process is not stopped when the stack stops.
+   WorldBridge plugins may also include `launch.sh` at the repo root. On stack reload or Start, AVLite warns and (if confirmed) runs it in the background to start a vehicle platform or simulator. The process is not stopped when the stack stops. Plugins may also include `<name>.yaml` at the repo root (see [Optional recommended profile](#optional-recommended-profile)).
 4. **Optional** — `settings.py` with `PluginSettings` if you have tunable parameters; `requirements.txt` if you depend on extra pip packages (users install these into their AVLite environment).
 5. **Do not commit** a `.venv` inside the plugin repo.
 
@@ -625,7 +635,8 @@ Keep entries sorted alphabetically by `name` if the registry already follows tha
 - [ ] README explains what the plugin provides and any extra setup
 - [ ] Registry `name` matches how you refer to the plugin in docs
 - [ ] Registry `category` matches the base class(es) you export
-- [ ] No secrets, large binaries, committed virtualenv, or `config/` folder with plugin-local YAML profiles in the plugin repo
+- [ ] No secrets, large binaries, committed virtualenv, `config/` folder, or `plugin_*.yaml` in the plugin repo (optional root `<name>.yaml` is allowed)
+- [ ] If you ship a recommended profile, it is `<name>.yaml` at the repo root and `c62_community_plugins` contains only this plugin
 
 In the PR description, briefly state what layer(s) the plugin extends (perception, planning, control, bridge, etc.) and link to an example profile or usage steps if helpful.
 

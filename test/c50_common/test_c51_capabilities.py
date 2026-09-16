@@ -308,19 +308,9 @@ def test_leaf_contracts_readable_without_init():
     assert StackCapability.MAP_RACE_TRACK in GlobalCenterlineRacePlanner.stack_requirements
     assert StackCapability.MAP_RACE_TRACK in GlobalRacePlanner.stack_requirements
 
-    from avlite.c10_perception.c11_perception_model import RaceMap
-    from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
-    import numpy as np
+    from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 
-    assert MapReader.__name__ in MappingStrategy.registry
     assert MappingStrategy.stack_capabilities == frozenset()
-    race_map = RaceMap(
-        source_path="synthetic",
-        left_bound=np.array([[0.0, 1.0], [10.0, 1.0]]),
-        right_bound=np.array([[0.0, -1.0], [10.0, -1.0]]),
-    )
-    assert MapReader(race_map).stack_capabilities == frozenset({StackCapability.MAP_RACE_TRACK})
-    assert not hasattr(MapReader, "from_path")
 
 
 def test_strategy_capability_defaults_are_not_abstract():

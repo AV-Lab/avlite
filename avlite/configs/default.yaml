@@ -127,7 +127,7 @@ c40_execution:
   c40_log_level: WARN
   c40_log_to_file: false
   c40_map: data/race_boundary_yas_marina.map.json
-  c40_mapping: MapReader
+  c40_mapping: ''
   c40_pace_control: false
   c40_pace_perception: false
   c40_pace_replan: false

@@ -264,4 +264,5 @@ WORLD_CAPABILITY_SENSOR_FIELDS: dict[WorldCapability, str | None] = {
     WorldCapability.RADAR: None,
     WorldCapability.AGENT_SPAWN: None,
     WorldCapability.AGENT_CONTROL: None,
+    WorldCapability.AGENT_SENSING: None,
 }
