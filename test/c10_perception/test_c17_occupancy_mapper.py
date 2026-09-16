@@ -12,7 +12,6 @@ from avlite.c10_perception.c11_perception_model import (
     PerceptionModel,
     RaceMap,
 )
-from avlite.c10_perception.c14_mapping_strategy import MapReader
 from avlite.c10_perception.c17_mapping_algs import OccupancyMapper
 from avlite.c10_perception.c19_settings import PerceptionSettingsSchema
 from avlite.c50_common.c51_capabilities import StackCapability
@@ -130,9 +129,7 @@ def test_mapper_capabilities_with_and_without_map():
         right_bound=np.array([[0.0, -1.0], [10.0, -1.0]]),
     )
     mapper = OccupancyMapper(map=race)
-    assert mapper.stack_capabilities == frozenset(
-        {StackCapability.MAP_OCCUPANCY, StackCapability.MAP_RACE_TRACK}
-    )
+    assert mapper.stack_capabilities == frozenset({StackCapability.MAP_OCCUPANCY})
 
 
 def test_occupancy_map_is_a_map():
@@ -196,4 +193,3 @@ def test_mapper_seeds_from_loaded_occupancy_map(tmp_path):
     mapper = OccupancyMapper(map=loaded, setting=_FINE)
     pm = _step(mapper, EgoState())
     assert _prob_at(pm.occupancy_map, 5.0, 0.0) > 0.5
-    assert MapReader(loaded).stack_capabilities == frozenset({StackCapability.MAP_OCCUPANCY})

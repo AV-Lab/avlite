@@ -391,7 +391,7 @@ Set `agent_type` when spawning non-car NPCs. Do not infer platform type from `ag
 | Method / field | Phase 1 today | Future |
 |--------|---------------|--------|
 | `control_ego_state(cmd)` | Required; all bridges implement this | Unchanged |
-| `map` | Optional `Map \| None` for **simulation** (e.g. LiDAR geometry); does not advertise stack `MAP_HD` / `MAP_RACE_TRACK` — use `MapReader` / mapping module for that | Unchanged |
+| `map` | Optional `Map \| None` for **simulation** (e.g. LiDAR geometry); does not advertise stack `MAP_HD` / `MAP_RACE_TRACK` — those come from the loaded `c40_map` on `PerceptionModel.map` | Unchanged |
 | `control_type(agent)` | Default: `control_type_for_agent(agent)` | Override only for bridge-specific exceptions |
 | `control_agent(id, cmd)` | Default: ego delegates to `control_ego_state`; NPC raises `NotImplementedError` | Override + declare `WorldCapability.AGENT_CONTROL` |
 | `teleport_agent(agent_state)` | Default: ego delegates to `teleport_ego` using pose (`x`, `y`, `theta`) from `agent_state`; NPC raises `NotImplementedError`. Identity is `agent_state.agent_id`; velocity/size/type are not applied | Override for sim teleport of any agent |

@@ -928,7 +928,6 @@ def _live_strategy_from_exec(executer, cls):
     modules = [
         getattr(executer, "perception", None),
         getattr(executer, "localization", None),
-        getattr(executer, "mapping", None),
         getattr(executer, "global_planner", None),
         getattr(executer, "local_planner", None),
         getattr(executer, "controller", None),
@@ -1060,7 +1059,6 @@ def _other_providers(executer, target) -> set:
     for m in (
         perception,
         getattr(executer, "localization", None),
-        getattr(executer, "mapping", None),
         getattr(executer, "global_planner", None),
         getattr(executer, "local_planner", None),
         getattr(executer, "controller", None),
@@ -1128,7 +1126,6 @@ def show_strategy_contract_popup(
         for m in (
             executer.perception,
             executer.localization,
-            getattr(executer, "mapping", None),
             executer.global_planner,
             executer.local_planner,
             executer.controller,
@@ -1247,7 +1244,6 @@ def show_world_bridge_contract_popup(
         for m in (
             getattr(executer, "perception", None),
             getattr(executer, "localization", None),
-            getattr(executer, "mapping", None),
             getattr(executer, "global_planner", None),
             getattr(executer, "local_planner", None),
             getattr(executer, "controller", None),

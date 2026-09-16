@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.6.3] - 2026-09-16
+
+### Changed
+- **Breaking** — Execution: `mapping=` removed from `ExecutionStrategy` / `SyncExecuter` / `AsyncThreadedExecuter`. `MappingTask` owns the mapper; factory auto-adds it when `c40_mapping` is set
+- **Breaking** — `MapReader` removed. Typed `MAP_*` come from the loaded `c40_map` (`pm.map`); `c40_mapping` default is empty. `OccupancyMapper` is the only mapping strategy (`MAP_OCCUPANCY` only).
+- Execution: `validate_stack()` raises on unmet task `stack_requirements` (same as modules)
+- Perception: `OccupancyMapper` advertises `MAP_OCCUPANCY` only (no longer forwards `MAP_HD` / `MAP_RACE_TRACK` from a held static map)
+
 ## [0.6.2] - 2026-09-15
 
 ### Added

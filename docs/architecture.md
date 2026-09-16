@@ -170,12 +170,12 @@ A bridge declaring `CAMERA_RGB` or `CAMERA_DEPTH` must also populate `SensorFram
 - `GLOBAL_PLAN` - Global plan (produced by the global planner)
 - `CONTROL` - Control commands (produced by the controller)
 - `LOCALIZATION` - Ego localization
-- `MAP_HD` - HD / OpenDRIVE map (from a mapping module such as `MapReader`)
-- `MAP_RACE_TRACK` - Race-track corridor map (from a mapping module such as `MapReader`)
-- `MAP_OCCUPANCY` - LiDAR occupancy grid (from `OccupancyMapper`; also forwards `MAP_HD` / `MAP_RACE_TRACK` when constructed with a static map)
+- `MAP_HD` - HD / OpenDRIVE map (from the loaded `c40_map` file when it is an `HDMap`)
+- `MAP_RACE_TRACK` - Race-track corridor map (from the loaded `c40_map` file when it is a `RaceMap`)
+- `MAP_OCCUPANCY` - LiDAR occupancy grid (from `OccupancyMapper`, or from an occupancy `c40_map` file)
 - `SLAM` - Simultaneous localization and mapping
 
-**Ground truth via the world bridge:** a `WorldBridge` may advertise `stack_capabilities` (a `set[StackCapability]`, default empty) to satisfy downstream `stack_requirements` without a real module. For example, `BasicSim` provides `{DETECTION, TRACKING, LOCALIZATION}` as ground truth and declares `stack_requirements = {CONTROL}`. Optional `WorldBridge.map` is simulation-only (e.g. LiDAR geometry) and does **not** advertise `MAP_HD` / `MAP_RACE_TRACK`. Typed stack map caps come from a mapping module such as `MapReader` (holds a pre-loaded `Map`; advertises `MAP_HD` or `MAP_RACE_TRACK` from the concrete type; format sniff/load stays on `Map.open` / `Map.from_path`). Global planners require the matching typed cap (`HDMapGlobalPlanner` → `MAP_HD`; race planners → `MAP_RACE_TRACK`). The executer’s `available_stack_capabilities()` unions every present module’s `stack_capabilities` with filtered `world.stack_capabilities`. At stack build it **raises** when a module’s hard `stack_requirements` are unmet (`MayUse` never fails that check), and **warns** when the world’s hard requirements are unmet or when the same capability is provided by more than one source.
+**Ground truth via the world bridge:** a `WorldBridge` may advertise `stack_capabilities` (a `set[StackCapability]`, default empty) to satisfy downstream `stack_requirements` without a real module. For example, `BasicSim` provides `{DETECTION, TRACKING, LOCALIZATION}` as ground truth and declares `stack_requirements = {CONTROL}`. Optional `WorldBridge.map` is simulation-only (e.g. LiDAR geometry) and does **not** advertise `MAP_HD` / `MAP_RACE_TRACK`. Typed stack map caps come from the loaded `c40_map` on `PerceptionModel.map` (`capabilities_for` of the concrete type; format sniff/load stays on `Map.open` / `Map.from_path`). `OccupancyMapper` is the online mapper (`MAP_OCCUPANCY`). Global planners require the matching typed cap (`HDMapGlobalPlanner` → `MAP_HD`; race planners → `MAP_RACE_TRACK`). The executer’s `available_stack_capabilities()` unions the loaded map, every present module’s `stack_capabilities`, task caps, and filtered `world.stack_capabilities`. At stack build it **raises** when a module’s hard `stack_requirements` are unmet (`MayUse` never fails that check), and **warns** when the world’s hard requirements are unmet or when the same capability is provided by more than one source.
 
 In the visualizer, the ⓘ button (or right-click) on a stack Combobox opens a contract popup: world requirements, stack requirements (colored against `available_stack_capabilities`, including world GT), and provided stack capabilities. The Bridge Setting Combobox has the same ⓘ for the selected `WorldBridge`: world capabilities, stack requirements, and stack capabilities. Requirement rows are labeled `all ·` / `any ·` / `optional ·`. Provided caps: green = consumed by another module’s hard or soft (`MayUse`) requirements or by the world bridge’s `stack_requirements`; orange = also provided by another top-level module or by world GT when that capability is checked under Bridge Setting’s stack column (`c41_world_stack_capabilities`); gray = unused. Parent `PerceptionPipeline` advertising does not orange its own detect/track/predict stages. Velocity and lattice local planners soft-use `DETECTION` and `PREDICTION_TRAJECTORY` (`MayUse(DETECTION, PREDICTION_TRAJECTORY)`), not `TRACKING`. They only read `SingleTrajectory` sweeps. Bridge Setting’s world column (`c41_world_capabilities`) gates which sensors are fed into `SensorFrame`.
 ### Factory Pattern
@@ -187,13 +187,13 @@ executer = executor_factory(
     bridge="BasicSim",
     perception_strategy_name="MultiObjectPredictor",
     localization_strategy_name="MyLocalization",
-    mapping_strategy_name="MapReader",
+    mapping_strategy_name="",
     local_planner_strategy_name="GreedyLatticePlanner",
     controller_strategy_name="StanleyController"
 )
 ```
 
-It loads plugins, opens `ExecutionSettings.c40_map` once via `Map.open` (shared by `MapReader`, global planners, and `WorldBridge`), instantiates strategies from registries, and wires everything together. **Any** strategy slot may be empty or omitted (perception, localization, mapping, global/local planner, controller) to run without that module — see [Flexible composition](#flexible-composition-not-only-a-pipeline).
+It loads plugins, opens `ExecutionSettings.c40_map` once via `Map.open` (shared by `PerceptionModel`, global planners, and `WorldBridge`), instantiates strategies from registries, and wires everything together. **Any** strategy slot may be empty or omitted (perception, localization, mapping, global/local planner, controller) to run without that module — see [Flexible composition](#flexible-composition-not-only-a-pipeline).
 
 Before calling `executor_factory()`, load YAML profiles with `load_stack_settings(profile, load_plugins)` in [`c62_factory.py`](../avlite/c60_apps/c62_factory.py). Each setting reads its section from the single `configs/<profile>.yaml`: it loads the c10–c40 layer sections, `AppSettings` (the `c69_apps` section), built-in plugin settings, and community plugin settings under `plugins:`; the GUI loads the Tk `VisualizationSettings` binder separately.
 

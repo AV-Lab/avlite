@@ -11,7 +11,7 @@ from avlite.c10_perception.c12_perception_strategy import (
     PerceptionPipeline,
 )
 from avlite.c10_perception.c13_localization_strategy import LocalizationStrategy
-from avlite.c10_perception.c14_mapping_strategy import MapReader, MappingStrategy
+from avlite.c10_perception.c14_mapping_strategy import MappingStrategy
 from avlite.c10_perception.c11_perception_model import OccupancyMap
 from avlite.c10_perception.c17_mapping_algs import OccupancyMapper
 from avlite.c10_perception.c19_settings import PerceptionSettings
@@ -202,7 +202,7 @@ class PerceptionFrame(ttk.LabelFrame):
 
     def _update_save_map_visibility(self):
         name = self.root.setting.mapping_type.get()
-        show_save = bool(name) and name != MapReader.__name__
+        show_save = name == OccupancyMapper.__name__
         if show_save:
             self._btn_save_occupancy.grid()
         else:
@@ -860,26 +860,16 @@ class ExecView(ttk.Frame):
         map_left = ttk.Frame(state_row)
         map_left.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self._default_map_lbl = ttk.Label(map_left, text="Default Map")
+        self._default_map_lbl.pack(side=tk.LEFT)
         self._default_map_entry = ttk.Entry(
             map_left, textvariable=self.root.setting.default_map_file, width=15, state="readonly",
         )
+        self._default_map_entry.pack(side=tk.LEFT, padx=2)
         self._default_map_entry.bind("<Button-1>", self._pick_default_map)
         self.refresh_default_map_tooltips()
-        self._default_map_widgets = [self._default_map_lbl, self._default_map_entry]
         btn_set_start = ttk.Button(state_row, text="Save Start", width=10, command=self.set_start)
         btn_set_start.pack(side=tk.RIGHT, padx=(2, 0))
         HoverTooltip.attach(btn_set_start, BUTTON_TOOLTIPS["exec_set_start"])
-        self.root.setting.mapping_type.trace_add("write", lambda *_: self._update_default_map_visibility())
-        self._update_default_map_visibility()
-
-    def _update_default_map_visibility(self):
-        name = self.root.setting.mapping_type.get()
-        show_picker = name in (MapReader.__name__, OccupancyMapper.__name__)
-        for w in self._default_map_widgets:
-            w.pack_forget()
-        if show_picker:
-            self._default_map_lbl.pack(side=tk.LEFT)
-            self._default_map_entry.pack(side=tk.LEFT, padx=2)
 
     def refresh_default_map_tooltips(self):
         field = DataPicker.default_map_settings_field()
@@ -1087,7 +1077,6 @@ class ExecView(ttk.Frame):
         """Refresh the executer and bridge dropdowns from the registries."""
         self.executer_dropdown_menu["values"] = list(ExecutionStrategy.registry.keys())
         self.bridge_frame.update_data()
-        self._update_default_map_visibility()
 
     def reset_exec(self):
         self.root.exec.reset()
