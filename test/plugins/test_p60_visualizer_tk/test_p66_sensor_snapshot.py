@@ -13,8 +13,12 @@ from avlite.plugins.p60_visualizer_tk.p66_plot_views import LocalPlanPlotView
 
 
 @pytest.mark.parametrize("case", ["primary", "no_primary", "no_reading", "disabled"])
-def test_plot_reads_selected_lidar_snapshot(case):
-    ExecutionSettings.c41_world_capabilities = [] if case == "disabled" else None
+def test_plot_reads_selected_lidar_snapshot(case, monkeypatch):
+    monkeypatch.setattr(
+        ExecutionSettings,
+        "c41_world_capabilities",
+        [] if case == "disabled" else None,
+    )
     mount = np.eye(4)
     mount[0, 3] = 2.0
     lidar = Lidar(
