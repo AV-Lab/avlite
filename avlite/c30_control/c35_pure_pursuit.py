@@ -225,9 +225,10 @@ class FollowTheGapController(PurePursuitBase):
         ##################################
         # Lookahead: path-biased free gap
         ##################################
+        lidar = sensors.get_lidar() if sensors is not None else None
         ego_pts = (
-            self.to_ego_frame(sensors.lidar, ego, sensors.lidar_sensor)
-            if sensors is not None
+            self.to_ego_frame(lidar.points, ego, lidar)
+            if lidar is not None
             else None
         )
         if ego_pts is None or len(ego_pts) == 0:

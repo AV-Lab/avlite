@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import ClassVar, Optional
 
 from avlite.c10_perception.c11_perception_model import AgentState, EgoState, EGO_AGENT_ID, Map, PerceptionModel
@@ -12,10 +12,9 @@ from avlite.c50_common.c53_stack_datatypes import control_type_for_agent
 from avlite.c50_common.c52_world_sensor_datatypes import (
     WORLD_CAPABILITY_SENSOR_FIELDS,
     Camera,
-    GnssReading,
-    ImuReading,
+    Gnss,
+    Imu,
     Lidar,
-    Sensor,
     SensorFrame,
     WheelOdometry,
     DepthImage,
@@ -144,62 +143,78 @@ class WorldBridge(ABC):
         """Static description of the lidar (mount in the ego body frame). Default: identity."""
         return Lidar()
 
-    def get_imu(self, agent_id: int = EGO_AGENT_ID) -> ImuReading | None:
+    def get_imu(self, agent_id: int = EGO_AGENT_ID) -> Imu | None:
+        """Return the IMU snapshot, including its mount, identity, and timestamp."""
         return None
 
-    def get_imu_sensor(self, agent_id: int = EGO_AGENT_ID) -> Sensor:
-        """Static description of the IMU (mount in the ego body frame). Default: identity."""
-        return Sensor()
-
-    def get_gnss(self, agent_id: int = EGO_AGENT_ID) -> GnssReading | None:
+    def get_gnss(self, agent_id: int = EGO_AGENT_ID) -> Gnss | None:
+        """Return the GNSS snapshot, including antenna mount and acquisition time."""
         return None
-
-    def get_gnss_sensor(self, agent_id: int = EGO_AGENT_ID) -> Sensor:
-        """Static description of the GNSS antenna (mount in the ego body frame). Default: identity."""
-        return Sensor()
 
     def get_wheel_odometry(self, agent_id: int = EGO_AGENT_ID) -> WheelOdometry | None:
+        """Return source metadata and body-relative wheel-odometry readings."""
         return None
 
     def get_sensor_frame(self, agent_id: int = EGO_AGENT_ID) -> SensorFrame:
-        """Compose a sensor snapshot from individual getters, respecting Bridge Setting filters.
+        """Compose primary camera/lidar snapshots from the single-device getters.
 
-        Override for atomic reads (and to populate ``additional_frames``); call
-        :meth:`_apply_world_capability_filter` on the returned frame if you bypass
-        this default compose path.
+        Existing getter implementations can keep returning calibration and
+        readings separately. This adapter creates fresh sensor objects and
+        selects each as primary, using its name or "camera"/"lidar" as fallback.
+        Unknown timestamps remain None; assembly time is not acquisition time.
+        IMU, GNSS, and wheel getters return complete single-source sensors;
+        their metadata is copied together with their reading fields.
+
+        Override for atomic reads or multiple devices, populating ``cameras``
+        and ``lidars`` directly with explicit primary names, then call
+        :meth:`_apply_world_capability_filter`. Reading buffers must remain
+        stable for the lifetime of a snapshot; copy any driver-reused buffers.
 
         Non-ego ``agent_id`` requires ``WorldCapability.AGENT_SENSING``.
         """
-        if agent_id != EGO_AGENT_ID and WorldCapability.AGENT_SENSING not in self.world_capabilities:
+        if (
+            agent_id != EGO_AGENT_ID
+            and WorldCapability.AGENT_SENSING not in self.world_capabilities
+        ):
             raise NotImplementedError(
                 f"{type(self).__name__} does not support sensors for agent {agent_id}"
             )
-        if agent_id == EGO_AGENT_ID:
-            frame = SensorFrame(
-                rgb=self.get_rgb_image(),
-                depth=self.get_depth_image(),
-                camera_sensor=self.get_camera_sensor(),
-                lidar=self.get_lidar_data(),
-                lidar_sensor=self.get_lidar_sensor(),
-                imu=self.get_imu(),
-                imu_sensor=self.get_imu_sensor(),
-                gnss=self.get_gnss(),
-                gnss_sensor=self.get_gnss_sensor(),
-                wheel_odometry=self.get_wheel_odometry(),
-            )
-        else:
-            frame = SensorFrame(
-                rgb=self.get_rgb_image(agent_id=agent_id),
-                depth=self.get_depth_image(agent_id=agent_id),
-                camera_sensor=self.get_camera_sensor(agent_id=agent_id),
-                lidar=self.get_lidar_data(agent_id=agent_id),
-                lidar_sensor=self.get_lidar_sensor(agent_id=agent_id),
-                imu=self.get_imu(agent_id=agent_id),
-                imu_sensor=self.get_imu_sensor(agent_id=agent_id),
-                gnss=self.get_gnss(agent_id=agent_id),
-                gnss_sensor=self.get_gnss_sensor(agent_id=agent_id),
-                wheel_odometry=self.get_wheel_odometry(agent_id=agent_id),
-            )
+        # BasicSim and older ego-only bridges define getters without kwargs.
+        kwargs = {} if agent_id == EGO_AGENT_ID else {"agent_id": agent_id}
+        rgb = self.get_rgb_image(**kwargs)
+        depth = self.get_depth_image(**kwargs)
+        camera = self.get_camera_sensor(**kwargs)
+        points = self.get_lidar_data(**kwargs)
+        lidar = self.get_lidar_sensor(**kwargs)
+
+        cameras: dict[str, Camera] = {}
+        camera_name = None
+        if camera is not None:
+            camera_name = camera.sensor_name if camera.sensor_name is not None else "camera"
+            cameras[camera_name] = replace(camera, sensor_name=camera_name, rgb=rgb, depth=depth)
+        elif rgb is not None or depth is not None:
+            raise ValueError("Camera readings require calibration from get_camera_sensor()")
+
+        lidars: dict[str, Lidar] = {}
+        lidar_name = None
+        if points is not None or self.world_capabilities.intersection(
+            {WorldCapability.LIDAR_2D, WorldCapability.LIDAR_3D}
+        ):
+            lidar_name = lidar.sensor_name if lidar.sensor_name is not None else "lidar"
+            lidars[lidar_name] = replace(lidar, sensor_name=lidar_name, points=points)
+
+        imu = self.get_imu(**kwargs)
+        gnss = self.get_gnss(**kwargs)
+        wheel_odometry = self.get_wheel_odometry(**kwargs)
+        frame = SensorFrame(
+            cameras=cameras,
+            lidars=lidars,
+            primary_camera_name=camera_name,
+            primary_lidar_name=lidar_name,
+            imu=replace(imu) if imu is not None else None,
+            gnss=replace(gnss) if gnss is not None else None,
+            wheel_odometry=replace(wheel_odometry) if wheel_odometry is not None else None,
+        )
 
         log.debug("Sensor frame before world capability filter: %s", frame)
         return self._apply_world_capability_filter(frame)
@@ -209,7 +224,12 @@ class WorldBridge(ABC):
 
     @staticmethod
     def _apply_world_capability_filter(frame: SensorFrame) -> SensorFrame:
-        """Null sensor fields whose world capabilities are disabled in Bridge Setting."""
+        """Clear disabled camera/lidar payloads, preserving metadata and primaries.
+
+        Single-source IMU/GNSS/wheel entries become None when disabled.
+        Mutates this fresh frame; bridges must not share its sensor-state
+        objects with previous snapshots or their static calibration objects.
+        """
         cleared: set[str] = set()
         for cap, field in WORLD_CAPABILITY_SENSOR_FIELDS.items():
             if field is None or field in cleared:
@@ -221,17 +241,13 @@ class WorldBridge(ABC):
                 ]
                 if any(is_world_capability_enabled(c) for c in peers):
                     continue
-                setattr(frame, field, None)
+                collection, separator, payload = field.partition(".")
+                if separator:
+                    for sensor in getattr(frame, collection).values():
+                        setattr(sensor, payload, None)
+                else:
+                    setattr(frame, field, None)
                 cleared.add(field)
-        # The camera sensor describes rgb/depth: drop it when neither is provided.
-        if not any(
-            is_world_capability_enabled(c)
-            for c in (WorldCapability.CAMERA_RGB, WorldCapability.CAMERA_DEPTH)
-        ):
-            frame.camera_sensor = None
-        if frame.additional_frames:
-            for unit in frame.additional_frames.values():
-                WorldBridge._apply_world_capability_filter(unit)
         return frame
 
     def __init_subclass__(cls, abstract=False, **kwargs):
