@@ -60,6 +60,9 @@ RgbImage = np.ndarray  # (H, W, 3) uint8 RGB
 DepthImage = np.ndarray  # (H, W) float32 metres
 LidarCloud = np.ndarray  # (N, 4) float32 [x, y, z, intensity]
 
+# Concrete Sensor subtype preserved by collection lookup/validation helpers.
+_SensorType = TypeVar("_SensorType", bound="Sensor")
+
 
 @dataclass(kw_only=True)
 class Sensor:
@@ -229,58 +232,6 @@ class Lidar(Sensor):
 
     points: LidarCloud | None = None
 
-
-_SensorT = TypeVar("_SensorT", bound=Sensor)
-
-
-def _find_sensor(sensors: Mapping[str, _SensorT], key: str) -> _SensorT:
-    """Find a sensor by collection name or device ID, rejecting ambiguity."""
-    matches = [
-        sensor
-        for name, sensor in sensors.items()
-        if name == key or sensor.sensor_id == key
-    ]
-    if not matches:
-        raise KeyError(f"Unknown sensor: {key}")
-    if len(matches) > 1:
-        raise ValueError(f"Ambiguous sensor name/ID: {key}")
-    return matches[0]
-
-
-def _validate_sensors(
-    sensors: Mapping[str, _SensorT],
-    primary_name: str | None,
-    sensor_type: type[_SensorT],
-) -> None:
-    """Validate one modality's names, IDs, and explicit primary selection."""
-    ids: set[str] = set()
-    for name, sensor in sensors.items():
-        if not isinstance(name, str) or not name or name == "primary":
-            raise ValueError("Sensor names must be nonempty strings other than 'primary'")
-        # Hot reload replaces class objects while bridges can retain snapshots.
-        # Accept the same qualified type (or a subclass) from an earlier reload.
-        if not isinstance(sensor, sensor_type) and not any(
-            cls.__module__ == sensor_type.__module__
-            and cls.__qualname__ == sensor_type.__qualname__
-            for cls in type(sensor).__mro__
-        ):
-            raise TypeError(f"Expected {sensor_type.__name__} for sensor {name!r}")
-        if sensor.sensor_name is not None and sensor.sensor_name != name:
-            raise ValueError(f"Sensor name {sensor.sensor_name!r} does not match key {name!r}")
-        sensor_id = sensor.sensor_id
-        if sensor_id is None:
-            continue
-        if not isinstance(sensor_id, str) or not sensor_id or sensor_id == "primary":
-            raise ValueError("Sensor IDs must be nonempty strings other than 'primary'")
-        if sensor_id in ids:
-            raise ValueError(f"Duplicate sensor ID: {sensor_id}")
-        if sensor_id in sensors and sensor_id != name:
-            raise ValueError(f"Ambiguous sensor name/ID: {sensor_id}")
-        ids.add(sensor_id)
-    if primary_name is not None and primary_name not in sensors:
-        raise ValueError(f"Unknown primary {sensor_type.__name__} name: {primary_name}")
-
-
 @dataclass
 class SensorFrame:
     """Named sensor-state snapshots assembled for one execution tick.
@@ -316,8 +267,8 @@ class SensorFrame:
     frame_id: str | None = None  # optional label for the bridge's body frame
 
     def __post_init__(self) -> None:
-        _validate_sensors(self.cameras, self.primary_camera_name, Camera)
-        _validate_sensors(self.lidars, self.primary_lidar_name, Lidar)
+        self._validate_sensors(self.cameras, self.primary_camera_name, Camera)
+        self._validate_sensors(self.lidars, self.primary_lidar_name, Lidar)
 
     @property
     def camera(self) -> Camera | None:
@@ -335,11 +286,75 @@ class SensorFrame:
 
     def get_camera(self, key: str = "primary") -> Camera | None:
         """Look up a camera by name, device ID, or the primary alias."""
-        return self.camera if key == "primary" else _find_sensor(self.cameras, key)
+        return self.camera if key == "primary" else self._find_sensor(self.cameras, key)
 
     def get_lidar(self, key: str = "primary") -> Lidar | None:
         """Look up a lidar by name, device ID, or the primary alias."""
-        return self.lidar if key == "primary" else _find_sensor(self.lidars, key)
+        return self.lidar if key == "primary" else self._find_sensor(self.lidars, key)
+
+    @staticmethod
+    def _find_sensor(
+        sensors: Mapping[str, _SensorType], key: str
+    ) -> _SensorType:
+        """Find a sensor by collection name or device ID, rejecting ambiguity."""
+        matches = [
+            sensor
+            for name, sensor in sensors.items()
+            if name == key or sensor.sensor_id == key
+        ]
+        if not matches:
+            raise KeyError(f"Unknown sensor: {key}")
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous sensor name/ID: {key}")
+        return matches[0]
+
+    @staticmethod
+    def _validate_sensors(
+        sensors: Mapping[str, _SensorType],
+        primary_name: str | None,
+        sensor_type: type[_SensorType],
+    ) -> None:
+        """Validate one modality's names, IDs, and explicit primary selection."""
+        ids: set[str] = set()
+        for name, sensor in sensors.items():
+            if not isinstance(name, str) or not name or name == "primary":
+                raise ValueError(
+                    "Sensor names must be nonempty strings other than 'primary'"
+                )
+            # Hot reload replaces class objects while bridges can retain snapshots.
+            # Accept the same qualified type (or a subclass) from an earlier reload.
+            if not isinstance(sensor, sensor_type) and not any(
+                cls.__module__ == sensor_type.__module__
+                and cls.__qualname__ == sensor_type.__qualname__
+                for cls in type(sensor).__mro__
+            ):
+                raise TypeError(
+                    f"Expected {sensor_type.__name__} for sensor {name!r}"
+                )
+            if sensor.sensor_name is not None and sensor.sensor_name != name:
+                raise ValueError(
+                    f"Sensor name {sensor.sensor_name!r} does not match key {name!r}"
+                )
+            sensor_id = sensor.sensor_id
+            if sensor_id is None:
+                continue
+            if (
+                not isinstance(sensor_id, str)
+                or not sensor_id
+                or sensor_id == "primary"
+            ):
+                raise ValueError(
+                    "Sensor IDs must be nonempty strings other than 'primary'"
+                )
+            if sensor_id in ids:
+                raise ValueError(f"Duplicate sensor ID: {sensor_id}")
+            if sensor_id in sensors and sensor_id != name:
+                raise ValueError(f"Ambiguous sensor name/ID: {sensor_id}")
+            ids.add(sensor_id)
+        if primary_name is not None and primary_name not in sensors:
+            raise ValueError(
+                f"Unknown primary {sensor_type.__name__} name: {primary_name}"
+            )
 
 
 # WorldCapability → reading path (None = no sensor field yet). A dotted path
