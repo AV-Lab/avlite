@@ -79,7 +79,7 @@ class Sensor:
     sensor_name: str | None = None  # stable name; if set, must match the collection key
     sensor_id: str | None = None  # stable ID, unique within the sensor modality
     stamp: float | None = None  # acquisition time in seconds; None when unknown
-    base_to_sensor: np.ndarray = field(default_factory=lambda: np.eye(4))
+    base_to_sensor: np.ndarray = field(default_factory=lambda: np.eye(4)) # (4, 4) homogeneous pose of the device in the ego body frame
 
     def __post_init__(self) -> None:
         self.base_to_sensor = np.asarray(self.base_to_sensor, dtype=np.float64)
