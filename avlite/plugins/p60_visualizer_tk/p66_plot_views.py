@@ -573,7 +573,9 @@ class LocalPlanPlotView(ttk.Frame):
         if want_lidar:
             # Sensor-frame cloud → map frame with the plant (world) ego pose.
             world = self.root.exec.world
-            lidar_data = world.get_lidar_sensor().to_map(world.get_lidar_data(), world.get_ego_state())
+            lidar = world.get_sensor_frame().get_lidar()
+            if lidar is not None:
+                lidar_data = lidar.to_map(lidar.points, world.get_ego_state())
 
         t1 = time.time()
         # self.canvas.restore_region(self.plt_background)

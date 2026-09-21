@@ -4,27 +4,32 @@ All WorldBridge implementations must populate SensorFrame using these exact
 layouts. Convert simulator/ROS messages in the bridge; do not pass raw
 message layouts to perception or localization.
 
-Two kinds of object live here. A **sensor** is the static description of a
-device mounted on the ego body (where it sits, how it is calibrated); it never
-changes per tick. A **measurement** is the per-tick data that device produced.
-``SensorFrame`` holds both, one rule: ``<x>`` is the measurement, ``<x>_sensor``
-is the device that produced it.
+``Camera`` and ``Lidar`` are sensor-state snapshots: each contains its device
+identity, mount, calibration (where applicable), acquisition time, and reading.
+``SensorFrame.cameras`` and ``SensorFrame.lidars`` hold all devices by name;
+``frame.camera`` and ``frame.lidar`` refer to the explicitly selected primary
+objects in those collections. There is no separate storage for extra devices.
 
-Measurements (per tick)
------------------------
-rgb            (H, W, 3) uint8, row-major RGB
-depth          (H, W) float32, metres
-lidar          (N, 4) float32, [x, y, z, intensity] in the lidar's own coordinate frame
-imu            ImuReading — linear accel + angular velocity in the IMU's coordinate frame
-gnss           GnssReading — WGS84 lat/lon/alt + optional map x/y/z
+Reading layouts
+---------------
+Camera.rgb     (H, W, 3) uint8, row-major RGB
+Camera.depth   (H, W) float32, metres
+Lidar.points   (N, 4) float32, [x, y, z, intensity] in the lidar's coordinate frame
+imu            Imu — linear accel + angular velocity in the IMU's coordinate frame
+gnss           Gnss — WGS84 lat/lon/alt + optional map x/y/z
 wheel_odometry WheelOdometry — linear_velocity m/s + yaw_rate rad/s (body frame)
 
-Sensors (static)
-----------------
-camera_sensor  Camera — intrinsic K, resolution, mount of the optical frame (None = no camera)
-lidar_sensor   Lidar  — mount (identity by default)
-imu_sensor     Sensor — mount (identity by default)
-gnss_sensor    Sensor — antenna mount (identity by default)
+IMU, GNSS, and wheel odometry are single Sensor-derived snapshots on the frame.
+Each owns its identity, mount, timestamp, and reading fields; there are no
+separate IMU/GNSS mount objects or collections. Their frame entries are None
+when unavailable or disabled.
+
+Bridges must create a fresh sensor-state object for each acquisition, rather
+than mutate an object retained by an earlier frame. ``dataclasses.replace``
+can reuse device metadata while attaching a new reading and ``stamp``. It is
+a shallow copy: do not mutate shared calibration or reading buffers; copy
+buffers if the driver reuses them. A missing camera/lidar reading is ``None``
+on the sensor, not a reason to remove it or select a different primary.
 
 Coordinate frames
 -----------------
@@ -41,7 +46,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Mapping, TypeVar
 
 import numpy as np
 
@@ -55,19 +60,26 @@ RgbImage = np.ndarray  # (H, W, 3) uint8 RGB
 DepthImage = np.ndarray  # (H, W) float32 metres
 LidarCloud = np.ndarray  # (N, 4) float32 [x, y, z, intensity]
 
+# Concrete Sensor subtype preserved by collection lookup/validation helpers.
+_SensorType = TypeVar("_SensorType", bound="Sensor")
+
 
 @dataclass(kw_only=True)
 class Sensor:
-    """Static description of a device mounted on the ego body.
+    """Shared device identity, mount, and acquisition time.
 
     ``base_to_sensor`` is the (4, 4) homogeneous pose of the device in the ego
     body frame: ``p_body = base_to_sensor @ p_sensor``. Identity by default
-    (device at the body origin, axes aligned with the body). Used directly for
-    devices with no calibration of their own (IMU, GNSS); ``Camera`` and
-    ``Lidar`` subclass it. Keyword-only so subclasses keep positional fields.
+    (device at the body origin, axes aligned with the body). All concrete
+    sensor snapshots subclass it. Keyword-only so subclasses keep positional
+    reading/calibration fields.
+    ``stamp`` belongs to the reading in this snapshot, not the device's lifetime.
     """
 
-    base_to_sensor: np.ndarray = field(default_factory=lambda: np.eye(4))
+    sensor_name: str | None = None  # stable name; if set, must match the collection key
+    sensor_id: str | None = None  # stable ID, unique within the sensor modality
+    stamp: float | None = None  # acquisition time in seconds; None when unknown
+    base_to_sensor: np.ndarray = field(default_factory=lambda: np.eye(4)) # (4, 4) homogeneous pose of the device in the ego body frame
 
     def __post_init__(self) -> None:
         self.base_to_sensor = np.asarray(self.base_to_sensor, dtype=np.float64)
@@ -111,10 +123,12 @@ class Sensor:
 
 
 @dataclass
-class ImuReading:
-    """Inertial measurement at a single timestep, in the IMU's coordinate frame.
+class Imu(Sensor):
+    """IMU snapshot: device metadata and readings in the IMU's coordinate frame.
 
-    The IMU mount is ``SensorFrame.imu_sensor``.
+    The inherited ``base_to_sensor`` describes this IMU's mount. Acceleration
+    and angular velocity are vectors, not positions: do not pass them through
+    the inherited point-transform helpers, which include translation.
     """
 
     linear_accel: tuple[float, float, float]  # (ax, ay, az) m/s²
@@ -128,10 +142,11 @@ class GnssDatum(Enum):
 
 
 @dataclass
-class GnssReading:
-    """GNSS fix: raw geodetic measurement plus optional map-frame position.
+class Gnss(Sensor):
+    """GNSS snapshot: receiver metadata, geodetic fix, and optional map position.
 
-    The antenna mount is ``SensorFrame.gnss_sensor``.
+    The inherited ``base_to_sensor`` is the antenna mount. Point-transform
+    helpers do not convert latitude/longitude/altitude into Cartesian points.
 
     Geodetic fields record what the receiver reports. Map fields record the
     same fix expressed in the AVLite map frame (same coordinates as EgoState.x/y/z).
@@ -159,8 +174,12 @@ class GnssReading:
 
 
 @dataclass
-class WheelOdometry:
-    """Ego motion derived from wheel encoders, in the ego body frame."""
+class WheelOdometry(Sensor):
+    """Wheel-odometry source metadata and derived ego-body motion.
+
+    Velocity and yaw rate remain body-relative, regardless of the source
+    mount metadata. Do not apply the inherited point transforms to them.
+    """
 
     linear_velocity: float  # forward speed along ego x-axis, m/s (+ = forward)
     yaw_rate: float  # heading change rate, rad/s (+ = counter-clockwise)
@@ -168,26 +187,30 @@ class WheelOdometry:
 
 @dataclass
 class Camera(Sensor):
-    """A pinhole camera: intrinsics, resolution, and mount of its optical frame.
+    """A pinhole camera snapshot: calibration, optical mount, and RGB/depth data.
 
     The camera's coordinate frame is the OpenCV optical frame — x right, y down,
     z forward along the optical axis, z > 0 in front of the camera — so the
     inherited ``base_to_sensor`` is the static pose of that optical frame in the
-    ego body frame (it includes the body → optical axis rotation). To project a
+    ego body frame (it includes the optical → body axis rotation). To project a
     map-frame point, compose with the ego pose estimate
     (``perception_model.ego_vehicle``)::
 
         p_cam = inv(ego.pose_matrix() @ base_to_sensor) @ [x_map, y_map, z_map, 1]
         u = fx * X / Z + cx,  v = fy * Y / Z + cy
 
-    Self-contained per camera: an instance carries everything needed to project
-    into its own image, so extra cameras in ``SensorFrame.additional_frames``
-    each carry their own ``Camera``.
+    Every camera in ``SensorFrame.cameras`` carries its own calibration and
+    readings. RGB and depth, when both present, must be aligned to this optical
+    frame and match its resolution. Use separate camera entries when they have
+    different calibration, optical frames, or acquisition times.
     """
 
     intrinsic: np.ndarray  # (3, 3) float64 K = [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
     width: int  # pixels; resolution the intrinsic is valid for
     height: int  # pixels; resolution the intrinsic is valid for
+
+    rgb: RgbImage | None = None  # (H, W, 3) uint8 RGB, not BGR
+    depth: DepthImage | None = None  # (H, W) float32, metres from the image plane
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -198,66 +221,153 @@ class Camera(Sensor):
 
 @dataclass
 class Lidar(Sensor):
-    """A lidar: only its mount. Identity means the cloud is already in the ego body frame."""
+    """A lidar snapshot: device mount and point cloud in the device's frame.
 
+    ``points`` is (N, 4) float32 [x, y, z, intensity], with xyz in metres.
+    Bridges pad 2D scans with z=0 and intensity=0. An identity mount describes
+    a scanner at the body origin with body-aligned axes. Keep the physical
+    mount for offset scanners; do not pre-transform their points to the body.
+    Map coordinates: ``lidar.to_map(lidar.points, ego)``.
+    """
+
+    points: LidarCloud | None = None
 
 @dataclass
 class SensorFrame:
-    """Snapshot of all measurements for one execution tick, plus the sensors that produced them.
+    """Named sensor-state snapshots assembled for one execution tick.
 
-    Field rule: ``<x>`` is the measurement, ``<x>_sensor`` is the static device
-    description. Measurements may be None when the bridge does not provide that
-    device or when gated off by the ExecutionSettings.c41_world_capabilities
-    filter; ``*_sensor`` fields default to an identity mount (``camera_sensor``
-    is None without a camera, since it needs intrinsics).
+    All cameras/lidars, including the primaries, live in their respective
+    dictionaries. Keys are stable names; ``get_camera`` and ``get_lidar`` also
+    accept device IDs. ``"primary"`` is reserved as a lookup alias. Primary
+    selection uses a collection name, never an ID or dictionary order.
+
+    ``camera``/``lidar`` return None when no primary is selected, even when the
+    collection is nonempty. A selected sensor remains available when its
+    reading is None. Unknown explicit lookups raise KeyError; ambiguous ones
+    raise ValueError. Names, IDs, and primary references are validated on
+    construction. Build a new frame when changing the sensor configuration.
+
+    Per-sensor stamps are acquisition times; ``stamp`` is assembly time, not
+    a claim that the readings are synchronized. Bridges must use the same
+    clock domain for these timestamps.
     """
 
-    # Camera: colour image from the primary camera.
-    # Shape (H, W, 3), dtype uint8, channels in RGB order (not BGR).
-    # H and W vary by camera; algorithms must not assume fixed resolution.
-    rgb: RgbImage | None = None
+    cameras: dict[str, Camera] = field(default_factory=dict)
+    lidars: dict[str, Lidar] = field(default_factory=dict)
 
-    # Camera: per-pixel distance from the primary camera's image plane.
-    # Shape (H, W), dtype float32, values in metres.
-    # Must match rgb height/width when both are present.
-    depth: DepthImage | None = None
+    primary_camera_name: str | None = None
+    primary_lidar_name: str | None = None
 
-    # The primary camera, i.e. the device that produced rgb/depth. None when
-    # the bridge exposes no camera. Required to project lidar into the image.
-    camera_sensor: Camera | None = None
+    # Single-source sensors: each object owns its metadata and readings.
+    imu: Imu | None = None
+    gnss: Gnss | None = None
+    wheel_odometry: WheelOdometry | None = None  # readings remain body-relative
 
-    # LiDAR: point cloud in the lidar's own coordinate frame (the ego body frame
-    # when lidar_sensor is identity). Shape (N, 4), dtype float32, columns
-    # [x, y, z, intensity]. x, y, z in metres; intensity is device-specific
-    # reflectance (0+). N varies per scan. 2D scanners: set z=0 and intensity=0
-    # in the bridge. Map frame: ``lidar_sensor.to_map(lidar, ego)``.
-    lidar: LidarCloud | None = None
-    lidar_sensor: Lidar = field(default_factory=Lidar)
-
-    imu: ImuReading | None = None
-    imu_sensor: Sensor = field(default_factory=Sensor)
-
-    gnss: GnssReading | None = None
-    gnss_sensor: Sensor = field(default_factory=Sensor)  # antenna mount
-
-    wheel_odometry: WheelOdometry | None = None  # body-frame quantity; no mount
-
-    stamp: float | None = None  # acquisition time, seconds (sim or wall clock)
+    stamp: float | None = None  # snapshot assembly time, seconds (sim or wall clock)
     frame_id: str | None = None  # optional label for the bridge's body frame
 
-    # Extra named units on this tick (lidars, IMUs, cameras, mixed rigs).
-    # Keys are stable sensor names ("lidar_top", "front", …). Each value is a
-    # leaf SensorFrame with only that unit's channels set and additional_frames
-    # left None (no nesting). Default None: old bridges and the default
-    # WorldBridge.get_sensor_frame() compose path do not populate this.
-    additional_frames: dict[str, SensorFrame] | None = None
+    def __post_init__(self) -> None:
+        self._validate_sensors(self.cameras, self.primary_camera_name, Camera)
+        self._validate_sensors(self.lidars, self.primary_lidar_name, Lidar)
 
-# WorldCapability → SensorFrame attribute name (None = no sensor field yet).
+    @property
+    def camera(self) -> Camera | None:
+        """The selected primary camera, or None when none is selected."""
+        if self.primary_camera_name is None:
+            return None
+        return self.cameras[self.primary_camera_name]
+
+    @property
+    def lidar(self) -> Lidar | None:
+        """The selected primary lidar, or None when none is selected."""
+        if self.primary_lidar_name is None:
+            return None
+        return self.lidars[self.primary_lidar_name]
+
+    def get_camera(self, key: str = "primary") -> Camera | None:
+        """Look up a camera by name, device ID, or the primary alias."""
+        return self.camera if key == "primary" else self._find_sensor(self.cameras, key)
+
+    def get_lidar(self, key: str = "primary") -> Lidar | None:
+        """Look up a lidar by name, device ID, or the primary alias."""
+        return self.lidar if key == "primary" else self._find_sensor(self.lidars, key)
+
+    @staticmethod
+    def _find_sensor(
+        sensors: Mapping[str, _SensorType], key: str
+    ) -> _SensorType:
+        """Find a sensor by collection name or device ID, rejecting ambiguity."""
+        matches = [
+            sensor
+            for name, sensor in sensors.items()
+            if name == key or sensor.sensor_id == key
+        ]
+        if not matches:
+            raise KeyError(f"Unknown sensor: {key}")
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous sensor name/ID: {key}")
+        return matches[0]
+
+    @staticmethod
+    def _validate_sensors(
+        sensors: Mapping[str, _SensorType],
+        primary_name: str | None,
+        sensor_type: type[_SensorType],
+    ) -> None:
+        """Validate one modality's names, IDs, and explicit primary selection."""
+        ids: set[str] = set()
+        for name, sensor in sensors.items():
+            if not isinstance(name, str) or not name or name == "primary":
+                raise ValueError(
+                    "Sensor names must be nonempty strings other than 'primary'"
+                )
+            # Hot reload replaces class objects while bridges can retain snapshots.
+            # Accept the same qualified type (or a subclass) from an earlier reload.
+            if not isinstance(sensor, sensor_type) and not any(
+                cls.__module__ == sensor_type.__module__
+                and cls.__qualname__ == sensor_type.__qualname__
+                for cls in type(sensor).__mro__
+            ):
+                raise TypeError(
+                    f"Expected {sensor_type.__name__} for sensor {name!r}"
+                )
+            if sensor.sensor_name is not None and sensor.sensor_name != name:
+                raise ValueError(
+                    f"Sensor name {sensor.sensor_name!r} does not match key {name!r}"
+                )
+            sensor_id = sensor.sensor_id
+            if sensor_id is None:
+                continue
+            if (
+                not isinstance(sensor_id, str)
+                or not sensor_id
+                or sensor_id == "primary"
+            ):
+                raise ValueError(
+                    "Sensor IDs must be nonempty strings other than 'primary'"
+                )
+            if sensor_id in ids:
+                raise ValueError(f"Duplicate sensor ID: {sensor_id}")
+            if sensor_id in sensors and sensor_id != name:
+                raise ValueError(f"Ambiguous sensor name/ID: {sensor_id}")
+            ids.add(sensor_id)
+        if primary_name is not None and primary_name not in sensors:
+            raise ValueError(
+                f"Unknown primary {sensor_type.__name__} name: {primary_name}"
+            )
+
+
+# WorldCapability → reading path (None = no sensor field yet). A dotted path
+# such as "cameras.rgb" targets rgb on EVERY value in frame.cameras, not just
+# the primary camera. Collection filtering clears payloads, preserving metadata;
+# a single-source entry (imu, gnss, wheel_odometry) is set to None when disabled.
+# The bridge filter must traverse these paths; setattr(frame, path, None) is
+# not sufficient. LiDAR 2D/3D share a path: keep points when either is enabled.
 WORLD_CAPABILITY_SENSOR_FIELDS: dict[WorldCapability, str | None] = {
-    WorldCapability.CAMERA_RGB: "rgb",
-    WorldCapability.CAMERA_DEPTH: "depth",
-    WorldCapability.LIDAR_3D: "lidar",
-    WorldCapability.LIDAR_2D: "lidar",
+    WorldCapability.CAMERA_RGB: "cameras.rgb",
+    WorldCapability.CAMERA_DEPTH: "cameras.depth",
+    WorldCapability.LIDAR_3D: "lidars.points",
+    WorldCapability.LIDAR_2D: "lidars.points",
     WorldCapability.IMU: "imu",
     WorldCapability.GNSS: "gnss",
     WorldCapability.WHEEL_ENCODER: "wheel_odometry",

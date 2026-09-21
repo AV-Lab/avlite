@@ -90,7 +90,6 @@ def test_get_sensor_frame_allows_npc_with_agent_sensing():
         world_capabilities = frozenset({WorldCapability.AGENT_SENSING})
 
     frame = _SensingStub().get_sensor_frame(agent_id=1)
-    assert frame.rgb is None
+    assert frame.camera is None
     assert frame.lidar is None
-
 

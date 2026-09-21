@@ -2,11 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-09-22
+
+### Changed
+- **Breaking** — Common: a sensor snapshot owns its device and its reading. `SensorFrame.cameras` and `SensorFrame.lidars` are the named collections (`dict[str, Camera]` / `dict[str, Lidar]`); `primary_camera_name` / `primary_lidar_name` select the primary, and `frame.camera` / `frame.lidar` return that object (calibration, `base_to_sensor`, `stamp`, and the reading). `get_camera` / `get_lidar` look up by collection name, `sensor_id`, or the `"primary"` alias (`KeyError` if missing, `ValueError` if a name and an id collide). `"primary"` is reserved and cannot be a name or id. Removed: flat `rgb` / `depth`, `camera_sensor`, the ndarray `lidar`, `lidar_sensor`, `imu_sensor`, `gnss_sensor`, and `additional_frames`. A missing camera or lidar reading is `None` on the sensor; the device stays in the collection and the primary does not change. Build a new frame to change which devices are present.
+- **Breaking** — Common: `ImuReading` is `Imu` and `GnssReading` is `Gnss` (package exports follow). `Imu`, `Gnss`, and `WheelOdometry` subclass `Sensor`, so each carries `sensor_name`, `sensor_id`, `stamp`, and `base_to_sensor` with its readings. They stay one optional object on the frame (`frame.imu`, `frame.gnss`, `frame.wheel_odometry`), not a collection. `to_base` / `to_map` transform positions only — not IMU vectors, GNSS latitude/longitude/altitude, or body-relative wheel velocity and yaw rate. Bridges must hand each tick a fresh snapshot; do not mutate an object an earlier frame still holds.
+- **Breaking** — Execution: `WorldBridge.get_imu_sensor` and `get_gnss_sensor` removed. `get_imu` / `get_gnss` / `get_wheel_odometry` return the full snapshot or `None`. The default `get_sensor_frame` still wraps the single-device getters into one primary camera and lidar (ego getters stay no-kwargs, so BasicSim is unchanged). Multicamera or multilidar bridges fill `cameras` / `lidars` and set the primary names, then call `_apply_world_capability_filter`. That filter clears disabled payloads on every device (`cameras.rgb`, `cameras.depth`, `lidars.points`) and keeps the device and the primary; a disabled IMU, GNSS, or wheel entry becomes `None`.
+- Perception, control, and the Tk visualizer read `frame.lidar.points` and `frame.lidar.to_map(frame.lidar.points, ego)` instead of a separate cloud plus `lidar_sensor`
 
 ## [0.6.3] - 2026-09-16
 
