@@ -78,7 +78,8 @@ class ControlStrategy(ABC):
             plan: Optional global/local plan; when set, updates ``self.tj``.
             control_dt: Control timestep [s].
             perception_model: Optional stack world-state snapshot.
-            sensors: Optional world sensor snapshot (e.g. ``sensors.lidar``).
+            sensors: Optional world sensor snapshot (e.g. ``sensors.lidar.points``
+                when a primary lidar is selected).
 
         Returns:
             Actuation command for the world bridge.

@@ -1,11 +1,20 @@
 """LidarLocalization consumes sensor-frame scans and recovers ego motion via ICP."""
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c10_perception.c16_localization_algs import LidarLocalization
 from avlite.c50_common.c52_world_sensor_datatypes import Lidar, SensorFrame
+
+
+def _frame(points, sensor=None):
+    return SensorFrame(
+        lidars={"top": replace(sensor or Lidar(), points=points)},
+        primary_lidar_name="top",
+    )
 
 
 def _corridor_map() -> np.ndarray:
@@ -50,12 +59,12 @@ def test_icp_recovers_ego_motion_from_body_frame_scans():
     loc = LidarLocalization(PerceptionModel(ego_vehicle=ego))
 
     # Seed: first scan taken at the true start pose builds the reference map.
-    loc.localize(sensors=SensorFrame(lidar=_scan_from((0.0, 0.0, 0.0), world)))
+    loc.localize(sensors=_frame(_scan_from((0.0, 0.0, 0.0), world)))
     np.testing.assert_allclose(loc._map[:, :2], world, atol=1e-4)
 
     # Ego moves; the stack pose is stale but ICP must recover the true pose.
     true_pose = (0.6, 0.3, 0.05)
-    loc.localize(sensors=SensorFrame(lidar=_scan_from(true_pose, world)))
+    loc.localize(sensors=_frame(_scan_from(true_pose, world)))
     assert ego.x == pytest.approx(true_pose[0], abs=0.05)
     assert ego.y == pytest.approx(true_pose[1], abs=0.05)
     assert ego.theta == pytest.approx(true_pose[2], abs=0.01)
@@ -76,9 +85,30 @@ def test_lidar_mount_is_applied_before_alignment():
         body[:, 0] -= 1.0
         return body
 
-    loc.localize(sensors=SensorFrame(lidar=sensor_scan((0.0, 0.0, 0.0)), lidar_sensor=params))
+    loc.localize(sensors=_frame(sensor_scan((0.0, 0.0, 0.0)), params))
     np.testing.assert_allclose(loc._map[:, :2], world, atol=1e-4)
 
-    loc.localize(sensors=SensorFrame(lidar=sensor_scan((0.5, -0.2, 0.0)), lidar_sensor=params))
+    loc.localize(sensors=_frame(sensor_scan((0.5, -0.2, 0.0)), params))
     assert ego.x == pytest.approx(0.5, abs=0.05)
     assert ego.y == pytest.approx(-0.2, abs=0.05)
+
+
+@pytest.mark.parametrize("frame", [None, SensorFrame(), _frame(None), _frame(np.empty((0, 4)))])
+def test_localization_handles_missing_reading(frame):
+    ego = EgoState(x=1.0, y=2.0, theta=0.3)
+    loc = LidarLocalization(PerceptionModel(ego_vehicle=ego))
+    loc.localize(sensors=frame)
+    assert loc._map is None
+    assert (ego.x, ego.y, ego.theta) == (1.0, 2.0, 0.3)
+
+
+def test_localization_uses_selected_primary_not_first_lidar():
+    world = _corridor_map()
+    cloud = _scan_from((0.0, 0.0, 0.0), world)
+    loc = LidarLocalization(PerceptionModel(ego_vehicle=EgoState()))
+    frame = SensorFrame(
+        lidars={"unused": Lidar(), "top": Lidar(points=cloud)},
+        primary_lidar_name="top",
+    )
+    loc.localize(sensors=frame)
+    np.testing.assert_allclose(loc._map, world[::loc._map_subsample], atol=1e-4)

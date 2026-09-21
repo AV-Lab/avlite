@@ -48,7 +48,8 @@ class PerceptionStrategy(ABC):
                 the authoritative model for this step (also stored on ``self``).
                 When omitted, use constructor-held ``self.perception_model``.
             sensors: World sensor snapshot for this tick (``None`` if unused).
-                Read fields as needed (e.g. ``sensors.lidar``, ``sensors.rgb``).
+                Read sensor payloads as needed (e.g. ``sensors.lidar.points``,
+                ``sensors.camera.rgb``), checking for a missing primary first.
 
         Returns:
             Updated perception model, or ``None`` when not applicable.
@@ -92,9 +93,9 @@ class DetectionStrategy(ABC):
             perception_model: Stack world-state snapshot to update. Required for
                 a useful result; callers (pipeline) always pass it.
             sensors: World sensor snapshot for this tick (``None`` if unused).
-            rgb_img: Optional RGB image (convenience; prefer ``sensors.rgb``).
-            depth_img: Optional depth image (convenience; prefer ``sensors.depth``).
-            lidar_data: Optional LiDAR cloud (convenience; prefer ``sensors.lidar``).
+            rgb_img: Optional RGB image (convenience; prefer ``sensors.camera.rgb``).
+            depth_img: Optional depth image (convenience; prefer ``sensors.camera.depth``).
+            lidar_data: Optional LiDAR cloud (convenience; prefer ``sensors.lidar.points``).
 
         Returns:
             Updated perception model.

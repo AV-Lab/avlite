@@ -47,7 +47,8 @@ class LocalizationStrategy(ABC):
                 the authoritative model for this step (also stored on ``self``).
                 When omitted, use constructor-held ``self.perception_model``.
             sensors: World sensor snapshot for this tick (``None`` if unused).
-                Read fields as needed (e.g. ``sensors.lidar``, ``sensors.imu``).
+                Read fields as needed (e.g. ``sensors.lidar.points``, ``sensors.imu``),
+                checking for a missing primary lidar first.
         """
         pass
 

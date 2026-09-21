@@ -1,6 +1,7 @@
 """OccupancyMapper rasterization and sensor-frame contract."""
 
 import json
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -26,10 +27,17 @@ def _prob_at(om, x: float, y: float) -> float:
     return float(om.grid[row, col])
 
 
+def _frame(points, sensor=None):
+    return SensorFrame(
+        lidars={"top": replace(sensor or Lidar(), points=points)},
+        primary_lidar_name="top",
+    )
+
+
 def _step(mapper, ego, lidar=None, lidar_sensor=None):
     pm = PerceptionModel(ego_vehicle=ego)
     cloud = np.empty((0, 4), dtype=np.float32) if lidar is None else lidar
-    mapper.update(pm, SensorFrame(lidar=cloud, lidar_sensor=lidar_sensor))
+    mapper.update(pm, _frame(cloud, lidar_sensor))
     return pm
 
 
@@ -76,14 +84,14 @@ def test_update_uses_passed_ego_not_stale_pm_heading():
     matching = EgoState(theta=0.0)
     pm = PerceptionModel(ego_vehicle=stale)
     cloud = np.array([[5.0, 0.0, 0.0, 0.0]], dtype=np.float32)
-    mapper.update(pm, SensorFrame(lidar=cloud), ego=matching)
+    mapper.update(pm, _frame(cloud), ego=matching)
     om = pm.occupancy_map
     assert _prob_at(om, 5.0, 0.0) > 0.5
     assert _prob_at(om, 0.0, 5.0) == pytest.approx(0.5, abs=1e-5)
 
     mapper.reset()
     pm_stale = PerceptionModel(ego_vehicle=stale)
-    mapper.update(pm_stale, SensorFrame(lidar=cloud))
+    mapper.update(pm_stale, _frame(cloud))
     assert _prob_at(pm_stale.occupancy_map, 0.0, 5.0) > 0.5
 
 
@@ -112,11 +120,11 @@ def test_mapper_empty_lidar_is_unknown():
 def test_mapper_reset_clears_model_and_grid():
     mapper = OccupancyMapper(setting=_FINE)
     pm = PerceptionModel(ego_vehicle=EgoState())
-    mapper.update(pm, SensorFrame(lidar=np.array([[5.0, 0.0, 0.0, 0.0]], dtype=np.float32)))
+    mapper.update(pm, _frame(np.array([[5.0, 0.0, 0.0, 0.0]], dtype=np.float32)))
     mapper.reset()
     pm.reset()
     assert pm.occupancy_map is None
-    mapper.update(pm, SensorFrame(lidar=np.empty((0, 4), dtype=np.float32)))
+    mapper.update(pm, _frame(np.empty((0, 4), dtype=np.float32)))
     np.testing.assert_allclose(pm.occupancy_map.grid, 0.5, atol=1e-5)
 
 
@@ -193,3 +201,35 @@ def test_mapper_seeds_from_loaded_occupancy_map(tmp_path):
     mapper = OccupancyMapper(map=loaded, setting=_FINE)
     pm = _step(mapper, EgoState())
     assert _prob_at(pm.occupancy_map, 5.0, 0.0) > 0.5
+@pytest.mark.parametrize("theta", [0.0, np.pi / 2])
+def test_rays_start_at_selected_lidar_not_vehicle(theta):
+    mount = np.eye(4)
+    mount[0, 3] = 2.0
+    lidar = Lidar(base_to_sensor=mount, points=np.array([[3, 0, 0, 0]], dtype=np.float32))
+    frame = SensorFrame(
+        lidars={"unused": Lidar(), "front": lidar}, primary_lidar_name="front",
+    )
+    ego = EgoState(x=10.0, y=20.0, theta=theta)
+    pm = PerceptionModel(ego_vehicle=ego)
+    OccupancyMapper(setting=_FINE).update(pm, frame)
+    # Use cell-interior coordinates to avoid floating-point grid boundaries.
+    c, s = np.cos(theta), np.sin(theta)
+    assert _prob_at(pm.occupancy_map, 10.1 + 5*c, 20.1 + 5*s) > 0.5
+    assert _prob_at(pm.occupancy_map, 10.1 + 3*c, 20.1 + 3*s) < 0.5
+    assert _prob_at(pm.occupancy_map, 10.1 + c, 20.1 + s) == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("frame", [None, SensorFrame(), _frame(None)])
+def test_mapper_handles_missing_reading(frame):
+    pm = PerceptionModel(ego_vehicle=EgoState())
+    OccupancyMapper(setting=_FINE).update(pm, frame)
+    np.testing.assert_allclose(pm.occupancy_map.grid, 0.5, atol=1e-5)
+
+
+def test_missing_reading_preserves_mount_for_map_bounds():
+    mount = np.eye(4)
+    mount[0, 3] = 30.0
+    pm = PerceptionModel(ego_vehicle=EgoState())
+    OccupancyMapper(setting=_FINE).update(pm, _frame(None, Lidar(base_to_sensor=mount)))
+    assert pm.occupancy_map.grid.shape[1] > 20
+    assert _prob_at(pm.occupancy_map, 30.0, 0.0) == pytest.approx(0.5)

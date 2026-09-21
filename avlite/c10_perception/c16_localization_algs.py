@@ -30,7 +30,7 @@ class LidarLocalization(LocalizationStrategy):
     """Estimate the ego pose by ICP scan-to-map alignment of LiDAR scans.
 
     Scans arrive in the lidar's own coordinate frame and are expressed in the
-    ego body frame through the ``sensors.lidar_sensor`` mount before use.
+    ego body frame through the selected ``sensors.lidar`` mount before use.
     On the first scan the running pose estimate is seeded from the current
     ``ego_vehicle`` pose and that scan, placed in the map frame with the seed
     pose, becomes the reference map.  On every subsequent scan, ICP aligns the
@@ -89,9 +89,10 @@ class LidarLocalization(LocalizationStrategy):
     ) -> None:
         if perception_model is not None:
             self.perception_model = perception_model
-        if sensors is None:
+        lidar = sensors.get_lidar() if sensors is not None else None
+        if lidar is None or lidar.points is None:
             return
-        scan = self._squash(sensors.lidar_sensor.to_base(sensors.lidar))  # lidar → ego body frame
+        scan = self._squash(lidar.to_base(lidar.points))  # lidar → ego body frame
         if scan is None or len(scan) < 3:
             return
 
@@ -104,7 +105,7 @@ class LidarLocalization(LocalizationStrategy):
             self._x = float(ego.x)
             self._y = float(ego.y)
             self._theta = float(ego.theta)
-            self._map = self._squash(sensors.lidar_sensor.to_map(sensors.lidar, ego))[:: self._map_subsample]
+            self._map = self._squash(lidar.to_map(lidar.points, ego))[:: self._map_subsample]
             return
 
         # Align the new scan to the reference map starting from the previous
