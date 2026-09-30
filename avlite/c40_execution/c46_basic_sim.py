@@ -6,7 +6,7 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import AgentState, Map, PerceptionModel, RaceMap
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c20_planning.c21_planning_model import GlobalPlan
-from avlite.c30_control.c31_control_model import ControlCommand
+from avlite.c30_control.c31_control_model import ControlCommand, BodyVelocityControlCommand
 from avlite.c40_execution.c41_world_bridge import WorldBridge
 from avlite.c50_common.c51_capabilities import StackCapability, WorldCapability
 from avlite.c40_execution.c49_settings import ExecutionSettings, ExecutionSettingsSchema
@@ -59,14 +59,24 @@ class BasicSim(WorldBridge):
         self.boundary_segments: np.ndarray = boundary_segments_from_map(map)
 
 
-    def control_ego_state(self, cmd:ControlCommand, dt=0.01):
-        acceleration = cmd.acceleration
-        steering_angle = cmd.steer
+    def control_ego_state(self, cmd: ControlCommand | BodyVelocityControlCommand, dt=0.01):
+        if isinstance(cmd, BodyVelocityControlCommand):
+            if cmd.vz != 0.0:
+                raise ValueError("BasicSim supports planar body velocity only; vz must be zero")
+            # Rotate body-frame velocities into the map frame using the current heading.
+            cos_theta, sin_theta = math.cos(self.ego_state.theta), math.sin(self.ego_state.theta)
+            self.ego_state.x += (cmd.vx * cos_theta - cmd.vy * sin_theta) * dt
+            self.ego_state.y += (cmd.vx * sin_theta + cmd.vy * cos_theta) * dt
+            self.ego_state.theta += cmd.yaw_rate * dt
+            self.ego_state.velocity = math.hypot(cmd.vx, cmd.vy)
+        else:
+            acceleration = cmd.acceleration
+            steering_angle = cmd.steer
 
-        self.ego_state.x += self.ego_state.velocity * math.cos(self.ego_state.theta) * dt
-        self.ego_state.y += self.ego_state.velocity * math.sin(self.ego_state.theta) * dt
-        self.ego_state.velocity += acceleration * dt
-        self.ego_state.theta += self.ego_state.velocity / (self.ego_controller.ego_distance_front_axle if self.ego_controller is not None else 2.5) * steering_angle * dt
+            self.ego_state.x += self.ego_state.velocity * math.cos(self.ego_state.theta) * dt
+            self.ego_state.y += self.ego_state.velocity * math.sin(self.ego_state.theta) * dt
+            self.ego_state.velocity += acceleration * dt
+            self.ego_state.theta += self.ego_state.velocity / (self.ego_controller.ego_distance_front_axle if self.ego_controller is not None else 2.5) * steering_angle * dt
 
         if self.npc_control:
             self.__control_npc_agents(dt)
