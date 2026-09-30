@@ -86,7 +86,12 @@ class StanleyController(ControlStrategy):
         ##################################
         # Compute the velocity control PID
         ##################################
-        idx = self.tj.current_wp
+        if not self.tj.velocity:
+            log.warning("Trajectory has no velocity profile. Acceleration set to zero.")
+            cmd = ControlCommand(steer=steer, acceleration=0)
+            self.cmd = cmd
+            return cmd
+        idx = min(max(self.tj.current_wp, 0), len(self.tj.velocity) - 1)
         target_velocity = self.tj.velocity[idx]
 
         prev_cte_v = self.cte_velocity
