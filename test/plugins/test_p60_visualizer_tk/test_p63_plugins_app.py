@@ -173,6 +173,64 @@ def test_install_plugin_uses_git_auth(monkeypatch, tmp_path):
     assert set_url_cmd[-1] == "https://github.com/org/private-plugin"
 
 
+def test_install_plugin_supports_monorepo_subdir(monkeypatch, tmp_path):
+    def fake_run(cmd, **kwargs):
+        if len(cmd) > 1 and cmd[1] == "clone":
+            root = Path(cmd[-1])
+            package = root / "adapter" / "plugin_package"
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text("", encoding="utf-8")
+            (root / "adapter" / "requirements.txt").write_text(
+                "numpy\n", encoding="utf-8"
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(cp.subprocess, "run", fake_run)
+    entry = {
+        "name": "nested_plugin",
+        "repository": "https://github.com/org/monorepo",
+        "version": "latest",
+        "plugin_subdir": "adapter/plugin_package",
+        "requirements_file": "adapter/requirements.txt",
+        "min_avlite_version": "0.6.4",
+    }
+
+    repository = cp._PluginOperations.install_plugin(entry, tmp_path)
+    package = repository / "adapter" / "plugin_package"
+
+    assert cp.PluginPaths.plugin_load_dir(repository) == package.resolve()
+    assert cp._PluginOperations.requirements_path(repository, entry) == (
+        repository / "adapter" / "requirements.txt"
+    ).resolve()
+    assert "plugin_subdir" in (repository / ".avlite-registry.yaml").read_text()
+    assert "plugin_subdir" not in (package / ".avlite-registry.yaml").read_text()
+    assert cp._PluginOperations.list_installed(tmp_path)[0]["has_init"] is True
+
+
+def test_monorepo_registry_paths_cannot_escape_repository(tmp_path):
+    with pytest.raises(ValueError, match="escapes"):
+        cp._PluginOperations.plugin_load_path(
+            tmp_path, {"plugin_subdir": "../outside"}
+        )
+
+
+def test_pip_install_uses_repository_as_working_directory(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(cp.subprocess, "run", fake_run)
+    req_file = tmp_path / "adapter" / "requirements.txt"
+    req_file.parent.mkdir()
+    req_file.write_text("-e ./core\n", encoding="utf-8")
+
+    cp._PluginOperations.pip_install(req_file, cwd=tmp_path)
+
+    assert calls[0][1]["cwd"] == str(tmp_path)
+
+
 def test_notify_host_changed_calls_on_community_plugins_changed():
     class FakeHost:
         def __init__(self):

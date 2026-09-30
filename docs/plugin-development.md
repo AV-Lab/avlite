@@ -587,6 +587,8 @@ plugins:
     category:
       - PerceptionStrategy
     min_avlite_version: "0.4.5"  # optional
+    plugin_subdir: ""             # optional path to plugin package in a monorepo
+    requirements_file: ""         # optional requirements path in a monorepo
     require_ros: false           # optional; true if the plugin needs ROS 2
     min_ros_version: humble      # optional; ignored unless require_ros is true
     max_ros_version: ""          # optional upper bound (omit or "" for none)
@@ -604,6 +606,8 @@ plugins:
 | `author` | yes | Display name, handle, or organization. |
 | `category` | yes | List of strategy types this plugin provides (see table below). Shown in the Plugins browser **Category** column. |
 | `min_avlite_version` | no | Minimum AVLite version (semver, e.g. `0.4.5`). Installs are blocked below it. Omit or leave empty if unknown. |
+| `plugin_subdir` | no | Relative path to the importable plugin package when the repository is a monorepo. The directory must contain `__init__.py`. Omit for a normal repository-root plugin. |
+| `requirements_file` | no | Relative path to the plugin requirements file. Relative/editable entries inside it are installed with the cloned repository as the working directory. Defaults to `requirements.txt` at the repository root. |
 | `require_ros` | no | `true` if the plugin needs ROS 2. The Plugins browser grays out the row when the active distro is missing or out of range; the executer raises a clean error if ROS later disappears. |
 | `min_ros_version` | no | Oldest ROS 2 distro name (`humble`, `jazzy`, …). Ignored unless `require_ros` is `true`. Omit for any installed ROS 2. |
 | `max_ros_version` | no | Newest ROS 2 distro name. Omit or leave empty for no upper bound. |

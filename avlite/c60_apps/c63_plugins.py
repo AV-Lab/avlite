@@ -606,7 +606,7 @@ class _CommunityPluginPaths:
                 and not entry.name.startswith(".")
                 and plugin_import_name(entry.name) == import_seg
             ):
-                return entry.resolve()
+                return PluginPaths.plugin_load_dir(entry)
         return None
 
     @staticmethod
