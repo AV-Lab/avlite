@@ -1410,7 +1410,7 @@ w \left( \lVert D_2 x(\alpha) \rVert^2 + \lVert D_2 y(\alpha) \rVert^2 \right)
 <div class="arithmatex">\[
 T_{\text{pred}} = \frac{\text{planning\_horizon} \times \text{maneuver\_distance}}{v_{\text{ego}}}
 \]</div>
-<p>Ahead agents with <code>|v| &gt; c20_min_velocity_threshold</code> get swept polygons from <code>pm.prediction</code> over that horizon; slower or behind agents use their current inflated footprint only.</p>
+<p>When <code>pm.prediction</code> is missing, a <code>SingleTrajectory</code>, or <code>c15_probabilistic_collision_checking</code> is off (the default), collision checking uses swept polygons: a <code>SingleTrajectory</code> path, a <code>GP</code> mean, or the highest-weight <code>GMM</code> mean, over the horizon for ahead agents with <code>|v| &gt; c20_min_velocity_threshold</code>. <code>MultiTrajectory</code> and occupancy flow warn and keep the current box. Slower or behind agents use their current inflated footprint only. With the flag on, <code>MultiTrajectory</code>, <code>GMM</code>, <code>GP</code>, <code>OccupancyFlow</code>, and <code>AggregatedOccupancyFlow</code> skip the sweep and use <code>collision_probability_2d</code>. An edge collides when that probability is greater than <code>c15_max_local_collision_probability</code> (default <code>0.05</code>). A <code>GP</code> mean is still scored only as the current agent box. <code>OccupancyFlow</code> takes each agent's probability from the maximum occupancy of the cells the ego box intersects, then the maximum across forecast steps. <code>AggregatedOccupancyFlow</code> scores its one scene grid the same way.</p>
 <h3 id="edge-feasibility">Edge feasibility<a class="headerlink" href="#edge-feasibility" title="Permanent link">&para;</a></h3>
 <p>Each edge is evaluated on three axes:</p>
 <table>
@@ -1424,7 +1424,7 @@ T_{\text{pred}} = \frac{\text{planning\_horizon} \times \text{maneuver\_distance
 <tbody>
 <tr>
 <td><strong>Collision</strong></td>
-<td>Ego footprint intersects an agent polygon along the edge</td>
+<td>Missing forecast, <code>SingleTrajectory</code>, or <code>c15_probabilistic_collision_checking</code> off (default): ego footprint intersects an agent polygon. Flag on and any other forecast: <code>collision_probability_2d</code> is greater than <code>c15_max_local_collision_probability</code> (default <code>0.05</code>). A <code>GP</code> mean is scored as the current box. Occupancy grids use the maximum occupancy of the cells the ego box intersects</td>
 <td><code>edge.collision</code>, <code>edge.collision_idx</code>, <code>edge.collision_agent_velocity</code></td>
 </tr>
 <tr>
@@ -1716,9 +1716,9 @@ R(v) = \frac{a_{\text{lat,max}} \cdot L^2}{5.7735 \cdot v^2} \cdot \texttt{c28\_
 </thead>
 <tbody>
 <tr>
-<td><code>c20_collision_safety_margin</code></td>
+<td><code>c20_ego_inflation_margin</code></td>
 <td><code>0.3</code></td>
-<td>Extra clearance on the ego side of collision checks (m); expands the buffered trajectory corridor beyond half the ego width</td>
+<td>Extra clearance around the ego in collision checks (m); added to the corridor radius beyond half the ego width</td>
 </tr>
 <tr>
 <td><code>c20_obstacle_inflation_margin</code></td>
@@ -1742,7 +1742,7 @@ R(v) = \frac{a_{\text{lat,max}} \cdot L^2}{5.7735 \cdot v^2} \cdot \texttt{c28\_
 </tr>
 </tbody>
 </table>
-<p>Effective clearance between nominal vehicle bodies is approximately <code>c20_collision_safety_margin</code> (ego) plus <code>c20_obstacle_inflation_margin</code> (agents), on top of vehicle widths. Agents with <code>|v| ≤ c20_min_velocity_threshold</code> use their current footprint only; prediction sweeps apply only to ahead, moving agents.</p>
+<p>Effective clearance between nominal vehicle bodies is approximately <code>c20_ego_inflation_margin</code> (ego) plus <code>c20_obstacle_inflation_margin</code> (agents), on top of vehicle widths. Agents with <code>|v| ≤ c20_min_velocity_threshold</code> use their current footprint only; prediction sweeps apply only to ahead, moving agents.</p>
 <h3 id="velocity-planner-c27_">Velocity planner (<code>c27_*</code>)<a class="headerlink" href="#velocity-planner-c27_" title="Permanent link">&para;</a></h3>
 <p>Used by <code>VelocityLocalPlanner</code> and for speed-matching on colliding lattice edges.</p>
 <table>

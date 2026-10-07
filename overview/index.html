@@ -1107,7 +1107,12 @@ your own risk.</p>
 lets you install/uninstall plugins, and (de)registers them with the
 active profile. Installed plugins live under
 <code>$XDG_DATA_HOME/avlite/plugins</code> (or <code>~/.local/share/avlite/plugins</code>);
-override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.</p>
+override with the <code>AVLITE_PLUGINS_DIR</code> environment variable.
+If a plugin ships <code>&lt;name&gt;.yaml</code> at its repository root (registry name, e.g.
+<code>avlite-bridge-carla.yaml</code>), <strong>Install</strong> and <strong>Update</strong> offer to add that
+recommended profile (and ask before overwriting if that name already exists).
+The active profile does not switch. Importing a shipped profile does not
+install other plugins it might list.</p>
 <h3 id="member-plugins">Member plugins<a class="headerlink" href="#member-plugins" title="Permanent link">&para;</a></h3>
 <p>The <strong>Members</strong> tab in <code>avlite plugins</code> lists plugins from the AV-Lab
 private registry. Sign in with GitHub (Device Flow) to browse and install them;
@@ -1234,7 +1239,7 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 <li><code>c20_planning</code> — Planning parameters</li>
 <li><code>c30_control</code> — Controller tuning</li>
 <li><code>c40_execution</code> — Execution and simulator settings</li>
-<li><code>c69_apps</code> — App bootstrap (plugin lists, load gate, GUI profile selection)</li>
+<li><code>c69_apps</code> — App bootstrap (plugin lists, load gate, GUI profile selection, profile note)</li>
 <li><code>plugins:</code> — a mapping of plugin directory name to that plugin's settings (e.g. <code>p60_visualizer_tk</code>, <code>p60_headless_mode</code>, and any community plugins)</li>
 </ul>
 <p>Repo defaults ship in <code>{repo}/configs/</code>; user overrides live under <code>~/.config/avlite/</code> (or <code>AVLITE_CONFIG_DIR</code>). Reads prefer the user file and fall back to the repo copy; writes go to the user directory.</p>
@@ -1242,6 +1247,7 @@ AVLite stores the OAuth token under <code>~/.config/avlite/</code> (mode <code>0
 <ul>
 <li><strong>Config tab</strong> — profile dropdown, Save Settings (visualization + execution layers).</li>
 <li><strong>Settings window</strong> (<code>T</code>) — full stack editor, New/Delete/Rename profile, Save, <strong>Export profile</strong>, <strong>Import profile</strong>. The <code>default</code> profile cannot be deleted or renamed. The built-in app plugin hosting the open settings window (typically <code>p60_visualizer_tk</code>) cannot be removed from the profile plugin list while that window is running.</li>
+<li><strong>Profile note</strong> — text box on the settings-window profile pane, above <strong>Edit repository configs</strong>. Saved as <code>c60_profile_note</code> in the profile’s <code>c69_apps</code> section. When the active profile changes (toolbar dropdown, settings-window dropdown, or shortcut <code>F</code>) and the note is not blank, a message box shows it. Startup and reloading the same profile do not.</li>
 <li><strong>Export profile</strong> — reads the saved profile file from disk (save first if you have unsaved widget changes) and writes a single <code>&lt;profile&gt;.yaml</code>. Three checkboxes control inclusion: <strong>Stack settings</strong> (the four core layer sections), <strong>App settings</strong> (the <code>c69_apps</code> section), and <strong>Plugin settings</strong> (the <code>plugins</code> section); all are included by default.</li>
 <li><strong>Import profile</strong> — merges a profile <code>.yaml</code> into your config directory (profile name = file stem); confirms overwrite if it already exists.</li>
 <li><strong>Edit repository configs</strong> (settings window, dev only) — switches read/write between <code>~/.config/avlite/</code> and <code>{repo}/configs/</code> (no file copy) and refreshes the profile dropdown from the active target. Preference stored in <code>~/.config/avlite/config_target</code>. Hidden when bundled configs are unavailable. Uncheck to return to the user config dir.</li>

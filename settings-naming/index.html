@@ -667,12 +667,12 @@
 </li>
 <li>
 <p><strong>Multiple consumer modules</strong> in the same layer package → <code>c{decade}_{name}</code><br />
-   Example: <code>c28_local_lattice_planners.py</code> and <code>c27_local_behavioral_and_velocity_planners.py</code> both use collision margin → <code>c20_collision_safety_margin</code>.</p>
+   Example: <code>c28_local_lattice_planners.py</code> and <code>c27_local_behavioral_and_velocity_planners.py</code> both use the ego inflation margin → <code>c20_ego_inflation_margin</code>.</p>
 </li>
 <li>
 <p><strong>Cross-layer orchestration</strong> → setting lives on the <strong>consuming</strong> layer’s settings class, prefixed by the consumer module.<br />
    Example: default map path in <code>c62_factory.py</code> → <code>ExecutionSettings.c40_map</code>.<br />
-   App bootstrap lives on <code>AppSettings</code> in c60: plugin lists and load gate use <code>c62_*</code> (consumer <code>c62_factory</code>); active profile selection uses <code>c60_selected_profile</code>; ROS 2 distro uses <code>c60_ros_distro</code> (settings-window Plugins pane).</p>
+   App bootstrap lives on <code>AppSettings</code> in c60: plugin lists and load gate use <code>c62_*</code> (consumer <code>c62_factory</code>); active profile selection uses <code>c60_selected_profile</code>; the per-profile comment uses <code>c60_profile_note</code> (settings-window profile pane; shown in a message box when that profile is selected); ROS 2 distro uses <code>c60_ros_distro</code> (settings-window Plugins pane).</p>
 </li>
 <li>
 <p><strong>Built-in Tk plugin (<code>p60_visualizer_tk</code>)</strong> — prefix identifies the <strong>consumer module</strong>, not the settings file:</p>
@@ -721,7 +721,7 @@
 </tr>
 <tr>
 <td>Apps (bootstrap)</td>
-<td><code>avlite/c60_apps/c69_settings.py</code> (schema; plugin lists and <code>c60_ros_distro</code> have custom Tk on the profile pane)</td>
+<td><code>avlite/c60_apps/c69_settings.py</code> (schema; plugin lists, <code>c60_ros_distro</code>, and <code>c60_profile_note</code> have custom Tk on the profile pane)</td>
 <td><code>c69_apps</code></td>
 </tr>
 <tr>
