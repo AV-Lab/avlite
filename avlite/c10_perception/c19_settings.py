@@ -18,6 +18,18 @@ class PerceptionSettingsSchema(SettingsSchema):
     c12_prediction_strategy: str = Field(default="", description="Prediction sub-strategy class name; empty disables prediction.")
 
     c15_prediction_horizon: float = Field(default=2.0, description="Prediction horizon in seconds.")
+    c15_max_local_collision_probability: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="Maximum collision probability local planners accept from a probabilistic forecast. An edge collides when collision_probability_2d is greater than this value. 0 flags any positive probability; 1 never does.",
+    )
+    c15_probabilistic_collision_checking: bool = Field(
+        default=False,
+        description="When on, local planners use collision_probability_2d for a probabilistic forecast and collide above c15_max_local_collision_probability. When off, they keep the swept-polygon check.",
+    )
+    c15_gmm_n_modes: int = Field(default=3, description="Number of heading modes written by ConstantVelocityGMM.")
+    c15_multitrajectory_n_modes: int = Field(default=3, description="Number of heading modes written by ConstantVelocityMultiTrajectory.")
     c15_tracking_dt: float = Field(default=0.1, description="Kalman filter motion-model step interval (seconds).")
     c15_tracking_process_noise: float = Field(default=1.0, description="Kalman process noise scale.")
     c15_tracking_measurement_noise: float = Field(default=0.5, description="Kalman measurement noise scale.")

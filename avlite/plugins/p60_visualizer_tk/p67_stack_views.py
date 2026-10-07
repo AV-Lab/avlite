@@ -329,7 +329,18 @@ class PlanFrame(ttk.LabelFrame):
         ttk.Separator(self, orient="horizontal").pack(fill=tk.X, pady=2)
 
         # - Local -----
-        ttk.Label(self, text="Local Planning").pack(anchor="w", padx=5)
+        local_header = ttk.Frame(self)
+        local_header.pack(fill=tk.X)
+        ttk.Label(local_header, text="Local Planning").pack(side=tk.LEFT, padx=5)
+        chk_probabilistic = ttk.Checkbutton(
+            local_header,
+            text="Probabilistic Collision Checking",
+            variable=self.root.setting.probabilistic_collision_checking,
+        )
+        chk_probabilistic.pack(side=tk.RIGHT, padx=5)
+        HoverTooltip.attach_schema(
+            chk_probabilistic, PerceptionSettings, "c15_probabilistic_collision_checking",
+        )
         wp_frame = ttk.Frame(self)
         wp_frame.pack(fill=tk.X)
 
@@ -867,7 +878,7 @@ class ExecView(ttk.Frame):
         self._default_map_entry.pack(side=tk.LEFT, padx=2)
         self._default_map_entry.bind("<Button-1>", self._pick_default_map)
         self.refresh_default_map_tooltips()
-        btn_set_start = ttk.Button(state_row, text="Save Start", width=10, command=self.set_start)
+        btn_set_start = ttk.Button(state_row, text="Save Start Position", command=self.set_start)
         btn_set_start.pack(side=tk.RIGHT, padx=(2, 0))
         HoverTooltip.attach(btn_set_start, BUTTON_TOOLTIPS["exec_set_start"])
 
@@ -1101,7 +1112,7 @@ class ExecView(ttk.Frame):
 
 class BridgeFrame(ttk.LabelFrame):
     def __init__(self, root: VisualizerApp, view):
-        super().__init__(view, text="Bridge Setting")
+        super().__init__(view, text="World Bridge")
         self.root = root
         self.world_bridge_dropdown_menu = ttk.Combobox(self, textvariable=self.root.setting.execution_bridge, width=10, state="readonly",)
         self.world_bridge_dropdown_menu["values"] = list(WorldBridge.registry.keys())

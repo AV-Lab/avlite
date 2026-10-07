@@ -1,12 +1,23 @@
 import numpy as np
+from scipy.special import erf
 
-from avlite.c10_perception.c11_perception_model import AgentState, PerceptionModel, SingleTrajectory, State
+from avlite.c10_perception.c11_perception_model import (
+    AgentState,
+    GMM,
+    GP,
+    MultiTrajectory,
+    OccupancyFlow,
+    PerceptionModel,
+    SingleTrajectory,
+    State,
+)
 from avlite.c10_perception.c12_perception_strategy import (
     DetectionStrategy,
     PredictionStrategy,
     TrackingStrategy,
 )
 from avlite.c10_perception.c19_settings import PerceptionSettings
+from avlite.c20_planning.c29_settings import PlanningSettings
 from avlite.c50_common.c51_capabilities import AnyOf, MayUse, StackCapability, WorldCapability
 from avlite.c50_common.c52_world_sensor_datatypes import Lidar, SensorFrame
 
@@ -14,8 +25,57 @@ import logging
 
 log = logging.getLogger(__name__)
 
+class ConstantVelocityForecast:
+    """Shared constant-velocity forecast. Not a strategy, so it is not in the dropdown."""
 
-class ConstantVelocityPrediction(PredictionStrategy):
+    # Position std along / across the heading, times the step time (m/s).
+    along_sigma = 2.0
+    cross_sigma = 0.8
+    # Half-width of the heading fan for GMM and MultiTrajectory modes (rad).
+    mode_heading_span = 0.35
+
+    def horizon(self) -> tuple[float, int, np.ndarray]:
+        """``dt``, step count, and the time of each step. Step ``k`` is at ``(k + 1) * dt``."""
+        dt = PerceptionSettings.c11_predict_delta_t
+        n_steps = max(1, int(round(PerceptionSettings.c15_prediction_horizon / dt)))
+        return dt, n_steps, (np.arange(n_steps) + 1) * dt
+
+    def polyline(self, agent: AgentState, theta: float, dt: float, n_steps: int) -> np.ndarray:
+        """Constant-velocity ``[n_steps, 2]`` path."""
+        time = (np.arange(n_steps) + 1) * dt
+        return np.column_stack((
+            agent.x + agent.velocity * np.cos(theta) * time,
+            agent.y + agent.velocity * np.sin(theta) * time,
+        ))
+
+    def marginals(self, theta: float, time: np.ndarray) -> np.ndarray:
+        """``[n_steps, 2, 2]`` world covariance, longer along ``theta`` than across it."""
+        along = (self.along_sigma * time) ** 2
+        cross = (self.cross_sigma * time) ** 2
+        c = float(np.cos(theta))
+        s = float(np.sin(theta))
+        out = np.zeros((time.shape[0], 2, 2))
+        out[:, 0, 0] = c * c * along + s * s * cross
+        out[:, 1, 1] = s * s * along + c * c * cross
+        out[:, 0, 1] = out[:, 1, 0] = c * s * (along - cross)
+        return out
+
+    def mode_fan(self, theta: float, n_modes: int) -> tuple[np.ndarray, np.ndarray]:
+        """Headings across ±``mode_heading_span``, and weights that sum to 1.
+
+        An odd count places the middle mode on ``theta``. The weight Gaussian
+        uses the full fan half-width as its std, so an edge mode stays a large
+        fraction of the middle mode.
+        """
+        n = max(1, int(n_modes))
+        if n == 1:
+            return np.array([theta]), np.array([1.0])
+        offsets = np.linspace(-self.mode_heading_span, self.mode_heading_span, n)
+        weights = np.exp(-0.5 * (offsets / self.mode_heading_span) ** 2)
+        return theta + offsets, weights / weights.sum()
+
+
+class ConstantVelocityPrediction(ConstantVelocityForecast, PredictionStrategy):
     """Predict each agent's future positions assuming constant velocity.
 
     Writes results into ``pm.prediction`` as ``SingleTrajectory``.
@@ -32,32 +92,269 @@ class ConstantVelocityPrediction(PredictionStrategy):
     ) -> PerceptionModel:
         if perception_model is None:
             raise ValueError("perception_model is required for prediction")
+        dt, n_steps, _time = self.horizon()
+        agents = perception_model.agent_vehicles
+        trajectories = {
+            agent.agent_id: self.polyline(agent, agent.theta, dt, n_steps)
+            for agent in agents
+        }
+        perception_model.prediction = SingleTrajectory(predict_delta_t=dt, trajectories=trajectories)
+        log.debug("Predicted trajectories for %d agents over %d steps", len(agents), n_steps)
+        return perception_model
+
+
+class ConstantVelocityGP(ConstantVelocityForecast, PredictionStrategy):
+    """Constant-velocity mean with a heading-aligned covariance that grows with time.
+
+    Writes ``GP``. Along the heading the position std is ``2 * time``; across
+    it, ``0.8 * time``.
+    """
+
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
+    stack_capabilities = frozenset({StackCapability.PREDICTION_GP})
+
+    def predict(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> PerceptionModel:
+        if perception_model is None:
+            raise ValueError("perception_model is required for prediction")
+        dt, n_steps, time = self.horizon()
+        agents = perception_model.agent_vehicles
+        means = {}
+        covariance = {}
+        for agent in agents:
+            means[agent.agent_id] = self.polyline(agent, agent.theta, dt, n_steps)
+            blocks = self.marginals(agent.theta, time)
+            joint = np.zeros((2 * n_steps, 2 * n_steps))
+            for k in range(n_steps):
+                joint[2 * k:2 * k + 2, 2 * k:2 * k + 2] = blocks[k]
+            covariance[agent.agent_id] = joint
+        perception_model.prediction = GP(
+            predict_delta_t=dt,
+            means=means,
+            covariance=covariance,
+        )
+        return perception_model
+
+
+class ConstantVelocityOccupancyFlow(ConstantVelocityForecast, PredictionStrategy):
+    """Constant-velocity Gaussian, the same one as :class:`ConstantVelocityGP`, as grids.
+
+    Each cell is the probability that the inflated vehicle rectangle covers that
+    cell. Writes per-agent ``OccupancyFlow``.
+    """
+
+    # Metres per cell. Coarser than the lidar map so a spread-out scene stays small.
+    cell_size = 1.0
+    stamp_sigmas = 3.0
+
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
+    stack_capabilities = frozenset({StackCapability.PREDICTION_OCCUPANCY})
+
+    def window(
+        self,
+        means: list[np.ndarray],
+        horizon: float,
+        body_pad: float = 0.0,
+    ) -> tuple[float, float, int, int]:
+        """Shared window around every forecast mean, padded by ``3 σ_along`` plus the body."""
+        pts = np.vstack(means)
+        pad = self.stamp_sigmas * self.along_sigma * horizon + body_pad
+        resolution = self.cell_size
+        origin_x = float(np.floor((pts[:, 0].min() - pad) / resolution) * resolution)
+        origin_y = float(np.floor((pts[:, 1].min() - pad) / resolution) * resolution)
+        max_x = float(np.ceil((pts[:, 0].max() + pad) / resolution) * resolution)
+        max_y = float(np.ceil((pts[:, 1].max() + pad) / resolution) * resolution)
+        width = max(1, int(np.round((max_x - origin_x) / resolution)))
+        height = max(1, int(np.round((max_y - origin_y) / resolution)))
+        return origin_x, origin_y, height, width
+
+    def stamp(
+        self,
+        grid: np.ndarray,
+        origin_x: float,
+        origin_y: float,
+        mean: np.ndarray,
+        cov: np.ndarray,
+        length: float,
+        width: float,
+        heading: float,
+        margin: float,
+    ) -> None:
+        """Write the probability that the inflated body covers each cell center.
+
+        ``heading`` is the body axis, the same frame as ``cov``. Half-extents are
+        ``length / 2 + margin`` along that axis and ``width / 2 + margin`` across
+        it. The covariance is diagonal in that frame, so the probability is the
+        product of two Gaussian CDF spans. Cells under the body can each be near
+        1; the grid is not renormalized.
+        """
+        resolution = self.cell_size
+        half_along = max(0.0, 0.5 * float(length) + float(margin))
+        half_cross = max(0.0, 0.5 * float(width) + float(margin))
+        c = float(np.cos(heading))
+        s = float(np.sin(heading))
+        sym = 0.5 * (np.asarray(cov, dtype=float) + np.asarray(cov, dtype=float).T)
+        along_axis = np.array([c, s])
+        cross_axis = np.array([-s, c])
+        sig_along = float(np.sqrt(max(0.0, float(along_axis @ sym @ along_axis))))
+        sig_cross = float(np.sqrt(max(0.0, float(cross_axis @ sym @ cross_axis))))
+        reach = self.stamp_sigmas * max(sig_along, sig_cross) + float(np.hypot(half_along, half_cross))
+        height, width_cells = grid.shape
+        c0 = max(0, int(np.floor((float(mean[0]) - reach - origin_x) / resolution)))
+        c1 = min(width_cells - 1, int(np.floor((float(mean[0]) + reach - origin_x) / resolution)))
+        r0 = max(0, int(np.floor((float(mean[1]) - reach - origin_y) / resolution)))
+        r1 = min(height - 1, int(np.floor((float(mean[1]) + reach - origin_y) / resolution)))
+        if c1 < c0 or r1 < r0:
+            return
+        cx = origin_x + (np.arange(c0, c1 + 1) + 0.5) * resolution
+        cy = origin_y + (np.arange(r0, r1 + 1) + 0.5) * resolution
+        xx, yy = np.meshgrid(cx, cy, indexing="xy")
+        dx = xx - float(mean[0])
+        dy = yy - float(mean[1])
+        off_along = dx * c + dy * s
+        off_cross = -dx * s + dy * c
+        grid[r0:r1 + 1, c0:c1 + 1] = np.clip(
+            self._gaussian_span(off_along, half_along, sig_along)
+            * self._gaussian_span(off_cross, half_cross, sig_cross),
+            0.0,
+            1.0,
+        )
+
+    @staticmethod
+    def _gaussian_span(offset: np.ndarray, half: float, sigma: float) -> np.ndarray:
+        """Probability mass of ``N(0, sigma^2)`` inside ``[offset - half, offset + half]``."""
+        sigma = max(float(sigma), 1e-12)
+        scale = 1.0 / (sigma * np.sqrt(2.0))
+        return 0.5 * (erf((half - offset) * scale) - erf((-half - offset) * scale))
+
+    def predict(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> PerceptionModel:
+        if perception_model is None:
+            raise ValueError("perception_model is required for prediction")
+        dt, n_steps, time = self.horizon()
         agents = perception_model.agent_vehicles
         if not agents:
-            perception_model.prediction = SingleTrajectory(
-                predict_delta_t=PerceptionSettings.c11_predict_delta_t,
-                trajectories={},
-            )
+            perception_model.prediction = OccupancyFlow(predict_delta_t=dt, resolution=self.cell_size)
             return perception_model
-
-        dt = PerceptionSettings.c11_predict_delta_t
-        horizon = PerceptionSettings.c15_prediction_horizon
-        n_steps = max(1, int(round(horizon / dt)))
-
-        trajectories: dict[int, np.ndarray] = {}
+        margin = float(PlanningSettings.c20_obstacle_inflation_margin)
+        means = {
+            agent.agent_id: self.polyline(agent, agent.theta, dt, n_steps)
+            for agent in agents
+        }
+        marginals = {
+            agent.agent_id: self.marginals(agent.theta, time)
+            for agent in agents
+        }
+        body_pad = max(
+            float(np.hypot(agent.length / 2.0 + margin, agent.width / 2.0 + margin))
+            for agent in agents
+        )
+        origin_x, origin_y, height, width = self.window(list(means.values()), float(time[-1]), body_pad)
+        occupancy: dict[int, list[np.ndarray]] = {}
         for agent in agents:
-            steps = np.empty((n_steps, 2))
-            for t in range(n_steps):
-                time = (t + 1) * dt
-                steps[t, 0] = agent.x + agent.velocity * np.cos(agent.theta) * time
-                steps[t, 1] = agent.y + agent.velocity * np.sin(agent.theta) * time
-            trajectories[agent.agent_id] = steps
+            grids = [np.zeros((height, width)) for _ in range(n_steps)]
+            mean = means[agent.agent_id]
+            covs = marginals[agent.agent_id]
+            for k in range(n_steps):
+                self.stamp(
+                    grids[k], origin_x, origin_y, mean[k], covs[k],
+                    agent.length, agent.width, agent.theta, margin,
+                )
+            occupancy[agent.agent_id] = grids
+        perception_model.prediction = OccupancyFlow(
+            predict_delta_t=dt,
+            occupancy_flow=occupancy,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            resolution=self.cell_size,
+        )
+        return perception_model
 
-        perception_model.prediction = SingleTrajectory(
+
+class ConstantVelocityGMM(ConstantVelocityForecast, PredictionStrategy):
+    """Constant-velocity heading fan as a Gaussian mixture.
+
+    Mode count is ``c15_gmm_n_modes``. Each mode's position covariance is the
+    heading-aligned ellipse from :class:`ConstantVelocityGP`, turned to that
+    mode's heading. Writes ``GMM``.
+    """
+
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
+    stack_capabilities = frozenset({StackCapability.PREDICTION_GMM})
+
+    def predict(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> PerceptionModel:
+        if perception_model is None:
+            raise ValueError("perception_model is required for prediction")
+        dt, n_steps, time = self.horizon()
+        agents = perception_model.agent_vehicles
+        n_modes = max(1, int(PerceptionSettings.c15_gmm_n_modes))
+        trajectories: dict[int, np.ndarray] = {}
+        weights: dict[int, np.ndarray] = {}
+        covariances: dict[int, np.ndarray] = {}
+        for agent in agents:
+            headings, mode_weights = self.mode_fan(agent.theta, n_modes)
+            trajectories[agent.agent_id] = np.stack([
+                self.polyline(agent, heading, dt, n_steps) for heading in headings
+            ])
+            weights[agent.agent_id] = mode_weights
+            covariances[agent.agent_id] = np.stack([
+                self.marginals(float(heading), time) for heading in headings
+            ])
+        perception_model.prediction = GMM(
             predict_delta_t=dt,
             trajectories=trajectories,
+            weights=weights,
+            covariances=covariances,
         )
-        log.debug("Predicted trajectories for %d agents over %d steps", len(agents), n_steps)
+        return perception_model
+
+
+class ConstantVelocityMultiTrajectory(ConstantVelocityForecast, PredictionStrategy):
+    """Constant-velocity heading fan as weighted polylines, without covariance.
+
+    Mode count is ``c15_multitrajectory_n_modes``. Writes ``MultiTrajectory``.
+    """
+
+    world_requirements = frozenset()
+    stack_requirements = frozenset({StackCapability.DETECTION, StackCapability.TRACKING})
+    stack_capabilities = frozenset({StackCapability.PREDICTION_MULTI_TRAJECTORY})
+
+    def predict(
+        self,
+        perception_model: PerceptionModel | None = None,
+        sensors: SensorFrame | None = None,
+    ) -> PerceptionModel:
+        if perception_model is None:
+            raise ValueError("perception_model is required for prediction")
+        dt, n_steps, _time = self.horizon()
+        agents = perception_model.agent_vehicles
+        n_modes = max(1, int(PerceptionSettings.c15_multitrajectory_n_modes))
+        trajectories: dict[int, np.ndarray] = {}
+        weights: dict[int, np.ndarray] = {}
+        for agent in agents:
+            headings, mode_weights = self.mode_fan(agent.theta, n_modes)
+            trajectories[agent.agent_id] = np.stack([
+                self.polyline(agent, float(heading), dt, n_steps) for heading in headings
+            ])
+            weights[agent.agent_id] = mode_weights
+        perception_model.prediction = MultiTrajectory(
+            predict_delta_t=dt,
+            trajectories=trajectories,
+            weights=weights,
+        )
         return perception_model
 
 

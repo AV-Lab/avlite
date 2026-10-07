@@ -186,7 +186,7 @@ Each profile is a single `configs/<profile>.yaml` file (e.g. `configs/default.ya
 - `c20_planning` — Planning parameters
 - `c30_control` — Controller tuning
 - `c40_execution` — Execution and simulator settings
-- `c69_apps` — App bootstrap (plugin lists, load gate, GUI profile selection)
+- `c69_apps` — App bootstrap (plugin lists, load gate, GUI profile selection, profile note)
 - `plugins:` — a mapping of plugin directory name to that plugin's settings (e.g. `p60_visualizer_tk`, `p60_headless_mode`, and any community plugins)
 
 Repo defaults ship in `{repo}/configs/`; user overrides live under `~/.config/avlite/` (or `AVLITE_CONFIG_DIR`). Reads prefer the user file and fall back to the repo copy; writes go to the user directory.
@@ -195,6 +195,7 @@ Repo defaults ship in `{repo}/configs/`; user overrides live under `~/.config/av
 
 - **Config tab** — profile dropdown, Save Settings (visualization + execution layers).
 - **Settings window** (`T`) — full stack editor, New/Delete/Rename profile, Save, **Export profile**, **Import profile**. The `default` profile cannot be deleted or renamed. The built-in app plugin hosting the open settings window (typically `p60_visualizer_tk`) cannot be removed from the profile plugin list while that window is running.
+- **Profile note** — text box on the settings-window profile pane, above **Edit repository configs**. Saved as `c60_profile_note` in the profile’s `c69_apps` section. When the active profile changes (toolbar dropdown, settings-window dropdown, or shortcut `F`) and the note is not blank, a message box shows it. Startup and reloading the same profile do not.
 - **Export profile** — reads the saved profile file from disk (save first if you have unsaved widget changes) and writes a single `<profile>.yaml`. Three checkboxes control inclusion: **Stack settings** (the four core layer sections), **App settings** (the `c69_apps` section), and **Plugin settings** (the `plugins` section); all are included by default.
 - **Import profile** — merges a profile `.yaml` into your config directory (profile name = file stem); confirms overwrite if it already exists.
 - **Edit repository configs** (settings window, dev only) — switches read/write between `~/.config/avlite/` and `{repo}/configs/` (no file copy) and refreshes the profile dropdown from the active target. Preference stored in `~/.config/avlite/config_target`. Hidden when bundled configs are unavailable. Uncheck to return to the user config dir.

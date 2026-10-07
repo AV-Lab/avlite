@@ -26,6 +26,17 @@ class _Mod:
         self.stack_requirements = reqs
 
 
+def _local_planner_may_use():
+    return MayUse(
+        StackCapability.DETECTION,
+        StackCapability.PREDICTION_TRAJECTORY,
+        StackCapability.PREDICTION_MULTI_TRAJECTORY,
+        StackCapability.PREDICTION_GP,
+        StackCapability.PREDICTION_GMM,
+        StackCapability.PREDICTION_OCCUPANCY,
+    )
+
+
 def test_combine_stack_requirements_preserves_any_of():
     mods = [
         _Mod({AnyOf(StackCapability.GLOBAL_PLAN, StackCapability.LOCAL_PLAN), StackCapability.LOCALIZATION}),
@@ -94,11 +105,11 @@ def test_concrete_local_planners_declare_contracts():
     assert ref.stack_capabilities == {StackCapability.LOCAL_PLAN}
 
     vel_pl = VelocityLocalPlanner(plan, pm)
-    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY) in vel_pl.stack_requirements
+    assert _local_planner_may_use() in vel_pl.stack_requirements
     assert vel_pl.stack_capabilities == {StackCapability.LOCAL_PLAN}
 
     greedy = GreedyLatticePlanner(plan, pm)
-    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY) in greedy.stack_requirements
+    assert _local_planner_may_use() in greedy.stack_requirements
     assert greedy.stack_capabilities == {StackCapability.LOCAL_PLAN}
 
 
@@ -295,9 +306,7 @@ def test_leaf_contracts_readable_without_init():
     assert FastBEVLidarDetection.stack_capabilities == frozenset({StackCapability.DETECTION})
     assert StackCapability.DETECTION in KalmanTracker.stack_requirements
     assert ConstantVelocityPrediction.stack_capabilities == frozenset({StackCapability.PREDICTION_TRAJECTORY})
-    assert MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY) in (
-        VelocityLocalPlanner.stack_requirements
-    )
+    assert _local_planner_may_use() in VelocityLocalPlanner.stack_requirements
     assert GreedyLatticePlanner.stack_capabilities == frozenset({StackCapability.LOCAL_PLAN})
 
     for cls in (HDMapGlobalPlanner, GlobalCenterlineRacePlanner, GlobalRacePlanner):

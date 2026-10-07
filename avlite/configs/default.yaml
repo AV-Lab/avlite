@@ -15,7 +15,11 @@ c10_perception:
   c15_detection_mu: 0.5
   c15_detection_z_max: 0.5
   c15_detection_z_min: -1.5
+  c15_gmm_n_modes: 3
+  c15_max_local_collision_probability: 0.05
+  c15_multitrajectory_n_modes: 3
   c15_prediction_horizon: 2.0
+  c15_probabilistic_collision_checking: false
   c15_tracking_dt: 0.1
   c15_tracking_gate_distance: 4.0
   c15_tracking_init_velocity_var: 25.0
@@ -33,7 +37,7 @@ c20_planning:
   c20_beside_agent_rear_window: 10.0
   c20_beside_agent_sweep_time: 4.0
   c20_boundary_margin: 0.25
-  c20_collision_safety_margin: 0.5
+  c20_ego_inflation_margin: 0.5
   c20_default_ego_velocity: 5.0
   c20_min_ramp_start_velocity: 3.0
   c20_min_velocity_threshold: 0.5
@@ -218,7 +222,6 @@ plugins:
     p67_local_plan_view: true
     p67_show_local_frenet_view: true
     p67_show_local_global_view: false
-    p67_show_occupancy_flow: false
     p67_show_perception_extras: false
     p67_show_prediction: true
     p68_disable_log: false

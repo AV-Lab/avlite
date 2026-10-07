@@ -6,6 +6,7 @@ import logging
 import math
 from typing import ClassVar
 
+from avlite.c40_execution.c42_execution_strategy import UnmetRequirements
 from avlite.c40_execution.c43_task_strategy import StackEvent, TaskSchedule, TaskStrategy
 from avlite.c50_common.c51_capabilities import satisfies_requirements
 
@@ -92,12 +93,19 @@ class MappingTask(TaskStrategy):
         if world_ok and stack_ok:
             mapping.update(perception_model=executer.pm, sensors=sensors, ego=ego)
         else:
-            log.warning(
-                f"Mapping strategy {mapping.__class__.__name__} requirements not satisfied "
-                f"(world_requirements {mapping.world_requirements} vs {executer.world.world_capabilities}; "
-                f"stack_requirements {mapping.stack_requirements} vs {executer.available_stack_capabilities()}). "
-                f"Skipping."
-            )
+            name = mapping.__class__.__name__
+            if not world_ok:
+                log.warning("%s", UnmetRequirements(
+                    f"Mapping strategy {name} world",
+                    mapping.world_requirements,
+                    executer.world.world_capabilities,
+                ))
+            if not stack_ok:
+                log.warning("%s", UnmetRequirements(
+                    f"Mapping strategy {name} stack",
+                    mapping.stack_requirements,
+                    executer.available_stack_capabilities(),
+                ))
 
     def reset(self) -> None:
         if self.mapping:

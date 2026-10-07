@@ -3,7 +3,11 @@ from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrate
 from avlite.c10_perception.c11_perception_model import (
     AggregatedOccupancyFlow,
     EgoState,
+    GMM,
+    GP,
     HDMap,
+    MultiTrajectory,
+    OccupancyFlow,
     OccupancyMap,
     SingleTrajectory,
 )
@@ -23,8 +27,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Polygon
-from matplotlib.collections import LineCollection
-from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.collections import LineCollection, PolyCollection
+from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba
 
 import logging
 
@@ -733,7 +737,11 @@ class LocalPlot:
     # Prediction polyline colours: agents ahead of the ego vs. agents behind it.
     PREDICTION_AHEAD_COLOR = "darkorange"
     PREDICTION_BEHIND_COLOR = "mediumpurple"
-    def __init__(self, max_plan_length=5, max_agent_count=12, show_occupancy_flow=True, occupancy_flow_shape=(100, 100), controller: Optional[ControlStrategy] = None):
+    # Gaussian contours drawn along a forecast. Opacity of a ring equals its percentile.
+    PREDICTION_PERCENTILES = (0.5, 0.95)
+    _ELLIPSE_STRIDE_S = 0.5
+    _ELLIPSE_SAMPLES = 24
+    def __init__(self, max_plan_length=5, max_agent_count=12, controller: Optional[ControlStrategy] = None):
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
         self.controller = controller
@@ -870,15 +878,31 @@ class LocalPlot:
         )
         self.ax2.add_collection(self.track_boundary_collection_ax2)
 
-        # Prediction trajectories: one dotted polyline per agent on both views. Colour is
-        # set per-frame (ahead vs. behind the ego) in update_perception_model_plots.
-        self.prediction_lines_ax1 = []
-        self.prediction_lines_ax2 = []
-        for _ in range(self.MAX_AGENT_COUNT):
-            l1, = self.ax1.plot([], [], color=self.PREDICTION_AHEAD_COLOR, linewidth=1.5, linestyle="dotted", zorder=3)
-            l2, = self.ax2.plot([], [], color=self.PREDICTION_AHEAD_COLOR, linewidth=1.5, linestyle="dotted", zorder=3)
-            self.prediction_lines_ax1.append(l1)
-            self.prediction_lines_ax2.append(l2)
+        # Prediction trajectories: one solid polyline per mode on both views. Colour
+        # (ahead vs. behind) and opacity (mode weight) are set per frame.
+        self.prediction_lines_ax1 = LineCollection([], linewidths=1.5, linestyles="solid", zorder=3)
+        self.prediction_lines_ax2 = LineCollection([], linewidths=1.5, linestyles="solid", zorder=3)
+        self.ax1.add_collection(self.prediction_lines_ax1)
+        self.ax2.add_collection(self.prediction_lines_ax2)
+        # Percentile ellipses for GP and GMM. Unfilled edges; opacity is the probability.
+        self.prediction_regions_ax1 = PolyCollection(
+            [], facecolors="none", edgecolors="none", linewidths=1.0, zorder=2,
+        )
+        self.prediction_regions_ax2 = PolyCollection(
+            [], facecolors="none", edgecolors="none", linewidths=1.0, zorder=2,
+        )
+        self.ax1.add_collection(self.prediction_regions_ax1)
+        self.ax2.add_collection(self.prediction_regions_ax2)
+        # Occupancy-flow cells. Under the vehicles. Never an image, so it cannot
+        # change the axes aspect or the view limits.
+        self.occupancy_flow_cells_ax1 = PolyCollection(
+            [], facecolors="none", edgecolors="none", linewidths=0.0, zorder=0.5,
+        )
+        self.occupancy_flow_cells_ax2 = PolyCollection(
+            [], facecolors="none", edgecolors="none", linewidths=0.0, zorder=0.5,
+        )
+        self.ax1.add_collection(self.occupancy_flow_cells_ax1)
+        self.ax2.add_collection(self.occupancy_flow_cells_ax2)
 
         self.legend_ax = self.fig.add_axes([0.0, -0.013, 1, 0.1])
         self.legend_ax.legend(
@@ -919,7 +943,11 @@ class LocalPlot:
         ]
         animated += self.local_plan_plots_ax1 + self.local_plan_plots_ax2
         animated += self.pm_plots_ax1 + self.pm_plots_ax2
-        animated += self.prediction_lines_ax1 + self.prediction_lines_ax2
+        animated += [
+            self.prediction_lines_ax1, self.prediction_lines_ax2,
+            self.prediction_regions_ax1, self.prediction_regions_ax2,
+            self.occupancy_flow_cells_ax1, self.occupancy_flow_cells_ax2,
+        ]
         for art in animated:
             self.blit_manager.add_artist(art)
 
@@ -939,7 +967,6 @@ class LocalPlot:
         num_plot_last_pts=100,
         global_follow_planner = False,
         frenet_follow_planner = False,
-        plot_occupancy_flow = False,
         plot_occupancy_map = False,
         plot_predictions = True,
         plot_lidar = False,
@@ -1050,7 +1077,12 @@ class LocalPlot:
         )
         self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
         self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
-        self.update_pm_occupancy_flow_plots(exec.pm, plot_occupancy_flow)
+        self.update_pm_occupancy_flow_plots(
+            exec.pm,
+            plot_predictions,
+            global_trajectory=exec.local_planner.global_trajectory,
+            show_frenet=show_frenet_view,
+        )
 
     def update_track_boundary_plot(
         self,
@@ -1372,8 +1404,7 @@ class LocalPlot:
             for i in range(self.MAX_AGENT_COUNT):
                 self.pm_plots_ax1[i].set_xy(np.empty((0, 2)))
                 self.pm_plots_ax2[i].set_xy(np.empty((0, 2)))
-                self.prediction_lines_ax1[i].set_data([], [])
-                self.prediction_lines_ax2[i].set_data([], [])
+            self._clear_prediction_drawings()
             return
 
         n = min(len(pm_agents.agent_vehicles), self.MAX_AGENT_COUNT)
@@ -1391,35 +1422,96 @@ class LocalPlot:
             self.pm_plots_ax1[j].set_xy(np.empty((0, 2)))
             self.pm_plots_ax2[j].set_xy(np.empty((0, 2)))
 
-        # Prediction trajectories (always from exec_pm; world_pm has no pipeline outputs)
-        pred = (
-            exec_pm.prediction
-            if show_prediction and isinstance(exec_pm.prediction, SingleTrajectory)
-            else None
-        )
-        use_prediction = pred is not None and len(pred.trajectories) > 0
-        if use_prediction:
+        # Prediction trajectories (always from exec_pm; world_pm has no pipeline outputs).
+        # Each mode is one polyline starting at the agent. Opacity is the mode weight.
+        # GP and GMM also draw a set of percentile ellipses; a lower probability is fainter.
+        pred = exec_pm.prediction if show_prediction else None
+        segments_xy: list[np.ndarray] = []
+        segments_sd: list[np.ndarray] = []
+        colors: list[tuple] = []
+        regions_xy: list[np.ndarray] = []
+        regions_sd: list[np.ndarray] = []
+        region_colors: list[tuple] = []
+        if isinstance(pred, (SingleTrajectory, GP, MultiTrajectory, GMM)):
             ego_hdg = np.array([np.cos(exec_pm.ego_vehicle.theta), np.sin(exec_pm.ego_vehicle.theta)])
-            for i, agent in enumerate(agents):
-                agent_path = pred.trajectories.get(agent.agent_id)
-                if agent_path is None:
-                    self.prediction_lines_ax1[i].set_data([], [])
-                    self.prediction_lines_ax2[i].set_data([], [])
+            for agent in agents:
+                if isinstance(pred, SingleTrajectory):
+                    path = pred.trajectories.get(agent.agent_id)
+                    modes = None if path is None else path.reshape(1, -1, 2)
+                    mode_weights = np.array([1.0])
+                elif isinstance(pred, GP):
+                    path = pred.means.get(agent.agent_id)
+                    modes = None if path is None else path.reshape(1, -1, 2)
+                    mode_weights = np.array([1.0])
+                else:
+                    modes = pred.trajectories.get(agent.agent_id)
+                    mode_weights = pred.weights.get(agent.agent_id)
+                    if modes is not None and (mode_weights is None or len(mode_weights) != len(modes)):
+                        mode_weights = np.ones(len(modes))
+                if modes is None or len(modes) == 0:
                     continue
-                # Agents ahead of the ego use the primary colour; agents behind are
-                # tinted differently so they read as informational rather than a lead.
                 to_agent = np.array([agent.x - exec_pm.ego_vehicle.x, agent.y - exec_pm.ego_vehicle.y])
                 color = self.PREDICTION_BEHIND_COLOR if float(np.dot(ego_hdg, to_agent)) < 0.0 \
                     else self.PREDICTION_AHEAD_COLOR
-                path_xy = np.vstack([[agent.x, agent.y], agent_path])
-                self.prediction_lines_ax1[i].set_data(path_xy[:, 0], path_xy[:, 1])
-                self.prediction_lines_ax1[i].set_color(color)
-                path_sd = global_trajectory.convert_xy_path_to_sd_path_np(path_xy)
-                self.prediction_lines_ax2[i].set_data(path_sd[:, 0], path_sd[:, 1])
-                self.prediction_lines_ax2[i].set_color(color)
-        for i in range(n if use_prediction else 0, self.MAX_AGENT_COUNT):
-            self.prediction_lines_ax1[i].set_data([], [])
-            self.prediction_lines_ax2[i].set_data([], [])
+                pose = np.array([agent.x, agent.y])
+                for mode_index, (mode, weight) in enumerate(zip(modes, mode_weights)):
+                    path_xy = np.vstack((pose, mode))
+                    segments_xy.append(path_xy)
+                    segments_sd.append(global_trajectory.convert_xy_path_to_sd_path_np(path_xy))
+                    colors.append(to_rgba(color, alpha=float(np.clip(weight, 0.0, 1.0))))
+                    if isinstance(pred, (GP, GMM)):
+                        self._append_prediction_ellipses(
+                            pred, agent.agent_id, mode_index, mode, float(weight), color,
+                            global_trajectory, regions_xy, regions_sd, region_colors,
+                        )
+        self.prediction_lines_ax1.set_segments(segments_xy)
+        self.prediction_lines_ax1.set_colors(colors)
+        self.prediction_lines_ax2.set_segments(segments_sd)
+        self.prediction_lines_ax2.set_colors(colors)
+        self._set_prediction_regions(regions_xy, regions_sd, region_colors)
+
+    def _clear_prediction_drawings(self) -> None:
+        self.prediction_lines_ax1.set_segments([])
+        self.prediction_lines_ax2.set_segments([])
+        self._set_prediction_regions([], [], [])
+
+    def _set_prediction_regions(self, xy: list[np.ndarray], sd: list[np.ndarray], colors: list[tuple]) -> None:
+        for collection, verts in (
+            (self.prediction_regions_ax1, xy),
+            (self.prediction_regions_ax2, sd),
+        ):
+            collection.set_verts(verts)
+            collection.set_alpha(None)
+            collection.set_facecolors("none")
+            collection.set_edgecolors(colors if colors else "none")
+
+    def _append_prediction_ellipses(
+        self,
+        pred: GP | GMM,
+        agent_id: int,
+        mode_index: int,
+        centers: np.ndarray,
+        weight: float,
+        color: str,
+        global_trajectory: TrajectoryTracker,
+        regions_xy: list[np.ndarray],
+        regions_sd: list[np.ndarray],
+        region_colors: list[tuple],
+    ) -> None:
+        """One pair of percentile ellipses every half-second, including the last step."""
+        n_steps = len(centers)
+        for step in _ellipse_step_indices(n_steps, float(pred.predict_delta_t), self._ELLIPSE_STRIDE_S):
+            cov = _prediction_step_covariance(pred, agent_id, mode_index, step)
+            if cov is None:
+                continue
+            center = np.asarray(centers[step], dtype=float)
+            for percentile in self.PREDICTION_PERCENTILES:
+                polygon = _ellipse_polygon(center, cov, percentile, self._ELLIPSE_SAMPLES)
+                if polygon is None:
+                    continue
+                regions_xy.append(polygon)
+                regions_sd.append(global_trajectory.convert_xy_path_to_sd_path_np(polygon))
+                region_colors.append(to_rgba(color, alpha=float(np.clip(weight, 0.0, 1.0)) * percentile))
 
     def update_lidar_plot(self, lidar_data, show_plot=True, global_trajectory=None, show_global=True, show_frenet=False):
         """Update the LiDAR scatter on ax1 (XY view) and ax2 (Frenet S-D view)."""
@@ -1453,39 +1545,70 @@ class LocalPlot:
         else:
             self.cluster_scatter_ax2.set_offsets(np.empty((0, 2)))
 
-    def update_pm_occupancy_flow_plots(self, pm: Optional[PerceptionModel]=None, show_plot=True):
-        if not show_plot or pm is None:
-            if hasattr(self, 'pm_occupancy_flow_ax1'):
-                self.pm_occupancy_flow_ax1.set_data(np.zeros((100, 100)))
-                self.pm_occupancy_flow_ax1.set_extent([0, 0, 0, 0])
+    _OCCUPANCY_FLOW_MIN = 0.02
+
+    def _clear_occupancy_flow_cells(self) -> None:
+        for collection in (self.occupancy_flow_cells_ax1, self.occupancy_flow_cells_ax2):
+            collection.set_verts([])
+            collection.set_facecolors("none")
+
+    def _ax1_limits(self) -> tuple[float, float, float, float]:
+        if self._ax1_window is not None:
+            return self._ax1_window
+        x0, x1 = self.ax1.get_xlim()
+        y0, y1 = self.ax1.get_ylim()
+        return (x0, x1, y0, y1)
+
+    def update_pm_occupancy_flow_plots(
+        self,
+        pm: Optional[PerceptionModel] = None,
+        show_plot=True,
+        global_trajectory=None,
+        show_frenet=False,
+    ):
+        shown = _occupancy_flow_image(pm.prediction) if show_plot and pm is not None else None
+        if shown is None:
+            self._clear_occupancy_flow_cells()
             return
-        pred = pm.prediction if isinstance(pm.prediction, AggregatedOccupancyFlow) else None
-        if pred is not None and pred.occupancy_flow:
-            grid = pred.occupancy_flow[0]
-            # Same window as OccupancyMap: cell (0, 0) lower-left is (origin_x, origin_y).
-            h, w = grid.shape
-            extent = [
-                pred.origin_x,
-                pred.origin_x + w * pred.resolution,
-                pred.origin_y,
-                pred.origin_y + h * pred.resolution,
-            ]
-            flow_sum = grid.T
-            if not hasattr(self, 'pm_occupancy_flow_ax1'):
-                flow_sum = np.sum(pred.occupancy_flow, axis=0)
-                self.pm_occupancy_flow_ax1 = self.ax1.imshow(
-                    flow_sum,
-                    origin='lower',
-                    extent=extent,
-                    cmap='plasma',
-                    vmin=0,
-                    vmax=1
-                )
-                # self.fig.colorbar(self.pm_occupancy_flow_ax1, ax=self.ax1, label='Occupancy')
-            else:
-                self.pm_occupancy_flow_ax1.set_data(flow_sum)
-                self.pm_occupancy_flow_ax1.set_extent(extent)
-            self.fig.canvas.draw_idle()
+        image, origin_x, origin_y, resolution = shown
+        x0, x1, y0, y1 = self._ax1_limits()
+        h, w = image.shape
+        c0 = max(0, int(np.floor((min(x0, x1) - origin_x) / resolution)))
+        c1 = min(w - 1, int(np.floor((max(x0, x1) - origin_x) / resolution)))
+        r0 = max(0, int(np.floor((min(y0, y1) - origin_y) / resolution)))
+        r1 = min(h - 1, int(np.floor((max(y0, y1) - origin_y) / resolution)))
+        if c1 < c0 or r1 < r0:
+            self._clear_occupancy_flow_cells()
+            return
+        sub = image[r0:r1 + 1, c0:c1 + 1]
+        rows, cols = np.nonzero(sub > self._OCCUPANCY_FLOW_MIN)
+        if len(rows) == 0:
+            self._clear_occupancy_flow_cells()
+            return
+        probs = sub[rows, cols]
+        rgba = np.array(plt.cm.plasma(np.clip(probs, 0.0, 1.0)), copy=True)
+        rgba[:, 3] = np.clip(probs, 0.0, 1.0)
+        x_left = origin_x + (cols + c0) * resolution
+        y_bottom = origin_y + (rows + r0) * resolution
+        quads = np.empty((len(rows), 4, 2))
+        quads[:, 0, 0] = x_left
+        quads[:, 0, 1] = y_bottom
+        quads[:, 1, 0] = x_left + resolution
+        quads[:, 1, 1] = y_bottom
+        quads[:, 2, 0] = x_left + resolution
+        quads[:, 2, 1] = y_bottom + resolution
+        quads[:, 3, 0] = x_left
+        quads[:, 3, 1] = y_bottom + resolution
+        _paint_occupancy_cells(self.occupancy_flow_cells_ax1, quads, rgba)
+        if show_frenet and global_trajectory is not None:
+            sd = np.asarray(
+                global_trajectory.convert_xy_path_to_sd_path_np(quads.reshape(-1, 2)),
+                dtype=float,
+            ).reshape(quads.shape)
+            _paint_occupancy_cells(self.occupancy_flow_cells_ax2, sd, rgba)
+        else:
+            self.occupancy_flow_cells_ax2.set_verts([])
+            self.occupancy_flow_cells_ax2.set_facecolors("none")
 
     def update_pm_occupancy_map_plots(self, pm: Optional[PerceptionModel] = None, show_plot=True):
         om = getattr(pm, "occupancy_map", None) if pm is not None else None
@@ -1695,3 +1818,93 @@ def _update_velocity_colored_line(collection, x, y, velocity, *, velocity_scale=
         if vmin == vmax:
             vmax = vmin + 1e-9
         collection.set_norm(Normalize(vmin=vmin, vmax=vmax))
+
+
+def _ellipse_step_indices(n_steps: int, dt: float, stride_s: float) -> list[int]:
+    """Forecast steps about every ``stride_s`` seconds, always including the last."""
+    if n_steps <= 0:
+        return []
+    stride = max(1, int(round(stride_s / dt))) if dt > 0.0 else n_steps
+    indices = list(range(stride - 1, n_steps, stride))
+    if not indices or indices[-1] != n_steps - 1:
+        indices.append(n_steps - 1)
+    return indices
+
+
+def _ellipse_polygon(center: np.ndarray, cov: np.ndarray, percentile: float, n: int) -> np.ndarray | None:
+    """Closed-enough sample of the 2D Gaussian contour at ``percentile``.
+
+    Semi-axes are ``sqrt(-2 ln(1 - p)) * sqrt(eigenvalues)``. A circular
+    covariance is the special case of equal axes.
+    """
+    if not 0.0 < percentile < 1.0:
+        return None
+    sym = np.asarray(cov, dtype=float)
+    if sym.shape != (2, 2) or not np.all(np.isfinite(sym)):
+        return None
+    sym = 0.5 * (sym + sym.T)
+    vals, vecs = np.linalg.eigh(sym)
+    vals = np.clip(vals, 0.0, None)
+    if float(vals[-1]) <= 0.0:
+        return None
+    radii = np.sqrt(-2.0 * np.log(1.0 - percentile)) * np.sqrt(vals)
+    theta = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
+    local = np.column_stack((np.cos(theta), np.sin(theta))) * radii
+    polygon = np.asarray(center, dtype=float) + local @ vecs.T
+    return np.vstack((polygon, polygon[:1]))
+
+
+def _prediction_step_covariance(pred: GP | GMM, agent_id: int, mode_index: int, step: int) -> np.ndarray | None:
+    """Marginal 2×2 at one forecast step. ``GP`` is stored ``[x0, y0, x1, y1, ...]``."""
+    if isinstance(pred, GP):
+        joint = pred.covariance.get(agent_id)
+        if joint is None:
+            return None
+        i = 2 * step
+        joint = np.asarray(joint)
+        if joint.ndim != 2 or joint.shape[0] < i + 2 or joint.shape[1] < i + 2:
+            return None
+        return joint[i:i + 2, i:i + 2]
+    covs = pred.covariances.get(agent_id)
+    if covs is None:
+        return None
+    covs = np.asarray(covs)
+    if covs.ndim != 4 or mode_index >= covs.shape[0] or step >= covs.shape[1]:
+        return None
+    return covs[mode_index, step]
+
+
+def _occupancy_flow_image(pred) -> tuple[np.ndarray, float, float, float] | None:
+    """Max-over-horizon occupancy. Per-agent grids combine with ``1 - Π(1 - p)``."""
+    if isinstance(pred, AggregatedOccupancyFlow):
+        grids = [np.asarray(g, dtype=float) for g in pred.occupancy_flow if np.size(g)]
+        if not grids:
+            return None
+        return np.maximum.reduce(grids), pred.origin_x, pred.origin_y, pred.resolution
+    if isinstance(pred, OccupancyFlow):
+        series = [steps for steps in pred.occupancy_flow.values() if steps]
+        if not series:
+            return None
+        n_steps = max(len(steps) for steps in series)
+        acc = None
+        for step in range(n_steps):
+            union = None
+            for steps in series:
+                if step >= len(steps) or np.size(steps[step]) == 0:
+                    continue
+                grid = np.clip(np.asarray(steps[step], dtype=float), 0.0, 1.0)
+                union = grid if union is None else 1.0 - (1.0 - union) * (1.0 - grid)
+            if union is None:
+                continue
+            acc = union if acc is None else np.maximum(acc, union)
+        if acc is None:
+            return None
+        return acc, pred.origin_x, pred.origin_y, pred.resolution
+    return None
+
+
+def _paint_occupancy_cells(collection: PolyCollection, quads: np.ndarray, rgba: np.ndarray) -> None:
+    collection.set_alpha(None)
+    collection.set_verts(quads)
+    collection.set_facecolors(rgba)
+    collection.set_edgecolors("none")

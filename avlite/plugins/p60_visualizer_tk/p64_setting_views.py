@@ -208,19 +208,19 @@ class SettingWindow:
 
     def _bind_window_keys(self) -> None:
         self.window.bind("<Control-s>", lambda e: self.save_profile())
-        self.window.bind("k", lambda e: self.canvas.yview_scroll(-1, "units"))
-        self.window.bind("j", lambda e: self.canvas.yview_scroll(1, "units"))
+        self.window.bind("k", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_scroll(-1, "units"))
+        self.window.bind("j", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_scroll(1, "units"))
         self.window.bind("<Control-u>", lambda e: self.canvas.yview_scroll(-5, "units"))
         self.window.bind(
             "<Control-d>",
             lambda e: self.canvas.yview_scroll(int(0.5 * self.host.setting.p68_log_view_default_height.get()), "units"),
         )
-        self.window.bind("G", lambda e: self.canvas.yview_moveto(1.0))
-        self.window.bind("g", lambda e: self.canvas.yview_moveto(0.0))
+        self.window.bind("G", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_moveto(1.0))
+        self.window.bind("g", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_moveto(0.0))
 
     def _build_profile_panel(self, profile_ext_frame: ttk.Frame) -> None:
         _s = self._dpi_scale
-        profile_ext_frame.rowconfigure(8, weight=1)
+        profile_ext_frame.rowconfigure(9, weight=1)
 
         ttk.Label(profile_ext_frame, text="Execution Profiles",style="Big.TLabel").grid(row=0, column=0, sticky="w", columnspan=3, padx=10, pady=5)
         ttk.Label(profile_ext_frame, text="Load Profile").grid(row=1, column=0, padx=5, pady=5)
@@ -268,18 +268,35 @@ class SettingWindow:
         )
         btn_reset_non_exec.grid(row=6, column=0, columnspan=3, padx=5, pady=5, sticky="we")
         HoverTooltip.attach(btn_reset_non_exec, BUTTON_TOOLTIPS["profile_reset_non_exec"])
+
+        note_frame = ttk.Frame(profile_ext_frame)
+        note_frame.grid(row=7, column=0, columnspan=3, sticky="we", padx=5, pady=5)
+        note_label = ttk.Label(note_frame, text="Profile note")
+        note_label.pack(anchor="w")
+        HoverTooltip.attach_schema(note_label, AppSettings, "c60_profile_note")
+        self.profile_note = tk.Text(
+            note_frame,
+            height=5,
+            wrap=tk.WORD,
+            width=max(28, DpiScale.scaled(32, _s)),
+            undo=True,
+        )
+        self.profile_note.pack(fill=tk.X)
+        self.profile_note.insert("1.0", AppSettings.c60_profile_note or "")
+        self.apply_profile_note_theme()
+
         if ConfigPaths.can_edit_bundled():
             self._edit_repo_configs_var = tk.BooleanVar(value=ConfigPaths.is_repo_target())
             cb_edit_repo = ttk.Checkbutton(
                 profile_ext_frame, text="Edit repository configs", variable=self._edit_repo_configs_var,
                 command=self._edit_repo_configs_toggle,
             )
-            cb_edit_repo.grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
+            cb_edit_repo.grid(row=8, column=0, columnspan=3, padx=5, pady=5, sticky="w")
             HoverTooltip.attach(cb_edit_repo, BUTTON_TOOLTIPS["edit_repo_configs"])
         ## Plugins
         ##############################################
         plugin_frame = ttk.LabelFrame(profile_ext_frame, text="Plugins")
-        plugin_frame.grid(row=8, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
+        plugin_frame.grid(row=9, column=0, columnspan=3, sticky="sew", padx=5, pady=5)
         plugin_frame.rowconfigure(3, weight=1)
         plugin_frame.rowconfigure(6, weight=1)
         plugin_frame.columnconfigure(0, weight=1)
@@ -501,12 +518,6 @@ class SettingWindow:
         )
         cb_show_prediction.pack(side=tk.LEFT)
         HoverTooltip.attach_schema(cb_show_prediction, VisualizationSettings, "p67_show_prediction")
-        cb_occupancy_flow = ttk.Checkbutton(
-            additional_setting_row_1d, text="Occupancy flow",
-            variable=self.host.setting.p67_show_occupancy_flow, command=self.host.update_ui,
-        )
-        cb_occupancy_flow.pack(side=tk.LEFT)
-        HoverTooltip.attach_schema(cb_occupancy_flow, VisualizationSettings, "p67_show_occupancy_flow")
         cb_occupancy_map = ttk.Checkbutton(
             additional_setting_row_1d, text="Occupancy map",
             variable=self.host.setting.p67_show_occupancy_map, command=self.host.update_ui,
@@ -967,6 +978,7 @@ class SettingWindow:
         )
         save_setting(ExecutionSettings, profile=profile, binder=binder)
         self.host.setting.sync_app_to_singleton()
+        AppSettings.c60_profile_note = self.profile_note.get("1.0", "end-1c")
         save_setting(AppSettings, profile=profile, binder=binder)
         save_setting(self.host.setting, profile=profile, binder=binder)
 
@@ -1003,9 +1015,12 @@ class SettingWindow:
         """ Load a profile from the settings. """
 
         log.info(f"loading profile: {profile}")
+        previous = self.host.loaded_profile
         binder = TkSettingsBinder()
         load_setting(AppSettings, profile=profile)
         self.host.setting.sync_app_from_singleton()
+        self.profile_note.delete("1.0", tk.END)
+        self.profile_note.insert("1.0", AppSettings.c60_profile_note or "")
         load_stack_settings(profile=profile)
         load_setting(self.host.setting, profile=profile, binder=binder)
         sync_stack_settings_to_ui(self.host.setting)
@@ -1022,6 +1037,26 @@ class SettingWindow:
         self._update_profile_action_states(profile)
         self._update_builtin_plugin_action_states()
         self.host.on_stack_settings_changed()
+        self.host.loaded_profile = profile
+        if previous is not None and previous != profile:
+            self.host.show_profile_note(self.window)
+
+    def apply_profile_note_theme(self) -> None:
+        """Match the note box to the current light or dark theme."""
+        dark = bool(self.host.setting.p60_dark_mode.get())
+        style = ttk.Style(self.window)
+        frame_bg = style.lookup("TFrame", "background") or ("gray14" if dark else "white")
+        field_bg = style.lookup("TEntry", "fieldbackground") or frame_bg
+        fg = style.lookup("TLabel", "foreground") or ("white" if dark else "black")
+        self.profile_note.configure(
+            bg=field_bg,
+            fg=fg,
+            insertbackground="white" if dark else "black",
+            highlightbackground=frame_bg,
+            highlightcolor=fg,
+            selectbackground="#444466" if dark else "#0078d7",
+            selectforeground="white",
+        )
 
     def update_community_plugin_widgets(self):
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
@@ -1508,6 +1543,8 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             self.setting_view.create_community_plugin_widgets()
             self.setting_view.update_core_widgets()
             self.setting_view.update_plugins_widgets()
+            self.setting_view.profile_note.delete("1.0", tk.END)
+            self.setting_view.profile_note.insert("1.0", AppSettings.c60_profile_note or "")
             log.info("Updated existing settings window")
 
     def open_plugins_window(self):

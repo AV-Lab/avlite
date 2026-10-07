@@ -34,6 +34,7 @@ from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     TkSettingsBinder,
     UiAssets,
     apply_ttk_theme,
+    stack_build_failure_text,
 )
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DataPicker
 from avlite.plugins.p60_visualizer_tk.p68_log_view import LogView
@@ -89,6 +90,7 @@ class VisualizerApp(tk.Tk):
         # Variables
         # ----------------------------------------------------------------------
         self.setting = VisualizationSettings()
+        self.loaded_profile = None
         self.setting.profile_list = list_profiles(AppSettings)
         startup = ConfigPaths.startup_profile()
         if startup and startup in self.setting.profile_list:
@@ -367,6 +369,9 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "log_view") and hasattr(self, "setting_shortcut_view"):
             self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
             self.setting_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+            settings_view = getattr(self.setting_shortcut_view, "setting_view", None)
+            if settings_view is not None and hasattr(settings_view, "apply_profile_note_theme"):
+                settings_view.apply_profile_note_theme()
 
         if hasattr(self, "menubar"):
             bg = "#333333"
@@ -385,6 +390,9 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "log_view") and hasattr(self, "setting_shortcut_view"):
             self.log_view.log_area.config(bg="white", fg="black")
             self.setting_shortcut_view.help_text.config(bg="white", fg="black")
+            settings_view = getattr(self.setting_shortcut_view, "setting_view", None)
+            if settings_view is not None and hasattr(settings_view, "apply_profile_note_theme"):
+                settings_view.apply_profile_note_theme()
 
         if hasattr(self, "setting"):
             self.setting.p60_bg_color = "white"
@@ -733,13 +741,21 @@ class VisualizerApp(tk.Tk):
         )
         self.exec.world.spawn_agent(agent_state, global_plan=global_plan)
 
+    def show_profile_note(self, parent) -> None:
+        """Show the active profile note when it has text."""
+        note = str(AppSettings.c60_profile_note or "").strip()
+        if not note:
+            return
+        messagebox.showinfo(self.setting.c60_selected_profile.get(), note, parent=parent)
+
     def load_settings(self, only_stack=False, profile=None):
         """Load settings from a profile or the current settings. Uses c55_setting_utils files plus UI housekeeping."""
         
         if profile:
             self.setting.c60_selected_profile.set(profile)
         else:
-            profile = self.setting.c60_selected_profile.get() 
+            profile = self.setting.c60_selected_profile.get()
+        previous = self.loaded_profile
         # load_setting(PerceptionSettings, profile=profile)
         # load_setting(PlanningSettings, profile=profile)
         # load_setting(ControlSettings, profile=profile)
@@ -764,6 +780,9 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "perceive_plan_control_view"):
             self.perceive_plan_control_view.reset()
         self.update_views()
+        self.loaded_profile = profile
+        if previous is not None and previous != profile:
+            self.show_profile_note(self)
 
     def on_community_plugins_changed(self) -> None:
         """Reload profile stack settings and refresh UI after plugin install/uninstall."""
@@ -866,7 +885,7 @@ class VisualizerApp(tk.Tk):
             title = "ROS not available" if isinstance(error, PluginEnv.Error) else "Reload failed"
             messagebox.showerror(
                 title,
-                f"Failed to rebuild the stack.\n\n{error}" if title == "Reload failed" else str(error),
+                stack_build_failure_text(error) if title == "Reload failed" else str(error),
                 parent=self,
             )
 

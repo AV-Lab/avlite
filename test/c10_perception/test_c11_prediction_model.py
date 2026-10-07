@@ -3,6 +3,7 @@ import numpy as np
 from avlite.c10_perception.c11_perception_model import (
     AgentState,
     AggregatedOccupancyFlow,
+    MultiTrajectory,
     OccupancyFlow,
     PerceptionModel,
     SingleTrajectory,
@@ -28,6 +29,27 @@ def test_single_trajectory_lookup_by_agent_id():
     assert isinstance(pm.prediction, SingleTrajectory)
     np.testing.assert_allclose(pm.prediction.trajectories[1], path1)
     np.testing.assert_allclose(pm.prediction.trajectories[2], path2)
+
+
+def test_multi_trajectory_default_predict_delta_t():
+    pred = MultiTrajectory()
+    assert pred.predict_delta_t == PerceptionSettings.c11_predict_delta_t
+
+
+def test_multi_trajectory_lookup_by_agent_id():
+    modes = np.array([
+        [[1.0, 0.0], [2.0, 0.0]],
+        [[1.0, 0.5], [2.0, 1.0]],
+    ])
+    weights = np.array([0.7, 0.3])
+    pm = PerceptionModel(
+        agent_vehicles=[AgentState(agent_id=1)],
+        prediction=MultiTrajectory(trajectories={1: modes}, weights={1: weights}),
+    )
+
+    assert isinstance(pm.prediction, MultiTrajectory)
+    np.testing.assert_allclose(pm.prediction.trajectories[1], modes)
+    np.testing.assert_allclose(pm.prediction.weights[1], weights)
 
 
 def test_agent_id_dict_survives_agent_list_reorder():

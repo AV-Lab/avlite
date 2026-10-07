@@ -283,7 +283,10 @@ and prediction trajectories for collision sweeps) but does not require for assem
 In the visualizer, click **ⓘ** (or right-click the Combobox) to inspect a strategy’s
 contract against the live stack and world bridge.
 
+`check_collision_2d`, `collision_probability_2d`, and `precompute_obstacle_polygons_2d` are the bird's-eye checks in the same `x, y` plane as the [state model](#state-model--today-vs-future). `z` is ignored.
+
 ```python
+from avlite import check_collision_2d, collision_probability_2d, precompute_obstacle_polygons_2d
 from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
 from avlite.c50_common.c51_capabilities import (
     MayUse,
@@ -446,7 +449,7 @@ The camera's coordinate frame is the **OpenCV optical frame**: x right, y down, 
 
 ### Prediction models on `PerceptionModel`
 
-Forecast payloads live on a single typed object: **`perception_model.prediction`**. Per-agent types store data in **`dict[int, …]` keyed by `agent_id`** (not list index). The lump-sum occupancy type is **`AggregatedOccupancyFlow`** (one grid sequence for the whole scene). Advertise the matching typed cap (`PREDICTION_TRAJECTORY`, `PREDICTION_GP`, `PREDICTION_GMM`, or `PREDICTION_OCCUPANCY`) — there is no generic `PREDICTION`. Consumers `MayUse` / `AnyOf` only the typed caps they actually read (built-in lattice and velocity planners: `PREDICTION_TRAJECTORY`).
+Forecast payloads live on a single typed object: **`perception_model.prediction`**. Per-agent types store data in **`dict[int, …]` keyed by `agent_id`** (not list index). The lump-sum occupancy type is **`AggregatedOccupancyFlow`** (one grid sequence for the whole scene). Advertise the matching typed cap (`PREDICTION_TRAJECTORY`, `PREDICTION_MULTI_TRAJECTORY`, `PREDICTION_GP`, `PREDICTION_GMM`, or `PREDICTION_OCCUPANCY`) — there is no generic `PREDICTION`. Consumers `MayUse` / `AnyOf` only the typed caps they actually read. Built-in lattice and velocity planners soft-use every prediction cap. Swept obstacle polygons (`precompute_obstacle_polygons_2d` and `check_collision_2d`) read a `SingleTrajectory` path, a `GP` mean, or the highest-weight `GMM` mean. `OccupancyFlow`, `AggregatedOccupancyFlow`, `MultiTrajectory`, and other forecasts warn on each polygon build and keep the current box. Those planners call `check_collision_2d` for a missing forecast, a `SingleTrajectory`, or when `c15_probabilistic_collision_checking` is off (the default). Any other forecast uses `collision_probability_2d` when that flag is on, and an edge collides when the probability is greater than `c15_max_local_collision_probability` (default `0.05`). `OccupancyFlow` and `AggregatedOccupancyFlow` take that probability from the maximum occupancy among cells the inflated ego box intersects, then the maximum across forecast steps. An `OccupancyFlow` agent uses its own grids. An `AggregatedOccupancyFlow` is one scene value. A `GP` mean stays the current box.
 
 ```python
 from avlite.c10_perception.c11_perception_model import PerceptionModel, SingleTrajectory
@@ -456,6 +459,18 @@ pm.prediction = SingleTrajectory(
     trajectories={agent.agent_id: path_xy for agent in pm.agent_vehicles},
 )
 path = pm.prediction.trajectories.get(agent.agent_id)  # [n_steps, 2] world x,y [m]
+```
+
+`modes_xy` is a placeholder array for one agent, shape `[n_modes, n_steps, 2]`: axis 0 is one alternative polyline (a mode), axis 1 is the time step (step `k` at `(k + 1) * predict_delta_t`, same as `SingleTrajectory`), and axis 2 is world `x`, `y` in meters. `modes_xy[i]` is one path with the same `[n_steps, 2]` layout as `path_xy` above; `mode_w[i]` is that path’s weight. Built-in local planners score a `MultiTrajectory` with `collision_probability_2d` only when `c15_probabilistic_collision_checking` is on (default off), and then collide when the probability is greater than `c15_max_local_collision_probability` (default `0.05`).
+
+```python
+from avlite.c10_perception.c11_perception_model import MultiTrajectory
+
+pm.prediction = MultiTrajectory(
+    predict_delta_t=0.1,
+    trajectories={agent.agent_id: modes_xy},  # mode, time step, then x, y
+    weights={agent.agent_id: mode_w},         # [n_modes], sum ≈ 1
+)
 ```
 
 Occupancy-flow types use the same world-frame window as **`OccupancyMap`**: `origin_x`, `origin_y`, `resolution` (not a string-key dict). Cell `(0, 0)` is the lower-left of the window; its lower-left corner is `(origin_x, origin_y)`. Row is +y, column is +x. Cell count is `grid.shape`. **`OccupancyFlow`** is per-agent (`dict[int, list[np.ndarray]]`); **`AggregatedOccupancyFlow`** is one scene-wide sequence.

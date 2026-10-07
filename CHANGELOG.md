@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+
+## [0.6.5] - 2026-10-07
+
+### Added
+- Common: `StackCapability.MAP_SEMANTIC` lets a strategy advertise a semantic map; no built-in type or `c40_map` loader yet.
+- Perception: `MultiTrajectory` (`PREDICTION_MULTI_TRAJECTORY`) — several `(x, y)` polylines per agent, each with a mode weight.
+- Perception: `c15_max_local_collision_probability` (default `0.05`) is the maximum collision probability lattice and velocity local planners accept. A missing forecast or a `SingleTrajectory` still uses swept polygons. When `c15_probabilistic_collision_checking` is on, `MultiTrajectory`, `GMM`, `GP`, `OccupancyFlow`, and `AggregatedOccupancyFlow` use `collision_probability_2d`; an edge collides when that probability is greater than the setting. A `GP` mean is scored as the current agent box. `OccupancyFlow` and `AggregatedOccupancyFlow` use the maximum occupancy of the grid cells the ego box intersects.
+- Perception: `c15_probabilistic_collision_checking` (default off) gates that switch. The **Probabilistic Collision Checking** checkbox on the Local Planning header sets it. Off keeps the swept-polygon check.
+- Settings: `c60_profile_note` on each profile (`c69_apps`). Edit it in the settings window above **Edit repository configs**. A non-empty note opens a message box when that profile is selected. The shipped Mapping profile explains occupancy mapping and keyboard driving.
+- Common: `collision_probability_2d` — time-aligned bird's-eye probability that an ego trajectory meets an agent, using `MultiTrajectory`, `GMM`, or `SingleTrajectory`. `check_collision_2d`, `precompute_obstacle_polygons_2d`, and `collision_probability_2d` are exported from `avlite`. `z` is ignored.
+- Perception: `ConstantVelocityGP`, `ConstantVelocityGMM`, and `ConstantVelocityMultiTrajectory` extrapolate each agent at constant velocity into a `GP`, `GMM`, or `MultiTrajectory`. Mode counts are `c15_gmm_n_modes` and `c15_multitrajectory_n_modes`. Position spread is longer along the heading (`2 * t`) than across it (`0.8 * t`). Mode weights stay within the same order of magnitude across the heading fan. The Tk plot draws the mean and a set of 50% and 95% ellipses; mode lines and ellipses use opacity equal to probability.
+- Perception: `ConstantVelocityOccupancyFlow` rasterizes that same Gaussian into a per-agent `OccupancyFlow`. The occupancy-flow layer shows the highest probability each cell reaches, with opacity equal to that probability.
+
+### Changed
+- **Breaking** — Planning: `c20_collision_safety_margin` is `c20_ego_inflation_margin` (`check_collision_2d`'s argument follows). Saved profiles that still have the old key fall back to the schema default.
+- Visualizer: the Reload failed dialog names the missing capabilities (`MAP_RACE_TRACK`, `any of (A, B)`) and lists what was required and what is available. The stack error itself is one line and does not dump `frozenset` reprs. A skipped perception, localization, or mapping tick logs that same one line.
+- Common: swept obstacle polygons (`precompute_obstacle_polygons_2d`, and `check_collision_2d` when polygons are not supplied) follow a `SingleTrajectory` path, a `GP` mean, or the highest-weight `GMM` mean. `OccupancyFlow`, `AggregatedOccupancyFlow`, `MultiTrajectory`, and other forecasts warn on each polygon build and keep the current agent box. The no-polygon path no longer constant-velocity-extrapolates movers.
+
 ## [0.6.4] - 2026-09-22
 
 ### Changed
