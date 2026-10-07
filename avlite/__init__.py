@@ -79,6 +79,7 @@ _LAZY: dict[str, str] = {
     "AgentType": "avlite.c10_perception.c11_perception_model",
     "EGO_AGENT_ID": "avlite.c10_perception.c11_perception_model",
     "SingleTrajectory": "avlite.c10_perception.c11_perception_model",
+    "MultiTrajectory": "avlite.c10_perception.c11_perception_model",
     "Map": "avlite.c10_perception.c11_perception_model",
     "HDMap": "avlite.c10_perception.c11_perception_model",
     "RaceMap": "avlite.c10_perception.c11_perception_model",
@@ -118,6 +119,9 @@ _LAZY: dict[str, str] = {
     "control_type_for_agent": "avlite.c50_common.c53_stack_datatypes",
     # -- Trajectory ---------------------------------------------------------
     "TrajectoryTracker": "avlite.c50_common.c54_trajectory_tracker",
+    "check_collision_2d": "avlite.c50_common.c55_collision_checking",
+    "collision_probability_2d": "avlite.c50_common.c55_collision_checking",
+    "precompute_obstacle_polygons_2d": "avlite.c50_common.c55_collision_checking",
     # -- Runtime helpers ----------------------------------------------------
     "executor_factory": "avlite.c60_apps.c62_factory",
     "load_stack_settings": "avlite.c60_apps.c62_factory",
@@ -155,6 +159,7 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         EgoState,
         HDMap,
         Map,
+        MultiTrajectory,
         OccupancyMap,
         PerceptionModel,
         RaceMap,
@@ -232,6 +237,11 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         datatype_for,
     )
     from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
+    from avlite.c50_common.c55_collision_checking import (
+        check_collision_2d,
+        collision_probability_2d,
+        precompute_obstacle_polygons_2d,
+    )
     from avlite.c60_apps.c61_app_strategy import AppStrategy
     from avlite.c60_apps.c62_factory import executor_factory, load_stack_settings
     from avlite.c60_apps.c69_settings import AppSettings

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import tkinter as tk
+from tkinter import messagebox
 
 from avlite.c60_apps.c61_app_strategy import AppStrategy
 from avlite.c60_apps.c69_settings import AppSettings
@@ -36,6 +37,7 @@ class SettingAppHost(tk.Tk):
         self.geometry(f"{DpiScale.scaled(900, _s)}x{DpiScale.scaled(700, _s)}")
 
         self.setting = VisualizationSettings()
+        self.loaded_profile = None
         self.setting.profile_list = list_profiles(AppSettings)
         startup = ConfigPaths.startup_profile()
         if startup and startup in self.setting.profile_list:
@@ -52,11 +54,19 @@ class SettingAppHost(tk.Tk):
         except ValueError:
             return False
 
+    def show_profile_note(self, parent) -> None:
+        """Show the active profile note when it has text."""
+        note = str(AppSettings.c60_profile_note or "").strip()
+        if not note:
+            return
+        messagebox.showinfo(self.setting.c60_selected_profile.get(), note, parent=parent)
+
     def load_settings(self, only_stack: bool = False, profile: str | None = None) -> None:
         if profile:
             self.setting.c60_selected_profile.set(profile)
         else:
             profile = self.setting.c60_selected_profile.get()
+        previous = self.loaded_profile
         binder = TkSettingsBinder()
         load_setting(AppSettings, profile=profile)
         self.setting.sync_app_from_singleton()
@@ -66,6 +76,9 @@ class SettingAppHost(tk.Tk):
         sync_stack_settings_to_ui(self.setting)
         ConfigPaths.set_startup_profile(profile)
         log.info("Loaded settings from profile: %s", profile)
+        self.loaded_profile = profile
+        if previous is not None and previous != profile:
+            self.show_profile_note(self)
 
     def on_stack_settings_changed(self) -> None:
         pass

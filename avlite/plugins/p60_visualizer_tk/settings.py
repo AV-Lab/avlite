@@ -71,10 +71,9 @@ class PluginSettingsSchema(SettingsSchema):
     p66_xy_zoom: float = Field(default=30, description="XY plot zoom level.")
     p66_frenet_zoom: float = Field(default=30, description="Frenet plot zoom level.")
     p66_global_zoom: float = Field(default=30, description="Global plot zoom level.")
-    p67_show_occupancy_flow: bool = Field(default=False, description="Show occupancy flow visualization.")
     p67_show_occupancy_map: bool = Field(default=False, description="Show occupancy-grid map visualization.")
     p67_show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
-    p67_show_prediction: bool = Field(default=True, description="Show predicted agent trajectories on plots.")
+    p67_show_prediction: bool = Field(default=True, description="Show predicted trajectories, ellipses, and occupancy flow on plots.")
     p67_global_plan_view: bool = Field(default=True, description="Show global plan panel.")
     p67_local_plan_view: bool = Field(default=True, description="Show local plan panel.")
 
@@ -140,7 +139,6 @@ class VisualizationSettings:
         self.p66_frenet_zoom = 30
         self.p66_global_zoom = 30
 
-        self.p67_show_occupancy_flow = tk.BooleanVar(value=False)
         self.p67_show_occupancy_map = tk.BooleanVar(value=False)
         self.p67_show_perception_extras = tk.BooleanVar(value=False)
         self.p67_show_prediction = tk.BooleanVar(value=True)
@@ -229,6 +227,19 @@ class VisualizationSettings:
             ExecutionSettings.c40_local_planner = self.local_planner_type.get()
 
         self.local_planner_type.trace_add("write", _on_local_plan_change)
+
+        self.probabilistic_collision_checking = tk.BooleanVar(
+            value=PerceptionSettings.c15_probabilistic_collision_checking,
+        )
+
+        def _on_probabilistic_collision_change(*_args):
+            if self._syncing_stack:
+                return
+            PerceptionSettings.c15_probabilistic_collision_checking = bool(
+                self.probabilistic_collision_checking.get()
+            )
+
+        self.probabilistic_collision_checking.trace_add("write", _on_probabilistic_collision_change)
 
         self.behavioral_strategy_type = tk.StringVar(value=PlanningSettings.c23_behavioral_strategy)
 
@@ -508,6 +519,9 @@ class VisualizationSettings:
             self.mapping_type.set(es.c40_mapping or "")
             self.global_planner_type.set(es.c40_global_planner or "")
             self.local_planner_type.set(es.c40_local_planner or "")
+            self.probabilistic_collision_checking.set(
+                PerceptionSettings.c15_probabilistic_collision_checking
+            )
             self.controller_type.set(es.c40_controller or "")
             self.execution_tasks.set(",".join(es.c40_execution_tasks or []))
             self.executer_type.set(

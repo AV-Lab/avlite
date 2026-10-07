@@ -31,6 +31,7 @@ class StackCapability(Enum):
     DETECTION = auto()  # Whether the strategy supports detection
     TRACKING = auto()  # Whether the strategy supports tracking
     PREDICTION_TRAJECTORY = auto()  # SingleTrajectory forecast per agent
+    PREDICTION_MULTI_TRAJECTORY = auto()  # MultiTrajectory forecast per agent
     PREDICTION_GP = auto()  # Gaussian-process forecast per agent
     PREDICTION_GMM = auto()  # Gaussian-mixture forecast per agent
     PREDICTION_OCCUPANCY = auto()  # Occupancy-grid forecast (per-agent or aggregated)
@@ -42,6 +43,7 @@ class StackCapability(Enum):
     MAP_HD = auto()  # Whether the strategy provides an HD / OpenDRIVE map
     MAP_RACE_TRACK = auto()  # Whether the strategy provides a race-track corridor map
     MAP_OCCUPANCY = auto()  # Whether the strategy provides a lidar occupancy grid
+    MAP_SEMANTIC = auto()  # Whether the strategy provides a semantic map
     SLAM = auto()  # Whether the strategy provides simultaneous localization and mapping
 
 

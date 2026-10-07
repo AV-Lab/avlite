@@ -7,7 +7,7 @@ from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import VelocityLocalPlanner
 from avlite.c20_planning.c29_settings import PlanningSettingsSchema
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
-from avlite.c50_common.c55_collision_checking import check_collision
+from avlite.c50_common.c55_collision_checking import check_collision_2d
 
 
 def _straight_global_plan(x_end: float = 100.0, n: int = 20, velocity: float = 5.0) -> GlobalPlan:
@@ -47,7 +47,7 @@ class TestVelocityLocalPlanner:
         planner.replan()
 
         velocity = np.asarray(planner.get_local_plan().velocity)
-        hit, collision_idx, *_ = check_collision(pm, global_plan.trajectory)
+        hit, collision_idx, *_ = check_collision_2d(pm, global_plan.trajectory)
         assert hit is True
         assert np.mean(velocity) < np.mean(global_plan.velocity)
         assert velocity[collision_idx:].max() < 0.5
@@ -118,7 +118,7 @@ class TestVelocityLocalPlanner:
         assert tj is not None
         # Must commit brake at current_wp, not only later along the path.
         assert tj.velocity[tj.current_wp] <= ego_v - 0.5
-        hit, collision_idx, *_ = check_collision(pm, tj)
+        hit, collision_idx, *_ = check_collision_2d(pm, tj)
         assert hit is True
         assert tj.velocity[collision_idx:].max() <= 0.5
 

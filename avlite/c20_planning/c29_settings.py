@@ -9,9 +9,9 @@ class PlanningSettingsSchema(SettingsSchema):
     filepath: ClassVar[str] = "configs/c20_planning.yaml"
     
     c20_boundary_margin: float = Field(default=0.25, description="Inset applied to global plan boundaries from race boundary or HD map lane borders (m).",)
-    c20_collision_safety_margin: float = Field(
+    c20_ego_inflation_margin: float = Field(
         default=0.5,
-        description="Extra clearance added to the ego side of collision checks (m). Expands the buffered trajectory corridor beyond half the ego width before intersecting obstacles.",
+        description="Extra clearance added around the ego in collision checks (m). check_collision_2d adds this to the corridor radius beyond half the ego width.",
     )
     c20_obstacle_inflation_margin: float = Field(
         default=0.5,

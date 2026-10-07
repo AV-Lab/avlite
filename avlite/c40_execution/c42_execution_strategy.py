@@ -20,7 +20,7 @@ from avlite.c40_execution.c43_task_strategy import (
     TaskRunner,
     TaskStrategy,
 )
-from avlite.c50_common.c51_capabilities import StackCapability, satisfies_requirements
+from avlite.c50_common.c51_capabilities import AnyOf, MayUse, StackCapability, satisfies_requirements
 from avlite.c50_common.c52_world_sensor_datatypes import SensorFrame
 from avlite.c50_common.c53_stack_datatypes import capabilities_for
 from avlite.c50_common.c56_fps_tracker import FpsTracker
@@ -192,21 +192,19 @@ class ExecutionStrategy(ABC):
         """Raise on unmet module stack_requirements; warn on world deps and duplicates."""
         available = self.available_stack_capabilities()
         if not satisfies_requirements(self.world.stack_requirements, available):
-            log.warning(
-                "world bridge %s stack_requirements not satisfied: required %s "
-                "(available: %s).",
-                type(self.world).__name__,
+            log.warning("%s", UnmetRequirements(
+                f"world bridge {type(self.world).__name__}",
                 self.world.stack_requirements,
                 available,
-            )
+            ))
         for label, module in self._stack_modules():
             if module is None:
                 continue
             if not satisfies_requirements(module.stack_requirements, available):
-                raise ValueError(
-                    f"{label} strategy {module.__class__.__name__} stack_requirements "
-                    f"not satisfied: required {module.stack_requirements} "
-                    f"(available: {available})."
+                raise UnmetRequirements(
+                    f"{label} {module.__class__.__name__}",
+                    module.stack_requirements,
+                    available,
                 )
 
         providers: dict = {}
@@ -220,10 +218,10 @@ class ExecutionStrategy(ABC):
                 providers.setdefault(cap, []).append(f"{label}/{module.__class__.__name__}")
         for task in self.task_runner.tasks:
             if not satisfies_requirements(task.stack_requirements, available):
-                raise ValueError(
-                    f"task {task.__class__.__name__} stack_requirements "
-                    f"not satisfied: required {task.stack_requirements} "
-                    f"(available: {available})."
+                raise UnmetRequirements(
+                    f"task {task.__class__.__name__}",
+                    task.stack_requirements,
+                    available,
                 )
             for cap in task.stack_capabilities:
                 providers.setdefault(cap, []).append(f"task/{task.__class__.__name__}")
@@ -282,12 +280,19 @@ class ExecutionStrategy(ABC):
                 self.pm.stack_event = None
                 self.task_runner.notify(event)
         else:
-            log.warning(
-                f"Localization strategy {self.localization.__class__.__name__} requirements not satisfied "
-                f"(world_requirements {self.localization.world_requirements} vs {self.world.world_capabilities}; "
-                f"stack_requirements {self.localization.stack_requirements} vs {self.available_stack_capabilities()}). "
-                f"Skipping."
-            )
+            name = self.localization.__class__.__name__
+            if not world_ok:
+                log.warning("%s", UnmetRequirements(
+                    f"Localization strategy {name} world",
+                    self.localization.world_requirements,
+                    self.world.world_capabilities,
+                ))
+            if not stack_ok:
+                log.warning("%s", UnmetRequirements(
+                    f"Localization strategy {name} stack",
+                    self.localization.stack_requirements,
+                    self.available_stack_capabilities(),
+                ))
 
     def _perception_step(self, sensors: SensorFrame) -> None:
         """Run one perception iteration on the caller-supplied tick snapshot."""
@@ -298,12 +303,19 @@ class ExecutionStrategy(ABC):
         world_ok = satisfies_requirements(self.perception.world_requirements, self.world.world_capabilities)
         stack_ok = satisfies_requirements(self.perception.stack_requirements, self.available_stack_capabilities())
         if not (world_ok and stack_ok):
-            log.debug(
-                f"Perception strategy {self.perception.__class__.__name__} requirements not satisfied "
-                f"(world_requirements {self.perception.world_requirements} vs {self.world.world_capabilities}; "
-                f"stack_requirements {self.perception.stack_requirements} vs {self.available_stack_capabilities()}). "
-                f"Skipping perception step."
-            )
+            name = self.perception.__class__.__name__
+            if not world_ok:
+                log.debug("%s", UnmetRequirements(
+                    f"Perception strategy {name} world",
+                    self.perception.world_requirements,
+                    self.world.world_capabilities,
+                ))
+            if not stack_ok:
+                log.debug("%s", UnmetRequirements(
+                    f"Perception strategy {name} stack",
+                    self.perception.stack_requirements,
+                    self.available_stack_capabilities(),
+                ))
             return
 
         if is_world_stack_capability_enabled(StackCapability.DETECTION):
@@ -381,3 +393,46 @@ class ExecutionStrategy(ABC):
         super().__init_subclass__(**kwargs)
         if not abstract:
             ExecutionStrategy.registry[cls.__name__] = cls
+
+
+class UnmetRequirements(ValueError):
+    """Hard requirements the assembled stack does not provide.
+
+    ``subject`` names who is missing them. ``requirements`` and ``available``
+    are the sets that were compared. The message is one line of capability names.
+    """
+
+    def __init__(self, subject: str, requirements, available):
+        self.subject = subject
+        self.requirements = requirements
+        self.available = available
+        super().__init__(f"{subject} is missing {self.names(self._missing())}.")
+
+    def _missing(self) -> list:
+        unmet = []
+        for req in self.requirements:
+            if MayUse.matches(req):
+                continue
+            if AnyOf.matches(req):
+                if not (req.capabilities & self.available):
+                    unmet.append(req)
+            elif req not in self.available:
+                unmet.append(req)
+        return unmet
+
+    @staticmethod
+    def names(requirements) -> str:
+        """Comma-separated capability names. Empty is ``(none)``."""
+        if not requirements:
+            return "(none)"
+        return ", ".join(sorted(UnmetRequirements._label(req) for req in requirements))
+
+    @staticmethod
+    def _label(req) -> str:
+        if AnyOf.matches(req):
+            listed = ", ".join(sorted(cap.name for cap in req.capabilities))
+            return f"any of ({listed})"
+        if MayUse.matches(req):
+            listed = ", ".join(sorted(cap.name for cap in req.capabilities))
+            return f"optional ({listed})"
+        return req.name

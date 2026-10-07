@@ -9,7 +9,7 @@ import pytest
 
 from avlite.c10_perception.c11_perception_model import EgoState, HDMap, PerceptionModel, RaceMap
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner
-from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
+from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy, UnmetRequirements
 from avlite.c40_execution.c46_basic_sim import BasicSim
 from avlite.c50_common.c51_capabilities import StackCapability
 
@@ -49,7 +49,7 @@ def test_validate_stack_raises_unmet_map():
     pm = PerceptionModel(ego_vehicle=ego)
     world = BasicSim(ego_state=ego, pm=pm, map=None)
     gp = GlobalCenterlineRacePlanner(_race_map())
-    with pytest.raises(ValueError, match="stack_requirements not satisfied"):
+    with pytest.raises(UnmetRequirements) as exc:
         _StubExecuter(
             perception_model=pm,
             perception=None,
@@ -58,6 +58,11 @@ def test_validate_stack_raises_unmet_map():
             controller=None,
             world=world,
         )
+    err = exc.value
+    assert err.subject == "global planner GlobalCenterlineRacePlanner"
+    assert str(err) == "global planner GlobalCenterlineRacePlanner is missing MAP_RACE_TRACK."
+    assert "frozenset" not in str(err)
+    assert "required:" not in str(err)
 
 
 def test_validate_stack_raises_typed_map_mismatch(minimal_opendrive_path):
@@ -68,7 +73,7 @@ def test_validate_stack_raises_typed_map_mismatch(minimal_opendrive_path):
     pm.map = hd_map
     world = BasicSim(ego_state=ego, pm=pm, map=None)
     gp = GlobalCenterlineRacePlanner(_race_map())
-    with pytest.raises(ValueError, match="stack_requirements not satisfied"):
+    with pytest.raises(UnmetRequirements) as exc:
         _StubExecuter(
             perception_model=pm,
             perception=None,
@@ -77,6 +82,11 @@ def test_validate_stack_raises_typed_map_mismatch(minimal_opendrive_path):
             controller=None,
             world=world,
         )
+    err = exc.value
+    assert "missing MAP_RACE_TRACK" in str(err)
+    assert "frozenset" not in str(err)
+    assert StackCapability.MAP_HD in err.available
+    assert StackCapability.MAP_RACE_TRACK not in err.available
 
 
 def test_validate_stack_warns_unmet_world_control():
@@ -94,7 +104,10 @@ def test_validate_stack_warns_unmet_world_control():
             world=world,
         )
     assert any(
-        "world bridge" in str(c) and "CONTROL" in str(c) and "stack_requirements not satisfied" in str(c)
+        "world bridge" in str(c)
+        and "BasicSim" in str(c)
+        and "CONTROL" in str(c)
+        and "frozenset" not in str(c)
         for c in warn.call_args_list
     )
 

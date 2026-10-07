@@ -86,6 +86,16 @@ class SingleTrajectory(PredictionModelBase):
 
 
 @dataclass
+class MultiTrajectory(PredictionModelBase):
+    """Several (x, y) polylines per agent, each with a mode weight."""
+
+    # agent_id -> [n_modes, n_steps, 2] world x,y [m]; step k at (k+1) * predict_delta_t.
+    trajectories: dict[int, np.ndarray] = field(default_factory=dict)
+    # agent_id -> [n_modes] mode weights (sum ≈ 1).
+    weights: dict[int, np.ndarray] = field(default_factory=dict)
+
+
+@dataclass
 class GP(PredictionModelBase):
     """Gaussian-process forecast per agent (mean + joint covariance)."""
 

@@ -11,6 +11,7 @@ from avlite.c10_perception.c11_perception_model import (
     GMM,
     HDMap,
     Map,
+    MultiTrajectory,
     OccupancyFlow,
     OccupancyMap,
     PerceptionModel,
@@ -35,13 +36,16 @@ from avlite.c50_common.c53_stack_datatypes import (
 
 
 def test_every_stack_capability_has_datatype():
-    assert set(STACK_CAPABILITY_DATATYPES) == set(StackCapability)
+    # MAP_SEMANTIC has no payload type yet, so datatype_for is not called for it.
+    unbound = {StackCapability.MAP_SEMANTIC}
+    assert set(STACK_CAPABILITY_DATATYPES) == set(StackCapability) - unbound
 
 
 def test_datatype_for_known_mappings():
     assert datatype_for(StackCapability.DETECTION) is PerceptionModel
     assert datatype_for(StackCapability.TRACKING) is PerceptionModel
     assert datatype_for(StackCapability.PREDICTION_TRAJECTORY) is SingleTrajectory
+    assert datatype_for(StackCapability.PREDICTION_MULTI_TRAJECTORY) is MultiTrajectory
     assert datatype_for(StackCapability.PREDICTION_GP) is GP
     assert datatype_for(StackCapability.PREDICTION_GMM) is GMM
     assert datatype_for(StackCapability.PREDICTION_OCCUPANCY) == (
@@ -70,6 +74,7 @@ def test_capabilities_for_reverse_lookup():
     assert capabilities_for(RaceMap) == frozenset({StackCapability.MAP_RACE_TRACK})
     assert capabilities_for(OccupancyMap) == frozenset({StackCapability.MAP_OCCUPANCY})
     assert capabilities_for(SingleTrajectory) == frozenset({StackCapability.PREDICTION_TRAJECTORY})
+    assert capabilities_for(MultiTrajectory) == frozenset({StackCapability.PREDICTION_MULTI_TRAJECTORY})
     assert capabilities_for(GP) == frozenset({StackCapability.PREDICTION_GP})
     assert capabilities_for(GMM) == frozenset({StackCapability.PREDICTION_GMM})
     assert capabilities_for(OccupancyFlow) == frozenset({StackCapability.PREDICTION_OCCUPANCY})

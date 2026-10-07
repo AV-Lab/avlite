@@ -22,6 +22,7 @@ from avlite.c40_execution.c41_world_bridge import (
     is_world_capability_enabled,
     is_world_stack_capability_enabled,
 )
+from avlite.c40_execution.c42_execution_strategy import UnmetRequirements
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_common.c51_capabilities import (
     AnyOf,
@@ -478,12 +479,14 @@ CAPABILITY_TOOLTIPS: dict = {
     StackCapability.DETECTION: "Ground-truth object detections provided by the world.",
     StackCapability.TRACKING: "Ground-truth object tracks provided by the world.",
     StackCapability.PREDICTION_TRAJECTORY: "Deterministic (x, y) polyline forecast per agent.",
+    StackCapability.PREDICTION_MULTI_TRAJECTORY: "Several (x, y) polyline forecasts per agent, each with a mode weight.",
     StackCapability.PREDICTION_GP: "Gaussian-process forecast (mean + covariance) per agent.",
     StackCapability.PREDICTION_GMM: "Gaussian-mixture multi-modal forecast per agent.",
     StackCapability.PREDICTION_OCCUPANCY: "Occupancy-grid forecast (per-agent or scene-wide).",
     StackCapability.LOCALIZATION: "Ground-truth ego localization provided by the world.",
     StackCapability.MAP_HD: "HD / OpenDRIVE map provided by a mapping module.",
     StackCapability.MAP_RACE_TRACK: "Race-track corridor map provided by a mapping module.",
+    StackCapability.MAP_SEMANTIC: "Semantic map provided by a strategy.",
     StackCapability.SLAM: "Ground-truth simultaneous localization and mapping from the world.",
     StackCapability.LOCAL_PLAN: "Ground-truth local plan provided by the world.",
     StackCapability.GLOBAL_PLAN: "Ground-truth global plan provided by the world.",
@@ -528,8 +531,8 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "profile_new": "Create a new execution profile folder.",
     "profile_delete": "Delete the selected profile (the default profile is protected).",
     "profile_save": "Save all settings into the selected profile.",
-    "profile_export": "Export the profile as a zip archive.",
-    "profile_import": "Import a profile from a zip archive.",
+    "profile_export": "Export the profile as a yaml.",
+    "profile_import": "Import a profile from a yaml.",
     "profile_rename": "Rename the selected profile.",
     "profile_reset_all": "Reset every module setting to source-code defaults.",
     "profile_reset_non_exec": "Reset all settings except execution to defaults.",
@@ -995,6 +998,49 @@ def _pack_labeled_cap_row(parent, label: str, caps, available: set, *, soft: boo
         else:
             color = _CONTRACT_MET if present else _CONTRACT_UNMET
         ttk.Label(row, text=cap.name, foreground=color).pack(side=tk.LEFT)
+
+
+def _capability_lines(requirements) -> list[str]:
+    """One indented line per capability so a narrow message box does not wrap a list."""
+    if not requirements:
+        return ["  (none)"]
+    plain = []
+    groups = []
+    for req in requirements:
+        if AnyOf.matches(req) or MayUse.matches(req):
+            groups.append(req)
+        else:
+            plain.append(req)
+    lines = [f"  {cap.name}" for cap in sorted(plain, key=lambda c: c.name)]
+
+    def group_key(req):
+        kind = "any of" if AnyOf.matches(req) else "optional"
+        members = tuple(sorted(cap.name for cap in req.capabilities))
+        return (kind, members)
+
+    for req in sorted(groups, key=group_key):
+        lines.append("  any of" if AnyOf.matches(req) else "  optional")
+        for cap in sorted(req.capabilities, key=lambda c: c.name):
+            lines.append(f"    {cap.name}")
+    return lines
+
+
+def stack_build_failure_text(error) -> str:
+    """Reload-failed dialog. Only ``UnmetRequirements`` gets the name layout."""
+    if not isinstance(error, UnmetRequirements):
+        return f"Failed to rebuild the stack.\n\n{error}"
+    return "\n".join([
+        error.subject,
+        "",
+        "Missing",
+        *_capability_lines(error._missing()),
+        "",
+        "Required",
+        *_capability_lines(error.requirements),
+        "",
+        "Available",
+        *_capability_lines(error.available),
+    ])
 
 
 def _mentioned_caps(requirements: set) -> set:

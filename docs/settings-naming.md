@@ -10,11 +10,11 @@ Each profile is a single `configs/<profile>.yaml` file whose top-level keys are 
    Example: only `c15_perception_algs.py` reads detection params → `c15_detection_z_min`.
 
 2. **Multiple consumer modules** in the same layer package → `c{decade}_{name}`  
-   Example: `c28_local_lattice_planners.py` and `c27_local_behavioral_and_velocity_planners.py` both use collision margin → `c20_collision_safety_margin`.
+   Example: `c28_local_lattice_planners.py` and `c27_local_behavioral_and_velocity_planners.py` both use the ego inflation margin → `c20_ego_inflation_margin`.
 
 3. **Cross-layer orchestration** → setting lives on the **consuming** layer’s settings class, prefixed by the consumer module.  
    Example: default map path in `c62_factory.py` → `ExecutionSettings.c40_map`.  
-   App bootstrap lives on `AppSettings` in c60: plugin lists and load gate use `c62_*` (consumer `c62_factory`); active profile selection uses `c60_selected_profile`; ROS 2 distro uses `c60_ros_distro` (settings-window Plugins pane).
+   App bootstrap lives on `AppSettings` in c60: plugin lists and load gate use `c62_*` (consumer `c62_factory`); active profile selection uses `c60_selected_profile`; the per-profile comment uses `c60_profile_note` (settings-window profile pane; shown in a message box when that profile is selected); ROS 2 distro uses `c60_ros_distro` (settings-window Plugins pane).
 
 4. **Built-in Tk plugin (`p60_visualizer_tk`)** — prefix identifies the **consumer module**, not the settings file:
    - Single consumer → `p{NN}_{name}` (e.g. `p68_log_font` → `p68_log_view.py`)
@@ -34,7 +34,7 @@ All sections below live in the single per-profile file `configs/<profile>.yaml` 
 | Planning | `avlite/c20_planning/c29_settings.py` | `c20_planning` |
 | Control | `avlite/c30_control/c39_settings.py` | `c30_control` |
 | Execution | `avlite/c40_execution/c49_settings.py` | `c40_execution` |
-| Apps (bootstrap) | `avlite/c60_apps/c69_settings.py` (schema; plugin lists and `c60_ros_distro` have custom Tk on the profile pane) | `c69_apps` |
+| Apps (bootstrap) | `avlite/c60_apps/c69_settings.py` (schema; plugin lists, `c60_ros_distro`, and `c60_profile_note` have custom Tk on the profile pane) | `c69_apps` |
 | Visualization | `avlite/plugins/p60_visualizer_tk/settings.py` (`PluginSettingsSchema`) | `plugins.p60_visualizer_tk` |
 
 Notable execution fields:

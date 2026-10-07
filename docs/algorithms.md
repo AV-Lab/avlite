@@ -201,7 +201,7 @@ Lateral nodes are sampled uniformly between lane boundaries minus `c28_boundary_
 T_{\text{pred}} = \frac{\text{planning\_horizon} \times \text{maneuver\_distance}}{v_{\text{ego}}}
 \]
 
-Ahead agents with `|v| > c20_min_velocity_threshold` get swept polygons from `pm.prediction` over that horizon; slower or behind agents use their current inflated footprint only.
+When `pm.prediction` is missing, a `SingleTrajectory`, or `c15_probabilistic_collision_checking` is off (the default), collision checking uses swept polygons: a `SingleTrajectory` path, a `GP` mean, or the highest-weight `GMM` mean, over the horizon for ahead agents with `|v| > c20_min_velocity_threshold`. `MultiTrajectory` and occupancy flow warn and keep the current box. Slower or behind agents use their current inflated footprint only. With the flag on, `MultiTrajectory`, `GMM`, `GP`, `OccupancyFlow`, and `AggregatedOccupancyFlow` skip the sweep and use `collision_probability_2d`. An edge collides when that probability is greater than `c15_max_local_collision_probability` (default `0.05`). A `GP` mean is still scored only as the current agent box. `OccupancyFlow` takes each agent's probability from the maximum occupancy of the cells the ego box intersects, then the maximum across forecast steps. `AggregatedOccupancyFlow` scores its one scene grid the same way.
 
 ### Edge feasibility
 
@@ -209,7 +209,7 @@ Each edge is evaluated on three axes:
 
 | Check | Meaning | Where stored / computed |
 |-------|---------|-------------------------|
-| **Collision** | Ego footprint intersects an agent polygon along the edge | `edge.collision`, `edge.collision_idx`, `edge.collision_agent_velocity` |
+| **Collision** | Missing forecast, `SingleTrajectory`, or `c15_probabilistic_collision_checking` off (default): ego footprint intersects an agent polygon. Flag on and any other forecast: `collision_probability_2d` is greater than `c15_max_local_collision_probability` (default `0.05`). A `GP` mean is scored as the current box. Occupancy grids use the maximum occupancy of the cells the ego box intersects | `edge.collision`, `edge.collision_idx`, `edge.collision_agent_velocity` |
 | **Boundary** | Any path point exits `[right_boundary + clearance, left_boundary − clearance]` | `edge.boundary_violation` |
 | **Curvature** | `max_curvature(edge) ≤ a_lat / v²` with ego speed (floored at `c28_min_curvature_velocity`) | `_is_curvature_feasible()` at selection time |
 
@@ -354,13 +354,13 @@ Used by lattice, velocity planner, and global boundary inset.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `c20_collision_safety_margin` | `0.3` | Extra clearance on the ego side of collision checks (m); expands the buffered trajectory corridor beyond half the ego width |
+| `c20_ego_inflation_margin` | `0.3` | Extra clearance around the ego in collision checks (m); added to the corridor radius beyond half the ego width |
 | `c20_obstacle_inflation_margin` | `0.5` | Extra clearance around agent obstacle polygons in collision checks (m); inflates each agent bbox or prediction sweep before intersecting the ego corridor |
 | `c20_default_ego_velocity` | `5.0` | Assumed ego speed when velocity is unknown (m/s) |
 | `c20_min_velocity_threshold` | `0.5` | Agent speed gate for collision prediction (m/s); at or below this \|v\|, agents are static and `pm.prediction` is not used for swept obstacles |
 | `c20_boundary_margin` | `0.0` | Global plan boundary inset from track or HD map edges (m) |
 
-Effective clearance between nominal vehicle bodies is approximately `c20_collision_safety_margin` (ego) plus `c20_obstacle_inflation_margin` (agents), on top of vehicle widths. Agents with `|v| ≤ c20_min_velocity_threshold` use their current footprint only; prediction sweeps apply only to ahead, moving agents.
+Effective clearance between nominal vehicle bodies is approximately `c20_ego_inflation_margin` (ego) plus `c20_obstacle_inflation_margin` (agents), on top of vehicle widths. Agents with `|v| ≤ c20_min_velocity_threshold` use their current footprint only; prediction sweeps apply only to ahead, moving agents.
 
 ### Velocity planner (`c27_*`)
 

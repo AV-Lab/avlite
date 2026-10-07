@@ -17,6 +17,7 @@ from typing import Dict, Optional
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
+from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalPlan
 from avlite.c20_planning.c23_local_planning_strategy import (
     LocalPathPlanningStrategy,
@@ -26,7 +27,7 @@ from avlite.c20_planning.c27_local_behavioral_and_velocity_planners import Veloc
 from avlite.c20_planning.c29_settings import PlanningSettings, PlanningSettingsSchema
 from avlite.c50_common.c51_capabilities import MayUse, StackCapability
 from avlite.c50_common.c54_trajectory_tracker import TrajectoryTracker
-from avlite.c50_common.c55_collision_checking import check_collision, precompute_obstacle_polygons
+from avlite.c50_common.c55_collision_checking import check_collision_2d, precompute_obstacle_polygons_2d
 
 log = logging.getLogger(__name__)
 
@@ -170,14 +171,15 @@ class Lattice:
                 self.lattice_nodes_by_level[l].append(n_)
 
     def generate_lattice_from_nodes(self, pm: Optional[PerceptionModel] = None):
-        # Pre-build all obstacle polygons once (swept for movers, plain for statics).
-        # This avoids re-constructing N_agents polygons inside every edge's check_collision call.
+        # Pre-build obstacle polygons once for a missing forecast or a SingleTrajectory.
+        # Probabilistic forecasts use collision_probability_2d and skip this sweep.
         obstacle_polygons = None
-        if pm is not None and len(pm.agent_vehicles) > 0:
+        probabilistic = pm is not None and PerceptionSettings.c15_probabilistic_collision_checking
+        if pm is not None and len(pm.agent_vehicles) > 0 and not probabilistic:
             # Predict obstacles over the full planning horizon: horizon_dist / ego_vel
             ego_vel = max(pm.ego_vehicle.velocity, PlanningSettings.c20_default_ego_velocity)
             maneuver_dist = getattr(self, 'maneuver_distance', 30.0)
-            obstacle_polygons = precompute_obstacle_polygons(
+            obstacle_polygons = precompute_obstacle_polygons_2d(
                 pm,
                 total_time=self.planning_horizon * maneuver_dist / ego_vel,
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
@@ -192,11 +194,11 @@ class Lattice:
                     edge = Edge(start=node, end=next_node, global_tj=self.global_trajectory, num_of_points=self.num_of_points)
                     if pm is not None:
                         (edge.collision, edge.collision_idx,
-                         edge.collision_agent_velocity, edge.min_clearance) = check_collision(
+                         edge.collision_agent_velocity, edge.min_clearance) = check_collision_2d(
                             pm, edge.local_trajectory,
                             obstacle_polygons=obstacle_polygons,
                             min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
-                            collision_safety_margin=PlanningSettings.c20_collision_safety_margin,
+                            ego_inflation_margin=PlanningSettings.c20_ego_inflation_margin,
                             default_ego_velocity=PlanningSettings.c20_default_ego_velocity,
                         )
                     edge.boundary_violation = self._check_boundary_violation(edge)
@@ -540,7 +542,14 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
     stack_requirements = frozenset({
         StackCapability.GLOBAL_PLAN,
         StackCapability.LOCALIZATION,
-        MayUse(StackCapability.DETECTION, StackCapability.PREDICTION_TRAJECTORY),
+        MayUse(
+            StackCapability.DETECTION,
+            StackCapability.PREDICTION_TRAJECTORY,
+            StackCapability.PREDICTION_MULTI_TRAJECTORY,
+            StackCapability.PREDICTION_GP,
+            StackCapability.PREDICTION_GMM,
+            StackCapability.PREDICTION_OCCUPANCY,
+        ),
     })
     stack_capabilities = frozenset({StackCapability.LOCAL_PLAN})
 
@@ -906,11 +915,11 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
             x_rnd, y_rnd = self.global_trajectory.convert_sd_to_xy(s_new, d_rnd)
             candidate_nodes.append(Node(s_new, d_rnd, x_rnd, y_rnd))
 
-        # Build obstacle polygons once for all candidate edges.
+        # Build obstacle polygons once for all candidate edges, unless the forecast is probabilistic.
         obstacle_polygons = None
-        if len(self.pm.agent_vehicles) > 0:
+        if len(self.pm.agent_vehicles) > 0 and not PerceptionSettings.c15_probabilistic_collision_checking:
             ego_vel = max(self.pm.ego_vehicle.velocity, PlanningSettings.c20_default_ego_velocity)
-            obstacle_polygons = precompute_obstacle_polygons(
+            obstacle_polygons = precompute_obstacle_polygons_2d(
                 self.pm,
                 total_time=self.maneuver_distance / ego_vel,
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
@@ -929,11 +938,11 @@ class GreedyLatticePlanner(LatticePlanningStrategy, LocalPathPlanningStrategy):
                 num_of_points=self.num_of_edge_points,
             )
             (edge.collision, edge.collision_idx,
-             edge.collision_agent_velocity, edge.min_clearance) = check_collision(
+             edge.collision_agent_velocity, edge.min_clearance) = check_collision_2d(
                 self.pm, edge.local_trajectory,
                 obstacle_polygons=obstacle_polygons,
                 min_velocity_threshold=PlanningSettings.c20_min_velocity_threshold,
-                collision_safety_margin=PlanningSettings.c20_collision_safety_margin,
+                ego_inflation_margin=PlanningSettings.c20_ego_inflation_margin,
                 default_ego_velocity=PlanningSettings.c20_default_ego_velocity,
             )
             edge.boundary_violation = self.lattice._check_boundary_violation(edge)

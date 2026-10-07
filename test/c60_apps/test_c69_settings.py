@@ -47,6 +47,19 @@ def test_load_stack_settings_reads_app_settings(monkeypatch, tmp_path):
     assert AppSettings.c62_default_plugins == ["p60_headless_mode"]
 
 
+def test_load_setting_profile_note(monkeypatch, tmp_path):
+    note = (
+        "This profile runs occupancy mapping.\n\n"
+        "Keyboard is how you drive to create the map."
+    )
+    monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
+    (tmp_path / "Mapping.yaml").write_text(
+        yaml.dump({"c69_apps": {"c60_profile_note": note}})
+    )
+    assert load_setting(AppSettings, profile="Mapping")
+    assert AppSettings.c60_profile_note == note
+
+
 def test_load_setting_app_profile(monkeypatch, tmp_path):
     monkeypatch.setenv("AVLITE_CONFIG_DIR", str(tmp_path))
     (tmp_path / "hdmap.yaml").write_text(
