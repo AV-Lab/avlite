@@ -396,12 +396,51 @@ class _PluginOperations:
         for entry in sorted(plugins_dir.iterdir()):
             if not entry.is_dir() or entry.name.startswith("."):
                 continue
+            load_path = PluginPaths.plugin_load_dir(entry)
             out.append({
                 "name": entry.name,
                 "path": entry,
-                "has_init": (entry / "__init__.py").exists(),
+                "has_init": (load_path / "__init__.py").exists(),
             })
         return out
+
+    @staticmethod
+    def _repository_relative_path(
+        repository_path: Path,
+        value: object,
+        *,
+        field: str,
+        default: str = "",
+    ) -> Path:
+        """Resolve a registry path inside a cloned repository without escapes."""
+        root = repository_path.resolve()
+        raw = str(value or default).strip()
+        relative = Path(raw)
+        if relative.is_absolute():
+            raise ValueError(f"{field} must be relative to the plugin repository")
+        candidate = (root / relative).resolve()
+        if candidate != root and root not in candidate.parents:
+            raise ValueError(f"{field} escapes the plugin repository: {raw}")
+        return candidate
+
+    @staticmethod
+    def plugin_load_path(repository_path: Path, entry: Optional[dict]) -> Path:
+        """Return the registry-selected package directory for a cloned plugin."""
+        return _PluginOperations._repository_relative_path(
+            repository_path,
+            (entry or {}).get("plugin_subdir", ""),
+            field="plugin_subdir",
+        )
+
+    @staticmethod
+    def requirements_path(repository_path: Path, entry: Optional[dict]) -> Path:
+        """Return the registry-selected requirements file for a cloned plugin."""
+        return _PluginOperations._repository_relative_path(
+            repository_path,
+            (entry or {}).get("requirements_file", ""),
+            field="requirements_file",
+            default="requirements.txt",
+        )
 
     @staticmethod
     def install_plugin(entry: dict, plugins_dir: Path, *, token: Optional[str] = None) -> Path:
@@ -443,6 +482,27 @@ class _PluginOperations:
         if version and version != "latest":
             log.info("Checking out version %s", version)
             _GitOperations._run_git(["-C", str(target), "checkout", version], timeout=60)
+
+        try:
+            load_path = _PluginOperations.plugin_load_path(target, entry)
+            if entry.get("plugin_subdir"):
+                if not load_path.is_dir():
+                    raise FileNotFoundError(
+                        f"plugin_subdir does not exist: {entry['plugin_subdir']}"
+                    )
+                if not (load_path / "__init__.py").is_file():
+                    raise FileNotFoundError(
+                        f"plugin_subdir has no __init__.py: {entry['plugin_subdir']}"
+                    )
+            requirements_path = _PluginOperations.requirements_path(target, entry)
+            if entry.get("requirements_file") and not requirements_path.is_file():
+                raise FileNotFoundError(
+                    f"requirements_file does not exist: {entry['requirements_file']}"
+                )
+        except Exception:
+            shutil.rmtree(target)
+            raise
+
         meta = {
             key: entry[key]
             for key in (
@@ -452,6 +512,8 @@ class _PluginOperations:
                 "min_ros_version",
                 "max_ros_version",
                 "min_avlite_version",
+                "plugin_subdir",
+                "requirements_file",
             )
             if key in entry
         }
@@ -459,6 +521,15 @@ class _PluginOperations:
             (target / ".avlite-registry.yaml").write_text(
                 yaml.safe_dump(meta, sort_keys=False), encoding="utf-8"
             )
+            if load_path != target:
+                runtime_meta = {
+                    key: value
+                    for key, value in meta.items()
+                    if key not in {"plugin_subdir", "requirements_file"}
+                }
+                (load_path / ".avlite-registry.yaml").write_text(
+                    yaml.safe_dump(runtime_meta, sort_keys=False), encoding="utf-8"
+                )
         return target
 
     @staticmethod
@@ -500,13 +571,14 @@ class _PluginOperations:
         return missing, mismatched
 
     @staticmethod
-    def pip_install(req_file: Path) -> None:
+    def pip_install(req_file: Path, *, cwd: Optional[Path] = None) -> None:
         """Install requirements from ``req_file`` into the current interpreter."""
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
             check=True,
             capture_output=True,
             text=True,
+            cwd=str(cwd) if cwd is not None else None,
         )
 
     @staticmethod
@@ -1732,7 +1804,11 @@ class _PluginRegistryPanel(ttk.Frame):
                 return
             self._update_statuses.pop(name, None)
             self._handle_requirements(
-                name, plugin_path, parent=parent, install_deps=False
+                name,
+                plugin_path,
+                parent=parent,
+                install_deps=False,
+                registry_entry=registry_entry,
             )
             self._set_busy(False, f"Updated {name}.")
             self._populate()
@@ -1782,7 +1858,11 @@ class _PluginRegistryPanel(ttk.Frame):
                 if path is None:
                     continue
                 self._handle_requirements(
-                    name, path, parent=self.window, install_deps=False
+                    name,
+                    path,
+                    parent=self.window,
+                    install_deps=False,
+                    registry_entry=registry_by_name.get(name),
                 )
             updated = len(names) - len(errors or [])
             self._set_busy(False, f"Updated {updated} plugin(s).")
@@ -1838,7 +1918,9 @@ class _PluginRegistryPanel(ttk.Frame):
                 self._set_busy(False, f"Install failed: {msg}")
                 messagebox.showerror("Install failed", msg, parent=parent)
                 return
-            self._handle_requirements(name, path, parent=parent)
+            self._handle_requirements(
+                name, path, parent=parent, registry_entry=entry
+            )
             notes = _PluginOperations.dependency_notes(entry)
             if notes:
                 messagebox.showinfo(
@@ -1897,11 +1979,14 @@ class _PluginRegistryPanel(ttk.Frame):
         *,
         parent: Optional[tk.Misc] = None,
         install_deps: bool = True,
+        registry_entry: Optional[dict] = None,
     ) -> None:
         """Post-install/update prompts: requirements.txt, then optional ``<name>.yaml``."""
         parent = parent or self.window
         if install_deps:
-            req_file = plugin_path / "requirements.txt"
+            req_file = _PluginOperations.requirements_path(
+                plugin_path, registry_entry
+            )
             if req_file.exists():
                 missing, mismatched = _PluginOperations.check_requirements(req_file)
                 if mismatched:
@@ -1918,7 +2003,7 @@ class _PluginRegistryPanel(ttk.Frame):
                     parent=parent,
                 ):
                     try:
-                        _PluginOperations.pip_install(req_file)
+                        _PluginOperations.pip_install(req_file, cwd=plugin_path)
                     except subprocess.CalledProcessError as e:
                         detail = "\n".join(p for p in (e.stdout, e.stderr) if p) or str(e)
                         messagebox.showerror(
