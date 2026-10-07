@@ -306,31 +306,47 @@ class AsyncThreadedExecuter(ExecutionStrategy):
 
     def stop(self):
         # Safe to call from a worker: set stopped, join peers, never join self.
+        # A worker can block inside a world call for block_timeout.
         super().stop()
         current = threading.current_thread()
         threads = list(self.threads)
         count = sum(1 for t in threads if t and t.is_alive())
-        for t in threads:
-            if t and t.is_alive():
-                log.info(f"Stopping thread {t.name}")
-
         try:
-            for t in threads:
-                if t and t.is_alive() and t is not current:
-                    t.join(timeout=1.0)
-                    if t.is_alive():
-                        log.warning(f"Thread {t.name} is still running after stop request")
-        finally:
-            log.info(
-                f"Async Executer Threads Stopped. {count}/{len(threads)} threads signaled to stop."
-            )
+            timeout = float(self.world.block_timeout)
+        except (TypeError, ValueError, AttributeError):
+            timeout = 2.0
+        if timeout != timeout or timeout in (float("inf"), float("-inf")) or timeout < 0:
+            timeout = 2.0
+        timeout += 0.25
+        for t in threads:
+            if t and t.is_alive() and t is not current:
+                log.info(f"Stopping thread {t.name}")
+                t.join(timeout=timeout)
+                if t.is_alive():
+                    log.warning(f"Thread {t.name} is still running after {timeout:.1f}s")
+        # Drop only threads that have exited. The caller is unwinding, so it is
+        # not kept even though it is still the current frame.
+        alive = [t for t in threads if t and t.is_alive() and t is not current]
+        if alive:
+            self.threads = alive
+            if self.planner_thread not in alive:
+                self.planner_thread = None
+            if self.controller_thread not in alive:
+                self.controller_thread = None
+            if self.perception_thread not in alive:
+                self.perception_thread = None
+            self.threads_started = True
+        else:
             self.threads = []
             self.planner_thread = None
             self.controller_thread = None
             self.perception_thread = None
             self.threads_started = False
-            # In-flight worker may restamp after ExecutionStrategy.stop() cleared this.
-            self._last_sim_wall_t = None
+        log.info(
+            f"Async Executer Threads Stopped. {count}/{len(threads)} threads signaled to stop."
+        )
+        # In-flight worker may restamp after ExecutionStrategy.stop() cleared this.
+        self._last_sim_wall_t = None
 
     def create_threads(self):
         log.info(f"Creating threads...")

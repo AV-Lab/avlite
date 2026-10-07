@@ -260,11 +260,13 @@ def sync_community_plugins(allowed: dict[str, str]) -> None:
 
 def find_community_plugin_dir(import_seg: str) -> Path | None:
     """Map a Python import segment back to a community plugin install directory."""
-    for root in (
-        PluginPaths.install_dir(),
-        PluginPaths.community_dev_dir(),
-        PluginPaths.private_dev_dir(),
-    ):
+    roots = [PluginPaths.install_dir()]
+    dev_roots = (PluginPaths.community_dev_dir(), PluginPaths.private_dev_dir())
+    if PluginPaths.is_dev_mode():
+        roots = [*dev_roots, *roots]
+    else:
+        roots.extend(dev_roots)
+    for root in roots:
         found = _CommunityPluginPaths.match_community_plugin_dir(import_seg, root)
         if found is not None:
             return found
@@ -354,6 +356,20 @@ def import_plugin_modules(
             continue
         package_prefix = plugin_module_prefix(pkg_name if directory else pkg_path.name)
         log.info("Importing package: %s from %s", package_prefix, pkg_path)
+        # A previous import may have cached this package from another checkout.
+        # Drop those modules so this directory is the one that executes.
+        pkg_resolved = pkg_path.resolve()
+        prefix = package_prefix + "."
+        for name in list(sys.modules):
+            if name != package_prefix and not name.startswith(prefix):
+                continue
+            origin = getattr(sys.modules[name], "__file__", None)
+            if not origin:
+                continue
+            try:
+                Path(origin).resolve().relative_to(pkg_resolved)
+            except ValueError:
+                del sys.modules[name]
 
         init_py_path = pkg_path / "__init__.py"
         if not init_py_path.exists():

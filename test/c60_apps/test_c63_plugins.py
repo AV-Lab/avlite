@@ -136,6 +136,35 @@ def test_find_community_plugin_dir_from_install_dir(monkeypatch, tmp_path):
     assert found == install.resolve()
 
 
+def test_dev_mode_prefers_checkout_over_install(monkeypatch, tmp_path):
+    install = tmp_path / "plugins" / _PLUGIN_NAME
+    install.mkdir(parents=True)
+    dev = tmp_path / "avlite-community-plugins" / _PLUGIN_NAME
+    dev.mkdir(parents=True)
+    monkeypatch.setenv("AVLITE_PLUGINS_DIR", str(tmp_path / "plugins"))
+    monkeypatch.setattr(PluginPaths, "repo_root", staticmethod(lambda: tmp_path))
+    monkeypatch.setattr(PluginPaths, "is_dev_mode", staticmethod(lambda: True))
+
+    found = find_community_plugin_dir("avlite_executer_ROS2")
+    assert found == dev.resolve()
+
+
+def test_import_plugin_modules_replaces_stale_checkout(dashed_plugin, tmp_path):
+    prefix = plugin_module_prefix(_PLUGIN_NAME)
+    stale_dir = tmp_path / "stale"
+    stale_dir.mkdir()
+    stale_file = stale_dir / "settings.py"
+    stale_file.write_text(_SETTINGS_BODY, encoding="utf-8")
+    stale = types.ModuleType(f"{prefix}.settings")
+    stale.__file__ = str(stale_file)
+    sys.modules[f"{prefix}.settings"] = stale
+
+    import_plugin_modules(str(dashed_plugin), pkg_name=_PLUGIN_NAME)
+
+    loaded = sys.modules[f"{prefix}.settings"]
+    assert Path(loaded.__file__).resolve() == (dashed_plugin / "settings.py").resolve()
+
+
 def test_find_community_plugin_dir_from_community_dev(monkeypatch, tmp_path):
     dev = tmp_path / "avlite-community-plugins" / _PLUGIN_NAME
     dev.mkdir(parents=True)

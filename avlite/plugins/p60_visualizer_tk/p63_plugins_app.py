@@ -918,6 +918,73 @@ class _DeviceFlowDialog:
             self.window.after(0, lambda err=exc: self._finish(None, None, err))
 
 
+class _BusyIndicator:
+    """Indeterminate bar for registry actions.
+
+    The slot stays packed so the window does not jump. Equilux's trough image
+    is light, so the bar uses clam color elements.
+    """
+
+    _STYLE = "Busy.Horizontal.TProgressbar"
+    _HEIGHT = 6
+
+    def __init__(self, parent: tk.Misc, **pack_options: object) -> None:
+        self._shown = False
+        self._slot = tk.Frame(parent, height=self._HEIGHT, highlightthickness=0, borderwidth=0)
+        self._slot.pack_propagate(False)
+        self._slot.pack(**pack_options)
+        self._apply_theme(parent)
+        self._bar = ttk.Progressbar(
+            self._slot, mode="determinate", value=0, maximum=100, style=self._STYLE,
+        )
+        self._bar.pack(fill=tk.BOTH, expand=True)
+        self._bar.bind("<Destroy>", self._stop_on_destroy, add="+")
+
+    def set_busy(self, busy: bool) -> None:
+        if busy == self._shown:
+            return
+        self._shown = busy
+        if busy:
+            self._apply_theme(self._bar)
+            self._bar.configure(mode="indeterminate")
+            self._bar.start(12)
+            return
+        self._bar.stop()
+        self._bar.configure(mode="determinate", value=0)
+
+    def _apply_theme(self, widget: tk.Misc) -> None:
+        style = ttk.Style(widget)
+        for part in ("trough", "pbar"):
+            try:
+                style.element_create(f"Busy.Horizontal.Progressbar.{part}", "from", "clam")
+            except tk.TclError:
+                pass
+        style.layout(self._STYLE, [(
+            "Busy.Horizontal.Progressbar.trough",
+            {"sticky": "nswe", "children": [
+                ("Busy.Horizontal.Progressbar.pbar", {"side": "left", "sticky": "ns"}),
+            ]},
+        )])
+        dark = style.theme_use() == "equilux"
+        trough, bar = ("#2a2a2a", "#c8c8c8") if dark else ("#d9d9d9", "#4a6984")
+        bg = style.lookup("TFrame", "background")
+        if bg:
+            self._slot.configure(background=bg)
+        style.configure(
+            self._STYLE, troughcolor=trough, background=bar, lightcolor=bar,
+            darkcolor=bar, bordercolor=trough, thickness=4,
+        )
+
+    def _stop_on_destroy(self, event: tk.Event) -> None:
+        if event.widget is not self._bar:
+            return
+        self._shown = False
+        try:
+            self._bar.stop()
+        except tk.TclError:
+            pass
+
+
 class _PluginDetailsWindow:
     """Plugin details dialog with rendered README and install actions."""
 
@@ -991,7 +1058,7 @@ class _PluginDetailsWindow:
         footer.grid(row=2, column=0, sticky="ew", pady=(8, 0))
 
         actions = ttk.Frame(footer)
-        actions.pack(side=tk.LEFT)
+        actions.pack(fill=tk.X)
         site = _PluginOperations.site_url(entry)
         if site:
             btn_site = ttk.Button(
@@ -1023,9 +1090,10 @@ class _PluginDetailsWindow:
         self.btn_update = ttk.Button(actions, text="Update", command=self._on_update)
         self.btn_update.pack(side=tk.LEFT, padx=(0, 6))
         HoverTooltip.attach(self.btn_update, BUTTON_TOOLTIPS["cp_update"])
-        btn_close = ttk.Button(footer, text="Close", command=self._on_close)
+        btn_close = ttk.Button(actions, text="Close", command=self._on_close)
         btn_close.pack(side=tk.RIGHT)
         HoverTooltip.attach(btn_close, BUTTON_TOOLTIPS["cp_close"])
+        self._busy_indicator = _BusyIndicator(footer, fill=tk.X, pady=(6, 0))
 
         app._details_windows.append(self)
         self._sync_action_buttons()
@@ -1043,6 +1111,7 @@ class _PluginDetailsWindow:
             pass
 
     def sync_from_app(self) -> None:
+        self._busy_indicator.set_busy(self.app._busy)
         ctx = self.app._plugin_context_for_name(self.name)
         if ctx is None:
             return
@@ -1055,6 +1124,7 @@ class _PluginDetailsWindow:
 
     def _sync_action_buttons(self) -> None:
         busy = self.app._busy
+        self._busy_indicator.set_busy(busy)
         available = self.status == "Available" and self.registry_entry is not None
         installed = self.status.startswith("Installed") or self.status.startswith("Active")
         in_profile = self.name in AppSettings.c62_community_plugins
@@ -1392,9 +1462,9 @@ class _PluginRegistryPanel(ttk.Frame):
 
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(outer, textvariable=self.status_var, anchor=tk.W).pack(
-            fill=tk.X, pady=(6, 0)
-        )
+        status = ttk.Label(outer, textvariable=self.status_var, anchor=tk.W)
+        status.pack(fill=tk.X, pady=(6, 0))
+        self._busy_indicator = _BusyIndicator(outer, fill=tk.X, pady=(6, 0), before=status)
 
         self._update_buttons()
 
@@ -1651,6 +1721,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._busy = busy
         if msg:
             self.status_var.set(msg)
+        self._busy_indicator.set_busy(busy)
         self._update_buttons()
 
     def _run_bg(self, fn, on_done) -> None:
