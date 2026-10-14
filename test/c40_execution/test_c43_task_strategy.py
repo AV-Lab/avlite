@@ -11,6 +11,11 @@ from avlite.c20_planning.c21_planning_model import LocalPlan
 from avlite.c30_control.c31_control_model import AckermannControlCommand
 from avlite.c30_control.c36_keyboard import KeyboardController
 from avlite.c40_execution.c43_task_strategy import (
+    ControlHalted,
+    ExecutionStarted,
+    GoalArrived,
+    LocalPlanFailed,
+    ParkingZoneEntered,
     StackEvent,
     TaskPlacement,
     TaskRunner,
@@ -49,7 +54,7 @@ class IntervalTask(TaskStrategy):
 
 class StartedEventTask(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.EXECUTION_STARTED})
+    listen_events = frozenset({ExecutionStarted})
     calls: list = []
 
     def execute(self, executer, event=None) -> None:
@@ -58,7 +63,7 @@ class StartedEventTask(TaskStrategy):
 
 class LocalPlanFailedListener(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.LOCAL_PLAN_FAILED})
+    listen_events = frozenset({LocalPlanFailed})
     calls: list = []
 
     def execute(self, executer, event=None) -> None:
@@ -67,7 +72,7 @@ class LocalPlanFailedListener(TaskStrategy):
 
 class ParkingZoneListener(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.PARKING_ZONE_ENTERED})
+    listen_events = frozenset({ParkingZoneEntered})
     calls: list = []
 
     def execute(self, executer, event=None) -> None:
@@ -76,7 +81,7 @@ class ParkingZoneListener(TaskStrategy):
 
 class ControlHaltedListener(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.CONTROL_HALTED})
+    listen_events = frozenset({ControlHalted})
     calls: list = []
 
     def execute(self, executer, event=None) -> None:
@@ -90,7 +95,7 @@ class NotifyDuringCycleTask(TaskStrategy):
     def execute(self, executer, event=None) -> None:
         if not NotifyDuringCycleTask.fired:
             NotifyDuringCycleTask.fired = True
-            executer.task_runner.notify(StackEvent.GOAL_ARRIVED)
+            executer.task_runner.notify(GoalArrived())
 
 
 class ThreadPlacementTask(TaskStrategy):
@@ -100,6 +105,32 @@ class ThreadPlacementTask(TaskStrategy):
 
     def execute(self, executer, event=None) -> None:
         ThreadPlacementTask.ran = True
+
+
+class PluginPhase(StackEvent):
+    pass
+
+
+class PluginPhaseDone(PluginPhase):
+    pass
+
+
+class PluginPhaseListener(TaskStrategy):
+    schedule = TaskSchedule.ON_EVENT
+    listen_events = frozenset({PluginPhase})
+    calls: list = []
+
+    def execute(self, executer, event=None) -> None:
+        PluginPhaseListener.calls.append(event)
+
+
+class UnrelatedEventListener(TaskStrategy):
+    schedule = TaskSchedule.ON_EVENT
+    listen_events = frozenset({GoalArrived})
+    calls: list = []
+
+    def execute(self, executer, event=None) -> None:
+        UnrelatedEventListener.calls.append(event)
 
 
 @pytest.fixture(autouse=True)
@@ -112,6 +143,8 @@ def _reset_task_call_state():
     ControlHaltedListener.calls = []
     NotifyDuringCycleTask.fired = False
     ThreadPlacementTask.ran = False
+    PluginPhaseListener.calls = []
+    UnrelatedEventListener.calls = []
     yield
 
 
@@ -203,8 +236,23 @@ def test_notify_during_step_flushes_to_on_event():
 def test_notify_dispatches_lifecycle_listeners():
     runner = TaskRunner([StartedEventTask()])
     executer = _FakeExecuter()
-    runner.notify(StackEvent.EXECUTION_STARTED, executer=executer)
-    assert StartedEventTask.calls == [StackEvent.EXECUTION_STARTED]
+    event = ExecutionStarted()
+    runner.notify(event, executer=executer)
+    assert StartedEventTask.calls == [event]
+
+
+def test_plugin_subclass_reaches_parent_listener_only():
+    runner = TaskRunner([PluginPhaseListener(), UnrelatedEventListener()])
+    executer = _FakeExecuter()
+    phase = PluginPhase()
+    runner.notify(phase, executer=executer)
+    assert PluginPhaseListener.calls == [phase]
+    assert UnrelatedEventListener.calls == []
+
+    done = PluginPhaseDone()
+    runner.notify(done, executer=executer)
+    assert PluginPhaseListener.calls == [phase, done]
+    assert UnrelatedEventListener.calls == []
 
 
 def test_harvest_plan_stack_event_notifies_once():
@@ -212,7 +260,8 @@ def test_harvest_plan_stack_event_notifies_once():
     ego = EgoState(x=0.0, y=0.0)
     pm = PerceptionModel(ego_vehicle=ego)
     world = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego))
-    plan = LocalPlan(stack_event=StackEvent.LOCAL_PLAN_FAILED)
+    event = LocalPlanFailed()
+    plan = LocalPlan(stack_event=event)
     local_planner = SimpleNamespace(
         replan=lambda **kwargs: None,
         get_local_plan=lambda: plan,
@@ -232,7 +281,7 @@ def test_harvest_plan_stack_event_notifies_once():
         controller=None,
     )
     executer._replan_step(world.get_sensor_frame())
-    assert LocalPlanFailedListener.calls == [StackEvent.LOCAL_PLAN_FAILED]
+    assert LocalPlanFailedListener.calls == [event]
     assert plan.stack_event is None
 
     LocalPlanFailedListener.calls = []
@@ -248,7 +297,7 @@ def test_harvest_perception_stack_event_notifies_once():
 
     def perceive(*, perception_model=None, sensors=None):
         if not stamped["done"]:
-            perception_model.stack_event = StackEvent.PARKING_ZONE_ENTERED
+            perception_model.stack_event = ParkingZoneEntered()
             stamped["done"] = True
 
     perception = SimpleNamespace(
@@ -267,7 +316,7 @@ def test_harvest_perception_stack_event_notifies_once():
         controller=None,
     )
     executer._perception_step(world.get_sensor_frame())
-    assert ParkingZoneListener.calls == [StackEvent.PARKING_ZONE_ENTERED]
+    assert [type(event) for event in ParkingZoneListener.calls] == [ParkingZoneEntered]
     assert pm.stack_event is None
 
     ParkingZoneListener.calls = []
@@ -279,7 +328,8 @@ def test_harvest_control_stack_event_notifies_once():
     ego = EgoState(x=0.0, y=0.0)
     pm = PerceptionModel(ego_vehicle=ego)
     world = BasicSim(ego_state=ego, pm=PerceptionModel(ego_vehicle=ego))
-    cmd = AckermannControlCommand(stack_event=StackEvent.CONTROL_HALTED)
+    event = ControlHalted()
+    cmd = AckermannControlCommand(stack_event=event)
     local_planner = SimpleNamespace(
         get_local_plan=lambda: LocalPlan(),
         stack_capabilities=frozenset(),
@@ -302,7 +352,7 @@ def test_harvest_control_stack_event_notifies_once():
         controller=controller,
     )
     executer._control_step(sim_dt=0.01, sensors=world.get_sensor_frame())
-    assert ControlHaltedListener.calls == [StackEvent.CONTROL_HALTED]
+    assert ControlHaltedListener.calls == [event]
     assert cmd.stack_event is None
 
     ControlHaltedListener.calls = []

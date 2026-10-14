@@ -14,7 +14,7 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
-from avlite.c40_execution.c43_task_strategy import StackEvent
+from avlite.c40_execution.c43_task_strategy import ExecutionStarted
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c61_app_strategy import AppStrategy
 from avlite.c60_apps.c62_factory import executor_factory, load_stack_settings
@@ -422,7 +422,7 @@ def run_headless(profile: str, control_dt: float, replan_dt: float, perceive: bo
 
     def _runner() -> None:
         executer.reset()
-        executer.task_runner.notify(StackEvent.EXECUTION_STARTED)
+        executer.task_runner.notify(ExecutionStarted())
         while not executer.stopped:
             try:
                 executer.step(

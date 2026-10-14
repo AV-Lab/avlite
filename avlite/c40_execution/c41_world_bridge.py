@@ -38,6 +38,7 @@ class WorldBridge(ABC):
     perception_model: Optional[PerceptionModel] = None  # Simulators can provide ground truth perception model
     reference_point: tuple[float, float] | None = None  # WGS84 (lat_deg, lon_deg) map origin
     map: Map | None = None  # Static map for simulation (LiDAR geometry, GT MAP); None for real-world bridges
+    block_timeout: float = 2.0  # Seconds a call into this world may block. Executer shutdown waits at least this long.
 
     registry = {}
 

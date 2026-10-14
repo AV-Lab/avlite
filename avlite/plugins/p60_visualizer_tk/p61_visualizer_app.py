@@ -368,7 +368,7 @@ class VisualizerApp(tk.Tk):
 
         if hasattr(self, "log_view") and hasattr(self, "setting_shortcut_view"):
             self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
-            self.setting_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+            self.setting_shortcut_view.sync_shortcut_table_theme(dark=True)
             settings_view = getattr(self.setting_shortcut_view, "setting_view", None)
             if settings_view is not None and hasattr(settings_view, "apply_profile_note_theme"):
                 settings_view.apply_profile_note_theme()
@@ -389,7 +389,7 @@ class VisualizerApp(tk.Tk):
 
         if hasattr(self, "log_view") and hasattr(self, "setting_shortcut_view"):
             self.log_view.log_area.config(bg="white", fg="black")
-            self.setting_shortcut_view.help_text.config(bg="white", fg="black")
+            self.setting_shortcut_view.sync_shortcut_table_theme(dark=False)
             settings_view = getattr(self.setting_shortcut_view, "setting_view", None)
             if settings_view is not None and hasattr(settings_view, "apply_profile_note_theme"):
                 settings_view.apply_profile_note_theme()
@@ -614,7 +614,7 @@ class VisualizerApp(tk.Tk):
     def set_set_light_mode_darker(self):
         self.configure(bg="gray14")
         self.log_view.log_area.config(bg="gray14", fg="white", highlightbackground="black")
-        self.setting_shortcut_view.help_text.config(bg="gray14", fg="white", highlightbackground="black")
+        self.setting_shortcut_view.sync_shortcut_table_theme(dark=True)
 
         self.setting.p60_bg_color = "#333333"
         self.setting.p60_fg_color = "white"
@@ -783,6 +783,8 @@ class VisualizerApp(tk.Tk):
         self.loaded_profile = profile
         if previous is not None and previous != profile:
             self.show_profile_note(self)
+        if hasattr(self, "setting_shortcut_view"):
+            self.setting_shortcut_view.apply_shortcuts()
 
     def on_community_plugins_changed(self) -> None:
         """Reload profile stack settings and refresh UI after plugin install/uninstall."""

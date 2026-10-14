@@ -63,7 +63,7 @@ The default profile uses **BasicSim**, a dependency-free 2D simulator, so there 
     With Sim Δt pacing on, a larger period runs slower than real time (practical slow motion). Uncheck pacing for best-effort / wall-clock integration.
 
 !!! tip "Vim-style shortcuts"
-    The visualizer is fully keyboard-drivable with vim motions for a fast, mouse-free workflow: `j`/`k` (or `↑`/`↓`) scroll the log, `g`/`G` jump to top/bottom, and `Ctrl+u`/`Ctrl+d` half-page scroll. Single-key actions cover planning (`n`/`b`/`r`), control (`w`/`a`/`s`/`d`), and execution (`x`/`c`/`t`). The on-screen **Shortcuts** panel lists every binding.
+    The visualizer is fully keyboard-drivable with vim motions for a fast, mouse-free workflow: `j`/`k` (or `↑`/`↓`) scroll the log, `g`/`G` jump to top/bottom, and `Ctrl+u`/`Ctrl+d` half-page scroll. Single-key actions cover planning (`n`/`b`/`r`), control (`w`/`a`/`s`/`d`), and execution (`x`/`c`/`t`). The on-screen **Shortcuts** panel lists every binding. Edit them in the Settings window on the **Shortcuts** tab; leaving the map empty keeps these defaults.
 
 !!! tip "Optional plugins (CARLA, Gazebo, ROS2, …)"
     Install world-bridge and other community plugins from the **Plugins** browser (`avlite plugins`). Installing or updating needs `git` on your PATH (and `pip` if the plugin has extra dependencies). See [Community Plugins](overview.md#community-plugins) and [Plugin Development](plugin-development.md).

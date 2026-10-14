@@ -37,6 +37,8 @@ All sections below live in the single per-profile file `configs/<profile>.yaml` 
 | Apps (bootstrap) | `avlite/c60_apps/c69_settings.py` (schema; plugin lists, `c60_ros_distro`, and `c60_profile_note` have custom Tk on the profile pane) | `c69_apps` |
 | Visualization | `avlite/plugins/p60_visualizer_tk/settings.py` (`PluginSettingsSchema`) | `plugins.p60_visualizer_tk` |
 
+`p60_shortcuts` is a map of shortcut id to Tk sequence. An empty map keeps the built-in visualizer keys. Change them in the visualizer Settings window on the Shortcuts tab.
+
 Notable execution fields:
 
 | Field | Meaning |

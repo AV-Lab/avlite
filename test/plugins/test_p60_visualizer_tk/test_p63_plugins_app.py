@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from io import BytesIO
 import subprocess
+import tkinter as tk
+from tkinter import ttk
 from pathlib import Path
 from unittest.mock import patch
 
@@ -173,6 +175,64 @@ def test_install_plugin_uses_git_auth(monkeypatch, tmp_path):
     assert set_url_cmd[-1] == "https://github.com/org/private-plugin"
 
 
+def test_install_plugin_supports_monorepo_subdir(monkeypatch, tmp_path):
+    def fake_run(cmd, **kwargs):
+        if len(cmd) > 1 and cmd[1] == "clone":
+            root = Path(cmd[-1])
+            package = root / "adapter" / "plugin_package"
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text("", encoding="utf-8")
+            (root / "adapter" / "requirements.txt").write_text(
+                "numpy\n", encoding="utf-8"
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(cp.subprocess, "run", fake_run)
+    entry = {
+        "name": "nested_plugin",
+        "repository": "https://github.com/org/monorepo",
+        "version": "latest",
+        "plugin_subdir": "adapter/plugin_package",
+        "requirements_file": "adapter/requirements.txt",
+        "min_avlite_version": "0.6.4",
+    }
+
+    repository = cp._PluginOperations.install_plugin(entry, tmp_path)
+    package = repository / "adapter" / "plugin_package"
+
+    assert cp.PluginPaths.plugin_load_dir(repository) == package.resolve()
+    assert cp._PluginOperations.requirements_path(repository, entry) == (
+        repository / "adapter" / "requirements.txt"
+    ).resolve()
+    assert "plugin_subdir" in (repository / ".avlite-registry.yaml").read_text()
+    assert "plugin_subdir" not in (package / ".avlite-registry.yaml").read_text()
+    assert cp._PluginOperations.list_installed(tmp_path)[0]["has_init"] is True
+
+
+def test_monorepo_registry_paths_cannot_escape_repository(tmp_path):
+    with pytest.raises(ValueError, match="escapes"):
+        cp._PluginOperations.plugin_load_path(
+            tmp_path, {"plugin_subdir": "../outside"}
+        )
+
+
+def test_pip_install_uses_repository_as_working_directory(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(cp.subprocess, "run", fake_run)
+    req_file = tmp_path / "adapter" / "requirements.txt"
+    req_file.parent.mkdir()
+    req_file.write_text("-e ./core\n", encoding="utf-8")
+
+    cp._PluginOperations.pip_install(req_file, cwd=tmp_path)
+
+    assert calls[0][1]["cwd"] == str(tmp_path)
+
+
 def test_notify_host_changed_calls_on_community_plugins_changed():
     class FakeHost:
         def __init__(self):
@@ -318,3 +378,119 @@ def test_display_name_falls_back_to_identifier():
 def test_display_name_uses_registry_value():
     entry = {"name": "avlite-executer-ROS2", "display_name": "  AVLite ROS2 Executer  "}
     assert cp._display_name(entry, "avlite-executer-ROS2") == "AVLite ROS2 Executer"
+
+
+def test_busy_indicator_uses_dark_colors_in_equilux():
+    ttkthemes = pytest.importorskip("ttkthemes")
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        ttkthemes.ThemedStyle(root).set_theme("equilux")
+        cp._BusyIndicator(root, fill=tk.X)
+        style = ttk.Style(root)
+        assert style.lookup(cp._BusyIndicator._STYLE, "troughcolor") == "#2a2a2a"
+        assert style.lookup(cp._BusyIndicator._STYLE, "background") == "#c8c8c8"
+    finally:
+        root.destroy()
+
+
+def test_busy_indicator_uses_light_colors_in_default_theme():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        ttk.Style(root).theme_use("default")
+        cp._BusyIndicator(root, fill=tk.X)
+        style = ttk.Style(root)
+        assert style.lookup(cp._BusyIndicator._STYLE, "troughcolor") == "#d9d9d9"
+        assert style.lookup(cp._BusyIndicator._STYLE, "background") == "#4a6984"
+    finally:
+        root.destroy()
+
+
+def test_busy_indicator_keeps_its_slot_while_busy():
+    root = tk.Tk()
+    root.geometry("400x120")
+    try:
+        indicator = cp._BusyIndicator(root, fill=tk.X)
+        root.update()
+        idle_height = indicator._slot.winfo_height()
+        assert indicator._slot.winfo_reqheight() == cp._BusyIndicator._HEIGHT
+        assert str(indicator._bar.cget("mode")) == "determinate"
+
+        indicator.set_busy(True)
+        indicator.set_busy(True)
+        root.update()
+        assert indicator._slot.winfo_height() == idle_height
+        assert str(indicator._bar.cget("mode")) == "indeterminate"
+
+        indicator.set_busy(False)
+        root.update()
+        assert indicator._slot.winfo_height() == idle_height
+        assert str(indicator._bar.cget("mode")) == "determinate"
+        assert float(indicator._bar.cget("value")) == 0
+    finally:
+        root.destroy()
+
+
+def test_set_busy_drives_panel_indicator():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        panel = object.__new__(cp._PluginRegistryPanel)
+        panel._busy = False
+        panel.status_var = tk.StringVar(master=root, value="Ready")
+        panel._busy_indicator = cp._BusyIndicator(root, fill=tk.X)
+        panel._update_buttons = lambda: None
+
+        cp._PluginRegistryPanel._set_busy(panel, True, "Installing demo…")
+        root.update_idletasks()
+        assert panel._busy is True
+        assert panel.status_var.get() == "Installing demo…"
+        assert str(panel._busy_indicator._bar.cget("mode")) == "indeterminate"
+        assert panel._busy_indicator._slot.winfo_manager() == "pack"
+
+        cp._PluginRegistryPanel._set_busy(panel, False, "Installed demo")
+        root.update_idletasks()
+        assert panel.status_var.get() == "Installed demo"
+        assert panel._busy_indicator._slot.winfo_manager() == "pack"
+        assert str(panel._busy_indicator._bar.cget("mode")) == "determinate"
+    finally:
+        root.destroy()
+
+
+class _StubButton:
+    def state(self, _states):
+        return None
+
+
+def test_details_sync_shows_indicator_while_panel_is_busy():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        details = object.__new__(cp._PluginDetailsWindow)
+        details.name = "demo"
+        details.status = "Available"
+        details.registry_entry = {"name": "demo"}
+        details._busy_indicator = cp._BusyIndicator(root, fill=tk.X)
+        details.btn_install = _StubButton()
+        details.btn_add_profile = _StubButton()
+        details.btn_uninstall = _StubButton()
+        details.btn_update = _StubButton()
+        details.app = type("App", (), {
+            "_busy": True,
+            "_update_statuses": {},
+            "_plugin_context_for_name": lambda self, _name: None,
+        })()
+
+        cp._PluginDetailsWindow.sync_from_app(details)
+        root.update_idletasks()
+        assert details._busy_indicator._slot.winfo_manager() == "pack"
+        assert str(details._busy_indicator._bar.cget("mode")) == "indeterminate"
+
+        details.app._busy = False
+        cp._PluginDetailsWindow._sync_action_buttons(details)
+        root.update_idletasks()
+        assert details._busy_indicator._slot.winfo_manager() == "pack"
+        assert str(details._busy_indicator._bar.cget("mode")) == "determinate"
+    finally:
+        root.destroy()

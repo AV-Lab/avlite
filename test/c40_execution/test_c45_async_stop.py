@@ -145,6 +145,31 @@ def test_headless_style_loop_exits_on_stop():
     assert steps == 2
 
 
+def test_stop_joins_for_at_least_block_timeout():
+    exec_ = _make_async_executer()
+    exec_.world.block_timeout = 0.2
+    release = threading.Event()
+
+    def blocker():
+        release.wait(timeout=2.0)
+
+    worker = threading.Thread(target=blocker, name="Controller", daemon=True)
+    exec_.threads = [worker]
+    exec_.controller_thread = worker
+    exec_.threads_started = True
+    worker.start()
+    started = time.monotonic()
+    try:
+        exec_.stop()
+        assert time.monotonic() - started >= 0.2
+        assert worker in exec_.threads
+        assert exec_.threads_started is True
+        assert exec_.controller_thread is worker
+    finally:
+        release.set()
+        worker.join(timeout=1.0)
+
+
 def test_create_threads_recreates_dead_planner():
     exec_ = _make_async_executer()
     dead = threading.Thread(target=lambda: None, name="DeadPlanner", daemon=True)

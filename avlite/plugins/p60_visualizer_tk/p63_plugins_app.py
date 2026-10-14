@@ -396,12 +396,51 @@ class _PluginOperations:
         for entry in sorted(plugins_dir.iterdir()):
             if not entry.is_dir() or entry.name.startswith("."):
                 continue
+            load_path = PluginPaths.plugin_load_dir(entry)
             out.append({
                 "name": entry.name,
                 "path": entry,
-                "has_init": (entry / "__init__.py").exists(),
+                "has_init": (load_path / "__init__.py").exists(),
             })
         return out
+
+    @staticmethod
+    def _repository_relative_path(
+        repository_path: Path,
+        value: object,
+        *,
+        field: str,
+        default: str = "",
+    ) -> Path:
+        """Resolve a registry path inside a cloned repository without escapes."""
+        root = repository_path.resolve()
+        raw = str(value or default).strip()
+        relative = Path(raw)
+        if relative.is_absolute():
+            raise ValueError(f"{field} must be relative to the plugin repository")
+        candidate = (root / relative).resolve()
+        if candidate != root and root not in candidate.parents:
+            raise ValueError(f"{field} escapes the plugin repository: {raw}")
+        return candidate
+
+    @staticmethod
+    def plugin_load_path(repository_path: Path, entry: Optional[dict]) -> Path:
+        """Return the registry-selected package directory for a cloned plugin."""
+        return _PluginOperations._repository_relative_path(
+            repository_path,
+            (entry or {}).get("plugin_subdir", ""),
+            field="plugin_subdir",
+        )
+
+    @staticmethod
+    def requirements_path(repository_path: Path, entry: Optional[dict]) -> Path:
+        """Return the registry-selected requirements file for a cloned plugin."""
+        return _PluginOperations._repository_relative_path(
+            repository_path,
+            (entry or {}).get("requirements_file", ""),
+            field="requirements_file",
+            default="requirements.txt",
+        )
 
     @staticmethod
     def install_plugin(entry: dict, plugins_dir: Path, *, token: Optional[str] = None) -> Path:
@@ -443,6 +482,27 @@ class _PluginOperations:
         if version and version != "latest":
             log.info("Checking out version %s", version)
             _GitOperations._run_git(["-C", str(target), "checkout", version], timeout=60)
+
+        try:
+            load_path = _PluginOperations.plugin_load_path(target, entry)
+            if entry.get("plugin_subdir"):
+                if not load_path.is_dir():
+                    raise FileNotFoundError(
+                        f"plugin_subdir does not exist: {entry['plugin_subdir']}"
+                    )
+                if not (load_path / "__init__.py").is_file():
+                    raise FileNotFoundError(
+                        f"plugin_subdir has no __init__.py: {entry['plugin_subdir']}"
+                    )
+            requirements_path = _PluginOperations.requirements_path(target, entry)
+            if entry.get("requirements_file") and not requirements_path.is_file():
+                raise FileNotFoundError(
+                    f"requirements_file does not exist: {entry['requirements_file']}"
+                )
+        except Exception:
+            shutil.rmtree(target)
+            raise
+
         meta = {
             key: entry[key]
             for key in (
@@ -452,6 +512,8 @@ class _PluginOperations:
                 "min_ros_version",
                 "max_ros_version",
                 "min_avlite_version",
+                "plugin_subdir",
+                "requirements_file",
             )
             if key in entry
         }
@@ -459,6 +521,15 @@ class _PluginOperations:
             (target / ".avlite-registry.yaml").write_text(
                 yaml.safe_dump(meta, sort_keys=False), encoding="utf-8"
             )
+            if load_path != target:
+                runtime_meta = {
+                    key: value
+                    for key, value in meta.items()
+                    if key not in {"plugin_subdir", "requirements_file"}
+                }
+                (load_path / ".avlite-registry.yaml").write_text(
+                    yaml.safe_dump(runtime_meta, sort_keys=False), encoding="utf-8"
+                )
         return target
 
     @staticmethod
@@ -500,13 +571,14 @@ class _PluginOperations:
         return missing, mismatched
 
     @staticmethod
-    def pip_install(req_file: Path) -> None:
+    def pip_install(req_file: Path, *, cwd: Optional[Path] = None) -> None:
         """Install requirements from ``req_file`` into the current interpreter."""
         subprocess.run(
             [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
             check=True,
             capture_output=True,
             text=True,
+            cwd=str(cwd) if cwd is not None else None,
         )
 
     @staticmethod
@@ -846,6 +918,73 @@ class _DeviceFlowDialog:
             self.window.after(0, lambda err=exc: self._finish(None, None, err))
 
 
+class _BusyIndicator:
+    """Indeterminate bar for registry actions.
+
+    The slot stays packed so the window does not jump. Equilux's trough image
+    is light, so the bar uses clam color elements.
+    """
+
+    _STYLE = "Busy.Horizontal.TProgressbar"
+    _HEIGHT = 6
+
+    def __init__(self, parent: tk.Misc, **pack_options: object) -> None:
+        self._shown = False
+        self._slot = tk.Frame(parent, height=self._HEIGHT, highlightthickness=0, borderwidth=0)
+        self._slot.pack_propagate(False)
+        self._slot.pack(**pack_options)
+        self._apply_theme(parent)
+        self._bar = ttk.Progressbar(
+            self._slot, mode="determinate", value=0, maximum=100, style=self._STYLE,
+        )
+        self._bar.pack(fill=tk.BOTH, expand=True)
+        self._bar.bind("<Destroy>", self._stop_on_destroy, add="+")
+
+    def set_busy(self, busy: bool) -> None:
+        if busy == self._shown:
+            return
+        self._shown = busy
+        if busy:
+            self._apply_theme(self._bar)
+            self._bar.configure(mode="indeterminate")
+            self._bar.start(12)
+            return
+        self._bar.stop()
+        self._bar.configure(mode="determinate", value=0)
+
+    def _apply_theme(self, widget: tk.Misc) -> None:
+        style = ttk.Style(widget)
+        for part in ("trough", "pbar"):
+            try:
+                style.element_create(f"Busy.Horizontal.Progressbar.{part}", "from", "clam")
+            except tk.TclError:
+                pass
+        style.layout(self._STYLE, [(
+            "Busy.Horizontal.Progressbar.trough",
+            {"sticky": "nswe", "children": [
+                ("Busy.Horizontal.Progressbar.pbar", {"side": "left", "sticky": "ns"}),
+            ]},
+        )])
+        dark = style.theme_use() == "equilux"
+        trough, bar = ("#2a2a2a", "#c8c8c8") if dark else ("#d9d9d9", "#4a6984")
+        bg = style.lookup("TFrame", "background")
+        if bg:
+            self._slot.configure(background=bg)
+        style.configure(
+            self._STYLE, troughcolor=trough, background=bar, lightcolor=bar,
+            darkcolor=bar, bordercolor=trough, thickness=4,
+        )
+
+    def _stop_on_destroy(self, event: tk.Event) -> None:
+        if event.widget is not self._bar:
+            return
+        self._shown = False
+        try:
+            self._bar.stop()
+        except tk.TclError:
+            pass
+
+
 class _PluginDetailsWindow:
     """Plugin details dialog with rendered README and install actions."""
 
@@ -919,7 +1058,7 @@ class _PluginDetailsWindow:
         footer.grid(row=2, column=0, sticky="ew", pady=(8, 0))
 
         actions = ttk.Frame(footer)
-        actions.pack(side=tk.LEFT)
+        actions.pack(fill=tk.X)
         site = _PluginOperations.site_url(entry)
         if site:
             btn_site = ttk.Button(
@@ -951,9 +1090,10 @@ class _PluginDetailsWindow:
         self.btn_update = ttk.Button(actions, text="Update", command=self._on_update)
         self.btn_update.pack(side=tk.LEFT, padx=(0, 6))
         HoverTooltip.attach(self.btn_update, BUTTON_TOOLTIPS["cp_update"])
-        btn_close = ttk.Button(footer, text="Close", command=self._on_close)
+        btn_close = ttk.Button(actions, text="Close", command=self._on_close)
         btn_close.pack(side=tk.RIGHT)
         HoverTooltip.attach(btn_close, BUTTON_TOOLTIPS["cp_close"])
+        self._busy_indicator = _BusyIndicator(footer, fill=tk.X, pady=(6, 0))
 
         app._details_windows.append(self)
         self._sync_action_buttons()
@@ -971,6 +1111,7 @@ class _PluginDetailsWindow:
             pass
 
     def sync_from_app(self) -> None:
+        self._busy_indicator.set_busy(self.app._busy)
         ctx = self.app._plugin_context_for_name(self.name)
         if ctx is None:
             return
@@ -983,6 +1124,7 @@ class _PluginDetailsWindow:
 
     def _sync_action_buttons(self) -> None:
         busy = self.app._busy
+        self._busy_indicator.set_busy(busy)
         available = self.status == "Available" and self.registry_entry is not None
         installed = self.status.startswith("Installed") or self.status.startswith("Active")
         in_profile = self.name in AppSettings.c62_community_plugins
@@ -1320,9 +1462,9 @@ class _PluginRegistryPanel(ttk.Frame):
 
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
-        ttk.Label(outer, textvariable=self.status_var, anchor=tk.W).pack(
-            fill=tk.X, pady=(6, 0)
-        )
+        status = ttk.Label(outer, textvariable=self.status_var, anchor=tk.W)
+        status.pack(fill=tk.X, pady=(6, 0))
+        self._busy_indicator = _BusyIndicator(outer, fill=tk.X, pady=(6, 0), before=status)
 
         self._update_buttons()
 
@@ -1579,6 +1721,7 @@ class _PluginRegistryPanel(ttk.Frame):
         self._busy = busy
         if msg:
             self.status_var.set(msg)
+        self._busy_indicator.set_busy(busy)
         self._update_buttons()
 
     def _run_bg(self, fn, on_done) -> None:
@@ -1732,7 +1875,11 @@ class _PluginRegistryPanel(ttk.Frame):
                 return
             self._update_statuses.pop(name, None)
             self._handle_requirements(
-                name, plugin_path, parent=parent, install_deps=False
+                name,
+                plugin_path,
+                parent=parent,
+                install_deps=False,
+                registry_entry=registry_entry,
             )
             self._set_busy(False, f"Updated {name}.")
             self._populate()
@@ -1782,7 +1929,11 @@ class _PluginRegistryPanel(ttk.Frame):
                 if path is None:
                     continue
                 self._handle_requirements(
-                    name, path, parent=self.window, install_deps=False
+                    name,
+                    path,
+                    parent=self.window,
+                    install_deps=False,
+                    registry_entry=registry_by_name.get(name),
                 )
             updated = len(names) - len(errors or [])
             self._set_busy(False, f"Updated {updated} plugin(s).")
@@ -1838,7 +1989,9 @@ class _PluginRegistryPanel(ttk.Frame):
                 self._set_busy(False, f"Install failed: {msg}")
                 messagebox.showerror("Install failed", msg, parent=parent)
                 return
-            self._handle_requirements(name, path, parent=parent)
+            self._handle_requirements(
+                name, path, parent=parent, registry_entry=entry
+            )
             notes = _PluginOperations.dependency_notes(entry)
             if notes:
                 messagebox.showinfo(
@@ -1897,11 +2050,14 @@ class _PluginRegistryPanel(ttk.Frame):
         *,
         parent: Optional[tk.Misc] = None,
         install_deps: bool = True,
+        registry_entry: Optional[dict] = None,
     ) -> None:
         """Post-install/update prompts: requirements.txt, then optional ``<name>.yaml``."""
         parent = parent or self.window
         if install_deps:
-            req_file = plugin_path / "requirements.txt"
+            req_file = _PluginOperations.requirements_path(
+                plugin_path, registry_entry
+            )
             if req_file.exists():
                 missing, mismatched = _PluginOperations.check_requirements(req_file)
                 if mismatched:
@@ -1918,7 +2074,7 @@ class _PluginRegistryPanel(ttk.Frame):
                     parent=parent,
                 ):
                     try:
-                        _PluginOperations.pip_install(req_file)
+                        _PluginOperations.pip_install(req_file, cwd=plugin_path)
                     except subprocess.CalledProcessError as e:
                         detail = "\n".join(p for p in (e.stdout, e.stderr) if p) or str(e)
                         messagebox.showerror(

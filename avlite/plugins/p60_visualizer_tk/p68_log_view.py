@@ -10,7 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from avlite.plugins.p60_visualizer_tk.p65_ui_lib import BUTTON_TOOLTIPS, HoverTooltip
+from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import BUTTON_TOOLTIPS, HoverTooltip, attach_panel_fold
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings
 from avlite.c60_apps.c64_settings_schema import field_tooltip_text
 from avlite.c60_apps.c63_plugins import (
@@ -99,7 +100,7 @@ class LogView(ttk.LabelFrame):
 
         cb_file = ttk.Checkbutton(self.controls_frame, text="File", variable=self.root.setting.log_to_file, command=self.update_log_to_file)
         cb_file.pack(side=tk.RIGHT)
-        HoverTooltip.attach_schema(cb_file, VisualizationSettings, "log_to_file")
+        HoverTooltip.attach_schema(cb_file, ExecutionSettings, "c40_log_to_file")
 
         self.rb_db_stdout = ttk.Radiobutton( self.controls_frame, text="STDOUT", variable=self.root.setting.log_level, value="STDOUT", command=self.update_log_level,)
         self.rb_db_stdout.pack(side=tk.RIGHT)
@@ -140,6 +141,7 @@ class LogView(ttk.LabelFrame):
         self.rb_db_debug.pack(side=tk.RIGHT)
         self.log_area = ScrolledText(self, state="disabled", height=self.root.setting.p68_log_view_default_height.get(), wrap=tk.WORD)
         self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
+        attach_panel_fold(self, self.root.setting.p68_log_folded, on_apply=self._after_log_fold)
 
         self._file_handler: logging.FileHandler | None = None
 
@@ -235,8 +237,18 @@ class LogView(ttk.LabelFrame):
                 self._file_handler.close()
                 self._file_handler = None
                 log.info("File logging stopped.")
-            self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
+            if not self.root.setting.p68_log_folded.get():
+                self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
         self._sync_filter_state()
+
+    def _after_log_fold(self, folded: bool) -> None:
+        if folded:
+            return
+        if self.root.setting.log_to_file.get():
+            if self.log_area.winfo_manager() == "pack":
+                self.log_area.pack_forget()
+        elif self.log_area.winfo_manager() != "pack":
+            self.log_area.pack(fill=tk.BOTH, side=tk.BOTTOM, expand=True)
 
     def update_log_view_height(self, reverse: bool = False):
         """ update the log view height based on the setting """

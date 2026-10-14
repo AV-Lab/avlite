@@ -44,6 +44,7 @@ from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     BUTTON_TOOLTIPS,
     HoverTooltip,
     ThemedListPickerDialog,
+    attach_panel_fold,
     make_strategy_contract_controls,
     make_world_bridge_contract_controls,
     show_strategy_contract_popup,
@@ -67,15 +68,8 @@ class PerceivePlanControlView(ttk.Frame):
         top_bar = ttk.Frame(self)
         top_bar.pack(fill=tk.X)
 
-        perc_col = ttk.Frame(top_bar)
-        perc_col.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-
-        self.perceive_frame = PerceptionFrame(root=self.root, view=perc_col)
-        self.perceive_frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
-        vehicle_state_label = ttk.Label(
-            perc_col, font=self.root.small_font, textvariable=self.root.setting.vehicle_state,
-        )
-        vehicle_state_label.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(1, 0))
+        self.perceive_frame = PerceptionFrame(root=self.root, view=top_bar)
+        self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
         self.plan_frame = PlanFrame(root=self.root, view=top_bar)
         self.plan_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
@@ -98,88 +92,108 @@ class PerceptionFrame(ttk.LabelFrame):
         super().__init__(view, text="Perception")
         self.root = root
 
-        # Row 0: main perception dropdown + Localization dropdown
+        # Fills the label-frame client area. Equilux paints the frame from a
+        # border image, so empty space below the controls would otherwise show
+        # through behind the vehicle-state line.
+        body = ttk.Frame(self)
+        body.pack(fill=tk.BOTH, expand=True)
+
+        # Top: perception dropdown, with pipeline stages starting on the same row.
+        top = ttk.Frame(body)
+        top.pack(fill=tk.X)
+
+        perc_row = ttk.Frame(top)
+        perc_row.pack(side=tk.LEFT, anchor=tk.N)
         self.perception_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.perception_type, state="readonly", width=14)
+            perc_row, textvariable=self.root.setting.perception_type, state="readonly", width=14)
         self.perception_dropdown_menu["values"] = ("",) + tuple(PerceptionStrategy.registry.keys())
         self.perception_dropdown_menu.bind("<<ComboboxSelected>>", self._on_perception_selected)
-        self.perception_dropdown_menu.grid(row=0, column=0, sticky="ew", padx=2)
+        self.perception_dropdown_menu.pack(side=tk.LEFT, padx=2)
         HoverTooltip.attach_schema(self.perception_dropdown_menu, ExecutionSettings, "c40_perception")
         _, perc_info = make_strategy_contract_controls(
-            self, self.perception_dropdown_menu, PerceptionStrategy.registry, lambda: self.root.exec
+            perc_row, self.perception_dropdown_menu, PerceptionStrategy.registry, lambda: self.root.exec
         )
-        perc_info.grid(row=0, column=1, padx=(0, 2))
+        perc_info.pack(side=tk.LEFT, padx=(0, 2))
 
-        ttk.Label(self, text="loc:").grid(row=0, column=2, sticky="e", padx=(4, 0))
-        self.localization_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.localization_type, state="readonly", width=12)
-        self.localization_dropdown_menu["values"] = ("",) + tuple(LocalizationStrategy.registry.keys())
-        self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
-        self.localization_dropdown_menu.grid(row=0, column=3, sticky="ew", padx=2)
-        HoverTooltip.attach_schema(self.localization_dropdown_menu, ExecutionSettings, "c40_localization")
-        _, loc_info = make_strategy_contract_controls(
-            self, self.localization_dropdown_menu, LocalizationStrategy.registry, lambda: self.root.exec
-        )
-        loc_info.grid(row=0, column=4, padx=(0, 2))
-
-        # Rows 1-3: pipeline sub-strategy widgets (shown only for PerceptionPipeline)
-        self._lbl_detect = ttk.Label(self, text="Detect:")
-        self._lbl_detect.grid(row=1, column=0, sticky="e", padx=(5, 0))
+        pipe = ttk.Frame(top)
+        pipe.pack(side=tk.LEFT, fill=tk.X, expand=True, anchor=tk.N)
+        self._lbl_detect = ttk.Label(pipe, text="Detect:")
+        self._lbl_detect.grid(row=0, column=0, sticky="e", padx=(5, 0))
         self.detection_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.detection_strategy_type, state="readonly")
+            pipe, textvariable=self.root.setting.detection_strategy_type, state="readonly")
         self.detection_dropdown_menu["values"] = tuple(DetectionStrategy.registry.keys())
         self.detection_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        self.detection_dropdown_menu.grid(row=1, column=1, columnspan=3, sticky="ew")
+        self.detection_dropdown_menu.grid(row=0, column=1, sticky="ew")
         _, det_info = make_strategy_contract_controls(
-            self, self.detection_dropdown_menu, DetectionStrategy.registry, lambda: self.root.exec
+            pipe, self.detection_dropdown_menu, DetectionStrategy.registry, lambda: self.root.exec
         )
-        det_info.grid(row=1, column=4, padx=(0, 2))
+        det_info.grid(row=0, column=2, padx=(0, 2))
 
-        self._lbl_track = ttk.Label(self, text="Track:")
-        self._lbl_track.grid(row=2, column=0, sticky="e", padx=(5, 0))
+        self._lbl_track = ttk.Label(pipe, text="Track:")
+        self._lbl_track.grid(row=1, column=0, sticky="e", padx=(5, 0))
         self.tracking_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
+            pipe, textvariable=self.root.setting.tracking_strategy_type, state="readonly")
         self.tracking_dropdown_menu["values"] = tuple(TrackingStrategy.registry.keys())
         self.tracking_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        self.tracking_dropdown_menu.grid(row=2, column=1, columnspan=3, sticky="ew")
+        self.tracking_dropdown_menu.grid(row=1, column=1, sticky="ew")
         _, track_info = make_strategy_contract_controls(
-            self, self.tracking_dropdown_menu, TrackingStrategy.registry, lambda: self.root.exec
+            pipe, self.tracking_dropdown_menu, TrackingStrategy.registry, lambda: self.root.exec
         )
-        track_info.grid(row=2, column=4, padx=(0, 2))
+        track_info.grid(row=1, column=2, padx=(0, 2))
 
-        self._lbl_predict = ttk.Label(self, text="Predict:")
-        self._lbl_predict.grid(row=3, column=0, sticky="e", padx=(5, 0))
+        self._lbl_predict = ttk.Label(pipe, text="Predict:")
+        self._lbl_predict.grid(row=2, column=0, sticky="e", padx=(5, 0))
         self.prediction_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.prediction_strategy_type, state="readonly")
+            pipe, textvariable=self.root.setting.prediction_strategy_type, state="readonly")
         self.prediction_dropdown_menu["values"] = ("",) + tuple(PredictionStrategy.registry.keys())
         self.prediction_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.refresh_pipeline())
-        self.prediction_dropdown_menu.grid(row=3, column=1, columnspan=3, sticky="ew")
+        self.prediction_dropdown_menu.grid(row=2, column=1, sticky="ew")
         _, pred_info = make_strategy_contract_controls(
-            self, self.prediction_dropdown_menu, PredictionStrategy.registry, lambda: self.root.exec
+            pipe, self.prediction_dropdown_menu, PredictionStrategy.registry, lambda: self.root.exec
         )
-        pred_info.grid(row=3, column=4, padx=(0, 2))
+        pred_info.grid(row=2, column=2, padx=(0, 2))
+        pipe.columnconfigure(1, weight=1)
         HoverTooltip.attach_schema(self.detection_dropdown_menu, PerceptionSettings, "c12_detection_strategy")
         HoverTooltip.attach_schema(self.tracking_dropdown_menu, PerceptionSettings, "c12_tracking_strategy")
         HoverTooltip.attach_schema(self.prediction_dropdown_menu, PerceptionSettings, "c12_prediction_strategy")
 
-        # Row 4 (last): mapping strategy, save map, capability
+        # Bottom: mapping, then localization to its right.
+        bottom = ttk.Frame(body)
+        bottom.pack(fill=tk.X)
+        ttk.Label(bottom, text="Map:").grid(row=0, column=0, sticky="e", padx=(2, 0))
         self.mapping_dropdown_menu = ttk.Combobox(
-            self, textvariable=self.root.setting.mapping_type, state="readonly", width=14)
+            bottom, textvariable=self.root.setting.mapping_type, state="readonly", width=14)
         self.mapping_dropdown_menu["values"] = ("",) + tuple(MappingStrategy.registry.keys())
         self.mapping_dropdown_menu.bind("<<ComboboxSelected>>", self._on_mapping_selected)
-        self.mapping_dropdown_menu.grid(row=4, column=0, sticky="ew", padx=2)
+        self.mapping_dropdown_menu.grid(row=0, column=1, sticky="ew", padx=2)
         HoverTooltip.attach_schema(self.mapping_dropdown_menu, ExecutionSettings, "c40_mapping")
-        self._btn_save_occupancy = ttk.Button(
-            self, text="⬇", width=3, command=self.save_occupancy_map,
-        )
-        self._btn_save_occupancy.grid(row=4, column=2, padx=2)
-        HoverTooltip.attach(self._btn_save_occupancy, BUTTON_TOOLTIPS["map_save_occupancy"])
         _, map_info = make_strategy_contract_controls(
-            self, self.mapping_dropdown_menu, MappingStrategy.registry, lambda: self.root.exec
+            bottom, self.mapping_dropdown_menu, MappingStrategy.registry, lambda: self.root.exec
         )
-        map_info.grid(row=4, column=1, padx=(0, 2))
+        map_info.grid(row=0, column=2, padx=(0, 2))
+        self._btn_save_occupancy = ttk.Button(
+            bottom, text="⬇", width=3, command=self.save_occupancy_map,
+        )
+        self._btn_save_occupancy.grid(row=0, column=3, padx=2)
+        HoverTooltip.attach(self._btn_save_occupancy, BUTTON_TOOLTIPS["map_save_occupancy"])
 
-        self.columnconfigure(0, weight=1)
+        ttk.Label(bottom, text="Loc:").grid(row=0, column=4, sticky="e", padx=(4, 0))
+        self.localization_dropdown_menu = ttk.Combobox(
+            bottom, textvariable=self.root.setting.localization_type, state="readonly", width=12)
+        self.localization_dropdown_menu["values"] = ("",) + tuple(LocalizationStrategy.registry.keys())
+        self.localization_dropdown_menu.bind("<<ComboboxSelected>>", lambda e: self.root.reload_stack(reload_code=False))
+        self.localization_dropdown_menu.grid(row=0, column=5, sticky="ew", padx=2)
+        HoverTooltip.attach_schema(self.localization_dropdown_menu, ExecutionSettings, "c40_localization")
+        _, loc_info = make_strategy_contract_controls(
+            bottom, self.localization_dropdown_menu, LocalizationStrategy.registry, lambda: self.root.exec
+        )
+        loc_info.grid(row=0, column=6, padx=(0, 2))
+        bottom.columnconfigure(1, weight=1)
+        bottom.columnconfigure(5, weight=1)
+
+        ttk.Label(
+            body, font=self.root.small_font, textvariable=self.root.setting.vehicle_state,
+        ).pack(side=tk.TOP, fill=tk.X, padx=5, pady=(1, 0))
 
         self._pipeline_widgets = [
             self._lbl_detect, self.detection_dropdown_menu, det_info,
@@ -191,6 +205,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.root.setting.mapping_type.trace_add("write", lambda *_: self._update_save_map_visibility())
         self._update_pipeline_visibility()
         self._update_save_map_visibility()
+        attach_panel_fold(self, self.root.setting.p67_perception_folded)
 
     def _on_perception_selected(self, event=None):
         self._update_pipeline_visibility()
@@ -429,12 +444,19 @@ class PlanFrame(ttk.LabelFrame):
         btn_local_replan = ttk.Button(self, text="Local Replan", command=self.replan)
         btn_local_replan.pack(side=tk.LEFT, fill=tk.X, expand=True)
         HoverTooltip.attach(btn_local_replan, BUTTON_TOOLTIPS["plan_local_replan"])
+        attach_panel_fold(
+            self,
+            self.root.setting.p67_plan_folded,
+            on_apply=lambda folded: None if folded else self._update_pipeline_visibility(),
+        )
 
     def _on_local_planner_selected(self, event=None):
         self._update_pipeline_visibility()
         self.root.reload_stack(reload_code=False)
 
     def _update_pipeline_visibility(self):
+        if self.root.setting.p67_plan_folded.get():
+            return
         show = self.root.setting.local_planner_type.get() == LocalPlanningPipeline.__name__
         for widget, pack_kwargs in self._pipeline_widgets:
             if show:
@@ -635,6 +657,7 @@ class ControlFrame(ttk.LabelFrame):
         btn_decel = ttk.Button(control_action_frame, text="▼", width=2, command=self.step_dec)
         btn_decel.pack(side=tk.LEFT)
         HoverTooltip.attach(btn_decel, BUTTON_TOOLTIPS["control_decel"])
+        attach_panel_fold(self, self.root.setting.p67_control_folded)
         # ----
 
     def update_data(self):
@@ -845,6 +868,9 @@ class ExecView(ttk.Frame):
         chk = ttk.Checkbutton(exec_executables_frame, text="Control", variable=self.root.setting.exec_control)
         chk.pack(side=tk.LEFT, padx=(5, 0), pady=1)
         HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_control")
+        chk = ttk.Checkbutton(exec_executables_frame, text="Tasks", variable=self.root.setting.exec_tasks)
+        chk.pack(side=tk.LEFT, padx=(5, 0), pady=1)
+        HoverTooltip.attach(chk, "Run execution tasks during each step.")
 
         ## Tasks — label, wrapping chips, and + on one row (top of Execution)
         tasks_row = ttk.Frame(exec_tasks_frame)
@@ -881,6 +907,7 @@ class ExecView(ttk.Frame):
         btn_set_start = ttk.Button(state_row, text="Save Start Position", command=self.set_start)
         btn_set_start.pack(side=tk.RIGHT, padx=(2, 0))
         HoverTooltip.attach(btn_set_start, BUTTON_TOOLTIPS["exec_set_start"])
+        attach_panel_fold(self.execution_factory_frame, self.root.setting.p67_execution_folded)
 
     def refresh_default_map_tooltips(self):
         field = DataPicker.default_map_settings_field()
@@ -1021,6 +1048,7 @@ class ExecView(ttk.Frame):
                 call_replan=self.root.setting.exec_plan.get(),
                 call_control=self.root.setting.exec_control.get(),
                 call_perceive=self.root.setting.exec_perceive.get(),
+                call_tasks=self.root.setting.exec_tasks.get(),
                 pace_perception=bool(self.root.setting.pace_perception.get()),
                 pace_replan=bool(self.root.setting.pace_replan.get()),
                 pace_control=bool(self.root.setting.pace_control.get()),
@@ -1077,6 +1105,7 @@ class ExecView(ttk.Frame):
             call_replan=self.root.setting.exec_plan.get(),
             call_control=self.root.setting.exec_control.get(),
             call_perceive=self.root.setting.exec_perceive.get(),
+            call_tasks=self.root.setting.exec_tasks.get(),
             pace_perception=bool(self.root.setting.pace_perception.get()),
             pace_replan=bool(self.root.setting.pace_replan.get()),
             pace_control=bool(self.root.setting.pace_control.get()),
@@ -1136,6 +1165,7 @@ class BridgeFrame(ttk.LabelFrame):
 
         self._world_cap_vars: dict[str, tk.BooleanVar] = {}
         self._stack_cap_vars: dict[str, tk.BooleanVar] = {}
+        attach_panel_fold(self, self.root.setting.p67_bridge_folded)
 
     def _build_capability_checks(self, world_capabilities: set, stack_capabilities: set):
         """Rebuild the checklists for the data the selected bridge can feed the stack."""

@@ -7,7 +7,7 @@ import math
 from typing import ClassVar
 
 from avlite.c40_execution.c42_execution_strategy import UnmetRequirements
-from avlite.c40_execution.c43_task_strategy import StackEvent, TaskSchedule, TaskStrategy
+from avlite.c40_execution.c43_task_strategy import GoalArrived, TaskSchedule, TaskStrategy
 from avlite.c50_common.c51_capabilities import satisfies_requirements
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class GoalArrivalMonitor(TaskStrategy):
     def execute(self, executer, event=None) -> None:
         arrived = self._ego_near_goal(executer, self.arrive_radius_m)
         if arrived and not self._was_arrived:
-            executer.task_runner.notify(StackEvent.GOAL_ARRIVED)
+            executer.task_runner.notify(GoalArrived())
         self._was_arrived = arrived
 
     @staticmethod
@@ -45,7 +45,7 @@ class GoalArrivalMonitor(TaskStrategy):
 
 class StopExecAtGoalTask(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.GOAL_ARRIVED})
+    listen_events = frozenset({GoalArrived})
 
     def execute(self, executer, event=None) -> None:
         executer.stop()

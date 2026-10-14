@@ -13,6 +13,7 @@ from avlite.c10_perception.c12_perception_strategy import PerceptionPipeline
 from avlite.c10_perception.c17_mapping_algs import OccupancyMapper
 from avlite.c10_perception.c19_settings import PerceptionSettings
 from avlite.c40_execution.c46_basic_sim import BasicSim
+from avlite.c40_execution.c45_async_threaded_executer import AsyncThreadedExecuter
 from avlite.c60_apps.c62_factory import executor_factory
 from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c69_settings import AppSettings
@@ -55,6 +56,44 @@ def test_executor_factory_builds_sync_executer(minimal_corridor_map_path):
     assert StackCapability.MAP_RACE_TRACK in executer.available_stack_capabilities()
     assert StackCapability.MAP_RACE_TRACK not in executer.world.stack_capabilities
     assert StackCapability.MAP_HD not in executer.available_stack_capabilities()
+
+
+def test_executor_factory_keep_reuses_the_live_world(minimal_corridor_map_path):
+    ExecutionSettings.c40_map = str(minimal_corridor_map_path.resolve())
+    ExecutionSettings.c40_mapping = ""
+    ExecutionSettings.c40_executer_type = SyncExecuter.__name__
+    ExecutionSettings.c40_bridge = "BasicSim"
+    ExecutionSettings.c40_perception = ""
+    ExecutionSettings.c40_localization = ""
+    ExecutionSettings.c40_global_planner = "GlobalCenterlineRacePlanner"
+    ExecutionSettings.c40_local_planner = "GreedyLatticePlanner"
+    ExecutionSettings.c40_controller = StanleyController.__name__
+
+    executer = executor_factory(load_plugins=False)
+    world = executer.world
+    controller = executer.controller
+    planner = executer.local_planner
+
+    swapped = executor_factory(
+        load_plugins=False,
+        executer_type=AsyncThreadedExecuter.__name__,
+        bridge="BasicSim",
+        keep=executer,
+    )
+    assert isinstance(swapped, AsyncThreadedExecuter)
+    assert swapped.world is world
+    assert swapped.controller is controller
+    assert swapped.local_planner is planner
+    assert swapped is not executer
+
+    restored = executor_factory(
+        load_plugins=False,
+        executer_type=SyncExecuter.__name__,
+        bridge="BasicSim",
+        keep=swapped,
+    )
+    assert isinstance(restored, SyncExecuter)
+    assert restored.world is world
 
 
 def test_executor_factory_skips_apply_when_plugins_disabled(

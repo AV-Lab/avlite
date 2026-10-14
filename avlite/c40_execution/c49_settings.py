@@ -9,7 +9,7 @@ class ExecutionSettingsSchema(SettingsSchema):
     filepath: ClassVar[str] = "configs/c40_execution.yaml"
 
     c40_executer_type: str = Field(default="SyncExecuter", description="Executer class name.")
-    c40_bridge: str = Field(default="BasicSim", description="World bridge class name (e.g. BasicSim, CarlaBridge).")
+    c40_bridge: str = Field(default="BasicSim", description="World bridge class name (e.g. BasicSim).")
     c40_perception: str = Field(default="", description="Perception strategy class; empty omits the module.")
     c40_localization: str = Field(default="", description="Localization strategy class; empty omits the module.")
     c40_mapping: str = Field(default="", description="Mapping strategy class; empty omits the module.")

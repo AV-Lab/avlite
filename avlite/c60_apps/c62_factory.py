@@ -91,12 +91,40 @@ def executor_factory(
     map_file = ExecutionSettings.c40_map,
     load_plugins=True,
     async_combined_perception_planning: bool = ExecutionSettings.c40_async_combined_perception_planning,
+    keep: "ExecutionStrategy | None" = None,
 ) -> "ExecutionStrategy":
     """
     Factory method to create an instance of the ExecutionStrategy class based on the provided configuration.
+
+    ``keep`` rebuilds only the executer class around that executer's live world
+    and stack modules. The bridge is left in place when its class still matches
+    ``bridge``.
     """
     if execution_task_names is None:
         execution_task_names = list(ExecutionSettings.c40_execution_tasks)
+
+    kept_world = getattr(keep, "world", None) if keep is not None else None
+    if kept_world is not None and type(kept_world).__name__ == bridge:
+        executer_cls = _RegistryChecks.require_registered(executer_type, ExecutionStrategy.registry, "executer")
+        runner = getattr(keep, "task_runner", None)
+        kept_tasks = list(runner.tasks) if runner is not None else []
+        kwargs = dict(
+            perception_model=keep.pm,
+            perception=keep.perception,
+            global_planner=keep.global_planner,
+            local_planner=keep.local_planner,
+            controller=keep.controller,
+            world=kept_world,
+            localization=keep.localization,
+            perception_dt=keep.perception_dt,
+            replan_dt=keep.replan_dt,
+            control_dt=keep.control_dt,
+            localization_dt=keep.localization_dt,
+            tasks=kept_tasks,
+        )
+        if issubclass(executer_cls, AsyncThreadedExecuter):
+            kwargs["combined_perception_planning"] = async_combined_perception_planning
+        return executer_cls(**kwargs)
 
     env = PluginEnv()
     if load_plugins:

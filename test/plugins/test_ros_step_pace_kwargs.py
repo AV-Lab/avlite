@@ -1,4 +1,4 @@
-"""ROSExecuter.step must accept UI pace_* kwargs (AST only — no rclpy)."""
+"""ROSExecuter.step must accept UI pace_* and call_tasks kwargs (AST only — no rclpy)."""
 
 from __future__ import annotations
 
@@ -24,4 +24,10 @@ def test_ros_executer_step_accepts_pace_kwargs():
                     step_args = {a.arg for a in item.args.args}
                     break
     assert step_args is not None
-    assert {"pace_perception", "pace_replan", "pace_control", "pace_sim"} <= step_args
+    assert {
+        "pace_perception",
+        "pace_replan",
+        "pace_control",
+        "pace_sim",
+        "call_tasks",
+    } <= step_args

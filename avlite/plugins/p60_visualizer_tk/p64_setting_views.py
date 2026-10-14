@@ -60,6 +60,7 @@ from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ThemedTwoInputDialog,
     TkSettingsBinder,
     apply_ttk_theme,
+    attach_panel_fold,
 )
 from avlite.c60_apps.c64_settings_schema import (
     apply_validated_to_setting,
@@ -68,6 +69,15 @@ from avlite.c60_apps.c64_settings_schema import (
     setting_key,
 )
 from avlite.plugins.p60_visualizer_tk.p63_plugins_app import CommunityPluginsApp, _PluginOperations
+from avlite.plugins.p60_visualizer_tk.p64_shortcuts import (
+    SHORTCUTS,
+    SHORTCUT_BY_ID,
+    bind_sequences,
+    conflicting_id,
+    display_sequence,
+    event_sequence,
+    sequence,
+)
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +106,11 @@ class SettingWindow:
         self.host = host
         self.show_visualization_settings = show_visualization_settings
         self.setting = host.setting
+        self._shortcut_seqs: list[str] = []
+        self._capture_funcid = None
+        self._capturing: str | None = None
+        self._shortcut_buttons: dict[str, ttk.Button] = {}
+        self._shortcuts_canvas: tk.Canvas | None = None
         self.window = tk.Toplevel(host)
         self._dpi_scale = DpiScale.for_widget(self.window, parent=host)
         self.window.geometry(f"{DpiScale.scaled(550, self._dpi_scale)}x{DpiScale.scaled(450, self._dpi_scale)}")
@@ -107,16 +122,26 @@ class SettingWindow:
 
         profile_ext_frame = ttk.Frame(self.frame)
         profile_ext_frame.grid(row=0, column=0, sticky="nswe", padx=10, pady=10)
-        settings_frame = ttk.Frame(self.frame)
-        settings_frame.grid(row=0, column=1, rowspan=1, sticky="nsew", padx=10, pady=10)
         additional_setting_frame = ttk.LabelFrame(self.frame, text="Additional Settings")
+        shortcuts_tab = None
         if show_visualization_settings:
             additional_setting_frame.grid(row=1, column=0, columnspan=2, sticky="sew", padx=5, pady=5)
+            notebook = ttk.Notebook(self.frame)
+            notebook.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+            stack_tab = ttk.Frame(notebook)
+            shortcuts_tab = ttk.Frame(notebook)
+            notebook.add(stack_tab, text="Stack")
+            notebook.add(shortcuts_tab, text="Shortcuts")
+            settings_parent = stack_tab
+        else:
+            settings_parent = ttk.Frame(self.frame)
+            settings_parent.grid(row=0, column=1, rowspan=1, sticky="nsew", padx=10, pady=10)
 
         self._bind_window_keys()
         self._build_profile_panel(profile_ext_frame)
-        self._build_settings_canvas(settings_frame)
+        self._build_settings_canvas(settings_parent)
         if show_visualization_settings:
+            self._build_shortcuts_tab(shortcuts_tab)
             self._build_viz_settings_panel(additional_setting_frame)
 
         footer_row = 2 if show_visualization_settings else 1
@@ -207,16 +232,175 @@ class SettingWindow:
         self.load_profile(profile)
 
     def _bind_window_keys(self) -> None:
-        self.window.bind("<Control-s>", lambda e: self.save_profile())
-        self.window.bind("k", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_scroll(-1, "units"))
-        self.window.bind("j", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_scroll(1, "units"))
-        self.window.bind("<Control-u>", lambda e: self.canvas.yview_scroll(-5, "units"))
-        self.window.bind(
-            "<Control-d>",
-            lambda e: self.canvas.yview_scroll(int(0.5 * self.host.setting.p68_log_view_default_height.get()), "units"),
-        )
-        self.window.bind("G", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_moveto(1.0))
-        self.window.bind("g", lambda e: None if isinstance(e.widget, tk.Text) else self.canvas.yview_moveto(0.0))
+        self.apply_shortcut_keys()
+
+    def _shortcut_overrides(self) -> dict[str, str]:
+        current = getattr(self.host.setting, "p60_shortcuts", None)
+        if not isinstance(current, dict):
+            current = {}
+            self.host.setting.p60_shortcuts = current
+        return current
+
+    def apply_shortcut_keys(self) -> None:
+        """Bind settings-window scroll and save keys from the shortcut catalog."""
+        for seq in self._shortcut_seqs:
+            self.window.unbind(seq)
+        self._shortcut_seqs = []
+        overrides = self._shortcut_overrides()
+        for entry in SHORTCUTS:
+            if not entry.settings_window:
+                continue
+            seq = sequence(entry, overrides)
+            action = self._settings_shortcut_action(entry.id)
+
+            def handler(event, entry=entry, action=action):
+                if entry.skip_text and isinstance(event.widget, tk.Text):
+                    return None
+                return action()
+
+            self.window.bind(seq, handler)
+            self._shortcut_seqs.append(seq)
+
+    def _settings_shortcut_action(self, entry_id: str):
+        if entry_id == "save_settings":
+            return self.save_profile
+        if entry_id == "log_up":
+            return lambda: self.canvas.yview_scroll(-1, "units")
+        if entry_id == "log_down":
+            return lambda: self.canvas.yview_scroll(1, "units")
+        if entry_id == "log_page_up":
+            return lambda: self.canvas.yview_scroll(-5, "units")
+        if entry_id == "log_page_down":
+            return lambda: self.canvas.yview_scroll(
+                int(0.5 * self.host.setting.p68_log_view_default_height.get()), "units"
+            )
+        if entry_id == "log_bottom":
+            return lambda: self.canvas.yview_moveto(1.0)
+        if entry_id == "log_top":
+            return lambda: self.canvas.yview_moveto(0.0)
+        raise KeyError(entry_id)
+
+    def _build_shortcuts_tab(self, parent: ttk.Frame) -> None:
+        parent.rowconfigure(1, weight=1)
+        parent.columnconfigure(0, weight=1)
+        bar = ttk.Frame(parent)
+        bar.grid(row=0, column=0, columnspan=2, sticky="ew")
+        reset = ttk.Button(bar, text="Reset to defaults", command=self._reset_shortcuts)
+        reset.pack(side=tk.LEFT, padx=4, pady=4)
+        HoverTooltip.attach(reset, BUTTON_TOOLTIPS["shortcut_reset"])
+        self._shortcut_status = ttk.Label(bar, text="")
+        self._shortcut_status.pack(side=tk.LEFT, padx=6)
+
+        bg = ttk.Style(parent).lookup("TFrame", "background")
+        canvas = tk.Canvas(parent, highlightthickness=0, bd=0, background=bg)
+        self._shortcuts_canvas = canvas
+        scroll = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.grid(row=1, column=0, sticky="nsew")
+        scroll.grid(row=1, column=1, sticky="ns")
+
+        row = 0
+        last_group = None
+        overrides = self._shortcut_overrides()
+        for entry in SHORTCUTS:
+            if entry.group != last_group:
+                ttk.Label(inner, text=entry.group, style="Section.TLabel").grid(
+                    row=row, column=0, columnspan=2, sticky="w", padx=6, pady=(8, 2)
+                )
+                row += 1
+                last_group = entry.group
+            ttk.Label(inner, text=entry.label).grid(row=row, column=0, sticky="w", padx=8, pady=1)
+            btn = ttk.Button(
+                inner,
+                width=14,
+                text=display_sequence(sequence(entry, overrides)),
+                command=lambda eid=entry.id: self._begin_capture(eid),
+            )
+            btn.grid(row=row, column=1, sticky="e", padx=8, pady=1)
+            self._shortcut_buttons[entry.id] = btn
+            row += 1
+        inner.columnconfigure(0, weight=1)
+
+    def refresh_shortcut_buttons(self) -> None:
+        if not self._shortcut_buttons:
+            return
+        overrides = self._shortcut_overrides()
+        for entry in SHORTCUTS:
+            btn = self._shortcut_buttons.get(entry.id)
+            if btn is not None:
+                btn.configure(text=display_sequence(sequence(entry, overrides)))
+
+    def _reset_shortcuts(self) -> None:
+        self._shortcut_overrides().clear()
+        PluginSettings.p60_shortcuts = {}
+        self._shortcut_status.configure(text="")
+        self.refresh_shortcut_buttons()
+        self._rebind_host_shortcuts()
+
+    def _begin_capture(self, entry_id: str) -> None:
+        if self._capture_funcid is not None:
+            self.window.unbind("<KeyPress>", self._capture_funcid)
+            self._capture_funcid = None
+            try:
+                self.window.grab_release()
+            except tk.TclError:
+                pass
+        self._capturing = entry_id
+        button = self._shortcut_buttons[entry_id]
+        button.configure(text="Press key…")
+        button.focus_set()
+        self._shortcut_status.configure(text="")
+        for seq in list(self._shortcut_seqs):
+            self.window.unbind(seq)
+        self._shortcut_seqs.clear()
+        self.window.grab_set()
+        self._capture_funcid = self.window.bind("<KeyPress>", self._on_capture)
+
+    def _on_capture(self, event):
+        entry_id = self._capturing
+        if event.keysym == "Escape" or entry_id is None:
+            self._finish_capture()
+            return "break"
+        seq = event_sequence(event)
+        if not seq:
+            return "break"
+        overrides = self._shortcut_overrides()
+        other = conflicting_id(entry_id, seq, overrides)
+        if other is not None:
+            self._shortcut_status.configure(text=f"Already used by {SHORTCUT_BY_ID[other].label}")
+            self._finish_capture()
+            return "break"
+        entry = SHORTCUT_BY_ID[entry_id]
+        if seq == entry.default:
+            overrides.pop(entry_id, None)
+        else:
+            overrides[entry_id] = seq
+        PluginSettings.p60_shortcuts = dict(overrides)
+        self._shortcut_status.configure(text="")
+        self._finish_capture()
+        return "break"
+
+    def _finish_capture(self) -> None:
+        if self._capture_funcid is not None:
+            self.window.unbind("<KeyPress>", self._capture_funcid)
+            self._capture_funcid = None
+        self._capturing = None
+        try:
+            self.window.grab_release()
+        except tk.TclError:
+            pass
+        self.refresh_shortcut_buttons()
+        self._rebind_host_shortcuts()
+
+    def _rebind_host_shortcuts(self) -> None:
+        view = getattr(self.host, "setting_shortcut_view", None)
+        if view is not None:
+            view.apply_shortcuts()
+        else:
+            self.apply_shortcut_keys()
 
     def _build_profile_panel(self, profile_ext_frame: ttk.Frame) -> None:
         _s = self._dpi_scale
@@ -377,17 +561,33 @@ class SettingWindow:
         btn_browse_plugins.grid(row=9, column=0, columnspan=2, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
 
+    def _wheel_canvas(self, widget):
+        """Scroll the Shortcuts list when the pointer is over it, otherwise the stack list."""
+        shortcuts = self._shortcuts_canvas
+        current = widget
+        while current is not None:
+            if shortcuts is not None and current is shortcuts:
+                return shortcuts
+            current = getattr(current, "master", None)
+        return self.canvas
+
     def _build_settings_canvas(self, settings_frame: ttk.Frame) -> None:
         _s = self._dpi_scale
         settings_frame.columnconfigure(0, weight=1)
         settings_frame.rowconfigure(0, weight=1)
 
         def _on_mousewheel(event):
-            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            self._wheel_canvas(event.widget).yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _on_wheel_up(event):
+            self._wheel_canvas(event.widget).yview_scroll(-1, "units")
+
+        def _on_wheel_down(event):
+            self._wheel_canvas(event.widget).yview_scroll(1, "units")
 
         settings_frame.bind_all("<MouseWheel>", _on_mousewheel)
-        settings_frame.bind_all("<Button-4>", lambda e: self.canvas.yview_scroll(-1, "units"))
-        settings_frame.bind_all("<Button-5>", lambda e: self.canvas.yview_scroll(1, "units"))
+        settings_frame.bind_all("<Button-4>", _on_wheel_up)
+        settings_frame.bind_all("<Button-5>", _on_wheel_down)
 
         def unbind_mousewheel_events(event=None):
             settings_frame.unbind_all("<MouseWheel>")
@@ -1038,6 +1238,8 @@ class SettingWindow:
         self._update_builtin_plugin_action_states()
         self.host.on_stack_settings_changed()
         self.host.loaded_profile = profile
+        self.refresh_shortcut_buttons()
+        self._rebind_host_shortcuts()
         if previous is not None and previous != profile:
             self.host.show_profile_note(self.window)
 
@@ -1349,53 +1551,7 @@ class SettingShortcutView(ttk.LabelFrame):
         super().__init__(root, text="Settings")
 
         self.root: VisualizerApp = root
-        self.root.bind("T", lambda e: self.open_settings_window())
-        self.root.bind_all("Q", lambda e: self.root.quit())
-        self.root.bind_all("R", lambda e: self.root.reload_stack())
-        self.root.bind_all("F", lambda e: self.root.switch_profile())
-        self.root.bind("S", lambda e: self.root.update_shortcut_mode(reverse=True))
-        self.root.bind("<Control-s>", lambda e: self.save_settings())
-
-        self.root.bind("<Control-plus>", lambda e: self.root.local_plan_plot_view.zoom_in_frenet())
-        self.root.bind("<Control-minus>", lambda e: self.root.local_plan_plot_view.zoom_out_frenet())
-        self.root.bind("<plus>", lambda e: self.root.local_plan_plot_view.zoom_in())
-        self.root.bind("<minus>", lambda e: self.root.local_plan_plot_view.zoom_out())
-
-        self.root.bind("x", lambda e: self.root.exec_visualize_view.toggle_exec())
-        self.root.bind("c", lambda e: self.root.exec_visualize_view.step_exec())
-        self.root.bind("t", lambda e: self.root.exec_visualize_view.reset_exec())
-
-        self.root.bind("n", lambda e: self.root.perceive_plan_control_view.plan_frame.step_plan())
-        self.root.bind("b", lambda e: self.root.perceive_plan_control_view.plan_frame.step_waypoint_back())
-        self.root.bind("r", lambda e: self.root.perceive_plan_control_view.plan_frame.replan())
-
-        self.root.bind("h", lambda e: self.root.perceive_plan_control_view.control_frame.step_control())
-        self.root.bind("i", lambda e: self.root.perceive_plan_control_view.control_frame.align_control())
-
-        self.root.bind("<KeyPress-a>", lambda e: self._unless_keyboard_drive("a", self.root.perceive_plan_control_view.control_frame.step_steer_left))
-        self.root.bind("<KeyPress-d>", lambda e: self._unless_keyboard_drive("d", self.root.perceive_plan_control_view.control_frame.step_steer_right))
-        self.root.bind("<KeyRelease-a>", lambda e: self._unless_keyboard_drive("a", self.root.perceive_plan_control_view.control_frame.reset_steer))
-        self.root.bind("<KeyRelease-d>", lambda e: self._unless_keyboard_drive("d", self.root.perceive_plan_control_view.control_frame.reset_steer))
-        self.root.bind("w", lambda e: self._unless_keyboard_drive("w", self.root.perceive_plan_control_view.control_frame.step_acc))
-        self.root.bind("s", lambda e: self._unless_keyboard_drive("s", self.root.perceive_plan_control_view.control_frame.step_dec))
-
-        self.root.bind("k", lambda e: self.root.log_view.log_area.yview_scroll(-1, "units"))
-        self.root.bind("j", lambda e: self.root.log_view.log_area.yview_scroll(1, "units"))
-        self.root.bind("<Control-u>", lambda e: self.root.log_view.log_area.yview_scroll(-5, "units"))
-        self.root.bind(
-            "<Control-d>",
-            lambda e: self.root.log_view.log_area.yview_scroll(
-                int(0.5 * self.root.setting.p68_log_view_default_height.get()), "units"
-            ),
-        )
-        self.root.bind("G", lambda e: self.root.log_view.log_area.yview_moveto(1.0))
-        self.root.bind("g", lambda e: self.root.log_view.log_area.yview_moveto(0.0))
-        self.root.bind("<Up>", lambda e: self._unless_keyboard_drive("up", lambda: self.root.log_view.log_area.yview_scroll(-1, "units")))
-        self.root.bind("<Down>", lambda e: self._unless_keyboard_drive("down", lambda: self.root.log_view.log_area.yview_scroll(1, "units")))
-
-        self.root.bind("E", lambda e: self.root.log_view.update_log_view_height(reverse=True))
-        self.root.bind("L", lambda e: self.root.log_view.clear_log())
-        self.root.bind("<Escape>", lambda e: self.root.focus_set())
+        self._bound: list[tuple[str, bool]] = []
 
         btn_settings = ttk.Button(self, text="⚙", command=self.open_settings_window, width=2)
         btn_settings.pack(side=tk.RIGHT)
@@ -1477,24 +1633,66 @@ class SettingShortcutView(ttk.LabelFrame):
 
         _s = getattr(root, "_dpi_scale", 1.0)
         self.shortcut_frame = ttk.LabelFrame(root, text="Shortcuts")
-        self.help_text = tk.Text(
+        self._build_shortcut_table(_s)
+        attach_panel_fold(self, self.root.setting.p60_settings_folded)
+        attach_panel_fold(self.shortcut_frame, self.root.setting.p60_shortcuts_folded)
+        self.apply_shortcuts()
+
+    def _build_shortcut_table(self, scale: float) -> None:
+        """Short scrolled Group / Key / Action list for the main window."""
+        row_px = max(18, DpiScale.scaled(22, scale))
+        bg = ttk.Style(self.shortcut_frame).lookup("TFrame", "background") or "white"
+        canvas = tk.Canvas(
             self.shortcut_frame,
-            wrap=tk.WORD,
-            width=max(30, DpiScale.scaled(50, _s)),
-            height=max(5, DpiScale.scaled(7, _s)),
+            highlightthickness=0,
+            bd=0,
+            height=row_px * 5,
+            background=bg,
         )
-        key_binding_info = """
-App:      Q - Quit             S - Toggle shortcut          F - Switch to next Profile  R - Reload imports
-          T - Open Settings    E - Expand/collapse log      ↑/↓- use Up/Down or vim motion to scroll log
-Plan:     n - Step plan        b - Step Back                r - Replan
-          + - Zoom In          - - Zoom Out           <Ctrl+> - Zoom In F         <Ctrl-> - Zoom Out F
-Control:  h - Control Step     i - Re-align control         w - Accelerate
-          a - Steer left       d - Steer right              s - Deccelerate
-Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
-        """.strip()
-        self.help_text.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-        self.help_text.insert(tk.END, key_binding_info)
-        self.help_text.config(state=tk.DISABLED)
+        self._shortcut_canvas = canvas
+        scroll = ttk.Scrollbar(self.shortcut_frame, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window_id, width=e.width))
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def on_wheel(event):
+            if getattr(event, "num", None) == 4 or int(getattr(event, "delta", 0) or 0) > 0:
+                canvas.yview_scroll(-1, "units")
+            else:
+                canvas.yview_scroll(1, "units")
+            return "break"
+
+        wheel_targets = [canvas, inner]
+        self._shortcut_key_labels: dict[str, ttk.Label] = {}
+        row = 0
+        last_group = None
+        for entry in SHORTCUTS:
+            if entry.group != last_group:
+                heading = ttk.Label(inner, text=entry.group, style="Section.TLabel")
+                heading.grid(row=row, column=0, sticky="w", padx=(6, 10), pady=(4, 0))
+                wheel_targets.append(heading)
+                last_group = entry.group
+            key = ttk.Label(inner, width=10, anchor="w")
+            key.grid(row=row, column=1, sticky="w", padx=4, pady=1)
+            action = ttk.Label(inner, text=entry.label, anchor="w")
+            action.grid(row=row, column=2, sticky="w", padx=4, pady=1)
+            self._shortcut_key_labels[entry.id] = key
+            wheel_targets.extend((key, action))
+            row += 1
+        inner.columnconfigure(2, weight=1)
+        for widget in wheel_targets:
+            widget.bind("<MouseWheel>", on_wheel)
+            widget.bind("<Button-4>", on_wheel)
+            widget.bind("<Button-5>", on_wheel)
+
+    def sync_shortcut_table_theme(self, *, dark: bool) -> None:
+        canvas = getattr(self, "_shortcut_canvas", None)
+        if canvas is not None:
+            canvas.configure(background="gray14" if dark else "white")
 
     def _unless_keyboard_drive(self, key: str, action):
         """Skip Tk pulse/scroll when KeyboardController owns this mapped key."""
@@ -1503,6 +1701,107 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
         if keyboard_drive_owns(ctrl, key):
             return
         return action()
+
+    def apply_shortcuts(self) -> None:
+        """Rebind the main window from the catalog and the saved overrides."""
+        root = self.root
+        for seq, bind_all in self._bound:
+            if bind_all:
+                root.unbind_all(seq)
+            else:
+                root.unbind(seq)
+        self._bound = []
+        raw = getattr(root.setting, "p60_shortcuts", None)
+        overrides = raw if isinstance(raw, dict) else {}
+        handlers = self._shortcut_handlers()
+        for entry in SHORTCUTS:
+            seq = sequence(entry, overrides)
+            action = handlers[entry.id]
+            actions = action if entry.press_release else (action,)
+            for bound_seq, act in zip(bind_sequences(entry, seq), actions):
+                callback = self._handler(entry, act)
+                if entry.bind_all:
+                    root.bind_all(bound_seq, callback)
+                else:
+                    root.bind(bound_seq, callback)
+                self._bound.append((bound_seq, entry.bind_all))
+        self._refresh_help(overrides)
+        view = getattr(self, "setting_view", None)
+        window = getattr(view, "window", None) if view is not None else None
+        if window is not None:
+            try:
+                if window.winfo_exists():
+                    view.apply_shortcut_keys()
+            except tk.TclError:
+                pass
+
+    def _handler(self, entry, action):
+        def handler(event, entry=entry, action=action):
+            if entry.drive_guard:
+                key = (getattr(event, "keysym", "") or "").lower()
+                return self._unless_keyboard_drive(key, action)
+            return action()
+
+        return handler
+
+    def _shortcut_handlers(self):
+        root = self.root
+
+        def plan(method):
+            return lambda: getattr(root.perceive_plan_control_view.plan_frame, method)()
+
+        def control(method):
+            return lambda: getattr(root.perceive_plan_control_view.control_frame, method)()
+
+        def log_scroll(steps):
+            return lambda: root.log_view.log_area.yview_scroll(steps, "units")
+
+        return {
+            "open_settings": lambda: self.open_settings_window(),
+            "quit": lambda: root.quit(),
+            "reload": lambda: root.reload_stack(),
+            "switch_profile": lambda: root.switch_profile(),
+            "toggle_shortcuts": lambda: root.update_shortcut_mode(reverse=True),
+            "save_settings": lambda: self.save_settings(),
+            "focus": lambda: root.focus_set(),
+            "zoom_in_frenet": lambda: root.local_plan_plot_view.zoom_in_frenet(),
+            "zoom_out_frenet": lambda: root.local_plan_plot_view.zoom_out_frenet(),
+            "zoom_in": lambda: root.local_plan_plot_view.zoom_in(),
+            "zoom_out": lambda: root.local_plan_plot_view.zoom_out(),
+            "step_plan": plan("step_plan"),
+            "step_plan_back": plan("step_waypoint_back"),
+            "replan": plan("replan"),
+            "step_control": control("step_control"),
+            "align_control": control("align_control"),
+            "steer_left": (control("step_steer_left"), control("reset_steer")),
+            "steer_right": (control("step_steer_right"), control("reset_steer")),
+            "accelerate": control("step_acc"),
+            "decelerate": control("step_dec"),
+            "toggle_exec": lambda: root.exec_visualize_view.toggle_exec(),
+            "step_exec": lambda: root.exec_visualize_view.step_exec(),
+            "reset_exec": lambda: root.exec_visualize_view.reset_exec(),
+            "log_up": log_scroll(-1),
+            "log_down": log_scroll(1),
+            "log_page_up": log_scroll(-5),
+            "log_page_down": lambda: root.log_view.log_area.yview_scroll(
+                int(0.5 * root.setting.p68_log_view_default_height.get()), "units"
+            ),
+            "log_top": lambda: root.log_view.log_area.yview_moveto(0.0),
+            "log_bottom": lambda: root.log_view.log_area.yview_moveto(1.0),
+            "log_up_arrow": log_scroll(-1),
+            "log_down_arrow": log_scroll(1),
+            "toggle_log_height": lambda: root.log_view.update_log_view_height(reverse=True),
+            "clear_log": lambda: root.log_view.clear_log(),
+        }
+
+    def _refresh_help(self, overrides: dict[str, str]) -> None:
+        labels = getattr(self, "_shortcut_key_labels", None)
+        if not labels:
+            return
+        for entry in SHORTCUTS:
+            label = labels.get(entry.id)
+            if label is not None:
+                label.configure(text=display_sequence(sequence(entry, overrides)))
 
     def update_profile_list(self, profiles) -> None:
         """Set toolbar profile values and widen the combobox to the longest name."""
@@ -1545,6 +1844,7 @@ Execute:  c - Step Execution   t - Reset execution          x - Toggle execution
             self.setting_view.update_plugins_widgets()
             self.setting_view.profile_note.delete("1.0", tk.END)
             self.setting_view.profile_note.insert("1.0", AppSettings.c60_profile_note or "")
+            self.setting_view.refresh_shortcut_buttons()
             log.info("Updated existing settings window")
 
     def open_plugins_window(self):

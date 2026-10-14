@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import yaml
+
 DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
 COMMUNITY_DEV_SUBDIR = "avlite-community-plugins"
 PRIVATE_DEV_SUBDIR = "avlite-private-plugins"
@@ -223,6 +225,34 @@ class PluginPaths:
         return path.resolve() if path.is_dir() else None
 
     @staticmethod
+    def plugin_load_dir(repository_dir: Path | str) -> Path:
+        """Return the importable plugin directory inside an installed repository.
+
+        Normal plugins load from the repository root. Registry-installed
+        monorepos may declare a safe relative ``plugin_subdir`` in the
+        ``.avlite-registry.yaml`` sidecar written by the plugin browser.
+        Invalid, escaping, or missing subdirectories fall back to the root.
+        """
+        root = Path(repository_dir).expanduser().resolve()
+        metadata = root / ".avlite-registry.yaml"
+        if not metadata.is_file():
+            return root
+        try:
+            data = yaml.safe_load(metadata.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return root
+        subdir = str(data.get("plugin_subdir") or "").strip()
+        if not subdir:
+            return root
+        relative = Path(subdir)
+        if relative.is_absolute():
+            return root
+        candidate = (root / relative).resolve()
+        if root not in candidate.parents or not candidate.is_dir():
+            return root
+        return candidate
+
+    @staticmethod
     def installed_map() -> dict[str, str]:
         """Map installed community plugin names to profile storage values."""
         result: dict[str, str] = {}
@@ -259,22 +289,22 @@ class PluginPaths:
 
         if not stored or stored == name:
             direct = install / name
-            return direct.resolve() if direct.is_dir() else direct
+            return PluginPaths.plugin_load_dir(direct) if direct.is_dir() else direct
 
         if stored.startswith("~/") or Path(stored).expanduser().is_absolute():
             path = Path(stored).expanduser().resolve()
             if path.is_dir():
-                return path
+                return PluginPaths.plugin_load_dir(path)
 
         # Repo-relative, or heal corrupted ~/avlite-*-plugins/... (CWD-resolved) forms.
         rel = stored.removeprefix("~/") if stored.startswith("~/") else stored
         repo_relative = PluginPaths.repo_root() / rel
         if repo_relative.is_dir():
-            return repo_relative.resolve()
+            return PluginPaths.plugin_load_dir(repo_relative)
 
         install_by_name = install / name
         if install_by_name.is_dir():
-            return install_by_name.resolve()
+            return PluginPaths.plugin_load_dir(install_by_name)
 
         return install / name
 
