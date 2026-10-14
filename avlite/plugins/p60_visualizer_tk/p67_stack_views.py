@@ -44,6 +44,7 @@ from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     BUTTON_TOOLTIPS,
     HoverTooltip,
     ThemedListPickerDialog,
+    attach_panel_fold,
     make_strategy_contract_controls,
     make_world_bridge_contract_controls,
     show_strategy_contract_popup,
@@ -67,11 +68,8 @@ class PerceivePlanControlView(ttk.Frame):
         top_bar = ttk.Frame(self)
         top_bar.pack(fill=tk.X)
 
-        perc_col = ttk.Frame(top_bar)
-        perc_col.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
-
-        self.perceive_frame = PerceptionFrame(root=self.root, view=perc_col)
-        self.perceive_frame.pack(side=tk.TOP, expand=True, fill=tk.BOTH)
+        self.perceive_frame = PerceptionFrame(root=self.root, view=top_bar)
+        self.perceive_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
         self.plan_frame = PlanFrame(root=self.root, view=top_bar)
         self.plan_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
@@ -207,6 +205,7 @@ class PerceptionFrame(ttk.LabelFrame):
         self.root.setting.mapping_type.trace_add("write", lambda *_: self._update_save_map_visibility())
         self._update_pipeline_visibility()
         self._update_save_map_visibility()
+        attach_panel_fold(self, self.root.setting.p67_perception_folded)
 
     def _on_perception_selected(self, event=None):
         self._update_pipeline_visibility()
@@ -445,12 +444,19 @@ class PlanFrame(ttk.LabelFrame):
         btn_local_replan = ttk.Button(self, text="Local Replan", command=self.replan)
         btn_local_replan.pack(side=tk.LEFT, fill=tk.X, expand=True)
         HoverTooltip.attach(btn_local_replan, BUTTON_TOOLTIPS["plan_local_replan"])
+        attach_panel_fold(
+            self,
+            self.root.setting.p67_plan_folded,
+            on_apply=lambda folded: None if folded else self._update_pipeline_visibility(),
+        )
 
     def _on_local_planner_selected(self, event=None):
         self._update_pipeline_visibility()
         self.root.reload_stack(reload_code=False)
 
     def _update_pipeline_visibility(self):
+        if self.root.setting.p67_plan_folded.get():
+            return
         show = self.root.setting.local_planner_type.get() == LocalPlanningPipeline.__name__
         for widget, pack_kwargs in self._pipeline_widgets:
             if show:
@@ -651,6 +657,7 @@ class ControlFrame(ttk.LabelFrame):
         btn_decel = ttk.Button(control_action_frame, text="▼", width=2, command=self.step_dec)
         btn_decel.pack(side=tk.LEFT)
         HoverTooltip.attach(btn_decel, BUTTON_TOOLTIPS["control_decel"])
+        attach_panel_fold(self, self.root.setting.p67_control_folded)
         # ----
 
     def update_data(self):
@@ -861,6 +868,9 @@ class ExecView(ttk.Frame):
         chk = ttk.Checkbutton(exec_executables_frame, text="Control", variable=self.root.setting.exec_control)
         chk.pack(side=tk.LEFT, padx=(5, 0), pady=1)
         HoverTooltip.attach_schema(chk, VisualizationSettings, "exec_control")
+        chk = ttk.Checkbutton(exec_executables_frame, text="Tasks", variable=self.root.setting.exec_tasks)
+        chk.pack(side=tk.LEFT, padx=(5, 0), pady=1)
+        HoverTooltip.attach(chk, "Run execution tasks during each step.")
 
         ## Tasks — label, wrapping chips, and + on one row (top of Execution)
         tasks_row = ttk.Frame(exec_tasks_frame)
@@ -897,6 +907,7 @@ class ExecView(ttk.Frame):
         btn_set_start = ttk.Button(state_row, text="Save Start Position", command=self.set_start)
         btn_set_start.pack(side=tk.RIGHT, padx=(2, 0))
         HoverTooltip.attach(btn_set_start, BUTTON_TOOLTIPS["exec_set_start"])
+        attach_panel_fold(self.execution_factory_frame, self.root.setting.p67_execution_folded)
 
     def refresh_default_map_tooltips(self):
         field = DataPicker.default_map_settings_field()
@@ -1037,6 +1048,7 @@ class ExecView(ttk.Frame):
                 call_replan=self.root.setting.exec_plan.get(),
                 call_control=self.root.setting.exec_control.get(),
                 call_perceive=self.root.setting.exec_perceive.get(),
+                call_tasks=self.root.setting.exec_tasks.get(),
                 pace_perception=bool(self.root.setting.pace_perception.get()),
                 pace_replan=bool(self.root.setting.pace_replan.get()),
                 pace_control=bool(self.root.setting.pace_control.get()),
@@ -1093,6 +1105,7 @@ class ExecView(ttk.Frame):
             call_replan=self.root.setting.exec_plan.get(),
             call_control=self.root.setting.exec_control.get(),
             call_perceive=self.root.setting.exec_perceive.get(),
+            call_tasks=self.root.setting.exec_tasks.get(),
             pace_perception=bool(self.root.setting.pace_perception.get()),
             pace_replan=bool(self.root.setting.pace_replan.get()),
             pace_control=bool(self.root.setting.pace_control.get()),
@@ -1152,6 +1165,7 @@ class BridgeFrame(ttk.LabelFrame):
 
         self._world_cap_vars: dict[str, tk.BooleanVar] = {}
         self._stack_cap_vars: dict[str, tk.BooleanVar] = {}
+        attach_panel_fold(self, self.root.setting.p67_bridge_folded)
 
     def _build_capability_checks(self, world_capabilities: set, stack_capabilities: set):
         """Rebuild the checklists for the data the selected bridge can feed the stack."""

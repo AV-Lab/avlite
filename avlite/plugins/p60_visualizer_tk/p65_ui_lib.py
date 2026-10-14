@@ -526,7 +526,8 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     # Log
     "log_clear": "Clear the log output.",
     "log_copy": "Copy log text to the clipboard.",
-    "log_toggle_height": "Expand or collapse the log panel.",
+    "log_toggle_height": "Switch the log between the default and taller line count.",
+    "panel_fold": "Fold or unfold this panel.",
     # Settings window — profiles
     "profile_new": "Create a new execution profile folder.",
     "profile_delete": "Delete the selected profile (the default profile is protected).",
@@ -550,6 +551,7 @@ BUTTON_TOOLTIPS: dict[str, str] = {
     "plugins_browse": "Open the community plugins browser.",
     "settings_close": "Close the settings window without saving.",
     "settings_save": "Save profile and close the settings window.",
+    "shortcut_reset": "Restore all visualizer shortcuts to their built-in keys.",
     "edit_repo_configs": (
         "Write core stack and built-in plugin YAML to repository configs/ "
         "instead of user data. Community and member plugin settings always "
@@ -577,6 +579,108 @@ BUTTON_TOOLTIPS: dict[str, str] = {
         "Show only Active plugins (registered in the active profile and ready to load)."
     ),
 }
+
+
+_PACK_KEYS = ("anchor", "expand", "fill", "ipadx", "ipady", "padx", "pady", "side")
+_GRID_KEYS = ("column", "columnspan", "ipadx", "ipady", "padx", "pady", "row", "rowspan", "sticky")
+
+
+def attach_panel_fold(frame, variable, *, on_apply=None) -> ttk.Button:
+    """Add a title-row fold button that hides *frame*'s body.
+
+    *variable* is a ``tk.BooleanVar`` that is true when folded. *on_apply* is
+    called with the folded flag after each change. A folded packed panel is
+    anchored to the top of its row.
+    """
+    title = ttk.Frame(frame)
+    ttk.Label(title, text=str(frame.cget("text"))).pack(side=tk.LEFT)
+    button = ttk.Button(title, text="▾", width=2)
+    button.pack(side=tk.LEFT, padx=(6, 0))
+    frame.configure(labelwidget=title)
+    keep = {title}
+    HoverTooltip.attach(button, BUTTON_TOOLTIPS["panel_fold"])
+
+    child_snaps: dict = {}
+    self_pack: dict | None = None
+
+    def _options(widget) -> tuple[str, dict] | None:
+        manager = widget.winfo_manager()
+        if manager == "pack":
+            raw = widget.pack_info()
+            allowed = _PACK_KEYS
+        elif manager == "grid":
+            raw = widget.grid_info()
+            allowed = _GRID_KEYS
+        else:
+            return None
+        info = {key: raw[key] for key in allowed if key in raw}
+        return manager, info
+
+    def _hide() -> None:
+        for child in list(frame.winfo_children()):
+            if child in keep or child in child_snaps:
+                continue
+            found = _options(child)
+            if found is None:
+                continue
+            manager, info = found
+            child_snaps[child] = (manager, info)
+            if manager == "pack":
+                child.pack_forget()
+            else:
+                child.grid_forget()
+
+    def _show() -> None:
+        for child, (manager, info) in list(child_snaps.items()):
+            try:
+                if manager == "pack":
+                    child.pack(**info)
+                else:
+                    child.grid(**info)
+            except tk.TclError:
+                pass
+        child_snaps.clear()
+
+    def _apply(*_args) -> None:
+        nonlocal self_pack
+        folded = bool(variable.get())
+        button.configure(text="▸" if folded else "▾")
+        if folded:
+            if not child_snaps:
+                _hide()
+            found = _options(frame)
+            if found is not None and found[0] == "pack" and self_pack is None:
+                self_pack = found[1]
+                slim = dict(self_pack)
+                slim["expand"] = False
+                slim["fill"] = "none"
+                slim["anchor"] = "n"
+                frame.pack(**slim)
+            frame.update_idletasks()
+            frame.configure(
+                width=title.winfo_reqwidth() + 16,
+                height=max(title.winfo_reqheight(), button.winfo_reqheight()),
+            )
+            frame.pack_propagate(False)
+            frame.grid_propagate(False)
+        else:
+            frame.pack_propagate(True)
+            frame.grid_propagate(True)
+            frame.configure(width=0, height=0)
+            if self_pack is not None:
+                try:
+                    frame.pack(**self_pack)
+                except tk.TclError:
+                    pass
+                self_pack = None
+            _show()
+        if on_apply is not None:
+            on_apply(folded)
+
+    button.configure(command=lambda: variable.set(not bool(variable.get())))
+    variable.trace_add("write", _apply)
+    _apply()
+    return button
 
 
 class TkSettingsBinder:
@@ -612,6 +716,7 @@ def apply_ttk_theme(root: tk.Misc, *, dark: bool) -> None:
             style = ThemedStyle(root)
             style.set_theme("equilux")
             style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+            style.configure("Section.TLabel", font=("Arial", 12, "bold"))
             style.configure("TLabelframe.Label", font=("Arial", 11, "bold"))
             gruvbox_red = "#9d0006"
             gruvbox_orange = "#d65d0e"
@@ -679,6 +784,7 @@ def apply_ttk_theme(root: tk.Misc, *, dark: bool) -> None:
         root.option_add("*Listbox.highlightColor", "#0078d7")
         root.option_add("*Listbox.borderWidth", 2)
         style.configure("Big.TLabel", font=("Arial", 16, "bold"))
+        style.configure("Section.TLabel", font=("Arial", 12, "bold"))
         style.configure("TLabelframe.Label", font=("Arial", 10, "bold"))
 
 

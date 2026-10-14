@@ -40,6 +40,12 @@ class PluginSettingsSchema(SettingsSchema):
     p60_dark_mode: bool = Field(default=True, description="Use dark UI theme.")
     p60_hide_menubar: bool = Field(default=False, description="Hide the application menu bar.")
     p60_shortcut_mode: bool = Field(default=False, description="Enable keyboard shortcut mode in the visualizer.")
+    p60_settings_folded: bool = Field(default=False, description="Fold the Settings toolbar to its title.")
+    p60_shortcuts_folded: bool = Field(default=False, description="Fold the Shortcuts panel to its title.")
+    p60_shortcuts: dict[str, str] = Field(
+        default_factory=dict,
+        description="Visualizer key overrides. Empty uses the built-in bindings.",
+    )
     p60_next_profile: str = Field(default="default", description="Profile to switch to with shortcut F.")
     p60_bg_color: str = Field(default="#333333", description="UI background color.")
     p60_fg_color: str = Field(default="white", description="UI foreground/text color.")
@@ -76,6 +82,11 @@ class PluginSettingsSchema(SettingsSchema):
     p67_show_prediction: bool = Field(default=True, description="Show predicted trajectories, ellipses, and occupancy flow on plots.")
     p67_global_plan_view: bool = Field(default=True, description="Show global plan panel.")
     p67_local_plan_view: bool = Field(default=True, description="Show local plan panel.")
+    p67_perception_folded: bool = Field(default=False, description="Fold the Perception panel to its title.")
+    p67_plan_folded: bool = Field(default=False, description="Fold the Planning panel to its title.")
+    p67_control_folded: bool = Field(default=False, description="Fold the Control panel to its title.")
+    p67_execution_folded: bool = Field(default=False, description="Fold the Execution panel to its title.")
+    p67_bridge_folded: bool = Field(default=False, description="Fold the World Bridge panel to its title.")
 
     p68_show_core_logs: bool = Field(default=True, description="Show core module logs.")
     p68_show_perceive_logs: bool = Field(default=True, description="Show perception logs.")
@@ -88,6 +99,7 @@ class PluginSettingsSchema(SettingsSchema):
     p68_disable_log: bool = Field(default=False, description="Disable log panel updates.")
     p68_max_log_lines: int = Field(default=1000, description="Max log lines retained in UI.")
     p68_log_view_expanded: bool = Field(default=False, description="Use expanded log panel height.")
+    p68_log_folded: bool = Field(default=False, description="Fold the Log panel to its title.")
     p68_log_view_default_height: int = Field(default=12, description="Default log panel height in lines.")
     p68_log_view_expended_height: int = Field(default=35, description="Expanded log panel height in lines.")
     p68_log_font: str = Field(default="Courier", description="Log panel font family.")
@@ -113,6 +125,9 @@ class VisualizationSettings:
         self.c60_selected_profile = tk.StringVar(value=AppSettings.c60_selected_profile)
         self.c60_ros_distro = tk.StringVar(value=AppSettings.c60_ros_distro or "latest")
         self.p60_shortcut_mode = tk.BooleanVar()
+        self.p60_settings_folded = tk.BooleanVar(value=False)
+        self.p60_shortcuts_folded = tk.BooleanVar(value=False)
+        self.p60_shortcuts: dict[str, str] = {}
         self.p60_next_profile = tk.StringVar(value=PluginSettings.p60_next_profile)
         self.p60_dark_mode = tk.BooleanVar(value=True)
         self.p60_hide_menubar = tk.BooleanVar(value=False)
@@ -292,6 +307,11 @@ class VisualizationSettings:
         self.execution_tasks.trace_add("write", _on_execution_tasks_change)
 
         self.p67_global_plan_view = tk.BooleanVar(value=True)
+        self.p67_perception_folded = tk.BooleanVar(value=False)
+        self.p67_plan_folded = tk.BooleanVar(value=False)
+        self.p67_control_folded = tk.BooleanVar(value=False)
+        self.p67_execution_folded = tk.BooleanVar(value=False)
+        self.p67_bridge_folded = tk.BooleanVar(value=False)
         self.p67_local_plan_view = tk.BooleanVar(value=True)
 
         self.executer_type = tk.StringVar(
@@ -308,6 +328,7 @@ class VisualizationSettings:
         self.exec_plan = tk.BooleanVar(value=True)
         self.exec_control = tk.BooleanVar(value=True)
         self.exec_perceive = tk.BooleanVar(value=True)
+        self.exec_tasks = tk.BooleanVar(value=True)
         self.exec_running = False
 
         self.control_dt = tk.DoubleVar(value=ExecutionSettings.c40_control_dt)
@@ -432,6 +453,7 @@ class VisualizationSettings:
         self.p68_disable_log = tk.BooleanVar(value=False)
         self.p68_max_log_lines = 1000
         self.p68_log_view_expanded = tk.BooleanVar(value=False)
+        self.p68_log_folded = tk.BooleanVar(value=False)
         self.p68_log_view_default_height = tk.IntVar(value=12)
         self.p68_log_view_expended_height = tk.IntVar(value=35)
         self.p68_log_font = tk.StringVar(value="Courier")

@@ -88,6 +88,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         call_replan=True,
         call_control=True,
         call_perceive=False,
+        call_tasks=True,
         call_localize=True,
         pace_perception=True,
         pace_replan=True,
@@ -102,6 +103,7 @@ class AsyncThreadedExecuter(ExecutionStrategy):
         self.call_replan = call_replan
         self.call_control = call_control
         self.call_perceive = call_perceive
+        self.call_tasks = call_tasks
         self.call_localize = call_localize
         self.pace_perception = pace_perception
         self.pace_replan = pace_replan

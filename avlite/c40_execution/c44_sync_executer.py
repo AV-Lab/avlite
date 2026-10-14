@@ -59,6 +59,7 @@ class SyncExecuter(ExecutionStrategy):
         call_replan=True,
         call_control=True,
         call_perceive=True,
+        call_tasks=True,
         call_localize=True,
         pace_perception=True,
         pace_replan=True,
@@ -67,6 +68,7 @@ class SyncExecuter(ExecutionStrategy):
     ) -> None:
         """ Executes a single step of the simulation, including planning, control, and perception. """
         self.stopped = False
+        self.call_tasks = call_tasks
 
         pln_time_txt, cn_time_txt, pr_time_txt, loc_time_txt, sim_time_txt = "", "", "", "", ""
         t0 = time.time()

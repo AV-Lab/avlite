@@ -80,14 +80,17 @@ Subclass `TaskStrategy` (`c43_task_strategy.py`) and implement `execute(executer
 `placement` may be `INLINE` / `THREAD` / `PROCESS`, but the base executer runs **INLINE only** (non-INLINE logs a warning and falls back).
 
 ```python
-from avlite import TaskStrategy, TaskSchedule, StackEvent
+from avlite import TaskStrategy, TaskSchedule, StackEvent, LocalPlanFailed
+
+class MyEvent(StackEvent):
+    pass
 
 class MyOnPlanFailure(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.LOCAL_PLAN_FAILED})
+    listen_events = frozenset({LocalPlanFailed})
 
     def execute(self, executer, event=None) -> None:
-        ...  # supervisor / instrumentation hook
+        executer.task_runner.notify(MyEvent())
 ```
 
 ```yaml

@@ -68,6 +68,16 @@ _LAZY: dict[str, str] = {
     "TaskSchedule": "avlite.c40_execution.c43_task_strategy",
     "TaskPlacement": "avlite.c40_execution.c43_task_strategy",
     "StackEvent": "avlite.c40_execution.c43_task_strategy",
+    "ExecutionStarted": "avlite.c40_execution.c43_task_strategy",
+    "ExecutionStopped": "avlite.c40_execution.c43_task_strategy",
+    "ExecutionReset": "avlite.c40_execution.c43_task_strategy",
+    "GoalArrived": "avlite.c40_execution.c43_task_strategy",
+    "ParkingZoneEntered": "avlite.c40_execution.c43_task_strategy",
+    "LocalPlanFailed": "avlite.c40_execution.c43_task_strategy",
+    "LocalPlanCollision": "avlite.c40_execution.c43_task_strategy",
+    "LocalPlanExhausted": "avlite.c40_execution.c43_task_strategy",
+    "ControlHalted": "avlite.c40_execution.c43_task_strategy",
+    "GlobalPlanMissing": "avlite.c40_execution.c43_task_strategy",
     "TaskRunner": "avlite.c40_execution.c43_task_strategy",
     # Apps
     "AppStrategy": "avlite.c60_apps.c61_app_strategy",
@@ -203,6 +213,16 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
     from avlite.c40_execution.c41_world_bridge import WorldBridge
     from avlite.c40_execution.c42_execution_strategy import ExecutionStrategy
     from avlite.c40_execution.c43_task_strategy import (
+        ControlHalted,
+        ExecutionReset,
+        ExecutionStarted,
+        ExecutionStopped,
+        GlobalPlanMissing,
+        GoalArrived,
+        LocalPlanCollision,
+        LocalPlanExhausted,
+        LocalPlanFailed,
+        ParkingZoneEntered,
         StackEvent,
         TaskPlacement,
         TaskRunner,

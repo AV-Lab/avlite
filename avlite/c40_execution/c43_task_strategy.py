@@ -1,4 +1,4 @@
-"""TaskStrategy ABC, schedule/placement/event enums, and thin TaskRunner."""
+"""TaskStrategy ABC, schedule/placement enums, stack events, and thin TaskRunner."""
 
 from __future__ import annotations
 
@@ -19,24 +19,62 @@ class TaskSchedule(Enum):
 
 
 class TaskPlacement(Enum):
-    """Where the task body runs - executer-agnostic; each executer maps as it can."""
+    """Where a due task runs. ``TaskRunner`` calls ``executer.dispatch_task``; the executer maps this.
+
+    ``ExecutionStrategy.dispatch_task`` always runs INLINE and logs a warning for the others.
+    A concrete executer overrides that method to honor THREAD or PROCESS.
+    """
 
     INLINE = auto()
     THREAD = auto()
     PROCESS = auto()
 
 
-class StackEvent(Enum):
-    EXECUTION_STARTED = auto()
-    EXECUTION_STOPPED = auto()
-    EXECUTION_RESET = auto()
-    GOAL_ARRIVED = auto()
-    PARKING_ZONE_ENTERED = auto()
-    LOCAL_PLAN_FAILED = auto()
-    LOCAL_PLAN_COLLISION = auto()
-    LOCAL_PLAN_EXHAUSTED = auto()
-    CONTROL_HALTED = auto()
-    GLOBAL_PLAN_MISSING = auto()
+class StackEvent:
+    """One occurrence delivered to ON_EVENT tasks. Plugins subclass this."""
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
+
+class ExecutionStarted(StackEvent):
+    pass
+
+
+class ExecutionStopped(StackEvent):
+    pass
+
+
+class ExecutionReset(StackEvent):
+    pass
+
+
+class GoalArrived(StackEvent):
+    pass
+
+
+class ParkingZoneEntered(StackEvent):
+    pass
+
+
+class LocalPlanFailed(StackEvent):
+    pass
+
+
+class LocalPlanCollision(StackEvent):
+    pass
+
+
+class LocalPlanExhausted(StackEvent):
+    pass
+
+
+class ControlHalted(StackEvent):
+    pass
+
+
+class GlobalPlanMissing(StackEvent):
+    pass
 
 
 class TaskStrategy(ABC):
@@ -47,7 +85,7 @@ class TaskStrategy(ABC):
     schedule: ClassVar[TaskSchedule] = TaskSchedule.EVERY_CYCLE
     placement: ClassVar[TaskPlacement] = TaskPlacement.INLINE
     interval_s: ClassVar[float] = 1.0 # For INTERVAL tasks, how often to run (seconds).
-    listen_events: ClassVar[frozenset[StackEvent]] = frozenset()
+    listen_events: ClassVar[frozenset[type[StackEvent]]] = frozenset()
     world_requirements: ClassVar[frozenset[WorldRequirement]] = frozenset()
     stack_requirements: ClassVar[frozenset[StackRequirement]] = frozenset()
     stack_capabilities: ClassVar[frozenset[StackCapability]] = frozenset()
@@ -95,6 +133,8 @@ class TaskRunner:
 
     def step(self, executer: ExecutionStrategy) -> None:
         """Run CYCLE/INTERVAL tasks, then flush any events they ``notify``d."""
+        if not getattr(executer, "call_tasks", True):
+            return
         self._in_step = True
         try:
             for task in self._tasks:
@@ -110,7 +150,7 @@ class TaskRunner:
             while self._pending_events:
                 event = self._pending_events.pop(0)
                 for task in self._tasks:
-                    if task.schedule is TaskSchedule.ON_EVENT and event in task.listen_events:
+                    if task.schedule is TaskSchedule.ON_EVENT and isinstance(event, tuple(task.listen_events)):
                         executer.dispatch_task(task, event=event)
         finally:
             self._in_step = False
@@ -127,9 +167,11 @@ class TaskRunner:
         ex = executer if executer is not None else self.executer
         if ex is None:
             raise RuntimeError("TaskRunner.notify requires an executer (pass one or bind TaskRunner.executer)")
+        if not getattr(ex, "call_tasks", True):
+            return
         if self._in_step:
             self._pending_events.append(event)
             return
         for task in self._tasks:
-            if task.schedule is TaskSchedule.ON_EVENT and event in task.listen_events:
+            if task.schedule is TaskSchedule.ON_EVENT and isinstance(event, tuple(task.listen_events)):
                 ex.dispatch_task(task, event=event)

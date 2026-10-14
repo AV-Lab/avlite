@@ -70,14 +70,14 @@ Set optional `stack_event` on the model or command you already write. The execut
 
 ```python
 # Inside perceive / localize — mutate the shared PerceptionModel
-perception_model.stack_event = StackEvent.PARKING_ZONE_ENTERED
+perception_model.stack_event = ParkingZoneEntered()
 
 # Inside replan — stamp the plan you return / store
-local_plan.stack_event = StackEvent.LOCAL_PLAN_FAILED
+local_plan.stack_event = LocalPlanFailed()
 
 # Inside control — stamp the command you return
 cmd = AckermannControlCommand(steer=0.0, acceleration=0.0)
-cmd.stack_event = StackEvent.CONTROL_HALTED
+cmd.stack_event = ControlHalted()
 return cmd
 ```
 
@@ -87,18 +87,25 @@ No new strategy method arguments. Harvest lives in [`c42_execution_strategy.py`]
 
 ```python
 def execute(self, executer, event=None) -> None:
-    executer.task_runner.notify(StackEvent.GOAL_ARRIVED)
+    executer.task_runner.notify(GoalArrived())
 ```
 
 Typical for monitor → response pairs (CYCLE/INTERVAL detects a fact; ON_EVENT listeners act).
 
 ### 3. Lifecycle (executer / apps)
 
-- `executer.stop()` → `EXECUTION_STOPPED`
-- executer reset → `EXECUTION_RESET`
-- headless (when ready) → `EXECUTION_STARTED`
+- `executer.stop()` → `ExecutionStopped()`
+- executer reset → `ExecutionReset()`
+- headless (when ready) → `ExecutionStarted()`
 
-New architectural events belong in the core `StackEvent` enum for now so the vocabulary stays shared and IDE-friendly.
+Plugins add events by subclassing `StackEvent` and passing an instance to `notify` (or stamping it). `listen_events` holds classes; a listener also receives subclasses of those classes.
+
+```python
+class MyEvent(StackEvent):
+    pass
+
+executer.task_runner.notify(MyEvent())
+```
 
 ## Patterns
 
@@ -117,16 +124,16 @@ Profiles live in `configs/<profile>.yaml` (repo) or `~/.config/avlite/<profile>.
 
 | Event | Typical source |
 |-------|----------------|
-| `EXECUTION_STARTED` | Headless (and similar) after the executer is ready |
-| `EXECUTION_STOPPED` | `executer.stop()` |
-| `EXECUTION_RESET` | Executer reset |
-| `GOAL_ARRIVED` | Domain / custom monitor (`task_runner.notify`) |
-| `PARKING_ZONE_ENTERED` | Domain monitor or `PerceptionModel.stack_event` |
-| `LOCAL_PLAN_FAILED` | `LocalPlan.stack_event` or notify |
-| `LOCAL_PLAN_COLLISION` | `LocalPlan.stack_event` or notify |
-| `LOCAL_PLAN_EXHAUSTED` | `LocalPlan.stack_event` or notify |
-| `CONTROL_HALTED` | `ControlCommandBase.stack_event` or notify |
-| `GLOBAL_PLAN_MISSING` | `GlobalPlan.stack_event` or notify |
+| `ExecutionStarted` | Headless (and similar) after the executer is ready |
+| `ExecutionStopped` | `executer.stop()` |
+| `ExecutionReset` | Executer reset |
+| `GoalArrived` | Domain / custom monitor (`task_runner.notify`) |
+| `ParkingZoneEntered` | Domain monitor or `PerceptionModel.stack_event` |
+| `LocalPlanFailed` | `LocalPlan.stack_event` or notify |
+| `LocalPlanCollision` | `LocalPlan.stack_event` or notify |
+| `LocalPlanExhausted` | `LocalPlan.stack_event` or notify |
+| `ControlHalted` | `ControlCommandBase.stack_event` or notify |
+| `GlobalPlanMissing` | `GlobalPlan.stack_event` or notify |
 
 ## Placement
 
@@ -135,11 +142,11 @@ Profiles live in `configs/<profile>.yaml` (repo) or `~/.config/avlite/<profile>.
 ## Authoring a task
 
 ```python
-from avlite import TaskStrategy, TaskSchedule, StackEvent
+from avlite import TaskStrategy, TaskSchedule, LocalPlanFailed
 
 class MyOnPlanFailure(TaskStrategy):
     schedule = TaskSchedule.ON_EVENT
-    listen_events = frozenset({StackEvent.LOCAL_PLAN_FAILED})
+    listen_events = frozenset({LocalPlanFailed})
 
     def execute(self, executer, event=None) -> None:
         # Mission / supervision / instrumentation — not a second planner

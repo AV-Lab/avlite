@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-10-14
+
+### Added
+- Visualizer: a Shortcuts tab rebinds keys, keeping the current bindings as defaults. The main shortcut list is a short scrollable Group/Key/Action table. Major panels fold from their titles, and those choices are saved. Settings group headings are bold.
+
+### Changed
+- **Breaking** — Execution: `StackEvent` is a class. The ten events are subclasses (`ExecutionStarted`, `ExecutionStopped`, `ExecutionReset`, `GoalArrived`, `ParkingZoneEntered`, `LocalPlanFailed`, `LocalPlanCollision`, `LocalPlanExhausted`, `ControlHalted`, `GlobalPlanMissing`), exported from `avlite`. Notify and stamp an instance (`GoalArrived()`). `listen_events` holds classes; a listener also receives subclasses. Plugins add events by subclassing `StackEvent`.
+- **Breaking** — Execution: `ExecutionStrategy.step` takes `call_tasks` (default true) before `call_localize`. The visualizer Tasks checkbox passes it. When it is false, `TaskRunner.step` and `TaskRunner.notify` skip that tick.
 
 ## [0.6.5] - 2026-10-07
 

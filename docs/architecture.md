@@ -253,7 +253,7 @@ Vehicle control strategies (Stanley, PID, Pure Pursuit, Follow the Gap, Keyboard
 
 World bridge (simulator/ROS interface), executer orchestration loop, sync/async scheduling, and the factory that wires the stack from YAML configuration. The built-in `BasicSim` bridge ships with the core stack; CARLA, Gazebo, and ROS2 are supported through optional world-bridge plugins. Alternative executers (for example a multiprocess ROS deployment) are selected via `c40_executer_type` and provided as optional plugins.
 
-After each stack tick, [`TaskRunner`](../avlite/c40_execution/c43_task_strategy.py) runs [`TaskStrategy`](../avlite/c40_execution/c43_task_strategy.py) instances listed in `c40_execution_tasks` — an orthogonal extension layer for mission logic, supervision, and instrumentation around the drive stack, not a second planner. Stack modules can stamp optional `stack_event` on `PerceptionModel`, plans, or control commands; the executer harvests those into `task_runner.notify`. See [Execution Tasks](execution-tasks.md#raising-events).
+After each stack tick, [`TaskRunner`](../avlite/c40_execution/c43_task_strategy.py) runs [`TaskStrategy`](../avlite/c40_execution/c43_task_strategy.py) instances listed in `c40_execution_tasks` — an orthogonal extension layer for mission logic, supervision, and instrumentation around the drive stack, not a second planner. Stack modules can stamp optional `stack_event` on `PerceptionModel`, plans, or control commands; the executer harvests those into `task_runner.notify`. Events are `StackEvent` subclasses, and a plugin adds its own by subclassing. See [Execution Tasks](execution-tasks.md#raising-events).
 
 ### **Apps**
 

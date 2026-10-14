@@ -15,6 +15,8 @@ from avlite.c40_execution.c41_world_bridge import (
     is_world_stack_capability_enabled,
 )
 from avlite.c40_execution.c43_task_strategy import (
+    ExecutionReset,
+    ExecutionStopped,
     StackEvent,
     TaskPlacement,
     TaskRunner,
@@ -117,6 +119,7 @@ class ExecutionStrategy(ABC):
         call_replan=True,
         call_control=True,
         call_perceive=True,
+        call_tasks=True,
         call_localize=True,
         pace_perception=True,
         pace_replan=True,
@@ -134,7 +137,7 @@ class ExecutionStrategy(ABC):
         if self.stopped:
             return
         self.stopped = True
-        self.task_runner.notify(StackEvent.EXECUTION_STOPPED)
+        self.task_runner.notify(ExecutionStopped())
 
     @property
     def ui_poll_delay(self) -> Optional[float]:
@@ -172,7 +175,7 @@ class ExecutionStrategy(ABC):
         self._localization_fps_tracker.reset()
         self.task_runner.reset()
         self.stopped = False
-        self.task_runner.notify(StackEvent.EXECUTION_RESET)
+        self.task_runner.notify(ExecutionReset())
     
 
     def available_stack_capabilities(self) -> set:
