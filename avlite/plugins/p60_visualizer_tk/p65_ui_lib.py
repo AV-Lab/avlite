@@ -1068,7 +1068,7 @@ def _finish_contract_popup(pop: tk.Toplevel, frame: ttk.Frame, anchor) -> tk.Top
     legend.pack(anchor="w", pady=(8, 0))
     style = ttk.Style(pop)
     style.configure("ContractLegend.Title.TLabel", foreground=_CONTRACT_UNUSED, font=("", 8, "bold"))
-    ttk.Label(legend, text="Legend", style="ContractLegend.Title.TLabel").grid(
+    ttk.Label(legend, text="Color Legend", style="ContractLegend.Title.TLabel").grid(
         row=0, column=0, columnspan=2, sticky="w", pady=(0, 2)
     )
     entries = (
