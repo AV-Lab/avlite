@@ -290,12 +290,17 @@ def smoothen_path_savgol(plan: GlobalPlan, min_spacing=0.5, window_length=7, pol
 
     n = len(cleaned_path)
     if n >= 3:
-        if window_length >= n:
-            window_length = n // 2 * 2 + 1  # Make it a valid odd number
-        path_np = np.array(cleaned_path)
-        x_smooth = savgol_filter(path_np[:, 0], window_length, polyorder, mode="interp")
-        y_smooth = savgol_filter(path_np[:, 1], window_length, polyorder, mode="interp")
-        cleaned_path = list(zip(x_smooth, y_smooth))
+        max_odd = n if n % 2 == 1 else n - 1
+        if window_length > max_odd:
+            window_length = max_odd
+        if window_length % 2 == 0:
+            window_length -= 1
+        polyorder = min(polyorder, window_length - 1)
+        if window_length >= 3 and polyorder >= 1:
+            path_np = np.array(cleaned_path)
+            x_smooth = savgol_filter(path_np[:, 0], window_length, polyorder, mode="interp")
+            y_smooth = savgol_filter(path_np[:, 1], window_length, polyorder, mode="interp")
+            cleaned_path = list(zip(x_smooth, y_smooth))
 
     plan.path = cleaned_path
     plan.velocity = cleaned_velocity

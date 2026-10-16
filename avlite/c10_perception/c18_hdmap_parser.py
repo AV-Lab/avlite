@@ -358,6 +358,8 @@ def _connect_lanes(hdmap: HDMap) -> None:
             for pred_road in lane.road.predecessors:
                 pred_uid = f"{pred_road.id}_{lane.pred_id}"
                 pred_lane = lane_by_uid.get(pred_uid)
+                if pred_lane is None:
+                    continue
                 lane.neighbors.add(pred_lane)
                 pred_lane.neighbors.add(lane)
 
@@ -365,6 +367,8 @@ def _connect_lanes(hdmap: HDMap) -> None:
             for succ_road in lane.road.successors:
                 succ_uid = f"{succ_road.id}_{lane.succ_id}"
                 succ_lane = lane_by_uid.get(succ_uid)
+                if succ_lane is None:
+                    continue
                 lane.neighbors.add(succ_lane)
                 succ_lane.neighbors.add(lane)
 
