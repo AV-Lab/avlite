@@ -1,6 +1,7 @@
 """Unit tests for the local planning pipeline and dual-role planners (c23)."""
 
 import numpy as np
+import pytest
 
 from avlite.c10_perception.c11_perception_model import EgoState, PerceptionModel
 from avlite.c20_planning.c21_planning_model import GlobalPlan, LocalBehavior, LocalPlan
@@ -135,3 +136,29 @@ class TestLocalPlanningPipeline:
         state = EgoState(x=5.0, y=0.0, theta=0.0, velocity=5.0)
         pipeline.step(state)
         assert pipeline.location_xy == (5.0, 0.0)
+
+
+def test_local_planner_reset_clamps_negative_and_oob_wp():
+    """Plan UI step-back from wp 0 used to pass wp=-1 and jump to track end."""
+    gp = _straight_global_plan(n=10)
+    pm = PerceptionModel()
+
+    class _P(LocalPlanningStrategy):
+        def replan(self, perception_model=None, sensors=None):
+            pass
+
+        def __init_subclass__(cls, **kwargs):
+            pass
+
+    pl = _P(gp, pm)
+    pl.reset(wp=0)
+    assert pl.global_trajectory.current_wp == 0
+    assert pl.location_sd[0] == pytest.approx(0.0)
+
+    pl.reset(wp=-1)
+    assert pl.global_trajectory.current_wp == 0
+    assert pl.location_sd[0] == pytest.approx(0.0)
+
+    pl.reset(wp=9999)
+    assert pl.global_trajectory.current_wp == len(gp.path) - 1
+    assert pl.location_xy == (gp.path[-1][0], gp.path[-1][1])
