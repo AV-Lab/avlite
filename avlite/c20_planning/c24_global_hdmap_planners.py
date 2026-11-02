@@ -57,15 +57,16 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         start_lane, s_idx = self.hdmap.find_nearest_lane_and_idx(*self.start_point)
         goal_lane, g_idx = self.hdmap.find_nearest_lane_and_idx(*self.goal_point)
-        log.info(f"Start lane: {start_lane.uid}, Goal lane: {goal_lane.uid}")
-
         if not start_lane or not goal_lane:
             log.error("Start or goal lane not found.")
             return
+        log.info(f"Start lane: {start_lane.uid}, Goal lane: {goal_lane.uid}")
 
 
-        # Plan global path
-        path = self.__plan_global_path(start_lane.uid, goal_lane.uid)
+        # Plan global path; a goal behind in the same lane section needs a route back round
+        same_section = (start_lane.road_id, start_lane.lane_section_idx) == (goal_lane.road_id, goal_lane.lane_section_idx)
+        goal_behind = same_section and (g_idx < s_idx if int(start_lane.id) < 0 else g_idx > s_idx)
+        path = self.__plan_global_path(start_lane.uid, goal_lane.uid, goal_behind)
         if len(path) == 0:
             log.warning(f"No path found from {start_lane.uid} to {goal_lane.uid}.")
             return
@@ -187,10 +188,9 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         return self.global_plan
 
-    # TODO: The weights are road weight, not lanes. Change it later for precise distance calculation 
-    def __plan_global_path(self, source_id:str, destination_id:str) -> list[str]:
+    def __plan_global_path(self, source_id:str, destination_id:str, goal_behind: bool) -> list[str]:
         """
-        Plan a path between two road IDs using Dijkstra or A* algorithm.
+        Plan the shortest path in metres between two lane IDs.
         """
         try:
             # Debug: print node info and types
@@ -200,7 +200,17 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
             if source_id not in self.hdmap.lane_network or destination_id not in self.hdmap.lane_network:
                 log.error(f"Source {source_id} or destination {destination_id} not in lane network.")
                 return []
-            path = nx.shortest_path(self.hdmap.lane_network, source=source_id, target=destination_id)
+            network = self.hdmap.lane_network
+            if goal_behind:
+                # Drive on to a next lane, then take the shortest way back
+                paths = [
+                    [source_id] + nx.shortest_path(network, source=lane_id, target=destination_id, weight="weight")
+                    for lane_id in network.successors(source_id)
+                    if not network.edges[source_id, lane_id]["lane_change"] and nx.has_path(network, lane_id, destination_id)
+                ]
+                path = min(paths, key=lambda p: nx.path_weight(network, p, weight="weight"), default=[])
+            else:
+                path = nx.shortest_path(network, source=source_id, target=destination_id, weight="weight")
             log.debug(f"Path found from {source_id} to {destination_id}: {path}")
 
 
@@ -288,8 +298,8 @@ def smoothen_path_savgol(plan: GlobalPlan, min_spacing=0.5, window_length=7, pol
 
     n = len(cleaned_path)
     if n >= 3:
-        if window_length >= n:
-            window_length = n // 2 * 2 + 1  # Make it a valid odd number
+        window_length = min(window_length, n if n % 2 else n - 1)  # Largest odd window that fits
+        polyorder = min(polyorder, window_length - 1)
         path_np = np.array(cleaned_path)
         x_smooth = savgol_filter(path_np[:, 0], window_length, polyorder, mode="interp")
         y_smooth = savgol_filter(path_np[:, 1], window_length, polyorder, mode="interp")

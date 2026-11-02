@@ -61,6 +61,7 @@ class PerceptionSettingsSchema(SettingsSchema):
 
     c18_sampling_resolution: float = Field(default=0.1, description="Distance (m) between HD map points.")
     c18_sampling_max_turn_deg: float = Field(default=5.0, description="Max turn (degrees) between HD map points on curves.")
+    c18_lane_change_cost: float = Field(default=20.0, description="Route cost (m) of a lane change, so routes do not hop lanes to save a few metres.")
 
 
 # Singleton instance: mutated in place by the loader/reset helpers — never rebind.

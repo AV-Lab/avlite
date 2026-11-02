@@ -369,7 +369,8 @@ def _connect_lanes(hdmap: HDMap) -> None:
         for lb in la.neighbors:
             if hdmap.can_laneA_access_laneB(la, lb):
                 la.drivable_neighbors.add(lb)
-                hdmap.lane_network.add_edge(la.uid, lb.uid, weight=la.road.length, lane_change=False)
+                # Weight: length of the lane being left
+                hdmap.lane_network.add_edge(la.uid, lb.uid, weight=np.hypot(*np.diff(la.center_line)).sum(), lane_change=False)
 
     for road in hdmap.roads:
         for lane_section in road.lane_sections:
@@ -381,8 +382,8 @@ def _connect_lanes(hdmap: HDMap) -> None:
                             and lane != other_lane
                             and int(lane.id) * int(other_lane.id) > 0
                         ):
-                            hdmap.lane_network.add_edge(lane.uid, other_lane.uid, weight=0.0, lane_change=True)
-                            hdmap.lane_network.add_edge(other_lane.uid, lane.uid, weight=0.0, lane_change=True)
+                            hdmap.lane_network.add_edge(lane.uid, other_lane.uid, weight=PerceptionSettings.c18_lane_change_cost, lane_change=True)
+                            hdmap.lane_network.add_edge(other_lane.uid, lane.uid, weight=PerceptionSettings.c18_lane_change_cost, lane_change=True)
 
 
 def _connect_roads(hdmap: HDMap) -> None:
