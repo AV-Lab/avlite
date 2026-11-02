@@ -398,7 +398,6 @@ class HDMap(Map):
         reversed: bool = False
 
     xodr_file_name: str = ""
-    sampling_resolution: float = 0.1
     roads: list[Road] = field(default_factory=list)
     lanes: list[Lane] = field(default_factory=list)
     road_by_id: dict[str, Road] = field(default_factory=dict)

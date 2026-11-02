@@ -59,6 +59,9 @@ class PerceptionSettingsSchema(SettingsSchema):
     c17_z_min: float = Field(default=-1.5, description="Occupancy mapping z-band minimum (m).")
     c17_z_max: float = Field(default=0.5, description="Occupancy mapping z-band maximum (m).")
 
+    c18_sampling_resolution: float = Field(default=0.1, description="Distance (m) between HD map points.")
+    c18_sampling_max_turn_deg: float = Field(default=5.0, description="Max turn (degrees) between HD map points on curves.")
+
 
 # Singleton instance: mutated in place by the loader/reset helpers — never rebind.
 PerceptionSettings = PerceptionSettingsSchema()
