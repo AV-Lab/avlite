@@ -9,6 +9,7 @@ import numpy as np
 from scipy.spatial import KDTree
 
 from avlite.c10_perception.c11_perception_model import HDMap
+from avlite.c10_perception.c19_settings import PerceptionSettings
 
 log = logging.getLogger(__name__)
 
@@ -95,10 +96,13 @@ def _parse_hdmap_xml(hdmap: HDMap) -> ET.Element | None:
                     attrib = child.attrib
                     break
 
-            x_vals, y_vals = sample_OpenDrive_geometry(
-                x0, y0, hdg, length, gtype, attrib,
-                n_pts=int(length // hdmap.sampling_resolution + 1),
+            turn = max(abs(float(attrib.get(key, 0))) for key in ("curvature", "curvStart", "curvEnd")) * length
+            n_pts = max(
+                int(length // PerceptionSettings.c18_sampling_resolution + 1),
+                math.ceil(turn / math.radians(PerceptionSettings.c18_sampling_max_turn_deg)) + 1,
             )
+
+            x_vals, y_vals = sample_OpenDrive_geometry(x0, y0, hdg, length, gtype, attrib, n_pts=n_pts)
             road_x.extend(x_vals)
             road_y.extend(y_vals)
 
@@ -168,13 +172,20 @@ def _process_lane_sections(
     if not lanes_sections:
         return
 
-    lane_offsets = road.findall("lanes/laneOffset")
+    section_s_vals = [float(lane_section.get("s", "0.0")) for lane_section in lanes_sections]
+    road_s = np.concatenate(([0.0], np.cumsum(np.hypot(np.diff(road_x), np.diff(road_y)))))
+    section_starts = np.searchsorted(road_s, section_s_vals).tolist()
+    section_ends = [i - 1 for i in section_starts[1:]] + [len(road_s) - 1]
+    road_offset = _get_poly3_at_s(road.findall("lanes/laneOffset"), "s", road_s)
 
     for i, lane_section in enumerate(lanes_sections):
         r.lane_sections.append([])
-        s_section = float(lane_section.get("s", "0.0"))
+        s_section = section_s_vals[i]
+        s_end = (section_s_vals + [np.inf])[i + 1]
         r.lane_section_s_vals.append(s_section)
-        offset = _get_lane_offset_at_s(lane_offsets, s_section)
+        # can_laneA_access_laneB needs 3 points per lane
+        start = max(min(section_starts[i], len(road_s) - 3), 0)
+        end = max(section_ends[i], start + 2)
 
         for side in ["left", "right"]:
             lanes = lane_section.findall(f"{side}/lane")
@@ -183,21 +194,16 @@ def _process_lane_sections(
             else:
                 lanes.sort(key=lambda lane_el: int(lane_el.get("id", "0")), reverse=True)
 
-            cumulative_offset = offset
+            cumulative_offset = road_offset.copy()
             for lane_element in lanes:
                 lane_id = int(lane_element.get("id", "0"))
-                width_element = lane_element.find("width")
+                width_elements = lane_element.findall("width")
 
-                if width_element is not None and lane_id != 0:
-                    width = float(width_element.get("a", "0.0"))
-                    if float(width_element.get("b")) != 0.0 and lane_element.get("type") == "driving":
-                        log.warning(
-                            "Lanes with variable width are not supported yet. "
-                            "We assume fixed width of %.2f Lane ID: %d, type: %s, Road ID: %s",
-                            width, lane_id, lane_element.get("type"), r.id,
-                        )
+                if width_elements and lane_id != 0:
+                    lane_width = _get_poly3_at_s(width_elements, "sOffset", np.clip(road_s, s_section, s_end) - s_section)
+                    width = float(lane_width[start])
 
-                    cumulative_offset += width / 2 if side == "left" else -width / 2
+                    cumulative_offset += lane_width / 2 if side == "left" else -lane_width / 2
 
                     pred_id = (
                         lane_element.find("link/predecessor").get("id", "")
@@ -211,7 +217,8 @@ def _process_lane_sections(
                     )
                     lane = HDMap.Lane(
                         id=int(lane_element.get("id", "")),
-                        uid=f"{r.id}_{lane_element.get('id', '')}",
+                        # Single-section roads keep the plain road_lane uid
+                        uid=f"{r.id}_{lane_id}" if len(lanes_sections) == 1 else f"{r.id}_{i}_{lane_id}",
                         lane_element=lane_element,
                         type=lane_element.get("type", ""),
                         pred_id=pred_id,
@@ -227,6 +234,7 @@ def _process_lane_sections(
 
                     lane_x, lane_y = _get_lane_xy_path(road_x, road_y, cumulative_offset)
                     if lane_x and lane_y:
+                        lane_x, lane_y = lane_x[start : end + 1], lane_y[start : end + 1]
                         lane.center_line = np.array([lane_x, lane_y])
                         for x, y in zip(lane_x, lane_y):
                             x = float(x)
@@ -235,11 +243,11 @@ def _process_lane_sections(
                                 hdmap._point_to_drivable_lane[(x, y)] = lane
                                 hdmap._all_drivable_lane_points.append((x, y))
 
-                    cumulative_offset += width / 2 if side == "left" else -width / 2
+                    cumulative_offset += lane_width / 2 if side == "left" else -lane_width / 2
 
 
 def _get_lane_xy_path(
-    road_x: list[float], road_y: list[float], offset: float
+    road_x: list[float], road_y: list[float], offset: np.ndarray
 ) -> tuple[list[float], list[float]] | tuple[None, None]:
     assert len(road_x) == len(road_y), "Road X and Y coordinates must be of the same length."
 
@@ -289,8 +297,8 @@ def _get_lane_xy_path(
             if length > 0:
                 nx = -dy / length
                 ny = dx / length
-                lane_x.append(road_x[i] + nx * offset)
-                lane_y.append(road_y[i] + ny * offset)
+                lane_x.append(road_x[i] + nx * offset[i])
+                lane_y.append(road_y[i] + ny * offset[i])
 
         except (IndexError, ValueError) as e:
             log.error("Error processing lane boundary: %s", e)
@@ -299,29 +307,14 @@ def _get_lane_xy_path(
     return lane_x, lane_y
 
 
-def _get_lane_offset_at_s(lane_offsets, s) -> float:
-    if not lane_offsets:
-        return 0.0
-
-    applicable_offset = None
-    for offset in lane_offsets:
-        offset_s = float(offset.get("s", "0.0"))
-        if offset_s <= s:
-            applicable_offset = offset
-        else:
-            break
-
-    if applicable_offset is None:
-        return 0.0
-
-    offset_s = float(applicable_offset.get("s", "0.0"))
-    local_s = s - offset_s
-    a = float(applicable_offset.get("a", "0.0"))
-    b = float(applicable_offset.get("b", "0.0"))
-    c = float(applicable_offset.get("c", "0.0"))
-    d = float(applicable_offset.get("d", "0.0"))
-
-    return a + b * local_s + c * local_s ** 2 + d * local_s ** 3
+def _get_poly3_at_s(records: list[ET.Element], s_key: str, s_vals: np.ndarray) -> np.ndarray:
+    values = np.zeros(len(s_vals))
+    for record in records:
+        s_start = float(record.get(s_key, "0.0"))
+        a, b, c, d = (float(record.get(k, "0.0")) for k in ("a", "b", "c", "d"))
+        ds = s_vals - s_start
+        values = np.where(ds >= 0, a + b * ds + c * ds**2 + d * ds**3, values)
+    return values
 
 
 def _get_connecting_roads_from_junction(root, road_element, junction_id):
@@ -347,26 +340,30 @@ def _get_connecting_roads_from_junction(root, road_element, junction_id):
 
 
 def _connect_lanes(hdmap: HDMap) -> None:
-    lane_by_uid = {f"{lane.road_id}_{lane.id}": lane for lane in hdmap.lanes if lane.type == "driving"}
+    lane_by_uid = {lane.uid: lane for lane in hdmap.lanes if lane.type == "driving"}
     hdmap.lane_by_uid = lane_by_uid
 
     for lane in hdmap.lanes:
         if lane.type != "driving":
             continue
 
-        if lane.pred_id and lane.pred_type == "lane":
-            for pred_road in lane.road.predecessors:
-                pred_uid = f"{pred_road.id}_{lane.pred_id}"
-                pred_lane = lane_by_uid.get(pred_uid)
-                lane.neighbors.add(pred_lane)
-                pred_lane.neighbors.add(lane)
-
-        if lane.succ_id and lane.succ_type == "lane":
-            for succ_road in lane.road.successors:
-                succ_uid = f"{succ_road.id}_{lane.succ_id}"
-                succ_lane = lane_by_uid.get(succ_uid)
-                lane.neighbors.add(succ_lane)
-                succ_lane.neighbors.add(lane)
+        road = lane.road
+        for linked_id, linked_type, step, linked_roads in (
+            (lane.pred_id, lane.pred_type, -1, road.predecessors),
+            (lane.succ_id, lane.succ_type, 1, road.successors),
+        ):
+            if not linked_id or linked_type != "lane":
+                continue
+            section_idx = lane.lane_section_idx + step
+            if 0 <= section_idx < len(road.lane_sections):
+                sections = [road.lane_sections[section_idx]]
+            else:
+                sections = [s for r in linked_roads if r.lane_sections for s in (r.lane_sections[0], r.lane_sections[-1])]
+            for section in sections:
+                for other in section:
+                    if other.type == "driving" and other.id == int(linked_id):
+                        lane.neighbors.add(other)
+                        other.neighbors.add(lane)
 
     for la in hdmap.lanes:
         for lb in la.neighbors:
@@ -452,7 +449,7 @@ def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type="line", attributes=
                 x_vals.append(center_x + radius * np.cos(angle))
                 y_vals.append(center_y + radius * np.sin(angle))
             if len(x_vals) > 1:
-                assert x_vals[-1] != x_vals[-2], f"last two points: {x_vals[-1]}, {x_vals[-2]}"
+                assert (x_vals[-1], y_vals[-1]) != (x_vals[-2], y_vals[-2]), f"last two points: {x_vals[-1]}, {y_vals[-1]}"
             return x_vals, y_vals
 
     elif geom_type == "spiral" and attributes is not None:
@@ -464,7 +461,7 @@ def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type="line", attributes=
                 x_vals.append(x0 + s * np.cos(hdg))
                 y_vals.append(y0 + s * np.sin(hdg))
             if len(x_vals) > 1:
-                assert x_vals[-1] != x_vals[-2], f"last two points: {x_vals[-1]}, {x_vals[-2]}"
+                assert (x_vals[-1], y_vals[-1]) != (x_vals[-2], y_vals[-2]), f"last two points: {x_vals[-1]}, {y_vals[-1]}"
             return x_vals, y_vals
 
         current_x, current_y = x0, y0
@@ -497,7 +494,7 @@ def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type="line", attributes=
         x_vals.append(current_x)
         y_vals.append(current_y)
         if len(x_vals) > 1:
-            assert x_vals[-1] != x_vals[-2], f"last two points: {x_vals[-1]}, {x_vals[-2]}"
+            assert (x_vals[-1], y_vals[-1]) != (x_vals[-2], y_vals[-2]), f"last two points: {x_vals[-1]}, {y_vals[-1]}"
         return x_vals, y_vals
 
     elif geom_type in ["poly3", "paramPoly3"] and attributes is not None:
@@ -508,5 +505,5 @@ def sample_OpenDrive_geometry(x0, y0, hdg, length, geom_type="line", attributes=
         y_vals.append(y0 + s * np.sin(hdg))
 
     if len(x_vals) > 1:
-        assert x_vals[-1] != x_vals[-2], f"last two points: {x_vals[-1]}, {x_vals[-2]}"
+        assert (x_vals[-1], y_vals[-1]) != (x_vals[-2], y_vals[-2]), f"last two points: {x_vals[-1]}, {y_vals[-1]}"
     return x_vals, y_vals

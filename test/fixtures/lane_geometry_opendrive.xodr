@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One small case per road, far apart so they do not touch:
+     Roads 1 and 2 (y = 0): road 1 has two lane sections, a second right lane (-2) starts at s=50; road 2 follows it.
+     Road 3 (y = -100): lane -1 grows from 2 m at s=0 to 3 m at s=20 (cubic), then a second width record: 4 m.
+     Road 4 (y = -200): laneOffset moves the lanes 2 m to the left over 40 m.
+     Roads 5 and 6 (y = -300): road 5 ends in a 90 degree left turn only 0.08 m long; road 6 follows it.
+     Road 7 (x = 3): heads exactly north, so every point has the same x.
+     Road 8 (y = -500): laneOffset jumps 2 m at s=50, where lane -1 ends, so lane -2 carries straight on as lane -1.
+     Road 9 (y = -600): a 1 mm first section whose width record is only valid inside it, and a 1 cm last section. -->
+<OpenDRIVE>
+    <header revMajor="1" revMinor="4" name="lane_geometry" version="1" date="2025-01-01"
+            north="10" south="-610" east="150" west="0" vendor="avlite-test"/>
+    <road name="two_section_road" length="100.0" id="1" junction="-1">
+        <link><successor elementType="road" elementId="2" contactPoint="start"/></link>
+        <planView>
+            <geometry s="0" x="0" y="0" hdg="0" length="100.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <left>
+                    <lane id="1" type="driving" level="false"><link><successor id="1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </left>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><successor id="-1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+            <laneSection s="50">
+                <center><lane id="0" type="none" level="false"/></center>
+                <left>
+                    <lane id="1" type="driving" level="false"><link><predecessor id="1"/><successor id="1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </left>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><predecessor id="-1"/><successor id="-1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                    <lane id="-2" type="driving" level="false"><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="next_road" length="50.0" id="2" junction="-1">
+        <link><predecessor elementType="road" elementId="1" contactPoint="end"/></link>
+        <planView>
+            <geometry s="0" x="100" y="0" hdg="0" length="50.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <left>
+                    <lane id="1" type="driving" level="false"><link><predecessor id="1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </left>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><predecessor id="-1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="widening_lane" length="40.0" id="3" junction="-1">
+        <link/>
+        <planView>
+            <geometry s="0" x="0" y="-100" hdg="0" length="40.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><width sOffset="0" a="2.0" b="0" c="0.0075" d="-0.00025"/><width sOffset="20" a="4.0" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="lane_offset" length="40.0" id="4" junction="-1">
+        <link/>
+        <planView>
+            <geometry s="0" x="0" y="-200" hdg="0" length="40.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneOffset s="0" a="0" b="0.05" c="0" d="0"/>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><width sOffset="0" a="2.0" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="sharp_curve" length="5.08" id="5" junction="-1">
+        <link><successor elementType="road" elementId="6" contactPoint="start"/></link>
+        <planView>
+            <geometry s="0" x="0" y="-300" hdg="0.3" length="5.0"><line/></geometry>
+            <geometry s="5.0" x="4.77668244562803" y="-298.5223989666933" hdg="0.3" length="0.08"><arc curvature="19.634954084936204"/></geometry>
+        </planView>
+        <lanes>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><successor id="-1"/></link><width sOffset="0" a="2.0" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="after_sharp_curve" length="5.0" id="6" junction="-1">
+        <link><predecessor elementType="road" elementId="5" contactPoint="end"/></link>
+        <planView>
+            <geometry s="0" x="4.810286612951776" y="-298.4586933582984" hdg="1.8707963267948966" length="5.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><predecessor id="-1"/></link><width sOffset="0" a="2.0" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="north_road" length="10.0" id="7" junction="-1">
+        <link/>
+        <planView>
+            <geometry s="0" x="3" y="-450" hdg="1.5707963267948966" length="10.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><width sOffset="0" a="2.0" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="offset_jump" length="100.0" id="8" junction="-1">
+        <link/>
+        <planView>
+            <geometry s="0" x="0" y="-500" hdg="0" length="100.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneOffset s="0" a="0" b="0" c="0" d="0"/>
+            <laneOffset s="50" a="-2" b="0" c="0" d="0"/>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="shoulder" level="false"><width sOffset="0" a="2.0" b="0" c="0" d="0"/></lane>
+                    <lane id="-2" type="driving" level="false"><link><successor id="-1"/></link><width sOffset="0" a="3.0" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+            <laneSection s="50">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><predecessor id="-2"/></link><width sOffset="0" a="3.0" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+    <road name="tiny_section" length="10.0" id="9" junction="-1">
+        <link/>
+        <planView>
+            <geometry s="0" x="0" y="-600" hdg="0" length="10.0"><line/></geometry>
+        </planView>
+        <lanes>
+            <laneSection s="0">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><successor id="-1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="1e9"/></lane>
+                </right>
+            </laneSection>
+            <laneSection s="0.001">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><predecessor id="-1"/><successor id="-1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+            <laneSection s="9.99">
+                <center><lane id="0" type="none" level="false"/></center>
+                <right>
+                    <lane id="-1" type="driving" level="false"><link><predecessor id="-1"/></link><width sOffset="0" a="3.5" b="0" c="0" d="0"/></lane>
+                </right>
+            </laneSection>
+        </lanes>
+    </road>
+</OpenDRIVE>

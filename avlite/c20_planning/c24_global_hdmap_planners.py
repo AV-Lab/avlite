@@ -18,7 +18,6 @@ def _inset_d(left: float, right: float, margin: float) -> tuple[float, float]:
     return left - margin, right + margin
 
 # Assumtpions
-# TODO: Lane sections are not handled properly
 # TODO: Assumptions: lanes of the same road are assumed to have the same size
 class HDMapGlobalPlanner(GlobalPlannerStrategy):
     """
@@ -73,7 +72,7 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         # removing lane changes by keeping only the final lane in that road. This will utilize lane_change attribute in the edge
         # Notice that nodes and lanes, and edges are the changes
-        # TODO: Lane sections are not handled properly
+        # A new lane section of the same road is kept too
         # TODO: Assumptions: lanes of the same road are assumed to have the same size
         path2 = [path[0]]
         for i in range(1,len(path)):
@@ -82,7 +81,6 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                 path2.append(path[i])
             elif lane.lane_section_idx != self.hdmap.lane_by_uid[path2[-1]].lane_section_idx:
                 path2.append(path[i])
-                log.warning(f"Lane section change detected: {path2[-1]} to {path[i]}; however, this is not handled properly yet.")
 
 
         log.debug(f"Filtered Path:  {start_lane.uid} to {goal_lane.uid}: {path2}")
