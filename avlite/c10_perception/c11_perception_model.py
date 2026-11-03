@@ -374,6 +374,7 @@ class HDMap(Map):
         successors: list["HDMap.Lane"] = field(default_factory=list)
         neighbors: set["HDMap.Lane"] = field(default_factory=set)
         drivable_neighbors: set["HDMap.Lane"] = field(default_factory=set)
+        reverse: Optional["HDMap.Lane"] = field(default=None, repr=False)
 
         def __hash__(self):
             return hash(self.uid)
@@ -467,41 +468,19 @@ class HDMap(Map):
         return lane, idx
 
     def can_laneA_access_laneB(self, lane_a: Lane, lane_b: Lane) -> bool:
-        check1 = lane_b in lane_a.neighbors
-        b_start_end = [lane_b.center_line[:, 0], lane_b.center_line[:, -1]]
-        a = lane_a.center_line[:, -1] if int(lane_a.id) < 0 else lane_a.center_line[:, 0]
-        dists = [(np.linalg.norm(a - b), j) for j, b in enumerate(b_start_end)]
-        min_dist, b_idx = min(dists, key=lambda item: item[0])
-        check2 = min_dist < 0.5
-        check3 = False
-        if check2:
-            if int(lane_a.id) < 0:
-                vec_a = lane_a.center_line[:, -3] - lane_a.center_line[:, -1]
-            else:
-                vec_a = lane_a.center_line[:, 2] - lane_a.center_line[:, 0]
-            if int(lane_b.id) < 0:
-                vec_b = (
-                    lane_b.center_line[:, 0] - lane_b.center_line[:, 2]
-                    if b_idx == 0
-                    else lane_b.center_line[:, -1] - lane_b.center_line[:, -3]
-                )
-            else:
-                vec_b = (
-                    lane_b.center_line[:, 1] - lane_b.center_line[:, 0]
-                    if b_idx == 0
-                    else lane_b.center_line[:, -1] - lane_b.center_line[:, -3]
-                )
-            norm_a = np.linalg.norm(vec_a)
-            norm_b = np.linalg.norm(vec_b)
-            if norm_a > 0 and norm_b > 0:
-                check3 = np.dot(vec_a / norm_a, vec_b / norm_b) > 0.9
-        return check1 and check2 and check3
+        if lane_b not in lane_a.neighbors:
+            return False
+        a, b = (lane.center_line if int(lane.id) < 0 else lane.center_line[:, ::-1] for lane in (lane_a, lane_b))
+        vec_a = a[:, -1] - a[:, -min(3, a.shape[1])]
+        vec_b = b[:, min(2, b.shape[1] - 1)] - b[:, 0]
+        norms = np.linalg.norm(vec_a) * np.linalg.norm(vec_b)
+        return np.linalg.norm(a[:, -1] - b[:, 0]) < 0.5 and norms > 0 and np.dot(vec_a, vec_b) / norms > 0.9
 
     def road_has_driving_lanes(self, road: Road) -> bool:
         road_element = road.road_element
         for section in road_element.findall(".//laneSection"):
             for lane in section.findall(".//lane"):
-                if lane.get("type") == "driving":
+                if lane.get("type") in ("driving", "bidirectional"):
                     return True
         return False
 

@@ -63,10 +63,27 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         log.info(f"Start lane: {start_lane.uid}, Goal lane: {goal_lane.uid}")
 
 
+        starts = list(filter(None, (start_lane, start_lane.reverse)))
+        if start_lane.reverse and perception_model:
+            theta = perception_model.ego_vehicle.theta
+            line = start_lane.center_line
+            along = line[:, min(s_idx + 3, line.shape[1] - 1)] - line[:, max(s_idx - 3, 0)]
+            faces_along = np.dot(along, (np.cos(theta), np.sin(theta))) > 0
+            starts = [start_lane if faces_along == (int(start_lane.id) < 0) else start_lane.reverse]
+
         # Plan global path; a goal behind in the same lane section needs a route back round
         same_section = (start_lane.road_id, start_lane.lane_section_idx) == (goal_lane.road_id, goal_lane.lane_section_idx)
-        goal_behind = same_section and (g_idx < s_idx if int(start_lane.id) < 0 else g_idx > s_idx)
-        path = self.__plan_global_path(start_lane.uid, goal_lane.uid, goal_behind)
+        routes = []
+        for start in starts:
+            for goal in filter(None, (goal_lane, goal_lane.reverse)):
+                goal_behind = same_section and (g_idx < s_idx if int(start.id) < 0 else g_idx > s_idx)
+                route = self.__plan_global_path(start.uid, goal.uid, goal_behind)
+                if route:
+                    behind_start = start.center_line[:, :s_idx + 1] if int(start.id) < 0 else start.center_line[:, s_idx:]
+                    before_goal = goal.center_line[:, :g_idx + 1] if int(goal.id) < 0 else goal.center_line[:, g_idx:]
+                    metres = nx.path_weight(self.hdmap.lane_network, route, weight="weight") - np.hypot(*np.diff(behind_start)).sum() + np.hypot(*np.diff(before_goal)).sum()
+                    routes.append((metres, route))
+        _, path = min(routes, default=(0.0, []))
         if len(path) == 0:
             log.warning(f"No path found from {start_lane.uid} to {goal_lane.uid}.")
             return

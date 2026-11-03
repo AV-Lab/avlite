@@ -2,16 +2,18 @@
 import numpy as np
 import pytest
 
-from avlite.c10_perception.c11_perception_model import HDMap
+from avlite.c10_perception.c11_perception_model import EgoState, HDMap, PerceptionModel
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 
 STRAIGHT_ON = ["31_0_-1", "31_1_-1", "31_2_-1"]
 
 
-def _plan(map_path, start, goal):
+def _plan(map_path, start, goal, heading=None):
     planner = HDMapGlobalPlanner(HDMap.from_path(map_path))
     planner.set_start_goal(start, goal)
-    return planner.plan()
+    if heading is None:
+        return planner.plan()
+    return planner.plan(PerceptionModel(ego_vehicle=EgoState(x=start[0], y=start[1], theta=heading)))
 
 
 class TestHDMapGlobalPlannerRoutes:
@@ -57,3 +59,32 @@ class TestHDMapGlobalPlannerRoutes:
         # Smoothing used to crash on routes of 3, 4 or 6 points
         plan = _plan(lane_geometry_opendrive_path, (2.0, -701.0), (goal_x, -701.0))
         assert abs(plan.path[-1][0] - goal_x) < 1.0
+
+
+class TestHDMapGlobalPlannerTwoWayLanes:
+    @pytest.mark.parametrize("start, goal, heading, route", [
+        ((2.0, -701.0), (8.0, -701.0), None, ["30_-1"]),
+        ((8.0, -701.0), (2.0, -701.0), None, ["30_-1_reverse"]),
+        ((2.0, -701.0), (15.0, -689.0), None, ["30_-1_reverse", "33_1_reverse"]),
+        ((9.0, -701.0), (15.0, -689.0), None, ["30_-1", *STRAIGHT_ON, "33_1"]),
+        ((2.0, -701.0), (15.0, -689.0), 0.0, ["30_-1", *STRAIGHT_ON, "33_1"]),
+        ((9.0, -701.0), (15.0, -689.0), np.pi, ["30_-1_reverse", "33_1_reverse"]),
+        ((5.0, -689.0), (15.0, -689.0), 0.0, ["33_1_reverse"]),
+        ((7.0, -701.0), (2.0, -701.0), 0.0, ["30_-1", *STRAIGHT_ON, "33_1", "30_-1"]),
+        ((7.0, -701.0), (2.0, -701.0), np.pi, ["30_-1_reverse"]),
+    ])
+    def test_two_way_routes(self, two_way_opendrive_path, start, goal, heading, route):
+        plan = _plan(two_way_opendrive_path, start, goal, heading)
+        lanes, ends = [lane.uid for lane in plan.lane_path], np.array(plan.path)[[0, -1]]
+        assert lanes == route
+        assert np.allclose(ends, [start, goal], atol=1.0)
+
+    def test_no_plan_when_no_route_goes_the_way_the_vehicle_faces(self, two_way_opendrive_path):
+        start, goal = (120.0, -1.75), (20.0, -1.75)
+        no_plan = _plan(two_way_opendrive_path, start, goal, heading=0.0) is None
+        lanes = [lane.uid for lane in _plan(two_way_opendrive_path, start, goal, heading=np.pi).lane_path]
+        assert no_plan and lanes == ["2_-1_reverse", "1_1_-1_reverse", "1_0_-1_reverse"]
+
+    def test_one_way_lanes_ignore_the_heading(self, lane_geometry_opendrive_path):
+        plan = _plan(lane_geometry_opendrive_path, (7.0, -701.0), (2.0, -701.0), heading=np.pi)
+        assert [lane.uid for lane in plan.lane_path] == ["30_-1", *STRAIGHT_ON, "33_1", "30_-1"]
