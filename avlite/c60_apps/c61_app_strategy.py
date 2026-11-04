@@ -71,6 +71,40 @@ def bootstrap_apps() -> None:
         except Exception as e:
             log.warning("Could not load app plugin '%s': %s", name, e)
 
+    # ~/.config/avlite/data/apps.yaml — command -> plugin directory or module. Missing file: no-op.
+    from avlite.c60_apps.c68_paths import DataPaths
+    registry_file = DataPaths.user_dir() / "apps.yaml"
+    if not registry_file.is_file():
+        return
+    import importlib
+    from pathlib import Path
+    import yaml
+    try:
+        registered = yaml.safe_load(registry_file.read_text(encoding="utf-8")) or {}
+        if not isinstance(registered, dict):
+            raise ValueError("expected a mapping")
+    except Exception as e:
+        log.warning("Could not read %s: %s", registry_file, e)
+        return
+    protected = {n: c for n, c in AppStrategy.registry.items() if n}
+    for name, target in registered.items():
+        if name in protected:
+            log.warning("Skipping app '%s': command already registered", name)
+            continue
+        try:
+            plugin = Path(str(target)).expanduser()
+            if plugin.is_dir():
+                import_plugin_modules(str(plugin))
+            else:
+                importlib.import_module(str(target))
+        except Exception as e:
+            log.warning("Could not load app '%s': %s", name, e)
+    for name, cls in protected.items():
+        current = AppStrategy.registry.get(name)
+        if current not in (None, cls):
+            log.warning("Skipping app '%s': command '%s' already registered", current.__name__, name)
+            AppStrategy.registry[name] = cls
+
 
 def register_parsers(sub) -> None:
     """Add one subcommand per registered app (skips the default app)."""
