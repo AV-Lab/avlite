@@ -42,7 +42,7 @@ Changelog = "https://github.com/AV-Lab/avlite/blob/main/CHANGELOG.md"
 include = ["avlite", "avlite.*"]
 
 [tool.setuptools.package-data]
-avlite = ["data/**/*", "configs/**/*"]
+avlite = ["data/**/*", "configs/**/*", "config/apps.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

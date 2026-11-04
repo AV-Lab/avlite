@@ -43,7 +43,7 @@ _PACKAGING_AVAILABLE = Requirement is not None
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c69_settings import AppSettings
-from avlite.c60_apps.c61_app_strategy import AppStrategy
+from avlite.c60_apps.c61_app_strategy import AppStrategy, forget_app, note_app
 from avlite.c60_apps.c65_setting_utils import (
     dev_mode_uninstall_warning,
     import_profile,
@@ -693,6 +693,7 @@ class _PluginOperations:
             stored = PluginPaths.normalize_stored(name, str(path))
         AppSettings.c62_community_plugins[name] = stored
         save_setting(AppSettings, profile=profile)
+        note_app(path)
         log.info("Registered plugin '%s' in profile '%s'", name, profile)
 
     @staticmethod
@@ -702,6 +703,7 @@ class _PluginOperations:
         load_setting(AppSettings, profile=profile)
         AppSettings.c62_community_plugins.pop(name, None)
         save_setting(AppSettings, profile=profile)
+        forget_app(name)
         log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
 
     @staticmethod

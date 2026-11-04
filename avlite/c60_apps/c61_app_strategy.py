@@ -59,8 +59,22 @@ class AppStrategy(ABC):
 # ---------------------------------------------------------------------------
 
 
+_BUILTIN_APPS = {"headless", "setting", "setting-cli", "plugins"}
+
+
+def _apps_file():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parent.parent / "config" / "apps.yaml"
+
+
 def bootstrap_apps() -> None:
     """Import all app modules so their ``AppStrategy`` subclasses register."""
+    import importlib
+    from pathlib import Path
+
+    import yaml
+
     from avlite.c60_apps.c63_plugins import import_plugin_modules, list_plugins
 
     for name in list_plugins():
@@ -70,26 +84,17 @@ def bootstrap_apps() -> None:
             import_plugin_modules(plugins_filter=[name])
         except Exception as e:
             log.warning("Could not load app plugin '%s': %s", name, e)
-
-    # ~/.config/avlite/data/apps.yaml — command -> plugin directory or module. Missing file: no-op.
-    from avlite.c60_apps.c68_paths import DataPaths
-    registry_file = DataPaths.user_dir() / "apps.yaml"
-    if not registry_file.is_file():
-        return
-    import importlib
-    from pathlib import Path
-    import yaml
     try:
-        registered = yaml.safe_load(registry_file.read_text(encoding="utf-8")) or {}
-        if not isinstance(registered, dict):
-            raise ValueError("expected a mapping")
-    except Exception as e:
-        log.warning("Could not read %s: %s", registry_file, e)
+        apps = yaml.safe_load(_apps_file().read_text(encoding="utf-8"))
+        if not isinstance(apps, dict):
+            return
+    except Exception:
         return
-    protected = {n: c for n, c in AppStrategy.registry.items() if n}
-    for name, target in registered.items():
+    protected = dict(AppStrategy.registry)
+    for name, target in apps.items():
         if name in protected:
-            log.warning("Skipping app '%s': command already registered", name)
+            if name not in _BUILTIN_APPS:
+                log.warning("Skipping app '%s': command already registered", name)
             continue
         try:
             plugin = Path(str(target)).expanduser()
@@ -101,9 +106,58 @@ def bootstrap_apps() -> None:
             log.warning("Could not load app '%s': %s", name, e)
     for name, cls in protected.items():
         current = AppStrategy.registry.get(name)
-        if current not in (None, cls):
-            log.warning("Skipping app '%s': command '%s' already registered", current.__name__, name)
+        if current is not cls:
+            log.warning("Skipping app '%s': command '%s' already registered", getattr(current, "__name__", name), name)
             AppStrategy.registry[name] = cls
+
+
+def note_app(plugin_path) -> None:
+    """Append an installed AppStrategy plugin to ``avlite/config/apps.yaml``."""
+    import re
+    import yaml
+    from avlite.c60_apps.c68_paths import PluginPaths
+
+    try:
+        root = PluginPaths.plugin_load_dir(plugin_path)
+        text = "".join(
+            chunk for py in root.glob("*.py")
+            if "AppStrategy" in (chunk := py.read_text(encoding="utf-8", errors="ignore"))
+        )
+        path = _apps_file()
+        current = path.read_text(encoding="utf-8") if path.is_file() else ""
+        extra = ""
+        for cli in dict.fromkeys(re.findall(r"(?m)^\s*cli_name\s*=\s*['\"]([^'\"]+)['\"]", text)):
+            if cli in _BUILTIN_APPS or re.search(rf"(?m)^{re.escape(cli)}\s*:", current + extra):
+                continue
+            extra += yaml.safe_dump({cli: str(root)}, sort_keys=False)
+        if not extra:
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text((current if not current or current.endswith("\n") else current + "\n") + extra, encoding="utf-8")
+    except Exception as e:
+        log.warning("Could not register app '%s': %s", plugin_path, e)
+
+
+def forget_app(name: str) -> None:
+    """Drop one installed plugin from ``avlite/config/apps.yaml``."""
+    from pathlib import Path
+    import yaml
+
+    try:
+        path = _apps_file()
+        text = path.read_text(encoding="utf-8")
+        apps = yaml.safe_load(text) or {}
+        if not isinstance(apps, dict):
+            return
+        drop = {k for k, v in apps.items() if k not in _BUILTIN_APPS and name in Path(str(v)).parts}
+        if not drop:
+            return
+        path.write_text(
+            "".join(ln for ln in text.splitlines(True) if ln.split(":", 1)[0].strip().strip("'\"") not in drop),
+            encoding="utf-8",
+        )
+    except Exception as e:
+        log.warning("Could not unregister app '%s': %s", name, e)
 
 
 def register_parsers(sub) -> None:
