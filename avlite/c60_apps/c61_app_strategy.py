@@ -19,10 +19,7 @@ Importing the module auto-registers the app (same pattern as
 ``PerceptionStrategy``). Override :meth:`AppStrategy.configure_parser` only
 when the app needs CLI flags or nested subcommands.
 
-Built-in ``p60_*`` packages are imported at startup via :func:`bootstrap_apps`.
-Extra commands come from ``apps.yaml`` in the user config directory
-(:meth:`~avlite.c60_apps.c68_paths.ConfigPaths.user_dir`), not from the profile.
-A missing file loads no extra apps.
+Built-in ``p60_*`` plugin packages are imported at startup via :func:`~avlite.c60_apps.c61_app_strategy.import_app_plugins`.
 
 This module stays free of heavy imports (no tkinter); plugins may import it
 without pulling in the GUI.
@@ -63,9 +60,8 @@ class AppStrategy(ABC):
 
 
 def bootstrap_apps() -> None:
-    """Import built-in apps, then commands from the user ``apps.yaml`` registry."""
+    """Import all app modules so their ``AppStrategy`` subclasses register."""
     from avlite.c60_apps.c63_plugins import import_plugin_modules, list_plugins
-    from avlite.c60_apps.c68_paths import ConfigPaths
 
     for name in list_plugins():
         if not name.startswith("p60"):
@@ -75,20 +71,20 @@ def bootstrap_apps() -> None:
         except Exception as e:
             log.warning("Could not load app plugin '%s': %s", name, e)
 
-    registry_file = ConfigPaths.user_dir() / "apps.yaml"
+    # ~/.config/avlite/data/apps.yaml — command -> plugin directory or module. Missing file: no-op.
+    from avlite.c60_apps.c68_paths import DataPaths
+    registry_file = DataPaths.user_dir() / "apps.yaml"
     if not registry_file.is_file():
         return
     import importlib
     from pathlib import Path
-
     import yaml
-
     try:
         registered = yaml.safe_load(registry_file.read_text(encoding="utf-8")) or {}
         if not isinstance(registered, dict):
-            raise ValueError("expected a mapping of command to plugin path or module")
+            raise ValueError("expected a mapping")
     except Exception as e:
-        log.warning("Could not read app registry %s: %s", registry_file, e)
+        log.warning("Could not read %s: %s", registry_file, e)
         return
     protected = {n: c for n, c in AppStrategy.registry.items() if n}
     for name, target in registered.items():
@@ -105,7 +101,7 @@ def bootstrap_apps() -> None:
             log.warning("Could not load app '%s': %s", name, e)
     for name, cls in protected.items():
         current = AppStrategy.registry.get(name)
-        if current is not None and current is not cls:
+        if current not in (None, cls):
             log.warning("Skipping app '%s': command '%s' already registered", current.__name__, name)
             AppStrategy.registry[name] = cls
 
