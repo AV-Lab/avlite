@@ -571,8 +571,8 @@ class GlobalHDMapPlot(GlobalPlot):
 
             self.lane_succ_id_text.set_position((l.center_line[0][-1], l.center_line[1][-1]-5))
             self.lane_succ_id_text.set_text(f"S: {l.succ_id}")
-            for i,s in enumerate(l.neighbors):
-                self.closest_lane_neighbors[i].set_data(s.center_line[0], s.center_line[1])
+            for line, s in zip(self.closest_lane_neighbors, l.neighbors):
+                line.set_data(s.center_line[0], s.center_line[1])
 
             # if l.type == "driving":
             #     log.debug(f"Neighbors({l.uid}): {[n.uid for n in l.neighbors]}")

@@ -4,6 +4,7 @@ import logging
 import math
 import re
 import xml.etree.ElementTree as ET
+from dataclasses import replace
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -52,10 +53,10 @@ def parse_opendrive(hdmap: HDMap) -> None:
     hdmap._reference_point = parse_geo_reference_from_root(hdmap.root)
     if hdmap._all_road_points:
         hdmap._road_kdtree = KDTree(hdmap._all_road_points)
-    if hdmap._all_drivable_lane_points:
-        hdmap._lane_kdtree_drivable = KDTree(hdmap._all_drivable_lane_points)
     _connect_roads(hdmap)
     _connect_lanes(hdmap)
+    if hdmap._all_drivable_lane_points:
+        hdmap._lane_kdtree_drivable = KDTree(hdmap._all_drivable_lane_points)
 
     log.debug(
         "Number of roads in HD Map: %d vs nodes in graph %d",
@@ -183,7 +184,7 @@ def _process_lane_sections(
         s_section = section_s_vals[i]
         s_end = (section_s_vals + [np.inf])[i + 1]
         r.lane_section_s_vals.append(s_section)
-        # can_laneA_access_laneB needs 3 points per lane
+        # can_laneA_access_laneB measures direction over 3 points
         start = max(min(section_starts[i], len(road_s) - 3), 0)
         end = max(section_ends[i], start + 2)
 
@@ -242,6 +243,14 @@ def _process_lane_sections(
                             if lane.type == "driving":
                                 hdmap._point_to_drivable_lane[(x, y)] = lane
                                 hdmap._all_drivable_lane_points.append((x, y))
+
+                    if lane.type == "bidirectional":
+                        lane.type = "driving"
+                        lane.reverse = replace(
+                            lane, id=-lane_id, uid=f"{lane.uid}_reverse", side="right" if lane_id > 0 else "left",
+                            neighbors=set(), drivable_neighbors=set(), reverse=lane,
+                        )
+                        hdmap.lanes.append(lane.reverse)
 
                     cumulative_offset += lane_width / 2 if side == "left" else -lane_width / 2
 
@@ -362,27 +371,35 @@ def _connect_lanes(hdmap: HDMap) -> None:
             for section in sections:
                 for other in section:
                     if other.type == "driving" and other.id == int(linked_id):
-                        lane.neighbors.add(other)
-                        other.neighbors.add(lane)
+                        for linked in filter(None, (other, other.reverse)):
+                            lane.neighbors.add(linked)
+                            linked.neighbors.add(lane)
 
     for la in hdmap.lanes:
         for lb in la.neighbors:
             if hdmap.can_laneA_access_laneB(la, lb):
                 la.drivable_neighbors.add(lb)
-                hdmap.lane_network.add_edge(la.uid, lb.uid, weight=la.road.length, lane_change=False)
+                # Weight: length of the lane being left
+                hdmap.lane_network.add_edge(la.uid, lb.uid, weight=np.hypot(*np.diff(la.center_line)).sum(), lane_change=False)
 
     for road in hdmap.roads:
         for lane_section in road.lane_sections:
             for lane in lane_section:
-                if lane.type == "driving":
+                if lane.reverse:
+                    if lane.uid in hdmap.lane_network or lane.reverse.uid in hdmap.lane_network:
+                        for x, y in lane.center_line.T.tolist():
+                            hdmap._point_to_drivable_lane[(x, y)] = lane
+                            hdmap._all_drivable_lane_points.append((x, y))
+                elif lane.type == "driving":
                     for other_lane in lane_section:
                         if (
                             other_lane.type == "driving"
+                            and not other_lane.reverse
                             and lane != other_lane
                             and int(lane.id) * int(other_lane.id) > 0
                         ):
-                            hdmap.lane_network.add_edge(lane.uid, other_lane.uid, weight=0.0, lane_change=True)
-                            hdmap.lane_network.add_edge(other_lane.uid, lane.uid, weight=0.0, lane_change=True)
+                            hdmap.lane_network.add_edge(lane.uid, other_lane.uid, weight=PerceptionSettings.c18_lane_change_cost, lane_change=True)
+                            hdmap.lane_network.add_edge(other_lane.uid, lane.uid, weight=PerceptionSettings.c18_lane_change_cost, lane_change=True)
 
 
 def _connect_roads(hdmap: HDMap) -> None:

@@ -5,6 +5,7 @@ Tests verify:
 - Parsing builds roads, lanes, and a lane network.
 - reference_point is extracted from geoReference metadata.
 - Lane sections, lane width and offset, sharp curves and north roads parse correctly.
+- Lanes only join in the driving direction, and two-way lanes get a reverse lane.
 - sample_OpenDrive_geometry produces expected line geometry.
 - HDMapGlobalPlanner plans a route through lane sections.
 """
@@ -108,6 +109,46 @@ class TestHDMapLaneGeometry:
         assert np.allclose(path[[0, -1], 0], [10.0, 140.0], atol=0.5)
         assert np.all(np.diff(path[:, 0]) > 0)
         assert np.allclose(path[:, 1], -1.75, atol=0.1)
+
+
+class TestHDMapLaneJoins:
+    @pytest.mark.parametrize("b_xs, joins", [
+        ([1.0, 2.0], True),
+        ([1.0, 0.0], False),
+        ([2.0, 1.0], False),
+        ([-5.0, 1.0], False),
+    ])
+    def test_join_only_enters_a_lane_at_its_start(self, lane_map, b_xs, joins):
+        lane_a = HDMap.Lane(id=-1, uid="a", lane_element=None, center_line=np.array([[0.0, 1.0], [0.0, 0.0]]))
+        lane_b = HDMap.Lane(id=-1, uid="b", lane_element=None, center_line=np.array([b_xs, [0.0, 0.0]]))
+        lane_a.neighbors.add(lane_b)
+        joined = lane_map.can_laneA_access_laneB(lane_a, lane_b)
+        assert joined == joins
+
+
+class TestHDMapTwoWayLanes:
+    def test_two_way_lane_gets_a_reverse_lane(self, two_way_opendrive_path):
+        hdmap = HDMap.from_path(two_way_opendrive_path)
+        reverse = hdmap.lane_by_uid["30_-1"].reverse
+        details = reverse.uid, reverse.id, reverse.side, reverse.reverse.uid, hdmap.road_has_driving_lanes(reverse.road)
+        assert details == ("30_-1_reverse", 1, "left", "30_-1", True)
+
+    def test_two_way_lanes_join_only_in_the_driving_direction(self, two_way_opendrive_path):
+        network = HDMap.from_path(two_way_opendrive_path).lane_network
+        assert network.has_edge("30_-1", "31_0_-1") and network.has_edge("31_0_-1_reverse", "30_-1_reverse")
+        assert not network.has_edge("31_0_-1_reverse", "30_-1")
+        assert not network.has_edge("30_-1", "30_-1_reverse")
+
+    def test_start_and_goal_can_be_on_two_way_lanes(self, two_way_opendrive_path):
+        uid = HDMap.from_path(two_way_opendrive_path).find_nearest_lane(5.0, -701.0).uid
+        assert uid == "30_-1"
+
+    def test_unjoined_two_way_lane_is_not_a_start_lane(self, tmp_path, lane_geometry_opendrive_path):
+        path = tmp_path / "turn_lane.xodr"
+        path.write_text(lane_geometry_opendrive_path.read_text().replace('id="-2" type="driving"', 'id="-2" type="bidirectional"'))
+        hdmap = HDMap.from_path(path)
+        uid, in_network = hdmap.find_nearest_lane(60.0, -5.25).uid, "1_1_-2" in hdmap.lane_network
+        assert (uid, in_network) == ("1_1_-1", False)
 
 
 class TestGeoReferenceParsing:
