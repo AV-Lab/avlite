@@ -169,6 +169,7 @@ c69_apps:
   - p60_headless_mode
   - p60_setting_cli
   - p60_visualizer_tk
+  - p60_visualizer_qt
   c62_load_plugins: true
 plugins:
   PixRoboEV:

@@ -1,0 +1,29 @@
+# Recommended profile for the Qt5 visualizer (BasicSim).
+# On Install/Update AVLite may offer to import this as profile "avlite-app-visualizer-qt".
+c69_apps:
+  c62_load_plugins: true
+  c62_default_plugins:
+    - p60_headless_mode
+    - p60_setting_cli
+    - p60_visualizer_tk
+    - p60_visualizer_qt
+  c62_community_plugins:
+    avlite-app-visualizer-qt: avlite-app-visualizer-qt
+c40_execution:
+  c40_bridge: BasicSim
+  c40_controller: StanleyController
+  c40_executer_type: AsyncThreadedExecuter
+  c40_global_planner: GlobalCenterlineRacePlanner
+  c40_local_planner: GreedyLatticePlanner
+  c40_perception: PerceptionPipeline
+  c40_pace_sim: true
+  c40_sim_dt: 0.05
+plugins:
+  avlite-app-visualizer-qt:
+    p60_dark_mode: true
+    p60_ui_refresh_hz: 60.0
+    p60_use_opengl: true
+    p66_global_zoom: 80.0
+    p67_global_plan_view: true
+    p67_show_local_global_view: true
+    p67_show_local_frenet_view: true

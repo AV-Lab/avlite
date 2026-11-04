@@ -1,0 +1,6 @@
+# Qt5 visualizer for AVLite — install alongside avlite.
+# PyQt5 chosen over PySide2: PySide2 has no Python 3.12 wheels; PyQt5 5.15.x
+# ships abi3 manylinux wheels and is the best-supported binding for pyqtgraph.
+PyQt5>=5.15
+pyqtgraph>=0.13
+numpy>=2.0
