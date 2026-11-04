@@ -83,7 +83,7 @@ The Tk visualizer and headless dashboard carry no special status — they are tw
 
 ```mermaid
 flowchart LR
-    boot["bootstrap_apps()\nimport p60_* app modules"]
+    boot["bootstrap_apps()\nimport p60_* and profile community apps"]
     reg["register_parsers(sub)\none subcommand per app"]
     run["run_app(command, ...)\nregistry[command] or default"]
     boot --> reg --> run
@@ -323,6 +323,6 @@ avlite/
 ~/.config/avlite/plugin_my_plugin.yaml   # Community plugin settings (user config, not in install dir)
 ```
 
-**Load order:** [`c63_plugins`](../avlite/c60_apps/c63_plugins.py) discovers and imports built-in / community / member packages into the `avlite.plugins` namespace; the factory (`c62_factory`) syncs the active profile’s plugin lists when building the stack; subclasses of strategy ABCs auto-register on import. The built-in `p60_*` packages are the apps themselves (`AppStrategy` entry points); `bootstrap_apps()` in `c61_app_strategy` imports them at startup so their apps register before CLI parsing.
+**Load order:** [`c63_plugins`](../avlite/c60_apps/c63_plugins.py) discovers and imports built-in / community / member packages into the `avlite.plugins` namespace; the factory (`c62_factory`) syncs the active profile’s plugin lists when building the stack; subclasses of strategy ABCs auto-register on import. The built-in `p60_*` packages are the apps themselves (`AppStrategy` entry points); `bootstrap_apps()` in `c61_app_strategy` imports those packages and the active profile's community plugins at startup so their apps register before CLI parsing.
 
 See [Plugin Development](plugin-development.md) for creating community plugins, pNx naming, and log filtering.

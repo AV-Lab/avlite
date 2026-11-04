@@ -747,7 +747,7 @@ CLI and GUI entry points register via :class:`~avlite.c60_apps.c61_app_strategy.
 | Headless runner | `p60_headless_mode` | `python -m avlite headless` |
 | Setting CLI | `p60_setting_cli` | `python -m avlite setting-cli` |
 
-Built-in ``p60_*`` plugin packages are imported at startup via ``bootstrap_apps()`` in ``c61_app_strategy``. The merged ``p60_visualizer_tk`` package hosts shared Tk code (``p64_setting_views``, ``p65_ui_lib``, ``settings.py``) and three standalone ``AppStrategy`` entry modules. Stack core (``c10``–``c40``, ``c50_common``) may import ``c61_app_strategy``, ``c64_settings_schema``, ``c68_paths``, and ``c69_settings`` only; it must not import ``p60_*`` Tk apps.
+Built-in ``p60_*`` plugin packages, and community plugins listed in the active profile, are imported at startup via ``bootstrap_apps()`` in ``c61_app_strategy`` (when ``c62_load_plugins`` is on) so their commands exist before subcommands are parsed. A community plugin that fails to import is skipped. A community command that reuses a built-in name is skipped. The merged ``p60_visualizer_tk`` package hosts shared Tk code (``p64_setting_views``, ``p65_ui_lib``, ``settings.py``) and three standalone ``AppStrategy`` entry modules. Stack core (``c10``–``c40``, ``c50_common``) may import ``c61_app_strategy``, ``c64_settings_schema``, ``c68_paths``, and ``c69_settings`` only; it must not import ``p60_*`` Tk apps.
 
 ## See Also
 

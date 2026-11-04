@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- CLI: community plugins listed in the active profile register their apps before subcommands are parsed. A plugin that fails to import is skipped with a warning. A community command that reuses a built-in name is skipped.
+
 ## [0.6.6] - 2026-10-14
 
 ### Added
