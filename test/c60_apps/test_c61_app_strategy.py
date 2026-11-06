@@ -2,9 +2,10 @@
 
 import logging
 import sys
-from pathlib import Path
 
 from avlite.c60_apps.c61_app_strategy import AppStrategy, bootstrap_apps
+from avlite.c60_apps.c65_setting_utils import list_profiles
+from avlite.c60_apps.c68_paths import ConfigPaths
 
 
 def test_bootstrap_registers_three_tk_apps():
@@ -14,7 +15,7 @@ def test_bootstrap_registers_three_tk_apps():
     assert AppStrategy.registry["plugins"].__name__ == "PluginsApp"
 
 
-def test_apps_yaml_registers_plugin_without_overriding(tmp_path, monkeypatch, caplog, capsys):
+def test_apps_yaml_registers_plugin_without_overriding(tmp_path, caplog, capsys):
     plugin = tmp_path / "demo-qt5"
     plugin.mkdir()
     (plugin / "app.py").write_text(
@@ -25,16 +26,8 @@ def test_apps_yaml_registers_plugin_without_overriding(tmp_path, monkeypatch, ca
         "    cli_name = 'headless'\n    help = 'nope'\n    def run(self, a, u): return 1\n",
         encoding="utf-8",
     )
-    reg = tmp_path / "apps.yaml"
+    reg = ConfigPaths.user_dir() / "apps.yaml"
     reg.write_text(f"qt5: {plugin}\nsetting: {plugin}\nbroken: not_a_real_module_xyz\n", encoding="utf-8")
-    original = Path.read_text
-
-    def read_text(self, *args, **kwargs):
-        if self.name == "apps.yaml" and self.parent.name == "config":
-            return original(reg)
-        return original(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "read_text", read_text)
     try:
         with caplog.at_level(logging.WARNING, logger="avlite.c60_apps.c61_app_strategy"):
             bootstrap_apps()
@@ -42,6 +35,7 @@ def test_apps_yaml_registers_plugin_without_overriding(tmp_path, monkeypatch, ca
         assert AppStrategy.registry["setting"].__name__ == "SettingApp"
         assert AppStrategy.registry["headless"].__name__ == "HeadlessApp"
         assert "Hijack" in caplog.text and "broken" in caplog.text
+        assert "apps" not in list_profiles()
         assert AppStrategy.registry["apps"]().run(None, None) == 0
         listed = capsys.readouterr().out
         assert "qt5" in listed and "headless" in listed and "apps" in listed

@@ -77,7 +77,7 @@ class AppsApp(AppStrategy):
 
 
 def bootstrap_apps() -> None:
-    """Import built-in ``p60`` apps, then ``avlite/config/apps.yaml``.
+    """Import built-in ``p60`` apps, then ``configs/apps.yaml``.
 
     A missing or unreadable file keeps the built-in commands. A plugin cannot
     replace a command that is already registered.
@@ -88,6 +88,7 @@ def bootstrap_apps() -> None:
     import yaml
 
     from avlite.c60_apps.c63_plugins import import_plugin_modules, list_plugins
+    from avlite.c60_apps.c68_paths import ConfigPaths
 
     for name in list_plugins():
         if not name.startswith("p60"):
@@ -97,7 +98,11 @@ def bootstrap_apps() -> None:
         except Exception as e:
             log.warning("Could not load app plugin '%s': %s", name, e)
 
-    apps_file = Path(__file__).resolve().parent.parent / "config" / "apps.yaml"
+    apps_file = Path(ConfigPaths.effective_path("configs/apps.yaml"))
+    bundled = ConfigPaths.bundled_dir() / "apps.yaml"
+    if not apps_file.is_file() and bundled.is_file() and bundled.resolve() != apps_file.resolve():
+        apps_file.parent.mkdir(parents=True, exist_ok=True)
+        apps_file.write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
     try:
         listed = yaml.safe_load(apps_file.read_text(encoding="utf-8"))
         if not isinstance(listed, dict):

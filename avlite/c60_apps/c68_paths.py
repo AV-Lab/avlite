@@ -11,9 +11,9 @@ DEFAULT_PLUGINS_SUBDIR = Path("avlite") / "plugins"
 COMMUNITY_DEV_SUBDIR = "avlite-community-plugins"
 PRIVATE_DEV_SUBDIR = "avlite-private-plugins"
 
-# Legacy per-layer/per-plugin basenames that must never be listed as profiles.
+# Basenames in configs/ that are not profiles.
 _NON_PROFILE_STEMS = frozenset(
-    {"c10_perception", "c20_planning", "c30_control", "c40_execution", "c59_apps"}
+    {"c10_perception", "c20_planning", "c30_control", "c40_execution", "c59_apps", "apps"}
 )
 
 

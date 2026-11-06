@@ -701,7 +701,10 @@ class _PluginOperations:
                 if "AppStrategy" in text and re.search(r"(?m)^\s*cli_name\s*=", text):
                     defines_app = True
                     break
-            apps_file = Path(__file__).resolve().parents[2] / "config" / "apps.yaml"
+            apps_file = Path(ConfigPaths.effective_path("configs/apps.yaml", for_write=True))
+            bundled = ConfigPaths.bundled_dir() / "apps.yaml"
+            if not apps_file.is_file() and bundled.is_file() and bundled.resolve() != apps_file.resolve():
+                apps_file.write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
             body = apps_file.read_text(encoding="utf-8") if apps_file.is_file() else ""
             taken = name in AppStrategy.registry or re.search(rf"(?m)^{re.escape(name)}\s*:", body)
             if defines_app and not taken:
@@ -722,9 +725,12 @@ class _PluginOperations:
         AppSettings.c62_community_plugins.pop(name, None)
         save_setting(AppSettings, profile=profile)
         try:
-            apps_file = Path(__file__).resolve().parents[2] / "config" / "apps.yaml"
-            body = apps_file.read_text(encoding="utf-8")
-            listed = yaml.safe_load(body) or {}
+            apps_file = Path(ConfigPaths.effective_path("configs/apps.yaml", for_write=True))
+            if not apps_file.is_file():
+                listed, body = {}, ""
+            else:
+                body = apps_file.read_text(encoding="utf-8")
+                listed = yaml.safe_load(body) or {}
             drop = set()
             if isinstance(listed, dict):
                 drop = {key for key, value in listed.items() if name in Path(str(value)).parts}
