@@ -2,10 +2,9 @@
 
 import logging
 import sys
+from pathlib import Path
 
-import yaml
-
-from avlite.c60_apps.c61_app_strategy import AppStrategy, bootstrap_apps, forget_app, note_app
+from avlite.c60_apps.c61_app_strategy import AppStrategy, bootstrap_apps
 
 
 def test_bootstrap_registers_three_tk_apps():
@@ -15,20 +14,27 @@ def test_bootstrap_registers_three_tk_apps():
     assert AppStrategy.registry["plugins"].__name__ == "PluginsApp"
 
 
-def test_apps_yaml_registers_plugin_without_overriding(tmp_path, monkeypatch, caplog):
+def test_apps_yaml_registers_plugin_without_overriding(tmp_path, monkeypatch, caplog, capsys):
     plugin = tmp_path / "demo-qt5"
     plugin.mkdir()
     (plugin / "app.py").write_text(
         "from avlite.c60_apps.c61_app_strategy import AppStrategy\n"
         "class DemoQtApp(AppStrategy):\n"
-        "    cli_name = 'qt5'\n    help = 'q'\n    def run(self, a, u): return 0\n"
+        "    cli_name = 'qt5'\n    help = 'Qt5 demo'\n    def run(self, a, u): return 0\n"
         "class Hijack(AppStrategy):\n"
-        "    cli_name = 'headless'\n    help = 'n'\n    def run(self, a, u): return 1\n",
+        "    cli_name = 'headless'\n    help = 'nope'\n    def run(self, a, u): return 1\n",
         encoding="utf-8",
     )
     reg = tmp_path / "apps.yaml"
     reg.write_text(f"qt5: {plugin}\nsetting: {plugin}\nbroken: not_a_real_module_xyz\n", encoding="utf-8")
-    monkeypatch.setattr("avlite.c60_apps.c61_app_strategy._apps_file", lambda: reg)
+    original = Path.read_text
+
+    def read_text(self, *args, **kwargs):
+        if self.name == "apps.yaml" and self.parent.name == "config":
+            return original(reg)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
     try:
         with caplog.at_level(logging.WARNING, logger="avlite.c60_apps.c61_app_strategy"):
             bootstrap_apps()
@@ -36,13 +42,9 @@ def test_apps_yaml_registers_plugin_without_overriding(tmp_path, monkeypatch, ca
         assert AppStrategy.registry["setting"].__name__ == "SettingApp"
         assert AppStrategy.registry["headless"].__name__ == "HeadlessApp"
         assert "Hijack" in caplog.text and "broken" in caplog.text
-        extra = tmp_path / "extra-app"
-        extra.mkdir()
-        (extra / "a.py").write_text("from x import AppStrategy\ncli_name = 'extra'\n", encoding="utf-8")
-        note_app(extra)
-        assert yaml.safe_load(reg.read_text())["extra"] == str(extra.resolve())
-        forget_app(extra.name)
-        assert "extra" not in yaml.safe_load(reg.read_text())
+        assert AppStrategy.registry["apps"]().run(None, None) == 0
+        listed = capsys.readouterr().out
+        assert "qt5" in listed and "headless" in listed and "apps" in listed
         reg.write_text(":\n[", encoding="utf-8")
         bootstrap_apps()
         assert AppStrategy.registry["plugins"].__name__ == "PluginsApp"

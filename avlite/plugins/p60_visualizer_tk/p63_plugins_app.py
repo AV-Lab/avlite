@@ -43,7 +43,7 @@ _PACKAGING_AVAILABLE = Requirement is not None
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c69_settings import AppSettings
-from avlite.c60_apps.c61_app_strategy import AppStrategy, forget_app, note_app
+from avlite.c60_apps.c61_app_strategy import AppStrategy
 from avlite.c60_apps.c65_setting_utils import (
     dev_mode_uninstall_warning,
     import_profile,
@@ -693,7 +693,29 @@ class _PluginOperations:
             stored = PluginPaths.normalize_stored(name, str(path))
         AppSettings.c62_community_plugins[name] = stored
         save_setting(AppSettings, profile=profile)
-        note_app(path)
+        try:
+            root = PluginPaths.plugin_load_dir(path)
+            source = ""
+            for py in root.glob("*.py"):
+                chunk = py.read_text(encoding="utf-8", errors="ignore")
+                if "AppStrategy" in chunk:
+                    source += chunk
+            apps_file = Path(__file__).resolve().parents[2] / "config" / "apps.yaml"
+            current = apps_file.read_text(encoding="utf-8") if apps_file.is_file() else ""
+            added = ""
+            found = re.findall(r"(?m)^\s*cli_name\s*=\s*['\"]([^'\"]+)['\"]", source)
+            for cli in dict.fromkeys(found):
+                already = cli in AppStrategy.registry or re.search(rf"(?m)^{re.escape(cli)}\s*:", current + added)
+                if not cli or already:
+                    continue
+                added += yaml.safe_dump({cli: str(root)}, sort_keys=False)
+            if added:
+                apps_file.parent.mkdir(parents=True, exist_ok=True)
+                if current and not current.endswith("\n"):
+                    current += "\n"
+                apps_file.write_text(current + added, encoding="utf-8")
+        except Exception as e:
+            log.warning("Could not register app '%s': %s", name, e)
         log.info("Registered plugin '%s' in profile '%s'", name, profile)
 
     @staticmethod
@@ -703,7 +725,23 @@ class _PluginOperations:
         load_setting(AppSettings, profile=profile)
         AppSettings.c62_community_plugins.pop(name, None)
         save_setting(AppSettings, profile=profile)
-        forget_app(name)
+        try:
+            apps_file = Path(__file__).resolve().parents[2] / "config" / "apps.yaml"
+            text = apps_file.read_text(encoding="utf-8")
+            listed = yaml.safe_load(text) or {}
+            if isinstance(listed, dict):
+                drop = {key for key, value in listed.items() if name in Path(str(value)).parts}
+                if drop:
+                    apps_file.write_text(
+                        "".join(
+                            line
+                            for line in text.splitlines(True)
+                            if line.split(":", 1)[0].strip().strip("'\"") not in drop
+                        ),
+                        encoding="utf-8",
+                    )
+        except Exception as e:
+            log.warning("Could not unregister app '%s': %s", name, e)
         log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
 
     @staticmethod
