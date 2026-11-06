@@ -220,13 +220,7 @@ python -m avlite apps
 
 `configs/apps.yaml` maps a name to a plugin directory or a Python module. AVLite loads it before argparse, using the same bundled-or-user switch as the other settings (see the table above). **Edit repository configs** reads and writes `avlite/configs/apps.yaml`. Otherwise the file is `~/.config/avlite/apps.yaml` (`AVLITE_CONFIG_DIR`), and a missing copy is seeded from the bundled file. A missing or unreadable file keeps the built-in commands. A plugin cannot replace a command that is already registered.
 
-The bundled file lists the built-in commands (`headless`, `setting`, `setting-cli`, `plugins`). Installing a plugin that defines an `AppStrategy` (a module with `cli_name =`) appends one line to the effective file; uninstall removes lines for that plugin. The YAML key is the plugin's registry name and the value is its install directory. The subcommand is the class `cli_name`.
-
-[avlite-QT5](https://github.com/rsi-lab/avlite-QT5) is a community `AppStrategy` with `cli_name = "qt5"`. After install, the effective file gains the plugin directory (`~` in a hand-written path is expanded), `avlite qt5` is a subcommand, and `avlite apps` lists it:
-
-```yaml
-avlite-QT5: ~/.local/share/avlite/plugins/avlite-QT5
-```
+The bundled file lists the built-in commands (`headless`, `setting`, `setting-cli`, `plugins`). Installing a plugin that defines an `AppStrategy` (a module with `cli_name =`) appends one line to the effective file; uninstall removes lines for that plugin. The YAML key is the plugin's registry name and the value is its install directory. The subcommand is the class `cli_name`. Optional community plugins are not in that bundled file. Install one from the plugins browser (for example [avlite-QT5](https://github.com/rsi-lab/avlite-QT5)) and its command (`qt5`) then appears in the effective `apps.yaml` and in `avlite apps`.
 
 ### CLI validation
 

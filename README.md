@@ -220,7 +220,7 @@ python -m avlite setting-cli export-profile myprofile -o myprofile.yaml
 python -m avlite setting-cli import-profile myprofile.yaml --force
 ```
 
-`configs/apps.yaml` is the app registry: each entry is a Python module or a plugin directory. It resolves like the other settings: bundled `avlite/configs/apps.yaml` when **Edit repository configs** is on, otherwise `~/.config/avlite/apps.yaml` (`AVLITE_CONFIG_DIR`). A missing user copy is seeded from the bundled file. Entries load before argparse. Installing a plugin that defines an `AppStrategy` appends a line there, and uninstall removes it. That is how a community app such as [avlite-QT5](https://github.com/rsi-lab/avlite-QT5) (`cli_name = "qt5"`) becomes `avlite qt5`.
+`configs/apps.yaml` is the app registry: each entry is a Python module or a plugin directory. It resolves like the other settings: bundled `avlite/configs/apps.yaml` when **Edit repository configs** is on, otherwise `~/.config/avlite/apps.yaml` (`AVLITE_CONFIG_DIR`). A missing user copy is seeded from the bundled file. Entries load before argparse. Installing a plugin that defines an `AppStrategy` appends a line there, and uninstall removes it. Optional community plugins are not part of core. Install one from the plugins browser (for example [avlite-QT5](https://github.com/rsi-lab/avlite-QT5)) and its command then appears in `apps.yaml` and `avlite apps`.
 
 See [Configuration](docs/overview.md#configuration) in the docs for paths, CLI, app commands, and resetting to repo defaults.
 
