@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Apps: `avlite apps` lists registered apps. Community `AppStrategy` commands in `configs/apps.yaml` load before argparse, so `avlite <command>` works. A missing or unreadable file keeps the built-in commands, and a plugin cannot replace one.
+- Apps: `configs/apps.yaml` follows the other settings (bundled file, or the user config home). User mode copies the bundled file when that copy is missing. Plugin install and uninstall update the effective file.
+
 ## [0.6.6] - 2026-10-14
 
 ### Added

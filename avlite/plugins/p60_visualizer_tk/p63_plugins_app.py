@@ -693,6 +693,28 @@ class _PluginOperations:
             stored = PluginPaths.normalize_stored(name, str(path))
         AppSettings.c62_community_plugins[name] = stored
         save_setting(AppSettings, profile=profile)
+        try:
+            root = PluginPaths.plugin_load_dir(path)
+            defines_app = False
+            for py in root.glob("*.py"):
+                text = py.read_text(encoding="utf-8", errors="ignore")
+                if "AppStrategy" in text and re.search(r"(?m)^\s*cli_name\s*=", text):
+                    defines_app = True
+                    break
+            apps_file = Path(ConfigPaths.effective_path("configs/apps.yaml", for_write=True))
+            bundled = ConfigPaths.bundled_dir() / "apps.yaml"
+            if not apps_file.is_file() and bundled.is_file() and bundled.resolve() != apps_file.resolve():
+                apps_file.write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
+            body = apps_file.read_text(encoding="utf-8") if apps_file.is_file() else ""
+            taken = name in AppStrategy.registry or re.search(rf"(?m)^{re.escape(name)}\s*:", body)
+            if defines_app and not taken:
+                if body and not body.endswith("\n"):
+                    body += "\n"
+                apps_file.parent.mkdir(parents=True, exist_ok=True)
+                line = yaml.safe_dump({name: str(root)}, sort_keys=False)
+                apps_file.write_text(body + line, encoding="utf-8")
+        except Exception as e:
+            log.warning("Could not register app '%s': %s", name, e)
         log.info("Registered plugin '%s' in profile '%s'", name, profile)
 
     @staticmethod
@@ -702,6 +724,27 @@ class _PluginOperations:
         load_setting(AppSettings, profile=profile)
         AppSettings.c62_community_plugins.pop(name, None)
         save_setting(AppSettings, profile=profile)
+        try:
+            apps_file = Path(ConfigPaths.effective_path("configs/apps.yaml", for_write=True))
+            if not apps_file.is_file():
+                listed, body = {}, ""
+            else:
+                body = apps_file.read_text(encoding="utf-8")
+                listed = yaml.safe_load(body) or {}
+            drop = set()
+            if isinstance(listed, dict):
+                drop = {key for key, value in listed.items() if name in Path(str(value)).parts}
+            if drop:
+                apps_file.write_text(
+                    "".join(
+                        line
+                        for line in body.splitlines(True)
+                        if line.split(":", 1)[0].strip().strip("'\"") not in drop
+                    ),
+                    encoding="utf-8",
+                )
+        except Exception as e:
+            log.warning("Could not unregister app '%s': %s", name, e)
         log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
 
     @staticmethod

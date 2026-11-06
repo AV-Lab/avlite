@@ -1,0 +1,4 @@
+headless: avlite.plugins.p60_headless_mode
+setting: avlite.plugins.p60_visualizer_tk
+setting-cli: avlite.plugins.p60_setting_cli
+plugins: avlite.plugins.p60_visualizer_tk
