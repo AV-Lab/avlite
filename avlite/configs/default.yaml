@@ -33,12 +33,19 @@ c10_perception:
   c16_localization_lidar_z_max: 2.0
   c16_localization_lidar_z_min: -1.5
   c16_localization_map_subsample: 1
+  c17_resolution: 0.25
+  c17_size: 200.0
+  c17_z_max: 0.5
+  c17_z_min: -1.5
+  c18_lane_change_cost: 20.0
+  c18_sampling_max_turn_deg: 5.0
+  c18_sampling_resolution: 0.1
 c20_planning:
   c20_beside_agent_rear_window: 10.0
   c20_beside_agent_sweep_time: 4.0
   c20_boundary_margin: 0.25
-  c20_ego_inflation_margin: 0.5
   c20_default_ego_velocity: 5.0
+  c20_ego_inflation_margin: 0.5
   c20_min_ramp_start_velocity: 3.0
   c20_min_velocity_threshold: 0.5
   c20_obstacle_inflation_margin: 0.5
@@ -200,7 +207,10 @@ plugins:
     p60_fg_color: white
     p60_hide_menubar: false
     p60_next_profile: perception
+    p60_settings_folded: false
     p60_shortcut_mode: false
+    p60_shortcuts: {}
+    p60_shortcuts_folded: false
     p66_frenet_view_follow_planner: false
     p66_frenet_zoom: 30.0
     p66_global_plan_velocity_scale: relative
@@ -218,13 +228,23 @@ plugins:
     p66_show_race_boundary: true
     p66_show_state: true
     p66_xy_zoom: 130.0
+    p67_bridge_folded: false
+    p67_control_folded: false
+    p67_execution_folded: false
     p67_global_plan_view: true
     p67_local_plan_view: true
+    p67_perception_folded: false
+    p67_plan_folded: false
+    p67_plot_sashes:
+      FrenetPlot: 0.7628
+      GlobalPlanPlot: 0.2372
     p67_show_local_frenet_view: true
     p67_show_local_global_view: false
+    p67_show_occupancy_map: false
     p67_show_perception_extras: false
     p67_show_prediction: true
     p68_disable_log: false
+    p68_log_folded: false
     p68_log_font: Courier
     p68_log_font_size: 11
     p68_log_pull_time: 50

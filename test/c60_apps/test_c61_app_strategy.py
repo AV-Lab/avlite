@@ -3,9 +3,25 @@
 import logging
 import sys
 
-from avlite.c60_apps.c61_app_strategy import AppStrategy, bootstrap_apps
+from avlite.c60_apps.c61_app_strategy import AppStrategy, PlotStrategy, bootstrap_apps
 from avlite.c60_apps.c65_setting_utils import list_profiles
 from avlite.c60_apps.c68_paths import ConfigPaths
+
+
+def test_plot_strategy_registry_skips_abstract_bases():
+    class DemoPlot(PlotStrategy):
+        def plot(self) -> None:
+            return None
+
+    class HiddenPlot(PlotStrategy, abstract=True):
+        def plot(self) -> None:
+            return None
+
+    try:
+        assert PlotStrategy.registry["DemoPlot"] is DemoPlot
+        assert "HiddenPlot" not in PlotStrategy.registry
+    finally:
+        PlotStrategy.registry.pop("DemoPlot", None)
 
 
 def test_bootstrap_registers_three_tk_apps():

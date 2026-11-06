@@ -430,12 +430,26 @@
 }
 
 /* Render the brand mark as a crisp white silhouette (via brightness/invert)
-   so it reads cleanly on the black or brand header, and give it a bit more
+   so it reads on the black or brand header, and on the small-screen drawer
+   bar (the header logo is hidden there). Give the header mark a bit more
    presence than the default logo size. */
+.md-header__button.md-logo img,
+.md-nav__button.md-logo img {
+  filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
 .md-header__button.md-logo img {
   height: 1.7rem;
   width: auto;
-  filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+/* Drawer header reserves a 2.4rem line under the logo, which leaves a wide
+   gap above the site name. Tighten that line on small screens only. */
+@media screen and (max-width: 76.234375em) {
+  .md-nav--primary .md-nav__title[for="__drawer"] {
+    height: 4.4rem;
+    line-height: 1.2rem;
+  }
 }
 
 /* ---------------------------------------------------------------------------

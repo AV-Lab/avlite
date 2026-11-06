@@ -531,9 +531,11 @@ class PlanFrame(ttk.LabelFrame):
         if not self.root.exec or not self.root.exec.global_planner:
             return
         self.root.replan_global()
-        self.root.local_plan_plot_view.reset()
-        self.root.global_plan_plot_view.plot()
-        self.root.local_plan_plot_view.plot()
+        for name in ("LocalGlobalPlot", "FrenetPlot"):
+            self.root.plots[name].reset()
+        for view in self.root.plots.values():
+            if view.enabled.get():
+                view.plot()
         self.root.update_ui()
 
     def save_global_plan(self):

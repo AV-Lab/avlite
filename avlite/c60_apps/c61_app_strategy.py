@@ -21,15 +21,18 @@ when the app needs CLI flags or nested subcommands.
 
 Built-in ``p60_*`` plugin packages are imported at startup via :func:`~avlite.c60_apps.c61_app_strategy.import_app_plugins`.
 
-This module stays free of heavy imports (no tkinter); plugins may import it
-without pulling in the GUI.
+:class:`PlotStrategy` lives here for the same reason as :class:`AppStrategy`:
+this module is not reloaded, so ``from avlite import PlotStrategy`` stays the
+live class. Importing this module imports tkinter.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import tkinter as tk
 from abc import ABC, abstractmethod
+from tkinter import ttk
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +72,39 @@ class AppsApp(AppStrategy):
         for label, help_text in sorted(rows):
             print(f"{label:<{width}}  {help_text}")
         return 0
+
+
+class PlotStrategy(ttk.Frame, ABC):
+    """A visualizer pane. Subclass, set ``label``, implement :meth:`plot`."""
+
+    registry: dict[str, type["PlotStrategy"]] = {}
+    label: str = ""
+    enabled_field: str | None = None
+
+    def __init__(self, root: tk.Misc) -> None:
+        super().__init__(root)
+        self.root = root
+        setting = getattr(root, "setting", None)
+        field = type(self).enabled_field
+        ensure = getattr(setting, "ensure_plot_enabled", None)
+        if callable(ensure):
+            self.enabled = ensure(type(self).__name__, field)
+        elif field and setting is not None:
+            self.enabled = getattr(setting, field)
+        else:
+            self.enabled = tk.BooleanVar(master=root, value=True)
+
+    @abstractmethod
+    def plot(self) -> None:
+        """Redraw this pane from ``self.root``."""
+
+    def reset(self) -> None:
+        return None
+
+    def __init_subclass__(cls, abstract: bool = False, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            PlotStrategy.registry[cls.__name__] = cls
 
 
 # ---------------------------------------------------------------------------

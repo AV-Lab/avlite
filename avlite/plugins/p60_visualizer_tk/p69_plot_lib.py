@@ -741,182 +741,110 @@ class LocalPlot:
     PREDICTION_PERCENTILES = (0.5, 0.95)
     _ELLIPSE_STRIDE_S = 0.5
     _ELLIPSE_SAMPLES = 24
-    def __init__(self, max_plan_length=5, max_agent_count=12, controller: Optional[ControlStrategy] = None):
+    def __init__(self, max_plan_length=5, max_agent_count=12, controller: Optional[ControlStrategy] = None, coord: str = "xy"):
         self.MAX_PLAN_LENGTH = max_plan_length
         self.MAX_AGENT_COUNT = max_agent_count
         self.controller = controller
+        self.coord = coord
 
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
+        self.fig, self.ax = plt.subplots()
         # Disable the 'l' shortcut for toggling log scale
         self.fig.canvas.mpl_disconnect(self.fig.canvas.manager.key_press_handler_id)
-        # self.ax2.set_title("Frenet Coordinate", pad=-100)
-
-        self.ax1.set_aspect("equal")
-        self.ax2.set_aspect("equal")
+        self.ax.set_aspect("equal")
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-        # self.ax1.set_position([0, 0.5, 0.99, .5])  # [left, bottom, width, height]
-        # self.ax2.set_position([0, 0.0, 0.99, .5])  # [left, bottom, width, height]
 
-        self.lattice_graph_plots_ax1 = []
-        self.lattice_graph_plots_ax2 = []
-        self.lattice_graph_endpoints_ax1 = []
-        self.lattice_graph_endpoints_ax2 = []
+        self.lattice_graph_plots = []
+        self.lattice_graph_endpoints = []
         self._lattice_legend_added = False
-        self.local_plan_plots_ax1 = []
-        self.local_plan_plots_ax2 = []
-        self.view_width_ax1 = None
-        self.view_height_ax1 = None
-        self.view_width_ax2 = None
-        self.view_height_ax2 = None
-        
-        self.orientation_arrow = None  # For the vehicle orientation arrow
+        self.local_plan_plots = []
+        self.view_width = None
+        self.view_height = None
+        self.orientation_arrow = None
 
-        # Blitting / decimation state
-        self._ax1_window: Optional[tuple[float, float, float, float]] = None
-        self._gp_cache = None  # cached static global-plan geometry (keyed by plan identity)
-        self._tb_cache = None  # cached static track-boundary Frenet segments
-        # Set when a static (background) layer changed this frame, so the view
-        # forces a full redraw instead of a blit-only update.
+        self._window: Optional[tuple[float, float, float, float]] = None
+        self._gp_cache = None
+        self._tb_cache = None
         self._needs_full_draw = False
 
+        frenet = coord == "frenet"
+        bound_lw = 1 if frenet else 2
+        ref_lw = 1 if frenet else 2
+        ref_alpha = 0.5 if frenet else 1.0
+        left_label = "Left Boundary (Ref)" if frenet else "Left Boundary"
+        right_label = "Right Boundary (Ref)" if frenet else "Right Boundary"
+        ref_label = "Global Trajectory" if frenet else "Reference Trajectory"
         for i in range(self.MAX_PLAN_LENGTH):
-            (local_plan_ax1,) = self.ax1.plot([], [], "r-", label=f"Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
-            (local_plan_ax2,) = self.ax2.plot([], [], "r-", label=f"Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
-            self.local_plan_plots_ax1.append(local_plan_ax1)
-            self.local_plan_plots_ax2.append(local_plan_ax2)
+            (local_plan,) = self.ax.plot([], [], "r-", label=f"Local Plan {i}", alpha=0.6 / (i + 1), linewidth=8)
+            self.local_plan_plots.append(local_plan)
 
-        (self.left_boundry_x1,) = self.ax1.plot([], [], color="orange", label="Left Boundary", linewidth=2)
-        (self.right_boundry_x1,) = self.ax1.plot([], [], color="tan", label="Right Boundary", linewidth=2)
-        (self.left_boundry_ax2,) = self.ax2.plot([], [], color="orange", linewidth=1, label="Left Boundary (Ref)")
-        (self.right_boundry_ax2,) = self.ax2.plot([], [], color="tan", linewidth=1, label="Right Boundary (Ref)")
-
-        (self.reference_trajectory_ax1,) = self.ax1.plot([], [], "gray", label="Reference Trajectory", linewidth=2)
-        (self.reference_trajectory_ax2,) = self.ax2.plot(
-            [], [], color="gray", linewidth=1, alpha=0.5, label="Global Trajectory"
+        (self.left_boundry,) = self.ax.plot([], [], color="orange", label=left_label, linewidth=bound_lw)
+        (self.right_boundry,) = self.ax.plot([], [], color="tan", label=right_label, linewidth=bound_lw)
+        (self.reference_trajectory,) = self.ax.plot(
+            [], [], color="gray", label=ref_label, linewidth=ref_lw, alpha=ref_alpha,
         )
-
-        (self.last_locs_ax1,) = self.ax1.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
-        (self.planner_loc_ax1,) = self.ax1.plot([], [], "ro", markersize=10, label="Planner Location")
-
-        (self.last_locs_ax2,) = self.ax2.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
-        (self.planner_loc_ax2,) = self.ax2.plot([], [], "ro", markersize=10, label="Planner Location")
-
-        (self.g_wp_current_ax1,) = self.ax1.plot(
+        (self.last_locs,) = self.ax.plot([], [], "g-", label="Last 100 Locations", linewidth=2)
+        (self.planner_loc,) = self.ax.plot([], [], "ro", markersize=10, label="Planner Location")
+        (self.g_wp_current,) = self.ax.plot(
             [], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none"
         )
-        (self.g_wp_current_ax2,) = self.ax2.plot(
-            [], [], "g", markersize=13, label="G WP: Curent", marker="o", fillstyle="none"
-        )
-
-        (self.g_wp_next_ax1,) = self.ax1.plot([], [], "gx", markersize=13, label="G WP: Next")
-        (self.g_wp_next_ax2,) = self.ax2.plot([], [], "gx", markersize=13, label="G WP: Next")
-
-        (self.current_wp_plot_ax1,) = self.ax1.plot(
+        (self.g_wp_next,) = self.ax.plot([], [], "gx", markersize=13, label="G WP: Next")
+        (self.current_wp_plot,) = self.ax.plot(
             [], [], "bo", markersize=15, label="L WP: Current", fillstyle="none"
         )
-        (self.current_wp_plot_ax2,) = self.ax2.plot(
-            [], [], "bo", markersize=15, label="L WP: Current", fillstyle="none"
+        (self.next_wp_plot,) = self.ax.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
+        (self.car_heading_plot,) = self.ax.plot(
+            [], [], "-", color="darkslategray", label=None if frenet else "Car Heading",
         )
-        (self.next_wp_plot_ax1,) = self.ax1.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
-        (self.next_wp_plot_ax2,) = self.ax2.plot([], [], "bx", markersize=15, label="L WP: Next", fillstyle="none")
-
-        (self.car_heading_plot,) = self.ax1.plot([], [], "-", color="darkslategray", label="Car Heading")
-        (self.car_location_plot,) = self.ax1.plot([], [], "ko", markersize=7, label="Car Location")
-
-        # Paused-hover distance ruler (front center → cursor).
-        self._ruler_line_ax1, = self.ax1.plot([], [], color="0.7", lw=1, alpha=0.8, zorder=20)
-        self._ruler_text_ax1 = self.ax1.annotate(
-            "", xy=(0, 0), xytext=(10, 10), textcoords="offset points",
-            fontsize=9, color="0.85", zorder=21, visible=False,
-            bbox=dict(facecolor="#1d2021", alpha=0.75, pad=2, edgecolor="none",
-                      boxstyle="round,pad=0.3"),
+        (self.car_location_plot,) = self.ax.plot(
+            [], [], "ko", markersize=7, label=None if frenet else "Car Location",
         )
-        self._ruler_line_ax2, = self.ax2.plot([], [], color="0.7", lw=1, alpha=0.8, zorder=20)
-        self._ruler_text_ax2 = self.ax2.annotate(
+
+        self._ruler_line, = self.ax.plot([], [], color="0.7", lw=1, alpha=0.8, zorder=20)
+        self._ruler_text = self.ax.annotate(
             "", xy=(0, 0), xytext=(10, 10), textcoords="offset points",
             fontsize=9, color="0.85", zorder=21, visible=False,
             bbox=dict(facecolor="#1d2021", alpha=0.75, pad=2, edgecolor="none",
                       boxstyle="round,pad=0.3"),
         )
         self._ruler_visible = False
-        self._ruler_last = None  # (ax_id, x0, y0, x1, y1, dist) for no-op skip
+        self._ruler_last = None
 
-        self.ego_vehicle_ax1 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
-        self.ego_vehicle_ax2 = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
-        self.ax1.add_patch(self.ego_vehicle_ax1)
-        self.ax2.add_patch(self.ego_vehicle_ax2)
+        self.ego_vehicle = Polygon(np.empty((0, 2)), closed=True, edgecolor="r", facecolor="azure", alpha=0.7)
+        self.ax.add_patch(self.ego_vehicle)
 
-        self.pm_plots_ax1 = []
-        self.pm_plots_ax2 = []
+        self.pm_plots = []
         for _ in range(self.MAX_AGENT_COUNT):
-            agent_vehicle_ax1 = Polygon(
+            agent_vehicle = Polygon(
                 np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6
             )
-            agent_vehicle_ax2 = Polygon(
-                np.empty((0, 2)), closed=True, edgecolor="darkblue", facecolor="azure", alpha=0.6
-            )
-            self.ax1.add_patch(agent_vehicle_ax1)
-            self.ax2.add_patch(agent_vehicle_ax2)
-            self.pm_plots_ax1.append(agent_vehicle_ax1)
-            self.pm_plots_ax2.append(agent_vehicle_ax2)
+            self.ax.add_patch(agent_vehicle)
+            self.pm_plots.append(agent_vehicle)
 
-        # LiDAR point cloud scatter (XY view on ax1, Frenet S-D view on ax2)
-        self.lidar_scatter_ax1 = self.ax1.scatter([], [], s=6, c='lime', alpha=0.9, zorder=6, label="LiDAR")
-        self.lidar_scatter_ax2 = self.ax2.scatter([], [], s=6, c='lime', alpha=0.9, zorder=6, label="LiDAR")
-
-        # Clustered LiDAR points that passed segmentation + range gating (diagnostic, XY + Frenet)
-        self.cluster_scatter_ax1 = self.ax1.scatter([], [], s=8, c='yellow', alpha=0.9, zorder=7, label="Clusters")
-        self.cluster_scatter_ax2 = self.ax2.scatter([], [], s=8, c='yellow', alpha=0.9, zorder=7, label="Clusters")
-
-        # Track boundary segments from the worldbridge (e.g. BasicSim.boundary_segments)
+        self.lidar_scatter = self.ax.scatter([], [], s=6, c="lime", alpha=0.9, zorder=6, label="LiDAR")
+        self.cluster_scatter = self.ax.scatter([], [], s=8, c="yellow", alpha=0.9, zorder=7, label="Clusters")
         self.track_boundary_collection = LineCollection(
-            [], linewidths=1, colors='cyan', alpha=0.5, zorder=2, label="Track Boundary"
+            [], linewidths=1, colors="cyan", alpha=0.5, zorder=2, label="Track Boundary"
         )
-        self.ax1.add_collection(self.track_boundary_collection)
-        self.track_boundary_collection_ax2 = LineCollection(
-            [], linewidths=1, colors='cyan', alpha=0.5, zorder=2
-        )
-        self.ax2.add_collection(self.track_boundary_collection_ax2)
-
-        # Prediction trajectories: one solid polyline per mode on both views. Colour
-        # (ahead vs. behind) and opacity (mode weight) are set per frame.
-        self.prediction_lines_ax1 = LineCollection([], linewidths=1.5, linestyles="solid", zorder=3)
-        self.prediction_lines_ax2 = LineCollection([], linewidths=1.5, linestyles="solid", zorder=3)
-        self.ax1.add_collection(self.prediction_lines_ax1)
-        self.ax2.add_collection(self.prediction_lines_ax2)
-        # Percentile ellipses for GP and GMM. Unfilled edges; opacity is the probability.
-        self.prediction_regions_ax1 = PolyCollection(
+        self.ax.add_collection(self.track_boundary_collection)
+        self.prediction_lines = LineCollection([], linewidths=1.5, linestyles="solid", zorder=3)
+        self.ax.add_collection(self.prediction_lines)
+        self.prediction_regions = PolyCollection(
             [], facecolors="none", edgecolors="none", linewidths=1.0, zorder=2,
         )
-        self.prediction_regions_ax2 = PolyCollection(
-            [], facecolors="none", edgecolors="none", linewidths=1.0, zorder=2,
-        )
-        self.ax1.add_collection(self.prediction_regions_ax1)
-        self.ax2.add_collection(self.prediction_regions_ax2)
-        # Occupancy-flow cells. Under the vehicles. Never an image, so it cannot
-        # change the axes aspect or the view limits.
-        self.occupancy_flow_cells_ax1 = PolyCollection(
+        self.ax.add_collection(self.prediction_regions)
+        self.occupancy_flow_cells = PolyCollection(
             [], facecolors="none", edgecolors="none", linewidths=0.0, zorder=0.5,
         )
-        self.occupancy_flow_cells_ax2 = PolyCollection(
-            [], facecolors="none", edgecolors="none", linewidths=0.0, zorder=0.5,
-        )
-        self.ax1.add_collection(self.occupancy_flow_cells_ax1)
-        self.ax2.add_collection(self.occupancy_flow_cells_ax2)
+        self.ax.add_collection(self.occupancy_flow_cells)
 
         self.legend_ax = self.fig.add_axes([0.0, -0.013, 1, 0.1])
         self.legend_ax.legend(
-            *self.ax1.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3)
-        for tick in self.ax1.xaxis.get_major_ticks():
+            *self.ax.get_legend_handles_labels(), loc="center", ncol=7, borderaxespad=0.0, fontsize=7, framealpha=0.3)
+        for tick in self.ax.xaxis.get_major_ticks():
             tick.label1.set_fontsize(8)
-        for tick in self.ax1.yaxis.get_major_ticks():
-            tick.label1.set_fontsize(8)
-        for tick in self.ax2.xaxis.get_major_ticks():
-            tick.label1.set_fontsize(8)
-        for tick in self.ax2.yaxis.get_major_ticks():
+        for tick in self.ax.yaxis.get_major_ticks():
             tick.label1.set_fontsize(8)
         self.legend_ax.axis("off")
-
         self._init_blit()
 
     def _init_blit(self) -> None:
@@ -926,28 +854,19 @@ class LocalPlot:
         legend and axes frame) are intentionally left non-animated so they end
         up in the cached background and are only re-rendered on a full draw.
         """
-        self.blit_manager = BlitManager(self.fig, [self.ax1, self.ax2])
+        self.blit_manager = BlitManager(self.fig, [self.ax])
         animated = [
-            self.ego_vehicle_ax1, self.ego_vehicle_ax2,
+            self.ego_vehicle,
             self.car_heading_plot, self.car_location_plot,
-            self.last_locs_ax1, self.planner_loc_ax1,
-            self.last_locs_ax2, self.planner_loc_ax2,
-            self.g_wp_current_ax1, self.g_wp_current_ax2,
-            self.g_wp_next_ax1, self.g_wp_next_ax2,
-            self.current_wp_plot_ax1, self.current_wp_plot_ax2,
-            self.next_wp_plot_ax1, self.next_wp_plot_ax2,
-            self.lidar_scatter_ax1, self.lidar_scatter_ax2,
-            self.cluster_scatter_ax1, self.cluster_scatter_ax2,
-            self._ruler_line_ax1, self._ruler_text_ax1,
-            self._ruler_line_ax2, self._ruler_text_ax2,
+            self.last_locs, self.planner_loc,
+            self.g_wp_current, self.g_wp_next,
+            self.current_wp_plot, self.next_wp_plot,
+            self.lidar_scatter, self.cluster_scatter,
+            self._ruler_line, self._ruler_text,
         ]
-        animated += self.local_plan_plots_ax1 + self.local_plan_plots_ax2
-        animated += self.pm_plots_ax1 + self.pm_plots_ax2
-        animated += [
-            self.prediction_lines_ax1, self.prediction_lines_ax2,
-            self.prediction_regions_ax1, self.prediction_regions_ax2,
-            self.occupancy_flow_cells_ax1, self.occupancy_flow_cells_ax2,
-        ]
+        animated += self.local_plan_plots
+        animated += self.pm_plots
+        animated += [self.prediction_lines, self.prediction_regions, self.occupancy_flow_cells]
         for art in animated:
             self.blit_manager.add_artist(art)
 
@@ -955,8 +874,7 @@ class LocalPlot:
         self,
         exec: SyncExecuter,
         aspect_ratio=4.0,
-        frenet_zoom=15,
-        xy_zoom=30,
+        zoom=30,
         show_legend=True,
         plot_last_pts=True,
         plot_global_plan=True,
@@ -965,123 +883,94 @@ class LocalPlot:
         plot_state=True,
         plot_perception_model=True,
         num_plot_last_pts=100,
-        global_follow_planner = False,
-        frenet_follow_planner = False,
-        plot_occupancy_map = False,
-        plot_predictions = True,
-        plot_lidar = False,
-        lidar_data = None,
-        plot_lidar_global = True,
-        plot_lidar_frenet = False,
-        plot_clusters = True,
-        plot_ground_truth = True,
-        show_global_view = True,
-        show_frenet_view = True,
-        plot_race_boundary = True,
+        follow_planner=False,
+        plot_occupancy_map=False,
+        plot_predictions=True,
+        plot_lidar=False,
+        lidar_data=None,
+        plot_clusters=True,
+        plot_ground_truth=True,
+        plot_race_boundary=True,
     ):
         self._needs_full_draw = False
         self.legend_ax.set_visible(show_legend)
-        self.ax1.set_visible(show_global_view)
-        self.ax2.set_visible(show_frenet_view)
+        self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
-        # Adjust GridSpec height ratios so the visible axis fills the available space.
-        # hspace=0 eliminates the inter-row gap when only one axis is visible.
-        _gs = self.ax1.get_subplotspec().get_gridspec()
-        if show_global_view and show_frenet_view:
-            _gs._row_height_ratios = [1, 1]
-            self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
-        elif show_global_view:
-            _gs._row_height_ratios = [1, 0.001]
-            self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1, hspace=0)
-        elif show_frenet_view:
-            _gs._row_height_ratios = [0.001, 1]
-            self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1, hspace=0)
-
-        center_xy = (
-            exec.local_planner.location_xy
-            if global_follow_planner and exec.local_planner is not None
-            else (exec.ego_state.x, exec.ego_state.y)
-        )
-        if frenet_follow_planner and exec.local_planner is not None:
-            center_sd = exec.local_planner.location_sd
-        elif exec.local_planner is not None:
-            center_sd = exec.local_planner.global_trajectory.convert_xy_to_sd(
-                exec.ego_state.x, exec.ego_state.y
-            )
+        planner = exec.local_planner
+        if self.coord == "frenet":
+            if follow_planner and planner is not None:
+                center = planner.location_sd
+            elif planner is not None:
+                center = planner.global_trajectory.convert_xy_to_sd(exec.ego_state.x, exec.ego_state.y)
+            else:
+                center = (0.0, 0.0)
+            if zoom is not None:
+                view_w = zoom * 2
+                ego_x_frac = self._FRENET_EGO_X_FRAC
+                self.ax.set_xlim(center[0] - ego_x_frac * view_w, center[0] + (1 - ego_x_frac) * view_w)
+                self.ax.set_ylim(-zoom / aspect_ratio, zoom / aspect_ratio)
+                self.view_width = view_w
+                self.view_height = zoom / aspect_ratio * 2
+            self._window = None
         else:
-            center_sd = (0.0, 0.0)
-        if xy_zoom is not None:
-            _x0, _x1 = center_xy[0] - xy_zoom, center_xy[0] + xy_zoom
-            _y0 = center_xy[1] - xy_zoom / aspect_ratio / 2
-            _y1 = center_xy[1] + xy_zoom / aspect_ratio / 2
-            self.ax1.set_xlim(_x0, _x1)
-            self.ax1.set_ylim(_y0, _y1)
-            self.view_width_ax1 = xy_zoom * 2
-            self.view_height_ax1 = xy_zoom / aspect_ratio * 2
-            self._ax1_window = (_x0, _x1, _y0, _y1)
-        else:
-            self._ax1_window = None
-        if frenet_zoom is not None:
-            view_w = frenet_zoom * 2
-            ego_x_frac = self._FRENET_EGO_X_FRAC
-            self.ax2.set_xlim(
-                center_sd[0] - ego_x_frac * view_w,
-                center_sd[0] + (1 - ego_x_frac) * view_w,
-            )
-            self.view_width_ax2 = frenet_zoom * 2
-            self.ax2.set_ylim(-frenet_zoom / aspect_ratio / 2, frenet_zoom / aspect_ratio / 2)
-            self.view_height_ax2 = frenet_zoom / aspect_ratio * 2
+            center = planner.location_xy if follow_planner and planner is not None else (exec.ego_state.x, exec.ego_state.y)
+            if zoom is not None:
+                _x0, _x1 = center[0] - zoom, center[0] + zoom
+                _y0 = center[1] - zoom / aspect_ratio
+                _y1 = center[1] + zoom / aspect_ratio
+                self.ax.set_xlim(_x0, _x1)
+                self.ax.set_ylim(_y0, _y1)
+                self.view_width = zoom * 2
+                self.view_height = zoom / aspect_ratio * 2
+                self._window = (_x0, _x1, _y0, _y1)
+            else:
+                self._window = None
 
-        if plot_last_pts and num_plot_last_pts > 0 and exec.local_planner is not None:
-            self.last_locs_ax1.set_data( exec.local_planner.traversed_x[-num_plot_last_pts:], exec.local_planner.traversed_y[-num_plot_last_pts:])
-            self.planner_loc_ax1.set_data([exec.local_planner.location_xy[0]], [exec.local_planner.location_xy[1]])
-
-            self.last_locs_ax2.set_data( exec.local_planner.traversed_s[-num_plot_last_pts:], exec.local_planner.traversed_d[-num_plot_last_pts:])
-            self.planner_loc_ax2.set_data([exec.local_planner.location_sd[0]], [exec.local_planner.location_sd[1]])
+        if plot_last_pts and num_plot_last_pts > 0 and planner is not None:
+            if self.coord == "frenet":
+                self.last_locs.set_data(planner.traversed_s[-num_plot_last_pts:], planner.traversed_d[-num_plot_last_pts:])
+                self.planner_loc.set_data([planner.location_sd[0]], [planner.location_sd[1]])
+            else:
+                self.last_locs.set_data(planner.traversed_x[-num_plot_last_pts:], planner.traversed_y[-num_plot_last_pts:])
+                self.planner_loc.set_data([planner.location_xy[0]], [planner.location_xy[1]])
         else:
-            self.last_locs_ax1.set_data([], [])
-            self.planner_loc_ax1.set_data([], [])
-            self.last_locs_ax2.set_data([], [])
-            self.planner_loc_ax2.set_data([], [])
+            self.last_locs.set_data([], [])
+            self.planner_loc.set_data([], [])
 
         self.update_pm_occupancy_map_plots(exec.pm, plot_occupancy_map)
-        show_race_boundaries = plot_race_boundary and not isinstance(
-            exec.global_planner, HDMapGlobalPlanner
-        )
+        show_race_boundaries = plot_race_boundary and not isinstance(exec.global_planner, HDMapGlobalPlanner)
         fallback_plan = getattr(exec.global_planner, "global_plan", None) if exec.global_planner else None
-        local_tj = exec.local_planner.global_trajectory if exec.local_planner else None
+        local_tj = planner.global_trajectory if planner else None
         self.update_track_boundary_plot(
             exec.world,
             show_plot=show_race_boundaries,
             global_trajectory=local_tj,
             fallback_plan=fallback_plan,
         )
-        if exec.local_planner is None:
+        if planner is None:
             return
-        self.update_global_plan_plots(exec.local_planner, plot_global_plan)
-        self.update_lattice_graph_plots(exec.local_planner, plot_local_lattice)
-        self.update_local_plan_plots(exec.local_planner, plot_local_plan)
-        self.update_state_plots(exec.ego_state, exec.local_planner.global_trajectory, plot_state)
-        exec_pm = exec.pm
+        self.update_global_plan_plots(planner, plot_global_plan)
+        self.update_lattice_graph_plots(planner, plot_local_lattice)
+        self.update_local_plan_plots(planner, plot_local_plan)
+        self.update_state_plots(exec.ego_state, planner.global_trajectory, plot_state)
         world_pm = (
             exec.world.get_ground_truth_perception_model()
             if plot_ground_truth and hasattr(exec.world, "get_ground_truth_perception_model")
             else None
         )
         self.update_perception_model_plots(
-            exec_pm,
-            exec.local_planner.global_trajectory,
+            exec.pm,
+            planner.global_trajectory,
             plot_perception_model,
             plot_predictions,
             world_pm=world_pm,
         )
-        self.update_lidar_plot(lidar_data, plot_lidar, exec.local_planner.global_trajectory, plot_lidar_global, plot_lidar_frenet)
-        self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, exec.local_planner.global_trajectory, plot_lidar_frenet)
+        self.update_lidar_plot(lidar_data, plot_lidar, planner.global_trajectory)
+        self.update_cluster_plot(getattr(exec.pm, "detection_clusters", None), plot_clusters, planner.global_trajectory)
         self.update_pm_occupancy_flow_plots(
             exec.pm,
             plot_predictions,
-            global_trajectory=exec.local_planner.global_trajectory,
-            show_frenet=show_frenet_view,
+            global_trajectory=planner.global_trajectory,
         )
 
     def update_track_boundary_plot(
@@ -1093,32 +982,30 @@ class LocalPlot:
     ):
         if not show_plot or not hasattr(world_bridge, 'boundary_segments'):
             self.track_boundary_collection.set_segments([])
-            self.track_boundary_collection_ax2.set_segments([])
             self._tb_cache = None
             return
         segs = np.asarray(world_bridge.boundary_segments)  # (M, 2, 2) world-frame
         if len(segs) == 0 and fallback_plan is not None:
             segs = np.asarray(boundary_segments_from_global_plan(fallback_plan))
 
-        # ax1 (XY): draw only the segments whose midpoints fall in the view.
-        win = self._ax1_window
-        if len(segs) and win is not None:
-            mid = segs.mean(axis=1)
-            x0, x1, y0, y1 = win
-            mx = (x1 - x0) * 0.15
-            my = (y1 - y0) * 0.15
-            m = (mid[:, 0] >= x0 - mx) & (mid[:, 0] <= x1 + mx) & (mid[:, 1] >= y0 - my) & (mid[:, 1] <= y1 + my)
-            ax1_segs = segs[m]
-        else:
-            ax1_segs = segs
-        self.track_boundary_collection.set_segments(ax1_segs if len(ax1_segs) else [])
+        if self.coord != "frenet":
+            win = self._window
+            if len(segs) and win is not None:
+                mid = segs.mean(axis=1)
+                x0, x1, y0, y1 = win
+                mx = (x1 - x0) * 0.15
+                my = (y1 - y0) * 0.15
+                m = (mid[:, 0] >= x0 - mx) & (mid[:, 0] <= x1 + mx) & (mid[:, 1] >= y0 - my) & (mid[:, 1] <= y1 + my)
+                segs = segs[m]
+            self.track_boundary_collection.set_segments(segs if len(segs) else [])
+            return
 
         if global_trajectory is None or len(segs) == 0:
-            self.track_boundary_collection_ax2.set_segments([])
+            self.track_boundary_collection.set_segments([])
             self._tb_cache = None
             return
 
-        # ax2 (Frenet) conversion is expensive and view-independent; cache it and
+        # Frenet conversion is expensive and view-independent; cache it and
         # only rebuild when the trajectory or the segment set actually changes.
         key = (
             id(global_trajectory),
@@ -1126,15 +1013,13 @@ class LocalPlot:
             float(segs.flat[0]), float(segs.flat[-1]),
         )
         if self._tb_cache is None or self._tb_cache[0] != key:
-            # Convert all segment endpoints to Frenet (s, d). Drop segments that
-            # span the lap start/finish (huge s-difference → long diagonal lines).
-            pts = segs.reshape(-1, 2)                          # (M*2, 2)
-            sd = global_trajectory.convert_xy_path_to_sd_path_np(pts)  # (M*2, 2)
-            sd_segs = sd.reshape(-1, 2, 2)                     # (M, 2, 2)
+            pts = segs.reshape(-1, 2)
+            sd = global_trajectory.convert_xy_path_to_sd_path_np(pts)
+            sd_segs = sd.reshape(-1, 2, 2)
             s_diff = np.abs(sd_segs[:, 1, 0] - sd_segs[:, 0, 0])
             valid = s_diff < (np.median(s_diff) * 20 + 50.0)
             self._tb_cache = (key, sd_segs[valid] if valid.any() else np.empty((0, 2, 2)))
-            self.track_boundary_collection_ax2.set_segments(
+            self.track_boundary_collection.set_segments(
                 self._tb_cache[1] if len(self._tb_cache[1]) else []
             )
             self._needs_full_draw = True
@@ -1144,16 +1029,11 @@ class LocalPlot:
 
     def update_global_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not show_plot:
-            self.g_wp_current_ax1.set_data([], [])
-            self.g_wp_current_ax2.set_data([], [])
-            self.g_wp_next_ax1.set_data([], [])
-            self.g_wp_next_ax2.set_data([], [])
-            self.left_boundry_x1.set_data([], [])
-            self.right_boundry_x1.set_data([], [])
-            self.left_boundry_ax2.set_data([], [])
-            self.right_boundry_ax2.set_data([], [])
-            self.reference_trajectory_ax1.set_data([], [])
-            self.reference_trajectory_ax2.set_data([], [])
+            self.g_wp_current.set_data([], [])
+            self.g_wp_next.set_data([], [])
+            self.left_boundry.set_data([], [])
+            self.right_boundry.set_data([], [])
+            self.reference_trajectory.set_data([], [])
             self._gp_cache = None
             return
 
@@ -1164,41 +1044,39 @@ class LocalPlot:
             self._needs_full_draw = True
         geom = self._gp_cache[1]
 
-        # ax1 boundaries + reference: decimate the (whole-lap) geometry to the
-        # visible window so panning draws only the vertices on screen.
-        win = self._ax1_window
+        if self.coord == "frenet":
+            if geom["refreshed"]:
+                if geom["has_boundary_d"]:
+                    self.left_boundry.set_data(geom["s2"], geom["ld2"])
+                    self.right_boundry.set_data(geom["s2"], geom["rd2"])
+                else:
+                    self.left_boundry.set_data([], [])
+                    self.right_boundry.set_data([], [])
+                self.reference_trajectory.set_data(geom["s2"], geom["ref2"])
+                geom["refreshed"] = False
+            if gt.next_wp is not None:
+                self.g_wp_current.set_data([gt.path_s[gt.current_wp]], [gt.path_d[gt.current_wp]])
+                self.g_wp_next.set_data([gt.path_s[gt.next_wp]], [gt.path_d[gt.next_wp]])
+            return
+
+        win = self._window
         if geom["has_boundary"]:
-            self.left_boundry_x1.set_data(*_decimate_polyline(geom["lbx"], geom["lby"], win))
-            self.right_boundry_x1.set_data(*_decimate_polyline(geom["rbx"], geom["rby"], win))
+            self.left_boundry.set_data(*_decimate_polyline(geom["lbx"], geom["lby"], win))
+            self.right_boundry.set_data(*_decimate_polyline(geom["rbx"], geom["rby"], win))
         else:
-            self.left_boundry_x1.set_data([], [])
-            self.right_boundry_x1.set_data([], [])
-        self.reference_trajectory_ax1.set_data(*_decimate_polyline(geom["ref_x"], geom["ref_y"], win))
-
-        # ax2 (Frenet) geometry is view-independent; push it to the artists only
-        # when the cache was (re)built, not every frame.
-        if geom["refreshed"]:
-            if geom["has_boundary_d"]:
-                self.left_boundry_ax2.set_data(geom["s2"], geom["ld2"])
-                self.right_boundry_ax2.set_data(geom["s2"], geom["rd2"])
-            else:
-                self.left_boundry_ax2.set_data([], [])
-                self.right_boundry_ax2.set_data([], [])
-            self.reference_trajectory_ax2.set_data(geom["s2"], geom["ref2"])
-            geom["refreshed"] = False
-
+            self.left_boundry.set_data([], [])
+            self.right_boundry.set_data([], [])
+        self.reference_trajectory.set_data(*_decimate_polyline(geom["ref_x"], geom["ref_y"], win))
         if gt.next_wp is not None:
-            self.g_wp_current_ax1.set_data([gt.path_x[gt.current_wp]], [gt.path_y[gt.current_wp]])
-            self.g_wp_current_ax2.set_data([gt.path_s[gt.current_wp]], [gt.path_d[gt.current_wp]])
-            self.g_wp_next_ax1.set_data([gt.path_x[gt.next_wp]], [gt.path_y[gt.next_wp]])
-            self.g_wp_next_ax2.set_data([gt.path_s[gt.next_wp]], [gt.path_d[gt.next_wp]])
+            self.g_wp_current.set_data([gt.path_x[gt.current_wp]], [gt.path_y[gt.current_wp]])
+            self.g_wp_next.set_data([gt.path_x[gt.next_wp]], [gt.path_y[gt.next_wp]])
 
     def _compute_global_plan_geometry(self, pl: LocalPlanningStrategy) -> dict:
         """Precompute view-independent global-plan geometry once per plan.
 
-        Returns the whole-lap arrays (ax1 boundaries/reference are sliced to the
-        window each frame from these) plus the static Frenet arrays for ax2.
-        ``refreshed`` signals that the ax2 artists still need the new data.
+        Returns the whole-lap XY arrays (sliced to the window each frame) plus
+        the static Frenet arrays. ``refreshed`` signals that the Frenet artists
+        still need the new data.
         """
         gp = pl.global_plan
         gt = pl.global_trajectory
@@ -1233,39 +1111,27 @@ class LocalPlot:
 
     def update_lattice_graph_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not show_plot or not hasattr(pl, "lattice") or len(pl.lattice.edges) == 0:
-            for line in (
-                self.lattice_graph_plots_ax1
-                + self.lattice_graph_endpoints_ax1
-                + self.lattice_graph_plots_ax2
-                + self.lattice_graph_endpoints_ax2
-            ):
+            for line in self.lattice_graph_plots + self.lattice_graph_endpoints:
                 line.set_data([], [])
             return
 
         curvature_check = getattr(pl, "_is_curvature_feasible", None)
         edge_index = 0
         for edge in pl.lattice.edges:
-            if edge_index >= len(self.lattice_graph_plots_ax1):
-                (line_ax1,) = self.ax1.plot([], [], "--", color="#8ec07c", alpha=0.6)
-                (line_ax2,) = self.ax2.plot([], [], "--", color="#8ec07c", alpha=0.6)
-                (endpoint_ax1,) = self.ax1.plot([], [], "bo", alpha=0.6)
-                (endpoint_ax2,) = self.ax2.plot([], [], "bo", alpha=0.6)
-                self.lattice_graph_plots_ax1.append(line_ax1)
-                self.lattice_graph_plots_ax2.append(line_ax2)
-                self.lattice_graph_endpoints_ax1.append(endpoint_ax1)
-                self.lattice_graph_endpoints_ax2.append(endpoint_ax2)
-                # Lattice artists are created on demand; register them as
-                # animated so blitting keeps them in the dynamic layer.
-                for _art in (line_ax1, line_ax2, endpoint_ax1, endpoint_ax2):
-                    self.blit_manager.add_artist(_art)
+            if edge_index >= len(self.lattice_graph_plots):
+                (line,) = self.ax.plot([], [], "--", color="#8ec07c", alpha=0.6)
+                (endpoint,) = self.ax.plot([], [], "bo", alpha=0.6)
+                self.lattice_graph_plots.append(line)
+                self.lattice_graph_endpoints.append(endpoint)
+                self.blit_manager.add_artist(line)
+                self.blit_manager.add_artist(endpoint)
 
-
-            self.lattice_graph_plots_ax1[edge_index].set_data(
-                edge.local_trajectory.path_x, edge.local_trajectory.path_y
-            )
-            self.lattice_graph_plots_ax2[edge_index].set_data(
-                edge.local_trajectory.path_s_from_parent, edge.local_trajectory.path_d_from_parent
-            )
+            traj = edge.local_trajectory
+            if self.coord == "frenet":
+                xs, ys = traj.path_s_from_parent, traj.path_d_from_parent
+            else:
+                xs, ys = traj.path_x, traj.path_y
+            self.lattice_graph_plots[edge_index].set_data(xs, ys)
             if edge.collision:
                 color = "firebrick"
             elif edge.boundary_violation or (
@@ -1274,18 +1140,9 @@ class LocalPlot:
                 color = "royalblue"
             else:
                 color = "#8ec07c"
-
-            self.lattice_graph_plots_ax1[edge_index].set_color(color)
-            self.lattice_graph_plots_ax2[edge_index].set_color(color)
-            self.lattice_graph_endpoints_ax1[edge_index].set_color(color)
-            self.lattice_graph_endpoints_ax2[edge_index].set_color(color)
-
-            self.lattice_graph_endpoints_ax1[edge_index].set_data(
-                [edge.local_trajectory.path_x[-1]], [edge.local_trajectory.path_y[-1]]
-            )
-            self.lattice_graph_endpoints_ax2[edge_index].set_data(
-                [edge.local_trajectory.path_s_from_parent[-1]], [edge.local_trajectory.path_d_from_parent[-1]]
-            )
+            self.lattice_graph_plots[edge_index].set_color(color)
+            self.lattice_graph_endpoints[edge_index].set_color(color)
+            self.lattice_graph_endpoints[edge_index].set_data([xs[-1]], [ys[-1]])
             edge_index += 1
 
         if not self._lattice_legend_added:
@@ -1294,102 +1151,95 @@ class LocalPlot:
                 Line2D([0], [0], color="royalblue", lw=2, label="Kinematic violation"),
                 Line2D([0], [0], color="#8ec07c", lw=2, label="Feasible"),
             ]
-            self.ax1.legend(handles=legend_handles, loc="upper right", fontsize=7, framealpha=0.5)
+            self.ax.legend(handles=legend_handles, loc="upper right", fontsize=7, framealpha=0.5)
             self._lattice_legend_added = True
 
-        for i in range(edge_index, len(self.lattice_graph_plots_ax1)):
-            self.lattice_graph_plots_ax1[i].set_data([], [])
-            self.lattice_graph_plots_ax2[i].set_data([], [])
-            self.lattice_graph_endpoints_ax1[i].set_data([], [])
-            self.lattice_graph_endpoints_ax2[i].set_data([], [])
+        for i in range(edge_index, len(self.lattice_graph_plots)):
+            self.lattice_graph_plots[i].set_data([], [])
+            self.lattice_graph_endpoints[i].set_data([], [])
 
     def update_local_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not hasattr(pl, "selected_local_plan"):
-            # Non-lattice planners expose a single LocalPlan trajectory.
-            self.current_wp_plot_ax1.set_data([], [])
-            self.current_wp_plot_ax2.set_data([], [])
-            self.next_wp_plot_ax1.set_data([], [])
-            self.next_wp_plot_ax2.set_data([], [])
+            self.current_wp_plot.set_data([], [])
+            self.next_wp_plot.set_data([], [])
             local_plan = pl.get_local_plan() if show_plot else None
             tj = local_plan.as_trajectory() if local_plan is not None else None
             if tj is None:
                 self.__clear_local_plan_plots()
             else:
-                self.local_plan_plots_ax1[0].set_data(tj.path_x, tj.path_y)
-                s_plot, d_plot = pl.global_trajectory.convert_xy_path_to_sd_path(list(zip(tj.path_x, tj.path_y)))
-                self.local_plan_plots_ax2[0].set_data(list(s_plot), list(d_plot))
+                self._set_local_plan_line(pl, tj.path_x, tj.path_y, 0)
                 self.__clear_local_plan_plots(index=1)
             return
         if not show_plot or pl.selected_local_plan is None:
             self.__clear_local_plan_plots()
-            self.current_wp_plot_ax1.set_data([], [])
-            self.current_wp_plot_ax2.set_data([], [])
-            self.next_wp_plot_ax1.set_data([], [])
-            self.next_wp_plot_ax2.set_data([], [])
+            self.current_wp_plot.set_data([], [])
+            self.next_wp_plot.set_data([], [])
         elif pl.selected_local_plan is not None:
             local_plan = pl.get_local_plan()
             tj = local_plan.as_trajectory()
             x, y = tj.get_current_xy()
             x_n, y_n = tj.get_xy_by_waypoint(tj.next_wp)
-            s, d = pl.global_trajectory.convert_xy_to_sd(x, y)
-            s_n, d_n = pl.global_trajectory.convert_xy_to_sd(x_n, y_n)
-
-            self.current_wp_plot_ax1.set_data([x], [y])
-            self.current_wp_plot_ax2.set_data([s], [d])
-
-            self.next_wp_plot_ax1.set_data([x_n], [y_n])
-            self.next_wp_plot_ax2.set_data([s_n], [d_n])
-
-            self.local_plan_plots_ax1[0].set_data(tj.path_x, tj.path_y)
-            s_plot, d_plot = pl.global_trajectory.convert_xy_path_to_sd_path(list(zip(tj.path_x, tj.path_y)))
-            self.local_plan_plots_ax2[0].set_data(list(s_plot), list(d_plot))
+            if self.coord == "frenet":
+                s, d = pl.global_trajectory.convert_xy_to_sd(x, y)
+                s_n, d_n = pl.global_trajectory.convert_xy_to_sd(x_n, y_n)
+                self.current_wp_plot.set_data([s], [d])
+                self.next_wp_plot.set_data([s_n], [d_n])
+            else:
+                self.current_wp_plot.set_data([x], [y])
+                self.next_wp_plot.set_data([x_n], [y_n])
+            self._set_local_plan_line(pl, tj.path_x, tj.path_y, 0)
             self.__clear_local_plan_plots(index=1)
 
     def __update_local_plan_plots(self, v: Edge, index: int = 0, horizon: int = None):
         if horizon is None:
             horizon = self.MAX_PLAN_LENGTH - 1
         if v is not None:
-            self.local_plan_plots_ax1[index].set_data(v.local_trajectory.path_x, v.local_trajectory.path_y)
-            self.local_plan_plots_ax2[index].set_data(
-                v.local_trajectory.path_s_from_parent, v.local_trajectory.path_d_from_parent
-            )
+            traj = v.local_trajectory
+            if self.coord == "frenet":
+                self.local_plan_plots[index].set_data(traj.path_s_from_parent, traj.path_d_from_parent)
+            else:
+                self.local_plan_plots[index].set_data(traj.path_x, traj.path_y)
             self.__update_local_plan_plots(v.selected_next_local_plan, index + 1, horizon)
         elif index < horizon - 1:
-            # log.info(f"Index: {index} is less than {self.MAX_PLAN_LENGTH - 1}")
             self.__clear_local_plan_plots(index=index)
+
+    def _set_local_plan_line(self, pl: LocalPlanningStrategy, path_x, path_y, index: int) -> None:
+        if self.coord == "frenet":
+            s_plot, d_plot = pl.global_trajectory.convert_xy_path_to_sd_path(list(zip(path_x, path_y)))
+            self.local_plan_plots[index].set_data(list(s_plot), list(d_plot))
+        else:
+            self.local_plan_plots[index].set_data(path_x, path_y)
 
     def __clear_local_plan_plots(self, index=0):
         for i in range(index, self.MAX_PLAN_LENGTH):
-            self.local_plan_plots_ax1[i].set_data([], [])
-            self.local_plan_plots_ax2[i].set_data([], [])
+            self.local_plan_plots[i].set_data([], [])
 
     def update_state_plots(self, state: EgoState, global_trajectory: TrajectoryTracker, show_plot=True):
         if not show_plot:
             self.car_heading_plot.set_data([], [])
             self.car_location_plot.set_data([], [])
-            self.ego_vehicle_ax1.set_xy(np.empty((0, 2)))
-            self.ego_vehicle_ax2.set_xy(np.empty((0, 2)))
+            self.ego_vehicle.set_xy(np.empty((0, 2)))
             return
 
+        if self.coord == "frenet":
+            self.car_heading_plot.set_data([], [])
+            self.car_location_plot.set_data([], [])
+            sd_corners = global_trajectory.convert_xy_path_to_sd_path_np(state.get_bb_corners())
+            if np.abs(sd_corners[0][0] - sd_corners[1][0]) < 10:
+                self.ego_vehicle.set_xy(np.array(sd_corners))
+            else:
+                self.ego_vehicle.set_xy(np.empty((0, 2)))
+            return
 
         car_L_f = self.controller.ego_distance_front_axle if self.controller is not None else 2.5
         car_L_r = state.length - car_L_f
-
         car_x_front = state.x + car_L_f * np.cos(state.theta)
         car_y_front = state.y + car_L_f * np.sin(state.theta)
         car_x_rear = state.x - car_L_r * np.cos(state.theta)
         car_y_rear = state.y - car_L_r * np.sin(state.theta)
-
         self.car_heading_plot.set_data([car_x_front, car_x_rear], [car_y_front, car_y_rear])
         self.car_location_plot.set_data([state.x], [state.y])
-
-        self.ego_vehicle_ax1.set_xy(state.get_bb_corners())
-        sd_corners = global_trajectory.convert_xy_path_to_sd_path_np(state.get_bb_corners())
-
-        if np.abs(sd_corners[0][0] - sd_corners[1][0]) < 10:
-            self.ego_vehicle_ax2.set_xy(np.array(sd_corners))
-        else:
-            self.ego_vehicle_ax2.set_xy(np.empty((0, 2)))
+        self.ego_vehicle.set_xy(state.get_bb_corners())
 
     def update_perception_model_plots(
         self,
@@ -1401,9 +1251,8 @@ class LocalPlot:
     ):
         pm_agents = world_pm if world_pm is not None else exec_pm
         if not show_plot or len(pm_agents.agent_vehicles) == 0:
-            for i in range(self.MAX_AGENT_COUNT):
-                self.pm_plots_ax1[i].set_xy(np.empty((0, 2)))
-                self.pm_plots_ax2[i].set_xy(np.empty((0, 2)))
+            for patch in self.pm_plots:
+                patch.set_xy(np.empty((0, 2)))
             self._clear_prediction_drawings()
             return
 
@@ -1411,26 +1260,23 @@ class LocalPlot:
         if len(pm_agents.agent_vehicles) > self.MAX_AGENT_COUNT:
             log.warning(f"Exceeded maximum number of agents: {self.MAX_AGENT_COUNT}")
         agents = pm_agents.agent_vehicles[:n]
-        # Batch all corners into one KD-tree call (n*4 points) instead of 4 calls per agent
-        all_corners_xy = np.vstack([agent.get_bb_corners() for agent in agents])  # (n*4, 2)
-        all_corners_sd = global_trajectory.convert_xy_path_to_sd_path_np(all_corners_xy)  # (n*4, 2)
-        for i, agent in enumerate(agents):
-            self.pm_plots_ax1[i].set_xy(agent.get_bb_corners())
-            self.pm_plots_ax2[i].set_xy(all_corners_sd[i * 4:(i + 1) * 4])
-        # clear stale patches left over from the previous frame when agent count drops
+        all_corners_xy = np.vstack([agent.get_bb_corners() for agent in agents])
+        if self.coord == "frenet":
+            all_corners = global_trajectory.convert_xy_path_to_sd_path_np(all_corners_xy)
+        else:
+            all_corners = all_corners_xy
+        for i in range(n):
+            self.pm_plots[i].set_xy(all_corners[i * 4:(i + 1) * 4])
         for j in range(n, self.MAX_AGENT_COUNT):
-            self.pm_plots_ax1[j].set_xy(np.empty((0, 2)))
-            self.pm_plots_ax2[j].set_xy(np.empty((0, 2)))
+            self.pm_plots[j].set_xy(np.empty((0, 2)))
 
         # Prediction trajectories (always from exec_pm; world_pm has no pipeline outputs).
         # Each mode is one polyline starting at the agent. Opacity is the mode weight.
         # GP and GMM also draw a set of percentile ellipses; a lower probability is fainter.
         pred = exec_pm.prediction if show_prediction else None
-        segments_xy: list[np.ndarray] = []
-        segments_sd: list[np.ndarray] = []
+        segments: list[np.ndarray] = []
         colors: list[tuple] = []
-        regions_xy: list[np.ndarray] = []
-        regions_sd: list[np.ndarray] = []
+        regions: list[np.ndarray] = []
         region_colors: list[tuple] = []
         if isinstance(pred, (SingleTrajectory, GP, MultiTrajectory, GMM)):
             ego_hdg = np.array([np.cos(exec_pm.ego_vehicle.theta), np.sin(exec_pm.ego_vehicle.theta)])
@@ -1456,34 +1302,29 @@ class LocalPlot:
                 pose = np.array([agent.x, agent.y])
                 for mode_index, (mode, weight) in enumerate(zip(modes, mode_weights)):
                     path_xy = np.vstack((pose, mode))
-                    segments_xy.append(path_xy)
-                    segments_sd.append(global_trajectory.convert_xy_path_to_sd_path_np(path_xy))
+                    if self.coord == "frenet":
+                        segments.append(global_trajectory.convert_xy_path_to_sd_path_np(path_xy))
+                    else:
+                        segments.append(path_xy)
                     colors.append(to_rgba(color, alpha=float(np.clip(weight, 0.0, 1.0))))
                     if isinstance(pred, (GP, GMM)):
                         self._append_prediction_ellipses(
                             pred, agent.agent_id, mode_index, mode, float(weight), color,
-                            global_trajectory, regions_xy, regions_sd, region_colors,
+                            global_trajectory, regions, region_colors,
                         )
-        self.prediction_lines_ax1.set_segments(segments_xy)
-        self.prediction_lines_ax1.set_colors(colors)
-        self.prediction_lines_ax2.set_segments(segments_sd)
-        self.prediction_lines_ax2.set_colors(colors)
-        self._set_prediction_regions(regions_xy, regions_sd, region_colors)
+        self.prediction_lines.set_segments(segments)
+        self.prediction_lines.set_colors(colors)
+        self._set_prediction_regions(regions, region_colors)
 
     def _clear_prediction_drawings(self) -> None:
-        self.prediction_lines_ax1.set_segments([])
-        self.prediction_lines_ax2.set_segments([])
-        self._set_prediction_regions([], [], [])
+        self.prediction_lines.set_segments([])
+        self._set_prediction_regions([], [])
 
-    def _set_prediction_regions(self, xy: list[np.ndarray], sd: list[np.ndarray], colors: list[tuple]) -> None:
-        for collection, verts in (
-            (self.prediction_regions_ax1, xy),
-            (self.prediction_regions_ax2, sd),
-        ):
-            collection.set_verts(verts)
-            collection.set_alpha(None)
-            collection.set_facecolors("none")
-            collection.set_edgecolors(colors if colors else "none")
+    def _set_prediction_regions(self, verts: list[np.ndarray], colors: list[tuple]) -> None:
+        self.prediction_regions.set_verts(verts)
+        self.prediction_regions.set_alpha(None)
+        self.prediction_regions.set_facecolors("none")
+        self.prediction_regions.set_edgecolors(colors if colors else "none")
 
     def _append_prediction_ellipses(
         self,
@@ -1494,8 +1335,7 @@ class LocalPlot:
         weight: float,
         color: str,
         global_trajectory: TrajectoryTracker,
-        regions_xy: list[np.ndarray],
-        regions_sd: list[np.ndarray],
+        regions: list[np.ndarray],
         region_colors: list[tuple],
     ) -> None:
         """One pair of percentile ellipses every half-second, including the last step."""
@@ -1509,54 +1349,50 @@ class LocalPlot:
                 polygon = _ellipse_polygon(center, cov, percentile, self._ELLIPSE_SAMPLES)
                 if polygon is None:
                     continue
-                regions_xy.append(polygon)
-                regions_sd.append(global_trajectory.convert_xy_path_to_sd_path_np(polygon))
+                if self.coord == "frenet":
+                    regions.append(global_trajectory.convert_xy_path_to_sd_path_np(polygon))
+                else:
+                    regions.append(polygon)
                 region_colors.append(to_rgba(color, alpha=float(np.clip(weight, 0.0, 1.0)) * percentile))
 
-    def update_lidar_plot(self, lidar_data, show_plot=True, global_trajectory=None, show_global=True, show_frenet=False):
-        """Update the LiDAR scatter on ax1 (XY view) and ax2 (Frenet S-D view)."""
+    def update_lidar_plot(self, lidar_data, show_plot=True, global_trajectory=None):
+        """Update the LiDAR scatter in this plot's coordinate frame."""
         if not show_plot or lidar_data is None or len(lidar_data) == 0:
-            self.lidar_scatter_ax1.set_offsets(np.empty((0, 2)))
-            self.lidar_scatter_ax2.set_offsets(np.empty((0, 2)))
+            self.lidar_scatter.set_offsets(np.empty((0, 2)))
             return
-        # lidar_data is (N,2+) [x,y,...] – plot X,Y on the global view
         xy = lidar_data[:, :2]
-        # Global (XY) view, gated by show_global
-        if show_global:
-            self.lidar_scatter_ax1.set_offsets(xy)
+        if self.coord == "frenet":
+            if global_trajectory is None:
+                self.lidar_scatter.set_offsets(np.empty((0, 2)))
+                return
+            self.lidar_scatter.set_offsets(global_trajectory.convert_xy_path_to_sd_path_np(xy))
         else:
-            self.lidar_scatter_ax1.set_offsets(np.empty((0, 2)))
-        # Frenet view: convert world points to (s, d), gated by show_frenet
-        if show_frenet and global_trajectory is not None:
-            self.lidar_scatter_ax2.set_offsets(global_trajectory.convert_xy_path_to_sd_path_np(xy))
-        else:
-            self.lidar_scatter_ax2.set_offsets(np.empty((0, 2)))
+            self.lidar_scatter.set_offsets(xy)
 
-    def update_cluster_plot(self, clusters, show_plot=True, global_trajectory=None, show_frenet=False):
-        """Highlight (XY + Frenet) the LiDAR points that passed segmentation + range gating."""
+    def update_cluster_plot(self, clusters, show_plot=True, global_trajectory=None):
+        """Highlight the LiDAR points that passed segmentation + range gating."""
         if not show_plot or clusters is None or len(clusters) == 0:
-            self.cluster_scatter_ax1.set_offsets(np.empty((0, 2)))
-            self.cluster_scatter_ax2.set_offsets(np.empty((0, 2)))
+            self.cluster_scatter.set_offsets(np.empty((0, 2)))
             return
         xy = np.asarray(clusters)[:, :2]
-        self.cluster_scatter_ax1.set_offsets(xy)
-        if show_frenet and global_trajectory is not None:
-            self.cluster_scatter_ax2.set_offsets(global_trajectory.convert_xy_path_to_sd_path_np(xy))
+        if self.coord == "frenet" and global_trajectory is not None:
+            self.cluster_scatter.set_offsets(global_trajectory.convert_xy_path_to_sd_path_np(xy))
+        elif self.coord == "frenet":
+            self.cluster_scatter.set_offsets(np.empty((0, 2)))
         else:
-            self.cluster_scatter_ax2.set_offsets(np.empty((0, 2)))
+            self.cluster_scatter.set_offsets(xy)
 
     _OCCUPANCY_FLOW_MIN = 0.02
 
     def _clear_occupancy_flow_cells(self) -> None:
-        for collection in (self.occupancy_flow_cells_ax1, self.occupancy_flow_cells_ax2):
-            collection.set_verts([])
-            collection.set_facecolors("none")
+        self.occupancy_flow_cells.set_verts([])
+        self.occupancy_flow_cells.set_facecolors("none")
 
-    def _ax1_limits(self) -> tuple[float, float, float, float]:
-        if self._ax1_window is not None:
-            return self._ax1_window
-        x0, x1 = self.ax1.get_xlim()
-        y0, y1 = self.ax1.get_ylim()
+    def _view_limits(self) -> tuple[float, float, float, float]:
+        if self._window is not None:
+            return self._window
+        x0, x1 = self.ax.get_xlim()
+        y0, y1 = self.ax.get_ylim()
         return (x0, x1, y0, y1)
 
     def update_pm_occupancy_flow_plots(
@@ -1564,15 +1400,18 @@ class LocalPlot:
         pm: Optional[PerceptionModel] = None,
         show_plot=True,
         global_trajectory=None,
-        show_frenet=False,
     ):
         shown = _occupancy_flow_image(pm.prediction) if show_plot and pm is not None else None
         if shown is None:
             self._clear_occupancy_flow_cells()
             return
         image, origin_x, origin_y, resolution = shown
-        x0, x1, y0, y1 = self._ax1_limits()
         h, w = image.shape
+        if self.coord == "frenet":
+            x0, x1 = origin_x, origin_x + w * resolution
+            y0, y1 = origin_y, origin_y + h * resolution
+        else:
+            x0, x1, y0, y1 = self._view_limits()
         c0 = max(0, int(np.floor((min(x0, x1) - origin_x) / resolution)))
         c1 = min(w - 1, int(np.floor((max(x0, x1) - origin_x) / resolution)))
         r0 = max(0, int(np.floor((min(y0, y1) - origin_y) / resolution)))
@@ -1599,27 +1438,28 @@ class LocalPlot:
         quads[:, 2, 1] = y_bottom + resolution
         quads[:, 3, 0] = x_left
         quads[:, 3, 1] = y_bottom + resolution
-        _paint_occupancy_cells(self.occupancy_flow_cells_ax1, quads, rgba)
-        if show_frenet and global_trajectory is not None:
-            sd = np.asarray(
+        if self.coord == "frenet":
+            if global_trajectory is None:
+                self._clear_occupancy_flow_cells()
+                return
+            quads = np.asarray(
                 global_trajectory.convert_xy_path_to_sd_path_np(quads.reshape(-1, 2)),
                 dtype=float,
             ).reshape(quads.shape)
-            _paint_occupancy_cells(self.occupancy_flow_cells_ax2, sd, rgba)
-        else:
-            self.occupancy_flow_cells_ax2.set_verts([])
-            self.occupancy_flow_cells_ax2.set_facecolors("none")
+        _paint_occupancy_cells(self.occupancy_flow_cells, quads, rgba)
 
     def update_pm_occupancy_map_plots(self, pm: Optional[PerceptionModel] = None, show_plot=True):
+        if self.coord == "frenet":
+            return
         om = getattr(pm, "occupancy_map", None) if pm is not None else None
         if not isinstance(om, OccupancyMap):
             fallback = getattr(pm, "map", None) if pm is not None else None
             om = fallback if isinstance(fallback, OccupancyMap) else None
         if not show_plot or om is None:
-            if hasattr(self, "pm_occupancy_map_ax1"):
-                self.pm_occupancy_map_ax1.set_data(np.zeros((1, 1)))
-                self.pm_occupancy_map_ax1.set_extent([0, 0, 0, 0])
-                self.pm_occupancy_map_ax1.set_zorder(0)
+            if hasattr(self, "pm_occupancy_map"):
+                self.pm_occupancy_map.set_data(np.zeros((1, 1)))
+                self.pm_occupancy_map.set_extent([0, 0, 0, 0])
+                self.pm_occupancy_map.set_zorder(0)
             return
         if om.grid is None or om.grid.size == 0:
             return
@@ -1636,13 +1476,13 @@ class LocalPlot:
             self._occ_map_extent_key = extent_key
         shape = (h, w)
         recreate = (
-            not hasattr(self, "pm_occupancy_map_ax1")
+            not hasattr(self, "pm_occupancy_map")
             or getattr(self, "_occ_map_shape", None) != shape
         )
         if recreate:
-            if hasattr(self, "pm_occupancy_map_ax1"):
-                self.pm_occupancy_map_ax1.remove()
-            self.pm_occupancy_map_ax1 = self.ax1.imshow(
+            if hasattr(self, "pm_occupancy_map"):
+                self.pm_occupancy_map.remove()
+            self.pm_occupancy_map = self.ax.imshow(
                 om.grid,
                 origin="lower",
                 extent=extent,
@@ -1654,89 +1494,52 @@ class LocalPlot:
             )
             self._occ_map_shape = shape
         else:
-            self.pm_occupancy_map_ax1.set_data(om.grid)
-            self.pm_occupancy_map_ax1.set_extent(extent)
-        self.pm_occupancy_map_ax1.set_zorder(0)
+            self.pm_occupancy_map.set_data(om.grid)
+            self.pm_occupancy_map.set_extent(extent)
+        self.pm_occupancy_map.set_zorder(0)
 
 
     def set_plot_theme(self, bg_color="white", fg_color="black"):
         self.fig.patch.set_facecolor(bg_color)
-        self.ax1.patch.set_facecolor(bg_color)
-        self.ax2.patch.set_facecolor(bg_color)
-        # self.ax2.set_title("Frenet Coordinate", color=fg_color)
-        # Set titles and labels to white
-        for ax in [self.ax1, self.ax2]:
-            for spine in ax.spines.values():
-                spine.set_edgecolor(fg_color)
-            ax.tick_params(axis="both", colors=fg_color)  # Set tick colors to white
-            ax.xaxis.label.set_color(fg_color)  # Set x-axis label color to white
-            ax.yaxis.label.set_color(fg_color)  # Set y-axis label color to white
-
+        self.ax.patch.set_facecolor(bg_color)
+        for spine in self.ax.spines.values():
+            spine.set_edgecolor(fg_color)
+        self.ax.tick_params(axis="both", colors=fg_color)
+        self.ax.xaxis.label.set_color(fg_color)
+        self.ax.yaxis.label.set_color(fg_color)
         log.debug(f"Plot theme set to {bg_color} background and {fg_color} foreground.")
         self.redraw_plots()
-    
-    def show_vehicle_orientation_ax1(self, x, y, theta, color="red"):
-        """Show the vehicle orientation on the plot"""
-        log.debug(f"Showing vehicle orientation at ({x}, {y}) with theta={theta}")
 
-        length = .15 * min(self.view_width_ax1, self.view_height_ax1) if self.view_height_ax1 is not None or self.view_width_ax1 is None else 20
-
+    def show_vehicle_orientation(self, x, y, theta, color="red"):
+        """Show the vehicle orientation on the plot."""
+        length = .15 * min(self.view_width, self.view_height) if self.view_height is not None or self.view_width is None else 20
         x2 = x + length * np.cos(theta)
         y2 = y + length * np.sin(theta)
         if self.orientation_arrow:
             self.orientation_arrow.remove()
-        self.orientation_arrow = self.ax1.annotate('', xy=(x2, y2), xytext=(x,y), arrowprops=dict(arrowstyle='->',
-                                                     mutation_scale=20, color=color, lw=5), zorder=5)
+        self.orientation_arrow = self.ax.annotate(
+            "", xy=(x2, y2), xytext=(x, y),
+            arrowprops=dict(arrowstyle="->", mutation_scale=20, color=color, lw=5), zorder=5,
+        )
 
-    def show_vehicle_orientation_ax2(self, s, d, theta, color="red"):
-        """Show the vehicle orientation on the plot"""
-        log.debug(f"Showing vehicle orientation at ({s}, {d}) with theta={theta}")
-
-        length = .15 * min(self.view_width_ax2, self.view_height_ax2) if self.view_height_ax2 is not None or self.view_width_ax2 is None else 20
-             
-
-        s2 = s + length * np.cos(theta)
-        d2 = d + length * np.sin(theta)
-        if self.orientation_arrow:
-            self.orientation_arrow.remove()
-        self.orientation_arrow = self.ax2.annotate('', xy=(s2, d2), xytext=(s,d), arrowprops=dict(arrowstyle='->',
-                                                     mutation_scale=20, color=color, lw=5), zorder=5)
-
-    def show_distance_ruler(self, ax, x0, y0, x1, y1, dist_m: float) -> None:
+    def show_distance_ruler(self, x0, y0, x1, y1, dist_m: float) -> None:
         """Draw a light line from (x0, y0) to cursor with world-XY distance label."""
-        if ax is self.ax1:
-            line, text, other_line, other_text = (
-                self._ruler_line_ax1, self._ruler_text_ax1,
-                self._ruler_line_ax2, self._ruler_text_ax2,
-            )
-        elif ax is self.ax2:
-            line, text, other_line, other_text = (
-                self._ruler_line_ax2, self._ruler_text_ax2,
-                self._ruler_line_ax1, self._ruler_text_ax1,
-            )
-        else:
-            return
-        key = (id(ax), float(x0), float(y0), float(x1), float(y1), round(float(dist_m), 1))
+        key = (float(x0), float(y0), float(x1), float(y1), round(float(dist_m), 1))
         if self._ruler_visible and key == self._ruler_last:
             return
-        other_line.set_data([], [])
-        other_text.set_visible(False)
-        line.set_data([x0, x1], [y0, y1])
-        text.xy = (x1, y1)
-        text.set_text(f"{dist_m:.1f} m")
-        text.set_visible(True)
+        self._ruler_line.set_data([x0, x1], [y0, y1])
+        self._ruler_text.xy = (x1, y1)
+        self._ruler_text.set_text(f"{dist_m:.1f} m")
+        self._ruler_text.set_visible(True)
         self._ruler_visible = True
         self._ruler_last = key
-        # Blit only: draw_idle skips animated artists and wipes the dynamic layer.
         self.blit_manager.update()
 
     def hide_distance_ruler(self) -> None:
         if not self._ruler_visible:
             return
-        self._ruler_line_ax1.set_data([], [])
-        self._ruler_line_ax2.set_data([], [])
-        self._ruler_text_ax1.set_visible(False)
-        self._ruler_text_ax2.set_visible(False)
+        self._ruler_line.set_data([], [])
+        self._ruler_text.set_visible(False)
         self._ruler_visible = False
         self._ruler_last = None
         self.blit_manager.update()

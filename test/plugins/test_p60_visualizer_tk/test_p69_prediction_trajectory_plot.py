@@ -37,7 +37,7 @@ def _curved_trajectory(center: tuple[float, float], radius: float, n_steps: int)
 
 
 def _segment_xy(plot: LocalPlot, index: int = 0):
-    seg = plot.prediction_lines_ax1.get_segments()[index]
+    seg = plot.prediction_lines.get_segments()[index]
     return seg[:, 0], seg[:, 1]
 
 
@@ -95,7 +95,7 @@ class TestPredictionTrajectoryPlot:
         assert len(xdata) == len(trajectories[0]) + 1
         assert len(ydata) == len(trajectories[0]) + 1
         # …in the distinct "behind" colour rather than the ahead colour.
-        rgba = plot.prediction_lines_ax1.get_edgecolors()[0]
+        rgba = plot.prediction_lines.get_edgecolors()[0]
         assert np.allclose(rgba, to_rgba(LocalPlot.PREDICTION_BEHIND_COLOR))
 
         plt.close(plot.fig)
@@ -118,7 +118,7 @@ class TestPredictionTrajectoryPlot:
             show_prediction=True,
         )
 
-        rgba = plot.prediction_lines_ax1.get_edgecolors()[0]
+        rgba = plot.prediction_lines.get_edgecolors()[0]
         assert np.allclose(rgba, to_rgba(LocalPlot.PREDICTION_AHEAD_COLOR))
 
         plt.close(plot.fig)
@@ -146,8 +146,8 @@ class TestPredictionTrajectoryPlot:
             show_prediction=True,
         )
 
-        rgba = plot.prediction_lines_ax1.get_edgecolors()
-        assert len(plot.prediction_lines_ax1.get_segments()) == 2
+        rgba = plot.prediction_lines.get_edgecolors()
+        assert len(plot.prediction_lines.get_segments()) == 2
         assert abs(rgba[0, 3] - 0.8) < 1e-6
         assert abs(rgba[1, 3] - 0.2) < 1e-6
         assert np.allclose(rgba[0, :3], to_rgba(LocalPlot.PREDICTION_AHEAD_COLOR)[:3])
@@ -171,15 +171,15 @@ class TestPredictionTrajectoryPlot:
             show_prediction=True,
         )
 
-        assert len(plot.prediction_lines_ax1.get_segments()) == 1
+        assert len(plot.prediction_lines.get_segments()) == 1
         xdata, _ydata = _segment_xy(plot)
         assert len(xdata) == len(mean) + 1
-        rgba = plot.prediction_lines_ax1.get_edgecolors()[0]
+        rgba = plot.prediction_lines.get_edgecolors()[0]
         assert abs(rgba[3] - 1.0) < 1e-6
 
         # eye(6) is isotropic, so each contour is a circle on the last mean.
         # Only the last step is inside the 0.5 s stride when dt is 0.1 s.
-        paths = plot.prediction_regions_ax1.get_paths()
+        paths = plot.prediction_regions.get_paths()
         assert len(paths) == 2
         center = mean[-1]
         radii = sorted(
@@ -191,7 +191,7 @@ class TestPredictionTrajectoryPlot:
             for p in LocalPlot.PREDICTION_PERCENTILES
         ]
         np.testing.assert_allclose(radii, expected, atol=1e-6)
-        edge_alpha = sorted(plot.prediction_regions_ax1.get_edgecolors()[:, 3])
+        edge_alpha = sorted(plot.prediction_regions.get_edgecolors()[:, 3])
         np.testing.assert_allclose(edge_alpha, sorted(LocalPlot.PREDICTION_PERCENTILES), atol=1e-6)
 
         plot.update_perception_model_plots(
@@ -200,7 +200,7 @@ class TestPredictionTrajectoryPlot:
             show_plot=True,
             show_prediction=False,
         )
-        assert plot.prediction_regions_ax1.get_paths() == []
+        assert plot.prediction_regions.get_paths() == []
 
         plt.close(plot.fig)
 
@@ -220,7 +220,7 @@ class TestPredictionTrajectoryPlot:
             show_plot=True,
             show_prediction=True,
         )
-        paths = plot.prediction_regions_ax1.get_paths()
+        paths = plot.prediction_regions.get_paths()
         assert len(paths) == 2
         for path in paths:
             offset = path.vertices - mean[0]
@@ -254,9 +254,9 @@ class TestPredictionTrajectoryPlot:
             show_plot=True,
             show_prediction=True,
         )
-        line_alpha = plot.prediction_lines_ax1.get_edgecolors()[:, 3]
+        line_alpha = plot.prediction_lines.get_edgecolors()[:, 3]
         np.testing.assert_allclose(line_alpha, weights)
-        edge_alpha = plot.prediction_regions_ax1.get_edgecolors()[:, 3]
+        edge_alpha = plot.prediction_regions.get_edgecolors()[:, 3]
         expected = [w * p for w in weights for p in LocalPlot.PREDICTION_PERCENTILES]
         np.testing.assert_allclose(edge_alpha, expected)
         assert edge_alpha[2] < edge_alpha[0]
@@ -278,16 +278,15 @@ class TestPredictionTrajectoryPlot:
             ),
         )
         plot = LocalPlot(max_plan_length=1, max_agent_count=1)
-        plot.ax1.set_xlim(-30.0, 30.0)
-        plot.ax1.set_ylim(-10.0, 10.0)
+        plot.ax.set_xlim(-30.0, 30.0)
+        plot.ax.set_ylim(-10.0, 10.0)
         plot.update_pm_occupancy_flow_plots(pm, show_plot=True)
-        np.testing.assert_allclose(plot.ax1.get_xlim(), (-30.0, 30.0))
-        np.testing.assert_allclose(plot.ax1.get_ylim(), (-10.0, 10.0))
-        assert plot.ax1.get_aspect() == 1.0
-        face_alpha = plot.occupancy_flow_cells_ax1.get_facecolors()[:, 3]
+        np.testing.assert_allclose(plot.ax.get_xlim(), (-30.0, 30.0))
+        np.testing.assert_allclose(plot.ax.get_ylim(), (-10.0, 10.0))
+        assert plot.ax.get_aspect() == 1.0
+        face_alpha = plot.occupancy_flow_cells.get_facecolors()[:, 3]
         np.testing.assert_allclose(face_alpha, [0.2, 0.8])
         assert face_alpha[0] < face_alpha[1]
-        assert plot.occupancy_flow_cells_ax2.get_paths() == []
         plt.close(plot.fig)
 
     def test_gp_and_gmm_do_not_draw_occupancy_cells(self):
@@ -321,9 +320,8 @@ class TestPredictionTrajectoryPlot:
                 show_prediction=True,
             )
             plot.update_pm_occupancy_flow_plots(
-                pm, show_plot=True, global_trajectory=_straight_reference_path(), show_frenet=True,
+                pm, show_plot=True, global_trajectory=_straight_reference_path(),
             )
-            assert len(plot.prediction_regions_ax1.get_paths()) > 0
-            assert plot.occupancy_flow_cells_ax1.get_paths() == []
-            assert plot.occupancy_flow_cells_ax2.get_paths() == []
+            assert len(plot.prediction_regions.get_paths()) > 0
+            assert plot.occupancy_flow_cells.get_paths() == []
             plt.close(plot.fig)

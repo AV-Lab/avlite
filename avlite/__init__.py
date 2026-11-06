@@ -81,6 +81,7 @@ _LAZY: dict[str, str] = {
     "TaskRunner": "avlite.c40_execution.c43_task_strategy",
     # Apps
     "AppStrategy": "avlite.c60_apps.c61_app_strategy",
+    "PlotStrategy": "avlite.c60_apps.c61_app_strategy",
     # -- Perception / world data models -------------------------------------
     "PerceptionModel": "avlite.c10_perception.c11_perception_model",
     "State": "avlite.c10_perception.c11_perception_model",
@@ -262,6 +263,6 @@ if TYPE_CHECKING:  # static-analysis / IDE resolution only; no runtime cost
         collision_probability_2d,
         precompute_obstacle_polygons_2d,
     )
-    from avlite.c60_apps.c61_app_strategy import AppStrategy
+    from avlite.c60_apps.c61_app_strategy import AppStrategy, PlotStrategy
     from avlite.c60_apps.c62_factory import executor_factory, load_stack_settings
     from avlite.c60_apps.c69_settings import AppSettings
