@@ -78,3 +78,22 @@ class TestStanleyController:
         ego = EgoState(x=50.0, y=0.0, theta=0.0, velocity=5.0)
         cmd = controller.control(ego)
         assert abs(cmd.steer) < 0.2
+
+    def test_short_velocity_profile_does_not_index_error(self):
+        """ReferenceSpeed shorter than ReferenceLine used to crash at high wp."""
+        path = [(float(i) * 10.0, 0.0) for i in range(20)]
+        trajectory = TrajectoryTracker(path=path, velocity=[5.0, 5.0, 5.0])
+        trajectory.update_waypoint_by_wp(15)
+        controller = StanleyController(tj=trajectory, setting=_stanley_settings())
+        ego = EgoState(x=150.0, y=0.0, theta=0.0, velocity=5.0)
+        cmd = controller.control(ego)
+        assert isinstance(cmd.steer, float)
+        assert isinstance(cmd.acceleration, float)
+
+    def test_empty_velocity_profile_commands_zero_accel(self):
+        path = [(float(i) * 10.0, 0.0) for i in range(5)]
+        trajectory = TrajectoryTracker(path=path, velocity=[])
+        controller = StanleyController(tj=trajectory, setting=_stanley_settings())
+        ego = EgoState(x=0.0, y=0.0, theta=0.0, velocity=5.0)
+        cmd = controller.control(ego)
+        assert cmd.acceleration == 0.0
