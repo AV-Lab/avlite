@@ -61,10 +61,13 @@ class AppsApp(AppStrategy):
     help = "List registered apps"
 
     def run(self, args: argparse.Namespace, unknown: list[str]) -> int | None:
-        rows = [("default" if name is None else name, cls.help) for name, cls in AppStrategy.registry.items()]
-        width = max(len(name) for name, _help in rows)
-        for name, help_text in sorted(rows):
-            print(f"{name:<{width}}  {help_text}")
+        rows = [
+            ("default" if name is None else name, cls.help)
+            for name, cls in AppStrategy.registry.items()
+        ]
+        width = max(len(label) for label, _help in rows)
+        for label, help_text in sorted(rows):
+            print(f"{label:<{width}}  {help_text}")
         return 0
 
 
@@ -74,11 +77,10 @@ class AppsApp(AppStrategy):
 
 
 def bootstrap_apps() -> None:
-    """Import built-in ``p60`` apps, then entries in ``avlite/config/apps.yaml``.
+    """Import built-in ``p60`` apps, then ``avlite/config/apps.yaml``.
 
-    A missing or unreadable file leaves the built-in commands in place.
-    Entries whose command is already registered are skipped, and a plugin
-    that reuses a built-in ``cli_name`` is put back with a warning.
+    A missing or unreadable file keeps the built-in commands. A plugin cannot
+    replace a command that is already registered.
     """
     import importlib
     from pathlib import Path

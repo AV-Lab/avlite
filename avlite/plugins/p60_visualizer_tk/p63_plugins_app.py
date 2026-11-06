@@ -695,25 +695,21 @@ class _PluginOperations:
         save_setting(AppSettings, profile=profile)
         try:
             root = PluginPaths.plugin_load_dir(path)
-            source = ""
+            defines_app = False
             for py in root.glob("*.py"):
-                chunk = py.read_text(encoding="utf-8", errors="ignore")
-                if "AppStrategy" in chunk:
-                    source += chunk
+                text = py.read_text(encoding="utf-8", errors="ignore")
+                if "AppStrategy" in text and re.search(r"(?m)^\s*cli_name\s*=", text):
+                    defines_app = True
+                    break
             apps_file = Path(__file__).resolve().parents[2] / "config" / "apps.yaml"
-            current = apps_file.read_text(encoding="utf-8") if apps_file.is_file() else ""
-            added = ""
-            found = re.findall(r"(?m)^\s*cli_name\s*=\s*['\"]([^'\"]+)['\"]", source)
-            for cli in dict.fromkeys(found):
-                already = cli in AppStrategy.registry or re.search(rf"(?m)^{re.escape(cli)}\s*:", current + added)
-                if not cli or already:
-                    continue
-                added += yaml.safe_dump({cli: str(root)}, sort_keys=False)
-            if added:
+            body = apps_file.read_text(encoding="utf-8") if apps_file.is_file() else ""
+            taken = name in AppStrategy.registry or re.search(rf"(?m)^{re.escape(name)}\s*:", body)
+            if defines_app and not taken:
+                if body and not body.endswith("\n"):
+                    body += "\n"
                 apps_file.parent.mkdir(parents=True, exist_ok=True)
-                if current and not current.endswith("\n"):
-                    current += "\n"
-                apps_file.write_text(current + added, encoding="utf-8")
+                line = yaml.safe_dump({name: str(root)}, sort_keys=False)
+                apps_file.write_text(body + line, encoding="utf-8")
         except Exception as e:
             log.warning("Could not register app '%s': %s", name, e)
         log.info("Registered plugin '%s' in profile '%s'", name, profile)
@@ -727,19 +723,20 @@ class _PluginOperations:
         save_setting(AppSettings, profile=profile)
         try:
             apps_file = Path(__file__).resolve().parents[2] / "config" / "apps.yaml"
-            text = apps_file.read_text(encoding="utf-8")
-            listed = yaml.safe_load(text) or {}
+            body = apps_file.read_text(encoding="utf-8")
+            listed = yaml.safe_load(body) or {}
+            drop = set()
             if isinstance(listed, dict):
                 drop = {key for key, value in listed.items() if name in Path(str(value)).parts}
-                if drop:
-                    apps_file.write_text(
-                        "".join(
-                            line
-                            for line in text.splitlines(True)
-                            if line.split(":", 1)[0].strip().strip("'\"") not in drop
-                        ),
-                        encoding="utf-8",
-                    )
+            if drop:
+                apps_file.write_text(
+                    "".join(
+                        line
+                        for line in body.splitlines(True)
+                        if line.split(":", 1)[0].strip().strip("'\"") not in drop
+                    ),
+                    encoding="utf-8",
+                )
         except Exception as e:
             log.warning("Could not unregister app '%s': %s", name, e)
         log.info("Unregistered plugin '%s' from profile '%s'", name, profile)
