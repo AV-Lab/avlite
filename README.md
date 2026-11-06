@@ -212,6 +212,7 @@ see in the visualizer is what the robot will run.
 Each profile is a single `configs/<profile>.yaml` file with sections for the core layers (`c10_perception`, `c20_planning`, `c30_control`, `c40_execution`), app bootstrap (`c69_apps`), and plugins (`plugins:`). Shipped defaults are in the repository `configs/` directory. Saving from the GUI or settings window writes to `~/.config/avlite/` with the same filename; load prefers the user copy when present. User maps and trajectories live under `~/.config/avlite/data/`; the Planning panel **Save Global Plan** button (⬇) opens a file picker there. Set `AVLITE_CONFIG_DIR` or `AVLITE_DATA_DIR` to use different directories.
 
 ```bash
+python -m avlite apps                 # list registered apps
 python -m avlite setting              # settings GUI (no visualizer)
 python -m avlite setting-cli help
 python -m avlite setting-cli validate --profile default
@@ -219,7 +220,9 @@ python -m avlite setting-cli export-profile myprofile -o myprofile.yaml
 python -m avlite setting-cli import-profile myprofile.yaml --force
 ```
 
-See [Configuration](docs/overview.md#configuration) in the docs for paths, CLI, and resetting to repo defaults.
+`configs/apps.yaml` is the app registry: each entry is a Python module or a plugin directory. It resolves like the other settings: bundled `avlite/configs/apps.yaml` when **Edit repository configs** is on, otherwise `~/.config/avlite/apps.yaml` (`AVLITE_CONFIG_DIR`). A missing user copy is seeded from the bundled file. Entries load before argparse. Installing a plugin that defines an `AppStrategy` appends a line there, and uninstall removes it. That is how a community app such as [avlite-QT5](https://github.com/rsi-lab/avlite-QT5) (`cli_name = "qt5"`) becomes `avlite qt5`.
+
+See [Configuration](docs/overview.md#configuration) in the docs for paths, CLI, app commands, and resetting to repo defaults.
 
 ## Community Plugins
 

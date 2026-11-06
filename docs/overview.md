@@ -165,6 +165,7 @@ AVLite uses YAML-based configuration with **profile support** (multiple named pr
 | **User profiles** (written on Save) | `~/.config/avlite/*.yaml` | `AVLITE_CONFIG_DIR` |
 | **Community plugins** (installed clones) | `~/.local/share/avlite/plugins/<name>/` — code only; registered in the `c69_apps` section (`c62_community_plugins`) of the active profile | `AVLITE_PLUGINS_DIR` |
 | **Community plugin settings** | `~/.config/avlite/plugin_<name>.yaml` — user-only; no repo default | `AVLITE_CONFIG_DIR` |
+| **App commands** | `configs/apps.yaml` — bundled `avlite/configs/apps.yaml`, or `~/.config/avlite/apps.yaml` in the user config home. A missing user copy is seeded from the bundled file. Not a profile. | `AVLITE_CONFIG_DIR` |
 | **Maps & trajectories** | Read: `~/.config/avlite/data/` then the bundled `avlite/data/` (shipped with the package); save: user dir only (GUI save dialog opens in user data dir) | `AVLITE_DATA_DIR` |
 | **Log files** (when enabled) | `./logs/` (cwd at runtime) | — |
 
@@ -210,6 +211,22 @@ python -m avlite setting-cli import-profile myprofile.yaml [--force]
 ```
 
 Known sections (core layers, `c69_apps`, and built-in plugins) are validated against their Pydantic schemas on import; invalid profiles are rejected with field-level errors (same rules as `setting-cli validate`).
+
+### App commands
+
+```bash
+python -m avlite apps
+```
+
+`configs/apps.yaml` maps a name to a plugin directory or a Python module. AVLite loads it before argparse, using the same bundled-or-user switch as the other settings (see the table above). **Edit repository configs** reads and writes `avlite/configs/apps.yaml`. Otherwise the file is `~/.config/avlite/apps.yaml` (`AVLITE_CONFIG_DIR`), and a missing copy is seeded from the bundled file. A missing or unreadable file keeps the built-in commands. A plugin cannot replace a command that is already registered.
+
+The bundled file lists the built-in commands (`headless`, `setting`, `setting-cli`, `plugins`). Installing a plugin that defines an `AppStrategy` (a module with `cli_name =`) appends one line to the effective file; uninstall removes lines for that plugin. The YAML key is the plugin's registry name and the value is its install directory. The subcommand is the class `cli_name`.
+
+[avlite-QT5](https://github.com/rsi-lab/avlite-QT5) is a community `AppStrategy` with `cli_name = "qt5"`. After install, the effective file gains the plugin directory (`~` in a hand-written path is expanded), `avlite qt5` is a subcommand, and `avlite apps` lists it:
+
+```yaml
+avlite-QT5: ~/.local/share/avlite/plugins/avlite-QT5
+```
 
 ### CLI validation
 
