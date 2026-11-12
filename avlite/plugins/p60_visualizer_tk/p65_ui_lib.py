@@ -220,8 +220,8 @@ class SpeedGauge(tk.Canvas):
     """Speed needle, acceleration arc, and a fixed ``km/h (m/s)`` caption.
 
     The sweep matches the Qt control panel: 240° from the lower-left, clockwise.
-    The needle and the outer arc show ego speed. The inner arc shows the
-    acceleration command (throttle in orange, brake in red).
+    Tick numbers are km/h on the static face. The needle and the outer arc show
+    ego speed. The inner arc shows the acceleration command.
     """
 
     _START = 210.0
@@ -230,8 +230,9 @@ class SpeedGauge(tk.Canvas):
 
     def __init__(self, parent, accel_min=-20.0, accel_max=10.0, dpi_scale=1.0):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(86, scale)
+        self._dial = DpiScale.scaled(108, scale)
         self._font = ("Courier", 10)
+        self._tick_font = ("Courier", 8)
         self._accel_min = float(accel_min)
         self._accel_max = float(accel_max)
         font = tkfont.Font(root=parent, font=self._font)
@@ -269,7 +270,7 @@ class SpeedGauge(tk.Canvas):
 
         cx = self._width / 2.0
         cy = self._dial / 2.0 + 1.0
-        radius = self._dial / 2.0 - 6.0
+        radius = self._dial / 2.0 - 4.0
 
         def at(r, deg):
             rad = math.radians(deg)
@@ -291,10 +292,21 @@ class SpeedGauge(tk.Canvas):
             cx - radius, cy - radius, cx + radius, cy + radius,
             fill=colors["face"], outline=colors["rim"], width=2,
         )
-        arc_r = radius - 6.0
-        sweep(arc_r, 1.0, colors["track"], 4)
+        # Numbers sit outside the needle. 20 km/h majors, 10 km/h minors, up to the dial max.
+        max_kmh = self._MAX_MPS * 3.6
+        arc_r = radius - 22.0
+        for kmh in range(0, int(max_kmh) + 1, 10):
+            deg = self._START - self._SWEEP * (kmh / max_kmh)
+            major = kmh % 20 == 0
+            x0, y0 = at(arc_r + 3.0, deg)
+            x1, y1 = at(arc_r + (9.0 if major else 6.0), deg)
+            self.create_line(x0, y0, x1, y1, fill=colors["ink"] if major else colors["muted"], width=2 if major else 1)
+            if major:
+                lx, ly = at(arc_r + 16.0, deg)
+                self.create_text(lx, ly, text=str(kmh), fill=colors["ink"], font=self._tick_font)
+        sweep(arc_r, 1.0, colors["track"], 3)
         shown = min(max(speed_mps, 0.0), self._MAX_MPS) / self._MAX_MPS
-        sweep(arc_r, shown, colors["accent"], 5)
+        sweep(arc_r, shown, colors["accent"], 4)
 
         if accel >= 0.0:
             accel_frac = accel / max(self._accel_max, 1e-3)
@@ -302,9 +314,9 @@ class SpeedGauge(tk.Canvas):
         else:
             accel_frac = -accel / max(abs(self._accel_min), 1e-3)
             accel_color = colors["neg"]
-        sweep(arc_r - 7.0, accel_frac, accel_color, 3)
+        sweep(arc_r - 8.0, accel_frac, accel_color, 3)
 
-        tip_x, tip_y = at(arc_r - 2.0, self._START - self._SWEEP * shown)
+        tip_x, tip_y = at(arc_r - 1.0, self._START - self._SWEEP * shown)
         self.create_line(cx, cy, tip_x, tip_y, fill=colors["ink"], width=2, capstyle=tk.ROUND)
         hub = colors["neg"] if speed_mps < 0.0 else colors["accent"]
         self.create_oval(cx - 3.5, cy - 3.5, cx + 3.5, cy + 3.5, fill=hub, outline="")
@@ -325,7 +337,8 @@ class SteerWheel(tk.Canvas):
 
     def __init__(self, parent, limit=0.7, dpi_scale=1.0, width=None):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(86, scale)
+        self._dial = DpiScale.scaled(108, scale)
+        self._tick_font = ("Courier", 8)
         self._limit = max(abs(float(limit)), 1e-3)
         canvas_w = self._dial if width is None else int(width)
         super().__init__(
@@ -354,37 +367,44 @@ class SteerWheel(tk.Canvas):
         self.delete("all")
 
         cx = self._width / 2.0
-        cy = self._dial / 2.0 + 2.0
-        radius = self._dial / 2.0 - 8.0
-        self.create_oval(
-            cx - radius, cy - radius, cx + radius, cy + radius,
-            fill=colors["face"], outline=colors["rim"], width=6,
-        )
-        frac = max(-1.0, min(1.0, steer / self._limit))
-        # Positive steer (the left button) rotates the wheel counterclockwise.
-        rotation = frac * 120.0
-        inner = radius * 0.28
-        outer = radius - 7.0
+        cy = self._dial / 2.0 + 6.0
+        radius = self._dial / 2.0 - 18.0
 
         def at(r, deg):
             rad = math.radians(deg)
             return cx + r * math.cos(rad), cy - r * math.sin(rad)
 
+        # Housing marks: + is full left lock (counterclockwise), − is full right lock.
+        for deg, label in ((90.0, "0"), (210.0, "+"), (-30.0, "−")):
+            x0, y0 = at(radius + 2.0, deg)
+            x1, y1 = at(radius + 7.0, deg)
+            self.create_line(x0, y0, x1, y1, fill=colors["muted"], width=2)
+            lx, ly = at(radius + 14.0, deg)
+            self.create_text(lx, ly, text=label, fill=colors["ink"], font=self._tick_font)
+        self.create_oval(
+            cx - radius, cy - radius, cx + radius, cy + radius,
+            fill=colors["face"], outline=colors["rim"], width=5,
+        )
+        frac = max(-1.0, min(1.0, steer / self._limit))
+        # Positive steer (the left button) rotates the wheel counterclockwise.
+        rotation = frac * 120.0
+        inner = radius * 0.28
+        outer = radius - 6.0
         for spoke in range(3):
             deg = 90.0 + rotation + spoke * 120.0
             x0, y0 = at(inner, deg)
             x1, y1 = at(outer, deg)
             self.create_line(x0, y0, x1, y1, fill=colors["ink"], width=2, capstyle=tk.ROUND)
-        gx0, gy0 = at(radius - 12.0, 90.0 + rotation)
+        gx0, gy0 = at(radius - 11.0, 90.0 + rotation)
         gx1, gy1 = at(radius - 1.0, 90.0 + rotation)
-        self.create_line(gx0, gy0, gx1, gy1, fill=colors["accent"], width=7, capstyle=tk.ROUND)
+        self.create_line(gx0, gy0, gx1, gy1, fill=colors["accent"], width=6, capstyle=tk.ROUND)
         hub = radius * 0.22
         self.create_oval(
             cx - hub, cy - hub, cx + hub, cy + hub,
             fill=colors["track"], outline=colors["rim"], width=1,
         )
-        tip = cy - radius - 1.0
-        self.create_polygon(cx - 4.0, 2.0, cx + 4.0, 2.0, cx, tip if tip > 6.0 else 7.0, fill=colors["muted"], outline="")
+        tip = cy - radius - 2.0
+        self.create_polygon(cx - 3.5, tip - 6.0, cx + 3.5, tip - 6.0, cx, tip, fill=colors["muted"], outline="")
 
 
 class ThemedInputDialog:
