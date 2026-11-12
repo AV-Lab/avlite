@@ -56,6 +56,7 @@ class VisualizerApp(tk.Tk):
         apply_ttk_theme(self, dark=True)
         self._dpi_scale: float = DpiScale.for_widget(self)
         self.exec = None
+        self._applied_cmd = None
         self.loading_overlay = None
         self.ui_initialized = False
         self.show_loading_overlay()
@@ -77,7 +78,8 @@ class VisualizerApp(tk.Tk):
     def __initialize_ui(self):
         self.title("AVlite Visualizer")
         s = self._dpi_scale
-        self.geometry(f"{DpiScale.scaled(1200, s)}x{DpiScale.scaled(900, s)}")
+        # Tall enough that the control dials leave a usable plot strip.
+        self.geometry(f"{DpiScale.scaled(1200, s)}x{DpiScale.scaled(1010, s)}")
         self.withdraw()
         self.small_font = ("Courier", 10)
 
@@ -408,6 +410,7 @@ class VisualizerApp(tk.Tk):
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
+        self.event_generate("<<ThemeChanged>>")
         log.info("Dark mode enabled.")
 
     def set_light_mode(self):
@@ -437,6 +440,7 @@ class VisualizerApp(tk.Tk):
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
+        self.event_generate("<<ThemeChanged>>")
         log.info("Light mode enabled.")
 
     def _create_menubar(self):
@@ -673,12 +677,22 @@ class VisualizerApp(tk.Tk):
                 self.setting.current_wp.set("0")
                 self.setting.lap.set("0")
 
-            # TODO: need to connect to a tkinter variable instead
+            # A newer controller command wins over the last manual pulse.
+            speed = self.exec.ego_state.velocity
+            accel = steer = cte_vel = cte_pos = 0.0
+            cmd = self._applied_cmd
             if self.exec.controller is not None:
-                self.perceive_plan_control_view.control_frame.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
-                self.perceive_plan_control_view.control_frame.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
-                self.perceive_plan_control_view.control_frame.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
-                self.perceive_plan_control_view.control_frame.gauge_steer.set_value(self.exec.controller.cmd.steer)
+                cte_vel = self.exec.controller.cte_velocity
+                cte_pos = self.exec.controller.cte_steer
+                live = self.exec.controller.cmd
+                if cmd is None or live.timestamp > cmd.timestamp:
+                    cmd = live
+            if cmd is not None:
+                accel = cmd.acceleration
+                steer = cmd.steer
+            self.perceive_plan_control_view.control_frame.update_readouts(
+                speed=speed, accel=accel, steer=steer, cte_vel=cte_vel, cte_pos=cte_pos,
+            )
 
             self.setting.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
             self.setting.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
@@ -757,6 +771,7 @@ class VisualizerApp(tk.Tk):
         """
         self.exec.world.control_ego_state(cmd=cmd, dt=dt)
         self.exec.pm.ego_vehicle.copy_from(self.exec.world.get_ego_state())
+        self._applied_cmd = cmd
 
     def spawn_agent(self, agent_state: AgentState) -> None:
         """Spawn an agent in the world using the ego's current global plan."""

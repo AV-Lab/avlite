@@ -40,6 +40,8 @@ from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c65_setting_utils import save_setting
 from avlite.plugins.p60_visualizer_tk.p65_ui_lib import (
     ValueGauge,
+    SpeedGauge,
+    SteerWheel,
     DataPicker,
     BUTTON_TOOLTIPS,
     HoverTooltip,
@@ -601,50 +603,47 @@ class ControlFrame(ttk.LabelFrame):
         )
         cn_info.pack(side=tk.LEFT)
 
-        #################
-        # Progress bars
-        #################
-        # Each label sits on the same grid row as its gauge so they stay aligned.
-        self.cte_frame = ttk.Frame(self)
-        self.cte_frame.pack(fill=tk.X)
-        self.cte_frame.columnconfigure(1, weight=1)
+        # Fixed-width readouts so the panel does not shift as the numbers change.
+        meters = ttk.Frame(self)
+        meters.pack(fill=tk.X, padx=1)
+        meters.columnconfigure(0, weight=1, uniform="meter")
+        meters.columnconfigure(1, weight=1, uniform="meter")
+        font = self.root.small_font
 
-        ttk.Label(self.cte_frame, text="Vel CTE", font=self.root.small_font).grid(row=0, column=0, sticky="w", padx=5)
-        self.gauge_cte_vel = ValueGauge(self.cte_frame, min_value=-20, max_value=20, dpi_scale=self.root._dpi_scale)
-        self.gauge_cte_vel.grid(row=0, column=1, sticky="ew", pady=1)
+        self._cte_vel_readout = ttk.Label(meters, text="Vel CTE:   +0.00", font=font, width=16, anchor="w")
+        self._cte_vel_readout.grid(row=0, column=0, sticky="ew", padx=(4, 6))
+        self._cte_pos_readout = ttk.Label(meters, text="Pos CTE:   +0.00", font=font, width=16, anchor="w")
+        self._cte_pos_readout.grid(row=0, column=1, sticky="ew", padx=(4, 6))
+        self.gauge_cte_vel = ValueGauge(meters, min_value=-10, max_value=10, height=12, dpi_scale=self.root._dpi_scale, compact=True)
+        self.gauge_cte_vel.grid(row=1, column=0, sticky="ew", padx=(4, 6))
+        self.gauge_cte_steer = ValueGauge(meters, min_value=-5, max_value=5, height=12, dpi_scale=self.root._dpi_scale, compact=True)
+        self.gauge_cte_steer.grid(row=1, column=1, sticky="ew", padx=(4, 6))
 
-        ttk.Label(self.cte_frame, text="Pos CTE", font=self.root.small_font).grid(row=1, column=0, sticky="w", padx=5)
-        self.gauge_cte_steer = ValueGauge(self.cte_frame, min_value=-20, max_value=20, dpi_scale=self.root._dpi_scale)
-        self.gauge_cte_steer.grid(row=1, column=1, sticky="ew", pady=1)
-
-        self.progress_frame = ttk.Frame(self)
-        self.progress_frame.pack(fill=tk.X)
-        self.progress_frame.columnconfigure(1, weight=1)
-
-        ttk.Label(self.progress_frame, text="Accel", font=self.root.small_font).grid(row=0, column=0, sticky="w", padx=5)
-        self.gauge_acc = ValueGauge(
-            self.progress_frame,
-            min_value=ControlSettings.c32_ego_min_acceleration,
-            max_value=ControlSettings.c32_ego_max_acceleration,
+        self._accel_readout = ttk.Label(meters, text="Accel:  +0.00", font=font, width=14, anchor="w")
+        self._accel_readout.grid(row=2, column=0, sticky="ew", padx=(4, 6))
+        self._steer_readout = ttk.Label(meters, text="Steer:  +0.00", font=font, width=14, anchor="w")
+        self._steer_readout.grid(row=2, column=1, sticky="ew", padx=(4, 6))
+        self.speed_gauge = SpeedGauge(
+            meters,
+            accel_min=ControlSettings.c32_ego_min_acceleration,
+            accel_max=ControlSettings.c32_ego_max_acceleration,
             dpi_scale=self.root._dpi_scale,
         )
-        self.gauge_acc.grid(row=0, column=1, sticky="ew", pady=1)
-
-        ttk.Label(self.progress_frame, text="Steer", font=self.root.small_font).grid(row=1, column=0, sticky="w", padx=5)
-        self.gauge_steer = ValueGauge(
-            self.progress_frame,
-            min_value=ControlSettings.c32_ego_min_steering,
-            max_value=ControlSettings.c32_ego_max_steering,
+        self.speed_gauge.grid(row=3, column=0, sticky="n")
+        self.steer_wheel = SteerWheel(
+            meters,
+            limit=max(abs(ControlSettings.c32_ego_min_steering), abs(ControlSettings.c32_ego_max_steering)),
             dpi_scale=self.root._dpi_scale,
+            width=self.speed_gauge.winfo_reqwidth(),
         )
-        self.gauge_steer.grid(row=1, column=1, sticky="ew", pady=1)
+        self.steer_wheel.grid(row=3, column=1, sticky="n")
 
         control_action_frame = ttk.Frame(self)
         control_action_frame.pack(fill=tk.X)
         btn_control_step = ttk.Button(control_action_frame, text="Step", command=self.step_control)
         btn_control_step.pack(side=tk.LEFT, fill=tk.X, expand=True)
         HoverTooltip.attach(btn_control_step, BUTTON_TOOLTIPS["control_step"])
-        btn_control_align = ttk.Button(control_action_frame, text="Align", width=4, command=self.align_control)
+        btn_control_align = ttk.Button(control_action_frame, text="Align", width=5, command=self.align_control)
         btn_control_align.pack(side=tk.LEFT)
         HoverTooltip.attach(btn_control_align, BUTTON_TOOLTIPS["control_align"])
         btn_steer_left = ttk.Button(control_action_frame, text="◀️ ", width=2, command=self.step_steer_left)
@@ -666,6 +665,17 @@ class ControlFrame(ttk.LabelFrame):
         """Update data in the control frame."""
         self.controller_dropdown_menu.delete(0, tk.END)  # Clear existing values
         self.controller_dropdown_menu["values"] = ("",) + tuple(ControlStrategy.registry.keys())
+
+    def update_readouts(self, *, speed, accel, steer, cte_vel, cte_pos):
+        """Push ego speed, the control command, and cross-track error into the gauges."""
+        self._cte_vel_readout.configure(text=f"Vel CTE: {cte_vel:+7.2f}")
+        self._cte_pos_readout.configure(text=f"Pos CTE: {cte_pos:+7.2f}")
+        self._accel_readout.configure(text=f"Accel: {accel:+6.2f}")
+        self._steer_readout.configure(text=f"Steer: {steer:+6.2f}")
+        self.gauge_cte_vel.set_value(cte_vel)
+        self.gauge_cte_steer.set_value(cte_pos)
+        self.speed_gauge.set(speed, accel)
+        self.steer_wheel.set(steer)
 
     def step_control(self):
         if not self.root.exec or not self.root.exec.controller:
