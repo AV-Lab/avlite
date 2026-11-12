@@ -668,21 +668,14 @@ class ControlFrame(ttk.LabelFrame):
 
     def update_readouts(self, *, speed, accel, steer, cte_vel, cte_pos):
         """Push ego speed, the control command, and cross-track error into the gauges."""
-        self._cte_vel_readout.configure(text=f"Vel CTE: {float(cte_vel):+7.2f}")
-        self._cte_pos_readout.configure(text=f"Pos CTE: {float(cte_pos):+7.2f}")
-        self._accel_readout.configure(text=f"Accel: {float(accel):+6.2f}")
-        self._steer_readout.configure(text=f"Steer: {float(steer):+6.2f}")
+        self._cte_vel_readout.configure(text=f"Vel CTE: {cte_vel:+7.2f}")
+        self._cte_pos_readout.configure(text=f"Pos CTE: {cte_pos:+7.2f}")
+        self._accel_readout.configure(text=f"Accel: {accel:+6.2f}")
+        self._steer_readout.configure(text=f"Steer: {steer:+6.2f}")
         self.gauge_cte_vel.set_value(cte_vel)
         self.gauge_cte_steer.set_value(cte_pos)
         self.speed_gauge.set(speed, accel)
         self.steer_wheel.set(steer)
-
-    def apply_theme(self):
-        """Redraw instruments after a light/dark switch."""
-        self.speed_gauge.set(self.speed_gauge.speed, self.speed_gauge.accel)
-        self.steer_wheel.set(self.steer_wheel.steer)
-        self.gauge_cte_vel.set_value(self.gauge_cte_vel.current_value, force=True)
-        self.gauge_cte_steer.set_value(self.gauge_cte_steer.current_value, force=True)
 
     def step_control(self):
         if not self.root.exec or not self.root.exec.controller:

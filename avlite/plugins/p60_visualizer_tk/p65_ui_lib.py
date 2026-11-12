@@ -126,6 +126,8 @@ class ValueGauge(ttk.Frame):
         self.config(height=total_height)
 
         self.bind("<Configure>", lambda e: self.__draw())
+        if compact:
+            self.winfo_toplevel().bind("<<ThemeChanged>>", self._on_theme, add="+")
 
         if self.variable is not None:
             self.variable.trace_add("write", self.__variable_changed)
@@ -136,6 +138,9 @@ class ValueGauge(ttk.Frame):
     
     def __variable_changed(self, *args):
         self.set_value(self.variable.get())
+
+    def _on_theme(self, _event):
+        self.set_value(self.current_value, force=True)
 
     def set_value(self, value, force=False):
         if not force and value == self.current_value:
@@ -235,10 +240,7 @@ def _kmh_major_step(max_kmh: float) -> int:
 
 
 def _label_inside(font: tkfont.Font, text: str, deg: float, outer: float) -> tuple[float, float]:
-    """Radius of a label center whose glyph stays inside ``outer``.
-
-    Returns that radius and how far the glyph reaches from its center.
-    """
+    """Label-center radius, and its reach, so the glyph stays inside ``outer``."""
     half_w = font.measure(text) / 2.0 + 1.0
     half_h = font.metrics("linespace") / 2.0
     rad = math.radians(deg)
@@ -266,9 +268,9 @@ class SpeedGauge(tk.Canvas):
         self._font = ("Courier", 10)
         self._tick_font = ("Courier", 8)
         self._ticks = tkfont.Font(root=parent, font=self._tick_font)
-        self._max_mps = max(float(max_speed), 1e-3)
-        self._accel_min = float(accel_min)
-        self._accel_max = float(accel_max)
+        self._max_mps = max(max_speed, 1e-3)
+        self._accel_min = accel_min
+        self._accel_max = accel_max
         font = tkfont.Font(root=parent, font=self._font)
         self._caption_h = font.metrics("linespace") + 1
         # Widest caption the plant can show, so the panel does not reflow.
@@ -283,22 +285,24 @@ class SpeedGauge(tk.Canvas):
             bd=0,
             takefocus=0,
         )
-        self.speed = 0.0
-        self.accel = 0.0
+        self._speed = 0.0
+        self._accel = 0.0
         self._key = None
+        self.winfo_toplevel().bind("<<ThemeChanged>>", self._on_theme, add="+")
         self.set(0.0, 0.0)
+
+    def _on_theme(self, _event):
+        self.set(self._speed, self._accel)
 
     def set(self, speed_mps: float, accel: float) -> None:
         """Show ego speed in m/s and the acceleration command."""
-        speed_mps = 0.0 if speed_mps is None else float(speed_mps)
-        accel = 0.0 if accel is None else float(accel)
         colors = _gauge_colors(self)
         key = (round(speed_mps, 3), round(accel, 3), colors["bg"])
         if key == self._key:
             return
         self._key = key
-        self.speed = speed_mps
-        self.accel = accel
+        self._speed = speed_mps
+        self._accel = accel
         self.configure(bg=colors["bg"])
         self.delete("all")
 
@@ -326,7 +330,6 @@ class SpeedGauge(tk.Canvas):
             cx - radius, cy - radius, cx + radius, cy + radius,
             fill=colors["face"], outline=colors["rim"], width=2,
         )
-        # Numbers sit inside the tick ring. The step leaves about 6–8 labels.
         max_kmh = self._max_mps * 3.6
         step = _kmh_major_step(max_kmh)
         minor = step / 2.0
@@ -388,7 +391,7 @@ class SteerWheel(tk.Canvas):
         self._dial = DpiScale.scaled(148, scale)
         self._tick_font = ("Courier", 8)
         self._ticks = tkfont.Font(root=parent, font=self._tick_font)
-        self._limit = max(abs(float(limit)), 1e-3)
+        self._limit = max(abs(limit), 1e-3)
         canvas_w = self._dial if width is None else int(width)
         super().__init__(
             parent,
@@ -399,19 +402,22 @@ class SteerWheel(tk.Canvas):
             takefocus=0,
         )
         self._width = canvas_w
-        self.steer = 0.0
+        self._steer = 0.0
         self._key = None
+        self.winfo_toplevel().bind("<<ThemeChanged>>", self._on_theme, add="+")
         self.set(0.0)
+
+    def _on_theme(self, _event):
+        self.set(self._steer)
 
     def set(self, steer: float) -> None:
         """Rotate the wheel to this steer command, in radians."""
-        steer = 0.0 if steer is None else float(steer)
         colors = _gauge_colors(self)
         key = (round(steer, 4), colors["bg"])
         if key == self._key:
             return
         self._key = key
-        self.steer = steer
+        self._steer = steer
         self.configure(bg=colors["bg"])
         self.delete("all")
 
@@ -427,7 +433,7 @@ class SteerWheel(tk.Canvas):
             cx - radius, cy - radius, cx + radius, cy + radius,
             fill=colors["face"], outline=colors["rim"], width=5,
         )
-        # Housing marks sit inside the rim. + is full left lock, − is full right lock.
+        # + is full left lock, − is full right lock.
         tick_in = radius - 10.0
         for deg, label in ((90.0, "0"), (210.0, "+"), (-30.0, "−")):
             x0, y0 = at(tick_in, deg)
@@ -437,7 +443,6 @@ class SteerWheel(tk.Canvas):
             lx, ly = at(label_r, deg)
             self.create_text(lx, ly, text=label, fill=colors["ink"], font=self._tick_font)
         frac = max(-1.0, min(1.0, steer / self._limit))
-        # Positive steer (the left button) rotates the wheel counterclockwise.
         rotation = frac * 120.0
         inner = radius * 0.22
         outer = radius - 34.0
