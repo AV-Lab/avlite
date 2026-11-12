@@ -234,12 +234,24 @@ def _kmh_major_step(max_kmh: float) -> int:
     return best
 
 
+def _label_inside(font: tkfont.Font, text: str, deg: float, outer: float) -> tuple[float, float]:
+    """Radius of a label center whose glyph stays inside ``outer``.
+
+    Returns that radius and how far the glyph reaches from its center.
+    """
+    half_w = font.measure(text) / 2.0 + 1.0
+    half_h = font.metrics("linespace") / 2.0
+    rad = math.radians(deg)
+    extent = half_w * abs(math.cos(rad)) + half_h * abs(math.sin(rad))
+    return outer - extent, extent
+
+
 class SpeedGauge(tk.Canvas):
     """Speed needle, acceleration arc, and a fixed ``km/h (m/s)`` caption.
 
     The sweep matches the Qt control panel: 240° from the lower-left, clockwise.
-    Tick numbers are km/h on the static face. The needle and the outer arc show
-    ego speed. The inner arc shows the acceleration command.
+    Tick numbers are km/h, inside the tick ring and inside the dial. The needle
+    and the outer arc show ego speed. The inner arc shows the acceleration command.
 
     ``max_speed`` is the full-scale speed in m/s. The default is a race-car
     100 m/s, drawn as 360 km/h.
@@ -250,9 +262,10 @@ class SpeedGauge(tk.Canvas):
 
     def __init__(self, parent, accel_min=-20.0, accel_max=10.0, dpi_scale=1.0, max_speed=100.0):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(108, scale)
+        self._dial = DpiScale.scaled(148, scale)
         self._font = ("Courier", 10)
         self._tick_font = ("Courier", 8)
+        self._ticks = tkfont.Font(root=parent, font=self._tick_font)
         self._max_mps = max(float(max_speed), 1e-3)
         self._accel_min = float(accel_min)
         self._accel_max = float(accel_max)
@@ -313,24 +326,32 @@ class SpeedGauge(tk.Canvas):
             cx - radius, cy - radius, cx + radius, cy + radius,
             fill=colors["face"], outline=colors["rim"], width=2,
         )
-        # Numbers sit outside the needle. Major step is chosen so the face has about 6–8 labels.
+        # Numbers sit inside the tick ring. The step leaves about 6–8 labels.
         max_kmh = self._max_mps * 3.6
         step = _kmh_major_step(max_kmh)
         minor = step / 2.0
-        arc_r = radius - 22.0
+        tick_out = radius - 3.0
+        major_in = radius - 12.0
         ticks = int(round(max_kmh / minor))
         if ticks * minor > max_kmh + 0.05:
             ticks -= 1
+        labels = []
         for i in range(ticks + 1):
             kmh = i * minor
             deg = self._START - self._SWEEP * (kmh / max_kmh)
             major = i % 2 == 0
-            x0, y0 = at(arc_r + 3.0, deg)
-            x1, y1 = at(arc_r + (9.0 if major else 6.0), deg)
+            x0, y0 = at(major_in if major else tick_out - 6.0, deg)
+            x1, y1 = at(tick_out, deg)
             self.create_line(x0, y0, x1, y1, fill=colors["ink"] if major else colors["muted"], width=2 if major else 1)
             if major:
-                lx, ly = at(arc_r + 16.0, deg)
-                self.create_text(lx, ly, text=str(int(round(kmh))), fill=colors["ink"], font=self._tick_font)
+                text = str(int(round(kmh)))
+                label_r, extent = _label_inside(self._ticks, text, deg, major_in - 2.0)
+                labels.append((text, deg, label_r, extent))
+        inner = min(label_r - extent for _, _, label_r, extent in labels)
+        arc_r = inner - 6.0
+        for text, deg, label_r, _extent in labels:
+            lx, ly = at(label_r, deg)
+            self.create_text(lx, ly, text=text, fill=colors["ink"], font=self._tick_font)
         sweep(arc_r, 1.0, colors["track"], 3)
         shown = min(max(speed_mps, 0.0), self._max_mps) / self._max_mps
         sweep(arc_r, shown, colors["accent"], 4)
@@ -364,8 +385,9 @@ class SteerWheel(tk.Canvas):
 
     def __init__(self, parent, limit=0.7, dpi_scale=1.0, width=None):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(108, scale)
+        self._dial = DpiScale.scaled(148, scale)
         self._tick_font = ("Courier", 8)
+        self._ticks = tkfont.Font(root=parent, font=self._tick_font)
         self._limit = max(abs(float(limit)), 1e-3)
         canvas_w = self._dial if width is None else int(width)
         super().__init__(
@@ -401,29 +423,31 @@ class SteerWheel(tk.Canvas):
             rad = math.radians(deg)
             return cx + r * math.cos(rad), cy - r * math.sin(rad)
 
-        # Housing marks: + is full left lock (counterclockwise), − is full right lock.
-        for deg, label in ((90.0, "0"), (210.0, "+"), (-30.0, "−")):
-            x0, y0 = at(radius + 2.0, deg)
-            x1, y1 = at(radius + 7.0, deg)
-            self.create_line(x0, y0, x1, y1, fill=colors["muted"], width=2)
-            lx, ly = at(radius + 14.0, deg)
-            self.create_text(lx, ly, text=label, fill=colors["ink"], font=self._tick_font)
         self.create_oval(
             cx - radius, cy - radius, cx + radius, cy + radius,
             fill=colors["face"], outline=colors["rim"], width=5,
         )
+        # Housing marks sit inside the rim. + is full left lock, − is full right lock.
+        tick_in = radius - 10.0
+        for deg, label in ((90.0, "0"), (210.0, "+"), (-30.0, "−")):
+            x0, y0 = at(tick_in, deg)
+            x1, y1 = at(radius - 3.0, deg)
+            self.create_line(x0, y0, x1, y1, fill=colors["muted"], width=2)
+            label_r, _extent = _label_inside(self._ticks, label, deg, tick_in - 2.0)
+            lx, ly = at(label_r, deg)
+            self.create_text(lx, ly, text=label, fill=colors["ink"], font=self._tick_font)
         frac = max(-1.0, min(1.0, steer / self._limit))
         # Positive steer (the left button) rotates the wheel counterclockwise.
         rotation = frac * 120.0
-        inner = radius * 0.28
-        outer = radius - 6.0
+        inner = radius * 0.22
+        outer = radius - 34.0
         for spoke in range(3):
             deg = 90.0 + rotation + spoke * 120.0
             x0, y0 = at(inner, deg)
             x1, y1 = at(outer, deg)
             self.create_line(x0, y0, x1, y1, fill=colors["ink"], width=2, capstyle=tk.ROUND)
-        gx0, gy0 = at(radius - 11.0, 90.0 + rotation)
-        gx1, gy1 = at(radius - 1.0, 90.0 + rotation)
+        gx0, gy0 = at(radius * 0.22 + 4.0, 90.0 + rotation)
+        gx1, gy1 = at(radius - 34.0, 90.0 + rotation)
         self.create_line(gx0, gy0, gx1, gy1, fill=colors["accent"], width=6, capstyle=tk.ROUND)
         hub = radius * 0.22
         self.create_oval(

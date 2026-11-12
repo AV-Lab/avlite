@@ -78,7 +78,7 @@ class VisualizerApp(tk.Tk):
         self.title("AVlite Visualizer")
         s = self._dpi_scale
         # Tall enough that the control dials leave a usable plot strip.
-        self.geometry(f"{DpiScale.scaled(1200, s)}x{DpiScale.scaled(960, s)}")
+        self.geometry(f"{DpiScale.scaled(1200, s)}x{DpiScale.scaled(1010, s)}")
         self.withdraw()
         self.small_font = ("Courier", 10)
 
