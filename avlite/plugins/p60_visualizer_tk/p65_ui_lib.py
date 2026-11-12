@@ -216,23 +216,44 @@ class ValueGauge(ttk.Frame):
         self.canvas.tag_raise(text_id)
 
 
+# Labeled km/h steps. The one that lands nearest 6–8 majors, and on the dial max when it can, wins.
+_KMH_STEPS = (10, 20, 30, 50, 60, 100)
+
+
+def _kmh_major_step(max_kmh: float) -> int:
+    best = _KMH_STEPS[-1]
+    best_rank = None
+    for step in _KMH_STEPS:
+        count = int(max_kmh // step) + 1
+        on_max = abs(max_kmh - step * round(max_kmh / step)) < 0.05
+        in_band = 0 if 6 <= count <= 8 else 1
+        rank = (in_band, 0 if on_max else 1, abs(count - 7))
+        if best_rank is None or rank < best_rank:
+            best_rank = rank
+            best = step
+    return best
+
+
 class SpeedGauge(tk.Canvas):
     """Speed needle, acceleration arc, and a fixed ``km/h (m/s)`` caption.
 
     The sweep matches the Qt control panel: 240° from the lower-left, clockwise.
     Tick numbers are km/h on the static face. The needle and the outer arc show
     ego speed. The inner arc shows the acceleration command.
+
+    ``max_speed`` is the full-scale speed in m/s. The default is a race-car
+    100 m/s, drawn as 360 km/h.
     """
 
     _START = 210.0
     _SWEEP = 240.0
-    _MAX_MPS = 40.0
 
-    def __init__(self, parent, accel_min=-20.0, accel_max=10.0, dpi_scale=1.0):
+    def __init__(self, parent, accel_min=-20.0, accel_max=10.0, dpi_scale=1.0, max_speed=100.0):
         scale = dpi_scale or 1.0
         self._dial = DpiScale.scaled(108, scale)
         self._font = ("Courier", 10)
         self._tick_font = ("Courier", 8)
+        self._max_mps = max(float(max_speed), 1e-3)
         self._accel_min = float(accel_min)
         self._accel_max = float(accel_max)
         font = tkfont.Font(root=parent, font=self._font)
@@ -292,20 +313,26 @@ class SpeedGauge(tk.Canvas):
             cx - radius, cy - radius, cx + radius, cy + radius,
             fill=colors["face"], outline=colors["rim"], width=2,
         )
-        # Numbers sit outside the needle. 20 km/h majors, 10 km/h minors, up to the dial max.
-        max_kmh = self._MAX_MPS * 3.6
+        # Numbers sit outside the needle. Major step is chosen so the face has about 6–8 labels.
+        max_kmh = self._max_mps * 3.6
+        step = _kmh_major_step(max_kmh)
+        minor = step / 2.0
         arc_r = radius - 22.0
-        for kmh in range(0, int(max_kmh) + 1, 10):
+        ticks = int(round(max_kmh / minor))
+        if ticks * minor > max_kmh + 0.05:
+            ticks -= 1
+        for i in range(ticks + 1):
+            kmh = i * minor
             deg = self._START - self._SWEEP * (kmh / max_kmh)
-            major = kmh % 20 == 0
+            major = i % 2 == 0
             x0, y0 = at(arc_r + 3.0, deg)
             x1, y1 = at(arc_r + (9.0 if major else 6.0), deg)
             self.create_line(x0, y0, x1, y1, fill=colors["ink"] if major else colors["muted"], width=2 if major else 1)
             if major:
                 lx, ly = at(arc_r + 16.0, deg)
-                self.create_text(lx, ly, text=str(kmh), fill=colors["ink"], font=self._tick_font)
+                self.create_text(lx, ly, text=str(int(round(kmh))), fill=colors["ink"], font=self._tick_font)
         sweep(arc_r, 1.0, colors["track"], 3)
-        shown = min(max(speed_mps, 0.0), self._MAX_MPS) / self._MAX_MPS
+        shown = min(max(speed_mps, 0.0), self._max_mps) / self._max_mps
         sweep(arc_r, shown, colors["accent"], 4)
 
         if accel >= 0.0:
