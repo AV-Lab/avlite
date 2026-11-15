@@ -17,6 +17,7 @@ This guide covers creating community plugins. Classes inheriting from base strat
 | **Planning** | `GlobalPlannerStrategy`, `LocalPlanningStrategy` | Global / local planner dropdowns |
 | **Control** | `ControlStrategy` | Controller dropdown |
 | **Execution** | `WorldBridge`, `ExecutionStrategy`, `TaskStrategy` | Bridge / executer dropdowns; `c40_execution_tasks` list |
+| **Visualizer** | `PlotStrategy` | Plots checkbox on the main window |
 
 ### Perception: monolithic vs pipeline
 
@@ -644,6 +645,7 @@ plugins:
 | `ExecutionStrategy` | Runtime execution, scheduling, orchestration |
 | `TaskStrategy` | Stack-extension tasks after the tick (cycle / interval / event) |
 | `WorldBridge` | Bridges to simulators, middleware, or external world interfaces |
+| `PlotStrategy` | A visualizer plot pane |
 
 A plugin can list **multiple** categories if it exports more than one strategy type, e.g. `[PerceptionStrategy, LocalizationStrategy]`.
 
@@ -734,6 +736,7 @@ Filtering reads a thread-safe snapshot updated on the main thread only (safe whe
 | `ControlStrategy` | Vehicle control | `control()` |
 | `TaskStrategy` | Stack-extension execution tasks | `execute(executer, event=None)` |
 | `WorldBridge` | Simulator integration | `control_ego_state()`, `control_type(agent)`, `control_agent()`, `teleport_agent()`, `get_*(agent_id=...)`, `step()` |
+| `PlotStrategy` | Visualizer pane | `plot()` |
 
 ## Apps (`AppStrategy`)
 
@@ -748,6 +751,22 @@ CLI and GUI entry points register via :class:`~avlite.c60_apps.c61_app_strategy.
 | Setting CLI | `p60_setting_cli` | `python -m avlite setting-cli` |
 
 Built-in ``p60_*`` plugin packages are imported at startup via ``bootstrap_apps()`` in ``c61_app_strategy``. The merged ``p60_visualizer_tk`` package hosts shared Tk code (``p64_setting_views``, ``p65_ui_lib``, ``settings.py``) and three standalone ``AppStrategy`` entry modules. Stack core (``c10``–``c40``, ``c50_common``) may import ``c61_app_strategy``, ``c64_settings_schema``, ``c68_paths``, and ``c69_settings`` only; it must not import ``p60_*`` Tk apps.
+
+## Plots (`PlotStrategy`)
+
+A visualizer pane registers the same way as an app. Import ``PlotStrategy`` from ``avlite``. That module is not reloaded, so a plugin reload cannot replace the base class and clear the registry. Subclass it, set ``label``, implement ``plot``, and read the running stack from ``self.root.exec``.
+
+```python
+from avlite import PlotStrategy
+
+class RangePlot(PlotStrategy):
+    label = "Range"
+
+    def plot(self) -> None:
+        ego = self.root.exec.ego_state
+```
+
+The class name is the registry key and should stay stable. The Plots checkbox uses ``label`` and is saved in ``p67_plot_visible`` under that name; a new name starts visible. ``abstract=True`` is for a shared base that is not a pane. ``reset`` is optional and runs when the stack reloads.
 
 ## See Also
 

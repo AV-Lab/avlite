@@ -259,7 +259,7 @@ After each stack tick, [`TaskRunner`](../avlite/c40_execution/c43_task_strategy.
 
 CLI and GUI entry points, each an `AppStrategy` (see [App Strategy](#app-strategy-cligui-entry-points)). Built-in apps ship as `p60_*` plugins and the layer is extendable:
 
-- **Visualizer** (default, `avlite`) — Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings.
+- **Visualizer** (default, `avlite`) — Tkinter GUI: real-time plots, profile/config management, schema tooltips, thread-safe log filtering (Core / Plugins / per-layer toggles), and plugin settings. Plot panes, including ones from plugins, are [`PlotStrategy`](plugin-development.md#plots-plotstrategy) subclasses.
 - **Settings GUI** (`avlite setting`) — full stack settings editor window.
 - **Plugin Manager** (`avlite plugins`) — browse, install, and register community plugins.
 - **Headless** (`avlite headless`) — runs the same YAML profile with a terminal dashboard, no GUI.
