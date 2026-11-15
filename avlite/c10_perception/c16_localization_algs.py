@@ -5,7 +5,8 @@ localization strategy that estimates the ego pose by aligning each incoming
 LiDAR scan against a reference map built from the first scan, using Iterative
 Closest Point (ICP).  It works with 2D scans ``(N, 2)`` and 3D point clouds
 ``(N, 3+)``; 3D input is "squashed" to 2D by keeping only points whose height
-lies within ``[z_min, z_max]`` and then dropping the z (and intensity) columns.
+in the ego body frame lies within ``[z_min, z_max]`` and then dropping the z
+(and intensity) columns.
 """
 from typing import Optional
 
@@ -38,13 +39,14 @@ class LidarLocalization(LocalizationStrategy):
     estimate) and the resulting 2D rigid transform updates the running pose,
     which is written back into ``perception_model.ego_vehicle`` in-place.
 
-    3D point clouds are squashed to 2D: points are kept only when their height
-    is within ``[z_min, z_max]``, then the x/y columns are used.
+    3D point clouds are squashed to 2D: after applying the LiDAR mount, points
+    are kept only when their ego-body height is within ``[z_min, z_max]``, then
+    the x/y columns are used. The same accepted points seed the reference map.
 
     Parameters
     ----------
     z_min, z_max : float
-        Z-band filter for 3D input [m].  Ignored for 2D input.
+        Ego-body Z-band filter for 3D input [m]. Ignored for 2D input.
     max_iterations : int
         Maximum ICP iterations per :meth:`localize` call.
     tolerance : float
@@ -105,7 +107,10 @@ class LidarLocalization(LocalizationStrategy):
             self._x = float(ego.x)
             self._y = float(ego.y)
             self._theta = float(ego.theta)
-            self._map = self._squash(lidar.to_map(lidar.points, ego))[:: self._map_subsample]
+            # ``scan`` is already body-frame XY; apply only body → map.
+            pose = ego.pose_matrix()
+            map_scan = scan @ pose[:2, :2].T + pose[:2, 3]
+            self._map = map_scan[:: self._map_subsample]
             return
 
         # Align the new scan to the reference map starting from the previous
@@ -131,7 +136,7 @@ class LidarLocalization(LocalizationStrategy):
         """Reduce a LiDAR scan to ordered 2D points ``(N, 2)``.
 
         2D scans are returned as-is. 3D point clouds are filtered to the
-        ``[z_min, z_max]`` height band, then the z/intensity columns are
+        ``[z_min, z_max]`` body-height band, then the z/intensity columns are
         dropped.
         """
         if lidar is None or len(lidar) == 0:

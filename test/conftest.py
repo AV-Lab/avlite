@@ -45,6 +45,20 @@ def minimal_opendrive_path() -> Path:
     return FIXTURES_DIR / "minimal_opendrive.xodr"
 
 
+@pytest.fixture
+def lane_geometry_opendrive_path() -> Path:
+    """OpenDRIVE map with one small road per lane-section, lane-shape and road-geometry case."""
+    return FIXTURES_DIR / "lane_geometry_opendrive.xodr"
+
+
+@pytest.fixture
+def two_way_opendrive_path(tmp_path, lane_geometry_opendrive_path) -> Path:
+    """The lane geometry map with every driving lane bidirectional."""
+    path = tmp_path / "two_way.xodr"
+    path.write_text(lane_geometry_opendrive_path.read_text().replace('type="driving"', 'type="bidirectional"'))
+    return path
+
+
 @pytest.fixture(autouse=True)
 def skip_ros_apply_outside_plugin_env_tests(request, monkeypatch):
     """Do not source /opt/ros or re-exec pytest except in PluginEnv unit tests."""

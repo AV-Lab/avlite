@@ -20,6 +20,7 @@ from avlite.c30_control.c36_keyboard import keyboard_drive_owns
 from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c40_execution import c49_settings
 from avlite.c40_execution.c49_settings import ExecutionSettings
+from avlite.c60_apps.c61_app_strategy import PlotStrategy
 from avlite.c60_apps.c67_plugin_env import PluginEnv
 from avlite.c60_apps.c69_settings import AppSettings
 from avlite.c60_apps.c68_paths import ConfigPaths, PluginPaths
@@ -560,6 +561,7 @@ class SettingWindow:
         btn_browse_plugins = ttk.Button(plugin_frame, text="Browse Community Plugins…", command=self.open_plugins_window)
         btn_browse_plugins.grid(row=9, column=0, columnspan=2, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
+        self.apply_profile_note_theme()
 
     def _wheel_canvas(self, widget):
         """Scroll the Shortcuts list when the pointer is over it, otherwise the stack list."""
@@ -667,21 +669,14 @@ class SettingWindow:
         additional_setting_row_1b.pack(fill=tk.X)
         ttk.Label(additional_setting_row_1b, text="Local Plan Plot View:").pack(anchor=tk.W, side=tk.LEFT, padx=5)
         for text, field in (
-            ("Local Global View", "p67_show_local_global_view"),
-            ("Local Frenet View", "p67_show_local_frenet_view"),
             ("LiDAR in Global", "p66_show_lidar_global"),
             ("LiDAR in Frenet", "p66_show_lidar_frenet"),
             ("Clustered Pts", "p66_show_lidar_clusters"),
             ("Race Boundary", "p66_show_race_boundary"),
         ):
-            cmd = (
-                self.host.update_local_plan_views
-                if field in ("p67_show_local_global_view", "p67_show_local_frenet_view")
-                else self.host.update_ui
-            )
             cb = ttk.Checkbutton(
                 additional_setting_row_1b, text=text,
-                variable=getattr(self.host.setting, field), command=cmd,
+                variable=getattr(self.host.setting, field), command=self.host.update_ui,
             )
             cb.pack(side=tk.LEFT)
             HoverTooltip.attach_schema(cb, VisualizationSettings, field)
@@ -1244,21 +1239,35 @@ class SettingWindow:
             self.host.show_profile_note(self.window)
 
     def apply_profile_note_theme(self) -> None:
-        """Match the note box to the current light or dark theme."""
+        """Match the note box and plugin lists to the current light or dark theme."""
         dark = bool(self.host.setting.p60_dark_mode.get())
         style = ttk.Style(self.window)
         frame_bg = style.lookup("TFrame", "background") or ("gray14" if dark else "white")
         field_bg = style.lookup("TEntry", "fieldbackground") or frame_bg
         fg = style.lookup("TLabel", "foreground") or ("white" if dark else "black")
+        select_bg = "#444466" if dark else "#0078d7"
         self.profile_note.configure(
             bg=field_bg,
             fg=fg,
             insertbackground="white" if dark else "black",
             highlightbackground=frame_bg,
             highlightcolor=fg,
-            selectbackground="#444466" if dark else "#0078d7",
+            selectbackground=select_bg,
             selectforeground="white",
         )
+        # option_add does not recolor a Listbox that already exists.
+        for name in ("listbox_default_plugins", "listbox_community_plugins"):
+            box = getattr(self, name, None)
+            if box is None:
+                continue
+            box.configure(
+                bg=field_bg,
+                fg=fg,
+                highlightbackground=frame_bg,
+                highlightcolor=fg,
+                selectbackground=select_bg,
+                selectforeground="white",
+            )
 
     def update_community_plugin_widgets(self):
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""
@@ -1553,6 +1562,9 @@ class SettingShortcutView(ttk.LabelFrame):
         self.root: VisualizerApp = root
         self._bound: list[tuple[str, bool]] = []
 
+        self.plot_checks = ttk.Frame(self)
+        self.plot_checks.pack(side=tk.TOP, fill=tk.X)
+
         btn_settings = ttk.Button(self, text="⚙", command=self.open_settings_window, width=2)
         btn_settings.pack(side=tk.RIGHT)
         HoverTooltip.attach(btn_settings, BUTTON_TOOLTIPS["toolbar_settings"])
@@ -1597,33 +1609,6 @@ class SettingShortcutView(ttk.LabelFrame):
         dark_cb.pack(anchor=tk.W, side=tk.LEFT)
         HoverTooltip.attach_schema(dark_cb, VisualizationSettings, "p60_dark_mode")
 
-        global_cb = ttk.Checkbutton(
-            self,
-            text="Global",
-            variable=self.root.setting.p67_global_plan_view,
-            command=self.root.update_views,
-        )
-        global_cb.pack(anchor=tk.W, side=tk.LEFT)
-        HoverTooltip.attach_schema(global_cb, VisualizationSettings, "p67_global_plan_view")
-
-        local_frenet_cb = ttk.Checkbutton(
-            self,
-            text="Local Frenet",
-            variable=self.root.setting.p67_show_local_frenet_view,
-            command=self.root.update_local_plan_views,
-        )
-        local_frenet_cb.pack(anchor=tk.W, side=tk.LEFT)
-        HoverTooltip.attach_schema(local_frenet_cb, VisualizationSettings, "p67_show_local_frenet_view")
-
-        local_global_cb = ttk.Checkbutton(
-            self,
-            text="Local Global",
-            variable=self.root.setting.p67_show_local_global_view,
-            command=self.root.update_local_plan_views,
-        )
-        local_global_cb.pack(anchor=tk.W, side=tk.LEFT)
-        HoverTooltip.attach_schema(local_global_cb, VisualizationSettings, "p67_show_local_global_view")
-
         ttk.Label(
             self,
             textvariable=self.root.setting.perception_status_text,
@@ -1637,6 +1622,28 @@ class SettingShortcutView(ttk.LabelFrame):
         attach_panel_fold(self, self.root.setting.p60_settings_folded)
         attach_panel_fold(self.shortcut_frame, self.root.setting.p60_shortcuts_folded)
         self.apply_shortcuts()
+
+    def refresh_plot_checks(self):
+        checks = self.plot_checks
+        for child in checks.winfo_children():
+            child.destroy()
+        ttk.Label(checks, text="Plots: ").pack(side=tk.LEFT, padx=(5, 2))
+        for name in PlotStrategy.registry:
+            view = self.root.plots.get(name)
+            if view is None:
+                continue
+            cb = ttk.Checkbutton(
+                checks,
+                text=view.label or name,
+                variable=view.enabled,
+                command=lambda: (self.root.update_views(), self.root.update_ui()),
+            )
+            cb.pack(anchor=tk.W, side=tk.LEFT)
+            field = type(view).enabled_field
+            if field:
+                HoverTooltip.attach_schema(cb, VisualizationSettings, field)
+            else:
+                HoverTooltip.attach(cb, "Show or hide this plot.")
 
     def _build_shortcut_table(self, scale: float) -> None:
         """Short scrolled Group / Key / Action list for the main window."""
@@ -1764,10 +1771,10 @@ class SettingShortcutView(ttk.LabelFrame):
             "toggle_shortcuts": lambda: root.update_shortcut_mode(reverse=True),
             "save_settings": lambda: self.save_settings(),
             "focus": lambda: root.focus_set(),
-            "zoom_in_frenet": lambda: root.local_plan_plot_view.zoom_in_frenet(),
-            "zoom_out_frenet": lambda: root.local_plan_plot_view.zoom_out_frenet(),
-            "zoom_in": lambda: root.local_plan_plot_view.zoom_in(),
-            "zoom_out": lambda: root.local_plan_plot_view.zoom_out(),
+            "zoom_in_frenet": lambda: root.plots["FrenetPlot"].zoom_in(),
+            "zoom_out_frenet": lambda: root.plots["FrenetPlot"].zoom_out(),
+            "zoom_in": lambda: root.plots["LocalGlobalPlot"].zoom_in(),
+            "zoom_out": lambda: root.plots["LocalGlobalPlot"].zoom_out(),
             "step_plan": plan("step_plan"),
             "step_plan_back": plan("step_waypoint_back"),
             "replan": plan("replan"),

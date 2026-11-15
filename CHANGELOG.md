@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-11-16
+
+### Added
+- Apps: `avlite apps` lists registered apps. Community `AppStrategy` commands in `configs/apps.yaml` load before argparse, so `avlite <command>` works. A missing or unreadable file keeps the built-in commands, and a plugin cannot replace one.
+- Apps: `configs/apps.yaml` follows the other settings (bundled file, or the user config home). User mode copies the bundled file when that copy is missing. Plugin install and uninstall update the effective file.
+- Visualizer: `PlotStrategy`, exported from `avlite`, is a plot pane. Subclass it, set `label`, and implement `plot`; `abstract=True` stays out of the registry. The visualizer adds a pane for each registered plot, and a plugin reload cannot replace the base class and clear that registry. `p67_plot_visible` stores which panes are shown, keyed by class name, and seeds a new name from the plot's `enabled_field`. `p67_plot_sashes` stores each pane's width fraction (at most four).
+
+### Changed
+- Visualizer: the speed and steering gauges are smaller. A new reading redraws the needle and arcs only, and a folded control panel does not redraw them until it is opened again.
+
+### Fixed
+- Visualizer: every enabled plot draws on the first load. The sash is placed after the window and the profile theme have settled.
+- Visualizer: opening Settings or switching dark mode no longer rebuilds the gauges for every theme event.
+- Visualizer: the Settings plugin lists follow dark and light mode. They previously stayed white after the theme changed.
+
 ## [0.6.6] - 2026-10-14
 
 ### Added

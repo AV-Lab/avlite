@@ -21,15 +21,18 @@ when the app needs CLI flags or nested subcommands.
 
 Built-in ``p60_*`` plugin packages are imported at startup via :func:`~avlite.c60_apps.c61_app_strategy.import_app_plugins`.
 
-This module stays free of heavy imports (no tkinter); plugins may import it
-without pulling in the GUI.
+:class:`PlotStrategy` lives here for the same reason as :class:`AppStrategy`:
+this module is not reloaded, so ``from avlite import PlotStrategy`` stays the
+live class. Importing this module imports tkinter.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import tkinter as tk
 from abc import ABC, abstractmethod
+from tkinter import ttk
 
 log = logging.getLogger(__name__)
 
@@ -54,14 +57,74 @@ class AppStrategy(ABC):
             AppStrategy.registry[cls.cli_name] = cls
 
 
+class AppsApp(AppStrategy):
+    """``avlite apps`` — list every registered app."""
+
+    cli_name = "apps"
+    help = "List registered apps"
+
+    def run(self, args: argparse.Namespace, unknown: list[str]) -> int | None:
+        rows = [
+            ("default" if name is None else name, cls.help)
+            for name, cls in AppStrategy.registry.items()
+        ]
+        width = max(len(label) for label, _help in rows)
+        for label, help_text in sorted(rows):
+            print(f"{label:<{width}}  {help_text}")
+        return 0
+
+
+class PlotStrategy(ttk.Frame, ABC):
+    """A visualizer pane. Subclass, set ``label``, implement :meth:`plot`."""
+
+    registry: dict[str, type["PlotStrategy"]] = {}
+    label: str = ""
+    enabled_field: str | None = None
+
+    def __init__(self, root: tk.Misc) -> None:
+        super().__init__(root)
+        self.root = root
+        setting = getattr(root, "setting", None)
+        field = type(self).enabled_field
+        ensure = getattr(setting, "ensure_plot_enabled", None)
+        if callable(ensure):
+            self.enabled = ensure(type(self).__name__, field)
+        elif field and setting is not None:
+            self.enabled = getattr(setting, field)
+        else:
+            self.enabled = tk.BooleanVar(master=root, value=True)
+
+    @abstractmethod
+    def plot(self) -> None:
+        """Redraw this pane from ``self.root``."""
+
+    def reset(self) -> None:
+        return None
+
+    def __init_subclass__(cls, abstract: bool = False, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        if not abstract:
+            PlotStrategy.registry[cls.__name__] = cls
+
+
 # ---------------------------------------------------------------------------
 # Internal wiring used by avlite/__main__.py (not part of the plugin API)
 # ---------------------------------------------------------------------------
 
 
 def bootstrap_apps() -> None:
-    """Import all app modules so their ``AppStrategy`` subclasses register."""
+    """Import built-in ``p60`` apps, then ``configs/apps.yaml``.
+
+    A missing or unreadable file keeps the built-in commands. A plugin cannot
+    replace a command that is already registered.
+    """
+    import importlib
+    from pathlib import Path
+
+    import yaml
+
     from avlite.c60_apps.c63_plugins import import_plugin_modules, list_plugins
+    from avlite.c60_apps.c68_paths import ConfigPaths
 
     for name in list_plugins():
         if not name.startswith("p60"):
@@ -70,6 +133,40 @@ def bootstrap_apps() -> None:
             import_plugin_modules(plugins_filter=[name])
         except Exception as e:
             log.warning("Could not load app plugin '%s': %s", name, e)
+
+    apps_file = Path(ConfigPaths.effective_path("configs/apps.yaml"))
+    bundled = ConfigPaths.bundled_dir() / "apps.yaml"
+    if not apps_file.is_file() and bundled.is_file() and bundled.resolve() != apps_file.resolve():
+        apps_file.parent.mkdir(parents=True, exist_ok=True)
+        apps_file.write_text(bundled.read_text(encoding="utf-8"), encoding="utf-8")
+    try:
+        listed = yaml.safe_load(apps_file.read_text(encoding="utf-8"))
+        if not isinstance(listed, dict):
+            return
+    except Exception:
+        return
+
+    protected = dict(AppStrategy.registry)
+    for name, target in listed.items():
+        if name in protected:
+            continue
+        try:
+            plugin = Path(str(target)).expanduser()
+            if plugin.is_dir():
+                import_plugin_modules(str(plugin))
+            else:
+                importlib.import_module(str(target))
+        except Exception as e:
+            log.warning("Could not load app '%s': %s", name, e)
+    for name, cls in protected.items():
+        current = AppStrategy.registry.get(name)
+        if current is not cls:
+            log.warning(
+                "Skipping app '%s': command '%s' already registered",
+                getattr(current, "__name__", name),
+                name,
+            )
+            AppStrategy.registry[name] = cls
 
 
 def register_parsers(sub) -> None:

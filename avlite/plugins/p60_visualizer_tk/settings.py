@@ -82,6 +82,14 @@ class PluginSettingsSchema(SettingsSchema):
     p67_show_prediction: bool = Field(default=True, description="Show predicted trajectories, ellipses, and occupancy flow on plots.")
     p67_global_plan_view: bool = Field(default=True, description="Show global plan panel.")
     p67_local_plan_view: bool = Field(default=True, description="Show local plan panel.")
+    p67_plot_visible: dict[str, bool] = Field(
+        default_factory=dict,
+        description="Visible plot panes, keyed by plot class name.",
+    )
+    p67_plot_sashes: dict[str, float] = Field(
+        default_factory=dict,
+        description="Width fraction of each visible plot pane. Stored for at most 4 panes.",
+    )
     p67_perception_folded: bool = Field(default=False, description="Fold the Perception panel to its title.")
     p67_plan_folded: bool = Field(default=False, description="Fold the Planning panel to its title.")
     p67_control_folded: bool = Field(default=False, description="Fold the Control panel to its title.")
@@ -313,6 +321,9 @@ class VisualizationSettings:
         self.p67_execution_folded = tk.BooleanVar(value=False)
         self.p67_bridge_folded = tk.BooleanVar(value=False)
         self.p67_local_plan_view = tk.BooleanVar(value=True)
+        self.p67_plot_visible: dict[str, bool] = {}
+        self._plot_enabled_vars: dict[str, tk.BooleanVar] = {}
+        self.p67_plot_sashes: dict[str, float] = {}
 
         self.executer_type = tk.StringVar(
             value=_strategy_default(ExecutionStrategy.registry, ExecutionSettings.c40_executer_type)
@@ -492,6 +503,36 @@ class VisualizationSettings:
             save_setting(cls, binder=TkSettingsBinder())
         except Exception:
             pass
+
+    def _legacy_plot_visible(self, field: str | None) -> bool:
+        """Read a hand-written per-plot flag, if this settings object still has one."""
+        if not field:
+            return True
+        value = getattr(self, field, None)
+        if isinstance(value, tk.Variable):
+            return bool(value.get())
+        if isinstance(value, bool):
+            return value
+        return True
+
+    def ensure_plot_enabled(self, name: str, legacy_field: str | None = None) -> tk.BooleanVar:
+        """Boolean for one registered plot. Missing names are seeded from *legacy_field*."""
+        if name not in self.p67_plot_visible:
+            self.p67_plot_visible[name] = self._legacy_plot_visible(legacy_field)
+        var = self._plot_enabled_vars.get(name)
+        desired = bool(self.p67_plot_visible[name])
+        if var is None:
+            var = tk.BooleanVar(value=desired)
+
+            def _write(*_args, plot_name: str = name, plot_var: tk.BooleanVar = var) -> None:
+                self.p67_plot_visible[plot_name] = bool(plot_var.get())
+
+            var.trace_add("write", _write)
+            self._plot_enabled_vars[name] = var
+            return var
+        if bool(var.get()) != desired:
+            var.set(desired)
+        return var
 
     def sync_app_from_singleton(self) -> None:
         """Copy AppSettings singleton values into Tk variables."""

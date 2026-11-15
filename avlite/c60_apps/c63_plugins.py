@@ -195,6 +195,9 @@ def load_community_plugin_setting(
 
 def unregister_plugin_package(plugin_name: str) -> None:
     """Remove strategy classes registered by a plugin and purge its modules."""
+    if not plugin_import_name(plugin_name):
+        log.warning("Ignoring request to unregister a plugin with an empty name")
+        return
     from avlite.c10_perception.c12_perception_strategy import PerceptionStrategy
     from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
     from avlite.c20_planning.c23_local_planning_strategy import LocalPlanningStrategy
@@ -216,6 +219,7 @@ def unregister_plugin_package(plugin_name: str) -> None:
     app_strategy_mod = sys.modules.get("avlite.c60_apps.c61_app_strategy")
     if app_strategy_mod is not None:
         registries.append(app_strategy_mod.AppStrategy.registry)
+        registries.append(app_strategy_mod.PlotStrategy.registry)
 
     prefix = plugin_module_prefix(plugin_name)
     for registry in registries:
@@ -354,7 +358,7 @@ def import_plugin_modules(
         if not pkg_path.exists():
             log.warning("Package path does not exist: %s", pkg_path)
             continue
-        package_prefix = plugin_module_prefix(pkg_name if directory else pkg_path.name)
+        package_prefix = plugin_module_prefix(pkg_name or pkg_path.name)
         log.info("Importing package: %s from %s", package_prefix, pkg_path)
         # A previous import may have cached this package from another checkout.
         # Drop those modules so this directory is the one that executes.

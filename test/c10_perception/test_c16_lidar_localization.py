@@ -93,6 +93,39 @@ def test_lidar_mount_is_applied_before_alignment():
     assert ego.y == pytest.approx(-0.2, abs=0.05)
 
 
+def test_height_filter_is_relative_to_body_not_lidar_mount():
+    mount = np.eye(4)
+    mount[2, 3] = 2.5
+    lidar = Lidar(base_to_sensor=mount)
+    sensor_points = np.array(
+        [
+            [0.0, 0.0, -2.5, 1.0],  # body z = 0.0: keep
+            [1.0, 0.0, -2.5, 1.0],  # body z = 0.0: keep
+            [0.0, 1.0, -2.5, 1.0],  # body z = 0.0: keep
+            [9.0, 9.0, -0.25, 1.0],  # body z = 2.25: reject
+            [8.0, 8.0, -4.25, 1.0],  # body z = -1.75: reject
+        ]
+    )
+    loc = LidarLocalization(PerceptionModel(ego_vehicle=EgoState()))
+
+    loc.localize(sensors=_frame(sensor_points, lidar))
+
+    np.testing.assert_allclose(loc._map, [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+
+
+def test_reference_height_filter_uses_body_frame_at_nonzero_map_elevation():
+    world = _corridor_map()
+    pose = (2.0, -1.0, 0.2)
+    ego = EgoState(x=pose[0], y=pose[1], z=10.0, theta=pose[2])
+    loc = LidarLocalization(PerceptionModel(ego_vehicle=ego))
+
+    # The cloud is at body z=0, inside the configured height band. Its map z
+    # is 10 m, which must not cause the reference scan to be filtered again.
+    loc.localize(sensors=_frame(_scan_from(pose, world)))
+
+    np.testing.assert_allclose(loc._map, world[::loc._map_subsample], atol=1e-4)
+
+
 @pytest.mark.parametrize("frame", [None, SensorFrame(), _frame(None), _frame(np.empty((0, 4)))])
 def test_localization_handles_missing_reading(frame):
     ego = EgoState(x=1.0, y=2.0, theta=0.3)

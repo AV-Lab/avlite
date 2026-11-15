@@ -4,8 +4,13 @@ Tests verify:
 - is_loadable recognizes .xodr fixture files.
 - Parsing builds roads, lanes, and a lane network.
 - reference_point is extracted from geoReference metadata.
+- Lane sections, lane width and offset, sharp curves and north roads parse correctly.
+- Lanes only join in the driving direction, and two-way lanes get a reverse lane.
 - sample_OpenDrive_geometry produces expected line geometry.
+- HDMapGlobalPlanner plans a route through lane sections.
 """
+
+import logging
 
 import numpy as np
 import pytest
@@ -13,6 +18,12 @@ import xml.etree.ElementTree as ET
 
 from avlite.c10_perception.c11_perception_model import HDMap
 from avlite.c10_perception.c18_hdmap_parser import parse_geo_reference_from_root, sample_OpenDrive_geometry
+from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
+
+
+@pytest.fixture
+def lane_map(lane_geometry_opendrive_path):
+    return HDMap.from_path(lane_geometry_opendrive_path)
 
 
 class TestHDMapLoadable:
@@ -39,6 +50,105 @@ class TestHDMapParse:
         assert ref is not None
         assert ref[0] == pytest.approx(45.0, abs=1e-6)
         assert ref[1] == pytest.approx(55.0, abs=1e-6)
+
+
+class TestHDMapLaneGeometry:
+    # The map's header describes each road
+    def test_each_section_keeps_its_lanes(self, lane_map):
+        uids = sorted(uid for uid in lane_map.lane_by_uid if uid[0] in "12")
+        assert uids == ["1_0_-1", "1_0_1", "1_1_-1", "1_1_-2", "1_1_1", "2_-1", "2_1"]
+
+    def test_section_lanes_cover_only_their_section(self, lane_map):
+        for uid, (x_start, x_end) in {"1_0_-1": (0.0, 50.0), "1_1_-1": (50.0, 100.0), "2_-1": (100.0, 150.0)}.items():
+            x = lane_map.lane_by_uid[uid].center_line[0]
+            assert x.min() == pytest.approx(x_start, abs=0.1)
+            assert x.max() == pytest.approx(x_end, abs=0.1)
+
+    def test_sections_link_in_driving_direction(self, lane_map):
+        edges = {(a, b) for a, b, change in lane_map.lane_network.edges(data="lane_change") if not change and a[0] in "12"}
+        assert edges == {("1_0_-1", "1_1_-1"), ("1_1_-1", "2_-1"), ("2_1", "1_1_1"), ("1_1_1", "1_0_1")}
+
+    def test_single_section_road_keeps_plain_uid(self, minimal_opendrive_path):
+        assert sorted(HDMap.from_path(minimal_opendrive_path).lane_by_uid) == ["1_-1", "1_1"]
+
+    def test_lane_follows_its_width_along_the_road(self, lane_map):
+        line = lane_map.lane_by_uid["3_-1"].center_line
+        for x, y in [(0, -101.0), (10, -101.25), (30, -102.0)]:
+            assert line[1][np.argmin(np.abs(line[0] - x))] == pytest.approx(y, abs=0.01)
+
+    def test_lane_follows_lane_offset_along_the_road(self, lane_map):
+        y = lane_map.lane_by_uid["4_-1"].center_line[1]
+        assert (y[0], y[-1]) == pytest.approx((-201.0, -199.0), abs=0.01)
+
+    def test_short_sharp_curve_keeps_its_turn(self, lane_map):
+        assert lane_map.lane_network.has_edge("5_-1", "6_-1")  # 42
+
+    def test_road_heading_exactly_north_loads(self, lane_map):
+        line = lane_map.lane_by_uid["7_-1"].center_line  # 41
+        assert np.allclose(line[0], 4.0)
+        assert line[1][-1] == pytest.approx(-440.0, abs=0.01)
+
+    def test_offset_jump_between_sections_keeps_the_link(self, lane_map):
+        assert lane_map.lane_network.has_edge("8_0_-2", "8_1_-1")
+        assert np.allclose(lane_map.lane_by_uid["8_0_-2"].center_line[1], -503.5)
+
+    def test_tiny_sections_stay_valid(self, lane_map):
+        lane = lane_map.lane_by_uid["9_0_-1"]
+        assert lane.width == pytest.approx(3.5)
+        assert np.allclose(lane.center_line[1], -601.75, atol=1.0)
+        assert lane_map.lane_by_uid["9_2_-1"].center_line.shape[1] == 3
+
+    def test_route_through_lane_sections(self, lane_map, caplog):
+        planner = HDMapGlobalPlanner(lane_map)
+        planner.set_start_goal((10.0, -1.75), (140.0, -1.75))
+        with caplog.at_level(logging.WARNING):
+            plan = planner.plan()
+        assert [lane.uid for lane in plan.lane_path] == ["1_0_-1", "1_1_-1", "2_-1"]
+        assert not caplog.records
+        path = np.array(plan.path)
+        assert np.allclose(path[[0, -1], 0], [10.0, 140.0], atol=0.5)
+        assert np.all(np.diff(path[:, 0]) > 0)
+        assert np.allclose(path[:, 1], -1.75, atol=0.1)
+
+
+class TestHDMapLaneJoins:
+    @pytest.mark.parametrize("b_xs, joins", [
+        ([1.0, 2.0], True),
+        ([1.0, 0.0], False),
+        ([2.0, 1.0], False),
+        ([-5.0, 1.0], False),
+    ])
+    def test_join_only_enters_a_lane_at_its_start(self, lane_map, b_xs, joins):
+        lane_a = HDMap.Lane(id=-1, uid="a", lane_element=None, center_line=np.array([[0.0, 1.0], [0.0, 0.0]]))
+        lane_b = HDMap.Lane(id=-1, uid="b", lane_element=None, center_line=np.array([b_xs, [0.0, 0.0]]))
+        lane_a.neighbors.add(lane_b)
+        joined = lane_map.can_laneA_access_laneB(lane_a, lane_b)
+        assert joined == joins
+
+
+class TestHDMapTwoWayLanes:
+    def test_two_way_lane_gets_a_reverse_lane(self, two_way_opendrive_path):
+        hdmap = HDMap.from_path(two_way_opendrive_path)
+        reverse = hdmap.lane_by_uid["30_-1"].reverse
+        details = reverse.uid, reverse.id, reverse.side, reverse.reverse.uid, hdmap.road_has_driving_lanes(reverse.road)
+        assert details == ("30_-1_reverse", 1, "left", "30_-1", True)
+
+    def test_two_way_lanes_join_only_in_the_driving_direction(self, two_way_opendrive_path):
+        network = HDMap.from_path(two_way_opendrive_path).lane_network
+        assert network.has_edge("30_-1", "31_0_-1") and network.has_edge("31_0_-1_reverse", "30_-1_reverse")
+        assert not network.has_edge("31_0_-1_reverse", "30_-1")
+        assert not network.has_edge("30_-1", "30_-1_reverse")
+
+    def test_start_and_goal_can_be_on_two_way_lanes(self, two_way_opendrive_path):
+        uid = HDMap.from_path(two_way_opendrive_path).find_nearest_lane(5.0, -701.0).uid
+        assert uid == "30_-1"
+
+    def test_unjoined_two_way_lane_is_not_a_start_lane(self, tmp_path, lane_geometry_opendrive_path):
+        path = tmp_path / "turn_lane.xodr"
+        path.write_text(lane_geometry_opendrive_path.read_text().replace('id="-2" type="driving"', 'id="-2" type="bidirectional"'))
+        hdmap = HDMap.from_path(path)
+        uid, in_network = hdmap.find_nearest_lane(60.0, -5.25).uid, "1_1_-2" in hdmap.lane_network
+        assert (uid, in_network) == ("1_1_-1", False)
 
 
 class TestGeoReferenceParsing:

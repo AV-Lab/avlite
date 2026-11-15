@@ -9,7 +9,7 @@ import pytest
 from avlite.c10_perception.c11_perception_model import EgoState
 from avlite.c40_execution.c49_settings import ExecutionSettings
 from avlite.c50_common.c52_world_sensor_datatypes import Lidar, SensorFrame
-from avlite.plugins.p60_visualizer_tk.p66_plot_views import LocalPlanPlotView
+from avlite.plugins.p60_visualizer_tk.p66_plot_views import LocalGlobalPlot
 
 
 @pytest.mark.parametrize("case", ["primary", "no_primary", "no_reading", "disabled"])
@@ -35,8 +35,6 @@ def test_plot_reads_selected_lidar_snapshot(case, monkeypatch):
     settings = MagicMock()
     settings.exec_running = False
     settings.p66_show_lidar_global.get.return_value = True
-    settings.p67_show_local_global_view.get.return_value = True
-    settings.p67_show_local_frenet_view.get.return_value = True
     canvas = MagicMock()
     widget = canvas.get_tk_widget.return_value
     widget.winfo_width.return_value = widget.master.winfo_width.return_value = 800
@@ -44,8 +42,11 @@ def test_plot_reads_selected_lidar_snapshot(case, monkeypatch):
     view = SimpleNamespace(
         root=SimpleNamespace(exec=SimpleNamespace(world=world), setting=settings),
         canvas=canvas, local_plot=MagicMock(),
+        lidar_name="p66_show_lidar_global",
+        zoom_name="p66_xy_zoom",
+        follow_name="p66_global_view_follow_planner",
     )
-    LocalPlanPlotView.plot(view)
+    LocalGlobalPlot.plot(view)
     shown = view.local_plot.plot.call_args.kwargs["lidar_data"]
     if case == "primary":
         np.testing.assert_allclose(shown, [[10, 25, 0, 1]], atol=1e-6)

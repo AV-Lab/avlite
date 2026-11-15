@@ -19,13 +19,9 @@ from avlite.c10_perception.c11_perception_model import AgentState
 from avlite.c20_planning.c21_planning_model import GlobalPlan
 from avlite.c40_execution.c44_sync_executer import SyncExecuter
 from avlite.c40_execution.c49_settings import ExecutionSettings
-from avlite.c60_apps.c61_app_strategy import AppStrategy
+from avlite.c60_apps.c61_app_strategy import AppStrategy, PlotStrategy
 from avlite.c60_apps.c69_settings import AppSettings
-from avlite.plugins.p60_visualizer_tk.p66_plot_views import (
-    LocalPlanPlotView,
-    GlobalPlanPlotView,
-    _canvas_ready,
-)
+from avlite.plugins.p60_visualizer_tk.p66_plot_views import _canvas_ready
 from avlite.plugins.p60_visualizer_tk.p67_stack_views import PerceivePlanControlView, ExecView
 from avlite.c60_apps.c62_factory import load_stack_settings
 from avlite.plugins.p60_visualizer_tk.settings import VisualizationSettings, sync_stack_settings_to_ui
@@ -60,6 +56,7 @@ class VisualizerApp(tk.Tk):
         apply_ttk_theme(self, dark=True)
         self._dpi_scale: float = DpiScale.for_widget(self)
         self.exec = None
+        self._applied_cmd = None
         self.loading_overlay = None
         self.ui_initialized = False
         self.show_loading_overlay()
@@ -81,7 +78,8 @@ class VisualizerApp(tk.Tk):
     def __initialize_ui(self):
         self.title("AVlite Visualizer")
         s = self._dpi_scale
-        self.geometry(f"{DpiScale.scaled(1200, s)}x{DpiScale.scaled(900, s)}")
+        # Tall enough that the control dials leave a usable plot strip.
+        self.geometry(f"{DpiScale.scaled(1200, s)}x{DpiScale.scaled(1010, s)}")
         self.withdraw()
         self.small_font = ("Courier", 10)
 
@@ -99,22 +97,22 @@ class VisualizerApp(tk.Tk):
         # ----------------------------------------------------------------------
         # UI Views
         # ---------------------------------------------------------------------
-        self.local_plan_plot_view = LocalPlanPlotView(self)
-        self.global_plan_plot_view = GlobalPlanPlotView(self)
+        self.plots = {}
+        self.plot_pane = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
+        self.plot_pane.grid(row=0, column=0, sticky="nsew")
+        self.plot_pane.bind("<ButtonRelease-1>", self.save_plot_sashes)
+        self.plot_sash_token = 0
         self.setting_shortcut_view = SettingShortcutView(self)
         self.perceive_plan_control_view = PerceivePlanControlView(self)
         self.exec_visualize_view = ExecView(self)
         self.log_view = LogView(self)
 
-        self.setting_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
-        self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
-        self.exec_visualize_view.grid(row=4, column=0, columnspan=2, sticky="ew")
-        self.log_view.grid(row=5, column=0, columnspan=2, sticky="nsew")
-        # Configure grid weights for the 3:1 ratio
-        self.grid_columnconfigure(0, weight=1)  # local view gets xx weight
-        self.grid_columnconfigure(1, weight=1)  # global view gets 1x weight
-        self.grid_rowconfigure(0, weight=1)  # make the plot views expand
-        self.update_views()
+        self.setting_shortcut_view.grid(row=1, column=0, sticky="ew")
+        self.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
+        self.exec_visualize_view.grid(row=4, column=0, sticky="ew")
+        self.log_view.grid(row=5, column=0, sticky="nsew")
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
         log.info("Reloading stack to ensure configuration is applied.")
         self.load_settings()
@@ -124,8 +122,8 @@ class VisualizerApp(tk.Tk):
         self.update_shortcut_mode()
 
         self.validate_cmd = (self.register(self.validate_float_input), "%P")
+        self.resize_redraw = None
         self.bind("<Configure>", self.__update_grid_column_sizes)
-        self.last_resize_time = time.time()
         self._finalize_startup_layout()
         self._create_menubar()
         self.ui_initialized = True
@@ -142,34 +140,23 @@ class VisualizerApp(tk.Tk):
         self.quit()
         self.destroy()
 
-    def local_plan_view_enabled(self) -> bool:
-        return (
-            self.setting.p67_show_local_global_view.get()
-            or self.setting.p67_show_local_frenet_view.get()
-        )
-
-    def update_local_plan_views(self):
-        self.setting.p67_local_plan_view.set(self.local_plan_view_enabled())
-        self.update_views()
-        self.update_ui()
-
     def _plots_canvas_ready(self) -> bool:
-        local_ok = (
-            not self.local_plan_view_enabled()
-            or _canvas_ready(self.local_plan_plot_view.canvas.get_tk_widget())
-        )
-        global_ok = (
-            not self.setting.p67_global_plan_view.get()
-            or _canvas_ready(self.global_plan_plot_view.canvas.get_tk_widget())
-        )
-        return local_ok and global_ok
+        for view in self.plots.values():
+            canvas = getattr(view, "canvas", None)
+            if view.enabled.get() and canvas is not None and not _canvas_ready(canvas.get_tk_widget()):
+                return False
+        return True
 
     def _finalize_startup_layout(self, attempt: int = 0) -> None:
         """Reveal the main window and plot only after canvases have final geometry."""
-        self.update_views()
         if not self.winfo_viewable():
             self.deiconify()
+        if attempt == 0:
+            self.setting_shortcut_view.toggle_dark_mode()
         self.update_idletasks()
+        if attempt == 0:
+            self.update()
+        self.update_views()
         if self.exec is not None and self._plots_canvas_ready():
             self.update_ui()
             self.focus_set()
@@ -181,59 +168,100 @@ class VisualizerApp(tk.Tk):
             self.update_ui()
         self.focus_set()
 
-    def __update_grid_column_sizes(self,event=None):
-        """Update column sizes when window is resized to maintain 3:1 ratio."""
+    def __update_grid_column_sizes(self, event=None):
+        if self.resize_redraw is not None:
+            self.after_cancel(self.resize_redraw)
+            self.resize_redraw = None
 
-        if event and event.widget == self:
-            width = event.width
-            if width > 10:  # Avoid division by zero or tiny windows
-                local_width = int(width * 0.5)
-                global_width = int(width * 0.5)
-                self.grid_columnconfigure(0, minsize=local_width)
-                self.grid_columnconfigure(1, minsize=global_width)
+        def redraw():
+            self.resize_redraw = None
+            self.update_idletasks()
+            self._last_plot_time = 0
+            self.update_ui()
 
-        if time.time() - self.last_resize_time > 1:
+        self.resize_redraw = self.after(300, redraw)
 
-            log.debug(f"Updating UI after resize in 500 ms")
-            self.after(500, self.update_ui)
-            # self.update_ui()
-            self.last_resize_time = time.time()
-    
+    def sync_plots(self):
+        """Create a pane for each registered plot that is not already on screen."""
+        for name, cls in PlotStrategy.registry.items():
+            self.setting.ensure_plot_enabled(name, cls.enabled_field)
+            if name not in self.plots:
+                self.plots[name] = cls(self)
+        for name in [n for n in self.plots if n not in PlotStrategy.registry]:
+            self.plots.pop(name).destroy()
+        self.setting_shortcut_view.refresh_plot_checks()
 
-    def __update_two_plots_layout(self):
-        local_on = self.local_plan_view_enabled()
-        log.debug(
-            f"Updating two plots layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, "
-            f"local_plan_view: {local_on}"
-        )
-        self.local_plan_plot_view.grid_forget()
-        self.global_plan_plot_view.grid_forget()
-        self.local_plan_plot_view.grid(row=0, column=0, sticky="nswe")
-        self.global_plan_plot_view.grid(row=0, column=1, sticky="nswe")
-
-    def __update_one_plot_layout(self):
-        local_on = self.local_plan_view_enabled()
-        log.debug(
-            f"Updating one plot layout: global_plan_view: {self.setting.p67_global_plan_view.get()}, "
-            f"local_plan_view: {local_on}"
-        )
-        self.local_plan_plot_view.grid_forget()
-        self.global_plan_plot_view.grid_forget()
-        if self.setting.p67_global_plan_view.get() and not local_on:
-            self.global_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
-        elif local_on and not self.setting.p67_global_plan_view.get():
-            self.local_plan_plot_view.grid(row=0, column=0, columnspan=2, sticky="nswe")
-        
-    
     def update_views(self):
-        if self.setting.p67_global_plan_view.get() and self.local_plan_view_enabled():
-            self.__update_two_plots_layout()
+        for pane in list(self.plot_pane.panes()):
+            self.plot_pane.forget(pane)
+        enabled = [
+            self.plots[name]
+            for name in PlotStrategy.registry
+            if name in self.plots and self.plots[name].enabled.get()
+        ]
+        names = [type(view).__name__ for view in enabled]
+        saved = self.setting.p67_plot_sashes or {}
+        matched = (
+            len(names) >= 2
+            and len(names) <= 4
+            and set(saved) == set(names)
+            and all(float(saved[name]) > 0 for name in names)
+        )
+        if matched:
+            fractions = [float(saved[name]) for name in names]
+        elif len(names) >= 2:
+            fractions = [1.0 / len(names)] * len(names)
         else:
-            self.__update_one_plot_layout()
+            fractions = None
+        for view, name in zip(enabled, names):
+            weight = max(1, round(float(saved[name]) * 1000)) if matched else 1
+            self.plot_pane.add(view, weight=weight)
+        if fractions is not None:
+            self.plot_sash_token += 1
+            token = self.plot_sash_token
 
+            def move(attempt=0, fractions=fractions, token=token):
+                if token != self.plot_sash_token:
+                    return
+                self.update_idletasks()
+                width = self.plot_pane.winfo_width()
+                if width <= 1 or not self.plot_pane.winfo_ismapped():
+                    if attempt < 20:
+                        self.after(50, lambda: move(attempt + 1))
+                    return
+                acc = 0.0
+                for i, frac in enumerate(fractions[:-1]):
+                    acc += frac
+                    pos = max(1, min(width - 1, int(round(acc * width))))
+                    try:
+                        got = self.plot_pane.sashpos(i, pos)
+                    except tk.TclError:
+                        got = 0
+                    if got < 1:
+                        if attempt < 20:
+                            self.after(50, lambda: move(attempt + 1))
+                        return
+                self._last_plot_time = 0
+                self.update_ui()
+
+            self.after(50, move)
         self.log_view.update_log_view_height()
         self.update_shortcut_mode()
-        # self.after(500, self.update_ui)  
+
+    def save_plot_sashes(self, event=None):
+        panes = list(self.plot_pane.panes())
+        if not (2 <= len(panes) <= 4):
+            return
+        width = self.plot_pane.winfo_width()
+        if width <= 1:
+            return
+        edges = [0] + [self.plot_pane.sashpos(i) for i in range(len(panes) - 1)] + [width]
+        fractions = {}
+        for i, path in enumerate(panes):
+            view = self.nametowidget(path)
+            fractions[type(view).__name__] = round((edges[i + 1] - edges[i]) / width, 4)
+            self.plot_pane.pane(view, weight=max(1, round(fractions[type(view).__name__] * 1000)))
+        self.setting.p67_plot_sashes = fractions
 
     def update_shortcut_mode(self, reverse=False):
         if reverse:
@@ -243,13 +271,13 @@ class VisualizerApp(tk.Tk):
             self.perceive_plan_control_view.grid_forget()
             self.exec_visualize_view.grid_forget()
 
-            self.setting_shortcut_view.grid(row=1, column=0, columnspan=2, sticky="ew")
-            self.setting_shortcut_view.shortcut_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
+            self.setting_shortcut_view.grid(row=1, column=0, sticky="ew")
+            self.setting_shortcut_view.shortcut_frame.grid(row=2, column=0, sticky="ew")
         else:
             self.setting_shortcut_view.shortcut_frame.grid_forget()
-            self.perceive_plan_control_view.grid(row=2, column=0, columnspan=2, sticky="ew")
-            self.exec_visualize_view.grid(row=4, column=0, columnspan=2, sticky="ew")
-            self.log_view.grid(row=5, column=0, columnspan=2, sticky="nsew")
+            self.perceive_plan_control_view.grid(row=2, column=0, sticky="ew")
+            self.exec_visualize_view.grid(row=4, column=0, sticky="ew")
+            self.log_view.grid(row=5, column=0, sticky="nsew")
 
 
 
@@ -360,9 +388,9 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "setting"):
             self.setting.p60_bg_color = "#333333"
             self.setting.p60_fg_color = "white"
-        if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
-            self.local_plan_plot_view.update_plot_theme()
-            self.global_plan_plot_view.update_plot_theme()
+        for view in getattr(self, "plots", {}).values():
+            if hasattr(view, "update_plot_theme"):
+                view.update_plot_theme()
         if hasattr(self, "exec_visualize_view"):
             self.exec_visualize_view.bridge_frame.update_canvas_theme()
 
@@ -382,6 +410,7 @@ class VisualizerApp(tk.Tk):
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
+        self.event_generate("<<ThemeChanged>>")
         log.info("Dark mode enabled.")
 
     def set_light_mode(self):
@@ -397,9 +426,9 @@ class VisualizerApp(tk.Tk):
         if hasattr(self, "setting"):
             self.setting.p60_bg_color = "white"
             self.setting.p60_fg_color = "black"
-        if hasattr(self, "local_plan_plot_view") and hasattr(self, "global_plan_plot_view"):
-            self.local_plan_plot_view.update_plot_theme()
-            self.global_plan_plot_view.update_plot_theme()
+        for view in getattr(self, "plots", {}).values():
+            if hasattr(view, "update_plot_theme"):
+                view.update_plot_theme()
         if hasattr(self, "exec_visualize_view"):
             self.exec_visualize_view.bridge_frame.update_canvas_theme()
         if hasattr(self, "menubar"):
@@ -411,6 +440,7 @@ class VisualizerApp(tk.Tk):
             for menu in getattr(self, "menus", []):
                 menu.configure(bg=bg, fg=fg, activebackground=activebg, activeforeground=activefg)
 
+        self.event_generate("<<ThemeChanged>>")
         log.info("Light mode enabled.")
 
     def _create_menubar(self):
@@ -618,8 +648,9 @@ class VisualizerApp(tk.Tk):
 
         self.setting.p60_bg_color = "#333333"
         self.setting.p60_fg_color = "white"
-        self.local_plan_plot_view.update_plot_theme()
-        self.global_plan_plot_view.update_plot_theme()
+        for view in self.plots.values():
+            if hasattr(view, "update_plot_theme"):
+                view.update_plot_theme()
         
         style = ttk.Style(self)
         style.theme_use('default')  # Reset to default theme
@@ -633,10 +664,9 @@ class VisualizerApp(tk.Tk):
         _do_plot = _plot_dt >= 0.033  # cap plot redraws at ~30 Hz
         if _do_plot:
             self._last_plot_time = t1
-            if self.setting.p67_global_plan_view.get():
-                self.global_plan_plot_view.plot()
-            if self.local_plan_view_enabled():
-                self.local_plan_plot_view.plot()
+            for view in self.plots.values():
+                if view.enabled.get():
+                    view.plot()
 
         if not self.setting.p60_shortcut_mode.get():
             self.setting.vehicle_state.set( f"Loc: ({self.exec.ego_state.x:+7.2f}, {self.exec.ego_state.y:+7.2f}), Vel: {self.exec.ego_state.velocity:5.2f} ({self.exec.ego_state.velocity*3.6:6.2f} km/h), θ: {self.exec.ego_state.theta:+5.1f}")
@@ -647,12 +677,22 @@ class VisualizerApp(tk.Tk):
                 self.setting.current_wp.set("0")
                 self.setting.lap.set("0")
 
-            # TODO: need to connect to a tkinter variable instead
+            # A newer controller command wins over the last manual pulse.
+            speed = self.exec.ego_state.velocity
+            accel = steer = cte_vel = cte_pos = 0.0
+            cmd = self._applied_cmd
             if self.exec.controller is not None:
-                self.perceive_plan_control_view.control_frame.gauge_cte_vel.set_value(self.exec.controller.cte_velocity)
-                self.perceive_plan_control_view.control_frame.gauge_cte_steer.set_value(self.exec.controller.cte_steer)
-                self.perceive_plan_control_view.control_frame.gauge_acc.set_value(self.exec.controller.cmd.acceleration)
-                self.perceive_plan_control_view.control_frame.gauge_steer.set_value(self.exec.controller.cmd.steer)
+                cte_vel = self.exec.controller.cte_velocity
+                cte_pos = self.exec.controller.cte_steer
+                live = self.exec.controller.cmd
+                if cmd is None or live.timestamp > cmd.timestamp:
+                    cmd = live
+            if cmd is not None:
+                accel = cmd.acceleration
+                steer = cmd.steer
+            self.perceive_plan_control_view.control_frame.update_readouts(
+                speed=speed, accel=accel, steer=steer, cte_vel=cte_vel, cte_pos=cte_pos,
+            )
 
             self.setting.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
             self.setting.elapsed_sim_time.set(f"{self.exec.elapsed_sim_time:6.2f}")
@@ -731,6 +771,7 @@ class VisualizerApp(tk.Tk):
         """
         self.exec.world.control_ego_state(cmd=cmd, dt=dt)
         self.exec.pm.ego_vehicle.copy_from(self.exec.world.get_ego_state())
+        self._applied_cmd = cmd
 
     def spawn_agent(self, agent_state: AgentState) -> None:
         """Spawn an agent in the world using the ego's current global plan."""
@@ -775,6 +816,8 @@ class VisualizerApp(tk.Tk):
 
         self.log_view.reset()
         ConfigPaths.set_startup_profile(profile)
+        for name, cls in PlotStrategy.registry.items():
+            self.setting.ensure_plot_enabled(name, cls.enabled_field)
         if hasattr(self, "setting_shortcut_view"):
             self.setting_shortcut_view.toggle_dark_mode()
         if hasattr(self, "perceive_plan_control_view"):
@@ -824,10 +867,6 @@ class VisualizerApp(tk.Tk):
 
         self.exec_visualize_view.stop_exec()
         self.disable_frame(self)
-        if not preserve_plot_layout:
-            self.local_plan_plot_view.grid_forget()
-            self.global_plan_plot_view.grid_forget()
-
         error = None
         try:
             if reload_code:
@@ -866,8 +905,9 @@ class VisualizerApp(tk.Tk):
             error = e
             log.error(f"Error reloading stack: {e}", exc_info=True)
         finally:
-            self.local_plan_plot_view.reset()
-            self.global_plan_plot_view.reset()
+            self.sync_plots()
+            for view in self.plots.values():
+                view.reset()
             self.perceive_plan_control_view.reset()
             self.exec_visualize_view.update_data()
             self.update_views()

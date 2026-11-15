@@ -18,7 +18,6 @@ def _inset_d(left: float, right: float, margin: float) -> tuple[float, float]:
     return left - margin, right + margin
 
 # Assumtpions
-# TODO: Lane sections are not handled properly
 # TODO: Assumptions: lanes of the same road are assumed to have the same size
 class HDMapGlobalPlanner(GlobalPlannerStrategy):
     """
@@ -58,22 +57,40 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         start_lane, s_idx = self.hdmap.find_nearest_lane_and_idx(*self.start_point)
         goal_lane, g_idx = self.hdmap.find_nearest_lane_and_idx(*self.goal_point)
-        log.info(f"Start lane: {start_lane.uid}, Goal lane: {goal_lane.uid}")
-
         if not start_lane or not goal_lane:
             log.error("Start or goal lane not found.")
             return
+        log.info(f"Start lane: {start_lane.uid}, Goal lane: {goal_lane.uid}")
 
 
-        # Plan global path
-        path = self.__plan_global_path(start_lane.uid, goal_lane.uid)
+        starts = list(filter(None, (start_lane, start_lane.reverse)))
+        if start_lane.reverse and perception_model:
+            theta = perception_model.ego_vehicle.theta
+            line = start_lane.center_line
+            along = line[:, min(s_idx + 3, line.shape[1] - 1)] - line[:, max(s_idx - 3, 0)]
+            faces_along = np.dot(along, (np.cos(theta), np.sin(theta))) > 0
+            starts = [start_lane if faces_along == (int(start_lane.id) < 0) else start_lane.reverse]
+
+        # Plan global path; a goal behind in the same lane section needs a route back round
+        same_section = (start_lane.road_id, start_lane.lane_section_idx) == (goal_lane.road_id, goal_lane.lane_section_idx)
+        routes = []
+        for start in starts:
+            for goal in filter(None, (goal_lane, goal_lane.reverse)):
+                goal_behind = same_section and (g_idx < s_idx if int(start.id) < 0 else g_idx > s_idx)
+                route = self.__plan_global_path(start.uid, goal.uid, goal_behind)
+                if route:
+                    behind_start = start.center_line[:, :s_idx + 1] if int(start.id) < 0 else start.center_line[:, s_idx:]
+                    before_goal = goal.center_line[:, :g_idx + 1] if int(goal.id) < 0 else goal.center_line[:, g_idx:]
+                    metres = nx.path_weight(self.hdmap.lane_network, route, weight="weight") - np.hypot(*np.diff(behind_start)).sum() + np.hypot(*np.diff(before_goal)).sum()
+                    routes.append((metres, route))
+        _, path = min(routes, default=(0.0, []))
         if len(path) == 0:
             log.warning(f"No path found from {start_lane.uid} to {goal_lane.uid}.")
             return
 
         # removing lane changes by keeping only the final lane in that road. This will utilize lane_change attribute in the edge
         # Notice that nodes and lanes, and edges are the changes
-        # TODO: Lane sections are not handled properly
+        # A new lane section of the same road is kept too
         # TODO: Assumptions: lanes of the same road are assumed to have the same size
         path2 = [path[0]]
         for i in range(1,len(path)):
@@ -82,7 +99,6 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                 path2.append(path[i])
             elif lane.lane_section_idx != self.hdmap.lane_by_uid[path2[-1]].lane_section_idx:
                 path2.append(path[i])
-                log.warning(f"Lane section change detected: {path2[-1]} to {path[i]}; however, this is not handled properly yet.")
 
 
         log.debug(f"Filtered Path:  {start_lane.uid} to {goal_lane.uid}: {path2}")
@@ -189,10 +205,9 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
 
         return self.global_plan
 
-    # TODO: The weights are road weight, not lanes. Change it later for precise distance calculation 
-    def __plan_global_path(self, source_id:str, destination_id:str) -> list[str]:
+    def __plan_global_path(self, source_id:str, destination_id:str, goal_behind: bool) -> list[str]:
         """
-        Plan a path between two road IDs using Dijkstra or A* algorithm.
+        Plan the shortest path in metres between two lane IDs.
         """
         try:
             # Debug: print node info and types
@@ -202,7 +217,17 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
             if source_id not in self.hdmap.lane_network or destination_id not in self.hdmap.lane_network:
                 log.error(f"Source {source_id} or destination {destination_id} not in lane network.")
                 return []
-            path = nx.shortest_path(self.hdmap.lane_network, source=source_id, target=destination_id)
+            network = self.hdmap.lane_network
+            if goal_behind:
+                # Drive on to a next lane, then take the shortest way back
+                paths = [
+                    [source_id] + nx.shortest_path(network, source=lane_id, target=destination_id, weight="weight")
+                    for lane_id in network.successors(source_id)
+                    if not network.edges[source_id, lane_id]["lane_change"] and nx.has_path(network, lane_id, destination_id)
+                ]
+                path = min(paths, key=lambda p: nx.path_weight(network, p, weight="weight"), default=[])
+            else:
+                path = nx.shortest_path(network, source=source_id, target=destination_id, weight="weight")
             log.debug(f"Path found from {source_id} to {destination_id}: {path}")
 
 
@@ -290,8 +315,8 @@ def smoothen_path_savgol(plan: GlobalPlan, min_spacing=0.5, window_length=7, pol
 
     n = len(cleaned_path)
     if n >= 3:
-        if window_length >= n:
-            window_length = n // 2 * 2 + 1  # Make it a valid odd number
+        window_length = min(window_length, n if n % 2 else n - 1)  # Largest odd window that fits
+        polyorder = min(polyorder, window_length - 1)
         path_np = np.array(cleaned_path)
         x_smooth = savgol_filter(path_np[:, 0], window_length, polyorder, mode="interp")
         y_smooth = savgol_filter(path_np[:, 1], window_length, polyorder, mode="interp")
