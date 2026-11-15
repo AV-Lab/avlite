@@ -561,6 +561,7 @@ class SettingWindow:
         btn_browse_plugins = ttk.Button(plugin_frame, text="Browse Community Plugins…", command=self.open_plugins_window)
         btn_browse_plugins.grid(row=9, column=0, columnspan=2, sticky="we", padx=5, pady=5)
         HoverTooltip.attach(btn_browse_plugins, BUTTON_TOOLTIPS["plugins_browse"])
+        self.apply_profile_note_theme()
 
     def _wheel_canvas(self, widget):
         """Scroll the Shortcuts list when the pointer is over it, otherwise the stack list."""
@@ -1238,21 +1239,35 @@ class SettingWindow:
             self.host.show_profile_note(self.window)
 
     def apply_profile_note_theme(self) -> None:
-        """Match the note box to the current light or dark theme."""
+        """Match the note box and plugin lists to the current light or dark theme."""
         dark = bool(self.host.setting.p60_dark_mode.get())
         style = ttk.Style(self.window)
         frame_bg = style.lookup("TFrame", "background") or ("gray14" if dark else "white")
         field_bg = style.lookup("TEntry", "fieldbackground") or frame_bg
         fg = style.lookup("TLabel", "foreground") or ("white" if dark else "black")
+        select_bg = "#444466" if dark else "#0078d7"
         self.profile_note.configure(
             bg=field_bg,
             fg=fg,
             insertbackground="white" if dark else "black",
             highlightbackground=frame_bg,
             highlightcolor=fg,
-            selectbackground="#444466" if dark else "#0078d7",
+            selectbackground=select_bg,
             selectforeground="white",
         )
+        # option_add does not recolor a Listbox that already exists.
+        for name in ("listbox_default_plugins", "listbox_community_plugins"):
+            box = getattr(self, name, None)
+            if box is None:
+                continue
+            box.configure(
+                bg=field_bg,
+                fg=fg,
+                highlightbackground=frame_bg,
+                highlightcolor=fg,
+                selectbackground=select_bg,
+                selectforeground="white",
+            )
 
     def update_community_plugin_widgets(self):
         """Reload and refresh widgets for community plugins that have ``PluginSettings``."""

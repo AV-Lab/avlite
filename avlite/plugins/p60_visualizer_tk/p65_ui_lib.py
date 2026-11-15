@@ -127,7 +127,7 @@ class ValueGauge(ttk.Frame):
 
         self.bind("<Configure>", lambda e: self.__draw())
         if compact:
-            self.winfo_toplevel().bind("<<ThemeChanged>>", self._on_theme, add="+")
+            self.bind("<<ThemeChanged>>", self._on_theme, add="+")
 
         if self.variable is not None:
             self.variable.trace_add("write", self.__variable_changed)
@@ -248,6 +248,11 @@ def _label_inside(font: tkfont.Font, text: str, deg: float, outer: float) -> tup
     return outer - extent, extent
 
 
+# Tick and spoke insets were authored on a 148 px dial.
+_DIAL_PX = 96
+_INSET = _DIAL_PX / 148
+
+
 class SpeedGauge(tk.Canvas):
     """Speed needle, acceleration arc, and a fixed ``km/h (m/s)`` caption.
 
@@ -264,18 +269,18 @@ class SpeedGauge(tk.Canvas):
 
     def __init__(self, parent, accel_min=-20.0, accel_max=10.0, dpi_scale=1.0, max_speed=100.0):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(148, scale)
-        self._font = ("Courier", 10)
-        self._tick_font = ("Courier", 8)
+        self._dial = DpiScale.scaled(_DIAL_PX, scale)
+        self._font = ("Courier", 8)
+        self._tick_font = ("Courier", 7)
         self._ticks = tkfont.Font(root=parent, font=self._tick_font)
         self._max_mps = max(max_speed, 1e-3)
         self._accel_min = accel_min
         self._accel_max = accel_max
         font = tkfont.Font(root=parent, font=self._font)
-        self._caption_h = font.metrics("linespace") + 1
+        self._caption_h = font.metrics("linespace") + _INSET
         # Widest caption the plant can show, so the panel does not reflow.
         sample = "-999.9 km/h (-999.9 m/s)"
-        self._width = max(self._dial, font.measure(sample) + 8)
+        self._width = max(self._dial, font.measure(sample) + 8 * _INSET)
         self._height = self._dial + self._caption_h
         super().__init__(
             parent,
@@ -288,96 +293,154 @@ class SpeedGauge(tk.Canvas):
         self._speed = 0.0
         self._accel = 0.0
         self._key = None
-        self.winfo_toplevel().bind("<<ThemeChanged>>", self._on_theme, add="+")
+        self.bind("<<ThemeChanged>>", self._on_theme, add="+")
+        self.bind("<Map>", lambda _event: self.set(self._speed, self._accel), add="+")
         self.set(0.0, 0.0)
 
     def _on_theme(self, _event):
+        colors = _gauge_colors(self)
+        if self._key is not None and self._key[2] == colors["bg"]:
+            return
+        self._key = None
         self.set(self._speed, self._accel)
 
     def set(self, speed_mps: float, accel: float) -> None:
         """Show ego speed in m/s and the acceleration command."""
-        colors = _gauge_colors(self)
-        key = (round(speed_mps, 3), round(accel, 3), colors["bg"])
-        if key == self._key:
-            return
-        self._key = key
         self._speed = speed_mps
         self._accel = accel
+        if not self.winfo_ismapped():
+            return
+        rounded = (round(speed_mps, 3), round(accel, 3))
+        if self._key is not None and self._key[0] == rounded[0] and self._key[1] == rounded[1]:
+            return
+        colors = _gauge_colors(self)
+        key = (*rounded, colors["bg"])
+        rebuild = self._key is None or self._key[2] != colors["bg"]
+        self._key = key
         self.configure(bg=colors["bg"])
-        self.delete("all")
 
+        k = _INSET
         cx = self._width / 2.0
-        cy = self._dial / 2.0 + 1.0
-        radius = self._dial / 2.0 - 4.0
+        cy = self._dial / 2.0 + k
+        radius = self._dial / 2.0 - 4.0 * k
 
         def at(r, deg):
             rad = math.radians(deg)
             return cx + r * math.cos(rad), cy - r * math.sin(rad)
 
-        def sweep(r, frac, color, width):
+        def place_arc(tag, r, frac, color, width):
             frac = max(0.0, min(1.0, frac))
-            if frac <= 0.004:
-                return
             extent = -self._SWEEP * frac
             box = (cx - r, cy - r, cx + r, cy + r)
-            self.create_arc(*box, start=self._START, extent=extent, style=tk.ARC, outline=color, width=width)
+            live = frac > 0.004
+            if self.find_withtag(tag):
+                if live:
+                    self.coords(tag, *box)
+                    self.itemconfigure(
+                        tag, state="normal", start=self._START, extent=extent, outline=color, width=width,
+                    )
+                else:
+                    self.itemconfigure(tag, state="hidden")
+            elif live:
+                self.create_arc(
+                    *box, start=self._START, extent=extent, style=tk.ARC, outline=color, width=width, tags=tag,
+                )
             cap = width / 2.0
-            for deg in (self._START, self._START + extent):
+            for suffix, deg in (("a", self._START), ("b", self._START + extent)):
+                cap_tag = f"{tag}_{suffix}"
+                if not live:
+                    if self.find_withtag(cap_tag):
+                        self.itemconfigure(cap_tag, state="hidden")
+                    continue
                 x, y = at(r, deg)
-                self.create_oval(x - cap, y - cap, x + cap, y + cap, fill=color, outline="")
+                coords = (x - cap, y - cap, x + cap, y + cap)
+                if self.find_withtag(cap_tag):
+                    self.coords(cap_tag, *coords)
+                    self.itemconfigure(cap_tag, state="normal", fill=color)
+                else:
+                    self.create_oval(*coords, fill=color, outline="", tags=cap_tag)
 
-        self.create_oval(
-            cx - radius, cy - radius, cx + radius, cy + radius,
-            fill=colors["face"], outline=colors["rim"], width=2,
-        )
-        max_kmh = self._max_mps * 3.6
-        step = _kmh_major_step(max_kmh)
-        minor = step / 2.0
-        tick_out = radius - 3.0
-        major_in = radius - 12.0
-        ticks = int(round(max_kmh / minor))
-        if ticks * minor > max_kmh + 0.05:
-            ticks -= 1
-        labels = []
-        for i in range(ticks + 1):
-            kmh = i * minor
-            deg = self._START - self._SWEEP * (kmh / max_kmh)
-            major = i % 2 == 0
-            x0, y0 = at(major_in if major else tick_out - 6.0, deg)
-            x1, y1 = at(tick_out, deg)
-            self.create_line(x0, y0, x1, y1, fill=colors["ink"] if major else colors["muted"], width=2 if major else 1)
-            if major:
-                text = str(int(round(kmh)))
-                label_r, extent = _label_inside(self._ticks, text, deg, major_in - 2.0)
-                labels.append((text, deg, label_r, extent))
-        inner = min(label_r - extent for _, _, label_r, extent in labels)
-        arc_r = inner - 6.0
-        for text, deg, label_r, _extent in labels:
-            lx, ly = at(label_r, deg)
-            self.create_text(lx, ly, text=text, fill=colors["ink"], font=self._tick_font)
-        sweep(arc_r, 1.0, colors["track"], 3)
+        if rebuild:
+            self.delete("all")
+        if not self.find_withtag("face"):
+            # Label measurement is slow; the arc radius does not depend on the live value.
+            max_kmh = self._max_mps * 3.6
+            step = _kmh_major_step(max_kmh)
+            minor = step / 2.0
+            tick_out = radius - 3.0 * k
+            major_in = radius - 12.0 * k
+            ticks = int(round(max_kmh / minor))
+            if ticks * minor > max_kmh + 0.05:
+                ticks -= 1
+            labels = []
+            for i in range(ticks + 1):
+                kmh = i * minor
+                deg = self._START - self._SWEEP * (kmh / max_kmh)
+                major = i % 2 == 0
+                if major:
+                    text = str(int(round(kmh)))
+                    label_r, extent = _label_inside(self._ticks, text, deg, major_in - 2.0 * k)
+                    labels.append((text, deg, label_r, extent))
+            inner = min(label_r - extent for _, _, label_r, extent in labels)
+            arc_r = inner - 6.0 * k
+            self.create_oval(
+                cx - radius, cy - radius, cx + radius, cy + radius,
+                fill=colors["face"], outline=colors["rim"], width=2 * k, tags="face",
+            )
+            for i in range(ticks + 1):
+                kmh = i * minor
+                deg = self._START - self._SWEEP * (kmh / max_kmh)
+                major = i % 2 == 0
+                x0, y0 = at(major_in if major else tick_out - 6.0 * k, deg)
+                x1, y1 = at(tick_out, deg)
+                self.create_line(
+                    x0, y0, x1, y1,
+                    fill=colors["ink"] if major else colors["muted"],
+                    width=2 * k if major else k,
+                )
+            for text, deg, label_r, _extent in labels:
+                lx, ly = at(label_r, deg)
+                self.create_text(lx, ly, text=text, fill=colors["ink"], font=self._tick_font)
+            place_arc("track", arc_r, 1.0, colors["track"], 3 * k)
+        else:
+            x0, _y0, x1, _y1 = self.coords("track")
+            arc_r = (x1 - x0) / 2.0
+
         shown = min(max(speed_mps, 0.0), self._max_mps) / self._max_mps
-        sweep(arc_r, shown, colors["accent"], 4)
-
+        place_arc("speed", arc_r, shown, colors["accent"], 4 * k)
         if accel >= 0.0:
             accel_frac = accel / max(self._accel_max, 1e-3)
             accel_color = colors["throttle"]
         else:
             accel_frac = -accel / max(abs(self._accel_min), 1e-3)
             accel_color = colors["neg"]
-        sweep(arc_r - 8.0, accel_frac, accel_color, 3)
+        place_arc("accel", arc_r - 8.0 * k, accel_frac, accel_color, 3 * k)
 
-        tip_x, tip_y = at(arc_r - 1.0, self._START - self._SWEEP * shown)
-        self.create_line(cx, cy, tip_x, tip_y, fill=colors["ink"], width=2, capstyle=tk.ROUND)
+        tip_x, tip_y = at(arc_r - k, self._START - self._SWEEP * shown)
+        if self.find_withtag("needle"):
+            self.coords("needle", cx, cy, tip_x, tip_y)
+            self.itemconfigure("needle", fill=colors["ink"])
+        else:
+            self.create_line(
+                cx, cy, tip_x, tip_y, fill=colors["ink"], width=2 * k, capstyle=tk.ROUND, tags="needle",
+            )
         hub = colors["neg"] if speed_mps < 0.0 else colors["accent"]
-        self.create_oval(cx - 3.5, cy - 3.5, cx + 3.5, cy + 3.5, fill=hub, outline="")
+        hub_r = 3.5 * k
+        if self.find_withtag("hub"):
+            self.itemconfigure("hub", fill=hub)
+        else:
+            self.create_oval(cx - hub_r, cy - hub_r, cx + hub_r, cy + hub_r, fill=hub, outline="", tags="hub")
         caption = f"{speed_mps * 3.6:.1f} km/h ({speed_mps:.1f} m/s)"
-        self.create_text(
-            cx, self._dial + self._caption_h / 2.0,
-            text=caption,
-            fill=colors["neg"] if speed_mps < 0.0 else colors["ink"],
-            font=self._font,
-        )
+        caption_fill = colors["neg"] if speed_mps < 0.0 else colors["ink"]
+        caption_y = self._dial + self._caption_h / 2.0
+        if self.find_withtag("caption"):
+            self.coords("caption", cx, caption_y)
+            self.itemconfigure("caption", text=caption, fill=caption_fill)
+        else:
+            self.create_text(cx, caption_y, text=caption, fill=caption_fill, font=self._font, tags="caption")
+        for tag in ("speed", "speed_a", "speed_b", "accel", "accel_a", "accel_b", "needle", "hub", "caption"):
+            if self.find_withtag(tag):
+                self.tag_raise(tag)
 
 
 class SteerWheel(tk.Canvas):
@@ -388,8 +451,8 @@ class SteerWheel(tk.Canvas):
 
     def __init__(self, parent, limit=0.7, dpi_scale=1.0, width=None):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(148, scale)
-        self._tick_font = ("Courier", 8)
+        self._dial = DpiScale.scaled(_DIAL_PX, scale)
+        self._tick_font = ("Courier", 7)
         self._ticks = tkfont.Font(root=parent, font=self._tick_font)
         self._limit = max(abs(limit), 1e-3)
         canvas_w = self._dial if width is None else int(width)
@@ -404,63 +467,93 @@ class SteerWheel(tk.Canvas):
         self._width = canvas_w
         self._steer = 0.0
         self._key = None
-        self.winfo_toplevel().bind("<<ThemeChanged>>", self._on_theme, add="+")
+        self.bind("<<ThemeChanged>>", self._on_theme, add="+")
+        self.bind("<Map>", lambda _event: self.set(self._steer), add="+")
         self.set(0.0)
 
     def _on_theme(self, _event):
+        colors = _gauge_colors(self)
+        if self._key is not None and self._key[1] == colors["bg"]:
+            return
+        self._key = None
         self.set(self._steer)
 
     def set(self, steer: float) -> None:
         """Rotate the wheel to this steer command, in radians."""
-        colors = _gauge_colors(self)
-        key = (round(steer, 4), colors["bg"])
-        if key == self._key:
-            return
-        self._key = key
         self._steer = steer
+        if not self.winfo_ismapped():
+            return
+        rounded = round(steer, 4)
+        if self._key is not None and self._key[0] == rounded:
+            return
+        colors = _gauge_colors(self)
+        key = (rounded, colors["bg"])
+        rebuild = self._key is None or self._key[1] != colors["bg"]
+        self._key = key
         self.configure(bg=colors["bg"])
-        self.delete("all")
 
+        k = _INSET
         cx = self._width / 2.0
-        cy = self._dial / 2.0 + 6.0
-        radius = self._dial / 2.0 - 18.0
+        cy = self._dial / 2.0 + 6.0 * k
+        radius = self._dial / 2.0 - 18.0 * k
 
         def at(r, deg):
             rad = math.radians(deg)
             return cx + r * math.cos(rad), cy - r * math.sin(rad)
 
-        self.create_oval(
-            cx - radius, cy - radius, cx + radius, cy + radius,
-            fill=colors["face"], outline=colors["rim"], width=5,
-        )
-        # + is full left lock, − is full right lock.
-        tick_in = radius - 10.0
-        for deg, label in ((90.0, "0"), (210.0, "+"), (-30.0, "−")):
-            x0, y0 = at(tick_in, deg)
-            x1, y1 = at(radius - 3.0, deg)
-            self.create_line(x0, y0, x1, y1, fill=colors["muted"], width=2)
-            label_r, _extent = _label_inside(self._ticks, label, deg, tick_in - 2.0)
-            lx, ly = at(label_r, deg)
-            self.create_text(lx, ly, text=label, fill=colors["ink"], font=self._tick_font)
+        if rebuild:
+            self.delete("all")
+        if not self.find_withtag("face"):
+            self.create_oval(
+                cx - radius, cy - radius, cx + radius, cy + radius,
+                fill=colors["face"], outline=colors["rim"], width=5 * k, tags="face",
+            )
+            # + is full left lock, − is full right lock.
+            tick_in = radius - 10.0 * k
+            for deg, label in ((90.0, "0"), (210.0, "+"), (-30.0, "−")):
+                x0, y0 = at(tick_in, deg)
+                x1, y1 = at(radius - 3.0 * k, deg)
+                self.create_line(x0, y0, x1, y1, fill=colors["muted"], width=2 * k)
+                label_r, _extent = _label_inside(self._ticks, label, deg, tick_in - 2.0 * k)
+                lx, ly = at(label_r, deg)
+                self.create_text(lx, ly, text=label, fill=colors["ink"], font=self._tick_font)
+
         frac = max(-1.0, min(1.0, steer / self._limit))
         rotation = frac * 120.0
         inner = radius * 0.22
-        outer = radius - 34.0
+        outer = radius - 34.0 * k
         for spoke in range(3):
             deg = 90.0 + rotation + spoke * 120.0
             x0, y0 = at(inner, deg)
             x1, y1 = at(outer, deg)
-            self.create_line(x0, y0, x1, y1, fill=colors["ink"], width=2, capstyle=tk.ROUND)
-        gx0, gy0 = at(radius * 0.22 + 4.0, 90.0 + rotation)
-        gx1, gy1 = at(radius - 34.0, 90.0 + rotation)
-        self.create_line(gx0, gy0, gx1, gy1, fill=colors["accent"], width=6, capstyle=tk.ROUND)
-        hub = radius * 0.22
-        self.create_oval(
-            cx - hub, cy - hub, cx + hub, cy + hub,
-            fill=colors["track"], outline=colors["rim"], width=1,
-        )
-        tip = cy - radius - 2.0
-        self.create_polygon(cx - 3.5, tip - 6.0, cx + 3.5, tip - 6.0, cx, tip, fill=colors["muted"], outline="")
+            tag = f"spoke{spoke}"
+            if self.find_withtag(tag):
+                self.coords(tag, x0, y0, x1, y1)
+            else:
+                self.create_line(
+                    x0, y0, x1, y1, fill=colors["ink"], width=2 * k, capstyle=tk.ROUND, tags=tag,
+                )
+        gx0, gy0 = at(radius * 0.22 + 4.0 * k, 90.0 + rotation)
+        gx1, gy1 = at(outer, 90.0 + rotation)
+        if self.find_withtag("accent"):
+            self.coords("accent", gx0, gy0, gx1, gy1)
+        else:
+            self.create_line(
+                gx0, gy0, gx1, gy1, fill=colors["accent"], width=6 * k, capstyle=tk.ROUND, tags="accent",
+            )
+        if not self.find_withtag("hub"):
+            hub = radius * 0.22
+            self.create_oval(
+                cx - hub, cy - hub, cx + hub, cy + hub,
+                fill=colors["track"], outline=colors["rim"], width=k, tags="hub",
+            )
+            tip = cy - radius - 2.0 * k
+            self.create_polygon(
+                cx - 3.5 * k, tip - 6.0 * k, cx + 3.5 * k, tip - 6.0 * k, cx, tip,
+                fill=colors["muted"], outline="", tags="mark",
+            )
+        self.tag_raise("hub")
+        self.tag_raise("mark")
 
 
 class ThemedInputDialog:
