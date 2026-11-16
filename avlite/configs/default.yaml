@@ -239,9 +239,9 @@ plugins:
     p67_perception_folded: false
     p67_plan_folded: false
     p67_plot_sashes:
-      ControlPlot: 0.1481
-      FrenetPlot: 0.6524
-      GlobalPlanPlot: 0.1994
+      ControlPlot: 0.1795
+      FrenetPlot: 0.6144
+      GlobalPlanPlot: 0.2061
     p67_plot_visible:
       ControlPlot: true
       FrenetPlot: true
