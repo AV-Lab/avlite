@@ -81,6 +81,7 @@ class PluginSettingsSchema(SettingsSchema):
     p67_show_perception_extras: bool = Field(default=False, description="Show extra perception debug overlays.")
     p67_show_prediction: bool = Field(default=True, description="Show predicted trajectories, ellipses, and occupancy flow on plots.")
     p67_global_plan_view: bool = Field(default=True, description="Show global plan panel.")
+    p67_show_control_view: bool = Field(default=True, description="Show the control plot.")
     p67_local_plan_view: bool = Field(default=True, description="Show local plan panel.")
     p67_plot_visible: dict[str, bool] = Field(
         default_factory=dict,
@@ -315,6 +316,7 @@ class VisualizationSettings:
         self.execution_tasks.trace_add("write", _on_execution_tasks_change)
 
         self.p67_global_plan_view = tk.BooleanVar(value=True)
+        self.p67_show_control_view = tk.BooleanVar(value=True)
         self.p67_perception_folded = tk.BooleanVar(value=False)
         self.p67_plan_folded = tk.BooleanVar(value=False)
         self.p67_control_folded = tk.BooleanVar(value=False)

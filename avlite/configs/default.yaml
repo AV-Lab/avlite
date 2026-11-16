@@ -170,8 +170,11 @@ c40_execution:
   c46_npc_control: true
   c46_npc_speed_factor: 0.8
 c69_apps:
+  c60_profile_note: ''
+  c60_ros_distro: ''
   c60_selected_profile: default
-  c62_community_plugins: {}
+  c62_community_plugins:
+    avlite-QT5: avlite-community-plugins/avlite-QT5
   c62_default_plugins:
   - p60_headless_mode
   - p60_setting_cli
@@ -236,8 +239,15 @@ plugins:
     p67_perception_folded: false
     p67_plan_folded: false
     p67_plot_sashes:
-      FrenetPlot: 0.7628
-      GlobalPlanPlot: 0.2372
+      ControlPlot: 0.1481
+      FrenetPlot: 0.6524
+      GlobalPlanPlot: 0.1994
+    p67_plot_visible:
+      ControlPlot: true
+      FrenetPlot: true
+      GlobalPlanPlot: true
+      LocalGlobalPlot: false
+    p67_show_control_view: true
     p67_show_local_frenet_view: true
     p67_show_local_global_view: false
     p67_show_occupancy_map: false

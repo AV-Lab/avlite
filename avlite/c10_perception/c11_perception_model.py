@@ -258,7 +258,6 @@ class AgentState(State):
 class EgoState(AgentState):
     """Ego vehicle state with additional properties in future."""
     agent_id: int = EGO_AGENT_ID
-    agent_type: AgentType = AgentType.ACKERMANN
 
 
 class Map(ABC):

@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Visualizer: a Control plot, on by default, shows the speed gauge, the steering wheel, and a short g-g trail of lateral and longitudinal acceleration. The three circles share one size and stack downward, with the g-g diagram under the steering wheel. A second column is used only when it makes the circles more than half again as large.
+
+### Changed
+- Visualizer: the speed gauge's green and orange arcs are larger.
+- Visualizer: the control panel no longer has the speed and steering dials. The accel and steer numbers, the cross-track bars, and the Step, Align, steer, and accel buttons stay.
+- Visualizer: the control panel stacks Pos CTE, its bar, and Steer under Vel CTE, its bar, and Accel. The Step, Align, steer, and accel buttons sit on the bottom of the panel.
+- Visualizer: the speed arc is heavier. The speed caption shows km/h, with a smaller m/s line under it, and the steering wheel shows the steer angle at that same size. The g-g rings match the dials. Their numbers sit on the rings along the upper-left diagonal, in faint gray, and only the outer number is shown when the rings are close. The current longitudinal acceleration is just above the outer ring, and the current lateral acceleration is just to its right, in g. The center `0.0` is faint.
+
 ## [0.6.7] - 2026-11-16
 
 ### Added

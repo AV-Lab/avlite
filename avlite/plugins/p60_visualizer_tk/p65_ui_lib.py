@@ -254,7 +254,7 @@ _INSET = _DIAL_PX / 148
 
 
 class SpeedGauge(tk.Canvas):
-    """Speed needle, acceleration arc, and a fixed ``km/h (m/s)`` caption.
+    """Speed needle, acceleration arc, and km/h over a smaller m/s caption.
 
     The sweep matches the Qt control panel: 240° from the lower-left, clockwise.
     Tick numbers are km/h, inside the tick ring and inside the dial. The needle
@@ -267,21 +267,28 @@ class SpeedGauge(tk.Canvas):
     _START = 210.0
     _SWEEP = 240.0
 
-    def __init__(self, parent, accel_min=-20.0, accel_max=10.0, dpi_scale=1.0, max_speed=100.0):
+    def __init__(self, parent, accel_min=-20.0, accel_max=10.0, dpi_scale=1.0, max_speed=100.0, dial=None):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(_DIAL_PX, scale)
-        self._font = ("Courier", 8)
+        self._dial = DpiScale.scaled(_DIAL_PX, scale) if dial is None else max(1, int(round(dial)))
+        self._font = ("Courier", 11)
+        self._mps_font = ("Courier", 9)
         self._tick_font = ("Courier", 7)
         self._ticks = tkfont.Font(root=parent, font=self._tick_font)
         self._max_mps = max(max_speed, 1e-3)
         self._accel_min = accel_min
         self._accel_max = accel_max
-        font = tkfont.Font(root=parent, font=self._font)
-        self._caption_h = font.metrics("linespace") + _INSET
+        kmh_font = tkfont.Font(root=parent, font=self._font)
+        mps_font = tkfont.Font(root=parent, font=self._mps_font)
+        self._kmh_h = kmh_font.metrics("linespace")
+        self._mps_h = mps_font.metrics("linespace")
+        self.caption_h = self._kmh_h + self._mps_h + round(_INSET)
         # Widest caption the plant can show, so the panel does not reflow.
-        sample = "-999.9 km/h (-999.9 m/s)"
-        self._width = max(self._dial, font.measure(sample) + 8 * _INSET)
-        self._height = self._dial + self._caption_h
+        self.caption_w = math.ceil(max(
+            kmh_font.measure("-999.9 km/h"),
+            mps_font.measure("-999.9 m/s"),
+        ) + 8 * _INSET)
+        self._width = max(self._dial, self.caption_w)
+        self._height = self._dial + self.caption_h
         super().__init__(
             parent,
             width=self._width,
@@ -382,7 +389,8 @@ class SpeedGauge(tk.Canvas):
                     label_r, extent = _label_inside(self._ticks, text, deg, major_in - 2.0 * k)
                     labels.append((text, deg, label_r, extent))
             inner = min(label_r - extent for _, _, label_r, extent in labels)
-            arc_r = inner - 6.0 * k
+            # The label fit collapses on the small dial; keep the colored rings readable.
+            arc_r = max(inner - 6.0 * k, 0.42 * self._dial / 2.0)
             self.create_oval(
                 cx - radius, cy - radius, cx + radius, cy + radius,
                 fill=colors["face"], outline=colors["rim"], width=2 * k, tags="face",
@@ -407,14 +415,14 @@ class SpeedGauge(tk.Canvas):
             arc_r = (x1 - x0) / 2.0
 
         shown = min(max(speed_mps, 0.0), self._max_mps) / self._max_mps
-        place_arc("speed", arc_r, shown, colors["accent"], 4 * k)
+        place_arc("speed", arc_r, shown, colors["accent"], 8)
         if accel >= 0.0:
             accel_frac = accel / max(self._accel_max, 1e-3)
             accel_color = colors["throttle"]
         else:
             accel_frac = -accel / max(abs(self._accel_min), 1e-3)
             accel_color = colors["neg"]
-        place_arc("accel", arc_r - 8.0 * k, accel_frac, accel_color, 3 * k)
+        place_arc("accel", arc_r * 0.7, accel_frac, accel_color, 3)
 
         tip_x, tip_y = at(arc_r - k, self._START - self._SWEEP * shown)
         if self.find_withtag("needle"):
@@ -430,14 +438,19 @@ class SpeedGauge(tk.Canvas):
             self.itemconfigure("hub", fill=hub)
         else:
             self.create_oval(cx - hub_r, cy - hub_r, cx + hub_r, cy + hub_r, fill=hub, outline="", tags="hub")
-        caption = f"{speed_mps * 3.6:.1f} km/h ({speed_mps:.1f} m/s)"
         caption_fill = colors["neg"] if speed_mps < 0.0 else colors["ink"]
-        caption_y = self._dial + self._caption_h / 2.0
-        if self.find_withtag("caption"):
-            self.coords("caption", cx, caption_y)
-            self.itemconfigure("caption", text=caption, fill=caption_fill)
+        kmh = f"{speed_mps * 3.6:.1f} km/h"
+        mps = f"{speed_mps:.1f} m/s"
+        kmh_y = self._dial + self._kmh_h / 2.0
+        mps_y = self._dial + self._kmh_h + self._mps_h / 2.0
+        if self.find_withtag("kmh"):
+            self.coords("kmh", cx, kmh_y)
+            self.itemconfigure("kmh", text=kmh, fill=caption_fill, font=self._font)
+            self.coords("mps", cx, mps_y)
+            self.itemconfigure("mps", text=mps, fill=caption_fill, font=self._mps_font)
         else:
-            self.create_text(cx, caption_y, text=caption, fill=caption_fill, font=self._font, tags="caption")
+            self.create_text(cx, kmh_y, text=kmh, fill=caption_fill, font=self._font, tags=("kmh", "caption"))
+            self.create_text(cx, mps_y, text=mps, fill=caption_fill, font=self._mps_font, tags=("mps", "caption"))
         for tag in ("speed", "speed_a", "speed_b", "accel", "accel_a", "accel_b", "needle", "hub", "caption"):
             if self.find_withtag(tag):
                 self.tag_raise(tag)
@@ -449,17 +462,22 @@ class SteerWheel(tk.Canvas):
     Positive steer is a left turn, so the wheel rotates counterclockwise.
     """
 
-    def __init__(self, parent, limit=0.7, dpi_scale=1.0, width=None):
+    def __init__(self, parent, limit=0.7, dpi_scale=1.0, width=None, dial=None):
         scale = dpi_scale or 1.0
-        self._dial = DpiScale.scaled(_DIAL_PX, scale)
+        self._dial = DpiScale.scaled(_DIAL_PX, scale) if dial is None else max(1, int(round(dial)))
         self._tick_font = ("Courier", 7)
         self._ticks = tkfont.Font(root=parent, font=self._tick_font)
+        self._font = ("Courier", 11)
+        font = tkfont.Font(root=parent, font=self._font)
+        self.caption_h = round(font.metrics("linespace") + _INSET)
+        self.caption_w = math.ceil(font.measure("-0.70 rad") + 8)
         self._limit = max(abs(limit), 1e-3)
         canvas_w = self._dial if width is None else int(width)
+        canvas_w = max(canvas_w, self.caption_w)
         super().__init__(
             parent,
             width=canvas_w,
-            height=self._dial,
+            height=self._dial + self.caption_h,
             highlightthickness=0,
             bd=0,
             takefocus=0,
@@ -554,6 +572,14 @@ class SteerWheel(tk.Canvas):
             )
         self.tag_raise("hub")
         self.tag_raise("mark")
+        caption = f"{steer:+.2f} rad"
+        caption_y = self._dial + self.caption_h / 2.0
+        if self.find_withtag("caption"):
+            self.coords("caption", cx, caption_y)
+            self.itemconfigure("caption", text=caption, fill=colors["ink"], font=self._font)
+        else:
+            self.create_text(cx, caption_y, text=caption, fill=colors["ink"], font=self._font, tags="caption")
+        self.tag_raise("caption")
 
 
 class ThemedInputDialog:

@@ -1,15 +1,19 @@
 from __future__ import annotations
 import tkinter as tk
+from tkinter import font as tkfont
+from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import time
 import logging
 import numpy as np
 
 from avlite.c10_perception.c11_perception_model import AgentState
+from avlite.c30_control.c39_settings import ControlSettings
 from avlite.c60_apps.c61_app_strategy import PlotStrategy
 from avlite.c20_planning.c22_global_planning_strategy import GlobalPlannerStrategy
 from avlite.c20_planning.c24_global_hdmap_planners import HDMapGlobalPlanner
 from avlite.c20_planning.c25_global_race_planners import GlobalCenterlineRacePlanner, GlobalRacePlanner
+from avlite.plugins.p60_visualizer_tk.p65_ui_lib import DpiScale, SpeedGauge, SteerWheel
 from avlite.plugins.p60_visualizer_tk.p69_plot_lib import LocalPlot, GlobalRacePlot, GlobalHDMapPlot
 from avlite.c40_execution.c41_world_bridge import (
     is_world_capability_enabled,
@@ -278,7 +282,7 @@ class FrenetPlot(LocalCoordPlot):
 
 
 class GlobalPlanPlot(PlotStrategy):
-    label = "Global"
+    label = "Global Planner"
     enabled_field = "p67_global_plan_view"
 
     def __init__(self, root: VisualizerApp):
@@ -548,6 +552,257 @@ class GlobalPlanPlot(PlotStrategy):
 
     def reset(self):
         self.update_plot_type()
+
+
+class ControlPlot(PlotStrategy):
+    """Speed gauge, steering wheel, and a short g-g trail."""
+
+    label = "Control"
+    enabled_field = "p67_show_control_view"
+
+    def __init__(self, root: VisualizerApp):
+        super().__init__(root)
+        scale = DpiScale.for_widget(self)
+        self.gg = tk.Canvas(self, highlightthickness=0, bd=0)
+        self.speed_gauge = SpeedGauge(
+            self,
+            accel_min=ControlSettings.c32_ego_min_acceleration,
+            accel_max=ControlSettings.c32_ego_max_acceleration,
+            dpi_scale=scale,
+        )
+        self.steer_wheel = SteerWheel(
+            self,
+            limit=max(abs(ControlSettings.c32_ego_min_steering), abs(ControlSettings.c32_ego_max_steering)),
+            dpi_scale=scale,
+        )
+        self.trail = []
+        self.previous = None
+        self.face = None
+        self.dial = None
+        font = tkfont.Font(root=self, font=("Courier", 8))
+        # Measured once. The live readouts sit in a margin of this size outside the rings.
+        self.readout = (font.measure("-0.0"), font.metrics("linespace"))
+
+    def reset(self) -> None:
+        self.trail.clear()
+        self.previous = None
+        for tag in ("trail", "now"):
+            if self.gg.find_withtag(tag):
+                self.gg.coords(tag, 0, 0, 0, 0)
+                self.gg.itemconfigure(tag, state="hidden")
+
+    def plot(self) -> None:
+        ego = self.root.exec.ego_state
+        now = self.root.exec.elapsed_sim_time
+        if self.previous is not None:
+            then, speed, heading = self.previous
+            dt = now - then
+            if 0 < dt <= 1.0:
+                turn = (ego.theta - heading + np.pi) % (2 * np.pi) - np.pi
+                self.trail.append((ego.velocity * turn / dt, (ego.velocity - speed) / dt))
+                del self.trail[:-80]
+        self.previous = (now, ego.velocity, ego.theta)
+        plot_w, plot_h = self.winfo_width(), self.winfo_height()
+        margin = 8
+        inner_w = plot_w - 2 * margin
+        inner_h = plot_h - 2 * margin
+        speed_w = self.speed_gauge.caption_w
+        steer_w = self.steer_wheel.caption_w
+        speed_h = self.speed_gauge.caption_h
+        steer_h = self.steer_wheel.caption_h
+        # The rings match the dials. The readouts are extra, like the captions under the dials.
+        side_m = self.readout[0] + 12
+        top_m = self.readout[1] + 4
+
+        def largest(allow_wrap):
+            found = 1
+            lo, hi = 1, max(1, min(inner_w, inner_h))
+            while lo <= hi:
+                mid = (lo + hi) // 2
+                sizes = (
+                    (max(mid, speed_w), mid + speed_h),
+                    (max(mid, steer_w), mid + steer_h),
+                    (mid + 2 * side_m, mid + top_m),
+                )
+                used = 0
+                column_h = column_w = 0
+                open_column = False
+                fits = inner_w > 0 and inner_h > 0
+                for w, h in sizes:
+                    if not fits or w > inner_w or h > inner_h:
+                        fits = False
+                        break
+                    if open_column and column_h + h > inner_h:
+                        if not allow_wrap:
+                            fits = False
+                            break
+                        used += column_w
+                        column_h = column_w = 0
+                        open_column = False
+                    open_column = True
+                    column_w = max(column_w, w)
+                    column_h += h
+                if fits:
+                    used += column_w
+                    fits = used <= inner_w
+                if fits:
+                    found = mid
+                    lo = mid + 1
+                else:
+                    hi = mid - 1
+            return found
+
+        # Keep the diagram under the wheel. A second column is only for a pane so short that it pays off clearly.
+        stacked, wrapped = largest(False), largest(True)
+        wanted = wrapped if wrapped > 1.5 * stacked else stacked
+        # A one-pixel jitter would recreate both canvases every frame.
+        if plot_w > 48 and plot_h > 48 and wanted > 48 and (self.dial is None or abs(wanted - self.dial) > 4):
+            scale = DpiScale.for_widget(self)
+            self.speed_gauge.destroy()
+            self.steer_wheel.destroy()
+            self.speed_gauge = SpeedGauge(
+                self,
+                accel_min=ControlSettings.c32_ego_min_acceleration,
+                accel_max=ControlSettings.c32_ego_max_acceleration,
+                dpi_scale=scale,
+                dial=wanted,
+            )
+            self.steer_wheel = SteerWheel(
+                self,
+                limit=max(abs(ControlSettings.c32_ego_min_steering), abs(ControlSettings.c32_ego_max_steering)),
+                dpi_scale=scale,
+                dial=wanted,
+            )
+            self.dial = wanted
+        if plot_w > 48 and plot_h > 48 and wanted > 48:
+            # One size for the circles and the diagram. Stack downward, and start a column on the right when the next one does not fit.
+            gg_w, gg_h = wanted + 2 * side_m, wanted + top_m
+            items = (
+                (self.speed_gauge, self.speed_gauge.winfo_reqwidth(), self.speed_gauge.winfo_reqheight()),
+                (self.steer_wheel, self.steer_wheel.winfo_reqwidth(), self.steer_wheel.winfo_reqheight()),
+                (self.gg, gg_w, gg_h),
+            )
+            columns = []
+            column = []
+            y = col_w = 0
+            for widget, w, h in items:
+                if column and y + h > inner_h:
+                    columns.append((column, col_w, y))
+                    column = []
+                    y = col_w = 0
+                column.append((widget, w, h, y))
+                col_w = max(col_w, w)
+                y += h
+            if column:
+                columns.append((column, col_w, y))
+            used_w = sum(width for _, width, _ in columns)
+            x = max(0, (plot_w - used_w) // 2) if len(columns) == 1 else margin
+            for column, width, height in columns:
+                y0 = max(0, (plot_h - height) // 2) if len(columns) == 1 else margin
+                for widget, w, h, top in column:
+                    px = x + max(0, (width - w) // 2)
+                    py = y0 + top
+                    info = widget.place_info()
+                    if (
+                        not info
+                        or int(info["x"]) != px
+                        or int(info["y"]) != py
+                        or int(info["width"]) != w
+                        or int(info["height"]) != h
+                    ):
+                        widget.place(x=px, y=py, width=w, height=h)
+                x += width
+            if self.gg.winfo_width() != gg_w or self.gg.winfo_height() != gg_h:
+                self.update_idletasks()
+        controller = getattr(self.root.exec, "controller", None)
+        cmd = controller.cmd if controller is not None else getattr(self.root, "_applied_cmd", None)
+        self.speed_gauge.set(ego.velocity, 0.0 if cmd is None else cmd.acceleration)
+        self.steer_wheel.set(0.0 if cmd is None else cmd.steer)
+
+        width, height = self.gg.winfo_width(), self.gg.winfo_height()
+        radius = min(width - 2 * side_m, height - top_m) / 2.0 - 4.0
+        if radius < 12:
+            return
+        cx = width / 2.0
+        cy = (height + top_m) / 2.0
+        style = ttk.Style(self)
+        background = style.lookup("TFrame", "background")
+        foreground = style.lookup("TLabel", "foreground") or "black"
+        if background:
+            self.gg.configure(bg=background)
+        limit = max(
+            abs(ControlSettings.c32_ego_min_acceleration),
+            abs(ControlSettings.c32_ego_max_acceleration),
+            1e-3,
+        )
+        outer = max(1.0, float(np.ceil(limit / 9.80665)))
+        spec = ("Courier", 8)
+        ground = self.gg.cget("bg")
+        if self.face != (width, height, outer, foreground, ground):
+            self.gg.delete("ring", "tick", "label", "plate")
+            slant = 2 ** -0.5
+            # Rings closer than a text line would stack the numbers on each other; the outer one is enough then.
+            roomy = radius / 3.0 * slant >= self.readout[1] + 1
+            for step in range(1, 4):
+                ring = radius * step / 3.0
+                self.gg.create_oval(
+                    cx - ring, cy - ring, cx + ring, cy + ring,
+                    outline=foreground, width=1, tags="ring",
+                )
+                for dx, dy in ((0.0, -ring), (ring, 0.0), (0.0, ring), (-ring, 0.0)):
+                    self.gg.create_oval(
+                        cx + dx - 2, cy + dy - 2, cx + dx + 2, cy + dy + 2,
+                        fill=foreground, outline="", tags="tick",
+                    )
+                if roomy or step == 3:
+                    # On its own ring, on the upper-left diagonal. The plate breaks the stroke behind the number.
+                    item = self.gg.create_text(
+                        cx - ring * slant, cy - ring * slant, text=f"{outer * step / 3.0:.1f}",
+                        fill="#888888", font=spec, tags="label",
+                    )
+                    x0, y0, x1, y1 = self.gg.bbox(item)
+                    self.gg.create_rectangle(x0 - 1, y0, x1 + 1, y1, fill=ground, outline="", tags="plate")
+                    self.gg.tag_raise(item)
+            self.gg.create_text(cx, cy, text="0.0", fill="#888888", font=spec, tags="label")
+            self.gg.tag_raise("trail")
+            self.gg.tag_raise("now")
+            self.face = (width, height, outer, foreground, ground)
+        if self.trail:
+            lateral, longitudinal = self.trail[-1]
+            long_text = f"{longitudinal / 9.80665:+.1f}"
+            lat_text = f"{lateral / 9.80665:+.1f}"
+        else:
+            long_text = lat_text = "0.0"
+        for tag, x, y, text, anchor in (
+            ("along", cx, cy - radius - 3, long_text, tk.S),
+            ("alat", cx + radius + 10, cy, lat_text, tk.W),
+        ):
+            if self.gg.find_withtag(tag):
+                self.gg.coords(tag, x, y)
+                self.gg.itemconfigure(tag, text=text, fill=foreground, font=spec)
+            else:
+                self.gg.create_text(x, y, text=text, anchor=anchor, fill=foreground, font=spec, tags=tag)
+        span = outer * 9.80665
+        flat = []
+        for lateral, longitudinal in self.trail:
+            flat.extend((cx + lateral / span * radius, cy - longitudinal / span * radius))
+        if len(flat) >= 4:
+            if self.gg.find_withtag("trail"):
+                self.gg.coords("trail", *flat)
+                self.gg.itemconfigure("trail", state="normal", fill=foreground)
+            else:
+                self.gg.create_line(*flat, fill=foreground, width=1, tags="trail")
+        elif self.gg.find_withtag("trail"):
+            self.gg.itemconfigure("trail", state="hidden")
+        if flat:
+            x, y = flat[-2], flat[-1]
+            dot = (x - 5, y - 5, x + 5, y + 5)
+            if self.gg.find_withtag("now"):
+                self.gg.coords("now", *dot)
+                self.gg.itemconfigure("now", state="normal", fill="#3d8bfd", outline="")
+            else:
+                self.gg.create_oval(*dot, fill="#3d8bfd", outline="", tags="now")
+            self.gg.tag_raise("now")
 
 
 def _canvas_ready(widget, *, min_px: int = 80) -> bool:

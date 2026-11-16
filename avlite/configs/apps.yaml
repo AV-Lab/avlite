@@ -2,3 +2,4 @@ headless: avlite.plugins.p60_headless_mode
 setting: avlite.plugins.p60_visualizer_tk
 setting-cli: avlite.plugins.p60_setting_cli
 plugins: avlite.plugins.p60_visualizer_tk
+avlite-QT5: /home/mkhonji/Dropbox/20-development/21-software-dev/21.2-AVlite/avlite-community-plugins/avlite-QT5

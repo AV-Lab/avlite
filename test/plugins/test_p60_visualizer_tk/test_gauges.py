@@ -31,13 +31,18 @@ def test_speed_gauge_skips_draw_until_mapped_and_keeps_face():
 
         _map(root, holder)
         assert gauge.winfo_ismapped()
-        assert "43.2" in gauge.itemcget("caption", "text")
-        assert "12.0" in gauge.itemcget("caption", "text")
+        caption = " ".join(gauge.itemcget(item, "text") for item in gauge.find_withtag("caption"))
+        assert "43.2 km/h" in caption
+        assert "12.0 m/s" in caption
+        x0, _y0, x1, _y1 = gauge.coords("speed")
+        assert x1 - x0 >= 0.42 * 96 - 1e-6
         face = gauge.find_withtag("face")
         assert len(face) == 1
         gauge.set(20.0, -2.0)
         assert gauge.find_withtag("face") == face
-        assert "72.0" in gauge.itemcget("caption", "text")
+        caption = " ".join(gauge.itemcget(item, "text") for item in gauge.find_withtag("caption"))
+        assert "72.0 km/h" in caption
+        assert "20.0 m/s" in caption
         assert len(gauge.find_withtag("speed")) == 1
         assert len(gauge.find_withtag("needle")) == 1
         assert gauge.winfo_reqheight() < 148
@@ -50,7 +55,9 @@ def test_speed_gauge_skips_draw_until_mapped_and_keeps_face():
         assert gauge.find_all() == drawn
         gauge.pack()
         root.update()
-        assert "108.0" in gauge.itemcget("caption", "text")
+        caption = " ".join(gauge.itemcget(item, "text") for item in gauge.find_withtag("caption"))
+        assert "108.0 km/h" in caption
+        assert "30.0 m/s" in caption
         assert gauge.find_withtag("face") == face
     finally:
         root.destroy()
@@ -78,7 +85,8 @@ def test_steer_wheel_skips_draw_until_mapped_and_keeps_face():
         assert wheel.find_withtag("face") == face
         assert wheel.coords("spoke0") != before
         assert len(wheel.find_withtag("accent")) == 1
-        assert wheel.winfo_reqheight() == 96
+        assert wheel.winfo_reqheight() > 96
+        assert "-0.40 rad" in wheel.itemcget("caption", "text")
     finally:
         root.destroy()
 

@@ -677,21 +677,17 @@ class VisualizerApp(tk.Tk):
                 self.setting.current_wp.set("0")
                 self.setting.lap.set("0")
 
-            # A newer controller command wins over the last manual pulse.
-            speed = self.exec.ego_state.velocity
             accel = steer = cte_vel = cte_pos = 0.0
             cmd = self._applied_cmd
             if self.exec.controller is not None:
                 cte_vel = self.exec.controller.cte_velocity
                 cte_pos = self.exec.controller.cte_steer
-                live = self.exec.controller.cmd
-                if cmd is None or live.timestamp > cmd.timestamp:
-                    cmd = live
+                cmd = self.exec.controller.cmd
             if cmd is not None:
                 accel = cmd.acceleration
                 steer = cmd.steer
             self.perceive_plan_control_view.control_frame.update_readouts(
-                speed=speed, accel=accel, steer=steer, cte_vel=cte_vel, cte_pos=cte_pos,
+                accel=accel, steer=steer, cte_vel=cte_vel, cte_pos=cte_pos,
             )
 
             self.setting.elapsed_real_time.set(f"{self.exec.elapsed_real_time:6.2f}")
@@ -772,6 +768,8 @@ class VisualizerApp(tk.Tk):
         self.exec.world.control_ego_state(cmd=cmd, dt=dt)
         self.exec.pm.ego_vehicle.copy_from(self.exec.world.get_ego_state())
         self._applied_cmd = cmd
+        if self.exec.controller is not None:
+            self.exec.controller.cmd = cmd
 
     def spawn_agent(self, agent_state: AgentState) -> None:
         """Spawn an agent in the world using the ego's current global plan."""
