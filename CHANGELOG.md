@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Visualizer: the control panel no longer has the speed and steering dials. The accel and steer numbers, the cross-track bars, and the Step, Align, steer, and accel buttons stay.
 - Visualizer: the control panel stacks Pos CTE, its bar, and Steer under Vel CTE, its bar, and Accel. The Step, Align, steer, and accel buttons sit on the bottom of the panel.
 - Visualizer: the speed arc is heavier. The speed caption shows km/h, with a smaller m/s line under it, and the steering wheel shows the steer angle at that same size. The g-g rings match the dials. Their numbers sit on the rings along the upper-left diagonal, in faint gray, and only the outer number is shown when the rings are close. The current longitudinal acceleration is just above the outer ring, and the current lateral acceleration is just to its right, in g. The center `0.0` is faint.
+- Visualizer: the global race plot and the Frenet plot draw only the part of the lap inside the current view. The global raceline is cached until the plan or the velocity scale changes, and its speed colors stay on the full-lap scale. The lattice is two line collections instead of a line per edge.
 
 ## [0.6.7] - 2026-11-16
 

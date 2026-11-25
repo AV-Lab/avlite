@@ -381,6 +381,8 @@ class GlobalRacePlot(GlobalPlot):
         self.right_boundary, = self.ax.plot([], [], 'tan', linewidth=3, label="Right Boundary")
         self.reference_trajectory = LineCollection([], cmap=_VELOCITY_CMAP, linewidths=5, zorder=4)
         self.ax.add_collection(self.reference_trajectory)
+        self._race_cache = None
+        self._show_plan_boundaries = True
 
         # self.ax.legend()
         
@@ -396,6 +398,7 @@ class GlobalRacePlot(GlobalPlot):
             self.plot_map(exec.global_planner, show_plan_boundaries=show_plan_boundaries)
         self.plot_vehicle(exec.ego_state)
         self.adjust_center_and_zoom(zoom, aspect_ratio, delta=delta)
+        self._paint_race_window()
         self.fig.canvas.draw()
 
     def clear_goal(self):
@@ -418,29 +421,71 @@ class GlobalRacePlot(GlobalPlot):
         
         
     def plot_map(self, global_planner: GlobalPlannerStrategy, show_plan_boundaries: bool = True):
-        """Update the plot with current data"""
-
-        log.debug("Plotting Race Global Plot")
+        """Cache the full raceline. The boundary flag is painted with the current view."""
+        self._show_plan_boundaries = show_plan_boundaries
         plan = global_planner.global_plan
-        if show_plan_boundaries:
-            self.left_boundary.set_data(plan.left_boundary_x, plan.left_boundary_y)
-            self.right_boundary.set_data(plan.right_boundary_x, plan.right_boundary_y)
+        traj = plan.trajectory
+        x = np.asarray(traj.path_x, dtype=float)
+        y = np.asarray(traj.path_y, dtype=float)
+        v = np.asarray(traj.velocity, dtype=float)
+        n = min(x.size, y.size)
+        x, y = x[:n], y[:n]
+        if v.size == 0:
+            v = np.full(n, 0.5)
+        else:
+            n = min(n, v.size)
+            x, y, v = x[:n], y[:n], v[:n]
+        has_boundary = bool(plan.left_boundary_x and plan.right_boundary_x)
+        key = (id(plan), id(traj), n, len(plan.left_boundary_x), self._velocity_scale)
+        if self._race_cache is not None and self._race_cache[0] == key:
+            return
+        log.debug("Plotting Race Global Plot")
+        vmin = vmax = None
+        if self._velocity_scale != "absolute" and n >= 2:
+            seg_v = 0.5 * (v[:-1] + v[1:])
+            vmin = float(np.nanmin(seg_v))
+            vmax = float(np.nanmax(seg_v))
+            if vmin == vmax:
+                vmax = vmin + 1e-9
+        geom = {
+            "has_boundary": has_boundary,
+            "lx": np.asarray(plan.left_boundary_x, dtype=float) if has_boundary else np.empty(0),
+            "ly": np.asarray(plan.left_boundary_y, dtype=float) if has_boundary else np.empty(0),
+            "rx": np.asarray(plan.right_boundary_x, dtype=float) if has_boundary else np.empty(0),
+            "ry": np.asarray(plan.right_boundary_y, dtype=float) if has_boundary else np.empty(0),
+            "x": x,
+            "y": y,
+            "v": v,
+            "vmin": vmin,
+            "vmax": vmax,
+        }
+        self._race_cache = (key, geom)
+        self._set_hover_data(x, y, v)
+        if has_boundary:
+            self.map_min_x = float(np.min(geom["lx"]))
+            self.map_max_x = float(np.max(geom["rx"]))
+            self.map_min_y = float(np.min(geom["ly"]))
+            self.map_max_y = float(np.max(geom["ry"]))
+            self.map_plotted = True
+
+    def _paint_race_window(self) -> None:
+        """Stroke only the raceline vertices inside the current view."""
+        if self._race_cache is None:
+            return
+        geom = self._race_cache[1]
+        window = (*self.ax.get_xlim(), *self.ax.get_ylim())
+        if self._show_plan_boundaries and geom["has_boundary"]:
+            self.left_boundary.set_data(*_decimate_polyline(geom["lx"], geom["ly"], window))
+            self.right_boundary.set_data(*_decimate_polyline(geom["rx"], geom["ry"], window))
         else:
             self.left_boundary.set_data([], [])
             self.right_boundary.set_data([], [])
-        traj = plan.trajectory
+        xs, ys, vs = _decimate_polyline(geom["x"], geom["y"], window, values=geom["v"])
         _update_velocity_colored_line(
-            self.reference_trajectory, traj.path_x, traj.path_y, traj.velocity,
+            self.reference_trajectory, xs, ys, vs,
             velocity_scale=self._velocity_scale,
+            vmin=geom["vmin"], vmax=geom["vmax"],
         )
-        # Cache raceline geometry + speed for the hover-speed readout.
-        self._set_hover_data(traj.path_x, traj.path_y, traj.velocity)
-
-        self.map_min_x = min(plan.left_boundary_x)
-        self.map_max_x = max(plan.right_boundary_x)
-        self.map_min_y = min(plan.left_boundary_y)
-        self.map_max_y = max(plan.right_boundary_y)
-        self.map_plotted = True
 
 
 class GlobalHDMapPlot(GlobalPlot):
@@ -753,8 +798,6 @@ class LocalPlot:
         self.ax.set_aspect("equal")
         self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
-        self.lattice_graph_plots = []
-        self.lattice_graph_endpoints = []
         self._lattice_legend_added = False
         self.local_plan_plots = []
         self.view_width = None
@@ -845,6 +888,10 @@ class LocalPlot:
         for tick in self.ax.yaxis.get_major_ticks():
             tick.label1.set_fontsize(8)
         self.legend_ax.axis("off")
+        self.lattice_edges = LineCollection([], linestyles="--", linewidths=1.5, alpha=0.6, zorder=3)
+        self.lattice_endpoints = LineCollection([], linewidths=6, capstyle="round", alpha=0.6, zorder=4)
+        self.ax.add_collection(self.lattice_edges)
+        self.ax.add_collection(self.lattice_endpoints)
         self._init_blit()
 
     def _init_blit(self) -> None:
@@ -866,7 +913,10 @@ class LocalPlot:
         ]
         animated += self.local_plan_plots
         animated += self.pm_plots
-        animated += [self.prediction_lines, self.prediction_regions, self.occupancy_flow_cells]
+        animated += [
+            self.prediction_lines, self.prediction_regions, self.occupancy_flow_cells,
+            self.lattice_edges, self.lattice_endpoints,
+        ]
         for art in animated:
             self.blit_manager.add_artist(art)
 
@@ -894,7 +944,6 @@ class LocalPlot:
     ):
         self._needs_full_draw = False
         self.legend_ax.set_visible(show_legend)
-        self.fig.subplots_adjust(left=0, right=1, top=0.99, bottom=0.1)
 
         planner = exec.local_planner
         if self.coord == "frenet":
@@ -907,11 +956,17 @@ class LocalPlot:
             if zoom is not None:
                 view_w = zoom * 2
                 ego_x_frac = self._FRENET_EGO_X_FRAC
-                self.ax.set_xlim(center[0] - ego_x_frac * view_w, center[0] + (1 - ego_x_frac) * view_w)
-                self.ax.set_ylim(-zoom / aspect_ratio, zoom / aspect_ratio)
+                s0 = center[0] - ego_x_frac * view_w
+                s1 = center[0] + (1 - ego_x_frac) * view_w
+                d0 = -zoom / aspect_ratio
+                d1 = zoom / aspect_ratio
+                self.ax.set_xlim(s0, s1)
+                self.ax.set_ylim(d0, d1)
                 self.view_width = view_w
-                self.view_height = zoom / aspect_ratio * 2
-            self._window = None
+                self.view_height = d1 - d0
+                self._window = (s0, s1, d0, d1)
+            else:
+                self._window = None
         else:
             center = planner.location_xy if follow_planner and planner is not None else (exec.ego_state.x, exec.ego_state.y)
             if zoom is not None:
@@ -989,15 +1044,8 @@ class LocalPlot:
             segs = np.asarray(boundary_segments_from_global_plan(fallback_plan))
 
         if self.coord != "frenet":
-            win = self._window
-            if len(segs) and win is not None:
-                mid = segs.mean(axis=1)
-                x0, x1, y0, y1 = win
-                mx = (x1 - x0) * 0.15
-                my = (y1 - y0) * 0.15
-                m = (mid[:, 0] >= x0 - mx) & (mid[:, 0] <= x1 + mx) & (mid[:, 1] >= y0 - my) & (mid[:, 1] <= y1 + my)
-                segs = segs[m]
-            self.track_boundary_collection.set_segments(segs if len(segs) else [])
+            shown = _segments_in_window(segs, self._window)
+            self.track_boundary_collection.set_segments(shown if len(shown) else [])
             return
 
         if global_trajectory is None or len(segs) == 0:
@@ -1019,10 +1067,9 @@ class LocalPlot:
             s_diff = np.abs(sd_segs[:, 1, 0] - sd_segs[:, 0, 0])
             valid = s_diff < (np.median(s_diff) * 20 + 50.0)
             self._tb_cache = (key, sd_segs[valid] if valid.any() else np.empty((0, 2, 2)))
-            self.track_boundary_collection.set_segments(
-                self._tb_cache[1] if len(self._tb_cache[1]) else []
-            )
             self._needs_full_draw = True
+        shown = _segments_in_window(self._tb_cache[1], self._window)
+        self.track_boundary_collection.set_segments(shown if len(shown) else [])
 
     def redraw_plots(self):
         self.blit_manager.full_draw()
@@ -1045,15 +1092,14 @@ class LocalPlot:
         geom = self._gp_cache[1]
 
         if self.coord == "frenet":
-            if geom["refreshed"]:
-                if geom["has_boundary_d"]:
-                    self.left_boundry.set_data(geom["s2"], geom["ld2"])
-                    self.right_boundry.set_data(geom["s2"], geom["rd2"])
-                else:
-                    self.left_boundry.set_data([], [])
-                    self.right_boundry.set_data([], [])
-                self.reference_trajectory.set_data(geom["s2"], geom["ref2"])
-                geom["refreshed"] = False
+            win = self._window
+            if geom["has_boundary_d"]:
+                self.left_boundry.set_data(*_decimate_polyline(geom["s2"], geom["ld2"], win))
+                self.right_boundry.set_data(*_decimate_polyline(geom["s2"], geom["rd2"], win))
+            else:
+                self.left_boundry.set_data([], [])
+                self.right_boundry.set_data([], [])
+            self.reference_trajectory.set_data(*_decimate_polyline(geom["s2"], geom["ref2"], win))
             if gt.next_wp is not None:
                 self.g_wp_current.set_data([gt.path_s[gt.current_wp]], [gt.path_d[gt.current_wp]])
                 self.g_wp_next.set_data([gt.path_s[gt.next_wp]], [gt.path_d[gt.next_wp]])
@@ -1074,15 +1120,12 @@ class LocalPlot:
     def _compute_global_plan_geometry(self, pl: LocalPlanningStrategy) -> dict:
         """Precompute view-independent global-plan geometry once per plan.
 
-        Returns the whole-lap XY arrays (sliced to the window each frame) plus
-        the static Frenet arrays. ``refreshed`` signals that the Frenet artists
-        still need the new data.
+        Callers clip the whole-lap XY and Frenet arrays to the current window.
         """
         gp = pl.global_plan
         gt = pl.global_trajectory
         has_boundary = bool(gp.left_boundary_x and gp.right_boundary_x)
         geom = {
-            "refreshed": True,
             "has_boundary": has_boundary,
             "lbx": np.asarray(gp.left_boundary_x, dtype=float) if has_boundary else np.empty(0),
             "lby": np.asarray(gp.left_boundary_y, dtype=float) if has_boundary else np.empty(0),
@@ -1111,27 +1154,29 @@ class LocalPlot:
 
     def update_lattice_graph_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not show_plot or not hasattr(pl, "lattice") or len(pl.lattice.edges) == 0:
-            for line in self.lattice_graph_plots + self.lattice_graph_endpoints:
-                line.set_data([], [])
+            self.lattice_edges.set_segments([])
+            self.lattice_endpoints.set_segments([])
             return
 
         curvature_check = getattr(pl, "_is_curvature_feasible", None)
-        edge_index = 0
+        segments = []
+        colors = []
+        endpoints = []
+        endpoint_colors = []
         for edge in pl.lattice.edges:
-            if edge_index >= len(self.lattice_graph_plots):
-                (line,) = self.ax.plot([], [], "--", color="#8ec07c", alpha=0.6)
-                (endpoint,) = self.ax.plot([], [], "bo", alpha=0.6)
-                self.lattice_graph_plots.append(line)
-                self.lattice_graph_endpoints.append(endpoint)
-                self.blit_manager.add_artist(line)
-                self.blit_manager.add_artist(endpoint)
-
             traj = edge.local_trajectory
             if self.coord == "frenet":
                 xs, ys = traj.path_s_from_parent, traj.path_d_from_parent
             else:
                 xs, ys = traj.path_x, traj.path_y
-            self.lattice_graph_plots[edge_index].set_data(xs, ys)
+            if xs is None or ys is None:
+                continue
+            xs = np.asarray(xs, dtype=float)
+            ys = np.asarray(ys, dtype=float)
+            n = min(xs.size, ys.size)
+            if n < 1:
+                continue
+            xs, ys = xs[:n], ys[:n]
             if edge.collision:
                 color = "firebrick"
             elif edge.boundary_violation or (
@@ -1140,10 +1185,30 @@ class LocalPlot:
                 color = "royalblue"
             else:
                 color = "#8ec07c"
-            self.lattice_graph_plots[edge_index].set_color(color)
-            self.lattice_graph_endpoints[edge_index].set_color(color)
-            self.lattice_graph_endpoints[edge_index].set_data([xs[-1]], [ys[-1]])
-            edge_index += 1
+            if n >= 2:
+                pts = np.column_stack([xs, ys])
+                segments.append(np.stack([pts[:-1], pts[1:]], axis=1))
+                colors.extend([color] * (n - 1))
+            endpoints.append((xs[-1], ys[-1]))
+            endpoint_colors.append(color)
+
+        if segments:
+            self.lattice_edges.set_segments(np.concatenate(segments))
+            self.lattice_edges.set_colors(colors)
+        else:
+            self.lattice_edges.set_segments([])
+        if endpoints:
+            pts = np.asarray(endpoints, dtype=float)
+            # Agg skips a zero-length segment, so the round cap never paints.
+            # One pixel of length sits inside that cap and stays a screen-sized dot.
+            span = abs(self.ax.get_xlim()[1] - self.ax.get_xlim()[0])
+            pixel = span / max(float(self.ax.bbox.width), 1.0)
+            ends = pts.copy()
+            ends[:, 0] += pixel
+            self.lattice_endpoints.set_segments(np.stack([pts, ends], axis=1))
+            self.lattice_endpoints.set_colors(endpoint_colors)
+        else:
+            self.lattice_endpoints.set_segments([])
 
         if not self._lattice_legend_added:
             legend_handles = [
@@ -1153,10 +1218,6 @@ class LocalPlot:
             ]
             self.ax.legend(handles=legend_handles, loc="upper right", fontsize=7, framealpha=0.5)
             self._lattice_legend_added = True
-
-        for i in range(edge_index, len(self.lattice_graph_plots)):
-            self.lattice_graph_plots[i].set_data([], [])
-            self.lattice_graph_endpoints[i].set_data([], [])
 
     def update_local_plan_plots(self, pl: LocalPlanningStrategy, show_plot=True):
         if not hasattr(pl, "selected_local_plan"):
@@ -1556,36 +1617,69 @@ class LocalPlot:
 
 # --- module helpers ---
 
-def _decimate_polyline(x: np.ndarray, y: np.ndarray, window, margin_frac: float = 0.15):
+def _decimate_polyline(x: np.ndarray, y: np.ndarray, window, margin_frac: float = 0.15, values=None):
     """Return only the polyline vertices near the visible window.
 
     Contiguous visible runs are kept intact (each extended by one vertex so the
     line meets the window edge); disjoint runs -- e.g. a closed lap whose start
     and finish both fall in view -- are joined with a NaN break so the arcs are
     not connected across the off-screen gap. Returns ``(x, y)`` ready for
-    ``set_data``.
+    ``set_data``. When ``values`` is given, a third array is sliced on the same
+    indices so a per-vertex quantity (speed) stays on the matching vertex.
     """
-    if window is None or x.size == 0:
-        return x, y
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    v = None if values is None else np.asarray(values, dtype=float)
+    n = min(x.size, y.size) if v is None else min(x.size, y.size, v.size)
+    x, y = x[:n], y[:n]
+    if v is not None:
+        v = v[:n]
+    if window is None or n == 0:
+        if v is None:
+            return x, y
+        return x, y, v
     x0, x1, y0, y1 = window
     mx = (x1 - x0) * margin_frac
     my = (y1 - y0) * margin_frac
     inside = (x >= x0 - mx) & (x <= x1 + mx) & (y >= y0 - my) & (y <= y1 + my)
     if not inside.any():
-        return x[:0], y[:0]
+        if v is None:
+            return x[:0], y[:0]
+        return x[:0], y[:0], v[:0]
     idx = np.flatnonzero(inside)
     runs = np.split(idx, np.where(np.diff(idx) > 1)[0] + 1)
-    xs_parts, ys_parts = [], []
+    xs_parts, ys_parts, vs_parts = [], [], []
     nan = np.array([np.nan])
     for k, run in enumerate(runs):
         a = max(int(run[0]) - 1, 0)
-        b = min(int(run[-1]) + 2, x.size)
+        b = min(int(run[-1]) + 2, n)
         if k > 0:
             xs_parts.append(nan)
             ys_parts.append(nan)
+            if v is not None:
+                vs_parts.append(nan)
         xs_parts.append(x[a:b])
         ys_parts.append(y[a:b])
-    return np.concatenate(xs_parts), np.concatenate(ys_parts)
+        if v is not None:
+            vs_parts.append(v[a:b])
+    if v is None:
+        return np.concatenate(xs_parts), np.concatenate(ys_parts)
+    return np.concatenate(xs_parts), np.concatenate(ys_parts), np.concatenate(vs_parts)
+
+
+def _segments_in_window(segs: np.ndarray, window, margin_frac: float = 0.15) -> np.ndarray:
+    """Keep segments whose midpoint lies in the window, with the same margin as the polyline clip."""
+    if window is None or len(segs) == 0:
+        return segs
+    mid = segs.mean(axis=1)
+    x0, x1, y0, y1 = window
+    mx = (x1 - x0) * margin_frac
+    my = (y1 - y0) * margin_frac
+    inside = (
+        (mid[:, 0] >= x0 - mx) & (mid[:, 0] <= x1 + mx)
+        & (mid[:, 1] >= y0 - my) & (mid[:, 1] <= y1 + my)
+    )
+    return segs[inside]
 
 
 # slow → fast : green → yellow → red (distinct from HD lane #427b58)
@@ -1595,7 +1689,7 @@ _VELOCITY_CMAP = LinearSegmentedColormap.from_list(
 )
 
 
-def _update_velocity_colored_line(collection, x, y, velocity, *, velocity_scale="relative"):
+def _update_velocity_colored_line(collection, x, y, velocity, *, velocity_scale="relative", vmin=None, vmax=None):
     x, y = np.asarray(x, float), np.asarray(y, float)
     if len(x) < 2:
         collection.set_segments([])
@@ -1609,15 +1703,22 @@ def _update_velocity_colored_line(collection, x, y, velocity, *, velocity_scale=
     pts = np.column_stack([x, y]).reshape(-1, 1, 2)
     segments = np.concatenate([pts[:-1], pts[1:]], axis=1)
     seg_v = 0.5 * (v[:-1] + v[1:])
-    collection.set_segments(segments)
-    collection.set_array(seg_v)
+    finite = np.isfinite(seg_v) & np.isfinite(segments).all(axis=(1, 2))
+    collection.set_segments(segments[finite])
+    collection.set_array(seg_v[finite])
     if velocity_scale == "absolute":
         vmax = float(ControlSettings.c32_ego_max_velocity)
         if vmax <= 0.0:
             vmax = 1e-9
         collection.set_norm(Normalize(vmin=0.0, vmax=vmax, clip=True))
+    elif vmin is not None and vmax is not None:
+        collection.set_norm(Normalize(vmin=float(vmin), vmax=float(vmax)))
     else:
-        vmin, vmax = float(seg_v.min()), float(seg_v.max())
+        shown = seg_v[finite]
+        if shown.size == 0:
+            return
+        vmin = float(shown.min())
+        vmax = float(shown.max())
         if vmin == vmax:
             vmax = vmin + 1e-9
         collection.set_norm(Normalize(vmin=vmin, vmax=vmax))
