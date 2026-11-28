@@ -104,7 +104,11 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
         log.debug(f"Filtered Path:  {start_lane.uid} to {goal_lane.uid}: {path2}")
 
        
-        self.global_plan = GlobalPlan()
+        # Issue #64, Hole D: keep the start/goal metadata set by
+        # set_start_goal(). A bare GlobalPlan() resets goal_point to
+        # (0.0, 0.0), so GoalArrivalMonitor watches the map origin
+        # instead of the real goal and never fires StopExecAtGoalTask.
+        self.global_plan = GlobalPlan(start_point=self.start_point, goal_point=self.goal_point)
         boundary_margin = PlanningSettings.c20_boundary_margin
 
         # Populating global_plan path
@@ -178,20 +182,28 @@ class HDMapGlobalPlanner(GlobalPlannerStrategy):
                         self.global_plan.lane_left_boundary_d.append(lane_left)
                         self.global_plan.lane_right_boundary_d.append(lane_right)
        
-        # setting velocity: ramp from min creep speed to max, cruise, then decel to zero at goal
-        n = len(self.global_plan.path)
-        min_v = PlanningSettings.c20_min_ramp_start_velocity
-        if n < self.wp_to_full_velocity * 2:
-            self.global_plan.velocity = [self.max_velocity] * n
-        else:
-            self.global_plan.velocity = (
-                list(np.linspace(min_v, self.max_velocity, self.wp_to_full_velocity))
-                + [self.max_velocity] * (n - 2 * self.wp_to_full_velocity)
-                + list(np.linspace(self.max_velocity, 0, self.wp_to_full_velocity))
-            )
-
+        # Smooth first: smoothen_path_savgol() drops points closer than
+        # min_spacing (0.5 m) together with their velocity entries, so a
+        # profile built before smoothing can lose its terminal 0 m/s entry
+        # (issue #64: the shipped plan's ReferenceSpeed ended at 0.526 m/s
+        # and the car kept creeping past the goal).
         # self.global_plan = remove_dublicate_points(self.global_plan)
         self.global_plan = smoothen_path_savgol(self.global_plan, min_spacing=0.5, window_length=7, polyorder=3)
+
+        # Velocity profile, built on the FINAL (smoothed) waypoint list by
+        # arc length — not by waypoint count, whose spacing smoothing makes
+        # irregular. Ramps cover wp_to_full_velocity * min_spacing
+        # (20 * 0.5 = 10 m), preserving the original 20-waypoint ramp
+        # intent in distance terms; short plans taper too instead of
+        # cruising at max_velocity all the way to the goal, and the last
+        # entry is exactly 0 m/s so Stanley commands a standstill.
+        min_v = PlanningSettings.c20_min_ramp_start_velocity
+        self.global_plan.velocity = velocity_profile_by_arclength(
+            self.global_plan.path,
+            self.max_velocity,
+            min_v,
+            ramp_m=self.wp_to_full_velocity * 0.5,
+        )
         
         self.global_plan.lane_path = [self.hdmap.lane_by_uid[lane_uid] for lane_uid in path2]
         self.global_plan.trajectory = TrajectoryTracker(path=self.global_plan.path, velocity=self.global_plan.velocity)
@@ -293,6 +305,42 @@ def remove_dublicate_points(plan: GlobalPlan):
 from scipy.signal import savgol_filter
 import numpy as np
 
+def velocity_profile_by_arclength(path, max_velocity, min_v, ramp_m=10.0):
+    """Velocity profile over a path, by arc length (issue #64).
+
+    Ramps linearly from ``min_v`` to ``max_velocity`` over the first
+    ``ramp_m`` metres, cruises at ``max_velocity``, then ramps back to
+    exactly 0 m/s over the last ``ramp_m`` metres. If the path is shorter
+    than ``2 * ramp_m`` the ramps meet at the midpoint (triangular
+    profile, peak below ``max_velocity``) — a short plan never cruises
+    at full speed into the goal. The last entry is always exactly 0.0,
+    so the controller commands a standstill at the goal.
+    """
+    n = len(path)
+    if n == 0:
+        return []
+    if n == 1:
+        return [0.0]
+    pts = np.asarray(path, dtype=float)
+    seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+    s = np.concatenate([[0.0], np.cumsum(seg)])
+    total = float(s[-1])
+    if total <= 0.0:
+        return [0.0] * n
+    ramp = min(float(ramp_m), total / 2.0)
+    velocity = []
+    for dist in s:
+        if dist < ramp:
+            v = min_v + (max_velocity - min_v) * (dist / ramp)
+        elif dist > total - ramp:
+            v = max_velocity * (total - dist) / ramp
+        else:
+            v = max_velocity
+        velocity.append(float(v))
+    velocity[-1] = 0.0
+    return velocity
+
+
 def smoothen_path_savgol(plan: GlobalPlan, min_spacing=0.5, window_length=7, polyorder=3):
     """
     Removes near-duplicate points from the global plan path and applies smoothing.
@@ -301,13 +349,23 @@ def smoothen_path_savgol(plan: GlobalPlan, min_spacing=0.5, window_length=7, pol
         return plan
 
     cleaned_path = [plan.path[0]]
-    cleaned_velocity = [plan.velocity[0]]
+    # The velocity profile is built AFTER smoothing (issue #64), so the
+    # plan may legitimately arrive here without one yet. Thin velocity
+    # entries only when a profile is present.
+    has_velocity = len(plan.velocity) == len(plan.path)
+    cleaned_velocity = [plan.velocity[0]] if has_velocity else []
     cleaned_left_d = [plan.left_boundary_d[0]]
     cleaned_right_d = [plan.right_boundary_d[0]]
     for i in range(1, len(plan.path)):
-        if np.linalg.norm(np.array(plan.path[i]) - np.array(cleaned_path[-1])) > min_spacing:
+        # Always keep the terminal point: it is the goal. Without this,
+        # a dense tail (points closer than min_spacing) drops the final
+        # waypoint — and with it the goal position and the terminal
+        # velocity entry — so the car never reaches a standstill there.
+        is_last = i == len(plan.path) - 1
+        if is_last or np.linalg.norm(np.array(plan.path[i]) - np.array(cleaned_path[-1])) > min_spacing:
             cleaned_path.append(plan.path[i])
-            cleaned_velocity.append(plan.velocity[i])
+            if has_velocity:
+                cleaned_velocity.append(plan.velocity[i])
             cleaned_left_d.append(plan.left_boundary_d[i])
             cleaned_right_d.append(plan.right_boundary_d[i])
         else:

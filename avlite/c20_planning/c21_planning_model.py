@@ -90,6 +90,18 @@ class GlobalPlan:
             if velocity and velocity[0] <= 0:
                 velocity = list(velocity)
                 velocity[0] = PlanningSettings.c20_min_ramp_start_velocity
+            # Issue #64: a saved plan must end at a standstill. The shipped
+            # hdmap plan's ReferenceSpeed ended at 0.526 m/s, above the
+            # Stanley emergency-braking threshold (0.5 m/s), so the car
+            # crept past the goal instead of stopping. Force a decel tail
+            # over the last few waypoints ending at exactly 0 m/s.
+            if velocity:
+                tail = min(20, len(velocity))
+                start = velocity[-tail]
+                if tail > 1:
+                    velocity = list(velocity)
+                    velocity[-tail:] = [start * (1.0 - k / (tail - 1)) for k in range(tail)]
+                velocity[-1] = 0.0
             left_boundary_d=data["LeftBound"]
             right_boundary_d=data["RightBound"]
             trajectory = TrajectoryTracker(path=path, velocity=velocity)
